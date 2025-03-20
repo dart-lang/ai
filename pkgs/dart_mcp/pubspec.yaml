@@ -6,3 +6,5 @@ environment:
 dependencies:
   stream_channel: ^2.1.4
   json_rpc_2: ^3.0.3
+executables:
+  dart_mcp_server: server

@@ -9,5 +9,7 @@ abstract class MCPServer {
   late final Peer _peer;
 
   MCPServer.fromStreamChannel(StreamChannel<String> channel)
-    : _peer = Peer(channel);
+    : _peer = Peer(channel) {
+    _peer.listen();
+  }
 }
