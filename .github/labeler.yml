@@ -1,0 +1,9 @@
+# Configuration for .github/workflows/pull_request_label.yml.
+
+'type-infra':
+  - changed-files:
+    - any-glob-to-any-file: '.github/**'
+
+'package:dart_mcp':
+  - changed-files:
+    - any-glob-to-any-file: 'pkgs/dart_mcp/**'
