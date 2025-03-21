@@ -3,14 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 
 /// Interfaces are based on https://github.com/modelcontextprotocol/specification/blob/main/schema/2024-11-05/schema.json
-///
-/// These are all extension types, of a few different kinds:
-///
-/// - For request parameters, they on extension types on [Parameter].
-/// - For responses, they are extension types on [Map<String, Object?>].
-/// - For a few objects they have two extension types since they can be passed
-///   either as a part of a request or response.
-/// - For opaque objects (ids, tokens) they are extension types on [Object].
 //
 // TODO: Finish porting the commented out typescript types to dart extension
 //       types.
@@ -28,41 +20,39 @@ extension type ProgressToken( /*String|int*/ Object _) {}
 extension type Cursor(String _) {}
 
 /// Generic metadata passed with most requests, can be anything.
-extension type Meta(Parameter _parameter) implements Parameter {}
+extension type Meta.fromMap(Map<String, Object?> _value) {}
 
 /// A "mixin"-like extension type for any extension type that contains a
 /// [ProgressToken] at the key "progressToken".
 ///
 /// Should be "mixed in" by implementing this type from other extension types.
-extension type WithProgressToken(Parameter _parameter) implements Parameter {
-  ProgressToken? get progressToken =>
-      _parameter['progressToken'] as ProgressToken?;
+extension type WithProgressToken.fromMap(Map<String, Object?> _value) {
+  ProgressToken? get progressToken => _value['progressToken'] as ProgressToken?;
 }
 
 /// A [Meta] object with a known progress token key.
 ///
 /// Has arbitrary other keys.
-extension type MetaWithProgressToken(Parameter _parameter)
+extension type MetaWithProgressToken.fromMap(Map<String, Object?> _value)
     implements Meta, WithProgressToken {}
 
 /// Base interface for all request types.
 ///
 /// Should not be constructed directly, and has no public constructor.
-extension type Request._fromParameters(Parameters _params)
-    implements Parameters {
+extension type Request._fromMap(Map<String, Object?> _value) {
   /// If specified, the caller is requesting out-of-band progress notifications
   /// for this request (as represented by notifications/progress). The value of
   /// this parameter is an opaque token that will be attached to any subsequent
   /// notifications. The receiver is not obligated to provide these
   /// notifications.
-  MetaWithProgressToken? get meta => _params['_meta'] as MetaWithProgressToken?;
+  MetaWithProgressToken? get meta => _value['_meta'] as MetaWithProgressToken?;
 }
 
 /// Base interface for all notifications.
-extension type Notification(Parameters _params) implements Parameters {
+extension type Notification(Map<String, Object?> _value) implements Request {
   /// This parameter name is reserved by MCP to allow clients and servers to
   /// attach additional metadata to their notifications.
-  Meta? get meta => _params['_meta'] as Meta?;
+  Meta? get meta => _value['_meta'] as Meta?;
 }
 
 /// Base interface for all responses to requests.
@@ -86,7 +76,7 @@ extension type EmptyResult.fromMap(Map<String, Object?> _) implements Result {
 ///  associated processing SHOULD cease.
 ///
 ///  A client MUST NOT attempt to cancel its `initialize` request.
-extension type CancelledNotification._fromParameters(Parameters _)
+extension type CancelledNotification.fromMap(Map<String, Object?> _value)
     implements Notification {
   static const methodName = 'notifications/cancelled';
 
@@ -95,31 +85,29 @@ extension type CancelledNotification._fromParameters(Parameters _)
     String? reason,
     Meta? meta,
   }) {
-    return CancelledNotification._fromParameters(
-      Parameters(methodName, {
-        'requestId': requestId,
-        if (reason != null) 'reason': reason,
-        if (meta != null) '_meta': meta,
-      }),
-    );
+    return CancelledNotification.fromMap({
+      'requestId': requestId,
+      if (reason != null) 'reason': reason,
+      if (meta != null) '_meta': meta,
+    });
   }
 
   /// The ID of the request to cancel.
   ///
   /// This MUST correspond to the ID of a request previously issued in the same direction.
-  RequestId? get requestId => _params['requestId'] as RequestId?;
+  RequestId? get requestId => _value['requestId'] as RequestId?;
 
   /// An optional string describing the reason for the cancellation. This MAY be
   /// logged or presented to the user.
-  String? get reason => _params['reason'] as String?;
+  String? get reason => _value['reason'] as String?;
 }
 
 /// An opaque request ID.
-extension type RequestId( /*String|int*/ Parameter _) implements Parameter {}
+extension type RequestId( /*String|int*/ Parameter _) {}
 
 /// This request is sent from the client to the server when it first connects,
 /// asking it to begin initialization.
-extension type InitializeRequest._fromParameters(Parameters _params)
+extension type InitializeRequest._fromMap(Map<String, Object?> _value)
     implements Request {
   static const methodName = 'initialize';
 
@@ -128,22 +116,20 @@ extension type InitializeRequest._fromParameters(Parameters _params)
     required ClientCapabilities capabilities,
     required ClientImplementation clientInfo,
     Meta? meta,
-  }) => InitializeRequest._fromParameters(
-    Parameters(methodName, {
-      'protocolVersion': protocolVersion,
-      'capabilities': capabilities,
-      'clientInfo': clientInfo,
-      if (meta != null) 'meta': meta,
-    }),
-  );
+  }) => InitializeRequest._fromMap({
+    'protocolVersion': protocolVersion,
+    'capabilities': capabilities,
+    'clientInfo': clientInfo,
+    if (meta != null) 'meta': meta,
+  });
 
   /// The latest version of the Model Context Protocol that the client supports.
   /// The client MAY decide to support older versions as well.
-  String get protocolVersion => _params['protocolVersion'].asString;
+  String get protocolVersion => _value['protocolVersion'] as String;
   ClientCapabilities get capabilities =>
-      _params['capabilities'] as ClientCapabilities;
+      _value['capabilities'] as ClientCapabilities;
   ClientImplementation get clientInfo =>
-      _params['clientInfo'] as ClientImplementation;
+      _value['clientInfo'] as ClientImplementation;
 }
 
 /// After receiving an initialize request from the client, the server sends
@@ -152,12 +138,12 @@ extension type InitializeResult.fromMap(Map<String, Object?> _value)
     implements Result {
   factory InitializeResult({
     required String protocolVersion,
-    required ServerCapabilities ServerCapabilities,
+    required ServerCapabilities serverCapabilities,
     required ServerImplementation serverInfo,
     String? instructions,
   }) => InitializeResult.fromMap({
     'protocolVersion': protocolVersion,
-    'capabilities': ServerCapabilities,
+    'capabilities': serverCapabilities,
     'serverInfo': serverInfo,
     'instructions': instructions,
   });
@@ -169,6 +155,7 @@ extension type InitializeResult.fromMap(Map<String, Object?> _value)
 
   ServerCapabilities get capabilities =>
       _value['capabilities'] as ServerCapabilities;
+
   ServerImplementation get serverInfo =>
       _value['serverInfo'] as ServerImplementation;
 
@@ -182,30 +169,42 @@ extension type InitializeResult.fromMap(Map<String, Object?> _value)
 
 /// This notification is sent from the client to the server after initialization
 /// has finished.
-extension type InitializedNotification._(Notification _notification) {
-  factory InitializedNotification(Notification notification) {
-    assert(notification.method == "notifications/initialized");
-    return InitializedNotification._(notification);
-  }
+extension type InitializedNotification.fromMap(Map<String, Object?> _value)
+    implements Notification {
+  static const methodName = 'notifications/initialized';
+
+  factory InitializedNotification({Meta? meta}) =>
+      InitializedNotification.fromMap({if (meta != null) '_meta': meta});
 }
 
 /// Capabilities a client may support. Known capabilities are defined here, in
 /// this schema, but this is not a closed set: any client can define its own, additional capabilities.
-extension type ClientCapabilities(Parameter _parameter) implements Parameter {
+extension type ClientCapabilities.fromMap(Map<String, Object?> _value) {
+  factory ClientCapabilities({
+    Map<String, Object?>? experimental,
+    RootsCapabilities? roots,
+    Map<String, Object?>? sampling,
+  }) => ClientCapabilities.fromMap({
+    if (experimental != null) 'experimental': experimental,
+    if (roots != null) 'roots': roots,
+    if (sampling != null) 'sampling': sampling,
+  });
+
   /// Experimental, non-standard capabilities that the client supports.
-  Parameter? get experimental => _parameter['experimental'] as Parameter?;
+  Parameter? get experimental => _value['experimental'] as Parameter?;
 
   /// Present if the client supports any capabilities regarding roots.
-  RootsCapabilities? get roots => _parameter['roots'] as RootsCapabilities?;
+  RootsCapabilities? get roots => _value['roots'] as RootsCapabilities?;
 
   /// Present if the client supports sampling from an LLM.
-  Parameter? get sampling => _parameter['sampling'] as Parameter?;
+  Map<String, Object?>? get sampling =>
+      (_value['sampling'] as Map?)?.cast<String, Object?>();
 }
 
 /// Whether the client supports notifications for changes to the roots list.
-extension type RootsCapabilities(Parameter _parameter) implements Parameter {
+extension type RootsCapabilities.fromMap(Map<String, Object?> _value) {
   /// Present if the client supports listing roots.
-  bool? get listChanged => _parameter['listChanged'] as bool?;
+  bool? get listChanged => _value['listChanged'] as bool?;
 }
 
 /// Capabilities that a server may support. Known capabilities are defined here,
@@ -228,11 +227,11 @@ extension type ServerCapabilities.fromMap(Map<String, Object?> _value) {
 
   /// Experimental, non-standard capabilities that the server supports.
   Map<String, Object?>? get experimental =>
-      _value['experimental'] as Map<String, Object?>?;
+      (_value['experimental'] as Map?)?.cast<String, Object?>();
 
   /// Present if the server supports sending log messages to the client.
   Map<String, Object?>? get logging =>
-      _value['logging'] as Map<String, Object?>?;
+      (_value['logging'] as Map?)?.cast<String, Object?>();
 
   /// Present if the server offers any prompt templates.
   Prompts? get prompts => _value['prompts'] as Prompts?;
@@ -242,6 +241,14 @@ extension type ServerCapabilities.fromMap(Map<String, Object?> _value) {
 
   /// Present if the server offers any tools to call.
   Tools? get tools => _value['tools'] as Tools?;
+
+  /// Sets [tools] if it is null, otherwise throws.
+  ///
+  // TODO: Add more setters for other types?
+  void set tools(Tools? value) {
+    assert(tools == null);
+    _value['tools'] = value;
+  }
 }
 
 /// Prompts parameter for [ServerCapabilities].
@@ -274,12 +281,23 @@ extension type Tools.fromMap(Map<String, Object?> _value) {
 
   /// Whether this server supports notifications for changes to the tool list.
   bool? get listChanged => _value['listChanged'] as bool?;
+
+  /// Sets whether [listChanged] is supported.
+  void set listChanged(bool? value) {
+    assert(listChanged == null);
+    _value['listChanged'] = value;
+  }
 }
 
 /// Describes the name and version of an MCP implementation.
-extension type ClientImplementation(Parameter _parameter) implements Parameter {
-  String get name => _parameter['name'] as String;
-  String get version => _parameter['version'] as String;
+extension type ClientImplementation.fromMap(Map<String, Object?> _value) {
+  factory ClientImplementation({
+    required String name,
+    required String version,
+  }) => ClientImplementation.fromMap({'name': name, 'version': version});
+
+  String get name => _value['name'] as String;
+  String get version => _value['version'] as String;
 }
 
 /// Describes the name and version of an MCP implementation.
@@ -334,11 +352,11 @@ extension type ServerImplementation.fromMap(Map<String, Object?> _value) {
 ///
 /// This type is not intended to be constructed directly and thus has no public
 /// constructor.
-extension type PaginatedRequest._fromParameters(Parameters _params)
+extension type PaginatedRequest._fromMap(Map<String, Object?> _value)
     implements Request {
   /// An opaque token representing the current pagination position.
   /// If provided, the server should return results starting after this cursor.
-  Cursor? get cursor => _params['cursor'] as Cursor?;
+  Cursor? get cursor => _value['cursor'] as Cursor?;
 }
 
 /// A "mixin"-like extension type for any result type that contains a [Cursor] at
@@ -628,18 +646,15 @@ extension type PaginatedResult._fromMap(Map<String, Object?> _value)
 // }
 
 /// Sent from the client to request a list of tools the server has.
-extension type ListToolsRequest._fromParameters(Parameters _params)
+extension type ListToolsRequest.fromMap(Map<String, Object?> _value)
     implements PaginatedRequest {
   static const methodName = 'tools/list';
 
-  factory ListToolsRequest({Cursor? cursor, Meta? meta}) {
-    return ListToolsRequest._fromParameters(
-      Parameters(methodName, {
+  factory ListToolsRequest({Cursor? cursor, Meta? meta}) =>
+      ListToolsRequest.fromMap({
         if (cursor != null) 'cursor': cursor,
         if (meta != null) '_meta': meta,
-      }),
-    );
-  }
+      });
 }
 
 /// The server's response to a tools/list request from the client.
@@ -655,7 +670,7 @@ extension type ListToolsResult.fromMap(Map<String, Object?> _value)
     if (meta != null) '_meta': meta,
   });
 
-  List<Tool> get tools => _value['tools'] as List<Tool>;
+  List<Tool> get tools => (_value['tools'] as List).cast<Tool>();
 }
 
 /// The server's response to a tool call.
@@ -670,13 +685,19 @@ extension type ListToolsResult.fromMap(Map<String, Object?> _value)
 /// should be reported as an MCP error response.
 extension type CallToolResult.fromMap(Map<String, Object?> _value)
     implements Result {
-  factory CallToolResult({Meta? meta}) =>
-      CallToolResult.fromMap({if (meta != null) '_meta': meta});
+  factory CallToolResult({
+    Meta? meta,
+    required List<UnionType> content,
+    bool? isError,
+  }) => CallToolResult.fromMap({
+    'content': content,
+    if (isError != null) 'isError': isError,
+    if (meta != null) '_meta': meta,
+  });
 
-  /// The type of content, either [TextContentResponse], [ImageContentResponse],
-  /// or [EmbeddedResourceResponse],
-  List<UnionTypeResponse> get content =>
-      _value['content'] as List<UnionTypeResponse>;
+  /// The type of content, either [TextContent], [ImageContent],
+  /// or [EmbeddedResource],
+  List<UnionType> get content => (_value['content'] as List).cast<UnionType>();
 
   /// Whether the tool call ended in an error.
   ///
@@ -690,21 +711,22 @@ extension type CallToolResult.fromMap(Map<String, Object?> _value)
 ///
 /// Should be used by doing a `switch` on the type, and then calling the
 /// `fromMap` constructor on the appropriate type.
-extension type UnionTypeResponse._(Map<String, Object?> _value) {
-  factory UnionTypeResponse(Map<String, Object?> value) {
+extension type UnionType._(Map<String, Object?> _value) {
+  factory UnionType(Map<String, Object?> value) {
     assert(value.containsKey('type'));
-    return UnionTypeResponse._(value);
+    return UnionType._(value);
   }
 }
 
 /// Text provided to an LLM.
 ///
 // TODO: implement `Annotated`.
-extension type TextContentResponse.fromMap(Map<String, Object?> _value) {
+extension type TextContent.fromMap(Map<String, Object?> _value)
+    implements UnionType {
   static const expectedType = 'type';
 
-  factory TextContentResponse({required String text}) =>
-      TextContentResponse.fromMap({'text': text, 'type': expectedType});
+  factory TextContent({required String text}) =>
+      TextContent.fromMap({'text': text, 'type': expectedType});
 
   String get type {
     final type = _value['type'] as String;
@@ -719,17 +741,16 @@ extension type TextContentResponse.fromMap(Map<String, Object?> _value) {
 /// An image provided to an LLM.
 ///
 // TODO: implement `Annotated`.
-extension type ImageContentResponse.fromMap(Map<String, Object?> _value) {
+extension type ImageContent.fromMap(Map<String, Object?> _value)
+    implements UnionType {
   static const expectedType = 'image';
 
-  factory ImageContentResponse({
-    required String data,
-    required String mimeType,
-  }) => ImageContentResponse.fromMap({
-    'data': data,
-    'mimeType': mimeType,
-    'type': expectedType,
-  });
+  factory ImageContent({required String data, required String mimeType}) =>
+      ImageContent.fromMap({
+        'data': data,
+        'mimeType': mimeType,
+        'type': expectedType,
+      });
 
   String get type {
     final type = _value['type'] as String;
@@ -751,14 +772,12 @@ extension type ImageContentResponse.fromMap(Map<String, Object?> _value) {
 /// of the LLM and/or the user.
 ///
 // TODO: implement `Annotated`.
-extension type EmbeddedResourceResponse.fromMap(Map<String, Object?> _value) {
+extension type EmbeddedResource.fromMap(Map<String, Object?> _value)
+    implements UnionType {
   static const expectedType = 'resource';
 
-  factory EmbeddedResourceResponse({required UnionTypeResponse resource}) =>
-      EmbeddedResourceResponse.fromMap({
-        'resource': resource,
-        'type': expectedType,
-      });
+  factory EmbeddedResource({required UnionType resource}) =>
+      EmbeddedResource.fromMap({'resource': resource, 'type': expectedType});
 
   String get type {
     final type = _value['resource'] as String;
@@ -767,7 +786,7 @@ extension type EmbeddedResourceResponse.fromMap(Map<String, Object?> _value) {
   }
 
   /// Either [TextResourceContents] or [BlobResourceContents].
-  UnionTypeResponse get resource => _value['resource'] as UnionTypeResponse;
+  UnionType get resource => _value['resource'] as UnionType;
 
   String? get mimeType => _value['mimeType'] as String?;
 }
@@ -823,27 +842,26 @@ extension type BlobResourceContentsResult.fromJson(Map<String, Object?> _value)
 }
 
 /// Used by the client to invoke a tool provided by the server.
-extension type CallToolRequest._fromParameters(Parameters _params)
-    implements Parameters {
+extension type CallToolRequest._fromMap(Map<String, Object?> _value)
+    implements Request {
   static const methodName = 'tools/call';
 
   factory CallToolRequest({
     required String name,
-    String? arguments,
+    Map<String, Object?>? arguments,
     Meta? meta,
-  }) => CallToolRequest._fromParameters(
-    Parameters(methodName, {
-      'name': name,
-      if (arguments != null) 'arguments': arguments,
-      if (meta != null) 'meta': meta,
-    }),
-  );
+  }) => CallToolRequest._fromMap({
+    'name': name,
+    if (arguments != null) 'arguments': arguments,
+    if (meta != null) 'meta': meta,
+  });
 
   /// The name of the method to invoke.
-  String get name => _params['name'] as String;
+  String get name => _value['name'] as String;
 
   /// The arguments to pass to the method.
-  Parameter? get arguments => _params['arguments'] as Parameter?;
+  Map<String, Object?>? get arguments =>
+      (_value['arguments'] as Map?)?.cast<String, Object?>();
 }
 
 // /**
@@ -889,9 +907,9 @@ extension type InputSchema.fromMap(Map<String, Object?> _value) {
   String get type => _value['type'] as String;
 
   Map<String, Object?>? get properties =>
-      _value['properties'] as Map<String, Object?>?;
+      (_value['properties'] as Map?)?.cast<String, Object?>();
 
-  List<String>? get required => _value['required'] as List<String>?;
+  List<String>? get required => (_value['required'] as List?)?.cast<String>();
 }
 
 // /* Logging */

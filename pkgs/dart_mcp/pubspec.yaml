@@ -9,3 +9,5 @@ dependencies:
   meta: ^1.16.0
 executables:
   dart_mcp_server: server
+dev_dependencies:
+  test: ^1.25.15
