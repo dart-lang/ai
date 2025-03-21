@@ -3,3 +3,11 @@ publish_to: none
 version: 0.1.0-wip
 environment:
   sdk: ^3.7.0
+dependencies:
+  stream_channel: ^2.1.4
+  json_rpc_2: ^3.0.3
+  meta: ^1.16.0
+executables:
+  dart_mcp_server: server
+dev_dependencies:
+  test: ^1.25.15
