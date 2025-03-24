@@ -60,8 +60,6 @@ abstract class MCPClient {
 }
 
 /// An active server connection.
-///
-// TODO: Share interfaces with MCPServer?
 class ServerConnection {
   final Peer _peer;
 

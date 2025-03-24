@@ -92,19 +92,11 @@ class TestMCPServer extends MCPServer with ToolsSupport {
   TestMCPServer(super.channel) : super.fromStreamChannel();
 
   @override
-  ListToolsResult listTools(ListToolsRequest request) {
-    return ListToolsResult(
-      tools: [Tool(name: 'hello world', inputSchema: InputSchema())],
+  FutureOr<InitializeResult> initialize(InitializeRequest request) {
+    registerTool(
+      Tool(name: 'hello world', inputSchema: InputSchema()),
+      (_) => CallToolResult(content: [TextContent(text: 'hello world!')]),
     );
-  }
-
-  @override
-  CallToolResult callTool(CallToolRequest request) {
-    switch (request.name) {
-      case 'hello world':
-        return CallToolResult(content: [TextContent(text: 'hello world!')]);
-      default:
-        throw ArgumentError.value(request.name, 'name', 'unknown tool');
-    }
+    return super.initialize(request);
   }
 }

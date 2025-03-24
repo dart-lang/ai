@@ -895,11 +895,16 @@ extension type CallToolRequest._fromMap(Map<String, Object?> _value)
       (_value['arguments'] as Map?)?.cast<String, Object?>();
 }
 
-// /**
-//  * An optional notification from the server to the client, informing it that
-//  * the list of tools it offers has changed. This may be issued by servers
-//  * without any previous subscription from the client.
-//  */
+/// An optional notification from the server to the client, informing it that
+/// the list of tools it offers has changed. This may be issued by servers
+/// without any previous subscription from the client.
+extension type ToolListChangedNotification.fromJson(Map<String, Object?> _value)
+    implements Notification {
+  static const methodName = 'notifications/tools/list_changed';
+
+  factory ToolListChangedNotification({Meta? meta}) =>
+      ToolListChangedNotification.fromJson({if (meta != null) 'meta': meta});
+}
 // export interface ToolListChangedNotification extends Notification {
 //   method: "notifications/tools/list_changed";
 // }
