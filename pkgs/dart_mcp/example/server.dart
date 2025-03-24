@@ -33,6 +33,9 @@ class DartMCPServer extends MCPServer with ToolsSupport {
     version: '0.1.0',
   );
 
+  @override
+  final instructions = 'A basic tool that can respon with "hello world!"';
+
   DartMCPServer(super.channel) : super.fromStreamChannel();
 
   @override

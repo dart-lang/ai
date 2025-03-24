@@ -11,7 +11,7 @@ library;
 
 import 'package:json_rpc_2/json_rpc_2.dart';
 
-const protocolVersion = '2024-11-0';
+const protocolVersion = '2024-11-05';
 
 /// A progress token, used to associate progress notifications with the original
 /// request.
@@ -142,7 +142,7 @@ extension type InitializeResult.fromMap(Map<String, Object?> _value)
     required String protocolVersion,
     required ServerCapabilities serverCapabilities,
     required ServerImplementation serverInfo,
-    String? instructions,
+    required String instructions,
   }) => InitializeResult.fromMap({
     'protocolVersion': protocolVersion,
     'capabilities': serverCapabilities,
@@ -166,7 +166,7 @@ extension type InitializeResult.fromMap(Map<String, Object?> _value)
   /// This can be used by clients to improve the LLM's understanding of
   /// available tools, resources, etc. It can be thought of like a "hint" to the
   /// model. For example, this information MAY be added to the system prompt.
-  String? get instructions => _value['instructions'] as String?;
+  String get instructions => _value['instructions'] as String;
 }
 
 /// This notification is sent from the client to the server after initialization
@@ -754,7 +754,7 @@ extension type UnionType._(Map<String, Object?> _value) {
 // TODO: implement `Annotated`.
 extension type TextContent.fromMap(Map<String, Object?> _value)
     implements UnionType {
-  static const expectedType = 'type';
+  static const expectedType = 'text';
 
   factory TextContent({required String text}) =>
       TextContent.fromMap({'text': text, 'type': expectedType});
@@ -856,13 +856,13 @@ extension type TextResourceContents.fromMap(Map<String, Object?> _value)
 }
 
 /// A [ResourceContentsResult] that contains binary data encoded as base64.
-extension type BlobResourceContents.fromJson(Map<String, Object?> _value)
+extension type BlobResourceContents.fromMap(Map<String, Object?> _value)
     implements ResourceContentsResult {
   factory BlobResourceContents({
     required String uri,
     required String blob,
     String? mimeType,
-  }) => BlobResourceContents.fromJson({
+  }) => BlobResourceContents.fromMap({
     'uri': uri,
     'blob': blob,
     if (mimeType != null) 'mimeType': mimeType,
@@ -898,12 +898,12 @@ extension type CallToolRequest._fromMap(Map<String, Object?> _value)
 /// An optional notification from the server to the client, informing it that
 /// the list of tools it offers has changed. This may be issued by servers
 /// without any previous subscription from the client.
-extension type ToolListChangedNotification.fromJson(Map<String, Object?> _value)
+extension type ToolListChangedNotification.fromMap(Map<String, Object?> _value)
     implements Notification {
   static const methodName = 'notifications/tools/list_changed';
 
   factory ToolListChangedNotification({Meta? meta}) =>
-      ToolListChangedNotification.fromJson({if (meta != null) 'meta': meta});
+      ToolListChangedNotification.fromMap({if (meta != null) 'meta': meta});
 }
 
 /// Definition for a tool the client can call.
