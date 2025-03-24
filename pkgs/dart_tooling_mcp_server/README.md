@@ -36,3 +36,13 @@ If you are directly editing your mcp.json file, it should look like this:
   }
 }
 ```
+
+## Debugging MCP Servers
+
+See https://modelcontextprotocol.io/docs/tools/inspector.
+
+The setup here is basically the same as the cursor config, launch the inspector
+with no options, and then plug in the executable path and DTD Uri into the
+connection window.
+
+You should then see all available functionality from the server.
