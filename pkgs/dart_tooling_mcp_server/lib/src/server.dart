@@ -9,7 +9,7 @@ import 'package:dtd/dtd.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'package:vm_service/vm_service_io.dart';
 
-import 'editor.dart';
+import 'dtd.dart';
 
 /// An MCP server that is connected to the Dart Tooling Daemon (see
 /// https://pub.dev/packages/dtd).
