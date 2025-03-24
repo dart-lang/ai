@@ -905,9 +905,6 @@ extension type ToolListChangedNotification.fromJson(Map<String, Object?> _value)
   factory ToolListChangedNotification({Meta? meta}) =>
       ToolListChangedNotification.fromJson({if (meta != null) 'meta': meta});
 }
-// export interface ToolListChangedNotification extends Notification {
-//   method: "notifications/tools/list_changed";
-// }
 
 /// Definition for a tool the client can call.
 extension type Tool.fromMap(Map<String, Object?> _value) {
