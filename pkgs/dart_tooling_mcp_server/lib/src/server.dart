@@ -13,7 +13,7 @@ import 'editor.dart';
 
 /// An MCP server that is connected to the Dart Tooling Daemon (see
 /// https://pub.dev/packages/dtd).
-class DartToolingDMCPServer extends MCPServer with ToolsSupport {
+class DartToolingMCPServer extends MCPServer with ToolsSupport {
   @override
   final implementation = ServerImplementation(
     name: 'dart tooling daemon',
@@ -28,18 +28,18 @@ class DartToolingDMCPServer extends MCPServer with ToolsSupport {
   /// The tooling daemon we are connected to.
   final DartToolingDaemon dtd;
 
-  DartToolingDMCPServer(this.dtd, StreamChannel<String> mcpChannel)
+  DartToolingMCPServer(this.dtd, StreamChannel<String> mcpChannel)
     : super.fromStreamChannel(mcpChannel) {
     _listenForServices();
   }
 
-  static Future<DartToolingDMCPServer> connect(
+  static Future<DartToolingMCPServer> connect(
     Uri toolingDaemonUri,
     StreamChannel<String> mcpChannel,
   ) async {
     final dtd = await DartToolingDaemon.connect(toolingDaemonUri);
 
-    return DartToolingDMCPServer(dtd, mcpChannel);
+    return DartToolingMCPServer(dtd, mcpChannel);
   }
 
   /// Listens to the `Service` stream

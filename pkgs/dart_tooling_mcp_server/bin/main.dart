@@ -18,7 +18,7 @@ void main(List<String> args) async {
     io.exit(1);
   }
 
-  await DartToolingDMCPServer.connect(
+  await DartToolingMCPServer.connect(
     Uri.parse(args.single),
     StreamChannel.withCloseGuarantee(io.stdin, io.stdout)
         .transform(StreamChannelTransformer.fromCodec(utf8))
