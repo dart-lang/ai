@@ -13,34 +13,38 @@ import 'editor.dart';
 
 /// An MCP server that is connected to the Dart Tooling Daemon (see
 /// https://pub.dev/packages/dtd).
-class DTDMCPServer extends MCPServer with ToolsSupport {
+class DartToolingDMCPServer extends MCPServer with ToolsSupport {
   @override
   final implementation = ServerImplementation(
     name: 'dart tooling daemon',
     version: '0.1.0-wip',
   );
 
+  @override
+  final instructions =
+      'This server helps to connect Dart and Flutter developers to their '
+      'running apps.';
+
   /// The tooling daemon we are connected to.
   final DartToolingDaemon dtd;
 
-  DTDMCPServer(this.dtd, StreamChannel<String> mcpChannel)
+  DartToolingDMCPServer(this.dtd, StreamChannel<String> mcpChannel)
     : super.fromStreamChannel(mcpChannel) {
     _listenForServices();
   }
 
-  static Future<DTDMCPServer> connect(
+  static Future<DartToolingDMCPServer> connect(
     Uri toolingDaemonUri,
     StreamChannel<String> mcpChannel,
   ) async {
     final dtd = await DartToolingDaemon.connect(toolingDaemonUri);
 
-    return DTDMCPServer(dtd, mcpChannel);
+    return DartToolingDMCPServer(dtd, mcpChannel);
   }
 
   /// Listens to the `Service` stream
   void _listenForServices() {
     dtd.onEvent('Service').listen((e) async {
-      print('Service Event: $e');
       switch (e.kind) {
         case 'ServiceRegistered':
           if (e.data['service'] == 'Editor' &&
@@ -92,7 +96,8 @@ class DTDMCPServer extends MCPServer with ToolsSupport {
         '_flutter.screenshot',
         isolateId: vm.isolates!.first.id,
       );
-      if (result.type == 'Screenshot' && result.json?['screenshot'] is String) {
+      if (result.json?['type'] == 'Screenshot' &&
+          result.json?['screenshot'] is String) {
         return CallToolResult(
           content: [
             ImageContent(
@@ -106,7 +111,9 @@ class DTDMCPServer extends MCPServer with ToolsSupport {
           isError: true,
           content: [
             TextContent(
-              text: 'Unknown error or bad response taking screenshot',
+              text:
+                  'Unknown error or bad response taking screenshot:\n'
+                  '${result.json}',
             ),
           ],
         );
