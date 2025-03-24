@@ -49,6 +49,8 @@ void main() {
       ),
     );
 
+    expect(initializeResult.capabilities.tools, isNot(null));
+
     server.notifyInitialized(InitializedNotification());
 
     expect(initializeResult.protocolVersion, protocolVersion);
@@ -65,7 +67,7 @@ void main() {
       isA<TextContent>().having((c) => c.text, 'text', equals('hello world!')),
     );
 
-    client.shutdownServer('test server');
+    await client.shutdownServer('test server');
   });
 }
 
@@ -81,11 +83,7 @@ class TestMCPClient extends MCPClient {
 }
 
 class TestMCPServer extends MCPServer with ToolsSupport {
-  final ServerCapabilities capabilities = ServerCapabilities(
-    prompts: Prompts(),
-    tools: Tools(),
-  );
-
+  @override
   final ServerImplementation implementation = ServerImplementation(
     name: 'test server',
     version: '0.1.0',

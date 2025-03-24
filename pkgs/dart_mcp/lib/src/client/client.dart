@@ -79,25 +79,32 @@ class ServerConnection {
 
   /// Initializes the server, this should be done before anything else.
   ///
-  /// The client must call [notifyInitialized] after recieving and accepting
+  /// The client must call [notifyInitialized] after receiving and accepting
   /// this response.
   Future<InitializeResult> initialize(InitializeRequest request) async {
     return InitializeResult.fromMap(
-      await _peer.sendRequest(InitializeRequest.methodName, request),
+      ((await _peer.sendRequest(InitializeRequest.methodName, request)) as Map)
+          .cast(),
     );
   }
 
   /// List all the tools from this server.
   Future<ListToolsResult> listTools() async {
     return ListToolsResult.fromMap(
-      await _peer.sendRequest(ListToolsRequest.methodName, ListToolsRequest()),
+      ((await _peer.sendRequest(
+                ListToolsRequest.methodName,
+                ListToolsRequest(),
+              ))
+              as Map)
+          .cast(),
     );
   }
 
   /// Invokes a [Tool] returned from the [ListToolsResult].
   Future<CallToolResult> callTool(CallToolRequest request) async {
     return CallToolResult.fromMap(
-      await _peer.sendRequest(CallToolRequest.methodName, request),
+      ((await _peer.sendRequest(CallToolRequest.methodName, request)) as Map)
+          .cast(),
     );
   }
 }

@@ -26,11 +26,7 @@ void main() {
 
 /// Our actual MCP server.
 class DartMCPServer extends MCPServer with ToolsSupport {
-  final ServerCapabilities capabilities = ServerCapabilities(
-    prompts: Prompts(),
-    tools: Tools(),
-  );
-
+  @override
   final ServerImplementation implementation = ServerImplementation(
     name: 'example dart server',
     version: '0.1.0',

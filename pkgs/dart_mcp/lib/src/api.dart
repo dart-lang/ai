@@ -13,7 +13,8 @@ import 'package:json_rpc_2/json_rpc_2.dart';
 
 const protocolVersion = '2024-11-0';
 
-/// A progress token, used to associate progress notifications with the original request.
+/// A progress token, used to associate progress notifications with the original
+/// request.
 extension type ProgressToken( /*String|int*/ Object _) {}
 
 /// An opaque token used to represent a cursor for pagination.
@@ -94,7 +95,8 @@ extension type CancelledNotification.fromMap(Map<String, Object?> _value)
 
   /// The ID of the request to cancel.
   ///
-  /// This MUST correspond to the ID of a request previously issued in the same direction.
+  /// This MUST correspond to the ID of a request previously issued in the same
+  /// direction.
   RequestId? get requestId => _value['requestId'] as RequestId?;
 
   /// An optional string describing the reason for the cancellation. This MAY be
@@ -178,7 +180,8 @@ extension type InitializedNotification.fromMap(Map<String, Object?> _value)
 }
 
 /// Capabilities a client may support. Known capabilities are defined here, in
-/// this schema, but this is not a closed set: any client can define its own, additional capabilities.
+/// this schema, but this is not a closed set: any client can define its own,
+/// additional capabilities.
 extension type ClientCapabilities.fromMap(Map<String, Object?> _value) {
   factory ClientCapabilities({
     Map<String, Object?>? experimental,
@@ -245,7 +248,7 @@ extension type ServerCapabilities.fromMap(Map<String, Object?> _value) {
   /// Sets [tools] if it is null, otherwise throws.
   ///
   // TODO: Add more setters for other types?
-  void set tools(Tools? value) {
+  set tools(Tools? value) {
     assert(tools == null);
     _value['tools'] = value;
   }
@@ -267,7 +270,8 @@ extension type Resources.fromMap(Map<String, Object?> _value) {
     if (subscribe != null) 'subscribe': subscribe,
   });
 
-  /// Whether this server supports notifications for changes to the resource list.
+  /// Whether this server supports notifications for changes to the resource
+  /// list.
   bool? get listChanged => _value['listChanged'] as bool?;
 
   /// Present if the server offers any resources to read.
@@ -283,7 +287,7 @@ extension type Tools.fromMap(Map<String, Object?> _value) {
   bool? get listChanged => _value['listChanged'] as bool?;
 
   /// Sets whether [listChanged] is supported.
-  void set listChanged(bool? value) {
+  set listChanged(bool? value) {
     assert(listChanged == null);
     _value['listChanged'] = value;
   }
@@ -313,7 +317,9 @@ extension type ServerImplementation.fromMap(Map<String, Object?> _value) {
 
 // /* Ping */
 // /**
-//  * A ping, issued by either the server or the client, to check that the other party is still alive. The receiver must promptly respond, or else may be disconnected.
+//  * A ping, issued by either the server or the client, to check that the other
+//  * party is still alive. The receiver must promptly respond, or else may be
+//  * disconnected.
 //  */
 // export interface PingRequest extends Request {
 //   method: "ping";
@@ -321,23 +327,27 @@ extension type ServerImplementation.fromMap(Map<String, Object?> _value) {
 
 // /* Progress notifications */
 // /**
-//  * An out-of-band notification used to inform the receiver of a progress update for a long-running request.
+//  * An out-of-band notification used to inform the receiver of a progress
+//  * update for a long-running request.
 //  */
 // export interface ProgressNotification extends Notification {
 //   method: "notifications/progress";
 //   params: {
 //     /**
-//      * The progress token which was given in the initial request, used to associate this notification with the request that is proceeding.
+//      * The progress token which was given in the initial request, used to
+//      * associate this notification with the request that is proceeding.
 //      */
 //     progressToken: ProgressToken;
 //     /**
-//      * The progress thus far. This should increase every time progress is made, even if the total is unknown.
+//      * The progress thus far. This should increase every time progress is
+//      * made, even if the total is unknown.
 //      *
 //      * @TJS-type number
 //      */
 //     progress: number;
 //     /**
-//      * Total number of items to process (or total progress required), if known.
+//      * Total number of items to process (or total progress required), if
+//      * known.
 //      *
 //      * @TJS-type number
 //      */
@@ -359,8 +369,8 @@ extension type PaginatedRequest._fromMap(Map<String, Object?> _value)
   Cursor? get cursor => _value['cursor'] as Cursor?;
 }
 
-/// A "mixin"-like extension type for any result type that contains a [Cursor] at
-/// the key "cursor".
+/// A "mixin"-like extension type for any result type that contains a [Cursor]
+/// at the key "cursor".
 ///
 /// Should be "mixed in" by implementing this type from other extension types.
 ///
@@ -387,7 +397,8 @@ extension type PaginatedResult._fromMap(Map<String, Object?> _value)
 // }
 
 // /**
-//  * Sent from the client to request a list of resource templates the server has.
+//  * Sent from the client to request a list of resource templates the server
+//  * has.
 //  */
 // export interface ListResourceTemplatesRequest extends PaginatedRequest {
 //   method: "resources/templates/list";
@@ -407,7 +418,8 @@ extension type PaginatedResult._fromMap(Map<String, Object?> _value)
 //   method: "resources/read";
 //   params: {
 //     /**
-//      * The URI of the resource to read. The URI can use any protocol; it is up to the server how to interpret it.
+//      * The URI of the resource to read. The URI can use any protocol; it is
+//      * up to the server how to interpret it.
 //      *
 //      * @format uri
 //      */
@@ -423,20 +435,24 @@ extension type PaginatedResult._fromMap(Map<String, Object?> _value)
 // }
 
 // /**
-//  * An optional notification from the server to the client, informing it that the list of resources it can read from has changed. This may be issued by servers without any previous subscription from the client.
+//  * An optional notification from the server to the client, informing it that
+//  * the list of resources it can read from has changed. This may be issued by
+//  * servers without any previous subscription from the client.
 //  */
 // export interface ResourceListChangedNotification extends Notification {
 //   method: "notifications/resources/list_changed";
 // }
 
 // /**
-//  * Sent from the client to request resources/updated notifications from the server whenever a particular resource changes.
+//  * Sent from the client to request resources/updated notifications from the
+//  * server whenever a particular resource changes.
 //  */
 // export interface SubscribeRequest extends Request {
 //   method: "resources/subscribe";
 //   params: {
 //     /**
-//      * The URI of the resource to subscribe to. The URI can use any protocol; it is up to the server how to interpret it.
+//      * The URI of the resource to subscribe to. The URI can use any protocol;
+//      * it is up to the server how to interpret it.
 //      *
 //      * @format uri
 //      */
@@ -445,7 +461,9 @@ extension type PaginatedResult._fromMap(Map<String, Object?> _value)
 // }
 
 // /**
-//  * Sent from the client to request cancellation of resources/updated notifications from the server. This should follow a previous resources/subscribe request.
+//  * Sent from the client to request cancellation of resources/updated
+//  * notifications from the server. This should follow a previous
+//  * resources/subscribe request.
 //  */
 // export interface UnsubscribeRequest extends Request {
 //   method: "resources/unsubscribe";
@@ -460,13 +478,16 @@ extension type PaginatedResult._fromMap(Map<String, Object?> _value)
 // }
 
 // /**
-//  * A notification from the server to the client, informing it that a resource has changed and may need to be read again. This should only be sent if the client previously sent a resources/subscribe request.
+//  * A notification from the server to the client, informing it that a resource
+//  * has changed and may need to be read again. This should only be sent if the
+//  * client previously sent a resources/subscribe request.
 //  */
 // export interface ResourceUpdatedNotification extends Notification {
 //   method: "notifications/resources/updated";
 //   params: {
 //     /**
-//      * The URI of the resource that has been updated. This might be a sub-resource of the one that the client actually subscribed to.
+//      * The URI of the resource that has been updated. This might be a
+//      * sub-resource of the one that the client actually subscribed to.
 //      *
 //      * @format uri
 //      */
@@ -495,7 +516,8 @@ extension type PaginatedResult._fromMap(Map<String, Object?> _value)
 //   /**
 //    * A description of what this resource represents.
 //    *
-//    * This can be used by clients to improve the LLM's understanding of available resources. It can be thought of like a "hint" to the model.
+//    * This can be used by clients to improve the LLM's understanding of
+//    * available resources. It can be thought of like a "hint" to the model.
 //    */
 //   description?: string;
 
@@ -505,9 +527,11 @@ extension type PaginatedResult._fromMap(Map<String, Object?> _value)
 //   mimeType?: string;
 
 //   /**
-//    * The size of the raw resource content, in bytes (i.e., before base64 encoding or any tokenization), if known.
+//    * The size of the raw resource content, in bytes (i.e., before base64
+//    * encoding or any tokenization), if known.
 //    *
-//    * This can be used by Hosts to display file sizes and estimate context window usage.
+//    * This can be used by Hosts to display file sizes and estimate context
+//    * window usage.
 //    */
 //   size?: number;
 // }
@@ -517,7 +541,8 @@ extension type PaginatedResult._fromMap(Map<String, Object?> _value)
 //  */
 // export interface ResourceTemplate extends Annotated {
 //   /**
-//    * A URI template (according to RFC 6570) that can be used to construct resource URIs.
+//    * A URI template (according to RFC 6570) that can be used to construct
+//    * resource URIs.
 //    *
 //    * @format uri-template
 //    */
@@ -533,19 +558,23 @@ extension type PaginatedResult._fromMap(Map<String, Object?> _value)
 //   /**
 //    * A description of what this template is for.
 //    *
-//    * This can be used by clients to improve the LLM's understanding of available resources. It can be thought of like a "hint" to the model.
+//    * This can be used by clients to improve the LLM's understanding of
+//    * available resources. It can be thought of like a "hint" to the model.
 //    */
 //   description?: string;
 
 //   /**
-//    * The MIME type for all resources that match this template. This should only be included if all resources matching this template have the same type.
+//    * The MIME type for all resources that match this template. This should
+//    * only be included if all resources matching this template have the same
+//    * type.
 //    */
 //   mimeType?: string;
 // }
 
 // /* Prompts */
 // /**
-//  * Sent from the client to request a list of prompts and prompt templates the server has.
+//  * Sent from the client to request a list of prompts and prompt templates the
+//  * server has.
 //  */
 // export interface ListPromptsRequest extends PaginatedRequest {
 //   method: "prompts/list";
@@ -639,7 +668,9 @@ extension type PaginatedResult._fromMap(Map<String, Object?> _value)
 // }
 
 // /**
-//  * An optional notification from the server to the client, informing it that the list of prompts it offers has changed. This may be issued by servers without any previous subscription from the client.
+//  * An optional notification from the server to the client, informing it that
+//  * the list of prompts it offers has changed. This may be issued by servers
+//  * without any previous subscription from the client.
 //  */
 // export interface PromptListChangedNotification extends Notification {
 //   method: "notifications/prompts/list_changed";
@@ -807,13 +838,13 @@ extension type ResourceContentsResult.fromMap(Map<String, Object?> _value) {
 }
 
 /// A [ResourceContentsResult] that contains text.
-extension type TextResourceContentsResult.fromMap(Map<String, Object?> _value)
+extension type TextResourceContents.fromMap(Map<String, Object?> _value)
     implements ResourceContentsResult {
-  factory TextResourceContentsResult({
+  factory TextResourceContents({
     required String uri,
     required String text,
     String? mimeType,
-  }) => TextResourceContentsResult.fromMap({
+  }) => TextResourceContents.fromMap({
     'uri': uri,
     'text': text,
     if (mimeType != null) 'mimeType': mimeType,
@@ -825,13 +856,13 @@ extension type TextResourceContentsResult.fromMap(Map<String, Object?> _value)
 }
 
 /// A [ResourceContentsResult] that contains binary data encoded as base64.
-extension type BlobResourceContentsResult.fromJson(Map<String, Object?> _value)
+extension type BlobResourceContents.fromJson(Map<String, Object?> _value)
     implements ResourceContentsResult {
-  factory BlobResourceContentsResult({
+  factory BlobResourceContents({
     required String uri,
     required String blob,
     String? mimeType,
-  }) => BlobResourceContentsResult.fromJson({
+  }) => BlobResourceContents.fromJson({
     'uri': uri,
     'blob': blob,
     if (mimeType != null) 'mimeType': mimeType,
@@ -865,7 +896,9 @@ extension type CallToolRequest._fromMap(Map<String, Object?> _value)
 }
 
 // /**
-//  * An optional notification from the server to the client, informing it that the list of tools it offers has changed. This may be issued by servers without any previous subscription from the client.
+//  * An optional notification from the server to the client, informing it that
+//  * the list of tools it offers has changed. This may be issued by servers
+//  * without any previous subscription from the client.
 //  */
 // export interface ToolListChangedNotification extends Notification {
 //   method: "notifications/tools/list_changed";
@@ -920,7 +953,9 @@ extension type InputSchema.fromMap(Map<String, Object?> _value) {
 //   method: "logging/setLevel";
 //   params: {
 //     /**
-//      * The level of logging that the client wants to receive from the server. The server should send all logs at this level and higher (i.e., more severe) to the client as notifications/message.
+//      * The level of logging that the client wants to receive from the server.
+//      * The server should send all logs at this level and higher (i.e., more
+//      * severe) to the client as notifications/message.
 //      */
 //     level: LoggingLevel;
 //   };
@@ -941,7 +976,8 @@ extension type InputSchema.fromMap(Map<String, Object?> _value) {
 //      */
 //     logger?: string;
 //     /**
-//      * The data to be logged, such as a string message or an object. Any JSON serializable type is allowed here.
+//      * The data to be logged, such as a string message or an object. Any JSON
+//      * serializable type is allowed here.
 //      */
 //     data: unknown;
 //   };
@@ -965,22 +1001,29 @@ extension type InputSchema.fromMap(Map<String, Object?> _value) {
 
 // /* Sampling */
 // /**
-//  * A request from the server to sample an LLM via the client. The client has full discretion over which model to select. The client should also inform the user before beginning sampling, to allow them to inspect the request (human in the loop) and decide whether to approve it.
+//  * A request from the server to sample an LLM via the client. The client has
+//  * full discretion over which model to select. The client should also inform
+//  * the user before beginning sampling, to allow them to inspect the request
+//  * (human in the loop) and decide whether to approve it.
 //  */
 // export interface CreateMessageRequest extends Request {
 //   method: "sampling/createMessage";
 //   params: {
 //     messages: SamplingMessage[];
 //     /**
-//      * The server's preferences for which model to select. The client MAY ignore these preferences.
+//      * The server's preferences for which model to select. The client MAY
+//      * ignore these preferences.
 //      */
 //     modelPreferences?: ModelPreferences;
 //     /**
-//      * An optional system prompt the server wants to use for sampling. The client MAY modify or omit this prompt.
+//      * An optional system prompt the server wants to use for sampling. The
+//      * client MAY modify or omit this prompt.
 //      */
 //     systemPrompt?: string;
 //     /**
-//      * A request to include context from one or more MCP servers (including the caller), to be attached to the prompt. The client MAY ignore this request.
+//      * A request to include context from one or more MCP servers (including
+//      * the caller), to be attached to the prompt. The client MAY ignore this
+//      * request.
 //      */
 //     includeContext?: "none" | "thisServer" | "allServers";
 //     /**
@@ -988,19 +1031,24 @@ extension type InputSchema.fromMap(Map<String, Object?> _value) {
 //      */
 //     temperature?: number;
 //     /**
-//      * The maximum number of tokens to sample, as requested by the server. The client MAY choose to sample fewer tokens than requested.
+//      * The maximum number of tokens to sample, as requested by the server.
+//      * The client MAY choose to sample fewer tokens than requested.
 //      */
 //     maxTokens: number;
 //     stopSequences?: string[];
 //     /**
-//      * Optional metadata to pass through to the LLM provider. The format of this metadata is provider-specific.
+//      * Optional metadata to pass through to the LLM provider. The format of
+//      * this metadata is provider-specific.
 //      */
 //     metadata?: object;
 //   };
 // }
 
 // /**
-//  * The client's response to a sampling/create_message request from the server. The client should inform the user before returning the sampled message, to allow them to inspect the response (human in the loop) and decide whether to allow the server to see it.
+//  * The client's response to a sampling/create_message request from the
+//  * server. The client should inform the user before returning the sampled
+//  * message, to allow them to inspect the response (human in the loop) and
+//  * decide whether to allow the server to see it.
 //  */
 // export interface CreateMessageResult extends Result, SamplingMessage {
 //   /**
@@ -1022,14 +1070,16 @@ extension type InputSchema.fromMap(Map<String, Object?> _value) {
 // }
 
 // /**
-//  * Base for objects that include optional annotations for the client. The client can use annotations to inform how objects are used or displayed
+//  * Base for objects that include optional annotations for the client. The
+//  * client can use annotations to inform how objects are used or displayed
 //  */
 // export interface Annotated {
 //   annotations?: {
 //     /**
 //      * Describes who the intended customer of this object or data is.
 //      *
-//      * It can include multiple entries to indicate content useful for multiple audiences (e.g., `["user", "assistant"]`).
+//      * It can include multiple entries to indicate content useful for
+//      * multiple audiences (e.g., `["user", "assistant"]`).
 //      */
 //     audience?: Role[];
 
@@ -1037,8 +1087,8 @@ extension type InputSchema.fromMap(Map<String, Object?> _value) {
 //      * Describes how important this data is for operating the server.
 //      *
 //      * A value of 1 means "most important," and indicates that the data is
-//      * effectively required, while 0 means "least important," and indicates that
-//      * the data is entirely optional.
+//      * effectively required, while 0 means "least important," and indicates
+//      * that the data is entirely optional.
 //      *
 //      * @TJS-type number
 //      * @minimum 0
@@ -1049,17 +1099,19 @@ extension type InputSchema.fromMap(Map<String, Object?> _value) {
 // }
 
 // /**
-//  * The server's preferences for model selection, requested of the client during sampling.
+//  * The server's preferences for model selection, requested of the client
+//  * during sampling.
 //  *
-//  * Because LLMs can vary along multiple dimensions, choosing the "best" model is
-//  * rarely straightforward.  Different models excel in different areas—some are
-//  * faster but less capable, others are more capable but more expensive, and so
-//  * on. This interface allows servers to express their priorities across multiple
-//  * dimensions to help clients make an appropriate selection for their use case.
+//  * Because LLMs can vary along multiple dimensions, choosing the "best" model
+//  * is rarely straightforward.  Different models excel in different areas—some
+//  * are faster but less capable, others are more capable but more expensive,
+//  * and so on. This interface allows servers to express their priorities
+//  * across multiple dimensions to help clients make an appropriate selection
+//  * for their use case.
 //  *
-//  * These preferences are always advisory. The client MAY ignore them. It is also
-//  * up to the client to decide how to interpret these preferences and how to
-//  * balance them against other considerations.
+//  * These preferences are always advisory. The client MAY ignore them. It is
+//  * also up to the client to decide how to interpret these preferences and
+//  * how to balance them against other considerations.
 //  */
 // export interface ModelPreferences {
 //   /**
@@ -1068,15 +1120,15 @@ extension type InputSchema.fromMap(Map<String, Object?> _value) {
 //    * If multiple hints are specified, the client MUST evaluate them in order
 //    * (such that the first match is taken).
 //    *
-//    * The client SHOULD prioritize these hints over the numeric priorities, but
-//    * MAY still use the priorities to select from ambiguous matches.
+//    * The client SHOULD prioritize these hints over the numeric priorities,
+//    * but MAY still use the priorities to select from ambiguous matches.
 //    */
 //   hints?: ModelHint[];
 
 //   /**
-//    * How much to prioritize cost when selecting a model. A value of 0 means cost
-//    * is not important, while a value of 1 means cost is the most important
-//    * factor.
+//    * How much to prioritize cost when selecting a model. A value of 0 means
+//    * cost is not important, while a value of 1 means cost is the most
+//    * important factor.
 //    *
 //    * @TJS-type number
 //    * @minimum 0
@@ -1085,9 +1137,9 @@ extension type InputSchema.fromMap(Map<String, Object?> _value) {
 //   costPriority?: number;
 
 //   /**
-//    * How much to prioritize sampling speed (latency) when selecting a model. A
-//    * value of 0 means speed is not important, while a value of 1 means speed is
-//    * the most important factor.
+//    * How much to prioritize sampling speed (latency) when selecting a model.
+//    * A value of 0 means speed is not important, while a value of 1 means
+//    * speed is the most important factor.
 //    *
 //    * @TJS-type number
 //    * @minimum 0
@@ -1097,8 +1149,8 @@ extension type InputSchema.fromMap(Map<String, Object?> _value) {
 
 //   /**
 //    * How much to prioritize intelligence and capabilities when selecting a
-//    * model. A value of 0 means intelligence is not important, while a value of 1
-//    * means intelligence is the most important factor.
+//    * model. A value of 0 means intelligence is not important, while a value
+//    * of 1 means intelligence is the most important factor.
 //    *
 //    * @TJS-type number
 //    * @minimum 0
@@ -1110,19 +1162,23 @@ extension type InputSchema.fromMap(Map<String, Object?> _value) {
 // /**
 //  * Hints to use for model selection.
 //  *
-//  * Keys not declared here are currently left unspecified by the spec and are up
-//  * to the client to interpret.
+//  * Keys not declared here are currently left unspecified by the spec and are
+//  * up to the client to interpret.
 //  */
 // export interface ModelHint {
 //   /**
 //    * A hint for a model name.
 //    *
-//    * The client SHOULD treat this as a substring of a model name; for example:
+//    * The client SHOULD treat this as a substring of a model name; for
+//    * example:
 //    *  - `claude-3-5-sonnet` should match `claude-3-5-sonnet-20241022`
-//    *  - `sonnet` should match `claude-3-5-sonnet-20241022`, `claude-3-sonnet-20240229`, etc.
+//    *  - `sonnet` should match `claude-3-5-sonnet-20241022`,
+//    *    `claude-3-sonnet-20240229`, etc.
 //    *  - `claude` should match any Claude model
 //    *
-//    * The client MAY also map the string to a different provider's model name or a different model family, as long as it fills a similar niche; for example:
+//    * The client MAY also map the string to a different provider's model name
+//    * or a different model family, as long as it fills a similar niche; for
+//    * example:
 //    *  - `gemini-1.5-flash` could match `claude-3-haiku-20240307`
 //    */
 //   name?: string;
@@ -1162,11 +1218,13 @@ extension type InputSchema.fromMap(Map<String, Object?> _value) {
 //      */
 //     values: string[];
 //     /**
-//      * The total number of completion options available. This can exceed the number of values actually sent in the response.
+//      * The total number of completion options available. This can exceed the
+//      * number of values actually sent in the response.
 //      */
 //     total?: number;
 //     /**
-//      * Indicates whether there are additional completion options beyond those provided in the current response, even if the exact total is unknown.
+//      * Indicates whether there are additional completion options beyond those
+//      * provided in the current response, even if the exact total is unknown.
 //      */
 //     hasMore?: boolean;
 //   };
@@ -1198,13 +1256,14 @@ extension type InputSchema.fromMap(Map<String, Object?> _value) {
 
 // /* Roots */
 // /**
-//  * Sent from the server to request a list of root URIs from the client. Roots allow
-//  * servers to ask for specific directories or files to operate on. A common example
-//  * for roots is providing a set of repositories or directories a server should operate
-//  * on.
+//  * Sent from the server to request a list of root URIs from the client. Roots
+//  * allow servers to ask for specific directories or files to operate on. A
+//  * common example for roots is providing a set of repositories or directories
+//  * a server should operate on.
 //  *
-//  * This request is typically used when the server needs to understand the file system
-//  * structure or access specific locations that the client has permission to read from.
+//  * This request is typically used when the server needs to understand the
+//  * file system structure or access specific locations that the client has
+//  * permission to read from.
 //  */
 // export interface ListRootsRequest extends Request {
 //   method: "roots/list";
@@ -1212,8 +1271,8 @@ extension type InputSchema.fromMap(Map<String, Object?> _value) {
 
 // /**
 //  * The client's response to a roots/list request from the server.
-//  * This result contains an array of Root objects, each representing a root directory
-//  * or file that the server can operate on.
+//  * This result contains an array of Root objects, each representing a root
+//  * directory or file that the server can operate on.
 //  */
 // export interface ListRootsResult extends Result {
 //   roots: Root[];
@@ -1225,24 +1284,27 @@ extension type InputSchema.fromMap(Map<String, Object?> _value) {
 // export interface Root {
 //   /**
 //    * The URI identifying the root. This *must* start with file:// for now.
-//    * This restriction may be relaxed in future versions of the protocol to allow
-//    * other URI schemes.
+//    * This restriction may be relaxed in future versions of the protocol to
+//    * allow other URI schemes.
 //    *
 //    * @format uri
 //    */
 //   uri: string;
 //   /**
-//    * An optional name for the root. This can be used to provide a human-readable
-//    * identifier for the root, which may be useful for display purposes or for
-//    * referencing the root in other parts of the application.
+//    * An optional name for the root. This can be used to provide a
+//    * human-readable identifier for the root, which may be useful for display
+//    * purposes or for referencing the root in other parts of the application.
 //    */
 //   name?: string;
 // }
 
 // /**
-//  * A notification from the client to the server, informing it that the list of roots has changed.
-//  * This notification should be sent whenever the client adds, removes, or modifies any root.
-//  * The server should then request an updated list of roots using the ListRootsRequest.
+//  * A notification from the client to the server, informing it that the list
+//  * of roots has changed.
+//  * This notification should be sent whenever the client adds, removes, or
+//  * modifies any root.
+//  * The server should then request an updated list of roots using the
+//  * ListRootsRequest.
 //  */
 // export interface RootsListChangedNotification extends Notification {
 //   method: "notifications/roots/list_changed";
@@ -1270,7 +1332,8 @@ extension type InputSchema.fromMap(Map<String, Object?> _value) {
 //   | InitializedNotification
 //   | RootsListChangedNotification;
 
-// export type ClientResult = EmptyResult | CreateMessageResult | ListRootsResult;
+// export type ClientResult = EmptyResult | CreateMessageResult
+//   | ListRootsResult;
 
 // /* Server messages */
 // export type ServerRequest =

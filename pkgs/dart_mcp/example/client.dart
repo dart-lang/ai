@@ -50,7 +50,7 @@ void main() async {
     }
   }
 
-  client.shutdownServer(serverName);
+  await client.shutdownServer(serverName);
 }
 
 class DartMCPClient extends MCPClient {
