@@ -26,7 +26,13 @@ abstract class MCPServer {
 
   final Peer _peer;
 
+  /// The name, current version, and other info to give to the client.
   ServerImplementation get implementation;
+
+  /// Instructions for how to use this server, which are given to the client.
+  ///
+  /// These may be used in system prompts.
+  String get instructions;
 
   MCPServer.fromStreamChannel(StreamChannel<String> channel)
     : _peer = Peer(channel) {
@@ -49,6 +55,7 @@ abstract class MCPServer {
       protocolVersion: protocolVersion,
       serverCapabilities: ServerCapabilities(),
       serverInfo: implementation,
+      instructions: instructions,
     );
   }
 

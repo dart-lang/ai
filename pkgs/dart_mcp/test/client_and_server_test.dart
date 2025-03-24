@@ -38,8 +38,8 @@ void main() {
     );
 
     var client = TestMCPClient();
-    TestMCPServer(serverChannel);
-    var server = client.connectServer('test server', clientChannel);
+    var server = TestMCPServer(serverChannel);
+    var serverConnection = client.connectServer('test server', clientChannel);
 
     var initializeResult = await server.initialize(
       InitializeRequest(
@@ -50,17 +50,20 @@ void main() {
     );
 
     expect(initializeResult.capabilities.tools, isNot(null));
+    expect(initializeResult.instructions, server.instructions);
 
-    server.notifyInitialized(InitializedNotification());
+    serverConnection.notifyInitialized(InitializedNotification());
 
     expect(initializeResult.protocolVersion, protocolVersion);
 
-    final toolsResult = await server.listTools();
+    final toolsResult = await serverConnection.listTools();
     expect(toolsResult.tools.length, 1);
 
     final tool = toolsResult.tools.single;
 
-    final result = await server.callTool(CallToolRequest(name: tool.name));
+    final result = await serverConnection.callTool(
+      CallToolRequest(name: tool.name),
+    );
     expect(result.isError, isNot(true));
     expect(
       result.content.single,
@@ -88,6 +91,9 @@ class TestMCPServer extends MCPServer with ToolsSupport {
     name: 'test server',
     version: '0.1.0',
   );
+
+  @override
+  final instructions = 'A test server';
 
   TestMCPServer(super.channel) : super.fromStreamChannel();
 

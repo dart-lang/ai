@@ -11,4 +11,7 @@ import 'api.dart';
 /// [T], and then calls [wrapped] with that value and returns the result.
 R Function(Parameters) convertParameters<T extends Request, R extends Object?>(
   R Function(T) wrapped,
-) => (Parameters p) => wrapped((p.value as Map).cast<String, Object?>() as T);
+) =>
+    (Parameters p) => wrapped(
+      ((p.value as Map?)?.cast<String, Object?>() ?? <String, Object?>{}) as T,
+    );
