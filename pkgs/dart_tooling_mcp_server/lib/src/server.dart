@@ -61,7 +61,10 @@ class DartToolingDMCPServer extends MCPServer with ToolsSupport {
             );
           }
         case 'ServiceUnregistered':
-          unregisterTool('take_screenshot');
+          if (e.data['service'] == 'Editor' &&
+              e.data['method'] == 'getDebugSessions') {
+            unregisterTool('take_screenshot');
+          }
       }
     });
     dtd.streamListen('Service');
