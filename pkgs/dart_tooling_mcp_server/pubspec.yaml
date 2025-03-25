@@ -15,3 +15,4 @@ executables:
   dart_tooling_mcp_server: main
 dev_dependencies:
   dart_flutter_team_lints: ^3.5.1
+  test: ^1.25.15
