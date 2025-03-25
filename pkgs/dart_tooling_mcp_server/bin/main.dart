@@ -10,16 +10,15 @@ import 'package:dart_tooling_mcp_server/dart_tooling_mcp_server.dart';
 import 'package:stream_channel/stream_channel.dart';
 
 void main(List<String> args) async {
-  if (args.length != 1) {
+  if (args.isNotEmpty) {
     io.stderr
-      ..writeln('Expected exactly one argument but got ${args.length}.')
+      ..writeln('Expected no arguments but got ${args.length}.')
       ..writeln()
-      ..writeln('Usage: dart_tooling_mcp_server <dart-tooling-daemon-uri>');
+      ..writeln('Usage: dart_tooling_mcp_server');
     io.exit(1);
   }
 
   await DartToolingMCPServer.connect(
-    Uri.parse(args.single),
     StreamChannel.withCloseGuarantee(io.stdin, io.stdout)
         .transform(StreamChannelTransformer.fromCodec(utf8))
         .transformStream(const LineSplitter())
