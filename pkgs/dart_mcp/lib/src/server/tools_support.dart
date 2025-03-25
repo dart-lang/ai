@@ -9,6 +9,8 @@ part of 'server.dart';
 /// Servers should register tools using the [registerTool] method, typically
 /// inside the [initialize] method, but they may also be registered after
 /// initialization if needed.
+///
+/// See https://modelcontextprotocol.io/docs/concepts/tools.
 mixin ToolsSupport on MCPServer {
   /// The registered tools by name.
   final Map<String, Tool> _registeredTools = {};

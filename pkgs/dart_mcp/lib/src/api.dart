@@ -242,6 +242,14 @@ extension type ServerCapabilities.fromMap(Map<String, Object?> _value) {
   /// Whether this server supports subscribing to resource updates.
   Resources? get resources => _value['resources'] as Resources?;
 
+  /// Sets [resources] if it is null, otherwise throws.
+  ///
+  // TODO: Add more setters for other types?
+  set resources(Resources? value) {
+    assert(resources == null);
+    _value['resources'] = value;
+  }
+
   /// Present if the server offers any tools to call.
   Tools? get tools => _value['tools'] as Tools?;
 
@@ -274,8 +282,20 @@ extension type Resources.fromMap(Map<String, Object?> _value) {
   /// list.
   bool? get listChanged => _value['listChanged'] as bool?;
 
+  /// Sets whether [listChanged] is supported.
+  set listChanged(bool? value) {
+    assert(listChanged == null);
+    _value['listChanged'] = value;
+  }
+
   /// Present if the server offers any resources to read.
   bool? get subscribe => _value['subscribe'] as bool?;
+
+  /// Sets whether [subscribe] is supported.
+  set subscribe(bool? value) {
+    assert(subscribe == null);
+    _value['subscribe'] = value;
+  }
 }
 
 /// Tools parameter for [ServerCapabilities].

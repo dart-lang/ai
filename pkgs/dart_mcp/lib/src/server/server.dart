@@ -12,11 +12,12 @@ import '../api.dart';
 import '../util.dart';
 
 part 'tools_support.dart';
+part 'resources_support.dart';
 
 /// Base class to extend when implementing an MCP server.
 ///
 /// Actual functionality beyond server initialization is done by mixing in
-/// additional support mixins such as [ToolsSupport] etc.
+/// additional support mixins such as [ToolsSupport], [ResourceSupport] etc.
 abstract class MCPServer {
   /// Completes when this server has finished initialization and gotten the
   /// final ack from the client.
