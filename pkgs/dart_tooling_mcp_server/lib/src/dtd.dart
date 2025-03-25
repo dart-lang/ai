@@ -2,6 +2,9 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+// TODO: Consider moving this to a shared location, possible under the dtd
+// package.
+
 import 'dart:async';
 
 import 'package:dtd/dtd.dart';

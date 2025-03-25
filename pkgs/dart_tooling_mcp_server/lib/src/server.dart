@@ -23,7 +23,7 @@ class DartToolingMCPServer extends MCPServer with ToolsSupport {
   @override
   final instructions =
       'This server helps to connect Dart and Flutter developers to their '
-      'running apps.';
+      'development tools and running applications.';
 
   /// The tooling daemon we are connected to.
   final DartToolingDaemon dtd;
@@ -49,21 +49,12 @@ class DartToolingMCPServer extends MCPServer with ToolsSupport {
         case 'ServiceRegistered':
           if (e.data['service'] == 'Editor' &&
               e.data['method'] == 'getDebugSessions') {
-            registerTool(
-              Tool(
-                name: 'take_screenshot',
-                description:
-                    'Takes a screenshot of the flutter application in its '
-                    'current state',
-                inputSchema: InputSchema(),
-              ),
-              takeScreenshot,
-            );
+            registerTool(_screenshotTool, takeScreenshot);
           }
         case 'ServiceUnregistered':
           if (e.data['service'] == 'Editor' &&
               e.data['method'] == 'getDebugSessions') {
-            unregisterTool('take_screenshot');
+            unregisterTool(_screenshotTool.name);
           }
       }
     });
@@ -126,3 +117,11 @@ class DartToolingMCPServer extends MCPServer with ToolsSupport {
     }
   }
 }
+
+final _screenshotTool = Tool(
+  name: 'take_screenshot',
+  description:
+      'Takes a screenshot of the flutter application in its '
+      'current state',
+  inputSchema: InputSchema(),
+);

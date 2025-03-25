@@ -6,7 +6,7 @@ WIP
 
 ## Using this package
 
-To use this package, will need to compile the `bin/main.dart` script to exe
+To use this package, you will need to compile the `bin/main.dart` script to exe
 (`dart compile bin/main.dart`) and use the compiled path as the command in your
 MCP server config.
 
