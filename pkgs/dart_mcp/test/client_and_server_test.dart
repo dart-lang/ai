@@ -6,7 +6,6 @@ import 'package:dart_mcp/client.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:json_rpc_2/error_code.dart';
 import 'package:json_rpc_2/json_rpc_2.dart';
-
 import 'package:test/test.dart';
 
 import 'test_utils.dart';

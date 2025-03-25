@@ -486,6 +486,9 @@ extension type ReadResourceResult.fromMap(Map<String, Object?> _value)
     'contents': contents,
     if (meta != null) '_meta': meta,
   });
+
+  List<ResourceContents> get contents =>
+      (_value['contents'] as List).cast<ResourceContents>();
 }
 
 /// An optional notification from the server to the client, informing it that

@@ -105,4 +105,24 @@ class ServerConnection {
           .cast(),
     );
   }
+
+  /// Lists all the resources from this server.
+  Future<ListResourcesResult> listResources(
+    ListResourcesRequest request,
+  ) async {
+    return ListResourcesResult.fromMap(
+      ((await _peer.sendRequest(ListResourcesRequest.methodName, request))
+              as Map)
+          .cast(),
+    );
+  }
+
+  /// Reads a [Resource] returned from the [ListResourcesResult].
+  Future<ReadResourceResult> readResource(ReadResourceRequest request) async {
+    return ReadResourceResult.fromMap(
+      ((await _peer.sendRequest(ReadResourceRequest.methodName, request))
+              as Map)
+          .cast(),
+    );
+  }
 }

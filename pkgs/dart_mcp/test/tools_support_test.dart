@@ -4,10 +4,7 @@
 
 import 'dart:async';
 
-import 'package:async/async.dart';
-import 'package:dart_mcp/client.dart';
 import 'package:dart_mcp/server.dart';
-import 'package:stream_channel/stream_channel.dart';
 
 import 'package:test/test.dart';
 
@@ -19,7 +16,11 @@ void main() {
       TestMCPClient(),
       TestMCPServerWithTools.new,
     );
-    await environment.initializeServer();
+    var initializeResult = await environment.initializeServer();
+    expect(
+      initializeResult.capabilities.tools,
+      equals(Tools(listChanged: true)),
+    );
 
     final serverConnection = environment.serverConnection;
 
