@@ -17,7 +17,7 @@ part 'resources_support.dart';
 /// Base class to extend when implementing an MCP server.
 ///
 /// Actual functionality beyond server initialization is done by mixing in
-/// additional support mixins such as [ToolsSupport], [ResourceSupport] etc.
+/// additional support mixins such as [ToolsSupport], [ResourcesSupport] etc.
 abstract class MCPServer {
   /// Completes when this server has finished initialization and gotten the
   /// final ack from the client.
@@ -43,8 +43,11 @@ abstract class MCPServer {
       InitializeRequest.methodName,
       convertParameters(initialize),
     );
-    var x = convertParameters(handleInitialized);
-    _peer.registerMethod(InitializedNotification.methodName, x);
+
+    _peer.registerMethod(
+      InitializedNotification.methodName,
+      convertParameters(handleInitialized),
+    );
 
     _peer.listen();
   }
