@@ -13,7 +13,7 @@ import 'dtd.dart';
 
 /// An MCP server that is connected to the Dart Tooling Daemon (see
 /// https://pub.dev/packages/dtd).
-class DartToolingMCPServer extends MCPServer with ToolsSupport {
+final class DartToolingMCPServer extends MCPServer with ToolsSupport {
   @override
   final implementation = ServerImplementation(
     name: 'dart tooling daemon',

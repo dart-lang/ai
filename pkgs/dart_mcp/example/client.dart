@@ -53,7 +53,7 @@ void main() async {
   await client.shutdownServer(serverName);
 }
 
-class DartMCPClient extends MCPClient {
+final class DartMCPClient extends MCPClient {
   @override
   final ClientCapabilities capabilities = ClientCapabilities();
 

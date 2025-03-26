@@ -47,7 +47,8 @@ void main() {
   });
 }
 
-class TestMCPServerWithResources extends TestMCPServer with ResourcesSupport {
+final class TestMCPServerWithResources extends TestMCPServer
+    with ResourcesSupport {
   TestMCPServerWithResources(super.channel) : super();
 
   @override

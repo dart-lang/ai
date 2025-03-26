@@ -40,7 +40,7 @@ void main() {
   });
 }
 
-class TestMCPServerWithTools extends TestMCPServer with ToolsSupport {
+final class TestMCPServerWithTools extends TestMCPServer with ToolsSupport {
   TestMCPServerWithTools(super.channel) : super();
 
   @override

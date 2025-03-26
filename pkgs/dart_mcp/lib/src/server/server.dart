@@ -18,7 +18,7 @@ part 'resources_support.dart';
 ///
 /// Actual functionality beyond server initialization is done by mixing in
 /// additional support mixins such as [ToolsSupport], [ResourcesSupport] etc.
-abstract class MCPServer {
+abstract base class MCPServer {
   /// Completes when this server has finished initialization and gotten the
   /// final ack from the client.
   FutureOr<void> get initialized => _initialized.future;

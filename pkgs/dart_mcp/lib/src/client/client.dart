@@ -2,6 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:async';
 import 'dart:convert';
 // TODO: Refactor to drop this dependency?
 import 'dart:io';
@@ -11,8 +12,10 @@ import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:stream_channel/stream_channel.dart';
 
 import '../api.dart';
+import '../util.dart';
 
-abstract class MCPClient {
+/// Base class for MCP clients to extend.
+abstract base class MCPClient {
   ClientCapabilities get capabilities;
   ClientImplementation get implementation;
 
@@ -63,12 +66,56 @@ abstract class MCPClient {
 class ServerConnection {
   final Peer _peer;
 
+  /// Emits an event any time the server notifies us of a change to the list of
+  /// tools it supports.
+  Stream<ToolListChangedNotification> get toolListChanged =>
+      _toolListChangedController.stream;
+  final _toolListChangedController =
+      StreamController<ToolListChangedNotification>();
+
+  /// Emits an event any time the server notifies us of a change to the list of
+  /// resources it supports.
+  Stream<ResourceListChangedNotification> get resourceListChanged =>
+      _resourceListChangedController.stream;
+  final _resourceListChangedController =
+      StreamController<ResourceListChangedNotification>();
+
+  /// Emits an event any time the server notifies us of a change to a resource
+  /// that this client has subscribed to.
+  Stream<ResourceUpdatedNotification> get resourceUpdated =>
+      _resourceUpdatedController.stream;
+  final _resourceUpdatedController =
+      StreamController<ResourceUpdatedNotification>();
+
   ServerConnection.fromStreamChannel(StreamChannel<String> channel)
     : _peer = Peer(channel) {
+    _peer.registerMethod(
+      ToolListChangedNotification.methodName,
+      convertParameters(_toolListChangedController.sink.add),
+    );
+
+    _peer.registerMethod(
+      ResourceListChangedNotification.methodName,
+      convertParameters(_resourceListChangedController.sink.add),
+    );
+
+    _peer.registerMethod(
+      ResourceUpdatedNotification.methodName,
+      convertParameters(_resourceUpdatedController.sink.add),
+    );
+
     _peer.listen();
   }
 
-  Future<void> shutdown() => _peer.close();
+  /// Close all connections and streams so the process can cleanly exit.
+  Future<void> shutdown() async {
+    await Future.wait([
+      _peer.close(),
+      _toolListChangedController.close(),
+      _resourceListChangedController.close(),
+      _resourceUpdatedController.close(),
+    ]);
+  }
 
   /// Called after a successful call to [initialize].
   void notifyInitialized(InitializedNotification notification) {
@@ -124,5 +171,19 @@ class ServerConnection {
               as Map)
           .cast(),
     );
+  }
+
+  /// Subscribes this client to a resource by URI (at `request.uri`).
+  ///
+  /// Updates will come on the [resourceUpdated] stream.
+  void subscribeResource(SubscribeRequest request) async {
+    await _peer.sendRequest(SubscribeRequest.methodName, request);
+  }
+
+  /// Unsubscribes this client to a resource by URI (at `request.uri`).
+  ///
+  /// Updates will come on the [resourceUpdated] stream.
+  void unsubscribeResource(UnsubscribeRequest request) async {
+    await _peer.sendRequest(UnsubscribeRequest.methodName, request);
   }
 }
