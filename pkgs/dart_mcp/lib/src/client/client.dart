@@ -53,12 +53,22 @@ abstract base class MCPClient {
     return connection;
   }
 
+  /// Shuts down a server connection by [name].
   Future<void> shutdownServer(String name) {
     var server = _connections.remove(name);
     if (server == null) {
       throw ArgumentError('No server with name $name');
     }
     return server.shutdown();
+  }
+
+  /// Shuts down all active server connections.
+  Future<void> shutdown() async {
+    final connections = _connections.values.toList();
+    _connections.clear();
+    await Future.wait([
+      for (var connection in connections) connection.shutdown(),
+    ]);
   }
 }
 
@@ -68,24 +78,33 @@ class ServerConnection {
 
   /// Emits an event any time the server notifies us of a change to the list of
   /// tools it supports.
+  ///
+  /// This is a broadcast stream, events are not buffered and only future events
+  /// are given.
   Stream<ToolListChangedNotification> get toolListChanged =>
       _toolListChangedController.stream;
   final _toolListChangedController =
-      StreamController<ToolListChangedNotification>();
+      StreamController<ToolListChangedNotification>.broadcast();
 
   /// Emits an event any time the server notifies us of a change to the list of
   /// resources it supports.
+  ///
+  /// This is a broadcast stream, events are not buffered and only future events
+  /// are given.
   Stream<ResourceListChangedNotification> get resourceListChanged =>
       _resourceListChangedController.stream;
   final _resourceListChangedController =
-      StreamController<ResourceListChangedNotification>();
+      StreamController<ResourceListChangedNotification>.broadcast();
 
   /// Emits an event any time the server notifies us of a change to a resource
   /// that this client has subscribed to.
+  ///
+  /// This is a broadcast stream, events are not buffered and only future events
+  /// are given.
   Stream<ResourceUpdatedNotification> get resourceUpdated =>
       _resourceUpdatedController.stream;
   final _resourceUpdatedController =
-      StreamController<ResourceUpdatedNotification>();
+      StreamController<ResourceUpdatedNotification>.broadcast();
 
   ServerConnection.fromStreamChannel(StreamChannel<String> channel)
     : _peer = Peer(channel) {
@@ -177,13 +196,13 @@ class ServerConnection {
   ///
   /// Updates will come on the [resourceUpdated] stream.
   void subscribeResource(SubscribeRequest request) async {
-    await _peer.sendRequest(SubscribeRequest.methodName, request);
+    _peer.sendNotification(SubscribeRequest.methodName, request);
   }
 
   /// Unsubscribes this client to a resource by URI (at `request.uri`).
   ///
   /// Updates will come on the [resourceUpdated] stream.
   void unsubscribeResource(UnsubscribeRequest request) async {
-    await _peer.sendRequest(UnsubscribeRequest.methodName, request);
+    _peer.sendNotification(UnsubscribeRequest.methodName, request);
   }
 }
