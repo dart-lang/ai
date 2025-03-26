@@ -21,23 +21,11 @@ class TestEnvironment<Client extends MCPClient, Server extends MCPServer> {
 
   late final clientChannel = StreamChannel<String>.withCloseGuarantee(
     serverController.stream,
-    clientController.sink.transform(
-      StreamSinkTransformer.fromHandlers(
-        handleData: (data, sink) {
-          sink.add('$data\n');
-        },
-      ),
-    ),
+    clientController.sink,
   );
   late final serverChannel = StreamChannel<String>.withCloseGuarantee(
     clientController.stream,
-    serverController.sink.transform(
-      StreamSinkTransformer.fromHandlers(
-        handleData: (data, sink) {
-          sink.add('$data\n');
-        },
-      ),
-    ),
+    serverController.sink,
   );
 
   final Client client;
