@@ -20,7 +20,7 @@ void main() {
     expect(initializeResult.protocolVersion, protocolVersion);
 
     expect(
-      environment.serverConnection.listTools(),
+      environment.serverConnection.listTools(ListToolsRequest()),
       throwsA(
         isA<RpcException>().having((e) => e.code, 'code', METHOD_NOT_FOUND),
       ),

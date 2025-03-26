@@ -72,6 +72,10 @@ base mixin ToolsSupport on MCPServer {
   void unregisterTool(String name) {
     _registeredTools.remove(name);
     _registeredToolImpls.remove(name);
+
+    if (ready) {
+      _notifyToolListChanged();
+    }
   }
 
   /// Returns the list of supported tools for this server.
