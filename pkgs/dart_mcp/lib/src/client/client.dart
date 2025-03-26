@@ -155,11 +155,7 @@ class ServerConnection {
   /// List all the tools from this server.
   Future<ListToolsResult> listTools(ListToolsRequest request) async {
     return ListToolsResult.fromMap(
-      ((await _peer.sendRequest(
-                ListToolsRequest.methodName,
-                request,
-              ))
-              as Map)
+      ((await _peer.sendRequest(ListToolsRequest.methodName, request)) as Map)
           .cast(),
     );
   }
