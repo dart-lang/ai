@@ -244,12 +244,16 @@ extension type ServerCapabilities.fromMap(Map<String, Object?> _value) {
   /// Present if the server offers any prompt templates.
   Prompts? get prompts => _value['prompts'] as Prompts?;
 
+  /// Sets [prompts] if it is null, otherwise throws.
+  set prompts(Prompts? value) {
+    assert(prompts == null);
+    _value['prompts'] = value;
+  }
+
   /// Whether this server supports subscribing to resource updates.
   Resources? get resources => _value['resources'] as Resources?;
 
   /// Sets [resources] if it is null, otherwise throws.
-  ///
-  // TODO: Add more setters for other types?
   set resources(Resources? value) {
     assert(resources == null);
     _value['resources'] = value;
@@ -259,8 +263,6 @@ extension type ServerCapabilities.fromMap(Map<String, Object?> _value) {
   Tools? get tools => _value['tools'] as Tools?;
 
   /// Sets [tools] if it is null, otherwise throws.
-  ///
-  // TODO: Add more setters for other types?
   set tools(Tools? value) {
     assert(tools == null);
     _value['tools'] = value;
@@ -274,6 +276,12 @@ extension type Prompts.fromMap(Map<String, Object?> _value) {
 
   /// Whether this server supports notifications for changes to the prompt list.
   bool? get listChanged => _value['listChanged'] as bool?;
+
+  /// Sets whether [listChanged] is supported.
+  set listChanged(bool? value) {
+    assert(listChanged == null);
+    _value['listChanged'] = value;
+  }
 }
 
 /// Resources parameter for [ServerCapabilities].
