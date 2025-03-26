@@ -13,7 +13,8 @@ part of 'server.dart';
 /// Resources can later be removed using [removeResource], or the client can be
 /// notified of updates using [updateResource].
 ///
-/// Clients will be notified automatically of resource changes.
+/// Implements the `subscribe` and `listChanges` capabilities for clients, so
+/// they can be notified of changes to resources.
 ///
 /// See https://modelcontextprotocol.io/docs/concepts/resources.
 mixin ResourcesSupport on MCPServer {
@@ -125,9 +126,7 @@ mixin ResourcesSupport on MCPServer {
 
   /// Lists all the resources currently available.
   ListResourcesResult _listResources(ListResourcesRequest request) {
-    return ListResourcesResult(
-      resources: [for (var resource in _resources.values) resource],
-    );
+    return ListResourcesResult(resources: _resources.values.toList());
   }
 
   /// Reads the resource at `request.uri`.
