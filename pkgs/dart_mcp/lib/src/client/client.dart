@@ -52,12 +52,22 @@ abstract class MCPClient {
     return connection;
   }
 
+  /// Shuts down a server connection by [name].
   Future<void> shutdownServer(String name) {
     var server = _connections.remove(name);
     if (server == null) {
       throw ArgumentError('No server with name $name');
     }
     return server.shutdown();
+  }
+
+  /// Shuts down all active server connections.
+  Future<void> shutdown() async {
+    final connections = _connections.values.toList();
+    _connections.clear();
+    await Future.wait([
+      for (var connection in connections) connection.shutdown(),
+    ]);
   }
 }
 
@@ -78,14 +88,16 @@ class ServerConnection {
   ServerConnection.fromStreamChannel(StreamChannel<String> channel)
     : _peer = Peer(channel) {
     _peer.registerMethod(
-      ToolListChangedNotification.methodName,
+      PromptListChangedNotification.methodName,
       convertParameters(_promptListChangedController.sink.add),
     );
 
     _peer.listen();
   }
 
-  Future<void> shutdown() => _peer.close();
+  Future<void> shutdown() async {
+    await Future.wait([_peer.close(), _promptListChangedController.close()]);
+  }
 
   /// Called after a successful call to [initialize].
   void notifyInitialized(InitializedNotification notification) {

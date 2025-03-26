@@ -731,7 +731,7 @@ extension type Prompt.fromMap(Map<String, Object?> _value) {
   factory Prompt({
     required String name,
     String? description,
-    Map<String, Object?>? arguments,
+    List<PromptArgument>? arguments,
   }) => Prompt.fromMap({
     'name': name,
     if (description != null) 'description': description,

@@ -6,11 +6,18 @@ part of 'server.dart';
 
 /// A mixin for MCP servers which support the `prompts` capability.
 ///
-/// Supports `listChanged` notifications for the prompts list.
+/// Call [addPrompt] to add new prompts, and [removePrompt] to delete prompts,
+/// these are typically done in the [initialize] method, but may be done at any
+/// time.
+///
+/// Supports `listChanged` notifications for changes to the prompts list.
 ///
 /// See https://modelcontextprotocol.io/docs/concepts/prompts.
 mixin PromptsSupport on MCPServer {
+  /// The added prompts by name.
   final Map<String, Prompt> _prompts = {};
+
+  /// The added prompt implementations by name.
   final Map<String, FutureOr<GetPromptResult> Function(GetPromptRequest)>
   _promptImpls = {};
 
