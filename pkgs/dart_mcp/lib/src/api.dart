@@ -42,10 +42,11 @@ extension type MetaWithProgressToken.fromMap(Map<String, Object?> _value)
 /// Should not be constructed directly, and has no public constructor.
 extension type Request._fromMap(Map<String, Object?> _value) {
   /// If specified, the caller is requesting out-of-band progress notifications
-  /// for this request (as represented by notifications/progress). The value of
-  /// this parameter is an opaque token that will be attached to any subsequent
-  /// notifications. The receiver is not obligated to provide these
-  /// notifications.
+  /// for this request (as represented by notifications/progress).
+  ///
+  /// The value of this parameter is an opaque token that will be attached to
+  /// any subsequent notifications. The receiver is not obligated to provide
+  /// these notifications.
   MetaWithProgressToken? get meta => _value['_meta'] as MetaWithProgressToken?;
 }
 
@@ -69,14 +70,14 @@ extension type EmptyResult.fromMap(Map<String, Object?> _) implements Result {
 /// This notification can be sent by either side to indicate that it is
 /// cancelling a previously-issued request.
 ///
-///  The request SHOULD still be in-flight, but due to communication latency, it
+/// The request SHOULD still be in-flight, but due to communication latency, it
 /// is always possible that this notification MAY arrive after the request has
 /// already finished.
 ///
-///  This notification indicates that the result will be unused, so any
-///  associated processing SHOULD cease.
+/// This notification indicates that the result will be unused, so any
+/// associated processing SHOULD cease.
 ///
-///  A client MUST NOT attempt to cancel its `initialize` request.
+/// A client MUST NOT attempt to cancel its `initialize` request.
 extension type CancelledNotification.fromMap(Map<String, Object?> _value)
     implements Notification {
   static const methodName = 'notifications/cancelled';
@@ -126,6 +127,7 @@ extension type InitializeRequest._fromMap(Map<String, Object?> _value)
   });
 
   /// The latest version of the Model Context Protocol that the client supports.
+  ///
   /// The client MAY decide to support older versions as well.
   String get protocolVersion => _value['protocolVersion'] as String;
   ClientCapabilities get capabilities =>
@@ -151,6 +153,7 @@ extension type InitializeResult.fromMap(Map<String, Object?> _value)
   });
 
   /// The version of the Model Context Protocol that the server wants to use.
+  ///
   /// This may not match the version that the client requested. If the client
   /// cannot support this version, it MUST disconnect.
   String get protocolVersion => _value['protocolVersion'] as String;
@@ -179,9 +182,10 @@ extension type InitializedNotification.fromMap(Map<String, Object?> _value)
       InitializedNotification.fromMap({if (meta != null) '_meta': meta});
 }
 
-/// Capabilities a client may support. Known capabilities are defined here, in
-/// this schema, but this is not a closed set: any client can define its own,
-/// additional capabilities.
+/// Capabilities a client may support.
+///
+/// Known capabilities are defined here, in this schema, but this is not a
+/// closed set: any client can define its own, additional capabilities.
 extension type ClientCapabilities.fromMap(Map<String, Object?> _value) {
   factory ClientCapabilities({
     Map<String, Object?>? experimental,
@@ -210,9 +214,10 @@ extension type RootsCapabilities.fromMap(Map<String, Object?> _value) {
   bool? get listChanged => _value['listChanged'] as bool?;
 }
 
-/// Capabilities that a server may support. Known capabilities are defined here,
-/// in this schema, but this is not a closed set: any server can define its own,
-/// additional capabilities.
+/// Capabilities that a server may support.
+///
+/// Known capabilities are defined here, in this schema, but this is not a
+/// closed set: any server can define its own, additional capabilities.
 extension type ServerCapabilities.fromMap(Map<String, Object?> _value) {
   factory ServerCapabilities({
     Map<String, Object?>? experimental,
@@ -385,6 +390,7 @@ extension type ServerImplementation.fromMap(Map<String, Object?> _value) {
 extension type PaginatedRequest._fromMap(Map<String, Object?> _value)
     implements Request {
   /// An opaque token representing the current pagination position.
+  ///
   /// If provided, the server should return results starting after this cursor.
   Cursor? get cursor => _value['cursor'] as Cursor?;
 }
@@ -492,8 +498,10 @@ extension type ReadResourceResult.fromMap(Map<String, Object?> _value)
 }
 
 /// An optional notification from the server to the client, informing it that
-/// the list of resources it can read from has changed. This may be issued by
-/// servers without any previous subscription from the client.
+/// the list of resources it can read from has changed.
+///
+/// This may be issued by servers without any previous subscription from the
+/// client.
 extension type ResourceListChangedNotification.fromMap(
   Map<String, Object?> _value
 )
@@ -520,9 +528,10 @@ extension type SubscribeRequest.fromMap(Map<String, Object?> _value)
   String get uri => _value['uri'] as String;
 }
 
-///  Sent from the client to request cancellation of resources/updated
-/// notifications from the server. This should follow a previous
-/// resources/subscribe request.
+/// Sent from the client to request cancellation of resources/updated
+/// notifications from the server.
+///
+/// This should follow a previous resources/subscribe request.
 extension type UnsubscribeRequest.fromMap(Map<String, Object?> _value)
     implements Request {
   static const methodName = 'resources/unsubscribe';
@@ -535,8 +544,10 @@ extension type UnsubscribeRequest.fromMap(Map<String, Object?> _value)
 }
 
 /// A notification from the server to the client, informing it that a resource
-/// has changed and may need to be read again. This should only be sent if the
-/// client previously sent a resources/subscribe request.
+/// has changed and may need to be read again.
+///
+/// This should only be sent if the client previously sent a
+/// resources/subscribe request.
 extension type ResourceUpdatedNotification.fromMap(Map<String, Object?> _value)
     implements Notification {
   static const methodName = 'notifications/resources/updated';
@@ -547,12 +558,14 @@ extension type ResourceUpdatedNotification.fromMap(Map<String, Object?> _value)
         if (meta != null) '_meta': meta,
       });
 
-  /// The URI of the resource that has been updated. This might be a
-  /// sub-resource of the one that the client actually subscribed to.
+  /// The URI of the resource that has been updated.
+  ///
+  /// This might be a sub-resource of the one that the client actually
+  /// subscribed to.
   String get uri => _value['uri'] as String;
 }
 
-///  A known resource that the server is capable of reading.
+/// A known resource that the server is capable of reading.
 //
 // TODO: Implement Annotated
 extension type Resource.fromMap(Map<String, Object?> _value) {
@@ -596,6 +609,7 @@ extension type Resource.fromMap(Map<String, Object?> _value) {
 }
 
 /// A template description for resources available on the server.
+//
 // TODO: implement Annotated
 extension type ResourceTemplate.fromMap(Map<String, Object?> _value) {
   factory ResourceTemplate({
@@ -625,9 +639,10 @@ extension type ResourceTemplate.fromMap(Map<String, Object?> _value) {
   /// available resources. It can be thought of like a "hint" to the model.
   String? get description => _value['description'] as String?;
 
-  /// The MIME type for all resources that match this template. This should
-  /// only be included if all resources matching this template have the same
-  /// type.
+  /// The MIME type for all resources that match this template.
+  ///
+  /// This should only be included if all resources matching this template have
+  /// the same type.
   String? get mimeType => _value['mimeType'] as String?;
 }
 
@@ -913,8 +928,10 @@ extension type TextResourceContents.fromMap(Map<String, Object?> _value)
     if (mimeType != null) 'mimeType': mimeType,
   });
 
-  /// The text of the item. This must only be set if the item can actually be
-  /// represented as text (not binary data).
+  /// The text of the item.
+  ///
+  /// This must only be set if the item can actually be represented as text
+  /// (not binary data).
   String get text => _value['text'] as String;
 }
 
@@ -959,8 +976,10 @@ extension type CallToolRequest._fromMap(Map<String, Object?> _value)
 }
 
 /// An optional notification from the server to the client, informing it that
-/// the list of tools it offers has changed. This may be issued by servers
-/// without any previous subscription from the client.
+/// the list of tools it offers has changed.
+///
+/// This may be issued by servers without any previous subscription from the
+/// client.
 extension type ToolListChangedNotification.fromMap(Map<String, Object?> _value)
     implements Notification {
   static const methodName = 'notifications/tools/list_changed';
