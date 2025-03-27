@@ -117,7 +117,7 @@ void main() {
     // Let the server process the request
     await pumpEventQueue();
 
-    fooContents = 'baz';
+    fooContents = 'zap';
     server.updateResource(fooResource);
 
     expect(resourceChangedQueue.hasNext, completion(false));
