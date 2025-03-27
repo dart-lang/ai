@@ -722,6 +722,9 @@ extension type GetPromptResult.fromMap(Map<String, Object?> _value)
   /// An optional description for the prompt.
   String? get description => _value['description'] as String?;
 
+  /// All the messages in this prompt.
+  ///
+  /// Prompts may be entire conversation flows between users and assistants.
   List<PromptMessage> get messages =>
       (_value['messages'] as List).cast<PromptMessage>();
 }
@@ -781,15 +784,20 @@ extension type PromptMessage.fromMap(Map<String, Object?> _value) {
   factory PromptMessage({required Role role, required List<Content> content}) =>
       PromptMessage.fromMap({'role': role.name, 'content': content});
 
+  /// The expected [Role] for this message in the prompt (multi-message
+  /// prompt flows may outline a back and forth between users and assistants).
   Role get role =>
       Role.values.firstWhere((role) => role.name == _value['role']);
 
+  /// The content of the message, see [Content] docs for the possible types.
   Content get content => _value['content'] as Content;
 }
 
 /// An optional notification from the server to the client, informing it that
-/// the list of prompts it offers has changed. This may be issued by servers
-/// without any previous subscription from the client.
+/// the list of prompts it offers has changed.
+///
+/// This may be issued by servers without any previous subscription from the
+/// client.
 extension type PromptListChangedNotification.fromMap(
   Map<String, Object?> _value
 )
@@ -879,12 +887,15 @@ extension type Content._(Map<String, Object?> _value) {
   /// Whether or not this is a [ImageContent].
   bool get isImage => _value['type'] == ImageContent.expectedType;
 
+  /// Whether or not this is an [EmbeddedResource].
   bool get isEmbeddedResource =>
       _value['type'] == EmbeddedResource.expectedType;
 
-  /// The type of content, you can use this in a switch to handle various types
-  /// (see the the static `expectedType` getters), or you can use [isText],
-  /// [isImage], and [isEmbeddedResource] to determine the actual type.
+  /// The type of content.
+  ///
+  /// You can use this in a switch to handle the various types (see the static
+  /// `expectedType` getters), or you can use [isText], [isImage], and
+  /// [isEmbeddedResource] to determine the type and then do the cast.
   String get type => _value['type'] as String;
 }
 
@@ -1398,6 +1409,10 @@ extension type PromptReference.fromMap(Map<String, Object?> _value) {
   factory PromptReference({required String name}) =>
       PromptReference.fromMap({'name': name, 'type': expectedType});
 
+  /// This should always be [expectedType].
+  ///
+  /// This has a [type] because it exists as a part of a union type, so this
+  /// distinguishes it from other types.
   String get type {
     final type = _value['type'] as String;
     assert(type == expectedType);
