@@ -85,7 +85,7 @@ class ServerConnection {
       _promptListChangedController.stream;
   final _promptListChangedController =
       StreamController<PromptListChangedNotification>.broadcast();
-  
+
   /// Emits an event any time the server notifies us of a change to the list of
   /// tools it supports.
   ///
@@ -122,7 +122,7 @@ class ServerConnection {
       PromptListChangedNotification.methodName,
       convertParameters(_promptListChangedController.sink.add),
     );
-      
+
     _peer.registerMethod(
       ToolListChangedNotification.methodName,
       convertParameters(_toolListChangedController.sink.add),
