@@ -26,7 +26,7 @@ void main() {
 }
 
 /// Our actual MCP server.
-class DartMCPServer extends MCPServer with ToolsSupport {
+base class DartMCPServer extends MCPServer with ToolsSupport {
   @override
   final ServerImplementation implementation = ServerImplementation(
     name: 'example dart server',

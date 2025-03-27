@@ -14,7 +14,8 @@ import 'package:stream_channel/stream_channel.dart';
 import '../api.dart';
 import '../util.dart';
 
-abstract class MCPClient {
+/// Base class for MCP clients to extend.
+abstract base class MCPClient {
   ClientCapabilities get capabilities;
   ClientImplementation get implementation;
 
@@ -84,6 +85,36 @@ class ServerConnection {
       _promptListChangedController.stream;
   final _promptListChangedController =
       StreamController<PromptListChangedNotification>.broadcast();
+  
+  /// Emits an event any time the server notifies us of a change to the list of
+  /// tools it supports.
+  ///
+  /// This is a broadcast stream, events are not buffered and only future events
+  /// are given.
+  Stream<ToolListChangedNotification> get toolListChanged =>
+      _toolListChangedController.stream;
+  final _toolListChangedController =
+      StreamController<ToolListChangedNotification>.broadcast();
+
+  /// Emits an event any time the server notifies us of a change to the list of
+  /// resources it supports.
+  ///
+  /// This is a broadcast stream, events are not buffered and only future events
+  /// are given.
+  Stream<ResourceListChangedNotification> get resourceListChanged =>
+      _resourceListChangedController.stream;
+  final _resourceListChangedController =
+      StreamController<ResourceListChangedNotification>.broadcast();
+
+  /// Emits an event any time the server notifies us of a change to a resource
+  /// that this client has subscribed to.
+  ///
+  /// This is a broadcast stream, events are not buffered and only future events
+  /// are given.
+  Stream<ResourceUpdatedNotification> get resourceUpdated =>
+      _resourceUpdatedController.stream;
+  final _resourceUpdatedController =
+      StreamController<ResourceUpdatedNotification>.broadcast();
 
   ServerConnection.fromStreamChannel(StreamChannel<String> channel)
     : _peer = Peer(channel) {
@@ -91,12 +122,34 @@ class ServerConnection {
       PromptListChangedNotification.methodName,
       convertParameters(_promptListChangedController.sink.add),
     );
+      
+    _peer.registerMethod(
+      ToolListChangedNotification.methodName,
+      convertParameters(_toolListChangedController.sink.add),
+    );
+
+    _peer.registerMethod(
+      ResourceListChangedNotification.methodName,
+      convertParameters(_resourceListChangedController.sink.add),
+    );
+
+    _peer.registerMethod(
+      ResourceUpdatedNotification.methodName,
+      convertParameters(_resourceUpdatedController.sink.add),
+    );
 
     _peer.listen();
   }
 
+  /// Close all connections and streams so the process can cleanly exit.
   Future<void> shutdown() async {
-    await Future.wait([_peer.close(), _promptListChangedController.close()]);
+    await Future.wait([
+      _peer.close(),
+      _promptListChangedController.close(),
+      _toolListChangedController.close(),
+      _resourceListChangedController.close(),
+      _resourceUpdatedController.close(),
+    ]);
   }
 
   /// Called after a successful call to [initialize].
@@ -116,13 +169,9 @@ class ServerConnection {
   }
 
   /// List all the tools from this server.
-  Future<ListToolsResult> listTools() async {
+  Future<ListToolsResult> listTools(ListToolsRequest request) async {
     return ListToolsResult.fromMap(
-      ((await _peer.sendRequest(
-                ListToolsRequest.methodName,
-                ListToolsRequest(),
-              ))
-              as Map)
+      ((await _peer.sendRequest(ListToolsRequest.methodName, request)) as Map)
           .cast(),
     );
   }
@@ -169,5 +218,19 @@ class ServerConnection {
       ((await _peer.sendRequest(GetPromptRequest.methodName, request)) as Map)
           .cast(),
     );
+  }
+
+  /// Subscribes this client to a resource by URI (at `request.uri`).
+  ///
+  /// Updates will come on the [resourceUpdated] stream.
+  void subscribeResource(SubscribeRequest request) async {
+    _peer.sendNotification(SubscribeRequest.methodName, request);
+  }
+
+  /// Unsubscribes this client to a resource by URI (at `request.uri`).
+  ///
+  /// Updates will come on the [resourceUpdated] stream.
+  void unsubscribeResource(UnsubscribeRequest request) async {
+    _peer.sendNotification(UnsubscribeRequest.methodName, request);
   }
 }

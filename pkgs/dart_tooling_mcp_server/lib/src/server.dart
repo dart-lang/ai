@@ -10,7 +10,7 @@ import 'package:stream_channel/stream_channel.dart';
 import 'mixins/dtd.dart';
 
 /// An MCP server for Dart and Flutter tooling.
-class DartToolingMCPServer extends MCPServer
+final class DartToolingMCPServer extends MCPServer
     with ToolsSupport, DartToolingDaemonSupport {
   @override
   final implementation = ServerImplementation(

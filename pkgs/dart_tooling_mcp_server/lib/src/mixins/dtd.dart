@@ -14,7 +14,7 @@ import 'package:vm_service/vm_service_io.dart';
 /// https://pub.dev/packages/dtd).
 ///
 /// The MCPServer must already have the [ToolsSupport] mixin applied.
-mixin DartToolingDaemonSupport on ToolsSupport {
+base mixin DartToolingDaemonSupport on ToolsSupport {
   DartToolingDaemon? _dtd;
 
   /// Whether or not the DTD extension to get the active debug sessions is

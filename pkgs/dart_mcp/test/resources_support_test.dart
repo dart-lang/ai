@@ -4,13 +4,14 @@
 
 import 'dart:async';
 
+import 'package:async/async.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:test/test.dart';
 
 import 'test_utils.dart';
 
 void main() {
-  test('client and server can communicate', () async {
+  test('client can read resources from the server', () async {
     var environment = TestEnvironment(
       TestMCPClient(),
       TestMCPServerWithResources.new,
@@ -45,9 +46,99 @@ void main() {
           ),
     );
   });
+
+  test('client can subscribe to resource updates from the server', () async {
+    var environment = TestEnvironment(
+      TestMCPClient(),
+      TestMCPServerWithResources.new,
+    );
+    await environment.initializeServer();
+
+    final serverConnection = environment.serverConnection;
+    final server = environment.server;
+
+    final resourceListChangedQueue = StreamQueue(
+      serverConnection.resourceListChanged,
+    );
+
+    final fooResource = Resource(name: 'foo', uri: 'foo://bar');
+    var fooContents = 'bar';
+    server.addResource(
+      fooResource,
+      (_) => ReadResourceResult(
+        contents: [
+          TextResourceContents(uri: fooResource.uri, text: fooContents),
+        ],
+      ),
+    );
+
+    await resourceListChangedQueue.next;
+    final resources = await serverConnection.listResources(
+      ListResourcesRequest(),
+    );
+    expect(
+      resources.resources,
+      unorderedEquals([fooResource, TestMCPServerWithResources.helloWorld]),
+    );
+
+    final resourceChangedQueue = StreamQueue(serverConnection.resourceUpdated);
+    serverConnection.subscribeResource(SubscribeRequest(uri: fooResource.uri));
+    // Let the server process the request
+    await pumpEventQueue();
+
+    fooContents = 'baz';
+    server.updateResource(fooResource);
+
+    expect(
+      await resourceChangedQueue.next,
+      isA<ResourceUpdatedNotification>().having(
+        (n) => n.uri,
+        'uri',
+        fooResource.uri,
+      ),
+    );
+
+    expect(
+      await serverConnection.readResource(
+        ReadResourceRequest(uri: fooResource.uri),
+      ),
+      isA<ReadResourceResult>().having(
+        (r) => r.contents.single,
+        'contents',
+        isA<TextResourceContents>()
+            .having((c) => c.text, 'text', 'baz')
+            .having((c) => c.uri, 'uri', fooResource.uri),
+      ),
+    );
+
+    serverConnection.unsubscribeResource(
+      UnsubscribeRequest(uri: fooResource.uri),
+    );
+    // Let the server process the request
+    await pumpEventQueue();
+
+    fooContents = 'zap';
+    server.updateResource(fooResource);
+
+    expect(resourceChangedQueue.hasNext, completion(false));
+
+    server.removeResource(fooResource.uri);
+
+    expect(
+      await resourceListChangedQueue.next,
+      ResourceListChangedNotification(),
+    );
+
+    expect(resourceListChangedQueue.hasNext, completion(false));
+
+    /// We need to manually shut down to so that the `hasNext` futures can
+    /// complete.
+    await environment.shutdown();
+  });
 }
 
-class TestMCPServerWithResources extends TestMCPServer with ResourcesSupport {
+final class TestMCPServerWithResources extends TestMCPServer
+    with ResourcesSupport {
   TestMCPServerWithResources(super.channel) : super();
 
   @override

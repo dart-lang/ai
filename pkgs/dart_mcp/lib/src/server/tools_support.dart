@@ -11,7 +11,7 @@ part of 'server.dart';
 /// initialization if needed.
 ///
 /// See https://modelcontextprotocol.io/docs/concepts/tools.
-mixin ToolsSupport on MCPServer {
+base mixin ToolsSupport on MCPServer {
   /// The registered tools by name.
   final Map<String, Tool> _registeredTools = {};
 
@@ -72,6 +72,10 @@ mixin ToolsSupport on MCPServer {
   void unregisterTool(String name) {
     _registeredTools.remove(name);
     _registeredToolImpls.remove(name);
+
+    if (ready) {
+      _notifyToolListChanged();
+    }
   }
 
   /// Returns the list of supported tools for this server.

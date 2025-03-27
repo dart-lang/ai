@@ -68,7 +68,7 @@ class TestEnvironment<Client extends MCPClient, Server extends MCPServer> {
   }
 }
 
-class TestMCPClient extends MCPClient {
+base class TestMCPClient extends MCPClient {
   @override
   final ClientCapabilities capabilities = ClientCapabilities();
 
@@ -79,7 +79,7 @@ class TestMCPClient extends MCPClient {
   );
 }
 
-class TestMCPServer extends MCPServer {
+base class TestMCPServer extends MCPServer {
   @override
   final ServerImplementation implementation = ServerImplementation(
     name: 'test server',

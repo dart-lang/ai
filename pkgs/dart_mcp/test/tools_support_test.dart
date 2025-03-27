@@ -5,13 +5,12 @@
 import 'dart:async';
 
 import 'package:dart_mcp/server.dart';
-
 import 'package:test/test.dart';
 
 import 'test_utils.dart';
 
 void main() {
-  test('client and server can communicate', () async {
+  test('client can list and invoke tools from the server', () async {
     var environment = TestEnvironment(
       TestMCPClient(),
       TestMCPServerWithTools.new,
@@ -24,7 +23,7 @@ void main() {
 
     final serverConnection = environment.serverConnection;
 
-    final toolsResult = await serverConnection.listTools();
+    final toolsResult = await serverConnection.listTools(ListToolsRequest());
     expect(toolsResult.tools.length, 1);
 
     final tool = toolsResult.tools.single;
@@ -38,17 +37,54 @@ void main() {
       isA<TextContent>().having((c) => c.text, 'text', equals('hello world!')),
     );
   });
+
+  test('client can subscribe to tool list updates from the server', () async {
+    var environment = TestEnvironment(
+      TestMCPClient(),
+      TestMCPServerWithTools.new,
+    );
+    await environment.initializeServer();
+
+    final serverConnection = environment.serverConnection;
+    final server = environment.server;
+
+    expect(
+      serverConnection.toolListChanged,
+      emitsInOrder([
+        ToolListChangedNotification(),
+        ToolListChangedNotification(),
+      ]),
+    );
+
+    server.registerTool(
+      Tool(name: 'foo', inputSchema: InputSchema()),
+      (_) => CallToolResult(content: []),
+    );
+
+    server.unregisterTool('foo');
+
+    // Give the notifications time to be received.
+    await pumpEventQueue();
+
+    // Need to manually close so the stream matchers can complete.
+    await environment.shutdown();
+  });
 }
 
-class TestMCPServerWithTools extends TestMCPServer with ToolsSupport {
+final class TestMCPServerWithTools extends TestMCPServer with ToolsSupport {
   TestMCPServerWithTools(super.channel) : super();
 
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
     registerTool(
-      Tool(name: 'hello world', inputSchema: InputSchema()),
+      helloWorld,
       (_) => CallToolResult(content: [TextContent(text: 'hello world!')]),
     );
     return super.initialize(request);
   }
+
+  static final helloWorld = Tool(
+    name: 'hello world',
+    inputSchema: InputSchema(),
+  );
 }

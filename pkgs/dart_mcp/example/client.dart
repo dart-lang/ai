@@ -34,7 +34,7 @@ void main() async {
   }
 
   print('Listing tools from server');
-  final toolsResult = await server.listTools();
+  final toolsResult = await server.listTools(ListToolsRequest());
   for (final tool in toolsResult.tools) {
     print('Found Tool: ${tool.name}');
     if (tool.name == 'hello world') {
@@ -53,7 +53,7 @@ void main() async {
   await client.shutdownServer(serverName);
 }
 
-class DartMCPClient extends MCPClient {
+final class DartMCPClient extends MCPClient {
   @override
   final ClientCapabilities capabilities = ClientCapabilities();
 

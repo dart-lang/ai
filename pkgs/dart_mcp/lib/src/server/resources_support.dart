@@ -17,7 +17,7 @@ part of 'server.dart';
 /// they can be notified of changes to resources.
 ///
 /// See https://modelcontextprotocol.io/docs/concepts/resources.
-mixin ResourcesSupport on MCPServer {
+base mixin ResourcesSupport on MCPServer {
   /// The current resources by URI.
   final Map<String, Resource> _resources = {};
 
