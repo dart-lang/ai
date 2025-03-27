@@ -23,7 +23,7 @@ extension type Cursor(String _) {}
 /// Generic metadata passed with most requests, can be anything.
 extension type Meta.fromMap(Map<String, Object?> _value) {}
 
-/// A "mixin"-like extension type for any extension type that contains a
+/// A "mixin"-like extension type for any extension type that might contain a
 /// [ProgressToken] at the key "progressToken".
 ///
 /// Should be "mixed in" by implementing this type from other extension types.
@@ -118,7 +118,7 @@ extension type InitializeRequest._fromMap(Map<String, Object?> _value)
     required String protocolVersion,
     required ClientCapabilities capabilities,
     required ClientImplementation clientInfo,
-    Meta? meta,
+    MetaWithProgressToken? meta,
   }) => InitializeRequest._fromMap({
     'protocolVersion': protocolVersion,
     'capabilities': capabilities,
@@ -340,45 +340,48 @@ extension type ServerImplementation.fromMap(Map<String, Object?> _value) {
   String get version => _value['version'] as String;
 }
 
-// /* Ping */
-// /**
-//  * A ping, issued by either the server or the client, to check that the other
-//  * party is still alive. The receiver must promptly respond, or else may be
-//  * disconnected.
-//  */
-// export interface PingRequest extends Request {
-//   method: "ping";
-// }
+/// A ping, issued by either the server or the client, to check that the other
+/// party is still alive.
+///
+/// The receiver must promptly respond, or else may be disconnected.
+extension type PingRequest.fromMap(Map<String, Object?> _value)
+    implements Request {
+  static const methodName = 'ping';
 
-// /* Progress notifications */
-// /**
-//  * An out-of-band notification used to inform the receiver of a progress
-//  * update for a long-running request.
-//  */
-// export interface ProgressNotification extends Notification {
-//   method: "notifications/progress";
-//   params: {
-//     /**
-//      * The progress token which was given in the initial request, used to
-//      * associate this notification with the request that is proceeding.
-//      */
-//     progressToken: ProgressToken;
-//     /**
-//      * The progress thus far. This should increase every time progress is
-//      * made, even if the total is unknown.
-//      *
-//      * @TJS-type number
-//      */
-//     progress: number;
-//     /**
-//      * Total number of items to process (or total progress required), if
-//      * known.
-//      *
-//      * @TJS-type number
-//      */
-//     total?: number;
-//   };
-// }
+  factory PingRequest({MetaWithProgressToken? meta}) =>
+      PingRequest.fromMap({if (meta != null) '_meta': meta});
+}
+
+/// An out-of-band notification used to inform the receiver of a progress
+/// update for a long-running request.
+extension type ProgressNotification.fromMap(Map<String, Object?> _value)
+    implements Notification {
+  static const methodName = 'notifications/progress';
+
+  factory ProgressNotification({
+    required ProgressToken progressToken,
+    required int progress,
+    int? total,
+    Meta? meta,
+  }) => ProgressNotification.fromMap({
+    'progressToken': progressToken,
+    'progress': progress,
+    if (total != null) 'total': total,
+    if (meta != null) '_meta': meta,
+  });
+
+  /// The progress token which was given in the initial request, used to
+  /// associate this notification with the request that is proceeding.
+  ProgressToken get progressToken => _value['progressToken'] as ProgressToken;
+
+  /// The progress thus far. This should increase every time progress is
+  /// made, even if the total is unknown.
+  int get progress => _value['progress'] as int;
+
+  /// Total number of items to process (or total progress required), if
+  /// known.
+  int? get total => _value['total'] as int?;
+}
 
 /// A "mixin"-like extension type for any request that contains a [Cursor] at
 /// the key "cursor".
@@ -412,7 +415,7 @@ extension type ListResourcesRequest.fromMap(Map<String, Object?> _value)
     implements PaginatedRequest {
   static const methodName = 'resources/list';
 
-  factory ListResourcesRequest({Cursor? cursor, Meta? meta}) =>
+  factory ListResourcesRequest({Cursor? cursor, MetaWithProgressToken? meta}) =>
       ListResourcesRequest.fromMap({
         if (cursor != null) 'cursor': cursor,
         if (meta != null) '_meta': meta,
@@ -442,11 +445,13 @@ extension type ListResourceTemplatesRequest.fromMap(Map<String, Object?> _value)
     implements PaginatedRequest {
   static const methodName = 'resources/templates/list';
 
-  factory ListResourceTemplatesRequest({Cursor? cursor, Meta? meta}) =>
-      ListResourceTemplatesRequest.fromMap({
-        if (cursor != null) 'cursor': cursor,
-        if (meta != null) '_meta': meta,
-      });
+  factory ListResourceTemplatesRequest({
+    Cursor? cursor,
+    MetaWithProgressToken? meta,
+  }) => ListResourceTemplatesRequest.fromMap({
+    if (cursor != null) 'cursor': cursor,
+    if (meta != null) '_meta': meta,
+  });
 }
 
 /// The server's response to a resources/templates/list request from the client.
@@ -471,11 +476,13 @@ extension type ReadResourceRequest.fromMap(Map<String, Object?> _value)
     implements Request {
   static const methodName = 'resources/read';
 
-  factory ReadResourceRequest({required String uri, Meta? meta}) =>
-      ReadResourceRequest.fromMap({
-        'uri': uri,
-        if (meta != null) '_meta': meta,
-      });
+  factory ReadResourceRequest({
+    required String uri,
+    MetaWithProgressToken? meta,
+  }) => ReadResourceRequest.fromMap({
+    'uri': uri,
+    if (meta != null) '_meta': meta,
+  });
 
   /// The URI of the resource to read. The URI can use any protocol; it is
   /// up to the server how to interpret it.
@@ -520,8 +527,10 @@ extension type SubscribeRequest.fromMap(Map<String, Object?> _value)
     implements Request {
   static const methodName = 'resources/subscribe';
 
-  factory SubscribeRequest({required String uri, Meta? meta}) =>
-      SubscribeRequest.fromMap({'uri': uri, if (meta != null) '_meta': meta});
+  factory SubscribeRequest({
+    required String uri,
+    MetaWithProgressToken? meta,
+  }) => SubscribeRequest.fromMap({'uri': uri, if (meta != null) '_meta': meta});
 
   /// The URI of the resource to subscribe to. The URI can use any protocol;
   /// it is up to the server how to interpret it.
@@ -536,7 +545,10 @@ extension type UnsubscribeRequest.fromMap(Map<String, Object?> _value)
     implements Request {
   static const methodName = 'resources/unsubscribe';
 
-  factory UnsubscribeRequest({required String uri, Meta? meta}) =>
+  factory UnsubscribeRequest({
+    required String uri,
+    MetaWithProgressToken? meta,
+  }) =>
       UnsubscribeRequest.fromMap({'uri': uri, if (meta != null) '_meta': meta});
 
   /// The URI of the resource to unsubscribe from.
@@ -756,7 +768,7 @@ extension type ListToolsRequest.fromMap(Map<String, Object?> _value)
     implements PaginatedRequest {
   static const methodName = 'tools/list';
 
-  factory ListToolsRequest({Cursor? cursor, Meta? meta}) =>
+  factory ListToolsRequest({Cursor? cursor, MetaWithProgressToken? meta}) =>
       ListToolsRequest.fromMap({
         if (cursor != null) 'cursor': cursor,
         if (meta != null) '_meta': meta,
@@ -960,7 +972,7 @@ extension type CallToolRequest._fromMap(Map<String, Object?> _value)
   factory CallToolRequest({
     required String name,
     Map<String, Object?>? arguments,
-    Meta? meta,
+    MetaWithProgressToken? meta,
   }) => CallToolRequest._fromMap({
     'name': name,
     if (arguments != null) 'arguments': arguments,
