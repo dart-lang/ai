@@ -13,7 +13,7 @@ part of 'server.dart';
 /// Supports `listChanged` notifications for changes to the prompts list.
 ///
 /// See https://modelcontextprotocol.io/docs/concepts/prompts.
-mixin PromptsSupport on MCPServer {
+base mixin PromptsSupport on MCPServer {
   /// The added prompts by name.
   final Map<String, Prompt> _prompts = {};
 

@@ -77,7 +77,7 @@ void main() {
   });
 }
 
-class TestMCPServerWithPrompts extends TestMCPServer with PromptsSupport {
+final class TestMCPServerWithPrompts extends TestMCPServer with PromptsSupport {
   TestMCPServerWithPrompts(super.channel);
 
   @override
