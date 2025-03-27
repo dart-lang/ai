@@ -7,7 +7,7 @@ import 'dart:convert';
 // TODO: Refactor to drop this dependency?
 import 'dart:io';
 
-import 'package:async/async.dart';
+import 'package:async/async.dart' hide Result;
 import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:stream_channel/stream_channel.dart';
 
@@ -76,6 +76,12 @@ abstract base class MCPClient {
 class ServerConnection {
   final Peer _peer;
 
+  /// Progress controllers by token.
+  ///
+  /// These are created through the [onProgress] method.
+  final _progressControllers =
+      <ProgressToken, StreamController<ProgressNotification>>{};
+
   /// Emits an event any time the server notifies us of a change to the list of
   /// tools it supports.
   ///
@@ -109,6 +115,11 @@ class ServerConnection {
   ServerConnection.fromStreamChannel(StreamChannel<String> channel)
     : _peer = Peer(channel) {
     _peer.registerMethod(PingRequest.methodName, convertParameters(handlePing));
+
+    _peer.registerMethod(
+      ProgressNotification.methodName,
+      convertParameters(handleProgress),
+    );
 
     _peer.registerMethod(
       ToolListChangedNotification.methodName,
@@ -176,53 +187,83 @@ class ServerConnection {
   /// response.
   FutureOr<EmptyResult> handlePing(PingRequest request) => EmptyResult();
 
-  /// List all the tools from this server.
-  Future<ListToolsResult> listTools(ListToolsRequest request) async {
-    return ListToolsResult.fromMap(
-      ((await _peer.sendRequest(ListToolsRequest.methodName, request)) as Map)
-          .cast(),
-    );
+  /// Handles [ProgressNotification]s and forwards them to the streams returned
+  /// by [onProgress] calls.
+  void handleProgress(ProgressNotification notification) =>
+      _progressControllers[notification.progressToken]?.add(notification);
+
+  /// A stream of progress notifications for a given [request].
+  ///
+  /// The [request] must contain a [ProgressToken] in its metadata (at
+  /// `request.meta.progressToken`), otherwise an [ArgumentError] will be
+  /// thrown.
+  ///
+  /// The returned stream is a "broadcast" stream, so events are not buffered
+  /// and previous events will not be re-played when you subscribe.
+  Stream<ProgressNotification> onProgress(Request request) {
+    final token = request.meta?.progressToken;
+    if (token == null) {
+      throw ArgumentError.value(
+        null,
+        'request.meta.progressToken',
+        'A progress token is required in order to track progress for a request',
+      );
+    }
+    return (_progressControllers[token] ??=
+            StreamController<ProgressNotification>.broadcast())
+        .stream;
   }
+
+  /// Notifies the server of progress towards completing some request.
+  void notifyProgress(ProgressNotification notification) =>
+      _peer.sendNotification(ProgressNotification.methodName, notification);
+
+  /// Sends [request] to the server, and handles coercing the response to the
+  /// type [T].
+  ///
+  /// Closes any progress streams for [request] once the response has been
+  /// received.
+  Future<T> _sendRequest<T extends Result>(
+    String methodName,
+    Request request,
+  ) async {
+    try {
+      return (await _peer.sendRequest(methodName, request) as Map)
+              .cast<String, Object?>()
+          as T;
+    } finally {
+      final token = request.meta?.progressToken;
+      if (token != null) {
+        await _progressControllers.remove(token)?.close();
+      }
+    }
+  }
+
+  /// List all the tools from this server.
+  Future<ListToolsResult> listTools(ListToolsRequest request) =>
+      _sendRequest(ListToolsRequest.methodName, request);
 
   /// Invokes a [Tool] returned from the [ListToolsResult].
-  Future<CallToolResult> callTool(CallToolRequest request) async {
-    return CallToolResult.fromMap(
-      ((await _peer.sendRequest(CallToolRequest.methodName, request)) as Map)
-          .cast(),
-    );
-  }
+  Future<CallToolResult> callTool(CallToolRequest request) =>
+      _sendRequest(CallToolRequest.methodName, request);
 
   /// Lists all the resources from this server.
-  Future<ListResourcesResult> listResources(
-    ListResourcesRequest request,
-  ) async {
-    return ListResourcesResult.fromMap(
-      ((await _peer.sendRequest(ListResourcesRequest.methodName, request))
-              as Map)
-          .cast(),
-    );
-  }
+  Future<ListResourcesResult> listResources(ListResourcesRequest request) =>
+      _sendRequest(ListResourcesRequest.methodName, request);
 
   /// Reads a [Resource] returned from the [ListResourcesResult].
-  Future<ReadResourceResult> readResource(ReadResourceRequest request) async {
-    return ReadResourceResult.fromMap(
-      ((await _peer.sendRequest(ReadResourceRequest.methodName, request))
-              as Map)
-          .cast(),
-    );
-  }
+  Future<ReadResourceResult> readResource(ReadResourceRequest request) =>
+      _sendRequest(ReadResourceRequest.methodName, request);
 
   /// Subscribes this client to a resource by URI (at `request.uri`).
   ///
   /// Updates will come on the [resourceUpdated] stream.
-  void subscribeResource(SubscribeRequest request) async {
-    _peer.sendNotification(SubscribeRequest.methodName, request);
-  }
+  void subscribeResource(SubscribeRequest request) =>
+      _peer.sendNotification(SubscribeRequest.methodName, request);
 
   /// Unsubscribes this client to a resource by URI (at `request.uri`).
   ///
   /// Updates will come on the [resourceUpdated] stream.
-  void unsubscribeResource(UnsubscribeRequest request) async {
-    _peer.sendNotification(UnsubscribeRequest.methodName, request);
-  }
+  void unsubscribeResource(UnsubscribeRequest request) =>
+      _peer.sendNotification(UnsubscribeRequest.methodName, request);
 }

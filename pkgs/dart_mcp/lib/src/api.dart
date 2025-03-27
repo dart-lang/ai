@@ -35,7 +35,10 @@ extension type WithProgressToken.fromMap(Map<String, Object?> _value) {
 ///
 /// Has arbitrary other keys.
 extension type MetaWithProgressToken.fromMap(Map<String, Object?> _value)
-    implements Meta, WithProgressToken {}
+    implements Meta, WithProgressToken {
+  factory MetaWithProgressToken({ProgressToken? progressToken}) =>
+      MetaWithProgressToken.fromMap({'progressToken': progressToken});
+}
 
 /// Base interface for all request types.
 ///
@@ -123,7 +126,7 @@ extension type InitializeRequest._fromMap(Map<String, Object?> _value)
     'protocolVersion': protocolVersion,
     'capabilities': capabilities,
     'clientInfo': clientInfo,
-    if (meta != null) 'meta': meta,
+    if (meta != null) '_meta': meta,
   });
 
   /// The latest version of the Model Context Protocol that the client supports.
@@ -976,7 +979,7 @@ extension type CallToolRequest._fromMap(Map<String, Object?> _value)
   }) => CallToolRequest._fromMap({
     'name': name,
     if (arguments != null) 'arguments': arguments,
-    if (meta != null) 'meta': meta,
+    if (meta != null) '_meta': meta,
   });
 
   /// The name of the method to invoke.
@@ -997,7 +1000,7 @@ extension type ToolListChangedNotification.fromMap(Map<String, Object?> _value)
   static const methodName = 'notifications/tools/list_changed';
 
   factory ToolListChangedNotification({Meta? meta}) =>
-      ToolListChangedNotification.fromMap({if (meta != null) 'meta': meta});
+      ToolListChangedNotification.fromMap({if (meta != null) '_meta': meta});
 }
 
 /// Definition for a tool the client can call.

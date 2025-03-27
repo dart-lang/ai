@@ -96,4 +96,12 @@ abstract base class MCPServer {
       .sendRequest(PingRequest.methodName, request)
       .then((_) => true)
       .timeout(timeout, onTimeout: () => false);
+
+  /// Notifies the client of progress towards completing some request.
+  ///
+  /// Progress tokens may be provided for any [Request] object, through the
+  /// `request.meta.progressToken` but servers are not required to send any
+  /// progress notifications.
+  void notifyProgress(ProgressNotification notification) =>
+      _peer.sendNotification(ProgressNotification.methodName, notification);
 }
