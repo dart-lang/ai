@@ -377,8 +377,10 @@ extension type ProgressNotification.fromMap(Map<String, Object?> _value)
   /// associate this notification with the request that is proceeding.
   ProgressToken get progressToken => _value['progressToken'] as ProgressToken;
 
-  /// The progress thus far. This should increase every time progress is
-  /// made, even if the total is unknown.
+  /// The progress thus far.
+  ///
+  /// This should increase every time progress is made, even if the total is
+  /// unknown.
   int get progress => _value['progress'] as int;
 
   /// Total number of items to process (or total progress required), if
