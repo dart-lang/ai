@@ -58,7 +58,7 @@ extension type Notification(Map<String, Object?> _value) {
 }
 
 /// Base interface for all responses to requests.
-extension type Result(Map<String, Object?> _value) {
+extension type Result._(Map<String, Object?> _value) {
   Meta? get meta => _value['_meta'] as Meta?;
 }
 
