@@ -82,9 +82,9 @@ void main() {
     );
 
     final resourceChangedQueue = StreamQueue(serverConnection.resourceUpdated);
-    serverConnection.subscribeResource(SubscribeRequest(uri: fooResource.uri));
-    // Let the server process the request
-    await pumpEventQueue();
+    await serverConnection.subscribeResource(
+      SubscribeRequest(uri: fooResource.uri),
+    );
 
     fooContents = 'baz';
     server.updateResource(fooResource);
@@ -111,11 +111,9 @@ void main() {
       ),
     );
 
-    serverConnection.unsubscribeResource(
+    await serverConnection.unsubscribeResource(
       UnsubscribeRequest(uri: fooResource.uri),
     );
-    // Let the server process the request
-    await pumpEventQueue();
 
     fooContents = 'zap';
     server.updateResource(fooResource);

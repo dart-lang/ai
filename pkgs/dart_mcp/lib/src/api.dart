@@ -224,7 +224,7 @@ extension type RootsCapabilities.fromMap(Map<String, Object?> _value) {
 extension type ServerCapabilities.fromMap(Map<String, Object?> _value) {
   factory ServerCapabilities({
     Map<String, Object?>? experimental,
-    Map<String, Object?>? logging,
+    Logging? logging,
     Prompts? prompts,
     Resources? resources,
     Tools? tools,
@@ -240,9 +240,21 @@ extension type ServerCapabilities.fromMap(Map<String, Object?> _value) {
   Map<String, Object?>? get experimental =>
       (_value['experimental'] as Map?)?.cast<String, Object?>();
 
+  /// Sets [experimental] if it is null, otherwise throws.
+  set experimental(Map<String, Object?>? value) {
+    assert(experimental == null);
+    _value['experimental'] = value;
+  }
+
   /// Present if the server supports sending log messages to the client.
-  Map<String, Object?>? get logging =>
-      (_value['logging'] as Map?)?.cast<String, Object?>();
+  Logging? get logging =>
+      (_value['logging'] as Map?)?.cast<String, Object?>() as Logging?;
+
+  /// Sets [logging] if it is null, otherwise throws.
+  set logging(Logging? value) {
+    assert(logging == null);
+    _value['logging'] = value;
+  }
 
   /// Present if the server offers any prompt templates.
   Prompts? get prompts => _value['prompts'] as Prompts?;
@@ -1121,6 +1133,11 @@ extension type InputSchema.fromMap(Map<String, Object?> _value) {
   List<String>? get required => (_value['required'] as List?)?.cast<String>();
 }
 
+/// Extension type for the `logging` capability.
+extension type Logging.fromMap(Map<String, Object?> _value) {
+  factory Logging() => Logging.fromMap({});
+}
+
 /// A request from the client to the server, to enable or adjust logging.
 extension type SetLevelRequest.fromMap(Map<String, Object?> _value)
     implements Request {
@@ -1187,7 +1204,11 @@ enum LoggingLevel {
   error,
   critical,
   alert,
-  emergency,
+  emergency;
+
+  bool operator <(LoggingLevel other) => index < other.index;
+  bool operator >(LoggingLevel other) => index > other.index;
+  bool operator >=(LoggingLevel other) => index >= other.index;
 }
 
 // /* Sampling */

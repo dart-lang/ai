@@ -11,6 +11,7 @@ import 'package:stream_channel/stream_channel.dart';
 import '../api.dart';
 import '../util.dart';
 
+part 'logging_support.dart';
 part 'prompts_support.dart';
 part 'resources_support.dart';
 part 'tools_support.dart';

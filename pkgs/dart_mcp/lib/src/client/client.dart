@@ -122,6 +122,14 @@ class ServerConnection {
   final _resourceUpdatedController =
       StreamController<ResourceUpdatedNotification>.broadcast();
 
+  /// Emits an event any time the server sends a log message.
+  ///
+  /// This is a broadcast stream, events are not buffered and only future events
+  /// are given.
+  Stream<LoggingMessageNotification> get onLog => _logController.stream;
+  final _logController =
+      StreamController<LoggingMessageNotification>.broadcast();
+
   ServerConnection.fromStreamChannel(StreamChannel<String> channel)
     : _peer = Peer(channel) {
     _peer.registerMethod(PingRequest.methodName, convertParameters(handlePing));
@@ -151,17 +159,26 @@ class ServerConnection {
       convertParameters(_resourceUpdatedController.sink.add),
     );
 
+    _peer.registerMethod(
+      LoggingMessageNotification.methodName,
+      convertParameters(_logController.sink.add),
+    );
+
     _peer.listen();
   }
 
   /// Close all connections and streams so the process can cleanly exit.
   Future<void> shutdown() async {
+    final progressControllers = _progressControllers.values.toList();
+    _progressControllers.clear();
     await Future.wait([
       _peer.close(),
       _promptListChangedController.close(),
       _toolListChangedController.close(),
       _resourceListChangedController.close(),
       _resourceUpdatedController.close(),
+      _logController.close(),
+      for (var c in progressControllers) c.close(),
     ]);
   }
 
@@ -290,12 +307,18 @@ class ServerConnection {
   /// Subscribes this client to a resource by URI (at `request.uri`).
   ///
   /// Updates will come on the [resourceUpdated] stream.
-  void subscribeResource(SubscribeRequest request) =>
-      _peer.sendNotification(SubscribeRequest.methodName, request);
+  Future<void> subscribeResource(SubscribeRequest request) =>
+      _sendRequest(SubscribeRequest.methodName, request);
 
   /// Unsubscribes this client to a resource by URI (at `request.uri`).
   ///
   /// Updates will come on the [resourceUpdated] stream.
-  void unsubscribeResource(UnsubscribeRequest request) =>
-      _peer.sendNotification(UnsubscribeRequest.methodName, request);
+  Future<void> unsubscribeResource(UnsubscribeRequest request) =>
+      _sendRequest(UnsubscribeRequest.methodName, request);
+
+  /// Sends a request to change the current logging level.
+  ///
+  /// Completes when the response is received.
+  Future<void> setLogLevel(SetLevelRequest request) =>
+      _sendRequest(SetLevelRequest.methodName, request);
 }

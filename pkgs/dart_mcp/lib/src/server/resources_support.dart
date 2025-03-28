@@ -143,17 +143,21 @@ base mixin ResourcesSupport on MCPServer {
   }
 
   /// Subscribes the client to the resource at `request.uri`.
-  void _subscribeResource(SubscribeRequest request) async {
-    // We can't return an error as there is no response, so we just don't do
-    // anything.
-    if (!_resources.containsKey(request.uri)) return;
+  FutureOr<EmptyResult> _subscribeResource(SubscribeRequest request) async {
+    if (!_resources.containsKey(request.uri)) {
+      throw ArgumentError.value(request.uri, 'uri', 'Resource not found');
+    }
 
     _subscribedResources.add(request.uri);
+
+    return EmptyResult();
   }
 
   /// Unsubscribes the client to the resource at `request.uri`.
-  void _unsubscribeResource(UnsubscribeRequest request) async {
+  FutureOr<EmptyResult> _unsubscribeResource(UnsubscribeRequest request) async {
     _subscribedResources.remove(request.uri);
+
+    return EmptyResult();
   }
 
   /// Called whenever the list of resources changes, it is the job of the client
