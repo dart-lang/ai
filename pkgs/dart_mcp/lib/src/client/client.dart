@@ -174,12 +174,8 @@ class ServerConnection {
   ///
   /// The client must call [notifyInitialized] after receiving and accepting
   /// this response.
-  Future<InitializeResult> initialize(InitializeRequest request) async {
-    return InitializeResult.fromMap(
-      ((await _peer.sendRequest(InitializeRequest.methodName, request)) as Map)
-          .cast(),
-    );
-  }
+  Future<InitializeResult> initialize(InitializeRequest request) =>
+      _sendRequest(InitializeRequest.methodName, request);
 
   /// Pings the server, and returns whether or not it responded within
   /// [timeout].
@@ -194,10 +190,10 @@ class ServerConnection {
   Future<bool> ping(
     PingRequest request, {
     Duration timeout = const Duration(seconds: 1),
-  }) => _peer
-      .sendRequest(PingRequest.methodName, request)
-      .then((_) => true)
-      .timeout(timeout, onTimeout: () => false);
+  }) => _sendRequest<EmptyResult>(
+    PingRequest.methodName,
+    request,
+  ).then((_) => true).timeout(timeout, onTimeout: () => false);
 
   /// The server may ping us at any time, and we should respond with an empty
   /// response.
@@ -272,20 +268,12 @@ class ServerConnection {
       _sendRequest(ReadResourceRequest.methodName, request);
 
   /// Lists all the prompts from this server.
-  Future<ListPromptsResult> listPrompts(ListPromptsRequest request) async {
-    return ListPromptsResult.fromMap(
-      ((await _peer.sendRequest(ListPromptsRequest.methodName, request)) as Map)
-          .cast(),
-    );
-  }
+  Future<ListPromptsResult> listPrompts(ListPromptsRequest request) =>
+      _sendRequest(ListPromptsRequest.methodName, request);
 
   /// Gets the requested [Prompt] from the server.
-  Future<GetPromptResult> getPrompt(GetPromptRequest request) async {
-    return GetPromptResult.fromMap(
-      ((await _peer.sendRequest(GetPromptRequest.methodName, request)) as Map)
-          .cast(),
-    );
-  }
+  Future<GetPromptResult> getPrompt(GetPromptRequest request) =>
+      _sendRequest(GetPromptRequest.methodName, request);
 
   /// Subscribes this client to a resource by URI (at `request.uri`).
   ///
