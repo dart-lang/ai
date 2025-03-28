@@ -106,14 +106,41 @@ void main() {
       SetLevelRequest(level: LoggingLevel.warning),
     );
 
-    final lazyNotification = LoggingMessageNotification(
-      level: LoggingLevel.warning,
-      data: 'message',
+    final notifications = [
+      for (var i = 0; i < 3; i++)
+        LoggingMessageNotification(level: LoggingLevel.warning, data: i),
+    ];
+
+    expect(serverConnection.onLog, emitsInOrder(notifications));
+
+    // A function with no arguments
+    server.log(notifications[0].level, () => notifications[0].data);
+
+    // A function with an optional positional argument
+    server.log(notifications[1].level, ([int? x]) => notifications[1].data);
+
+    // A function with an optional named argument
+    server.log(notifications[2].level, ({int? x}) => notifications[2].data);
+
+    expect(
+      () => server.log(LoggingLevel.warning, () => null),
+      throwsA(isA<ArgumentError>()),
+      reason: 'Lazy message functions should not have a nullable return type',
     );
 
-    expect(serverConnection.onLog, emits(lazyNotification));
+    expect(
+      () => server.log(LoggingLevel.warning, (int x) => 'hello'),
+      throwsA(isA<ArgumentError>()),
+      reason:
+          'Lazy message functions should not have required positional '
+          'arguments',
+    );
 
-    server.log(lazyNotification.level, () => lazyNotification.data);
+    expect(
+      () => server.log(LoggingLevel.warning, (int x) => 'hello'),
+      throwsA(isA<ArgumentError>()),
+      reason: 'Lazy message functions should not have required named arguments',
+    );
 
     // Below logging level, never gets evaluated.
     server.log(LoggingLevel.info, () => throw StateError('Unreachable'));
