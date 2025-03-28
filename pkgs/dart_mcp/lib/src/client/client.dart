@@ -12,7 +12,7 @@ import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:stream_channel/stream_channel.dart';
 
 import '../api.dart';
-import '../util.dart';
+import '../shared.dart';
 
 /// Base class for MCP clients to extend.
 abstract base class MCPClient {
@@ -73,15 +73,7 @@ abstract base class MCPClient {
 }
 
 /// An active server connection.
-class ServerConnection {
-  final Peer _peer;
-
-  /// Progress controllers by token.
-  ///
-  /// These are created through the [onProgress] method.
-  final _progressControllers =
-      <ProgressToken, StreamController<ProgressNotification>>{};
-
+base class ServerConnection extends MCPBase {
   /// Emits an event any time the server notifies us of a change to the list of
   /// prompts it supports.
   ///
@@ -123,41 +115,40 @@ class ServerConnection {
       StreamController<ResourceUpdatedNotification>.broadcast();
 
   ServerConnection.fromStreamChannel(StreamChannel<String> channel)
-    : _peer = Peer(channel) {
-    _peer.registerMethod(PingRequest.methodName, convertParameters(handlePing));
+    : super(Peer(channel)) {
+    registerRequestHandler(PingRequest.methodName, handlePing);
 
-    _peer.registerMethod(
+    registerNotificationHandler(
       ProgressNotification.methodName,
-      convertParameters(handleProgress),
+      handleProgress,
     );
 
-    _peer.registerMethod(
+    registerNotificationHandler(
       PromptListChangedNotification.methodName,
-      convertParameters(_promptListChangedController.sink.add),
+      _promptListChangedController.sink.add,
     );
 
-    _peer.registerMethod(
+    registerNotificationHandler(
       ToolListChangedNotification.methodName,
-      convertParameters(_toolListChangedController.sink.add),
+      _toolListChangedController.sink.add,
     );
 
-    _peer.registerMethod(
+    registerNotificationHandler(
       ResourceListChangedNotification.methodName,
-      convertParameters(_resourceListChangedController.sink.add),
+      _resourceListChangedController.sink.add,
     );
 
-    _peer.registerMethod(
+    registerNotificationHandler(
       ResourceUpdatedNotification.methodName,
-      convertParameters(_resourceUpdatedController.sink.add),
+      _resourceUpdatedController.sink.add,
     );
-
-    _peer.listen();
   }
 
   /// Close all connections and streams so the process can cleanly exit.
+  @override
   Future<void> shutdown() async {
     await Future.wait([
-      _peer.close(),
+      super.shutdown(),
       _promptListChangedController.close(),
       _toolListChangedController.close(),
       _resourceListChangedController.close(),
@@ -166,16 +157,15 @@ class ServerConnection {
   }
 
   /// Called after a successful call to [initialize].
-  void notifyInitialized(InitializedNotification notification) {
-    _peer.sendNotification(InitializedNotification.methodName, notification);
-  }
+  void notifyInitialized(InitializedNotification notification) =>
+      sendNotification(InitializedNotification.methodName, notification);
 
   /// Initializes the server, this should be done before anything else.
   ///
   /// The client must call [notifyInitialized] after receiving and accepting
   /// this response.
   Future<InitializeResult> initialize(InitializeRequest request) =>
-      _sendRequest(InitializeRequest.methodName, request);
+      sendRequest(InitializeRequest.methodName, request);
 
   /// Pings the server, and returns whether or not it responded within
   /// [timeout].
@@ -190,7 +180,7 @@ class ServerConnection {
   Future<bool> ping(
     PingRequest request, {
     Duration timeout = const Duration(seconds: 1),
-  }) => _sendRequest<EmptyResult>(
+  }) => sendRequest<EmptyResult>(
     PingRequest.methodName,
     request,
   ).then((_) => true).timeout(timeout, onTimeout: () => false);
@@ -199,91 +189,39 @@ class ServerConnection {
   /// response.
   FutureOr<EmptyResult> handlePing(PingRequest request) => EmptyResult();
 
-  /// Handles [ProgressNotification]s and forwards them to the streams returned
-  /// by [onProgress] calls.
-  void handleProgress(ProgressNotification notification) =>
-      _progressControllers[notification.progressToken]?.add(notification);
-
-  /// A stream of progress notifications for a given [request].
-  ///
-  /// The [request] must contain a [ProgressToken] in its metadata (at
-  /// `request.meta.progressToken`), otherwise an [ArgumentError] will be
-  /// thrown.
-  ///
-  /// The returned stream is a "broadcast" stream, so events are not buffered
-  /// and previous events will not be re-played when you subscribe.
-  Stream<ProgressNotification> onProgress(Request request) {
-    final token = request.meta?.progressToken;
-    if (token == null) {
-      throw ArgumentError.value(
-        null,
-        'request.meta.progressToken',
-        'A progress token is required in order to track progress for a request',
-      );
-    }
-    return (_progressControllers[token] ??=
-            StreamController<ProgressNotification>.broadcast())
-        .stream;
-  }
-
-  /// Notifies the server of progress towards completing some request.
-  void notifyProgress(ProgressNotification notification) =>
-      _peer.sendNotification(ProgressNotification.methodName, notification);
-
-  /// Sends [request] to the server, and handles coercing the response to the
-  /// type [T].
-  ///
-  /// Closes any progress streams for [request] once the response has been
-  /// received.
-  Future<T> _sendRequest<T extends Result>(
-    String methodName,
-    Request request,
-  ) async {
-    try {
-      return (await _peer.sendRequest(methodName, request) as Map)
-              .cast<String, Object?>()
-          as T;
-    } finally {
-      final token = request.meta?.progressToken;
-      if (token != null) {
-        await _progressControllers.remove(token)?.close();
-      }
-    }
-  }
-
   /// List all the tools from this server.
   Future<ListToolsResult> listTools(ListToolsRequest request) =>
-      _sendRequest(ListToolsRequest.methodName, request);
+      sendRequest(ListToolsRequest.methodName, request);
 
   /// Invokes a [Tool] returned from the [ListToolsResult].
   Future<CallToolResult> callTool(CallToolRequest request) =>
-      _sendRequest(CallToolRequest.methodName, request);
+      sendRequest(CallToolRequest.methodName, request);
 
   /// Lists all the resources from this server.
   Future<ListResourcesResult> listResources(ListResourcesRequest request) =>
-      _sendRequest(ListResourcesRequest.methodName, request);
+      sendRequest(ListResourcesRequest.methodName, request);
 
   /// Reads a [Resource] returned from the [ListResourcesResult].
   Future<ReadResourceResult> readResource(ReadResourceRequest request) =>
-      _sendRequest(ReadResourceRequest.methodName, request);
+      sendRequest(ReadResourceRequest.methodName, request);
 
   /// Lists all the prompts from this server.
   Future<ListPromptsResult> listPrompts(ListPromptsRequest request) =>
-      _sendRequest(ListPromptsRequest.methodName, request);
+      sendRequest(ListPromptsRequest.methodName, request);
 
   /// Gets the requested [Prompt] from the server.
   Future<GetPromptResult> getPrompt(GetPromptRequest request) =>
-      _sendRequest(GetPromptRequest.methodName, request);
+      sendRequest(GetPromptRequest.methodName, request);
 
   /// Subscribes this client to a resource by URI (at `request.uri`).
   ///
   /// Updates will come on the [resourceUpdated] stream.
-  void subscribeResource(SubscribeRequest request) =>
-      _peer.sendNotification(SubscribeRequest.methodName, request);
+  Future<void> subscribeResource(SubscribeRequest request) =>
+      sendRequest(SubscribeRequest.methodName, request);
 
   /// Unsubscribes this client to a resource by URI (at `request.uri`).
   ///
   /// Updates will come on the [resourceUpdated] stream.
-  void unsubscribeResource(UnsubscribeRequest request) =>
-      _peer.sendNotification(UnsubscribeRequest.methodName, request);
+  Future<void> unsubscribeResource(UnsubscribeRequest request) =>
+      sendRequest(UnsubscribeRequest.methodName, request);
 }

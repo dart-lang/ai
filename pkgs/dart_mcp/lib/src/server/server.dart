@@ -9,7 +9,7 @@ import 'package:meta/meta.dart';
 import 'package:stream_channel/stream_channel.dart';
 
 import '../api.dart';
-import '../util.dart';
+import '../shared.dart';
 
 part 'prompts_support.dart';
 part 'resources_support.dart';
@@ -19,16 +19,14 @@ part 'tools_support.dart';
 ///
 /// Actual functionality beyond server initialization is done by mixing in
 /// additional support mixins such as [ToolsSupport], [ResourcesSupport] etc.
-abstract base class MCPServer {
+abstract base class MCPServer extends MCPBase {
   /// Completes when this server has finished initialization and gotten the
   /// final ack from the client.
   FutureOr<void> get initialized => _initialized.future;
   final Completer<void> _initialized = Completer<void>();
 
   /// Whether this server is still active and has completed initialization.
-  bool get ready => !_peer.isClosed && _initialized.isCompleted;
-
-  final Peer _peer;
+  bool get ready => isActive && _initialized.isCompleted;
 
   /// The name, current version, and other info to give to the client.
   ServerImplementation get implementation;
@@ -38,27 +36,49 @@ abstract base class MCPServer {
   /// These may be used in system prompts.
   String get instructions;
 
+  /// The capabilities of the client.
+  ///
+  /// Only assigned after `initialize` has been called.
+  late ClientCapabilities clientCapabilities;
+
+  /// Emits an event any time the client notifies us of a change to the list of
+  /// roots it supports.
+  ///
+  /// If `null` then the client doesn't support these notifications.
+  ///
+  /// This is a broadcast stream, events are not buffered and only future events
+  /// are given.
+  Stream<RootsListChangedNotification>? get rootsListChanged =>
+      _rootsListChangedController?.stream;
+  StreamController<RootsListChangedNotification>? _rootsListChangedController;
+
   MCPServer.fromStreamChannel(StreamChannel<String> channel)
-    : _peer = Peer(channel) {
-    _peer.registerMethod(PingRequest.methodName, convertParameters(handlePing));
+    : super(Peer(channel)) {
+    registerRequestHandler(PingRequest.methodName, handlePing);
 
-    _peer.registerMethod(
-      InitializeRequest.methodName,
-      convertParameters(initialize),
-    );
+    registerRequestHandler(InitializeRequest.methodName, initialize);
 
-    _peer.registerMethod(
+    registerNotificationHandler(
       InitializedNotification.methodName,
-      convertParameters(handleInitialized),
+      handleInitialized,
     );
+  }
 
-    _peer.listen();
+  @override
+  Future<void> shutdown() async {
+    await super.shutdown();
+    await _rootsListChangedController?.close();
   }
 
   @mustCallSuper
   /// Mixins should register their methods in this method, as well as editing
   /// the [InitializeResult.capabilities] as needed.
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
+    clientCapabilities = request.capabilities;
+    if (clientCapabilities.roots?.listChanged == true) {
+      _rootsListChangedController =
+          StreamController<RootsListChangedNotification>.broadcast();
+    }
     assert(!_initialized.isCompleted);
     return InitializeResult(
       protocolVersion: protocolVersion,
@@ -93,16 +113,12 @@ abstract base class MCPServer {
   Future<bool> ping(
     PingRequest request, {
     Duration timeout = const Duration(seconds: 1),
-  }) => _peer
-      .sendRequest(PingRequest.methodName, request)
-      .then((_) => true)
-      .timeout(timeout, onTimeout: () => false);
+  }) => sendRequest(
+    PingRequest.methodName,
+    request,
+  ).then((_) => true).timeout(timeout, onTimeout: () => false);
 
-  /// Notifies the client of progress towards completing some request.
-  ///
-  /// Progress tokens may be provided for any [Request] object, through the
-  /// `request.meta.progressToken` but servers are not required to send any
-  /// progress notifications.
-  void notifyProgress(ProgressNotification notification) =>
-      _peer.sendNotification(ProgressNotification.methodName, notification);
+  /// Lists all the root URIs from the client.
+  Future<ListRootsResult> listRoots(ListRootsRequest request) =>
+      sendRequest(ListRootsRequest.methodName, request);
 }

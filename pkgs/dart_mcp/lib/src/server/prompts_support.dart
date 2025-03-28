@@ -23,15 +23,9 @@ base mixin PromptsSupport on MCPServer {
 
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) async {
-    _peer.registerMethod(
-      ListPromptsRequest.methodName,
-      convertParameters(_listPrompts),
-    );
+    registerRequestHandler(ListPromptsRequest.methodName, _listPrompts);
 
-    _peer.registerMethod(
-      GetPromptRequest.methodName,
-      convertParameters(_getPrompt),
-    );
+    registerRequestHandler(GetPromptRequest.methodName, _getPrompt);
 
     final result = await super.initialize(request);
     (result.capabilities.prompts ??= Prompts()).listChanged = true;
@@ -78,10 +72,8 @@ base mixin PromptsSupport on MCPServer {
   }
 
   /// Notifies clients that the prompts list has changed.
-  void _notifyPromptListChanged() {
-    _peer.sendNotification(
-      PromptListChangedNotification.methodName,
-      PromptListChangedNotification(),
-    );
-  }
+  void _notifyPromptListChanged() => sendNotification(
+    PromptListChangedNotification.methodName,
+    PromptListChangedNotification(),
+  );
 }

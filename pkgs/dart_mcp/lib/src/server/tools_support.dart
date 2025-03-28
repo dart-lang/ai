@@ -28,15 +28,9 @@ base mixin ToolsSupport on MCPServer {
   /// will notify the client
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) async {
-    _peer.registerMethod(
-      ListToolsRequest.methodName,
-      convertParameters(_listTools),
-    );
+    registerRequestHandler(ListToolsRequest.methodName, _listTools);
+    registerRequestHandler(CallToolRequest.methodName, _callTool);
 
-    _peer.registerMethod(
-      CallToolRequest.methodName,
-      convertParameters(_callTool),
-    );
     var result = await super.initialize(request);
     (result.capabilities.tools ??= Tools()).listChanged = true;
     return result;
@@ -106,10 +100,8 @@ base mixin ToolsSupport on MCPServer {
 
   /// Called whenever the list of tools changes, it is the job of the client to
   /// then ask again for the list of tools.
-  void _notifyToolListChanged() {
-    _peer.sendNotification(
-      ToolListChangedNotification.methodName,
-      ToolListChangedNotification(),
-    );
-  }
+  void _notifyToolListChanged() => sendNotification(
+    ToolListChangedNotification.methodName,
+    ToolListChangedNotification(),
+  );
 }
