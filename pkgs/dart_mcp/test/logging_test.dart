@@ -137,7 +137,7 @@ void main() {
     );
 
     expect(
-      () => server.log(LoggingLevel.warning, (int x) => 'hello'),
+      () => server.log(LoggingLevel.warning, ({required int x}) => 'hello'),
       throwsA(isA<ArgumentError>()),
       reason: 'Lazy message functions should not have required named arguments',
     );
