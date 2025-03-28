@@ -18,9 +18,8 @@ base mixin LoggingSupport on MCPServer {
       convertParameters(handleSetLevel),
     );
 
-    final result = await super.initialize(request);
-    result.capabilities.logging ??= Logging();
-    return result;
+    return (await super.initialize(request))
+      ..capabilities.logging ??= Logging();
   }
 
   /// Sends a [LoggingMessageNotification] to the client, if the [loggingLevel]
