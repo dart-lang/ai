@@ -202,4 +202,3 @@ extension type ModelHint.fromMap(Map<String, Object?> _value) {
   ///  - `gemini-1.5-flash` could match `claude-3-haiku-20240307`
   String? get name => _value['name'] as String?;
 }
-
