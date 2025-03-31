@@ -11,6 +11,7 @@ library;
 
 import 'package:json_rpc_2/json_rpc_2.dart';
 
+part 'completion.dart';
 part 'initialization.dart';
 part 'logging.dart';
 part 'prompts.dart';
@@ -191,3 +192,136 @@ extension type PaginatedResult._fromMap(Map<String, Object?> _value)
     implements Result {
   Cursor? get cursor => _value['cursor'] as Cursor?;
 }
+
+/// Could be either [TextContent], [ImageContent] or [EmbeddedResource].
+///
+/// Use [isText], [isImage] and [isEmbeddedResource] before casting to the more
+/// specific types, or switch on the [type] and then cast.
+///
+/// Doing `is` checks does not work because these are just extension types, they
+/// all have the same runtime type (`Map<String, Object?>`).
+extension type Content._(Map<String, Object?> _value) {
+  factory Content.fromMap(Map<String, Object?> value) {
+    assert(value.containsKey('type'));
+    return Content._(value);
+  }
+
+  /// Whether or not this is a [TextContent].
+  bool get isText => _value['type'] == TextContent.expectedType;
+
+  /// Whether or not this is a [ImageContent].
+  bool get isImage => _value['type'] == ImageContent.expectedType;
+
+  /// Whether or not this is an [EmbeddedResource].
+  bool get isEmbeddedResource =>
+      _value['type'] == EmbeddedResource.expectedType;
+
+  /// The type of content.
+  ///
+  /// You can use this in a switch to handle the various types (see the static
+  /// `expectedType` getters), or you can use [isText], [isImage], and
+  /// [isEmbeddedResource] to determine the type and then do the cast.
+  String get type => _value['type'] as String;
+}
+
+/// Text provided to an LLM.
+///
+// TODO: implement `Annotated`.
+extension type TextContent.fromMap(Map<String, Object?> _value)
+    implements Content {
+  static const expectedType = 'text';
+
+  factory TextContent({required String text}) =>
+      TextContent.fromMap({'text': text, 'type': expectedType});
+
+  String get type {
+    final type = _value['type'] as String;
+    assert(type == expectedType);
+    return type;
+  }
+
+  /// The text content.
+  String get text => _value['text'] as String;
+}
+
+/// An image provided to an LLM.
+///
+// TODO: implement `Annotated`.
+extension type ImageContent.fromMap(Map<String, Object?> _value)
+    implements Content {
+  static const expectedType = 'image';
+
+  factory ImageContent({required String data, required String mimeType}) =>
+      ImageContent.fromMap({
+        'data': data,
+        'mimeType': mimeType,
+        'type': expectedType,
+      });
+
+  String get type {
+    final type = _value['type'] as String;
+    assert(type == expectedType);
+    return type;
+  }
+
+  /// If the [type] is `image`, this is the base64 encoded image data.
+  String get data => _value['data'] as String;
+
+  /// If the [type] is `image`, the MIME type of the image. Different providers
+  /// may support different image types.
+  String get mimeType => _value['mimeType'] as String;
+}
+
+/// The contents of a resource, embedded into a prompt or tool call result.
+///
+/// It is up to the client how best to render embedded resources for the benefit
+/// of the LLM and/or the user.
+///
+// TODO: implement `Annotated`.
+extension type EmbeddedResource.fromMap(Map<String, Object?> _value)
+    implements Content {
+  static const expectedType = 'resource';
+
+  factory EmbeddedResource({required Content resource}) =>
+      EmbeddedResource.fromMap({'resource': resource, 'type': expectedType});
+
+  String get type {
+    final type = _value['resource'] as String;
+    assert(type == expectedType);
+    return type;
+  }
+
+  /// Either [TextResourceContents] or [BlobResourceContents].
+  ResourceContents get resource => _value['resource'] as ResourceContents;
+
+  String? get mimeType => _value['mimeType'] as String?;
+}
+
+// /**
+//  * Base for objects that include optional annotations for the client. The
+//  * client can use annotations to inform how objects are used or displayed
+//  */
+// export interface Annotated {
+//   annotations?: {
+//     /**
+//      * Describes who the intended customer of this object or data is.
+//      *
+//      * It can include multiple entries to indicate content useful for
+//      * multiple audiences (e.g., `["user", "assistant"]`).
+//      */
+//     audience?: Role[];
+
+//     /**
+//      * Describes how important this data is for operating the server.
+//      *
+//      * A value of 1 means "most important," and indicates that the data is
+//      * effectively required, while 0 means "least important," and indicates
+//      * that the data is entirely optional.
+//      *
+//      * @TJS-type number
+//      * @minimum 0
+//      * @maximum 1
+//      */
+//     priority?: number;
+//   }
+// }
