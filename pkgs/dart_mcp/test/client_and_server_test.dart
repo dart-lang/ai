@@ -5,6 +5,7 @@
 import 'dart:async';
 
 import 'package:async/async.dart';
+import 'package:dart_mcp/client.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:json_rpc_2/error_code.dart';
 import 'package:json_rpc_2/json_rpc_2.dart';
@@ -121,6 +122,59 @@ void main() {
     // Give the bad notification time to hit our stream.
     await pumpEventQueue();
   });
+
+  test('servers can handle progress notifications', () async {
+    var environment = TestEnvironment(
+      ListRootsProgressTestMCPClient(),
+      (channel) => TestMCPServer(
+        channel.transformSink(
+          StreamSinkTransformer<String, String>.fromHandlers(
+            handleData: (data, sink) async {
+              // Add a short delay when sending out a list roots request so
+              // we can get progress notifications.
+              if (data.contains(ListRootsRequest.methodName)) {
+                await Future<void>.delayed(const Duration(milliseconds: 10));
+              }
+              sink.add(data);
+            },
+          ),
+        ),
+      ),
+    );
+    await environment.initializeServer();
+    var server = environment.server;
+
+    var request = ListRootsRequest(
+      meta: MetaWithProgressToken(progressToken: ProgressToken(1337)),
+    );
+
+    // Ensure the subscription is set up before calling the tool.
+    await pumpEventQueue();
+
+    var onDone = server.listRoots(request);
+    final expectedNotification = ProgressNotification(
+      progressToken: request.meta!.progressToken!,
+      progress: 50,
+    );
+    expect(server.onProgress(request), emits(expectedNotification));
+
+    final lateNotification = ProgressNotification(
+      progressToken: request.meta!.progressToken!,
+      progress: 100,
+    );
+    expect(
+      server.onProgress(request),
+      neverEmits(lateNotification),
+      reason: 'Should not receive progress events for completed requests',
+    );
+
+    environment.serverConnection.notifyProgress(expectedNotification);
+    await onDone;
+    environment.serverConnection.notifyProgress(lateNotification);
+
+    // Give the bad notification time to hit our stream.
+    await pumpEventQueue();
+  });
 }
 
 final class DelayedPingTestMCPServer extends TestMCPServer {
@@ -166,3 +220,6 @@ final class InitializeProgressTestMCPServer extends TestMCPServer
     inputSchema: InputSchema(),
   );
 }
+
+final class ListRootsProgressTestMCPClient extends TestMCPClient
+    with RootsSupport {}

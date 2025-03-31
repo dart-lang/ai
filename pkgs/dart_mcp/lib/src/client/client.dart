@@ -168,11 +168,6 @@ base class ServerConnection extends MCPBase {
     }
 
     registerNotificationHandler(
-      ProgressNotification.methodName,
-      handleProgress,
-    );
-
-    registerNotificationHandler(
       PromptListChangedNotification.methodName,
       _promptListChangedController.sink.add,
     );

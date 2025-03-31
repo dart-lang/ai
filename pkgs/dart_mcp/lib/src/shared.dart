@@ -9,6 +9,10 @@ import 'package:meta/meta.dart';
 
 import 'api.dart';
 
+/// Base class for both client and server implementations.
+///
+/// Handles registering method and notification handlers, sending requests and
+/// notifications, progress support, and any other shared functionality.
 base class MCPBase {
   final Peer _peer;
 
@@ -22,6 +26,11 @@ base class MCPBase {
   bool get isActive => !_peer.isClosed;
 
   MCPBase(this._peer) {
+    registerNotificationHandler(
+      ProgressNotification.methodName,
+      _handleProgress,
+    );
+
     _peer.listen();
   }
 
@@ -83,7 +92,7 @@ base class MCPBase {
 
   /// Handles [ProgressNotification]s and forwards them to the streams returned
   /// by [onProgress] calls.
-  void handleProgress(ProgressNotification notification) =>
+  void _handleProgress(ProgressNotification notification) =>
       _progressControllers[notification.progressToken]?.add(notification);
 
   /// A stream of progress notifications for a given [request].
