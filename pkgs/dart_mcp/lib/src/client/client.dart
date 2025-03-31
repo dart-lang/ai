@@ -16,6 +16,7 @@ import '../api/api.dart';
 import '../shared.dart';
 
 part 'roots_support.dart';
+part 'sampling_support.dart';
 
 /// The base class for MCP clients.
 ///
@@ -106,6 +107,11 @@ base class MCPClient {
 
 /// An active server connection.
 base class ServerConnection extends MCPBase {
+  /// The [ServerImplementation] returned from the [initialize] request.
+  ///
+  /// Only assigned after [initialize] has successfully completed.
+  late ServerImplementation serverInfo;
+
   /// Emits an event any time the server notifies us of a change to the list of
   /// prompts it supports.
   ///
@@ -214,8 +220,14 @@ base class ServerConnection extends MCPBase {
   ///
   /// The client must call [notifyInitialized] after receiving and accepting
   /// this response.
-  Future<InitializeResult> initialize(InitializeRequest request) =>
-      sendRequest(InitializeRequest.methodName, request);
+  Future<InitializeResult> initialize(InitializeRequest request) async {
+    final response = await sendRequest<InitializeResult>(
+      InitializeRequest.methodName,
+      request,
+    );
+    serverInfo = response.serverInfo;
+    return response;
+  }
 
   /// Pings the server, and returns whether or not it responded within
   /// [timeout].
