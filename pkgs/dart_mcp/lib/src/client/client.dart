@@ -146,6 +146,14 @@ base class ServerConnection extends MCPBase {
   final _resourceUpdatedController =
       StreamController<ResourceUpdatedNotification>.broadcast();
 
+  /// Emits an event any time the server sends a log message.
+  ///
+  /// This is a broadcast stream, events are not buffered and only future events
+  /// are given.
+  Stream<LoggingMessageNotification> get onLog => _logController.stream;
+  final _logController =
+      StreamController<LoggingMessageNotification>.broadcast();
+
   ServerConnection.fromStreamChannel(
     StreamChannel<String> channel, {
     RootsSupport? rootsSupport,
@@ -183,6 +191,11 @@ base class ServerConnection extends MCPBase {
       ResourceUpdatedNotification.methodName,
       _resourceUpdatedController.sink.add,
     );
+
+    registerNotificationHandler(
+      LoggingMessageNotification.methodName,
+      _logController.sink.add,
+    );
   }
 
   /// Close all connections and streams so the process can cleanly exit.
@@ -194,6 +207,7 @@ base class ServerConnection extends MCPBase {
       _toolListChangedController.close(),
       _resourceListChangedController.close(),
       _resourceUpdatedController.close(),
+      _logController.close(),
     ]);
   }
 
