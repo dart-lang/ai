@@ -201,20 +201,47 @@ extension type ClientCapabilities.fromMap(Map<String, Object?> _value) {
   });
 
   /// Experimental, non-standard capabilities that the client supports.
-  Parameter? get experimental => _value['experimental'] as Parameter?;
+  Map<String, Object?>? get experimental =>
+      _value['experimental'] as Map<String, Object?>?;
+
+  /// Sets [experimental] asserting it is non-null first.
+  set experimental(Map<String, Object?>? value) {
+    assert(experimental == null);
+    _value['experimental'] = value;
+  }
 
   /// Present if the client supports any capabilities regarding roots.
   RootsCapabilities? get roots => _value['roots'] as RootsCapabilities?;
 
+  /// Sets [roots] asserting it is non-null first.
+  set roots(RootsCapabilities? value) {
+    assert(roots == null);
+    _value['roots'] = value;
+  }
+
   /// Present if the client supports sampling from an LLM.
   Map<String, Object?>? get sampling =>
       (_value['sampling'] as Map?)?.cast<String, Object?>();
+
+  /// Sets [sampling] asserting it is non-null first.
+  set sampling(Map<String, Object?>? value) {
+    assert(sampling == null);
+    _value['sampling'] = value;
+  }
 }
 
 /// Whether the client supports notifications for changes to the roots list.
 extension type RootsCapabilities.fromMap(Map<String, Object?> _value) {
+  factory RootsCapabilities() => RootsCapabilities.fromMap({});
+
   /// Present if the client supports listing roots.
   bool? get listChanged => _value['listChanged'] as bool?;
+
+  /// Sets whether [listChanged] is supported.
+  set listChanged(bool? value) {
+    assert(listChanged == null);
+    _value['listChanged'] = value;
+  }
 }
 
 /// Capabilities that a server may support.

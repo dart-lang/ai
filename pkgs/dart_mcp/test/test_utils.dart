@@ -69,14 +69,8 @@ class TestEnvironment<Client extends MCPClient, Server extends MCPServer> {
 }
 
 base class TestMCPClient extends MCPClient {
-  @override
-  final ClientCapabilities capabilities = ClientCapabilities();
-
-  @override
-  final ClientImplementation implementation = ClientImplementation(
-    name: 'test client',
-    version: '0.1.0',
-  );
+  TestMCPClient()
+    : super(ClientImplementation(name: 'test client', version: '0.1.0'));
 }
 
 base class TestMCPServer extends MCPServer {

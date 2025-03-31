@@ -5,7 +5,9 @@
 import 'package:dart_mcp/client.dart';
 
 void main() async {
-  final client = DartMCPClient();
+  final client = MCPClient(
+    ClientImplementation(name: 'example dart client', version: '0.1.0'),
+  );
   print('connecting to server');
   final serverName = 'example dart server';
   final server = await client.connectStdioServer(serverName, 'dart', [
@@ -51,15 +53,4 @@ void main() async {
   }
 
   await client.shutdownServer(serverName);
-}
-
-final class DartMCPClient extends MCPClient {
-  @override
-  final ClientCapabilities capabilities = ClientCapabilities();
-
-  @override
-  final ClientImplementation implementation = ClientImplementation(
-    name: 'example dart client',
-    version: '0.1.0',
-  );
 }

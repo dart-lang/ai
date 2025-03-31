@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 // TODO: Refactor to drop this dependency?
 import 'dart:io';
@@ -14,10 +15,35 @@ import 'package:stream_channel/stream_channel.dart';
 import '../api.dart';
 import '../shared.dart';
 
-/// Base class for MCP clients to extend.
-abstract base class MCPClient {
-  ClientCapabilities get capabilities;
-  ClientImplementation get implementation;
+part 'roots_support.dart';
+
+/// The base class for MCP clients.
+///
+/// Can be directly constructed or extended with additional classes.
+///
+/// Adding [capabilities] is done through additional support mixins such as
+/// [RootsSupport].
+///
+/// Override the [initialize] function to perform setup logic inside mixins,
+/// this will be invoked at the end of base class constructor.
+base class MCPClient {
+  /// A description of the client sent to servers during initialization.
+  final ClientImplementation implementation;
+
+  MCPClient(this.implementation) {
+    initialize();
+  }
+
+  /// Lifecycle method called in the base class constructor.
+  ///
+  /// Used to modify the [capabilities] of this client from mixins, or perform
+  /// any other initialization that is required.
+  void initialize() {}
+
+  /// The capabilities of this client.
+  ///
+  /// This can be modified by overriding the [initialize] method.
+  final ClientCapabilities capabilities = ClientCapabilities();
 
   final Map<String, ServerConnection> _connections = {};
 

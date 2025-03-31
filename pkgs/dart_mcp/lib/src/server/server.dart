@@ -78,6 +78,10 @@ abstract base class MCPServer extends MCPBase {
     if (clientCapabilities.roots?.listChanged == true) {
       _rootsListChangedController =
           StreamController<RootsListChangedNotification>.broadcast();
+      registerNotificationHandler(
+        RootsListChangedNotification.methodName,
+        _rootsListChangedController!.sink.add,
+      );
     }
     assert(!_initialized.isCompleted);
     return InitializeResult(
