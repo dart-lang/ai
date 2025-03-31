@@ -279,4 +279,10 @@ base class ServerConnection extends MCPBase {
   /// Updates will come on the [resourceUpdated] stream.
   Future<void> unsubscribeResource(UnsubscribeRequest request) =>
       sendRequest(UnsubscribeRequest.methodName, request);
+
+  /// Sends a request to change the current logging level.
+  ///
+  /// Completes when the response is received.
+  Future<void> setLogLevel(SetLevelRequest request) =>
+      sendRequest(SetLevelRequest.methodName, request);
 }

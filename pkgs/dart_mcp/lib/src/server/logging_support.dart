@@ -13,10 +13,7 @@ base mixin LoggingSupport on MCPServer {
 
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) async {
-    _peer.registerMethod(
-      SetLevelRequest.methodName,
-      convertParameters(handleSetLevel),
-    );
+    registerRequestHandler(SetLevelRequest.methodName, handleSetLevel);
 
     return (await super.initialize(request))
       ..capabilities.logging ??= Logging();
@@ -51,7 +48,7 @@ base mixin LoggingSupport on MCPServer {
       }
     }
 
-    _peer.sendNotification(
+    sendNotification(
       LoggingMessageNotification.methodName,
       LoggingMessageNotification(
         level: level,
