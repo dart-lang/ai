@@ -221,14 +221,16 @@ extension type Content._(Map<String, Object?> _value) {
 }
 
 /// Text provided to an LLM.
-///
-// TODO: implement `Annotated`.
 extension type TextContent.fromMap(Map<String, Object?> _value)
-    implements Content {
+    implements Content, Annotated {
   static const expectedType = 'text';
 
-  factory TextContent({required String text}) =>
-      TextContent.fromMap({'text': text, 'type': expectedType});
+  factory TextContent({required String text, Annotations? annotations}) =>
+      TextContent.fromMap({
+        'text': text,
+        'type': expectedType,
+        if (annotations != null) 'annotations': annotations,
+      });
 
   String get type {
     final type = _value['type'] as String;
@@ -241,18 +243,20 @@ extension type TextContent.fromMap(Map<String, Object?> _value)
 }
 
 /// An image provided to an LLM.
-///
-// TODO: implement `Annotated`.
 extension type ImageContent.fromMap(Map<String, Object?> _value)
-    implements Content {
+    implements Content, Annotated {
   static const expectedType = 'image';
 
-  factory ImageContent({required String data, required String mimeType}) =>
-      ImageContent.fromMap({
-        'data': data,
-        'mimeType': mimeType,
-        'type': expectedType,
-      });
+  factory ImageContent({
+    required String data,
+    required String mimeType,
+    Annotations? annotations,
+  }) => ImageContent.fromMap({
+    'data': data,
+    'mimeType': mimeType,
+    'type': expectedType,
+    if (annotations != null) 'annotations': annotations,
+  });
 
   String get type {
     final type = _value['type'] as String;
@@ -272,14 +276,18 @@ extension type ImageContent.fromMap(Map<String, Object?> _value)
 ///
 /// It is up to the client how best to render embedded resources for the benefit
 /// of the LLM and/or the user.
-///
-// TODO: implement `Annotated`.
 extension type EmbeddedResource.fromMap(Map<String, Object?> _value)
-    implements Content {
+    implements Content, Annotated {
   static const expectedType = 'resource';
 
-  factory EmbeddedResource({required Content resource}) =>
-      EmbeddedResource.fromMap({'resource': resource, 'type': expectedType});
+  factory EmbeddedResource({
+    required Content resource,
+    Annotations? annotations,
+  }) => EmbeddedResource.fromMap({
+    'resource': resource,
+    'type': expectedType,
+    if (annotations != null) 'annotations': annotations,
+  });
 
   String get type {
     final type = _value['resource'] as String;
@@ -293,31 +301,41 @@ extension type EmbeddedResource.fromMap(Map<String, Object?> _value)
   String? get mimeType => _value['mimeType'] as String?;
 }
 
-// /**
-//  * Base for objects that include optional annotations for the client. The
-//  * client can use annotations to inform how objects are used or displayed
-//  */
-// export interface Annotated {
-//   annotations?: {
-//     /**
-//      * Describes who the intended customer of this object or data is.
-//      *
-//      * It can include multiple entries to indicate content useful for
-//      * multiple audiences (e.g., `["user", "assistant"]`).
-//      */
-//     audience?: Role[];
+/// Base type for objects that include optional annotations for the client.
+///
+/// The client can use annotations to inform how objects are used or displayed.
+extension type Annotated._fromMap(Map<String, Object?> _value) {
+  /// Annotations for this object.
+  Annotations? get annotations => _value['annotations'] as Annotations?;
+}
 
-//     /**
-//      * Describes how important this data is for operating the server.
-//      *
-//      * A value of 1 means "most important," and indicates that the data is
-//      * effectively required, while 0 means "least important," and indicates
-//      * that the data is entirely optional.
-//      *
-//      * @TJS-type number
-//      * @minimum 0
-//      * @maximum 1
-//      */
-//     priority?: number;
-//   }
-// }
+/// The annotations for an [Annotated] object.
+extension type Annotations.fromMap(Map<String, Object?> _value) {
+  factory Annotations({List<Role>? audience, double? priority}) =>
+      Annotations.fromMap({
+        if (audience != null)
+          'audience': [for (var role in audience) role.name],
+        if (priority != null) 'priority': priority,
+      });
+
+  /// Describes who the intended customer of this object or data is.
+  ///
+  /// It can include multiple entries to indicate content useful for
+  /// multiple audiences (e.g., `[Role.user, Role.assistant]`).
+  List<Role>? get audience {
+    final audience = _value['audience'] as List?;
+    if (audience == null) return null;
+    return [
+      for (var role in audience) Role.values.firstWhere((e) => e.name == role),
+    ];
+  }
+
+  /// Describes how important this data is for operating the server.
+  ///
+  /// A value of 1 means "most important," and indicates that the data is
+  /// effectively required, while 0 means "least important," and indicates
+  /// that the data is entirely optional.
+  ///
+  /// Must be between 0 and 1.
+  double? get priority => _value['priority'] as double?;
+}

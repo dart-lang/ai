@@ -32,10 +32,7 @@ void main() {
       CallToolRequest(name: tool.name),
     );
     expect(result.isError, isNot(true));
-    expect(
-      result.content.single,
-      isA<TextContent>().having((c) => c.text, 'text', equals('hello world!')),
-    );
+    expect(result.content.single, TestMCPServerWithTools.helloWorldContent);
   });
 
   test('client can subscribe to tool list updates from the server', () async {
@@ -78,7 +75,7 @@ final class TestMCPServerWithTools extends TestMCPServer with ToolsSupport {
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
     registerTool(
       helloWorld,
-      (_) => CallToolResult(content: [TextContent(text: 'hello world!')]),
+      (_) => CallToolResult(content: [helloWorldContent]),
     );
     return super.initialize(request);
   }
@@ -86,5 +83,10 @@ final class TestMCPServerWithTools extends TestMCPServer with ToolsSupport {
   static final helloWorld = Tool(
     name: 'hello world',
     inputSchema: InputSchema(),
+  );
+
+  static final helloWorldContent = TextContent(
+    text: 'hello world!',
+    annotations: Annotations(priority: 0.5, audience: [Role.user]),
   );
 }

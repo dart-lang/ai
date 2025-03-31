@@ -172,18 +172,19 @@ extension type ResourceUpdatedNotification.fromMap(Map<String, Object?> _value)
 }
 
 /// A known resource that the server is capable of reading.
-//
-// TODO: Implement Annotated
-extension type Resource.fromMap(Map<String, Object?> _value) {
+extension type Resource.fromMap(Map<String, Object?> _value)
+    implements Annotated {
   factory Resource({
     required String uri,
     required String name,
+    Annotations? annotations,
     String? description,
     String? mimeType,
     int? size,
   }) => Resource.fromMap({
     'uri': uri,
     'name': name,
+    if (annotations != null) 'annotations': annotations,
     if (description != null) 'description': description,
     if (mimeType != null) 'mimeType': mimeType,
     if (size != null) 'size': size,
@@ -215,17 +216,18 @@ extension type Resource.fromMap(Map<String, Object?> _value) {
 }
 
 /// A template description for resources available on the server.
-//
-// TODO: implement Annotated
-extension type ResourceTemplate.fromMap(Map<String, Object?> _value) {
+extension type ResourceTemplate.fromMap(Map<String, Object?> _value)
+    implements Annotated {
   factory ResourceTemplate({
     required String uriTemplate,
     required String name,
+    Annotations? annotations,
     String? description,
     String? mimeType,
   }) => ResourceTemplate.fromMap({
     'uriTemplate': uriTemplate,
     'name': name,
+    if (annotations != null) 'annotations': annotations,
     if (description != null) 'description': description,
     if (mimeType != null) 'mimeType': mimeType,
   });
