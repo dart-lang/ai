@@ -81,6 +81,7 @@ base class MCPClient {
     var connection = ServerConnection.fromStreamChannel(
       channel,
       rootsSupport: self is RootsSupport ? self : null,
+      samplingSupport: self is SamplingSupport ? self : null,
     );
     _connections[name] = connection;
     return connection;
@@ -163,6 +164,7 @@ base class ServerConnection extends MCPBase {
   ServerConnection.fromStreamChannel(
     StreamChannel<String> channel, {
     RootsSupport? rootsSupport,
+    SamplingSupport? samplingSupport,
   }) : super(Peer(channel)) {
     registerRequestHandler(PingRequest.methodName, _handlePing);
 
@@ -170,6 +172,14 @@ base class ServerConnection extends MCPBase {
       registerRequestHandler(
         ListRootsRequest.methodName,
         rootsSupport.handleListRoots,
+      );
+    }
+
+    if (samplingSupport != null) {
+      registerRequestHandler(
+        CreateMessageRequest.methodName,
+        (CreateMessageRequest request) =>
+            samplingSupport.handleCreateMessage(request, serverInfo),
       );
     }
 
