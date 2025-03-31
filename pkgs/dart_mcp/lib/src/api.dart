@@ -232,7 +232,9 @@ extension type ClientCapabilities.fromMap(Map<String, Object?> _value) {
 
 /// Whether the client supports notifications for changes to the roots list.
 extension type RootsCapabilities.fromMap(Map<String, Object?> _value) {
-  factory RootsCapabilities() => RootsCapabilities.fromMap({});
+  factory RootsCapabilities({bool? listChanged}) => RootsCapabilities.fromMap({
+    if (listChanged != null) 'listChanged': listChanged,
+  });
 
   /// Present if the client supports listing roots.
   bool? get listChanged => _value['listChanged'] as bool?;

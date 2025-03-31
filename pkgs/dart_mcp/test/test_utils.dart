@@ -65,6 +65,7 @@ class TestEnvironment<Client extends MCPClient, Server extends MCPServer> {
 
   Future<void> shutdown() async {
     await client.shutdown();
+    await server.shutdown();
   }
 }
 

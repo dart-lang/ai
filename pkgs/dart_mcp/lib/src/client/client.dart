@@ -74,7 +74,13 @@ base class MCPClient {
   /// Returns a connection for an MCP server with [name], communicating over
   /// [channel], which is already established.
   ServerConnection connectServer(String name, StreamChannel<String> channel) {
-    var connection = ServerConnection.fromStreamChannel(channel);
+    // For type promotion in this function.
+    var self = this;
+
+    var connection = ServerConnection.fromStreamChannel(
+      channel,
+      rootsSupport: self is RootsSupport ? self : null,
+    );
     _connections[name] = connection;
     return connection;
   }
@@ -140,9 +146,18 @@ base class ServerConnection extends MCPBase {
   final _resourceUpdatedController =
       StreamController<ResourceUpdatedNotification>.broadcast();
 
-  ServerConnection.fromStreamChannel(StreamChannel<String> channel)
-    : super(Peer(channel)) {
-    registerRequestHandler(PingRequest.methodName, handlePing);
+  ServerConnection.fromStreamChannel(
+    StreamChannel<String> channel, {
+    RootsSupport? rootsSupport,
+  }) : super(Peer(channel)) {
+    registerRequestHandler(PingRequest.methodName, _handlePing);
+
+    if (rootsSupport != null) {
+      registerRequestHandler(
+        ListRootsRequest.methodName,
+        rootsSupport.handleListRoots,
+      );
+    }
 
     registerNotificationHandler(
       ProgressNotification.methodName,
@@ -213,7 +228,7 @@ base class ServerConnection extends MCPBase {
 
   /// The server may ping us at any time, and we should respond with an empty
   /// response.
-  FutureOr<EmptyResult> handlePing(PingRequest request) => EmptyResult();
+  EmptyResult _handlePing(PingRequest request) => EmptyResult();
 
   /// List all the tools from this server.
   Future<ListToolsResult> listTools(ListToolsRequest request) =>
