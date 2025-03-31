@@ -3,10 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 
 /// Interfaces are based on https://github.com/modelcontextprotocol/specification/blob/main/schema/2024-11-05/schema.json
-//
-// TODO: Finish porting the commented out typescript types to dart extension
-//       types.
-// TODO: Autogenerate this from schema files
 library;
 
 import 'package:json_rpc_2/json_rpc_2.dart';
