@@ -8,7 +8,7 @@ import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_channel/stream_channel.dart';
 
-import '../api.dart';
+import '../api/api.dart';
 import '../shared.dart';
 
 part 'logging_support.dart';

@@ -7,7 +7,7 @@ import 'dart:async';
 import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:meta/meta.dart';
 
-import 'api.dart';
+import 'api/api.dart';
 
 /// Base class for both client and server implementations.
 ///

@@ -12,7 +12,7 @@ import 'package:async/async.dart' hide Result;
 import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:stream_channel/stream_channel.dart';
 
-import '../api.dart';
+import '../api/api.dart';
 import '../shared.dart';
 
 part 'roots_support.dart';
