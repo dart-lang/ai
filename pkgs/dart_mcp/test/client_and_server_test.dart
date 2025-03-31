@@ -27,7 +27,17 @@ void main() {
       throwsA(
         isA<RpcException>().having((e) => e.code, 'code', METHOD_NOT_FOUND),
       ),
-      reason: 'Calling unsupported methods should throw',
+      reason: 'The client calling unsupported methods should throw',
+    );
+
+    expect(
+      environment.server.createMessage(
+        CreateMessageRequest(messages: [], maxTokens: 1),
+      ),
+      throwsA(
+        isA<RpcException>().having((e) => e.code, 'code', METHOD_NOT_FOUND),
+      ),
+      reason: 'The server calling unsupported methods should throw',
     );
   });
 

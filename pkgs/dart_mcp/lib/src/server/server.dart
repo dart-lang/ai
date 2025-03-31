@@ -124,20 +124,12 @@ abstract base class MCPServer extends MCPBase {
   ).then((_) => true).timeout(timeout, onTimeout: () => false);
 
   /// Lists all the root URIs from the client.
-  Future<ListRootsResult> listRoots(ListRootsRequest request) {
-    if (clientCapabilities.roots == null) {
-      throw UnsupportedError('Client does not support roots');
-    }
-    return sendRequest(ListRootsRequest.methodName, request);
-  }
+  Future<ListRootsResult> listRoots(ListRootsRequest request) =>
+      sendRequest(ListRootsRequest.methodName, request);
 
   /// A request to prompt the LLM owned by the client with a message.
   ///
   /// See https://spec.modelcontextprotocol.io/specification/2024-11-05/client/sampling/.
-  Future<CreateMessageResult> createMessage(CreateMessageRequest request) {
-    if (clientCapabilities.sampling == null) {
-      throw UnsupportedError('Client does not support sampling');
-    }
-    return sendRequest(CreateMessageRequest.methodName, request);
-  }
+  Future<CreateMessageResult> createMessage(CreateMessageRequest request) =>
+      sendRequest(CreateMessageRequest.methodName, request);
 }
