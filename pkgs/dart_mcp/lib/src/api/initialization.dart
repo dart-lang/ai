@@ -146,6 +146,7 @@ extension type RootsCapabilities.fromMap(Map<String, Object?> _value) {
 extension type ServerCapabilities.fromMap(Map<String, Object?> _value) {
   factory ServerCapabilities({
     Map<String, Object?>? experimental,
+    Completions? completions,
     Logging? logging,
     Prompts? prompts,
     Resources? resources,
@@ -166,6 +167,15 @@ extension type ServerCapabilities.fromMap(Map<String, Object?> _value) {
   set experimental(Map<String, Object?>? value) {
     assert(experimental == null);
     _value['experimental'] = value;
+  }
+
+  /// Present if the server supports sending completion requests to the client.
+  Completions? get completions => _value['completions'] as Completions?;
+
+  /// Sets [completions] if it is null, otherwise throws.
+  set completions(Completions? value) {
+    assert(completions == null);
+    _value['completions'] = value;
   }
 
   /// Present if the server supports sending log messages to the client.
@@ -204,6 +214,11 @@ extension type ServerCapabilities.fromMap(Map<String, Object?> _value) {
     assert(tools == null);
     _value['tools'] = value;
   }
+}
+
+/// Completions parameter for [ServerCapabilities].
+extension type Completions.fromMap(Map<String, Object?> _value) {
+  factory Completions() => Completions.fromMap({});
 }
 
 /// Prompts parameter for [ServerCapabilities].

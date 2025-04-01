@@ -161,6 +161,13 @@ base class ServerConnection extends MCPBase {
   final _logController =
       StreamController<LoggingMessageNotification>.broadcast();
 
+  /// A 1:1 connection from a client to a server using [channel].
+  ///
+  /// If the client supports "roots", then it should provide an implementation
+  /// through [rootsSupport].
+  ///
+  /// If the client supports "sampling", then it should provide an
+  /// implementation through [samplingSupport].
   ServerConnection.fromStreamChannel(
     StreamChannel<String> channel, {
     RootsSupport? rootsSupport,
@@ -278,4 +285,13 @@ base class ServerConnection extends MCPBase {
   /// Completes when the response is received.
   Future<void> setLogLevel(SetLevelRequest request) =>
       sendRequest(SetLevelRequest.methodName, request);
+
+  /// Sends a request to get completions from the server.
+  ///
+  /// Clients should debounce their calls to this API to avoid overloading the
+  /// server.
+  ///
+  // TODO: Implement automatic debouncing.
+  Future<CompleteResult> requestCompletions(CompleteRequest request) =>
+      sendRequest(CompleteRequest.methodName, request);
 }
