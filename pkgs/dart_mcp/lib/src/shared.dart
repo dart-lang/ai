@@ -31,6 +31,8 @@ base class MCPBase {
       _handleProgress,
     );
 
+    registerRequestHandler(PingRequest.methodName, _handlePing);
+
     _peer.listen();
   }
 
@@ -38,6 +40,11 @@ base class MCPBase {
   @mustCallSuper
   Future<void> shutdown() async {
     await _peer.close();
+    var progressControllers = _progressControllers.values.toList();
+    _progressControllers.clear();
+    await Future.wait([
+      for (var controller in progressControllers) controller.close(),
+    ]);
   }
 
   /// Registers a handler for the method [name] on this server.
@@ -90,6 +97,10 @@ base class MCPBase {
     }
   }
 
+  /// The peer may ping us at any time, and we should respond with an empty
+  /// response.
+  EmptyResult _handlePing(PingRequest request) => EmptyResult();
+
   /// Handles [ProgressNotification]s and forwards them to the streams returned
   /// by [onProgress] calls.
   void _handleProgress(ProgressNotification notification) =>
@@ -116,4 +127,22 @@ base class MCPBase {
             StreamController<ProgressNotification>.broadcast())
         .stream;
   }
+
+  /// Pings the peer, and returns whether or not it responded within
+  /// [timeout].
+  ///
+  /// The returned future completes after one of the following:
+  ///
+  ///   - The peer responds (returns `true`).
+  ///   - The [timeout] is exceeded (returns `false`).
+  ///
+  /// If the timeout is reached, future values or errors from the ping request
+  /// are ignored.
+  Future<bool> ping(
+    PingRequest request, {
+    Duration timeout = const Duration(seconds: 1),
+  }) => sendRequest<EmptyResult>(
+    PingRequest.methodName,
+    request,
+  ).then((_) => true).timeout(timeout, onTimeout: () => false);
 }

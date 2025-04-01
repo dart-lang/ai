@@ -166,8 +166,6 @@ base class ServerConnection extends MCPBase {
     RootsSupport? rootsSupport,
     SamplingSupport? samplingSupport,
   }) : super(Peer(channel)) {
-    registerRequestHandler(PingRequest.methodName, _handlePing);
-
     if (rootsSupport != null) {
       registerRequestHandler(
         ListRootsRequest.methodName,
@@ -238,28 +236,6 @@ base class ServerConnection extends MCPBase {
     serverInfo = response.serverInfo;
     return response;
   }
-
-  /// Pings the server, and returns whether or not it responded within
-  /// [timeout].
-  ///
-  /// The returned future completes after one of the following:
-  ///
-  ///   - The server responds (returns `true`).
-  ///   - The [timeout] is exceeded (returns `false`).
-  ///
-  /// If the timeout is reached, future values or errors from the ping request
-  /// are ignored.
-  Future<bool> ping(
-    PingRequest request, {
-    Duration timeout = const Duration(seconds: 1),
-  }) => sendRequest<EmptyResult>(
-    PingRequest.methodName,
-    request,
-  ).then((_) => true).timeout(timeout, onTimeout: () => false);
-
-  /// The server may ping us at any time, and we should respond with an empty
-  /// response.
-  EmptyResult _handlePing(PingRequest request) => EmptyResult();
 
   /// List all the tools from this server.
   Future<ListToolsResult> listTools(ListToolsRequest request) =>

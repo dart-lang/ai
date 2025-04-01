@@ -42,25 +42,28 @@ extension type CreateMessageRequest.fromMap(Map<String, Object?> _value)
   List<SamplingMessage> get messages =>
       (_value['messages'] as List).cast<SamplingMessage>();
 
-  /// The server's preferences for which model to select. The client MAY
-  /// ignore these preferences.
+  /// The server's preferences for which model to select.
+  ///
+  /// The client MAY ignore these preferences.
   ModelPreferences? get modelPreferences =>
       _value['modelPreferences'] as ModelPreferences?;
 
-  /// An optional system prompt the server wants to use for sampling. The
-  /// client MAY modify or omit this prompt.
+  /// An optional system prompt the server wants to use for sampling.
+  ///
+  /// The client MAY modify or omit this prompt.
   String? get systemPrompt => _value['systemPrompt'] as String?;
 
   /// A request to include context from one or more MCP servers (including
-  /// the caller), to be attached to the prompt. The client MAY ignore this
-  /// request.
+  /// the caller), to be attached to the prompt.
+  ///
+  /// The client MAY ignore this request.
   IncludeContext? get includeContext {
     final includeContext = _value['includeContext'] as String?;
     if (includeContext == null) return null;
     return IncludeContext.values.firstWhere((c) => c.name == includeContext);
   }
 
-  /// The temperature to use for sampling
+  /// The temperature to use for sampling.
   double? get temperature => _value['temperature'] as double?;
 
   /// The maximum number of tokens to sample, as requested by the server.
@@ -68,6 +71,7 @@ extension type CreateMessageRequest.fromMap(Map<String, Object?> _value)
   /// The client MAY choose to sample fewer tokens than requested.
   int get maxTokens => _value['maxTokens'] as int;
 
+  /// Note: This has no documentation in the specification or schema.
   List<String>? get stopSequences =>
       (_value['stopSequences'] as List?)?.cast<String>();
 

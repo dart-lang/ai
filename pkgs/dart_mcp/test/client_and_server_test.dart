@@ -50,10 +50,18 @@ void main() {
   });
 
   test('client can handle ping timeouts', () async {
-    var environment = TestEnvironment(
-      TestMCPClient(),
-      DelayedPingTestMCPServer.new,
-    );
+    var environment = TestEnvironment(TestMCPClient(), (channel) {
+      channel = channel.transformStream(
+        StreamTransformer.fromHandlers(
+          handleData: (data, sink) async {
+            // Simulate a server that doesn't respond for 100ms.
+            if (data.contains('"ping"')) return;
+            sink.add(data);
+          },
+        ),
+      );
+      return TestMCPServer(channel);
+    });
     await environment.initializeServer();
 
     expect(
@@ -70,8 +78,9 @@ void main() {
       channel = channel.transformSink(
         StreamSinkTransformer.fromHandlers(
           handleData: (data, sink) async {
-            // Simulate a server that doesn't respond.
+            // Simulate a client that doesn't respond.
             if (data.contains('"ping"')) return;
+            sink.add(data);
           },
         ),
       );
@@ -185,16 +194,6 @@ void main() {
     // Give the bad notification time to hit our stream.
     await pumpEventQueue();
   });
-}
-
-final class DelayedPingTestMCPServer extends TestMCPServer {
-  DelayedPingTestMCPServer(super.channel);
-
-  @override
-  Future<EmptyResult> handlePing(PingRequest request) async {
-    await Future<void>.delayed(const Duration(milliseconds: 100));
-    return EmptyResult();
-  }
 }
 
 final class InitializeProgressTestMCPServer extends TestMCPServer
