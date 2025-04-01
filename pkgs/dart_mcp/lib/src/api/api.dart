@@ -311,12 +311,13 @@ extension type Annotated._fromMap(Map<String, Object?> _value) {
 
 /// The annotations for an [Annotated] object.
 extension type Annotations.fromMap(Map<String, Object?> _value) {
-  factory Annotations({List<Role>? audience, double? priority}) =>
-      Annotations.fromMap({
-        if (audience != null)
-          'audience': [for (var role in audience) role.name],
-        if (priority != null) 'priority': priority,
-      });
+  factory Annotations({List<Role>? audience, double? priority}) {
+    assert(priority == null || (priority >= 0 && priority <= 1));
+    return Annotations.fromMap({
+      if (audience != null) 'audience': [for (var role in audience) role.name],
+      if (priority != null) 'priority': priority,
+    });
+  }
 
   /// Describes who the intended customer of this object or data is.
   ///
