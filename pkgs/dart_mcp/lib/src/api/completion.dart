@@ -10,64 +10,80 @@ extension type CompleteRequest.fromMap(Map<String, Object?> _value)
   static const methodName = 'completion/complete';
 
   factory CompleteRequest({
-    required PromptReference ref,
-    required String argumentName,
-    required String argumentValue,
+    required Reference ref,
+    required CompletionArgument argument,
     MetaWithProgressToken? meta,
   }) => CompleteRequest.fromMap({
     'ref': ref,
-    'argument': {'name': argumentName, 'value': argumentValue},
+    'argument': argument,
     if (meta != null) '_meta': meta,
   });
 
-  PromptReference get ref => _value['ref'] as PromptReference;
+  /// A reference to the thing to complete.
+  Reference get ref => _value['ref'] as Reference;
 
-  Map<String, Object?> get argument =>
-      (_value['argument'] as Map).cast<String, Object?>();
+  /// The argument's information.
+  CompletionArgument get argument =>
+      (_value['argument'] as Map).cast<String, Object?>() as CompletionArgument;
 }
 
 /// The server's response to a completion/complete request
 extension type CompleteResult.fromMap(Map<String, Object?> _value)
     implements Result {
-  factory CompleteResult({
+  factory CompleteResult({required Completion completion, Meta? meta}) =>
+      CompleteResult.fromMap({
+        'completion': completion,
+        if (meta != null) '_meta': meta,
+      });
+
+  /// The actual completion.
+  Completion get completion =>
+      (_value['completion'] as Map).cast<String, Object?>() as Completion;
+}
+
+/// An individual completion from a [CompleteResult].
+extension type Completion.fromMap(Map<String, Object?> _value) {
+  factory Completion({
     required List<String> values,
     int? total,
     bool? hasMore,
     Meta? meta,
-  }) => CompleteResult.fromMap({
-    'completion': {
+  }) {
+    assert(
+      values.length <= 100,
+      'no more than 100 completion values should be given',
+    );
+    return Completion.fromMap({
       'values': values,
       if (total != null) 'total': total,
       if (hasMore != null) 'hasMore': hasMore,
-    },
-    if (meta != null) '_meta': meta,
-  });
+    });
+  }
 
-  Map<String, Object?> get completion =>
-      (_value['completion'] as Map).cast<String, Object?>();
+  /// An array of completion values. Must not exceed 100 items.
+  List<String> get values => (_value['values'] as List).cast<String>();
+
+  /// The total number of completion options available.
+  ///
+  /// This can exceed the number of values actually sent in the response.
+  int? get total => _value['total'] as int?;
+
+  /// Indicates whether there are additional completion options beyond those
+  /// provided in the current response, even if the exact total is unknown.
+  bool? get hasMore => _value['hasMore'] as bool?;
 }
 
-// /**
-//  * The server's response to a completion/complete request
-//  */
-// export interface CompleteResult extends Result {
-//   completion: {
-//     /**
-//      * An array of completion values. Must not exceed 100 items.
-//      */
-//     values: string[];
-//     /**
-//      * The total number of completion options available. This can exceed the
-//      * number of values actually sent in the response.
-//      */
-//     total?: number;
-//     /**
-//      * Indicates whether there are additional completion options beyond those
-//      * provided in the current response, even if the exact total is unknown.
-//      */
-//     hasMore?: boolean;
-//   };
-// }
+/// An argument passed to a [CompleteRequest].
+extension type CompletionArgument.fromMap(Map<String, Object?> _value) {
+  factory CompletionArgument({required String name, required String value}) =>
+      CompletionArgument.fromMap({'name': name, 'value': value});
+
+  /// The name of the argument.
+  String get name => _value['name'] as String;
+
+  /// The value of the argument to use for completion matching.
+  String get value => _value['value'] as String;
+}
 
 /// Union type for references, see [PromptReference] and [ResourceReference].
 extension type Reference._(Map<String, Object?> _value) {
