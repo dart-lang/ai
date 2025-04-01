@@ -8,7 +8,6 @@ dependencies:
   json_rpc_2: ^3.0.3
   meta: ^1.16.0
   stream_channel: ^2.1.4
-  stream_transform: ^2.1.1
 executables:
   dart_mcp_server: server
 dev_dependencies:
