@@ -4,29 +4,48 @@
 
 part of 'api.dart';
 
-// /* Autocomplete */
-// /**
-//  * A request from the client to the server, to ask for completion options.
-//  */
-// export interface CompleteRequest extends Request {
-//   method: "completion/complete";
-//   params: {
-//     ref: PromptReference | ResourceReference;
-//     /**
-//      * The argument's information
-//      */
-//     argument: {
-//       /**
-//        * The name of the argument
-//        */
-//       name: string;
-//       /**
-//        * The value of the argument to use for completion matching.
-//        */
-//       value: string;
-//     };
-//   };
-// }
+/// A request from the client to the server, to ask for completion options.
+extension type CompleteRequest.fromMap(Map<String, Object?> _value)
+    implements Request {
+  static const methodName = 'completion/complete';
+
+  factory CompleteRequest({
+    required PromptReference ref,
+    required String argumentName,
+    required String argumentValue,
+    MetaWithProgressToken? meta,
+  }) => CompleteRequest.fromMap({
+    'ref': ref,
+    'argument': {'name': argumentName, 'value': argumentValue},
+    if (meta != null) '_meta': meta,
+  });
+
+  PromptReference get ref => _value['ref'] as PromptReference;
+
+  Map<String, Object?> get argument =>
+      (_value['argument'] as Map).cast<String, Object?>();
+}
+
+/// The server's response to a completion/complete request
+extension type CompleteResult.fromMap(Map<String, Object?> _value)
+    implements Result {
+  factory CompleteResult({
+    required List<String> values,
+    int? total,
+    bool? hasMore,
+    Meta? meta,
+  }) => CompleteResult.fromMap({
+    'completion': {
+      'values': values,
+      if (total != null) 'total': total,
+      if (hasMore != null) 'hasMore': hasMore,
+    },
+    if (meta != null) '_meta': meta,
+  });
+
+  Map<String, Object?> get completion =>
+      (_value['completion'] as Map).cast<String, Object?>();
+}
 
 // /**
 //  * The server's response to a completion/complete request
@@ -50,21 +69,52 @@ part of 'api.dart';
 //   };
 // }
 
-// /**
-//  * A reference to a resource or resource template definition.
-//  */
-// export interface ResourceReference {
-//   type: "ref/resource";
-//   /**
-//    * The URI or URI template of the resource.
-//    *
-//    * @format uri-template
-//    */
-//   uri: string;
-// }
+/// Union type for references, see [PromptReference] and [ResourceReference].
+extension type Reference._(Map<String, Object?> _value) {
+  factory Reference.fromMap(Map<String, Object?> value) {
+    assert(value.containsKey('type'));
+    return Reference._(value);
+  }
+
+  /// Whether or not this is a [PromptReference].
+  bool get isPrompt => _value['type'] == PromptReference.expectedType;
+
+  /// Whether or not this is a [ResourceReference].
+  bool get isResource => _value['type'] == ResourceReference.expectedType;
+
+  /// The type of reference.
+  ///
+  /// You can use this in a switch to handle the various types (see the static
+  /// `expectedType` getters), or you can use [isPrompt] and [isResource] to
+  /// determine the type and then do the cast.
+  String get type => _value['type'] as String;
+}
+
+/// A reference to a resource or resource template definition.
+extension type ResourceReference.fromMap(Map<String, Object?> _value)
+    implements Reference {
+  static const expectedType = 'ref/resource';
+
+  factory ResourceReference({required String uri}) =>
+      ResourceReference.fromMap({'uri': uri, 'type': expectedType});
+
+  /// This should always be [expectedType].
+  ///
+  /// This has a [type] because it exists as a part of a union type, so this
+  /// distinguishes it from other types.
+  String get type {
+    final type = _value['type'] as String;
+    assert(type == expectedType);
+    return type;
+  }
+
+  /// The URI or URI template of the resource.
+  String get uri => _value['uri'] as String;
+}
 
 /// Identifies a prompt.
-extension type PromptReference.fromMap(Map<String, Object?> _value) {
+extension type PromptReference.fromMap(Map<String, Object?> _value)
+    implements Reference {
   static const expectedType = 'ref/prompt';
 
   factory PromptReference({required String name}) =>
