@@ -60,7 +60,9 @@ extension type Completion.fromMap(Map<String, Object?> _value) {
     });
   }
 
-  /// An array of completion values. Must not exceed 100 items.
+  /// A list of completion values.
+  ///
+  /// Must not exceed 100 items.
   List<String> get values => (_value['values'] as List).cast<String>();
 
   /// The total number of completion options available.

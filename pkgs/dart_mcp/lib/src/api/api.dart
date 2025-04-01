@@ -7,7 +7,7 @@ library;
 
 import 'package:json_rpc_2/json_rpc_2.dart';
 
-part 'completion.dart';
+part 'completions.dart';
 part 'initialization.dart';
 part 'logging.dart';
 part 'prompts.dart';
