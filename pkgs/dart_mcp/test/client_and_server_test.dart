@@ -45,8 +45,8 @@ void main() {
     var environment = TestEnvironment(TestMCPClient(), TestMCPServer.new);
     await environment.initializeServer();
 
-    expect(await environment.serverConnection.ping(PingRequest()), true);
-    expect(await environment.server.ping(PingRequest()), true);
+    expect(await environment.serverConnection.ping(), true);
+    expect(await environment.server.ping(), true);
   });
 
   test('client can handle ping timeouts', () async {
@@ -66,7 +66,6 @@ void main() {
 
     expect(
       await environment.serverConnection.ping(
-        PingRequest(),
         timeout: const Duration(milliseconds: 1),
       ),
       false,
@@ -89,10 +88,7 @@ void main() {
     await environment.initializeServer();
 
     expect(
-      await environment.server.ping(
-        PingRequest(),
-        timeout: const Duration(milliseconds: 1),
-      ),
+      await environment.server.ping(timeout: const Duration(milliseconds: 1)),
       false,
     );
   });

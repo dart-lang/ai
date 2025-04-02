@@ -23,7 +23,7 @@ void main() {
 
     final serverConnection = environment.serverConnection;
 
-    final toolsResult = await serverConnection.listTools(ListToolsRequest());
+    final toolsResult = await serverConnection.listTools();
     expect(toolsResult.tools.length, 1);
 
     final tool = toolsResult.tools.single;
@@ -33,6 +33,12 @@ void main() {
     );
     expect(result.isError, isNot(true));
     expect(result.content.single, TestMCPServerWithTools.helloWorldContent);
+
+    expect(
+      await serverConnection.listTools(ListToolsRequest()),
+      toolsResult,
+      reason: 'can list tools with a non-null request object',
+    );
   });
 
   test('client can subscribe to tool list updates from the server', () async {

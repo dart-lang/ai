@@ -73,7 +73,7 @@ base mixin ToolsSupport on MCPServer {
   }
 
   /// Returns the list of supported tools for this server.
-  ListToolsResult _listTools(ListToolsRequest request) =>
+  ListToolsResult _listTools([ListToolsRequest? request]) =>
       ListToolsResult(tools: [for (var tool in _registeredTools.values) tool]);
 
   /// Invoked when one of the registered tools is called.

@@ -238,7 +238,7 @@ base class ServerConnection extends MCPBase {
   }
 
   /// List all the tools from this server.
-  Future<ListToolsResult> listTools(ListToolsRequest request) =>
+  Future<ListToolsResult> listTools([ListToolsRequest? request]) =>
       sendRequest(ListToolsRequest.methodName, request);
 
   /// Invokes a [Tool] returned from the [ListToolsResult].

@@ -121,12 +121,10 @@ extension type RequestId( /*String|int*/ Parameter _) {}
 /// party is still alive.
 ///
 /// The receiver must promptly respond, or else may be disconnected.
-extension type PingRequest.fromMap(Map<String, Object?> _value)
-    implements Request {
+///
+/// The request itself has no parameters and should always be just `null`.
+extension type PingRequest._(Null _) {
   static const methodName = 'ping';
-
-  factory PingRequest({MetaWithProgressToken? meta}) =>
-      PingRequest.fromMap({if (meta != null) '_meta': meta});
 }
 
 /// An out-of-band notification used to inform the receiver of a progress
