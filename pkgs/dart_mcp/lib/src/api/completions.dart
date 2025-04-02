@@ -20,6 +20,11 @@ extension type CompleteRequest.fromMap(Map<String, Object?> _value)
   });
 
   /// A reference to the thing to complete.
+  ///
+  /// See the [PromptReference] and [ResourceReference] types.
+  ///
+  /// In the case of a [ResourceReference], it must refer to a
+  /// [ResourceTemplate].
   Reference get ref => _value['ref'] as Reference;
 
   /// The argument's information.
