@@ -10,6 +10,7 @@ import 'dart:io';
 
 import 'package:async/async.dart' hide Result;
 import 'package:json_rpc_2/json_rpc_2.dart';
+import 'package:meta/meta.dart';
 import 'package:stream_channel/stream_channel.dart';
 
 import '../api/api.dart';
@@ -46,7 +47,8 @@ base class MCPClient {
   /// This can be modified by overriding the [initialize] method.
   final ClientCapabilities capabilities = ClientCapabilities();
 
-  final Set<ServerConnection> _connections = {};
+  @visibleForTesting
+  final Set<ServerConnection> connections = {};
 
   /// Connect to a new MCP server by invoking [command] with [arguments] and
   /// talking to that process over stdin/stdout.
@@ -82,15 +84,15 @@ base class MCPClient {
       rootsSupport: self is RootsSupport ? self : null,
       samplingSupport: self is SamplingSupport ? self : null,
     );
-    _connections.add(connection);
-    channel.sink.done.then((_) => _connections.remove(connection));
+    connections.add(connection);
+    channel.sink.done.then((_) => connections.remove(connection));
     return connection;
   }
 
   /// Shuts down all active server connections.
   Future<void> shutdown() async {
-    final connections = _connections.toList();
-    _connections.clear();
+    final connections = this.connections.toList();
+    this.connections.clear();
     await Future.wait([
       for (var connection in connections) connection.shutdown(),
     ]);
