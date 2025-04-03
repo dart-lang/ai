@@ -40,10 +40,7 @@ class TestEnvironment<Client extends MCPClient, Server extends MCPServer> {
     Server Function(StreamChannel<String>) createServer,
   ) {
     server = createServer(serverChannel);
-    serverConnection = client.connectServer(
-      server.implementation.name,
-      clientChannel,
-    );
+    serverConnection = client.connectServer(clientChannel);
     addTearDown(shutdown);
   }
 

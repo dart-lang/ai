@@ -9,8 +9,7 @@ void main() async {
     ClientImplementation(name: 'example dart client', version: '0.1.0'),
   );
   print('connecting to server');
-  final serverName = 'example dart server';
-  final server = await client.connectStdioServer(serverName, 'dart', [
+  final server = await client.connectStdioServer('dart', [
     'run',
     'example/server.dart',
   ]);
@@ -52,5 +51,5 @@ void main() async {
     }
   }
 
-  await client.shutdownServer(serverName);
+  await client.shutdown();
 }
