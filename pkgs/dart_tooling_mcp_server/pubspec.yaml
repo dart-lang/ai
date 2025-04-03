@@ -7,9 +7,13 @@ dependencies:
   async: ^2.13.0
   dart_mcp:
     path: ../dart_mcp
+  devtools_shared: ^11.2.0
   dtd: ^2.4.0
+  http: ^1.3.0
   json_rpc_2: ^3.0.3
   stream_channel: ^2.1.4
+  test_descriptor: ^2.0.2
+  test_process: ^2.1.1
   vm_service: ^15.0.0
 executables:
   dart_tooling_mcp_server: main
