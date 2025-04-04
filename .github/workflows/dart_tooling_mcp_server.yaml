@@ -36,6 +36,10 @@ jobs:
         with:
           channel: ${{ matrix.flutterSdk }}
 
+      - name: fetch counter app deps
+        working-directory: ./test_fixtures/counter_app
+        run: flutter pub get
+
       - run: dart pub get
 
       - run: dart analyze --fatal-infos
