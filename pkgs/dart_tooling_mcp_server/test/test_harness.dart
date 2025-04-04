@@ -53,14 +53,13 @@ class TestHarness {
   static Future<TestHarness> start({
     @Deprecated('For debugging only, do not submit') bool debugMode = false,
   }) async {
-    final platform =
-        Platform.isLinux
-            ? 'linux'
-            : Platform.isMacOS
+    final platform = Platform.isLinux
+        ? 'linux'
+        : Platform.isMacOS
             ? 'macos'
             : throw StateError(
-              'unsupported platform, only mac and linux are supported',
-            );
+                'unsupported platform, only mac and linux are supported',
+              );
     final flutterProcess = await TestProcess.start(
       // TODO: Get flutter SDK location from somewhere.
       'flutter',
@@ -125,12 +124,12 @@ class TestHarness {
 
 final class DartToolingMCPClient extends MCPClient {
   DartToolingMCPClient()
-    : super(
-        ClientImplementation(
-          name: 'test client for the dart tooling mcp server',
-          version: '0.1.0',
-        ),
-      );
+      : super(
+          ClientImplementation(
+            name: 'test client for the dart tooling mcp server',
+            version: '0.1.0',
+          ),
+        );
 }
 
 /// The dart tooling daemon currently expects to get vm service uris through
@@ -160,9 +159,8 @@ class FakeEditorExtension {
     while (await stdout.hasNext) {
       final line = await stdout.next;
       if (line.contains('A Dart VM Service')) {
-        vmServiceUri = line
-            .substring(line.indexOf('http:'))
-            .replaceFirst('http:', 'ws:');
+        vmServiceUri =
+            line.substring(line.indexOf('http:')).replaceFirst('http:', 'ws:');
         await stdout.cancel();
         break;
       }
@@ -215,10 +213,8 @@ Future<String> _getDTDUri(TestProcess flutterProcess) async {
   }
 
   return (jsonDecode(
-            (await http.get(devtoolsUri.resolve(DtdApi.apiGetDtdUri))).body,
-          )
-          as Map<String, Object?>)['dtdUri']
-      as String;
+    (await http.get(devtoolsUri.resolve(DtdApi.apiGetDtdUri))).body,
+  ) as Map<String, Object?>)['dtdUri'] as String;
 }
 
 /// Compiles the dart tooling mcp server to AOT and returns the location.
