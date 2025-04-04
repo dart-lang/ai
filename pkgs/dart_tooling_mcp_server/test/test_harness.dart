@@ -17,6 +17,15 @@ import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
 import 'package:test_process/test_process.dart';
 
+/// A full environment for integration testing the MCP server.
+///
+/// - Runs the counter app at `test_fixtures/counter_app` using `flutter run`.
+/// - Connects to the dtd service and registers a fake `Editor.getDebugSessions`
+///   extension method on it to mimic the DartCode extension.
+/// - Sets up the MCP client and server, and fully initializes the connection
+///   between them. Includes a debug mode for running them both in process to
+///   allow for breakpoints, but the default mode is to run the server in a
+///   separate process.
 class TestHarness {
   final TestProcess flutterProcess;
   final DartToolingMCPClient mcpClient;
@@ -54,71 +63,11 @@ class TestHarness {
       await flutterProcess.shouldExit(0);
     });
 
-    final devtoolsServerUriCompleter = Completer<Uri>();
-    var listener = flutterProcess.stdoutStream().listen((line) {
-      const devtoolsLineStart =
-          'The Flutter DevTools debugger and profiler on Chrome is available';
-      if (line.startsWith(devtoolsLineStart)) {
-        var uri = Uri.parse(line.substring(line.indexOf('http')));
-        devtoolsServerUriCompleter.complete(uri.replace(query: ''));
-      }
-    });
-
-    final devtoolsUri = await devtoolsServerUriCompleter.future;
-    await listener.cancel();
-
-    final dtdUri =
-        (jsonDecode(
-                  (await http.get(
-                    devtoolsUri.resolve(DtdApi.apiGetDtdUri),
-                  )).body,
-                )
-                as Map<String, Object?>)['dtdUri']
-            as String;
+    final dtdUri = await _getDTDUri(flutterProcess);
 
     final mcpClient = DartToolingMCPClient();
     addTearDown(mcpClient.shutdown);
-    final ServerConnection connection;
-    if (debugMode) {
-      /// The client side of the communication channel - the stream is the
-      /// incoming data and the sink is outgoing data.
-      final clientController = StreamController<String>();
-
-      /// The server side of the communication channel - the stream is the
-      /// incoming data and the sink is outgoing data.
-      final serverController = StreamController<String>();
-
-      late final clientChannel = StreamChannel<String>.withCloseGuarantee(
-        serverController.stream,
-        clientController.sink,
-      );
-      late final serverChannel = StreamChannel<String>.withCloseGuarantee(
-        clientController.stream,
-        serverController.sink,
-      );
-      final mcpServer = DartToolingMCPServer(serverChannel);
-      addTearDown(mcpServer.shutdown);
-      connection = mcpClient.connectServer(
-        'dart tooling mcp server',
-        clientChannel,
-      );
-    } else {
-      connection = await mcpClient.connectStdioServer(
-        'dart tooling mcp server',
-        await _compileMCPServer(),
-        [],
-      );
-    }
-
-    final initializeResult = await connection.initialize(
-      InitializeRequest(
-        protocolVersion: protocolVersion,
-        capabilities: mcpClient.capabilities,
-        clientInfo: mcpClient.implementation,
-      ),
-    );
-    expect(initializeResult.protocolVersion, protocolVersion);
-    connection.notifyInitialized(InitializedNotification());
+    final connection = await _initializeMCPServer(mcpClient, debugMode);
 
     final fakeEditorExtension = await FakeEditorExtension.connect(
       flutterProcess,
@@ -231,6 +180,28 @@ class FakeEditorExtension {
   }
 }
 
+/// Reads the devtools server uri from the [flutterProcess] output, then asks it
+/// for the DTD uri, and returns it.
+Future<String> _getDTDUri(TestProcess flutterProcess) async {
+  final devtoolsServerUriCompleter = Completer<Uri>();
+  var listener = flutterProcess.stdoutStream().listen((line) {
+    const devtoolsLineStart =
+        'The Flutter DevTools debugger and profiler on Chrome is available';
+    if (line.startsWith(devtoolsLineStart)) {
+      var uri = Uri.parse(line.substring(line.indexOf('http')));
+      devtoolsServerUriCompleter.complete(uri.replace(query: ''));
+    }
+  });
+  final devtoolsUri = await devtoolsServerUriCompleter.future;
+  await listener.cancel();
+
+  return (jsonDecode(
+            (await http.get(devtoolsUri.resolve(DtdApi.apiGetDtdUri))).body,
+          )
+          as Map<String, Object?>)['dtdUri']
+      as String;
+}
+
 /// Compiles the dart tooling mcp server to AOT and returns the location.
 Future<String> _compileMCPServer() async {
   final filePath = d.path('main.exe');
@@ -243,6 +214,55 @@ Future<String> _compileMCPServer() async {
   ]);
   await result.shouldExit(0);
   return filePath;
+}
+
+/// Starts up the [DartToolingMCPServer] and connects [client] to it.
+///
+/// Also handles the full intialization handshake between the client and
+/// server.
+Future<ServerConnection> _initializeMCPServer(
+  MCPClient client,
+  bool debugMode,
+) async {
+  ServerConnection connection;
+  if (debugMode) {
+    /// The client side of the communication channel - the stream is the
+    /// incoming data and the sink is outgoing data.
+    final clientController = StreamController<String>();
+
+    /// The server side of the communication channel - the stream is the
+    /// incoming data and the sink is outgoing data.
+    final serverController = StreamController<String>();
+
+    late final clientChannel = StreamChannel<String>.withCloseGuarantee(
+      serverController.stream,
+      clientController.sink,
+    );
+    late final serverChannel = StreamChannel<String>.withCloseGuarantee(
+      clientController.stream,
+      serverController.sink,
+    );
+    final mcpServer = DartToolingMCPServer(serverChannel);
+    addTearDown(mcpServer.shutdown);
+    connection = client.connectServer('dart tooling mcp server', clientChannel);
+  } else {
+    connection = await client.connectStdioServer(
+      'dart tooling mcp server',
+      await _compileMCPServer(),
+      [],
+    );
+  }
+
+  final initializeResult = await connection.initialize(
+    InitializeRequest(
+      protocolVersion: protocolVersion,
+      capabilities: client.capabilities,
+      clientInfo: client.implementation,
+    ),
+  );
+  expect(initializeResult.protocolVersion, protocolVersion);
+  connection.notifyInitialized(InitializedNotification());
+  return connection;
 }
 
 const counterAppPath = 'test_fixtures/counter_app';
