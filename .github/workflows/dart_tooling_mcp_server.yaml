@@ -27,18 +27,30 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        sdk: [stable, dev]
+        flutterSdk: [stable, master]
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - uses: dart-lang/setup-dart@e51d8e571e22473a2ddebf0ef8a2123f0ab2c02c
+      # We need the flutter SDK in order to run the counter app for integration
+      # testing.
+      - uses: subosito/flutter-action@v1
         with:
-          sdk: ${{ matrix.sdk }}
+          channel: ${{ matrix.flutterSdk }}
+
+      # Required to build for linux
+      - run: |
+          sudo apt-get update -y
+          sudo apt-get install -y ninja-build libgtk-3-dev
+          sudo apt-get install -y xvfb
+
+      - name: fetch counter app deps
+        working-directory: pkgs/dart_tooling_mcp_server/test_fixtures/counter_app
+        run: flutter pub get
 
       - run: dart pub get
 
       - run: dart analyze --fatal-infos
 
       - run: dart format --output=none --set-exit-if-changed .
-        if: ${{ matrix.sdk == 'stable' }}
+        if: ${{ matrix.flutterSdk == 'stable' }}
 
-      - run: dart test
+      - run: xvfb-run -s "-screen 0 1024x768x24" dart test

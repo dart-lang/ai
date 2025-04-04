@@ -16,12 +16,12 @@ void main() {
         .transform(StreamChannelTransformer.fromCodec(utf8))
         .transformStream(const LineSplitter())
         .transformSink(
-          StreamSinkTransformer.fromHandlers(
-            handleData: (data, sink) {
-              sink.add('$data\n');
-            },
-          ),
-        ),
+      StreamSinkTransformer.fromHandlers(
+        handleData: (data, sink) {
+          sink.add('$data\n');
+        },
+      ),
+    ),
   );
 }
 

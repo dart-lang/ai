@@ -2,7 +2,7 @@ name: dart_mcp
 publish_to: none
 version: 0.1.0-wip
 environment:
-  sdk: ^3.7.0
+  sdk: ^3.6.1 # The version of dart in the current flutter stable
 dependencies:
   async: ^2.13.0
   json_rpc_2: ^3.0.3
@@ -11,5 +11,5 @@ dependencies:
 executables:
   dart_mcp_server: server
 dev_dependencies:
-  dart_flutter_team_lints: ^3.5.1
+  dart_flutter_team_lints: ^3.2.1
   test: ^1.25.15

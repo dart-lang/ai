@@ -54,19 +54,21 @@ base class MCPBase {
   void registerRequestHandler<T extends Request?, R extends Result?>(
     String name,
     FutureOr<R> Function(T) impl,
-  ) => _peer.registerMethod(
-    name,
-    (Parameters p) => impl((p.value as Map?)?.cast<String, Object?>() as T),
-  );
+  ) =>
+      _peer.registerMethod(
+        name,
+        (Parameters p) => impl((p.value as Map?)?.cast<String, Object?>() as T),
+      );
 
   /// Registers a notification handler named [name] on this server.
   void registerNotificationHandler<T extends Notification?>(
     String name,
     void Function(T) impl,
-  ) => _peer.registerMethod(
-    name,
-    (Parameters p) => impl((p.value as Map?)?.cast<String, Object?>() as T),
-  );
+  ) =>
+      _peer.registerMethod(
+        name,
+        (Parameters p) => impl((p.value as Map?)?.cast<String, Object?>() as T),
+      );
 
   /// Sends a notification to the peer.
   void sendNotification(String method, [Notification? notification]) =>
@@ -87,8 +89,7 @@ base class MCPBase {
   ]) async {
     try {
       return ((await _peer.sendRequest(methodName, request)) as Map?)
-              ?.cast<String, Object?>()
-          as T;
+          ?.cast<String, Object?>() as T;
     } finally {
       final token = request?.meta?.progressToken;
       if (token != null) {

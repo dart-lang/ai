@@ -55,7 +55,7 @@ abstract base class MCPServer extends MCPBase {
   StreamController<RootsListChangedNotification>? _rootsListChangedController;
 
   MCPServer.fromStreamChannel(StreamChannel<String> channel)
-    : super(Peer(channel)) {
+      : super(Peer(channel)) {
     registerRequestHandler(InitializeRequest.methodName, initialize);
 
     registerNotificationHandler(
@@ -71,6 +71,7 @@ abstract base class MCPServer extends MCPBase {
   }
 
   @mustCallSuper
+
   /// Mixins should register their methods in this method, as well as editing
   /// the [InitializeResult.capabilities] as needed.
   FutureOr<InitializeResult> initialize(InitializeRequest request) {

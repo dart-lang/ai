@@ -135,8 +135,7 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
           isError: true,
           content: [
             TextContent(
-              text:
-                  'Unknown error or bad response taking screenshot:\n'
+              text: 'Unknown error or bad response taking screenshot:\n'
                   '${result.json}',
             ),
           ],
@@ -163,8 +162,7 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
 
   static final _screenshotTool = Tool(
     name: 'take_screenshot',
-    description:
-        'Takes a screenshot of the active flutter application in its '
+    description: 'Takes a screenshot of the active flutter application in its '
         'current state. Requires "${_connectTool.name}" to be successfully '
         'called first.',
     inputSchema: InputSchema(),
@@ -174,8 +172,7 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
     isError: true,
     content: [
       TextContent(
-        text:
-            'The dart tooling daemon is not connected, you need to call '
+        text: 'The dart tooling daemon is not connected, you need to call '
             '"${_connectTool.name}" first.',
       ),
     ],
@@ -185,8 +182,7 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
     isError: true,
     content: [
       TextContent(
-        text:
-            'The dart tooling daemon is already connected, you cannot call '
+        text: 'The dart tooling daemon is already connected, you cannot call '
             '"${_connectTool.name}" again.',
       ),
     ],
@@ -203,8 +199,7 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
     isError: true,
     content: [
       TextContent(
-        text:
-            'The dart tooling daemon is not ready yet, please wait a few '
+        text: 'The dart tooling daemon is not ready yet, please wait a few '
             'seconds and try again.',
       ),
     ],
@@ -262,6 +257,14 @@ extension type GetDebugSessionsResponse.fromJson(Map<String, Object?> _value)
     }
     return GetDebugSessionsResponse.fromJson(response.result);
   }
+
+  factory GetDebugSessionsResponse({
+    required List<DebugSession> debugSessions,
+  }) =>
+      GetDebugSessionsResponse.fromJson({
+        'debugSessions': debugSessions,
+        'type': type,
+      });
 }
 
 /// An individual debug session.
@@ -282,11 +285,12 @@ extension type DebugSession.fromJson(Map<String, Object?> _value)
     required String name,
     required String projectRootPath,
     required String vmServiceUri,
-  }) => DebugSession.fromJson({
-    'debuggerType': debuggerType,
-    'id': id,
-    'name': name,
-    'projectRootPath': projectRootPath,
-    'vmServiceUri': vmServiceUri,
-  });
+  }) =>
+      DebugSession.fromJson({
+        'debuggerType': debuggerType,
+        'id': id,
+        'name': name,
+        'projectRootPath': projectRootPath,
+        'vmServiceUri': vmServiceUri,
+      });
 }

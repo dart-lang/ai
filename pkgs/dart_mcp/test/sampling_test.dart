@@ -21,12 +21,11 @@ void main() {
     expect(server.clientCapabilities.sampling, isNotNull);
 
     final client = environment.client;
-    final expectedResult =
-        client.nextResult = CreateMessageResult(
-          role: Role.assistant,
-          content: TextContent(text: 'Hello'),
-          model: 'fakeModel',
-        );
+    final expectedResult = client.nextResult = CreateMessageResult(
+      role: Role.assistant,
+      content: TextContent(text: 'Hello'),
+      model: 'fakeModel',
+    );
 
     expect(
       await server.createMessage(
