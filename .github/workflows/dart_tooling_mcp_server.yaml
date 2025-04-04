@@ -34,7 +34,7 @@ jobs:
       # testing.
       - uses: subosito/flutter-action@v1
         with:
-          flutter-version: ${{ matrix.flutterSdk }}
+          channel: ${{ matrix.flutterSdk }}
 
       - run: dart pub get
 
