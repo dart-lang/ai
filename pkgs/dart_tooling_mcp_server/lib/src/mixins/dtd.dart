@@ -7,7 +7,6 @@ import 'dart:async';
 import 'package:dart_mcp/server.dart';
 import 'package:dtd/dtd.dart';
 import 'package:json_rpc_2/json_rpc_2.dart';
-import 'package:vm_service/vm_service.dart';
 import 'package:vm_service/vm_service_io.dart';
 
 /// Mix this in to any MCPServer to add support for connecting to the Dart
