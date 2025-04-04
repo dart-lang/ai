@@ -23,11 +23,12 @@ extension type ListToolsResult.fromMap(Map<String, Object?> _value)
     required List<Tool> tools,
     Cursor? cursor,
     Meta? meta,
-  }) => ListToolsResult.fromMap({
-    'tools': tools,
-    if (cursor != null) 'cursor': cursor,
-    if (meta != null) '_meta': meta,
-  });
+  }) =>
+      ListToolsResult.fromMap({
+        'tools': tools,
+        if (cursor != null) 'cursor': cursor,
+        if (meta != null) '_meta': meta,
+      });
 
   List<Tool> get tools => (_value['tools'] as List).cast<Tool>();
 }
@@ -48,11 +49,12 @@ extension type CallToolResult.fromMap(Map<String, Object?> _value)
     Meta? meta,
     required List<Content> content,
     bool? isError,
-  }) => CallToolResult.fromMap({
-    'content': content,
-    if (isError != null) 'isError': isError,
-    if (meta != null) '_meta': meta,
-  });
+  }) =>
+      CallToolResult.fromMap({
+        'content': content,
+        if (isError != null) 'isError': isError,
+        if (meta != null) '_meta': meta,
+      });
 
   /// The type of content, either [TextContent], [ImageContent],
   /// or [EmbeddedResource],
@@ -73,11 +75,12 @@ extension type CallToolRequest._fromMap(Map<String, Object?> _value)
     required String name,
     Map<String, Object?>? arguments,
     MetaWithProgressToken? meta,
-  }) => CallToolRequest._fromMap({
-    'name': name,
-    if (arguments != null) 'arguments': arguments,
-    if (meta != null) '_meta': meta,
-  });
+  }) =>
+      CallToolRequest._fromMap({
+        'name': name,
+        if (arguments != null) 'arguments': arguments,
+        if (meta != null) '_meta': meta,
+      });
 
   /// The name of the method to invoke.
   String get name => _value['name'] as String;
@@ -106,11 +109,12 @@ extension type Tool.fromMap(Map<String, Object?> _value) {
     required String name,
     String? description,
     required InputSchema inputSchema,
-  }) => Tool.fromMap({
-    'name': name,
-    if (description != null) 'description': description,
-    'inputSchema': inputSchema,
-  });
+  }) =>
+      Tool.fromMap({
+        'name': name,
+        if (description != null) 'description': description,
+        'inputSchema': inputSchema,
+      });
 
   /// The name of the tool.
   String get name => _value['name'] as String;
@@ -127,11 +131,12 @@ extension type InputSchema.fromMap(Map<String, Object?> _value) {
   factory InputSchema({
     Map<String, Object?>? properties,
     List<String>? required,
-  }) => InputSchema.fromMap({
-    'type': 'object',
-    if (properties != null) 'properties': properties,
-    if (required != null) 'required': required,
-  });
+  }) =>
+      InputSchema.fromMap({
+        'type': 'object',
+        if (properties != null) 'properties': properties,
+        if (required != null) 'required': required,
+      });
 
   String get type => _value['type'] as String;
 

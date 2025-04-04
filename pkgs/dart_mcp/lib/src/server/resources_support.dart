@@ -23,7 +23,7 @@ base mixin ResourcesSupport on MCPServer {
 
   /// The current resource implementations by URI.
   final Map<String, FutureOr<ReadResourceResult> Function(ReadResourceRequest)>
-  _resourceImpls = {};
+      _resourceImpls = {};
 
   /// The list of currently subscribed resources by URI.
   final Set<String> _subscribedResources = {};
@@ -151,7 +151,7 @@ base mixin ResourcesSupport on MCPServer {
   /// Called whenever the list of resources changes, it is the job of the client
   /// to then ask again for the list of tools.
   void _notifyResourceListChanged() => sendNotification(
-    ResourceListChangedNotification.methodName,
-    ResourceListChangedNotification(),
-  );
+        ResourceListChangedNotification.methodName,
+        ResourceListChangedNotification(),
+      );
 }

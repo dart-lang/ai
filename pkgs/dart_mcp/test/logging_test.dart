@@ -131,8 +131,7 @@ void main() {
     expect(
       () => server.log(LoggingLevel.warning, (int x) => 'hello'),
       throwsA(isA<ArgumentError>()),
-      reason:
-          'Lazy message functions should not have required positional '
+      reason: 'Lazy message functions should not have required positional '
           'arguments',
     );
 
