@@ -33,8 +33,8 @@ jobs:
       # We need the flutter SDK in order to run the counter app for integration
       # testing.
       - uses: subosito/flutter-action@v1
-            with:
-              flutter-version: ${{ matrix.flutterSdk }}
+        with:
+          flutter-version: ${{ matrix.flutterSdk }}
 
       - run: dart pub get
 
