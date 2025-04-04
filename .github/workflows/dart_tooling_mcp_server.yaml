@@ -37,7 +37,7 @@ jobs:
           channel: ${{ matrix.flutterSdk }}
 
       - name: fetch counter app deps
-        working-directory: ./test_fixtures/counter_app
+        working-directory: pkgs/dart_tooling_mcp_server/test_fixtures/counter_app
         run: flutter pub get
 
       - run: dart pub get
