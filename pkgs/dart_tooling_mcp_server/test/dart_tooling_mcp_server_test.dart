@@ -26,9 +26,12 @@ void main() {
       CallToolRequest(name: screenshotTool.name),
     );
     expect(
-      screenshotResult.isError,
-      isNot(true),
-      reason: screenshotResult.content.join('\n'),
+      screenshotResult.content.single,
+      {
+        'data': anything,
+        'mimeType': 'image/png',
+        'type': ImageContent.expectedType
+      },
     );
   });
 }

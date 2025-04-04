@@ -3,16 +3,13 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:async/async.dart';
 import 'package:dart_mcp/client.dart';
 import 'package:dart_tooling_mcp_server/src/mixins/dtd.dart';
 import 'package:dart_tooling_mcp_server/src/server.dart';
-import 'package:devtools_shared/devtools_shared.dart';
 import 'package:dtd/dtd.dart';
-import 'package:http/http.dart' as http;
 import 'package:stream_channel/stream_channel.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
@@ -63,7 +60,7 @@ class TestHarness {
     final flutterProcess = await TestProcess.start(
       // TODO: Get flutter SDK location from somewhere.
       'flutter',
-      ['run', '-d', platform],
+      ['run', '-d', platform, '--print-dtd'],
       workingDirectory: counterAppPath,
     );
     addTearDown(() async {
@@ -101,11 +98,11 @@ class TestHarness {
     expect(result.isError, isNot(true), reason: result.content.join('\n'));
   }
 
-  /// Sends [request] to [mcpServerConnection], retrying 5 times.
+  /// Sends [request] to [mcpServerConnection], retrying [maxTries] times.
   ///
   /// Some methods will fail if the DTD connection is not yet ready.
-  Future<CallToolResult> callToolWithRetry(CallToolRequest request) async {
-    final maxTries = 10;
+  Future<CallToolResult> callToolWithRetry(CallToolRequest request,
+      {int maxTries = 5}) async {
     var tryCount = 0;
     late CallToolResult lastResult;
     while (tryCount++ < maxTries) {
@@ -194,27 +191,25 @@ class FakeEditorExtension {
 /// Reads the devtools server uri from the [flutterProcess] output, then asks it
 /// for the DTD uri, and returns it.
 Future<String> _getDTDUri(TestProcess flutterProcess) async {
-  Uri? devtoolsUri;
+  String? dtdUri;
   final stdout = StreamQueue(flutterProcess.stdoutStream());
   while (await stdout.hasNext) {
     final line = await stdout.next;
-    const devtoolsLineStart = 'The Flutter DevTools debugger and profiler';
+    const devtoolsLineStart = 'The Dart Tooling Daemon is available at';
     if (line.startsWith(devtoolsLineStart)) {
-      var uri = Uri.parse(line.substring(line.indexOf('http')));
-      devtoolsUri = uri.replace(query: '');
+      dtdUri = line.substring(line.indexOf('ws:'));
       await stdout.cancel();
       break;
     }
   }
-  if (devtoolsUri == null) {
+  if (dtdUri == null) {
     throw StateError(
-      'Failed to scrape the devtools URI from the flutter run output',
+      'Failed to scrape the Dart Tooling Daemon URI from the flutter run '
+      'output',
     );
   }
 
-  return (jsonDecode(
-    (await http.get(devtoolsUri.resolve(DtdApi.apiGetDtdUri))).body,
-  ) as Map<String, Object?>)['dtdUri'] as String;
+  return dtdUri;
 }
 
 /// Compiles the dart tooling mcp server to AOT and returns the location.
