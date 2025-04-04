@@ -262,6 +262,13 @@ extension type GetDebugSessionsResponse.fromJson(Map<String, Object?> _value)
     }
     return GetDebugSessionsResponse.fromJson(response.result);
   }
+
+  factory GetDebugSessionsResponse({
+    required List<DebugSession> debugSessions,
+  }) => GetDebugSessionsResponse.fromJson({
+    'debugSessions': debugSessions,
+    'type': type,
+  });
 }
 
 /// An individual debug session.

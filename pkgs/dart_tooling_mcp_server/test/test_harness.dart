@@ -7,8 +7,12 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dart_mcp/client.dart';
+import 'package:dart_tooling_mcp_server/src/mixins/dtd.dart';
+import 'package:dart_tooling_mcp_server/src/server.dart';
 import 'package:devtools_shared/devtools_shared.dart';
+import 'package:dtd/dtd.dart';
 import 'package:http/http.dart' as http;
+import 'package:stream_channel/stream_channel.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
 import 'package:test_process/test_process.dart';
@@ -24,21 +28,32 @@ class TestHarness {
     this.mcpClient,
     this.mcpServerConnection,
     this.dtdUri,
-  ) {
-    addTearDown(mcpClient.shutdown);
-  }
+  );
 
   /// Starts a flutter process as well as an MCP client and server.
   ///
   /// Handles the initialization handshake between the MCP client and server as
   /// well.
-  static Future<TestHarness> start() async {
+  ///
+  /// By default this will run with the MCP server compiled as a separate binary
+  /// to mimic as closely as possible the real world behavior. This makes it so
+  /// breakpoints in the server don't work however, so you can set [debugMode]
+  /// to `true` and we will run it in process instead, which allows breakpoints
+  /// since everything is running in the same isolate.
+  static Future<TestHarness> start({
+    @Deprecated('For debugging only, do not submit') bool debugMode = false,
+  }) async {
     final flutterProcess = await TestProcess.start(
       // TODO: Get flutter SDK location from somewhere.
       'flutter',
       ['run', '-d', 'chrome'],
-      workingDirectory: 'test_fixtures/counter_app',
+      workingDirectory: counterAppPath,
     );
+    addTearDown(() async {
+      flutterProcess.stdin.writeln('q');
+      await flutterProcess.shouldExit(0);
+    });
+
     final devtoolsServerUriCompleter = Completer<Uri>();
     var listener = flutterProcess.stdoutStream().listen((line) {
       const devtoolsLineStart =
@@ -47,11 +62,6 @@ class TestHarness {
         var uri = Uri.parse(line.substring(line.indexOf('http')));
         devtoolsServerUriCompleter.complete(uri.replace(query: ''));
       }
-    });
-
-    addTearDown(() async {
-      flutterProcess.stdin.writeln('q');
-      await flutterProcess.shouldExit(0);
     });
 
     final devtoolsUri = await devtoolsServerUriCompleter.future;
@@ -67,11 +77,38 @@ class TestHarness {
             as String;
 
     final mcpClient = DartToolingMCPClient();
-    final connection = await mcpClient.connectStdioServer(
-      'dart tooling mcp server',
-      await _compileMCPServer(),
-      [],
-    );
+    addTearDown(mcpClient.shutdown);
+    final ServerConnection connection;
+    if (debugMode) {
+      /// The client side of the communication channel - the stream is the
+      /// incoming data and the sink is outgoing data.
+      final clientController = StreamController<String>();
+
+      /// The server side of the communication channel - the stream is the
+      /// incoming data and the sink is outgoing data.
+      final serverController = StreamController<String>();
+
+      late final clientChannel = StreamChannel<String>.withCloseGuarantee(
+        serverController.stream,
+        clientController.sink,
+      );
+      late final serverChannel = StreamChannel<String>.withCloseGuarantee(
+        clientController.stream,
+        serverController.sink,
+      );
+      final mcpServer = DartToolingMCPServer(serverChannel);
+      addTearDown(mcpServer.shutdown);
+      connection = mcpClient.connectServer(
+        'dart tooling mcp server',
+        clientChannel,
+      );
+    } else {
+      connection = await mcpClient.connectStdioServer(
+        'dart tooling mcp server',
+        await _compileMCPServer(),
+        [],
+      );
+    }
 
     final initializeResult = await connection.initialize(
       InitializeRequest(
@@ -82,6 +119,12 @@ class TestHarness {
     );
     expect(initializeResult.protocolVersion, protocolVersion);
     connection.notifyInitialized(InitializedNotification());
+
+    final fakeEditorExtension = await FakeEditorExtension.connect(
+      flutterProcess,
+      dtdUri,
+    );
+    addTearDown(fakeEditorExtension.shutdown);
 
     return TestHarness._(flutterProcess, mcpClient, connection, dtdUri);
   }
@@ -132,6 +175,62 @@ final class DartToolingMCPClient extends MCPClient {
       );
 }
 
+/// The dart tooling daemon currently expects to get vm service uris through
+/// the `Editor.getDebugSessions` DTD extension.
+///
+/// This class registers a similar extension for a normal `flutter run` process,
+/// without having the normal editor extension in place.
+class FakeEditorExtension {
+  final TestProcess flutterProcess;
+  final DartToolingDaemon dtd;
+
+  FakeEditorExtension(this.flutterProcess, this.dtd) {
+    _registerService();
+  }
+
+  static Future<FakeEditorExtension> connect(
+    TestProcess flutterProcess,
+    String dtdUri,
+  ) async {
+    final dtd = await DartToolingDaemon.connect(Uri.parse(dtdUri));
+    return FakeEditorExtension(flutterProcess, dtd);
+  }
+
+  void _registerService() async {
+    String? vmServiceUri;
+    while (await flutterProcess.stdout.hasNext) {
+      final line = await flutterProcess.stdout.next;
+      if (line.contains('Debug service listening on')) {
+        vmServiceUri = line.substring(line.indexOf('ws:'));
+        break;
+      }
+    }
+    if (vmServiceUri == null) {
+      throw StateError(
+        'Failed to read vm service URI from the flutter run output',
+      );
+    }
+
+    await dtd.registerService('Editor', 'getDebugSessions', (request) async {
+      return GetDebugSessionsResponse(
+        debugSessions: [
+          DebugSession(
+            debuggerType: 'Flutter',
+            id: '1',
+            name: 'example flutter project',
+            projectRootPath: counterAppPath,
+            vmServiceUri: vmServiceUri!,
+          ),
+        ],
+      );
+    });
+  }
+
+  Future<void> shutdown() async {
+    await dtd.close();
+  }
+}
+
 /// Compiles the dart tooling mcp server to AOT and returns the location.
 Future<String> _compileMCPServer() async {
   final filePath = d.path('main.exe');
@@ -145,3 +244,5 @@ Future<String> _compileMCPServer() async {
   await result.shouldExit(0);
   return filePath;
 }
+
+const counterAppPath = 'test_fixtures/counter_app';

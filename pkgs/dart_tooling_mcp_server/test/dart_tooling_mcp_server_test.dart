@@ -12,7 +12,6 @@ void main() {
 
   setUpAll(() async {
     testHarness = await TestHarness.start();
-
     await testHarness.connectToDtd();
   });
 
