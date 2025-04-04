@@ -38,8 +38,8 @@ jobs:
 
       # Required to build for linux
       - run: |
-        sudo apt-get update -y
-        sudo apt-get install -y ninja-build libgtk-3-dev
+          sudo apt-get update -y
+          sudo apt-get install -y ninja-build libgtk-3-dev
 
       - name: fetch counter app deps
         working-directory: pkgs/dart_tooling_mcp_server/test_fixtures/counter_app
