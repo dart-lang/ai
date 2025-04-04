@@ -10,7 +10,9 @@ import 'test_harness.dart';
 void main() {
   late TestHarness testHarness;
 
-  setUpAll(() async {
+  // TODO: Use setUpAll, currently this fails due to an apparent TestProcess
+  // issue.
+  setUp(() async {
     testHarness = await TestHarness.start();
     await testHarness.connectToDtd();
   });

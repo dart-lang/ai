@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:async/async.dart';
 import 'package:dart_mcp/client.dart';
 import 'package:dart_tooling_mcp_server/src/mixins/dtd.dart';
 import 'package:dart_tooling_mcp_server/src/server.dart';
@@ -52,10 +53,18 @@ class TestHarness {
   static Future<TestHarness> start({
     @Deprecated('For debugging only, do not submit') bool debugMode = false,
   }) async {
+    final platform =
+        Platform.isLinux
+            ? 'linux'
+            : Platform.isMacOS
+            ? 'macos'
+            : throw StateError(
+              'unsupported platform, only mac and linux are supported',
+            );
     final flutterProcess = await TestProcess.start(
       // TODO: Get flutter SDK location from somewhere.
       'flutter',
-      ['run', '-d', 'chrome'],
+      ['run', '-d', platform],
       workingDirectory: counterAppPath,
     );
     addTearDown(() async {
@@ -147,10 +156,14 @@ class FakeEditorExtension {
 
   void _registerService() async {
     String? vmServiceUri;
-    while (await flutterProcess.stdout.hasNext) {
-      final line = await flutterProcess.stdout.next;
-      if (line.contains('Debug service listening on')) {
-        vmServiceUri = line.substring(line.indexOf('ws:'));
+    final stdout = StreamQueue(flutterProcess.stdoutStream());
+    while (await stdout.hasNext) {
+      final line = await stdout.next;
+      if (line.contains('A Dart VM Service')) {
+        vmServiceUri = line
+            .substring(line.indexOf('http:'))
+            .replaceFirst('http:', 'ws:');
+        await stdout.cancel();
         break;
       }
     }
@@ -183,17 +196,23 @@ class FakeEditorExtension {
 /// Reads the devtools server uri from the [flutterProcess] output, then asks it
 /// for the DTD uri, and returns it.
 Future<String> _getDTDUri(TestProcess flutterProcess) async {
-  final devtoolsServerUriCompleter = Completer<Uri>();
-  var listener = flutterProcess.stdoutStream().listen((line) {
-    const devtoolsLineStart =
-        'The Flutter DevTools debugger and profiler on Chrome is available';
+  Uri? devtoolsUri;
+  final stdout = StreamQueue(flutterProcess.stdoutStream());
+  while (await stdout.hasNext) {
+    final line = await stdout.next;
+    const devtoolsLineStart = 'The Flutter DevTools debugger and profiler';
     if (line.startsWith(devtoolsLineStart)) {
       var uri = Uri.parse(line.substring(line.indexOf('http')));
-      devtoolsServerUriCompleter.complete(uri.replace(query: ''));
+      devtoolsUri = uri.replace(query: '');
+      await stdout.cancel();
+      break;
     }
-  });
-  final devtoolsUri = await devtoolsServerUriCompleter.future;
-  await listener.cancel();
+  }
+  if (devtoolsUri == null) {
+    throw StateError(
+      'Failed to scrape the devtools URI from the flutter run output',
+    );
+  }
 
   return (jsonDecode(
             (await http.get(devtoolsUri.resolve(DtdApi.apiGetDtdUri))).body,
