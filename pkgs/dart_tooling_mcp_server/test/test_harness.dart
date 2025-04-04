@@ -259,10 +259,9 @@ Future<ServerConnection> _initializeMCPServer(
     );
     final mcpServer = DartToolingMCPServer(serverChannel);
     addTearDown(mcpServer.shutdown);
-    connection = client.connectServer('dart tooling mcp server', clientChannel);
+    connection = client.connectServer(clientChannel);
   } else {
     connection = await client.connectStdioServer(
-      'dart tooling mcp server',
       await _compileMCPServer(),
       [],
     );
