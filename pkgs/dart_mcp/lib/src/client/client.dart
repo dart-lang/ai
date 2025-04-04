@@ -10,6 +10,7 @@ import 'dart:io';
 
 import 'package:async/async.dart' hide Result;
 import 'package:json_rpc_2/json_rpc_2.dart';
+import 'package:meta/meta.dart';
 import 'package:stream_channel/stream_channel.dart';
 
 import '../api/api.dart';
@@ -46,35 +47,35 @@ base class MCPClient {
   /// This can be modified by overriding the [initialize] method.
   final ClientCapabilities capabilities = ClientCapabilities();
 
-  final Map<String, ServerConnection> _connections = {};
+  @visibleForTesting
+  final Set<ServerConnection> connections = {};
 
-  /// Connect to a new MCP server with [name], by invoking [command] with
-  /// [arguments] and talking to that process over stdin/stdout.
+  /// Connect to a new MCP server by invoking [command] with [arguments] and
+  /// talking to that process over stdin/stdout.
   Future<ServerConnection> connectStdioServer(
-    String name,
     String command,
     List<String> arguments,
   ) async {
     var process = await Process.start(command, arguments);
     var channel = StreamChannel.withCloseGuarantee(
-      process.stdout,
-      process.stdin,
-    )
+          process.stdout,
+          process.stdin,
+        )
         .transform(StreamChannelTransformer.fromCodec(utf8))
         .transformStream(const LineSplitter())
         .transformSink(
-      StreamSinkTransformer.fromHandlers(
-        handleData: (data, sink) {
-          sink.add('$data\n');
-        },
-      ),
-    );
-    return connectServer(name, channel);
+          StreamSinkTransformer.fromHandlers(
+            handleData: (data, sink) {
+              sink.add('$data\n');
+            },
+          ),
+        );
+    return connectServer(channel);
   }
 
-  /// Returns a connection for an MCP server with [name], communicating over
-  /// [channel], which is already established.
-  ServerConnection connectServer(String name, StreamChannel<String> channel) {
+  /// Returns a connection for an MCP server using a [channel], which is already
+  /// established.
+  ServerConnection connectServer(StreamChannel<String> channel) {
     // For type promotion in this function.
     var self = this;
 
@@ -83,23 +84,15 @@ base class MCPClient {
       rootsSupport: self is RootsSupport ? self : null,
       samplingSupport: self is SamplingSupport ? self : null,
     );
-    _connections[name] = connection;
+    connections.add(connection);
+    channel.sink.done.then((_) => connections.remove(connection));
     return connection;
-  }
-
-  /// Shuts down a server connection by [name].
-  Future<void> shutdownServer(String name) {
-    var server = _connections.remove(name);
-    if (server == null) {
-      throw ArgumentError('No server with name $name');
-    }
-    return server.shutdown();
   }
 
   /// Shuts down all active server connections.
   Future<void> shutdown() async {
-    final connections = _connections.values.toList();
-    _connections.clear();
+    final connections = this.connections.toList();
+    this.connections.clear();
     await Future.wait([
       for (var connection in connections) connection.shutdown(),
     ]);

@@ -190,6 +190,12 @@ void main() {
     // Give the bad notification time to hit our stream.
     await pumpEventQueue();
   });
+
+  test('closing a server removes the connection', () async {
+    var environment = TestEnvironment(TestMCPClient(), TestMCPServer.new);
+    await environment.serverConnection.shutdown();
+    expect(environment.client.connections, isEmpty);
+  });
 }
 
 final class InitializeProgressTestMCPServer extends TestMCPServer

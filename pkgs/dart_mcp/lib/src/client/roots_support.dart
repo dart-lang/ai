@@ -53,7 +53,7 @@ base mixin RootsSupport on MCPClient {
   /// Called whenever the list of roots changes, it is the job of the server to
   /// then ask for the list of roots.
   void _notifyRootsListChanged() {
-    for (var server in _connections.values) {
+    for (var server in connections) {
       server.sendNotification(
         RootsListChangedNotification.methodName,
         RootsListChangedNotification(),
