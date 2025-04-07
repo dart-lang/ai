@@ -8,7 +8,9 @@ jobs:
   health:
     uses: dart-lang/ecosystem/.github/workflows/health.yaml@main
     with:
-      checks: "version,changelog,do-not-submit,breaking"
+      # TODO: Add breaking check once we have a real version published to
+      # compare against.
+      checks: "version,changelog,do-not-submit"
       flutter_packages: "pkgs/dart_tooling_mcp_server/test_fixtures/counter_app"
       sdk: dev
     permissions:
