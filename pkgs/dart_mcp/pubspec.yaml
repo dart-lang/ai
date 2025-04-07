@@ -1,5 +1,4 @@
 name: dart_mcp
-publish_to: none
 version: 0.1.0-wip
 environment:
   sdk: ^3.6.1 # The version of dart in the current flutter stable
