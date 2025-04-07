@@ -6,7 +6,7 @@ A general repository for AI / GenAI packages and explorations.
 
 | Package | Description | Issues | Version |
 | --- | --- | --- | --- |
-| [dart_mcp](pkgs/dart_mcp/) | Library for making MCP severs and clients | ![issues][dart_mcp_issues] | [![pub package](https://img.shields.io/pub/v/dart_mcp.svg)](https://pub.dev/packages/dart_mcp) |
+| [dart_mcp](pkgs/dart_mcp/) | A package for making MCP servers and clients | ![issues][dart_mcp_issues] | [![pub package](https://img.shields.io/pub/v/dart_mcp.svg)](https://pub.dev/packages/dart_mcp) |
 | [dart_tooling_mcp_server](pkgs/dart_tooling_mcp_server/) | MCP server for Dart projects, exposes various developer tools to AI models | ![issues][dart_tooling_mcp_server_issues] | n/a |
 
 
