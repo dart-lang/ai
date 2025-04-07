@@ -1,4 +1,4 @@
-Dart SDK for implementing MCP servers and clients.
+A Dart package for making MCP servers and clients.
 
 ## Implementing Servers
 
