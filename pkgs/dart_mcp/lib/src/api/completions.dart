@@ -13,12 +13,11 @@ extension type CompleteRequest.fromMap(Map<String, Object?> _value)
     required Reference ref,
     required CompletionArgument argument,
     MetaWithProgressToken? meta,
-  }) =>
-      CompleteRequest.fromMap({
-        'ref': ref,
-        'argument': argument,
-        if (meta != null) '_meta': meta,
-      });
+  }) => CompleteRequest.fromMap({
+    'ref': ref,
+    'argument': argument,
+    if (meta != null) '_meta': meta,
+  });
 
   /// A reference to the thing to complete.
   ///
