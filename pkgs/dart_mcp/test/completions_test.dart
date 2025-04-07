@@ -13,7 +13,7 @@ void main() {
   test('client can request prompt completions', () async {
     final environment = TestEnvironment(
       TestMCPClient(),
-      TestMCPServerWithCompletions.new,
+      (c) => TestMCPServerWithCompletions(channel: c),
     );
     final initializeResult = await environment.initializeServer();
     expect(initializeResult.capabilities.completions, Completions());
@@ -24,14 +24,16 @@ void main() {
         CompleteRequest(
           ref: TestMCPServerWithCompletions.languagePromptRef,
           argument: CompletionArgument(
-            name: TestMCPServerWithCompletions
-                .languagePrompt.arguments!.single.name,
+            name:
+                TestMCPServerWithCompletions
+                    .languagePrompt
+                    .arguments!
+                    .single
+                    .name,
             value: 'c',
           ),
         ),
-      ))
-          .completion
-          .values,
+      )).completion.values,
       TestMCPServerWithCompletions.cLanguages,
     );
   });
@@ -39,7 +41,7 @@ void main() {
   test('client can request resource completions', () async {
     final environment = TestEnvironment(
       TestMCPClient(),
-      TestMCPServerWithCompletions.new,
+      (c) => TestMCPServerWithCompletions(channel: c),
     );
     final initializeResult = await environment.initializeServer();
     expect(initializeResult.capabilities.completions, Completions());
@@ -51,9 +53,7 @@ void main() {
           ref: TestMCPServerWithCompletions.packageUriTemplateRef,
           argument: CompletionArgument(name: 'package_name', value: 'a'),
         ),
-      ))
-          .completion
-          .values,
+      )).completion.values,
       TestMCPServerWithCompletions.aPackages,
     );
     expect(
@@ -62,9 +62,7 @@ void main() {
           ref: TestMCPServerWithCompletions.packageUriTemplateRef,
           argument: CompletionArgument(name: 'path', value: 'a'),
         ),
-      ))
-          .completion
-          .values,
+      )).completion.values,
       TestMCPServerWithCompletions.packagePaths,
     );
   });
@@ -72,7 +70,7 @@ void main() {
 
 final class TestMCPServerWithCompletions extends TestMCPServer
     with CompletionsSupport {
-  TestMCPServerWithCompletions(super.channel) : super();
+  TestMCPServerWithCompletions({required super.channel});
 
   @override
   FutureOr<CompleteResult> handleComplete(CompleteRequest request) {
@@ -93,9 +91,10 @@ final class TestMCPServerWithCompletions extends TestMCPServer
               completion: Completion(values: aPackages, hasMore: false),
             ),
           CompletionArgument(name: 'path', value: 'a') => CompleteResult(
-              completion: Completion(values: packagePaths, hasMore: false),
-            ),
-          _ => throw ArgumentError.value(
+            completion: Completion(values: packagePaths, hasMore: false),
+          ),
+          _ =>
+            throw ArgumentError.value(
               request.argument,
               'argument',
               'Unrecognized completion argument for URI template '

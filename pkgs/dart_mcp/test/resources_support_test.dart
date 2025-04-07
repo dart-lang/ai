@@ -14,7 +14,7 @@ void main() {
   test('client can read resources from the server', () async {
     var environment = TestEnvironment(
       TestMCPClient(),
-      TestMCPServerWithResources.new,
+      (c) => TestMCPServerWithResources(channel: c),
     );
     final initializeResult = await environment.initializeServer();
 
@@ -37,7 +37,9 @@ void main() {
     );
     expect(
       result.contents.single,
-      isA<ResourceContents>().having((c) => c.isText, 'isText', true).having(
+      isA<ResourceContents>()
+          .having((c) => c.isText, 'isText', true)
+          .having(
             (c) => (c as TextResourceContents).text,
             'text',
             'hello world!',
@@ -48,7 +50,7 @@ void main() {
   test('client can subscribe to resource updates from the server', () async {
     var environment = TestEnvironment(
       TestMCPClient(),
-      TestMCPServerWithResources.new,
+      (c) => TestMCPServerWithResources(channel: c),
     );
     await environment.initializeServer();
 
@@ -135,7 +137,7 @@ void main() {
 
 final class TestMCPServerWithResources extends TestMCPServer
     with ResourcesSupport {
-  TestMCPServerWithResources(super.channel) : super();
+  TestMCPServerWithResources({required super.channel});
 
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {

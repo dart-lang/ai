@@ -68,18 +68,16 @@ class TestEnvironment<Client extends MCPClient, Server extends MCPServer> {
 
 base class TestMCPClient extends MCPClient {
   TestMCPClient()
-      : super(ClientImplementation(name: 'test client', version: '0.1.0'));
+    : super(ClientImplementation(name: 'test client', version: '0.1.0'));
 }
 
 base class TestMCPServer extends MCPServer {
-  @override
-  final ServerImplementation implementation = ServerImplementation(
-    name: 'test server',
-    version: '0.1.0',
-  );
-
-  @override
-  final instructions = 'A test server';
-
-  TestMCPServer(super.channel) : super.fromStreamChannel();
+  TestMCPServer({required super.channel})
+    : super.fromStreamChannel(
+        implementation: ServerImplementation(
+          name: 'test server',
+          version: '0.1.0',
+        ),
+        instructions: 'A test server',
+      );
 }

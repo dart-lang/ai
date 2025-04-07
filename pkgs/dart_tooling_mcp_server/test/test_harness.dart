@@ -252,7 +252,7 @@ Future<ServerConnection> _initializeMCPServer(
       clientController.stream,
       serverController.sink,
     );
-    final mcpServer = DartToolingMCPServer(serverChannel);
+    final mcpServer = DartToolingMCPServer(channel: serverChannel);
     addTearDown(mcpServer.shutdown);
     connection = client.connectServer(clientChannel);
   } else {

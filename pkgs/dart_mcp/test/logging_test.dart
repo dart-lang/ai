@@ -11,7 +11,7 @@ void main() {
   test('client can set the logging level', () async {
     var environment = TestEnvironment(
       TestMCPClient(),
-      TestMCPServerWithLogging.new,
+      (c) => TestMCPServerWithLogging(channel: c),
     );
     final initializeResult = await environment.initializeServer();
 
@@ -40,7 +40,7 @@ void main() {
   test('client can receive log messages', () async {
     var environment = TestEnvironment(
       TestMCPClient(),
-      TestMCPServerWithLogging.new,
+      (c) => TestMCPServerWithLogging(channel: c),
     );
     await environment.initializeServer();
 
@@ -95,7 +95,7 @@ void main() {
   test('server can log functions for lazy evaluation', () async {
     var environment = TestEnvironment(
       TestMCPClient(),
-      TestMCPServerWithLogging.new,
+      (c) => TestMCPServerWithLogging(channel: c),
     );
     await environment.initializeServer();
 
@@ -131,7 +131,8 @@ void main() {
     expect(
       () => server.log(LoggingLevel.warning, (int x) => 'hello'),
       throwsA(isA<ArgumentError>()),
-      reason: 'Lazy message functions should not have required positional '
+      reason:
+          'Lazy message functions should not have required positional '
           'arguments',
     );
 
@@ -147,5 +148,5 @@ void main() {
 }
 
 final class TestMCPServerWithLogging extends TestMCPServer with LoggingSupport {
-  TestMCPServerWithLogging(super.channel) : super();
+  TestMCPServerWithLogging({required super.channel});
 }
