@@ -7,3 +7,7 @@
 'package:dart_mcp':
   - changed-files:
     - any-glob-to-any-file: 'pkgs/dart_mcp/**'
+
+'package:dart_tooling_mcp_server':
+  - changed-files:
+    - any-glob-to-any-file: 'pkgs/dart_tooling_mcp_server/**'
