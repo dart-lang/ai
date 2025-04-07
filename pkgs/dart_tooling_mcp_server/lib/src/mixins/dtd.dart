@@ -147,9 +147,9 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
   }
 
   static final _connectTool = Tool(
-    inputSchema: InputSchema(
-      properties: const {
-        'uri': {'type': 'string'},
+    inputSchema: ObjectSchema(
+      properties: {
+        'uri': StringSchema(),
       },
       required: const ['uri'],
     ),
@@ -165,7 +165,7 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
     description: 'Takes a screenshot of the active flutter application in its '
         'current state. Requires "${_connectTool.name}" to be successfully '
         'called first.',
-    inputSchema: InputSchema(),
+    inputSchema: ObjectSchema(),
   );
 
   static final _dtdNotConnected = CallToolResult(

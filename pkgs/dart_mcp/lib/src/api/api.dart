@@ -341,3 +341,12 @@ extension type Annotations.fromMap(Map<String, Object?> _value) {
   /// Must be between 0 and 1.
   double? get priority => _value['priority'] as double?;
 }
+
+extension _IterableHelpers<T> on Iterable<T> {
+  T? firstWhereOrNull(bool Function(T element) test) {
+    for (var element in this) {
+      if (test(element)) return element;
+    }
+    return null;
+  }
+}

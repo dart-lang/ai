@@ -60,7 +60,7 @@ void main() {
     );
 
     server.registerTool(
-      Tool(name: 'foo', inputSchema: InputSchema()),
+      Tool(name: 'foo', inputSchema: ObjectSchema()),
       (_) => CallToolResult(content: []),
     );
 
@@ -88,7 +88,7 @@ final class TestMCPServerWithTools extends TestMCPServer with ToolsSupport {
 
   static final helloWorld = Tool(
     name: 'hello world',
-    inputSchema: InputSchema(),
+    inputSchema: ObjectSchema(),
   );
 
   static final helloWorldContent = TextContent(

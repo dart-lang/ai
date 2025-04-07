@@ -228,7 +228,7 @@ final class InitializeProgressTestMCPServer extends TestMCPServer
 
   static final myProgressTool = Tool(
     name: 'progress',
-    inputSchema: InputSchema(),
+    inputSchema: ObjectSchema(),
   );
 }
 
