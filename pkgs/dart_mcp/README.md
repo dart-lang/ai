@@ -22,7 +22,8 @@ See the [server example](example/server.dart) for some example code.
 ## Implementing Clients
 
 To implement a client, import `package:dart_mcp/client.dart` and extend the
-`MCPClient` class.
+`MCPClient` class, or directly call its constructor with a
+`ClientImplementation` if you aren't implementing any "capabilities".
 
 ### Connecting to Servers
 
