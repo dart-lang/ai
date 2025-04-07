@@ -24,15 +24,20 @@ void main() async {
     ),
   );
   print('initialized: $initializeResult');
-  server.notifyInitialized(InitializedNotification());
-  print('sent initialized notification');
-
   if (initializeResult.protocolVersion != protocolVersion) {
     throw StateError(
       'Protocol version mismatch, expected $protocolVersion, '
       'got ${initializeResult.protocolVersion}',
     );
   }
+
+  if (initializeResult.capabilities.tools == null) {
+    await server.shutdown();
+    throw StateError('Server doesn\'t support tools!');
+  }
+
+  server.notifyInitialized(InitializedNotification());
+  print('sent initialized notification');
 
   print('Listing tools from server');
   final toolsResult = await server.listTools(ListToolsRequest());

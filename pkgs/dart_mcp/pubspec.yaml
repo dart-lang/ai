@@ -1,4 +1,5 @@
 name: dart_mcp
+description: A package for making MCP servers and clients.
 publish_to: none
 version: 0.1.0-wip
 environment:
