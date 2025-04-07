@@ -1,4 +1,5 @@
 name: dart_tooling_mcp_server
+description: An MCP server for Dart projects, exposing various developer tools to AI models.
 publish_to: none
 version: 0.1.0-wip
 environment:
