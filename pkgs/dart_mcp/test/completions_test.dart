@@ -24,16 +24,14 @@ void main() {
         CompleteRequest(
           ref: TestMCPServerWithCompletions.languagePromptRef,
           argument: CompletionArgument(
-            name:
-                TestMCPServerWithCompletions
-                    .languagePrompt
-                    .arguments!
-                    .single
-                    .name,
+            name: TestMCPServerWithCompletions
+                .languagePrompt.arguments!.single.name,
             value: 'c',
           ),
         ),
-      )).completion.values,
+      ))
+          .completion
+          .values,
       TestMCPServerWithCompletions.cLanguages,
     );
   });
@@ -53,7 +51,9 @@ void main() {
           ref: TestMCPServerWithCompletions.packageUriTemplateRef,
           argument: CompletionArgument(name: 'package_name', value: 'a'),
         ),
-      )).completion.values,
+      ))
+          .completion
+          .values,
       TestMCPServerWithCompletions.aPackages,
     );
     expect(
@@ -62,7 +62,9 @@ void main() {
           ref: TestMCPServerWithCompletions.packageUriTemplateRef,
           argument: CompletionArgument(name: 'path', value: 'a'),
         ),
-      )).completion.values,
+      ))
+          .completion
+          .values,
       TestMCPServerWithCompletions.packagePaths,
     );
   });
@@ -91,10 +93,9 @@ final class TestMCPServerWithCompletions extends TestMCPServer
               completion: Completion(values: aPackages, hasMore: false),
             ),
           CompletionArgument(name: 'path', value: 'a') => CompleteResult(
-            completion: Completion(values: packagePaths, hasMore: false),
-          ),
-          _ =>
-            throw ArgumentError.value(
+              completion: Completion(values: packagePaths, hasMore: false),
+            ),
+          _ => throw ArgumentError.value(
               request.argument,
               'argument',
               'Unrecognized completion argument for URI template '

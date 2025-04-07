@@ -58,18 +58,18 @@ base class MCPClient {
   ) async {
     var process = await Process.start(command, arguments);
     var channel = StreamChannel.withCloseGuarantee(
-          process.stdout,
-          process.stdin,
-        )
+      process.stdout,
+      process.stdin,
+    )
         .transform(StreamChannelTransformer.fromCodec(utf8))
         .transformStream(const LineSplitter())
         .transformSink(
-          StreamSinkTransformer.fromHandlers(
-            handleData: (data, sink) {
-              sink.add('$data\n');
-            },
-          ),
-        );
+      StreamSinkTransformer.fromHandlers(
+        handleData: (data, sink) {
+          sink.add('$data\n');
+        },
+      ),
+    );
     return connectServer(channel);
   }
 

@@ -26,17 +26,18 @@ extension type CreateMessageRequest.fromMap(Map<String, Object?> _value)
     List<String>? stopSequences,
     Map<String, Object?>? metadata,
     MetaWithProgressToken? meta,
-  }) => CreateMessageRequest.fromMap({
-    'messages': messages,
-    if (modelPreferences != null) 'modelPreferences': modelPreferences,
-    if (systemPrompt != null) 'systemPrompt': systemPrompt,
-    if (includeContext != null) 'includeContext': includeContext.name,
-    if (temperature != null) 'temperature': temperature,
-    'maxTokens': maxTokens,
-    if (stopSequences != null) 'stopSequences': stopSequences,
-    if (metadata != null) 'metadata': metadata,
-    if (meta != null) '_meta': meta,
-  });
+  }) =>
+      CreateMessageRequest.fromMap({
+        'messages': messages,
+        if (modelPreferences != null) 'modelPreferences': modelPreferences,
+        if (systemPrompt != null) 'systemPrompt': systemPrompt,
+        if (includeContext != null) 'includeContext': includeContext.name,
+        if (temperature != null) 'temperature': temperature,
+        'maxTokens': maxTokens,
+        if (stopSequences != null) 'stopSequences': stopSequences,
+        if (metadata != null) 'metadata': metadata,
+        if (meta != null) '_meta': meta,
+      });
 
   /// The messages to send to the LLM.
   List<SamplingMessage> get messages =>
@@ -96,13 +97,14 @@ extension type CreateMessageResult.fromMap(Map<String, Object?> _value)
     required String model,
     String? stopReason,
     Meta? meta,
-  }) => CreateMessageResult.fromMap({
-    'role': role.name,
-    'content': content,
-    'model': model,
-    if (stopReason != null) 'stopReason': stopReason,
-    if (meta != null) '_meta': meta,
-  });
+  }) =>
+      CreateMessageResult.fromMap({
+        'role': role.name,
+        'content': content,
+        'model': model,
+        if (stopReason != null) 'stopReason': stopReason,
+        if (meta != null) '_meta': meta,
+      });
 
   /// The name of the model that generated the message.
   String get model => _value['model'] as String;
@@ -146,13 +148,14 @@ extension type ModelPreferences.fromMap(Map<String, Object?> _value) {
     double? costPriority,
     double? speedPriority,
     double? intelligencePriority,
-  }) => ModelPreferences.fromMap({
-    if (hints != null) 'hints': hints,
-    if (costPriority != null) 'costPriority': costPriority,
-    if (speedPriority != null) 'speedPriority': speedPriority,
-    if (intelligencePriority != null)
-      'intelligencePriority': intelligencePriority,
-  });
+  }) =>
+      ModelPreferences.fromMap({
+        if (hints != null) 'hints': hints,
+        if (costPriority != null) 'costPriority': costPriority,
+        if (speedPriority != null) 'speedPriority': speedPriority,
+        if (intelligencePriority != null)
+          'intelligencePriority': intelligencePriority,
+      });
 
   /// Optional hints to use for model selection.
   ///

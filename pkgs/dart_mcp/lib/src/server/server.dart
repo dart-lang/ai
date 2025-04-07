@@ -74,6 +74,7 @@ abstract base class MCPServer extends MCPBase {
   }
 
   @mustCallSuper
+
   /// Mixins should register their methods in this method, as well as editing
   /// the [InitializeResult.capabilities] as needed.
   FutureOr<InitializeResult> initialize(InitializeRequest request) {

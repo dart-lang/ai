@@ -21,7 +21,7 @@ const protocolVersion = '2024-11-05';
 
 /// A progress token, used to associate progress notifications with the original
 /// request.
-extension type ProgressToken( /*String|int*/ Object _) {}
+extension type ProgressToken(/*String|int*/ Object _) {}
 
 /// An opaque token used to represent a cursor for pagination.
 extension type Cursor(String _) {}
@@ -115,7 +115,7 @@ extension type CancelledNotification.fromMap(Map<String, Object?> _value)
 }
 
 /// An opaque request ID.
-extension type RequestId( /*String|int*/ Parameter _) {}
+extension type RequestId(/*String|int*/ Parameter _) {}
 
 /// A ping, issued by either the server or the client, to check that the other
 /// party is still alive.
@@ -138,12 +138,13 @@ extension type ProgressNotification.fromMap(Map<String, Object?> _value)
     required int progress,
     int? total,
     Meta? meta,
-  }) => ProgressNotification.fromMap({
-    'progressToken': progressToken,
-    'progress': progress,
-    if (total != null) 'total': total,
-    if (meta != null) '_meta': meta,
-  });
+  }) =>
+      ProgressNotification.fromMap({
+        'progressToken': progressToken,
+        'progress': progress,
+        if (total != null) 'total': total,
+        if (meta != null) '_meta': meta,
+      });
 
   /// The progress token which was given in the initial request, used to
   /// associate this notification with the request that is proceeding.
@@ -249,12 +250,13 @@ extension type ImageContent.fromMap(Map<String, Object?> _value)
     required String data,
     required String mimeType,
     Annotations? annotations,
-  }) => ImageContent.fromMap({
-    'data': data,
-    'mimeType': mimeType,
-    'type': expectedType,
-    if (annotations != null) 'annotations': annotations,
-  });
+  }) =>
+      ImageContent.fromMap({
+        'data': data,
+        'mimeType': mimeType,
+        'type': expectedType,
+        if (annotations != null) 'annotations': annotations,
+      });
 
   String get type {
     final type = _value['type'] as String;
@@ -281,11 +283,12 @@ extension type EmbeddedResource.fromMap(Map<String, Object?> _value)
   factory EmbeddedResource({
     required Content resource,
     Annotations? annotations,
-  }) => EmbeddedResource.fromMap({
-    'resource': resource,
-    'type': expectedType,
-    if (annotations != null) 'annotations': annotations,
-  });
+  }) =>
+      EmbeddedResource.fromMap({
+        'resource': resource,
+        'type': expectedType,
+        if (annotations != null) 'annotations': annotations,
+      });
 
   String get type {
     final type = _value['resource'] as String;
