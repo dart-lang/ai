@@ -72,6 +72,129 @@ void main() {
     // Need to manually close so the stream matchers can complete.
     await environment.shutdown();
   });
+
+  group('Schemas', () {
+    test('ObjectSchema', () {
+      final schema = ObjectSchema(
+        properties: {
+          'foo': StringSchema(),
+          'bar': IntegerSchema(),
+        },
+        required: ['foo'],
+        additionalProperties: false,
+        unevaluatedProperties: true,
+        propertyNames: StringSchema(pattern: r'^[a-z]+$'),
+        minProperties: 1,
+        maxProperties: 2,
+      );
+      expect(schema, {
+        'type': 'object',
+        'properties': {
+          'foo': {'type': 'string'},
+          'bar': {'type': 'integer'}
+        },
+        'required': ['foo'],
+        'additionalProperties': false,
+        'unevaluatedProperties': true,
+        'propertyNames': {'type': 'string', 'pattern': '^[a-z]+\$'},
+        'minProperties': 1,
+        'maxProperties': 2
+      });
+    });
+
+    test('StringSchema', () {
+      final schema = StringSchema(
+        minLength: 1,
+        maxLength: 10,
+        pattern: r'^[a-z]+$',
+      );
+      expect(schema, {
+        'type': 'string',
+        'minLength': 1,
+        'maxLength': 10,
+        'pattern': '^[a-z]+\$'
+      });
+    });
+
+    test('NumberSchema', () {
+      final schema = NumberSchema(
+        minimum: 1,
+        maximum: 10,
+        exclusiveMinimum: 0,
+        exclusiveMaximum: 11,
+        multipleOf: 2,
+      );
+      expect(schema, {
+        'type': 'number',
+        'minimum': 1,
+        'maximum': 10,
+        'exclusiveMinimum': 0,
+        'exclusiveMaximum': 11,
+        'multipleOf': 2
+      });
+    });
+
+    test('IntegerSchema', () {
+      final schema = IntegerSchema(
+        minimum: 1,
+        maximum: 10,
+        exclusiveMinimum: 0,
+        exclusiveMaximum: 11,
+        multipleOf: 2,
+      );
+      expect(schema, {
+        'type': 'integer',
+        'minimum': 1,
+        'maximum': 10,
+        'exclusiveMinimum': 0,
+        'exclusiveMaximum': 11
+      });
+    });
+
+    test('BooleanSchema', () {
+      final schema = BooleanSchema();
+      expect(schema, {'type': 'boolean'});
+    });
+
+    test('NullSchema', () {
+      final schema = NullSchema();
+      expect(schema, {'type': 'null'});
+    });
+
+    test('ListSchema', () {
+      final schema = ListSchema(
+        items: StringSchema(),
+        prefixItems: [IntegerSchema(), BooleanSchema()],
+        unevaluatedItems: false,
+        minItems: 1,
+        maxItems: 10,
+        uniqueItems: true,
+      );
+      expect(schema, {
+        'type': 'array',
+        'items': {'type': 'string'},
+        'prefixItems': [
+          {'type': 'integer'},
+          {'type': 'boolean'}
+        ],
+        'unevaluatedItems': false,
+        'minItems': 1,
+        'maxItems': 10,
+        'uniqueItems': true
+      });
+    });
+
+    test('SchemaCombinator', () {
+      final schema = SchemaCombinator(subSchemas: [
+        StringSchema(),
+        IntegerSchema(),
+      ]);
+      expect(schema.subSchemas, [
+        {'type': 'string'},
+        {'type': 'integer'}
+      ]);
+    });
+  });
 }
 
 final class TestMCPServerWithTools extends TestMCPServer with ToolsSupport {

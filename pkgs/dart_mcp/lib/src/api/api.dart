@@ -5,6 +5,7 @@
 /// Interfaces are based on https://github.com/modelcontextprotocol/specification/blob/main/schema/2024-11-05/schema.json
 library;
 
+import 'package:collection/collection.dart';
 import 'package:json_rpc_2/json_rpc_2.dart';
 
 part 'completions.dart';
@@ -340,13 +341,4 @@ extension type Annotations.fromMap(Map<String, Object?> _value) {
   ///
   /// Must be between 0 and 1.
   double? get priority => _value['priority'] as double?;
-}
-
-extension _IterableHelpers<T> on Iterable<T> {
-  T? firstWhereOrNull(bool Function(T element) test) {
-    for (var element in this) {
-      if (test(element)) return element;
-    }
-    return null;
-  }
 }

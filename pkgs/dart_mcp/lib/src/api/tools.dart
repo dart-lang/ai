@@ -113,7 +113,7 @@ extension type Tool.fromMap(Map<String, Object?> _value) {
       Tool.fromMap({
         'name': name,
         if (description != null) 'description': description,
-        'ObjectSchema': ObjectSchema,
+        'inputSchema': inputSchema,
       });
 
   /// The name of the tool.
