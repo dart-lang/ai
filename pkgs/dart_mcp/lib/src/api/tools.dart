@@ -108,7 +108,7 @@ extension type Tool.fromMap(Map<String, Object?> _value) {
   factory Tool({
     required String name,
     String? description,
-    required Schema inputSchema,
+    required ObjectSchema inputSchema,
   }) =>
       Tool.fromMap({
         'name': name,
