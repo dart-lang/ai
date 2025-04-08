@@ -37,6 +37,16 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
     return super.initialize(request);
   }
 
+  @override
+  Future<void> shutdown() async {
+    await super.shutdown();
+    await _analysisContexts?.dispose();
+    for (var subscription in _watchSubscriptions) {
+      unawaited(subscription.cancel());
+    }
+    _watchSubscriptions.clear();
+  }
+
   /// Lists the roots, and listens for changes to them.
   ///
   /// Whenever new roots are found, creates a new [AnalysisContextCollection].
@@ -65,7 +75,7 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
         throw ArgumentError.value(
             root.uri, 'uri', 'Only file scheme uris are allowed for roots');
       }
-      paths.add(p.normalize(uri.toFilePath()));
+      paths.add(p.normalize(uri.path));
     }
 
     for (var subscription in _watchSubscriptions) {
@@ -75,11 +85,11 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
 
     for (var rootPath in paths) {
       var watcher = DirectoryWatcher(rootPath);
-      watcher.events.listen((event) {
+      _watchSubscriptions.add(watcher.events.listen((event) {
         final context = _analysisContexts?.contextFor(event.path);
         if (context == null) return;
         context.changeFile(p.normalize(event.path));
-      });
+      }));
     }
 
     _analysisContexts =
@@ -120,12 +130,12 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
         ], isError: true);
       }
 
-      var context = contexts.contextFor(rootUri.toFilePath());
+      var context = contexts.contextFor(p.normalize(rootUri.path));
       await context.applyPendingFileChanges();
 
       for (var path in paths) {
-        var normalized = p.normalize(
-            p.isAbsolute(path) ? path : p.join(rootUri.toFilePath(), path));
+        var normalized =
+            p.normalize(p.isAbsolute(path) ? path : p.join(rootUri.path, path));
         var errorsResult = await context.currentSession.getErrors(normalized);
         if (errorsResult is! ErrorsResult) {
           return CallToolResult(content: [

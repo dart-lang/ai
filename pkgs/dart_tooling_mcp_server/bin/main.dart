@@ -36,8 +36,10 @@ void main(List<String> args) async {
     );
   }, (e, s) {
     if (server != null) {
-      // Log unhandled errors to the client, if we managed to connect.
-      server!.log(LoggingLevel.error, '$e\n$s');
+      try {
+        // Log unhandled errors to the client, if we managed to connect.
+        server!.log(LoggingLevel.error, '$e\n$s');
+      } catch (_) {}
     } else {
       // Otherwise log to stderr.
       io.stderr
@@ -46,9 +48,11 @@ void main(List<String> args) async {
     }
   }, zoneSpecification: ZoneSpecification(print: (_, __, ___, value) {
     if (server != null) {
-      // Don't allow `print` since this breaks stdio communication, but if we
-      // have a server we do log messages to the client.
-      server!.log(LoggingLevel.info, value);
+      try {
+        // Don't allow `print` since this breaks stdio communication, but if we
+        // have a server we do log messages to the client.
+        server!.log(LoggingLevel.info, value);
+      } catch (_) {}
     }
   }));
 }
