@@ -150,7 +150,15 @@ enum JsonType {
 /// check for any schema combinators ([allOf], [anyOf], [oneOf], [not]), as both
 /// may be present.
 ///
-/// If a [type] is provided, it applies to all sub-schemas.
+/// If a [type] is provided, it applies to all sub-schemas, and you can cast all
+/// the sub-schemas directly to the specified type from the parent schema.
+///
+/// See https://json-schema.org/understanding-json-schema/reference for the full
+/// specification.
+///
+/// **Note:** Only a subset of the json schema spec is supported by these types,
+/// if you need something more complex you can create your own
+/// `Map<String, Object?>` and cast it to [Schema] (or [ObjectSchema]) directly.
 extension type Schema._(Map<String, Object?> _value) {
   /// The [JsonType] of this schema, if present.
   ///
