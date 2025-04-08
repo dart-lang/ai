@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:dart_mcp/server.dart';
 import 'package:dtd/dtd.dart';
 import 'package:json_rpc_2/json_rpc_2.dart';
+import 'package:vm_service/vm_service.dart';
 import 'package:vm_service/vm_service_io.dart';
 
 /// Mix this in to any MCPServer to add support for connecting to the Dart
@@ -31,6 +32,7 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
   FutureOr<InitializeResult> initialize(InitializeRequest request) async {
     registerTool(_connectTool, _connect);
     registerTool(_screenshotTool, takeScreenshot);
+    registerTool(_hotReloadTool, hotReload);
     return super.initialize(request);
   }
 
@@ -97,6 +99,95 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
   // TODO: support passing a debug session id when there is more than one debug
   // session.
   Future<CallToolResult> takeScreenshot(CallToolRequest request) async {
+    return _callOnVmService(
+      callback: (vmService) async {
+        final vm = await vmService.getVM();
+        final result = await vmService.callServiceExtension(
+          '_flutter.screenshot',
+          isolateId: vm.isolates!.first.id,
+        );
+        if (result.json?['type'] == 'Screenshot' &&
+            result.json?['screenshot'] is String) {
+          return CallToolResult(
+            content: [
+              ImageContent(
+                data: result.json!['screenshot'] as String,
+                mimeType: 'image/png',
+              ),
+            ],
+          );
+        } else {
+          return CallToolResult(
+            isError: true,
+            content: [
+              TextContent(
+                text: 'Unknown error or bad response taking screenshot:\n'
+                    '${result.json}',
+              ),
+            ],
+          );
+        }
+      },
+    );
+  }
+
+  /// Performs a hot reload on the currently running app.
+  ///
+  /// If more than one debug session is active, then it just uses the first one.
+  ///
+  // TODO: support passing a debug session id when there is more than one debug
+  // session.
+  Future<CallToolResult> hotReload(CallToolRequest request) async {
+    return _callOnVmService(
+      callback: (vmService) async {
+        final vm = await vmService.getVM();
+
+        String? hotReloadMethodName;
+        vmService.onEvent(EventStreams.kService).listen((Event e) {
+          if (e.kind == EventKind.kServiceRegistered) {
+            final serviceName = e.service!;
+            if (serviceName == 'reloadSources') {
+              // This may look something like 's0.reloadSources'.
+              hotReloadMethodName = e.method!;
+            }
+          }
+        });
+        await vmService.streamListen(EventStreams.kService);
+
+        // Short delay to allow the service registration event to be sent.
+        await Future<void>.delayed(const Duration(seconds: 1));
+        await vmService.streamCancel(EventStreams.kService);
+        if (hotReloadMethodName == null) return _hotReloadNotReady;
+
+        final result = await vmService.callMethod(
+          hotReloadMethodName!,
+          isolateId: vm.isolates!.first.id,
+        );
+        final resultType = result.json?['type'];
+        if (resultType == 'Success' ||
+            (resultType == 'ReloadReport' && result.json?['success'] == true)) {
+          return CallToolResult(
+            content: [TextContent(text: 'Hot reload succeeded.')],
+          );
+        } else {
+          return CallToolResult(
+            isError: true,
+            content: [
+              TextContent(
+                text: 'Hot reload failed:\n'
+                    '${result.json}',
+              ),
+            ],
+          );
+        }
+      },
+    );
+  }
+
+  /// Calls [callback] on the first active debug session, if available.
+  Future<CallToolResult> _callOnVmService({
+    required Future<CallToolResult> Function(VmService) callback,
+  }) async {
     final dtd = _dtd;
     if (dtd == null) return _dtdNotConnected;
     if (!_getDebugSessionsReady) {
@@ -110,37 +201,10 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
     if (debugSessions.isEmpty) return _noActiveDebugSession;
 
     // TODO: Consider holding on to this connection.
-    final vmService = await vmServiceConnectUri(
-      debugSessions.first.vmServiceUri,
-    );
-
+    final vmService =
+        await vmServiceConnectUri(debugSessions.first.vmServiceUri);
     try {
-      final vm = await vmService.getVM();
-      final result = await vmService.callServiceExtension(
-        '_flutter.screenshot',
-        isolateId: vm.isolates!.first.id,
-      );
-      if (result.json?['type'] == 'Screenshot' &&
-          result.json?['screenshot'] is String) {
-        return CallToolResult(
-          content: [
-            ImageContent(
-              data: result.json!['screenshot'] as String,
-              mimeType: 'image/png',
-            ),
-          ],
-        );
-      } else {
-        return CallToolResult(
-          isError: true,
-          content: [
-            TextContent(
-              text: 'Unknown error or bad response taking screenshot:\n'
-                  '${result.json}',
-            ),
-          ],
-        );
-      }
+      return await callback(vmService);
     } finally {
       unawaited(vmService.dispose());
     }
@@ -166,6 +230,25 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
         'current state. Requires "${_connectTool.name}" to be successfully '
         'called first.',
     inputSchema: InputSchema(),
+  );
+
+  static final _hotReloadTool = Tool(
+    name: 'hot_reload',
+    description: 'Performs a hot reload of the active Flutter application. '
+        'This is to apply the latest code changes to the running application. '
+        'Requires "${_connectTool.name}" to be successfully called first.',
+    inputSchema: InputSchema(),
+  );
+
+  static final _hotReloadNotReady = CallToolResult(
+    isError: true,
+    content: [
+      TextContent(
+        text:
+            'The hot reload service has not been registered yet, please wait a '
+            'few seconds and try again.',
+      ),
+    ],
   );
 
   static final _dtdNotConnected = CallToolResult(
