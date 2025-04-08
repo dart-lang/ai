@@ -184,15 +184,41 @@ void main() {
       });
     });
 
-    test('SchemaCombinator', () {
-      final schema = SchemaCombinator(subSchemas: [
-        StringSchema(),
-        IntegerSchema(),
-      ]);
-      expect(schema.subSchemas, [
-        {'type': 'string'},
-        {'type': 'integer'}
-      ]);
+    test('Schema', () {
+      final schema = Schema.withCombinators(
+        allOf: [
+          StringSchema(),
+          IntegerSchema(),
+        ],
+        anyOf: [
+          StringSchema(),
+          IntegerSchema(),
+        ],
+        oneOf: [
+          StringSchema(),
+          IntegerSchema(),
+        ],
+        not: [StringSchema()],
+        type: JsonType.bool,
+      );
+      expect(schema, {
+        'allOf': [
+          {'type': 'string'},
+          {'type': 'integer'}
+        ],
+        'anyOf': [
+          {'type': 'string'},
+          {'type': 'integer'}
+        ],
+        'oneOf': [
+          {'type': 'string'},
+          {'type': 'integer'}
+        ],
+        'not': [
+          {'type': 'string'}
+        ],
+        'type': 'boolean'
+      });
     });
   });
 }
