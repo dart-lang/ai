@@ -24,7 +24,7 @@ part 'tools_support.dart';
 abstract base class MCPServer extends MCPBase {
   /// Completes when this server has finished initialization and gotten the
   /// final ack from the client.
-  FutureOr<void> get initialized => _initialized.future;
+  Future<void> get initialized => _initialized.future;
   final Completer<void> _initialized = Completer<void>();
 
   /// Whether this server is still active and has completed initialization.
