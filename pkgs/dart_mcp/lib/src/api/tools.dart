@@ -146,21 +146,36 @@ enum JsonType {
 /// See the subtypes [ObjectSchema], [ListSchema], [StringSchema],
 /// [NumberSchema], [IntegerSchema], [BooleanSchema], [NullSchema].
 ///
-/// To get an instance of a subtype, switch on the [type] and cast to the
-/// appropriate type. Normal `is` checks do not work on extension types.
+/// To get an instance of a subtype, you should inspect the [type] as well as
+/// check for any schema combinators ([allOf], [anyOf], [oneOf], [not]), as both
+/// may be present.
+///
+/// If a [type] is provided, it applies to all sub-schemas.
 extension type Schema._(Map<String, Object?> _value) {
-  /// The [JsonType] of this schema.
-  ///
-  /// This is `null` if the type is a combination type such as [AllOf], [AnyOf],
-  /// [OneOf], or [not].
+  /// The [JsonType] of this schema, if present.
   ///
   /// Use this in switch statements to determine the type of schema and cast to
   /// the appropriate subtype.
   ///
   /// Note that it is good practice to include a default case, to avoid breakage
   /// in the case that a new type is added.
+  ///
+  /// This is not required, and commonly won't be present if one of the schema
+  /// combinators ([allOf], [anyOf], [oneOf], or [not]) are used.
   JsonType? get type => JsonType.values
       .firstWhereOrNull((t) => _value['type'] as String == t.typeName);
+
+  /// Schema combinator that requires all sub-schemas to match.
+  SchemaCombinator? get allOf => _value['allOf'] as SchemaCombinator?;
+
+  /// Schema combinator that requires at least one of the sub-schemas to match.
+  SchemaCombinator? get anyOf => _value['anyOf'] as SchemaCombinator?;
+
+  /// Schema combinator that requires exactly one of the sub-schemas to match.
+  SchemaCombinator? get oneOf => _value['oneOf'] as SchemaCombinator?;
+
+  /// Schema combinator that requires none of the sub-schemas to match.
+  SchemaCombinator? get not => _value['not'] as SchemaCombinator?;
 }
 
 /// A JSON Schema definition for an object with properties.
@@ -377,4 +392,15 @@ extension type ListSchema.fromMap(Map<String, Object?> _value)
 
   /// Whether or not all the items in this list must be unique.
   bool? get uniqueItems => _value['uniqueItems'] as bool?;
+}
+
+/// A schema combinator such as "allOf", "anyOf", "oneOf", or "not".
+///
+/// https://json-schema.org/understanding-json-schema/reference/combining#schema-composition
+extension type SchemaCombinator.fromList(List<Object?> _value) {
+  factory SchemaCombinator({required List<Schema> subSchemas}) =>
+      SchemaCombinator.fromList(subSchemas);
+
+  /// All the subSchemas in this combinator.
+  List<Schema> get subSchemas => _value.cast<Schema>();
 }
