@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'package:dart_mcp/server.dart';
+import 'package:dart_tooling_mcp_server/src/mixins/analyzer.dart';
+import 'package:dart_tooling_mcp_server/src/mixins/dtd.dart';
 import 'package:test/test.dart';
 
 import 'test_harness.dart';
@@ -20,7 +22,7 @@ void main() {
   test('can take a screenshot', () async {
     final tools = (await testHarness.mcpServerConnection.listTools()).tools;
     final screenshotTool = tools.singleWhere(
-      (t) => t.name == 'take_screenshot',
+      (t) => t.name == DartToolingDaemonSupport.screenshotTool.name,
     );
     final screenshotResult = await testHarness.callToolWithRetry(
       CallToolRequest(name: screenshotTool.name),
@@ -33,5 +35,25 @@ void main() {
         'type': ImageContent.expectedType
       },
     );
+  });
+
+  test('can analyze a project', () async {
+    final tools = (await testHarness.mcpServerConnection.listTools()).tools;
+    final analyzeTool = tools.singleWhere(
+        (t) => t.name == DartAnalyzerSupport.analyzeFilesTool.name);
+    final request = CallToolRequest(
+      name: analyzeTool.name,
+      arguments: {
+        'roots': [
+          {
+            'root': Uri.base.resolve(counterAppPath).toString(),
+            'paths': ['lib/main.dart']
+          }
+        ]
+      },
+    );
+    final result = await testHarness.callToolWithRetry(request);
+    expect(result.isError, false);
+    expect(result.content, isEmpty);
   });
 }

@@ -89,8 +89,7 @@ class TestHarness {
     final tools = (await mcpServerConnection.listTools()).tools;
 
     final connectTool = tools.singleWhere(
-      (t) => t.name == 'connectDartToolingDaemon',
-    );
+        (t) => t.name == DartToolingDaemonSupport.connectTool.name);
 
     final result = await callToolWithRetry(
       CallToolRequest(name: connectTool.name, arguments: {'uri': dtdUri}),
@@ -119,14 +118,18 @@ class TestHarness {
   }
 }
 
-final class DartToolingMCPClient extends MCPClient {
+final class DartToolingMCPClient extends MCPClient with RootsSupport {
   DartToolingMCPClient()
       : super(
           ClientImplementation(
             name: 'test client for the dart tooling mcp server',
             version: '0.1.0',
           ),
-        );
+        ) {
+    addRoot(Root(
+        uri: Uri.base.resolve(counterAppPath).toString(),
+        name: 'counter app test fixture'));
+  }
 }
 
 /// The dart tooling daemon currently expects to get vm service uris through

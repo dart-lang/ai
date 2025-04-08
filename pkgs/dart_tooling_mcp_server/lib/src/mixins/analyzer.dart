@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
 import 'package:analyzer/dart/analysis/results.dart';
 import 'package:dart_mcp/server.dart';
+import 'package:meta/meta.dart';
 
 /// Mix this in to any MCPServer to add support for analyzing Dart projects.
 ///
@@ -21,7 +22,7 @@ base mixin DartAnalyzerSupport on ToolsSupport {
       throw StateError(
           'This server requires the "roots" capability to be implemented.');
     }
-    registerTool(_analyzeFilesTool, _analyzeFiles);
+    registerTool(analyzeFilesTool, _analyzeFiles);
     initialized.then(_listenForRoots);
     return super.initialize(request);
   }
@@ -109,7 +110,8 @@ base mixin DartAnalyzerSupport on ToolsSupport {
     return CallToolResult(content: messages);
   }
 
-  static final _analyzeFilesTool = Tool(
+  @visibleForTesting
+  static final analyzeFilesTool = Tool(
       name: 'analyze files',
       description:
           'Analyzes the requested file paths under the specified project roots '
