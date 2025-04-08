@@ -18,6 +18,7 @@ dependencies:
   test_descriptor: ^2.0.2
   test_process: ^2.1.1
   vm_service: ^15.0.0
+  watcher: ^1.1.1
 executables:
   dart_tooling_mcp_server: main
 dev_dependencies:

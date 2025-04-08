@@ -10,6 +10,7 @@ import 'package:analyzer/dart/analysis/results.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
+import 'package:watcher/watcher.dart';
 
 /// Mix this in to any MCPServer to add support for analyzing Dart projects.
 ///
@@ -17,6 +18,13 @@ import 'package:path/path.dart' as p;
 base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
   /// The analyzed contexts.
   AnalysisContextCollection? _analysisContexts;
+
+  /// All active directory watcher streams.
+  ///
+  /// The watcher package doesn't let you close watchers, you just have to
+  /// stop listening to their streams instead, so we store the stream
+  /// subscriptions instead of the watchers themselves.
+  final List<StreamSubscription> _watchSubscriptions = [];
 
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
@@ -43,8 +51,13 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
 
   /// Creates an analysis context from a list of roots.
   //
-  // TODO: Watch the file system for changes to files.
+  // TODO: Better configuration for the DART_SDK location.
   void _createAnalysisContext(ListRootsResult result) async {
+    final sdkPath = Platform.environment['DART_SDK'];
+    if (sdkPath == null) {
+      throw StateError('DART_SDK environment variable not set');
+    }
+
     final paths = <String>[];
     for (var root in result.roots) {
       var uri = Uri.parse(root.uri);
@@ -55,9 +68,18 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
       paths.add(p.normalize(uri.toFilePath()));
     }
 
-    final sdkPath = Platform.environment['DART_SDK'];
-    if (sdkPath == null) {
-      throw StateError('DART_SDK environment variable not set');
+    for (var subscription in _watchSubscriptions) {
+      unawaited(subscription.cancel());
+    }
+    _watchSubscriptions.clear();
+
+    for (var rootPath in paths) {
+      var watcher = DirectoryWatcher(rootPath);
+      watcher.events.listen((event) {
+        final context = _analysisContexts?.contextFor(event.path);
+        if (context == null) return;
+        context.changeFile(p.normalize(event.path));
+      });
     }
 
     _analysisContexts =
@@ -88,7 +110,6 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
                   '$rootUri')
         ], isError: true);
       }
-      var context = contexts.contextFor(rootUri.toFilePath());
       var paths = (rootConfig['paths'] as List?)?.cast<String>();
       if (paths == null) {
         return CallToolResult(content: [
@@ -98,6 +119,9 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
                   'of relative paths to analyze.')
         ], isError: true);
       }
+
+      var context = contexts.contextFor(rootUri.toFilePath());
+      await context.applyPendingFileChanges();
 
       for (var path in paths) {
         var normalized = p.normalize(
