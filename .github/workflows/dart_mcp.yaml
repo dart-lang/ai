@@ -37,6 +37,6 @@ jobs:
       - run: dart analyze --fatal-infos
 
       - run: dart format --output=none --set-exit-if-changed .
-        if: ${{ matrix.sdk == 'stable' }}
+        if: ${{ matrix.sdk == 'dev' }}
 
       - run: dart test

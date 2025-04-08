@@ -31,12 +31,12 @@ abstract base class MCPServer extends MCPBase {
   bool get ready => isActive && _initialized.isCompleted;
 
   /// The name, current version, and other info to give to the client.
-  ServerImplementation get implementation;
+  final ServerImplementation implementation;
 
   /// Instructions for how to use this server, which are given to the client.
   ///
   /// These may be used in system prompts.
-  String get instructions;
+  final String instructions;
 
   /// The capabilities of the client.
   ///
@@ -54,8 +54,11 @@ abstract base class MCPServer extends MCPBase {
       _rootsListChangedController?.stream;
   StreamController<RootsListChangedNotification>? _rootsListChangedController;
 
-  MCPServer.fromStreamChannel(StreamChannel<String> channel)
-      : super(Peer(channel)) {
+  MCPServer.fromStreamChannel({
+    required this.implementation,
+    required this.instructions,
+    required StreamChannel<String> channel,
+  }) : super(Peer(channel)) {
     registerRequestHandler(InitializeRequest.methodName, initialize);
 
     registerNotificationHandler(

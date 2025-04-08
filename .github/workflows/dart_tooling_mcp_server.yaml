@@ -51,6 +51,6 @@ jobs:
       - run: dart analyze --fatal-infos
 
       - run: dart format --output=none --set-exit-if-changed .
-        if: ${{ matrix.flutterSdk == 'stable' }}
+        if: ${{ matrix.flutterSdk == 'dev' }}
 
       - run: xvfb-run -s "-screen 0 1024x768x24" dart test

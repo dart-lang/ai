@@ -12,22 +12,20 @@ import 'mixins/dtd.dart';
 /// An MCP server for Dart and Flutter tooling.
 final class DartToolingMCPServer extends MCPServer
     with ToolsSupport, DartToolingDaemonSupport {
-  @override
-  final implementation = ServerImplementation(
-    name: 'dart and flutter tooling',
-    version: '0.1.0-wip',
-  );
-
-  @override
-  final instructions =
-      'This server helps to connect Dart and Flutter developers to their '
-      'development tools and running applications.';
-
-  DartToolingMCPServer(super.channel) : super.fromStreamChannel();
+  DartToolingMCPServer({required super.channel})
+      : super.fromStreamChannel(
+          implementation: ServerImplementation(
+            name: 'dart and flutter tooling',
+            version: '0.1.0-wip',
+          ),
+          instructions:
+              'This server helps to connect Dart and Flutter developers to '
+              'their development tools and running applications.',
+        );
 
   static Future<DartToolingMCPServer> connect(
     StreamChannel<String> mcpChannel,
   ) async {
-    return DartToolingMCPServer(mcpChannel);
+    return DartToolingMCPServer(channel: mcpChannel);
   }
 }

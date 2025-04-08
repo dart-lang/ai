@@ -1,0 +1,17 @@
+# A CI configuration to write comments on PRs.
+
+name: Comment on the pull request
+
+on:
+  workflow_run:
+    workflows:
+      - Health
+      - Publish
+    types:
+      - completed
+
+jobs:
+  upload:
+    uses: dart-lang/ecosystem/.github/workflows/post_summaries.yaml@main
+    permissions:
+      pull-requests: write

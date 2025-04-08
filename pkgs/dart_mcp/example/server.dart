@@ -12,7 +12,7 @@ import 'package:stream_channel/stream_channel.dart';
 
 void main() {
   DartMCPServer(
-    StreamChannel.withCloseGuarantee(io.stdin, io.stdout)
+    channel: StreamChannel.withCloseGuarantee(io.stdin, io.stdout)
         .transform(StreamChannelTransformer.fromCodec(utf8))
         .transformStream(const LineSplitter())
         .transformSink(
@@ -27,16 +27,14 @@ void main() {
 
 /// Our actual MCP server.
 base class DartMCPServer extends MCPServer with ToolsSupport {
-  @override
-  final ServerImplementation implementation = ServerImplementation(
-    name: 'example dart server',
-    version: '0.1.0',
-  );
-
-  @override
-  final instructions = 'A basic tool that can respond with "hello world!"';
-
-  DartMCPServer(super.channel) : super.fromStreamChannel();
+  DartMCPServer({required super.channel})
+      : super.fromStreamChannel(
+          implementation: ServerImplementation(
+            name: 'example dart server',
+            version: '0.1.0',
+          ),
+          instructions: 'A basic tool that can respond with "hello world!"',
+        );
 
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {

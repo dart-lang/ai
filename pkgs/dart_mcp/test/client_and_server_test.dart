@@ -15,7 +15,10 @@ import 'test_utils.dart';
 
 void main() {
   test('client and server can communicate', () async {
-    var environment = TestEnvironment(TestMCPClient(), TestMCPServer.new);
+    var environment = TestEnvironment(
+      TestMCPClient(),
+      (c) => TestMCPServer(channel: c),
+    );
     var initializeResult = await environment.initializeServer();
 
     expect(initializeResult.capabilities, isEmpty);
@@ -42,7 +45,10 @@ void main() {
   });
 
   test('client and server can ping each other', () async {
-    var environment = TestEnvironment(TestMCPClient(), TestMCPServer.new);
+    var environment = TestEnvironment(
+      TestMCPClient(),
+      (c) => TestMCPServer(channel: c),
+    );
     await environment.initializeServer();
 
     expect(await environment.serverConnection.ping(), true);
@@ -60,7 +66,7 @@ void main() {
           },
         ),
       );
-      return TestMCPServer(channel);
+      return TestMCPServer(channel: channel);
     });
     await environment.initializeServer();
 
@@ -83,7 +89,7 @@ void main() {
           },
         ),
       );
-      return TestMCPServer(channel);
+      return TestMCPServer(channel: channel);
     });
     await environment.initializeServer();
 
@@ -96,7 +102,7 @@ void main() {
   test('clients can handle progress notifications', () async {
     var environment = TestEnvironment(
       TestMCPClient(),
-      InitializeProgressTestMCPServer.new,
+      (c) => InitializeProgressTestMCPServer(channel: c),
     );
     await environment.initializeServer();
     var serverConnection = environment.serverConnection;
@@ -142,7 +148,7 @@ void main() {
     var environment = TestEnvironment(
       ListRootsProgressTestMCPClient(),
       (channel) => TestMCPServer(
-        channel.transformSink(
+        channel: channel.transformSink(
           StreamSinkTransformer<String, String>.fromHandlers(
             handleData: (data, sink) async {
               // Add a short delay when sending out a list roots request so
@@ -192,7 +198,10 @@ void main() {
   });
 
   test('closing a server removes the connection', () async {
-    var environment = TestEnvironment(TestMCPClient(), TestMCPServer.new);
+    var environment = TestEnvironment(
+      TestMCPClient(),
+      (c) => TestMCPServer(channel: c),
+    );
     await environment.serverConnection.shutdown();
     expect(environment.client.connections, isEmpty);
   });
@@ -200,7 +209,7 @@ void main() {
 
 final class InitializeProgressTestMCPServer extends TestMCPServer
     with ToolsSupport {
-  InitializeProgressTestMCPServer(super.channel);
+  InitializeProgressTestMCPServer({required super.channel});
 
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
