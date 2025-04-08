@@ -96,7 +96,7 @@ void main() {
         'required': ['foo'],
         'additionalProperties': false,
         'unevaluatedProperties': true,
-        'propertyNames': {'type': 'string', 'pattern': '^[a-z]+\$'},
+        'propertyNames': {'type': 'string', 'pattern': r'^[a-z]+$'},
         'minProperties': 1,
         'maxProperties': 2
       });
@@ -112,7 +112,7 @@ void main() {
         'type': 'string',
         'minLength': 1,
         'maxLength': 10,
-        'pattern': '^[a-z]+\$'
+        'pattern': r'^[a-z]+$'
       });
     });
 
