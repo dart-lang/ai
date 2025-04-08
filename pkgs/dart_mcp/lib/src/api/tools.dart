@@ -132,8 +132,8 @@ enum JsonType {
   object('object'),
   list('array'),
   string('string'),
-  number('number'),
-  integer('integer'),
+  num('number'),
+  int('integer'),
   bool('boolean'),
   nil('null');
 
@@ -289,7 +289,7 @@ extension type NumberSchema.fromMap(Map<String, Object?> _value)
     num? multipleOf,
   }) =>
       NumberSchema.fromMap({
-        'type': JsonType.number.typeName,
+        'type': JsonType.num.typeName,
         if (minimum != null) 'minimum': minimum,
         if (maximum != null) 'maximum': maximum,
         if (exclusiveMinimum != null) 'exclusiveMinimum': exclusiveMinimum,
@@ -324,7 +324,7 @@ extension type IntegerSchema.fromMap(Map<String, Object?> _value)
     num? multipleOf,
   }) =>
       IntegerSchema.fromMap({
-        'type': JsonType.integer.typeName,
+        'type': JsonType.int.typeName,
         if (minimum != null) 'minimum': minimum,
         if (maximum != null) 'maximum': maximum,
         if (exclusiveMinimum != null) 'exclusiveMinimum': exclusiveMinimum,
