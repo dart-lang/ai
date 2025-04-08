@@ -7,8 +7,11 @@ WIP
 ## Using this package
 
 To use this package, you will need to compile the `bin/main.dart` script to exe
-(`dart compile bin/main.dart`) and use the compiled path as the command in your
-MCP server config.
+and use the compiled path as the command in your MCP server config.
+
+```shell
+dart compile exe bin/main.dart
+```
 
 ### With Cursor
 
@@ -32,10 +35,15 @@ If you are directly editing your mcp.json file, it should look like this:
 
 ## Debugging MCP Servers
 
-See https://modelcontextprotocol.io/docs/tools/inspector.
+For local development, use the [MCP Inspector](https://modelcontextprotocol.io/docs/tools/inspector).
 
-The setup here is basically the same as the cursor config, launch the inspector
-with no options, and then plug in the executable path and DTD Uri into the
-connection window.
+1. Run the inspector with no arguments:
+    ```shell
+    npx @modelcontextprotocol/inspector
+    ```
 
-You should then see all available functionality from the server.
+2. Open the MCP Inspector in the browser and enter the path to the server
+executable in the "Command" field
+(e.g. `/Users/me/path/to/ai/pkgs/dart_tooling_mcp_server/bin/main.exe`).
+
+3. Click "Connect" to connect to the server and debug using the MCP Inspector.
