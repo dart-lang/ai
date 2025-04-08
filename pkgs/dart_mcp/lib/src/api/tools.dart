@@ -163,17 +163,21 @@ enum JsonType {
 extension type Schema.fromMap(Map<String, Object?> _value) {
   factory Schema.withCombinators({
     JsonType? type,
+    String? title,
+    String? description,
     List<Schema>? allOf,
     List<Schema>? anyOf,
     List<Schema>? oneOf,
     List<Schema>? not,
   }) =>
       Schema.fromMap({
+        if (type != null) 'type': type.typeName,
+        if (title != null) 'title': title,
+        if (description != null) 'description': description,
         if (allOf != null) 'allOf': allOf,
         if (anyOf != null) 'anyOf': anyOf,
         if (oneOf != null) 'oneOf': oneOf,
         if (not != null) 'not': not,
-        if (type != null) 'type': type.typeName,
       });
 
   /// The [JsonType] of this schema, if present.
@@ -188,6 +192,12 @@ extension type Schema.fromMap(Map<String, Object?> _value) {
   /// combinators ([allOf], [anyOf], [oneOf], or [not]) are used.
   JsonType? get type => JsonType.values
       .firstWhereOrNull((t) => _value['type'] as String == t.typeName);
+
+  /// A title for this schema, should be short.
+  String? get title => _value['title'] as String?;
+
+  /// A description of this schema.
+  String? get description => _value['description'] as String?;
 
   /// Schema combinator that requires all sub-schemas to match.
   List<Schema>? get allOf => (_value['allOf'] as List?)?.cast<Schema>();
@@ -206,6 +216,8 @@ extension type Schema.fromMap(Map<String, Object?> _value) {
 extension type ObjectSchema.fromMap(Map<String, Object?> _value)
     implements Schema {
   factory ObjectSchema({
+    String? title,
+    String? description,
     Map<String, Schema>? properties,
     Map<String, Schema>? patternProperties,
     List<String>? required,
@@ -219,6 +231,8 @@ extension type ObjectSchema.fromMap(Map<String, Object?> _value)
   }) =>
       ObjectSchema.fromMap({
         'type': JsonType.object.typeName,
+        if (title != null) 'title': title,
+        if (description != null) 'description': description,
         if (properties != null) 'properties': properties,
         if (patternProperties != null) 'patternProperties': patternProperties,
         if (required != null) 'required': required,
@@ -272,12 +286,16 @@ extension type ObjectSchema.fromMap(Map<String, Object?> _value)
 extension type const StringSchema.fromMap(Map<String, Object?> _value)
     implements Schema {
   factory StringSchema({
+    String? title,
+    String? description,
     int? minLength,
     int? maxLength,
     String? pattern,
   }) =>
       StringSchema.fromMap({
         'type': JsonType.string.typeName,
+        if (title != null) 'title': title,
+        if (description != null) 'description': description,
         if (minLength != null) 'minLength': minLength,
         if (maxLength != null) 'maxLength': maxLength,
         if (pattern != null) 'pattern': pattern,
@@ -297,6 +315,8 @@ extension type const StringSchema.fromMap(Map<String, Object?> _value)
 extension type NumberSchema.fromMap(Map<String, Object?> _value)
     implements Schema {
   factory NumberSchema({
+    String? title,
+    String? description,
     num? minimum,
     num? maximum,
     num? exclusiveMinimum,
@@ -305,6 +325,8 @@ extension type NumberSchema.fromMap(Map<String, Object?> _value)
   }) =>
       NumberSchema.fromMap({
         'type': JsonType.num.typeName,
+        if (title != null) 'title': title,
+        if (description != null) 'description': description,
         if (minimum != null) 'minimum': minimum,
         if (maximum != null) 'maximum': maximum,
         if (exclusiveMinimum != null) 'exclusiveMinimum': exclusiveMinimum,
@@ -332,6 +354,8 @@ extension type NumberSchema.fromMap(Map<String, Object?> _value)
 extension type IntegerSchema.fromMap(Map<String, Object?> _value)
     implements Schema {
   factory IntegerSchema({
+    String? title,
+    String? description,
     int? minimum,
     int? maximum,
     int? exclusiveMinimum,
@@ -340,10 +364,13 @@ extension type IntegerSchema.fromMap(Map<String, Object?> _value)
   }) =>
       IntegerSchema.fromMap({
         'type': JsonType.int.typeName,
+        if (title != null) 'title': title,
+        if (description != null) 'description': description,
         if (minimum != null) 'minimum': minimum,
         if (maximum != null) 'maximum': maximum,
         if (exclusiveMinimum != null) 'exclusiveMinimum': exclusiveMinimum,
         if (exclusiveMaximum != null) 'exclusiveMaximum': exclusiveMaximum,
+        if (multipleOf != null) 'multipleOf': multipleOf,
       });
 
   /// The minimum value (inclusive) for this integer.
@@ -365,20 +392,37 @@ extension type IntegerSchema.fromMap(Map<String, Object?> _value)
 /// A JSON Schema definition for a [bool].
 extension type BooleanSchema.fromMap(Map<String, Object?> _value)
     implements Schema {
-  factory BooleanSchema() =>
-      BooleanSchema.fromMap({'type': JsonType.bool.typeName});
+  factory BooleanSchema({
+    String? title,
+    String? description,
+  }) =>
+      BooleanSchema.fromMap({
+        'type': JsonType.bool.typeName,
+        if (title != null) 'title': title,
+        if (description != null) 'description': description,
+      });
 }
 
 /// A JSON Schema definition for `null`.
 extension type NullSchema.fromMap(Map<String, Object?> _value)
     implements Schema {
-  factory NullSchema() => NullSchema.fromMap({'type': JsonType.nil.typeName});
+  factory NullSchema({
+    String? title,
+    String? description,
+  }) =>
+      NullSchema.fromMap({
+        'type': JsonType.nil.typeName,
+        if (title != null) 'title': title,
+        if (description != null) 'description': description,
+      });
 }
 
 /// A JSON Schema definition for a [List].
 extension type ListSchema.fromMap(Map<String, Object?> _value)
     implements Schema {
   factory ListSchema({
+    String? title,
+    String? description,
     Schema? items,
     List<Schema>? prefixItems,
     bool? unevaluatedItems,
@@ -388,6 +432,8 @@ extension type ListSchema.fromMap(Map<String, Object?> _value)
   }) =>
       ListSchema.fromMap({
         'type': JsonType.list.typeName,
+        if (title != null) 'title': title,
+        if (description != null) 'description': description,
         if (items != null) 'items': items,
         if (prefixItems != null) 'prefixItems': prefixItems,
         if (unevaluatedItems != null) 'unevaluatedItems': unevaluatedItems,

@@ -147,7 +147,8 @@ void main() {
         'minimum': 1,
         'maximum': 10,
         'exclusiveMinimum': 0,
-        'exclusiveMaximum': 11
+        'exclusiveMaximum': 11,
+        'multipleOf': 2,
       });
     });
 
