@@ -53,7 +53,7 @@ void main() {
       },
     );
     final result = await testHarness.callToolWithRetry(request);
-    expect(result.isError, false);
+    expect(result.isError, isNot(true));
     expect(result.content, isEmpty);
   });
 }

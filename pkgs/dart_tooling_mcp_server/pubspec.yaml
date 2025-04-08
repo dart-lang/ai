@@ -13,6 +13,7 @@ dependencies:
   dtd: ^2.4.0
   json_rpc_2: ^3.0.3
   meta: ^1.16.0
+  path: ^1.9.1
   stream_channel: ^2.1.4
   test_descriptor: ^2.0.2
   test_process: ^2.1.1

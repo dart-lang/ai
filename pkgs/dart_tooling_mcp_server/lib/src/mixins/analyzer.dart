@@ -8,6 +8,7 @@ import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
 import 'package:analyzer/dart/analysis/results.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:meta/meta.dart';
+import 'package:path/path.dart' as p;
 
 /// Mix this in to any MCPServer to add support for analyzing Dart projects.
 ///
@@ -55,7 +56,7 @@ base mixin DartAnalyzerSupport on ToolsSupport {
     _analysisContexts = AnalysisContextCollection(includedPaths: paths);
   }
 
-  /// Implementation of the [_analyzeFilesTool], analyzes the requested files
+  /// Implementation of the [analyzeFilesTool], analyzes the requested files
   /// under the requested project roots.
   Future<CallToolResult> _analyzeFiles(CallToolRequest request) async {
     var contexts = _analysisContexts;
@@ -91,8 +92,9 @@ base mixin DartAnalyzerSupport on ToolsSupport {
       }
 
       for (var path in paths) {
-        var errorsResult = await context.currentSession
-            .getErrors(rootUri.resolve(path).toFilePath());
+        var normalized = p.normalize(
+            p.isAbsolute(path) ? path : p.join(rootUri.toFilePath(), path));
+        var errorsResult = await context.currentSession.getErrors(normalized);
         if (errorsResult is! ErrorsResult) {
           return CallToolResult(content: [
             TextContent(text: 'Error computing analyzer errors $errorsResult'),
