@@ -122,8 +122,9 @@ extension type Tool.fromMap(Map<String, Object?> _value) {
   /// A human-readable description of the tool.
   String? get description => _value['description'] as String?;
 
-  /// A JSON [Schema] object defining the expected parameters for the tool.
-  Schema get inputSchema => _value['inputSchema'] as Schema;
+  /// A JSON [ObjectSchema] object defining the expected parameters for the
+  /// tool.
+  ObjectSchema get inputSchema => _value['inputSchema'] as ObjectSchema;
 }
 
 /// The valid types for properties in a JSON-RCP2 schema.
