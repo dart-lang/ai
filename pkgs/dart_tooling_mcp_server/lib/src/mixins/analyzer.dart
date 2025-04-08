@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
 import 'package:analyzer/dart/analysis/results.dart';
@@ -13,7 +14,7 @@ import 'package:path/path.dart' as p;
 /// Mix this in to any MCPServer to add support for analyzing Dart projects.
 ///
 /// The MCPServer must already have the [ToolsSupport] mixin applied.
-base mixin DartAnalyzerSupport on ToolsSupport {
+base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
   /// The analyzed contexts.
   AnalysisContextCollection? _analysisContexts;
 
@@ -51,9 +52,16 @@ base mixin DartAnalyzerSupport on ToolsSupport {
         throw ArgumentError.value(
             root.uri, 'uri', 'Only file scheme uris are allowed for roots');
       }
-      paths.add(uri.toFilePath());
+      paths.add(p.normalize(uri.toFilePath()));
     }
-    _analysisContexts = AnalysisContextCollection(includedPaths: paths);
+
+    final sdkPath = Platform.environment['DART_SDK'];
+    if (sdkPath == null) {
+      throw StateError('DART_SDK environment variable not set');
+    }
+
+    _analysisContexts =
+        AnalysisContextCollection(includedPaths: paths, sdkPath: sdkPath);
   }
 
   /// Implementation of the [analyzeFilesTool], analyzes the requested files

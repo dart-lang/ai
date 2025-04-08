@@ -73,6 +73,9 @@ class TestHarness {
     final mcpClient = DartToolingMCPClient();
     addTearDown(mcpClient.shutdown);
     final connection = await _initializeMCPServer(mcpClient, debugMode);
+    connection.onLog.listen((log) {
+      printOnFailure('MCP Server Log: $log');
+    });
 
     final fakeEditorExtension = await FakeEditorExtension.connect(
       flutterProcess,
@@ -94,6 +97,7 @@ class TestHarness {
     final result = await callToolWithRetry(
       CallToolRequest(name: connectTool.name, arguments: {'uri': dtdUri}),
     );
+
     expect(result.isError, isNot(true), reason: result.content.join('\n'));
   }
 
@@ -127,7 +131,7 @@ final class DartToolingMCPClient extends MCPClient with RootsSupport {
           ),
         ) {
     addRoot(Root(
-        uri: Uri.base.resolve(counterAppPath).toString(),
+        uri: Directory(counterAppPath).absolute.uri.toString(),
         name: 'counter app test fixture'));
   }
 }
