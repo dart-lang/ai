@@ -76,6 +76,9 @@ void main() {
   group('Schemas', () {
     test('ObjectSchema', () {
       final schema = ObjectSchema(
+        title: 'Foo',
+        description: 'Bar',
+        patternProperties: {'^foo': StringSchema()},
         properties: {
           'foo': StringSchema(),
           'bar': IntegerSchema(),
@@ -89,6 +92,11 @@ void main() {
       );
       expect(schema, {
         'type': 'object',
+        'title': 'Foo',
+        'description': 'Bar',
+        'patternProperties': {
+          '^foo': {'type': 'string'}
+        },
         'properties': {
           'foo': {'type': 'string'},
           'bar': {'type': 'integer'}
@@ -104,12 +112,16 @@ void main() {
 
     test('StringSchema', () {
       final schema = StringSchema(
+        title: 'Foo',
+        description: 'Bar',
         minLength: 1,
         maxLength: 10,
         pattern: r'^[a-z]+$',
       );
       expect(schema, {
         'type': 'string',
+        'title': 'Foo',
+        'description': 'Bar',
         'minLength': 1,
         'maxLength': 10,
         'pattern': r'^[a-z]+$'
@@ -118,6 +130,8 @@ void main() {
 
     test('NumberSchema', () {
       final schema = NumberSchema(
+        title: 'Foo',
+        description: 'Bar',
         minimum: 1,
         maximum: 10,
         exclusiveMinimum: 0,
@@ -126,6 +140,8 @@ void main() {
       );
       expect(schema, {
         'type': 'number',
+        'title': 'Foo',
+        'description': 'Bar',
         'minimum': 1,
         'maximum': 10,
         'exclusiveMinimum': 0,
@@ -136,6 +152,8 @@ void main() {
 
     test('IntegerSchema', () {
       final schema = IntegerSchema(
+        title: 'Foo',
+        description: 'Bar',
         minimum: 1,
         maximum: 10,
         exclusiveMinimum: 0,
@@ -144,6 +162,8 @@ void main() {
       );
       expect(schema, {
         'type': 'integer',
+        'title': 'Foo',
+        'description': 'Bar',
         'minimum': 1,
         'maximum': 10,
         'exclusiveMinimum': 0,
@@ -153,17 +173,33 @@ void main() {
     });
 
     test('BooleanSchema', () {
-      final schema = BooleanSchema();
-      expect(schema, {'type': 'boolean'});
+      final schema = BooleanSchema(
+        title: 'Foo',
+        description: 'Bar',
+      );
+      expect(schema, {
+        'type': 'boolean',
+        'title': 'Foo',
+        'description': 'Bar',
+      });
     });
 
     test('NullSchema', () {
-      final schema = NullSchema();
-      expect(schema, {'type': 'null'});
+      final schema = NullSchema(
+        title: 'Foo',
+        description: 'Bar',
+      );
+      expect(schema, {
+        'type': 'null',
+        'title': 'Foo',
+        'description': 'Bar',
+      });
     });
 
     test('ListSchema', () {
       final schema = ListSchema(
+        title: 'Foo',
+        description: 'Bar',
         items: StringSchema(),
         prefixItems: [IntegerSchema(), BooleanSchema()],
         unevaluatedItems: false,
@@ -173,6 +209,8 @@ void main() {
       );
       expect(schema, {
         'type': 'array',
+        'title': 'Foo',
+        'description': 'Bar',
         'items': {'type': 'string'},
         'prefixItems': [
           {'type': 'integer'},
@@ -187,6 +225,9 @@ void main() {
 
     test('Schema', () {
       final schema = Schema.withCombinators(
+        type: JsonType.bool,
+        title: 'Foo',
+        description: 'Bar',
         allOf: [
           StringSchema(),
           IntegerSchema(),
@@ -200,9 +241,11 @@ void main() {
           IntegerSchema(),
         ],
         not: [StringSchema()],
-        type: JsonType.bool,
       );
       expect(schema, {
+        'type': 'boolean',
+        'title': 'Foo',
+        'description': 'Bar',
         'allOf': [
           {'type': 'string'},
           {'type': 'integer'}
@@ -218,7 +261,6 @@ void main() {
         'not': [
           {'type': 'string'}
         ],
-        'type': 'boolean'
       });
     });
   });
