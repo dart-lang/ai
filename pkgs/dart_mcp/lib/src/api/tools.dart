@@ -218,13 +218,13 @@ extension type ObjectSchema.fromMap(Map<String, Object?> _value)
 
   /// A map of the properties of the object to the nested [Schema]s for those
   /// properties.
-  Map<String, Schema?>? get properties =>
-      (_value['properties'] as Map?)?.cast<String, Schema?>();
+  Map<String, Schema>? get properties =>
+      (_value['properties'] as Map?)?.cast<String, Schema>();
 
   /// A map of the property patterns of the object to the nested [Schema]s for
   /// those properties.
-  Map<String, Schema?>? get patternProperties =>
-      (_value['patternProperties'] as Map?)?.cast<String, Schema?>();
+  Map<String, Schema>? get patternProperties =>
+      (_value['patternProperties'] as Map?)?.cast<String, Schema>();
 
   /// A list of the required properties by name.
   List<String>? get required => (_value['required'] as List?)?.cast<String>();
