@@ -182,6 +182,27 @@ extension type Schema.fromMap(Map<String, Object?> _value) {
         if (not != null) 'not': not,
       });
 
+  /// Alias for [StringSchema.new].
+  static final string = StringSchema.new;
+
+  /// Alias for [BooleanSchema.new].
+  static final bool = BooleanSchema.new;
+
+  /// Alias for [NumberSchema.new].
+  static final num = NumberSchema.new;
+
+  /// Alias for [IntegerSchema.new].
+  static final int = IntegerSchema.new;
+
+  /// Alias for [ListSchema.new].
+  static final list = ListSchema.new;
+
+  /// Alias for [ObjectSchema.new].
+  static final object = ObjectSchema.new;
+
+  /// Alias for [NullSchema.new].
+  static final nil = NullSchema.new;
+
   /// The [JsonType] of this schema, if present.
   ///
   /// Use this in switch statements to determine the type of schema and cast to
