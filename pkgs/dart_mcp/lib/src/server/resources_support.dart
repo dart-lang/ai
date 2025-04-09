@@ -45,7 +45,7 @@ base mixin ResourcesSupport on MCPServer {
     registerRequestHandler(SubscribeRequest.methodName, _subscribeResource);
     registerRequestHandler(UnsubscribeRequest.methodName, _unsubscribeResource);
 
-    var result = await super.initialize(request);
+    final result = await super.initialize(request);
     (result.capabilities.resources ??= Resources())
       ..listChanged = true
       ..subscribe = true;

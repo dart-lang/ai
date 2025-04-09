@@ -12,7 +12,7 @@ import 'test_utils.dart';
 
 void main() {
   test('client can read resources from the server', () async {
-    var environment = TestEnvironment(
+    final environment = TestEnvironment(
       TestMCPClient(),
       (c) => TestMCPServerWithResources(channel: c),
     );
@@ -46,7 +46,7 @@ void main() {
   });
 
   test('client can subscribe to resource updates from the server', () async {
-    var environment = TestEnvironment(
+    final environment = TestEnvironment(
       TestMCPClient(),
       (c) => TestMCPServerWithResources(channel: c),
     );

@@ -56,14 +56,14 @@ base class MCPClient {
     String command,
     List<String> arguments,
   ) async {
-    var process = await Process.start(command, arguments);
+    final process = await Process.start(command, arguments);
     process.stderr
         .transform(utf8.decoder)
         .transform(const LineSplitter())
         .listen((line) {
       stderr.writeln('[StdErr from server $command]: $line');
     });
-    var channel = StreamChannel.withCloseGuarantee(
+    final channel = StreamChannel.withCloseGuarantee(
       process.stdout,
       process.stdin,
     )
@@ -83,9 +83,9 @@ base class MCPClient {
   /// established.
   ServerConnection connectServer(StreamChannel<String> channel) {
     // For type promotion in this function.
-    var self = this;
+    final self = this;
 
-    var connection = ServerConnection.fromStreamChannel(
+    final connection = ServerConnection.fromStreamChannel(
       channel,
       rootsSupport: self is RootsSupport ? self : null,
       samplingSupport: self is SamplingSupport ? self : null,

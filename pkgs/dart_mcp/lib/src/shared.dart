@@ -40,7 +40,7 @@ base class MCPBase {
   @mustCallSuper
   Future<void> shutdown() async {
     await _peer.close();
-    var progressControllers = _progressControllers.values.toList();
+    final progressControllers = _progressControllers.values.toList();
     _progressControllers.clear();
     await Future.wait([
       for (var controller in progressControllers) controller.close(),

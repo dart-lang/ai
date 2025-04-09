@@ -31,7 +31,7 @@ base mixin ToolsSupport on MCPServer {
     registerRequestHandler(ListToolsRequest.methodName, _listTools);
     registerRequestHandler(CallToolRequest.methodName, _callTool);
 
-    var result = await super.initialize(request);
+    final result = await super.initialize(request);
     (result.capabilities.tools ??= Tools()).listChanged = true;
     return result;
   }

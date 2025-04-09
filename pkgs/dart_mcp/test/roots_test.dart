@@ -10,7 +10,7 @@ import 'test_utils.dart';
 
 void main() {
   test('server can list and subscribe to changes to roots', () async {
-    var environment = TestEnvironment(
+    final environment = TestEnvironment(
       TestMCPClientWithRoots(),
       (c) => TestMCPServer(channel: c),
     );

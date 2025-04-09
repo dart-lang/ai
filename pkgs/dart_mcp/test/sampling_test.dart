@@ -12,7 +12,7 @@ import 'test_utils.dart';
 
 void main() {
   test('server can request LLM messages from the client', () async {
-    var environment = TestEnvironment(
+    final environment = TestEnvironment(
       SamplingTestMCPClient(),
       (c) => TestMCPServer(channel: c),
     );
@@ -46,7 +46,7 @@ final class SamplingTestMCPClient extends TestMCPClient with SamplingSupport {
     CreateMessageRequest request,
     ServerImplementation serverInfo,
   ) {
-    if (nextResult case var result?) {
+    if (nextResult case final result?) {
       nextResult = null;
       return result;
     } else {

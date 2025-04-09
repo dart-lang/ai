@@ -11,11 +11,11 @@ import 'test_utils.dart';
 
 void main() {
   test('client can list and invoke tools from the server', () async {
-    var environment = TestEnvironment(
+    final environment = TestEnvironment(
       TestMCPClient(),
       (c) => TestMCPServerWithTools(channel: c),
     );
-    var initializeResult = await environment.initializeServer();
+    final initializeResult = await environment.initializeServer();
     expect(
       initializeResult.capabilities.tools,
       equals(Tools(listChanged: true)),
@@ -42,7 +42,7 @@ void main() {
   });
 
   test('client can subscribe to tool list updates from the server', () async {
-    var environment = TestEnvironment(
+    final environment = TestEnvironment(
       TestMCPClient(),
       (c) => TestMCPServerWithTools(channel: c),
     );

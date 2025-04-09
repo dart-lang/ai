@@ -75,7 +75,7 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
 
     final paths = <String>[];
     for (var root in result.roots) {
-      var uri = Uri.parse(root.uri);
+      final uri = Uri.parse(root.uri);
       if (uri.scheme != 'file') {
         throw ArgumentError.value(
             root.uri, 'uri', 'Only file scheme uris are allowed for roots');
@@ -86,7 +86,7 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
     _disposeWatchSubscriptions();
 
     for (var rootPath in paths) {
-      var watcher = DirectoryWatcher(rootPath);
+      final watcher = DirectoryWatcher(rootPath);
       _watchSubscriptions.add(watcher.events.listen((event) {
         _analysisContexts
             ?.contextFor(event.path)
@@ -101,7 +101,7 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
   /// Implementation of the [analyzeFilesTool], analyzes the requested files
   /// under the requested project roots.
   Future<CallToolResult> _analyzeFiles(CallToolRequest request) async {
-    var contexts = _analysisContexts;
+    final contexts = _analysisContexts;
     if (contexts == null) {
       return CallToolResult(content: [
         TextContent(
@@ -110,11 +110,11 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
       ], isError: true);
     }
 
-    var messages = <TextContent>[];
+    final messages = <TextContent>[];
     final rootConfigs =
         (request.arguments!['roots'] as List).cast<Map<String, Object?>>();
     for (var rootConfig in rootConfigs) {
-      var rootUri = Uri.parse(rootConfig['root'] as String);
+      final rootUri = Uri.parse(rootConfig['root'] as String);
       if (rootUri.scheme != 'file') {
         return CallToolResult(content: [
           TextContent(
@@ -122,7 +122,7 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
                   '$rootUri')
         ], isError: true);
       }
-      var paths = (rootConfig['paths'] as List?)?.cast<String>();
+      final paths = (rootConfig['paths'] as List?)?.cast<String>();
       if (paths == null) {
         return CallToolResult(content: [
           TextContent(
@@ -132,13 +132,13 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
         ], isError: true);
       }
 
-      var context = contexts.contextFor(p.normalize(rootUri.path));
+      final context = contexts.contextFor(p.normalize(rootUri.path));
       await context.applyPendingFileChanges();
 
       for (var path in paths) {
-        var normalized =
+        final normalized =
             p.normalize(p.isAbsolute(path) ? path : p.join(rootUri.path, path));
-        var errorsResult = await context.currentSession.getErrors(normalized);
+        final errorsResult = await context.currentSession.getErrors(normalized);
         if (errorsResult is! ErrorsResult) {
           return CallToolResult(content: [
             TextContent(text: 'Error computing analyzer errors $errorsResult'),
@@ -146,7 +146,7 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
         }
         for (var error in errorsResult.errors) {
           messages.add(TextContent(text: 'Error: ${error.message}'));
-          if (error.correctionMessage case var correctionMessage?) {
+          if (error.correctionMessage case final correctionMessage?) {
             messages.add(TextContent(text: correctionMessage));
           }
         }

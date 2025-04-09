@@ -222,7 +222,7 @@ Future<String> _getDTDUri(TestProcess flutterProcess) async {
 /// Compiles the dart tooling mcp server to AOT and returns the location.
 Future<String> _compileMCPServer() async {
   final filePath = d.path('main.exe');
-  var result = await TestProcess.start(Platform.executable, [
+  final result = await TestProcess.start(Platform.executable, [
     'compile',
     'exe',
     'bin/main.dart',
