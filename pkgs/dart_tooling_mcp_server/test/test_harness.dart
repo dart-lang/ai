@@ -37,7 +37,8 @@ class TestHarness {
     this.dtdUri,
   );
 
-  /// Starts a flutter process as well as an MCP client and server.
+  /// Starts a Dart Tooling Daemon as well as an MCP client and server, and
+  /// a [FakeEditorExtension] to manage registering debug sessions.
   ///
   /// Handles the initialization handshake between the MCP client and server as
   /// well.
@@ -47,6 +48,8 @@ class TestHarness {
   /// breakpoints in the server don't work however, so you can set [debugMode]
   /// to `true` and we will run it in process instead, which allows breakpoints
   /// since everything is running in the same isolate.
+  ///
+  /// Use [startDebugSession] to start up apps and connect to them.
   static Future<TestHarness> start({
     @Deprecated('For debugging only, do not submit') bool debugMode = false,
   }) async {
