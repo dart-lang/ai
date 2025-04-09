@@ -161,7 +161,9 @@ enum JsonType {
 /// if you need something more complex you can create your own
 /// `Map<String, Object?>` and cast it to [Schema] (or [ObjectSchema]) directly.
 extension type Schema.fromMap(Map<String, Object?> _value) {
-  factory Schema.withCombinators({
+  /// A combined schema, see
+  /// https://json-schema.org/understanding-json-schema/reference/combining#schema-composition
+  factory Schema.combined({
     JsonType? type,
     String? title,
     String? description,

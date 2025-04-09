@@ -224,7 +224,7 @@ void main() {
     });
 
     test('Schema', () {
-      final schema = Schema.withCombinators(
+      final schema = Schema.combined(
         type: JsonType.bool,
         title: 'Foo',
         description: 'Bar',
