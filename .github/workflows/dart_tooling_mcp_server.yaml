@@ -35,6 +35,9 @@ jobs:
       - uses: subosito/flutter-action@v1
         with:
           channel: ${{ matrix.flutterSdk }}
+          cache: true
+          cache-key: "flutter-:os:-:channel:-:version:-:arch:-:hash:"
+      - run: export DART_SDK="$(which dart)"
 
       # Required to build for linux
       - run: |
@@ -54,3 +57,4 @@ jobs:
         if: ${{ matrix.flutterSdk == 'dev' }}
 
       - run: xvfb-run -s "-screen 0 1024x768x24" dart test
+        env:
