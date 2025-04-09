@@ -122,8 +122,7 @@ class TestHarness {
   }
 }
 
-/// The debug session for a single app - has its own dtd instance and
-/// vm service URI.
+/// The debug session for a single app.
 ///
 /// Should be started using [TestHarness.startDebugSession].
 final class AppDebugSession {
