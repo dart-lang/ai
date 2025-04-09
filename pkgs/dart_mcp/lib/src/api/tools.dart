@@ -183,25 +183,25 @@ extension type Schema.fromMap(Map<String, Object?> _value) {
       });
 
   /// Alias for [StringSchema.new].
-  static final string = StringSchema.new;
+  static const string = StringSchema.new;
 
   /// Alias for [BooleanSchema.new].
-  static final bool = BooleanSchema.new;
+  static const bool = BooleanSchema.new;
 
   /// Alias for [NumberSchema.new].
-  static final num = NumberSchema.new;
+  static const num = NumberSchema.new;
 
   /// Alias for [IntegerSchema.new].
-  static final int = IntegerSchema.new;
+  static const int = IntegerSchema.new;
 
   /// Alias for [ListSchema.new].
-  static final list = ListSchema.new;
+  static const list = ListSchema.new;
 
   /// Alias for [ObjectSchema.new].
-  static final object = ObjectSchema.new;
+  static const object = ObjectSchema.new;
 
   /// Alias for [NullSchema.new].
-  static final nil = NullSchema.new;
+  static const nil = NullSchema.new;
 
   /// The [JsonType] of this schema, if present.
   ///
