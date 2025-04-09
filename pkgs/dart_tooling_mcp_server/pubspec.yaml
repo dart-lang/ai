@@ -5,16 +5,20 @@ version: 0.1.0-wip
 environment:
   sdk: ^3.6.1 # The version of dart in the current flutter stable
 dependencies:
+  analyzer: ^7.3.0
   async: ^2.13.0
   dart_mcp:
     path: ../dart_mcp
   devtools_shared: ^11.2.0
   dtd: ^2.4.0
   json_rpc_2: ^3.0.3
+  meta: ^1.16.0
+  path: ^1.9.1
   stream_channel: ^2.1.4
   test_descriptor: ^2.0.2
   test_process: ^2.1.1
   vm_service: ^15.0.0
+  watcher: ^1.1.1
 executables:
   dart_tooling_mcp_server: main
 dev_dependencies:

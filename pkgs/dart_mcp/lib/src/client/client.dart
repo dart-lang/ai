@@ -57,6 +57,12 @@ base class MCPClient {
     List<String> arguments,
   ) async {
     var process = await Process.start(command, arguments);
+    process.stderr
+        .transform(utf8.decoder)
+        .transform(const LineSplitter())
+        .listen((line) {
+      stderr.writeln('[StdErr from server $command]: $line');
+    });
     var channel = StreamChannel.withCloseGuarantee(
       process.stdout,
       process.stdin,

@@ -56,6 +56,9 @@ class TestHarness {
     final mcpClient = DartToolingMCPClient();
     addTearDown(mcpClient.shutdown);
     final connection = await _initializeMCPServer(mcpClient, debugMode);
+    connection.onLog.listen((log) {
+      printOnFailure('MCP Server Log: $log');
+    });
 
     final dtdProcess = await TestProcess.start('dart', ['tooling-daemon']);
     final dtdUri = await _getDTDUri(dtdProcess);
@@ -72,6 +75,11 @@ class TestHarness {
     var session = await AppDebugSession._start(projectRoot, appPath,
         isFlutter: isFlutter);
     fakeEditorExtension.debugSessions.add(session);
+    var root = rootForPath(projectRoot);
+    var roots = (await mcpClient.handleListRoots(ListRootsRequest())).roots;
+    if (!roots.any((r) => r.uri == root.uri)) {
+      mcpClient.addRoot(root);
+    }
     unawaited(session.appProcess.exitCode.then((_) {
       fakeEditorExtension.debugSessions.remove(session);
     }));
@@ -84,12 +92,12 @@ class TestHarness {
     final tools = (await mcpServerConnection.listTools()).tools;
 
     final connectTool = tools.singleWhere(
-      (t) => t.name == 'connectDartToolingDaemon',
-    );
+        (t) => t.name == DartToolingDaemonSupport.connectTool.name);
 
     final result = await callToolWithRetry(
       CallToolRequest(name: connectTool.name, arguments: {'uri': dtdUri}),
     );
+
     expect(result.isError, isNot(true), reason: result.content.join('\n'));
   }
 
@@ -189,7 +197,7 @@ final class AppDebugSession {
 }
 
 /// A basic MCP client which is started as a part of the harness.
-final class DartToolingMCPClient extends MCPClient {
+final class DartToolingMCPClient extends MCPClient with RootsSupport {
   DartToolingMCPClient()
       : super(
           ClientImplementation(
@@ -326,5 +334,9 @@ Future<ServerConnection> _initializeMCPServer(
   connection.notifyInitialized(InitializedNotification());
   return connection;
 }
+
+/// Creates a canoncical [Root] object for a given [projectPath].
+Root rootForPath(String projectPath) =>
+    Root(uri: Directory(projectPath).absolute.uri.toString());
 
 const counterAppPath = 'test_fixtures/counter_app';
