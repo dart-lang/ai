@@ -68,8 +68,8 @@ void main() {
       final example =
           d.dir('example', [d.file('main.dart', 'void main() => 1 + "2";')]);
       await example.create();
-      final exampeRoot = Root(uri: example.io.absolute.uri.toString());
-      testHarness.mcpClient.addRoot(exampeRoot);
+      final exampleRoot = Root(uri: example.io.absolute.uri.toString());
+      testHarness.mcpClient.addRoot(exampleRoot);
 
       // Allow the notification to propagate, and the server to ask for the new
       // list of roots.
@@ -80,7 +80,7 @@ void main() {
         arguments: {
           'roots': [
             {
-              'root': exampeRoot.uri,
+              'root': exampleRoot.uri,
               'paths': ['main.dart']
             }
           ]

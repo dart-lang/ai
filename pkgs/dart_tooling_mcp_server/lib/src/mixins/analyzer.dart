@@ -41,6 +41,11 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
   Future<void> shutdown() async {
     await super.shutdown();
     await _analysisContexts?.dispose();
+    _disposeWatchSubscriptions();
+  }
+
+  /// Cancels all [_watchSubscriptions] and clears the list.
+  void _disposeWatchSubscriptions() async {
     for (var subscription in _watchSubscriptions) {
       unawaited(subscription.cancel());
     }
@@ -78,17 +83,14 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
       paths.add(p.normalize(uri.path));
     }
 
-    for (var subscription in _watchSubscriptions) {
-      unawaited(subscription.cancel());
-    }
-    _watchSubscriptions.clear();
+    _disposeWatchSubscriptions();
 
     for (var rootPath in paths) {
       var watcher = DirectoryWatcher(rootPath);
       _watchSubscriptions.add(watcher.events.listen((event) {
-        final context = _analysisContexts?.contextFor(event.path);
-        if (context == null) return;
-        context.changeFile(p.normalize(event.path));
+        _analysisContexts
+            ?.contextFor(event.path)
+            .changeFile(p.normalize(event.path));
       }));
     }
 
