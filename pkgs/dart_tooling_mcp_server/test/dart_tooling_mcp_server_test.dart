@@ -28,14 +28,11 @@ void main() {
     final screenshotResult = await testHarness.callToolWithRetry(
       CallToolRequest(name: screenshotTool.name),
     );
-    expect(
-      screenshotResult.content.single,
-      {
-        'data': anything,
-        'mimeType': 'image/png',
-        'type': ImageContent.expectedType
-      },
-    );
+    expect(screenshotResult.content.single, {
+      'data': anything,
+      'mimeType': 'image/png',
+      'type': ImageContent.expectedType,
+    });
   });
 
   group('analysis', () {
@@ -44,7 +41,8 @@ void main() {
     setUp(() async {
       final tools = (await testHarness.mcpServerConnection.listTools()).tools;
       analyzeTool = tools.singleWhere(
-          (t) => t.name == DartAnalyzerSupport.analyzeFilesTool.name);
+        (t) => t.name == DartAnalyzerSupport.analyzeFilesTool.name,
+      );
     });
 
     test('can analyze a project', () async {
@@ -54,9 +52,9 @@ void main() {
           'roots': [
             {
               'root': Uri.base.resolve(counterAppPath).toString(),
-              'paths': ['lib/main.dart']
-            }
-          ]
+              'paths': ['lib/main.dart'],
+            },
+          ],
         },
       );
       final result = await testHarness.callToolWithRetry(request);
@@ -65,8 +63,9 @@ void main() {
     });
 
     test('can handle project changes', () async {
-      final example =
-          d.dir('example', [d.file('main.dart', 'void main() => 1 + "2";')]);
+      final example = d.dir('example', [
+        d.file('main.dart', 'void main() => 1 + "2";'),
+      ]);
       await example.create();
       final exampleRoot = Root(uri: example.io.absolute.uri.toString());
       testHarness.mcpClient.addRoot(exampleRoot);
@@ -81,22 +80,25 @@ void main() {
           'roots': [
             {
               'root': exampleRoot.uri,
-              'paths': ['main.dart']
-            }
-          ]
+              'paths': ['main.dart'],
+            },
+          ],
         },
       );
       var result = await testHarness.callToolWithRetry(request);
       expect(result.isError, isNot(true));
       expect(result.content, [
         TextContent(
-            text: "Error: The argument type 'String' can't be assigned to the "
-                "parameter type 'num'. "),
+          text:
+              "Error: The argument type 'String' can't be assigned to the "
+              "parameter type 'num'. ",
+        ),
       ]);
 
       // Change the file to fix the error
-      await d.dir(
-          'example', [d.file('main.dart', 'void main() => 1 + 2;')]).create();
+      await d.dir('example', [
+        d.file('main.dart', 'void main() => 1 + 2;'),
+      ]).create();
       // Wait for the file watcher to pick up the change, the default delay for
       // a polling watcher is one second.
       await Future<void>.delayed(const Duration(seconds: 1));

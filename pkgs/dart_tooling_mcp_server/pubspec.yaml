@@ -3,7 +3,7 @@ description: An MCP server for Dart projects, exposing various developer tools t
 publish_to: none
 version: 0.1.0-wip
 environment:
-  sdk: ^3.6.1 # The version of dart in the current flutter stable
+  sdk: ^3.7.0 # The version of dart in the current flutter stable
 dependencies:
   analyzer: ^7.3.0
   async: ^2.13.0

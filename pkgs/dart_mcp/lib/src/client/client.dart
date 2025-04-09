@@ -61,21 +61,21 @@ base class MCPClient {
         .transform(utf8.decoder)
         .transform(const LineSplitter())
         .listen((line) {
-      stderr.writeln('[StdErr from server $command]: $line');
-    });
+          stderr.writeln('[StdErr from server $command]: $line');
+        });
     final channel = StreamChannel.withCloseGuarantee(
-      process.stdout,
-      process.stdin,
-    )
+          process.stdout,
+          process.stdin,
+        )
         .transform(StreamChannelTransformer.fromCodec(utf8))
         .transformStream(const LineSplitter())
         .transformSink(
-      StreamSinkTransformer.fromHandlers(
-        handleData: (data, sink) {
-          sink.add('$data\n');
-        },
-      ),
-    );
+          StreamSinkTransformer.fromHandlers(
+            handleData: (data, sink) {
+              sink.add('$data\n');
+            },
+          ),
+        );
     return connectServer(channel);
   }
 

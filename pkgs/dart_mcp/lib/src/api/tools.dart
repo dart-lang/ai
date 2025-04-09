@@ -23,12 +23,11 @@ extension type ListToolsResult.fromMap(Map<String, Object?> _value)
     required List<Tool> tools,
     Cursor? cursor,
     Meta? meta,
-  }) =>
-      ListToolsResult.fromMap({
-        'tools': tools,
-        if (cursor != null) 'cursor': cursor,
-        if (meta != null) '_meta': meta,
-      });
+  }) => ListToolsResult.fromMap({
+    'tools': tools,
+    if (cursor != null) 'cursor': cursor,
+    if (meta != null) '_meta': meta,
+  });
 
   List<Tool> get tools => (_value['tools'] as List).cast<Tool>();
 }
@@ -49,12 +48,11 @@ extension type CallToolResult.fromMap(Map<String, Object?> _value)
     Meta? meta,
     required List<Content> content,
     bool? isError,
-  }) =>
-      CallToolResult.fromMap({
-        'content': content,
-        if (isError != null) 'isError': isError,
-        if (meta != null) '_meta': meta,
-      });
+  }) => CallToolResult.fromMap({
+    'content': content,
+    if (isError != null) 'isError': isError,
+    if (meta != null) '_meta': meta,
+  });
 
   /// The type of content, either [TextContent], [ImageContent],
   /// or [EmbeddedResource],
@@ -75,12 +73,11 @@ extension type CallToolRequest._fromMap(Map<String, Object?> _value)
     required String name,
     Map<String, Object?>? arguments,
     MetaWithProgressToken? meta,
-  }) =>
-      CallToolRequest._fromMap({
-        'name': name,
-        if (arguments != null) 'arguments': arguments,
-        if (meta != null) '_meta': meta,
-      });
+  }) => CallToolRequest._fromMap({
+    'name': name,
+    if (arguments != null) 'arguments': arguments,
+    if (meta != null) '_meta': meta,
+  });
 
   /// The name of the method to invoke.
   String get name => _value['name'] as String;
@@ -109,12 +106,11 @@ extension type Tool.fromMap(Map<String, Object?> _value) {
     required String name,
     String? description,
     required ObjectSchema inputSchema,
-  }) =>
-      Tool.fromMap({
-        'name': name,
-        if (description != null) 'description': description,
-        'inputSchema': inputSchema,
-      });
+  }) => Tool.fromMap({
+    'name': name,
+    if (description != null) 'description': description,
+    'inputSchema': inputSchema,
+  });
 
   /// The name of the tool.
   String get name => _value['name'] as String;
@@ -171,16 +167,15 @@ extension type Schema.fromMap(Map<String, Object?> _value) {
     List<Schema>? anyOf,
     List<Schema>? oneOf,
     List<Schema>? not,
-  }) =>
-      Schema.fromMap({
-        if (type != null) 'type': type.typeName,
-        if (title != null) 'title': title,
-        if (description != null) 'description': description,
-        if (allOf != null) 'allOf': allOf,
-        if (anyOf != null) 'anyOf': anyOf,
-        if (oneOf != null) 'oneOf': oneOf,
-        if (not != null) 'not': not,
-      });
+  }) => Schema.fromMap({
+    if (type != null) 'type': type.typeName,
+    if (title != null) 'title': title,
+    if (description != null) 'description': description,
+    if (allOf != null) 'allOf': allOf,
+    if (anyOf != null) 'anyOf': anyOf,
+    if (oneOf != null) 'oneOf': oneOf,
+    if (not != null) 'not': not,
+  });
 
   /// Alias for [StringSchema.new].
   static const string = StringSchema.new;
@@ -213,8 +208,9 @@ extension type Schema.fromMap(Map<String, Object?> _value) {
   ///
   /// This is not required, and commonly won't be present if one of the schema
   /// combinators ([allOf], [anyOf], [oneOf], or [not]) are used.
-  JsonType? get type => JsonType.values
-      .firstWhereOrNull((t) => _value['type'] as String == t.typeName);
+  JsonType? get type => JsonType.values.firstWhereOrNull(
+    (t) => _value['type'] as String == t.typeName,
+  );
 
   /// A title for this schema, should be short.
   String? get title => _value['title'] as String?;
@@ -251,22 +247,21 @@ extension type ObjectSchema.fromMap(Map<String, Object?> _value)
     StringSchema? propertyNames,
     int? minProperties,
     int? maxProperties,
-  }) =>
-      ObjectSchema.fromMap({
-        'type': JsonType.object.typeName,
-        if (title != null) 'title': title,
-        if (description != null) 'description': description,
-        if (properties != null) 'properties': properties,
-        if (patternProperties != null) 'patternProperties': patternProperties,
-        if (required != null) 'required': required,
-        if (additionalProperties != null)
-          'additionalProperties': additionalProperties,
-        if (unevaluatedProperties != null)
-          'unevaluatedProperties': unevaluatedProperties,
-        if (propertyNames != null) 'propertyNames': propertyNames,
-        if (minProperties != null) 'minProperties': minProperties,
-        if (maxProperties != null) 'maxProperties': maxProperties,
-      });
+  }) => ObjectSchema.fromMap({
+    'type': JsonType.object.typeName,
+    if (title != null) 'title': title,
+    if (description != null) 'description': description,
+    if (properties != null) 'properties': properties,
+    if (patternProperties != null) 'patternProperties': patternProperties,
+    if (required != null) 'required': required,
+    if (additionalProperties != null)
+      'additionalProperties': additionalProperties,
+    if (unevaluatedProperties != null)
+      'unevaluatedProperties': unevaluatedProperties,
+    if (propertyNames != null) 'propertyNames': propertyNames,
+    if (minProperties != null) 'minProperties': minProperties,
+    if (maxProperties != null) 'maxProperties': maxProperties,
+  });
 
   /// A map of the properties of the object to the nested [Schema]s for those
   /// properties.
@@ -286,8 +281,8 @@ extension type ObjectSchema.fromMap(Map<String, Object?> _value)
   ///
   /// Can be either a [bool] or a [Schema], if it is a [Schema] then additional
   /// properties should match that [Schema].
-  /*bool|Schema|Null*/ Object? get additionalProperties =>
-      _value['additionalProperties'];
+  /*bool|Schema|Null*/
+  Object? get additionalProperties => _value['additionalProperties'];
 
   /// Similar to [additionalProperties] but more flexible, see
   /// https://json-schema.org/understanding-json-schema/reference/object#unevaluatedproperties
@@ -314,15 +309,14 @@ extension type const StringSchema.fromMap(Map<String, Object?> _value)
     int? minLength,
     int? maxLength,
     String? pattern,
-  }) =>
-      StringSchema.fromMap({
-        'type': JsonType.string.typeName,
-        if (title != null) 'title': title,
-        if (description != null) 'description': description,
-        if (minLength != null) 'minLength': minLength,
-        if (maxLength != null) 'maxLength': maxLength,
-        if (pattern != null) 'pattern': pattern,
-      });
+  }) => StringSchema.fromMap({
+    'type': JsonType.string.typeName,
+    if (title != null) 'title': title,
+    if (description != null) 'description': description,
+    if (minLength != null) 'minLength': minLength,
+    if (maxLength != null) 'maxLength': maxLength,
+    if (pattern != null) 'pattern': pattern,
+  });
 
   /// The minimum allowed length of this String.
   int? get minLength => _value['minLength'] as int?;
@@ -345,17 +339,16 @@ extension type NumberSchema.fromMap(Map<String, Object?> _value)
     num? exclusiveMinimum,
     num? exclusiveMaximum,
     num? multipleOf,
-  }) =>
-      NumberSchema.fromMap({
-        'type': JsonType.num.typeName,
-        if (title != null) 'title': title,
-        if (description != null) 'description': description,
-        if (minimum != null) 'minimum': minimum,
-        if (maximum != null) 'maximum': maximum,
-        if (exclusiveMinimum != null) 'exclusiveMinimum': exclusiveMinimum,
-        if (exclusiveMaximum != null) 'exclusiveMaximum': exclusiveMaximum,
-        if (multipleOf != null) 'multipleOf': multipleOf,
-      });
+  }) => NumberSchema.fromMap({
+    'type': JsonType.num.typeName,
+    if (title != null) 'title': title,
+    if (description != null) 'description': description,
+    if (minimum != null) 'minimum': minimum,
+    if (maximum != null) 'maximum': maximum,
+    if (exclusiveMinimum != null) 'exclusiveMinimum': exclusiveMinimum,
+    if (exclusiveMaximum != null) 'exclusiveMaximum': exclusiveMaximum,
+    if (multipleOf != null) 'multipleOf': multipleOf,
+  });
 
   /// The minimum value (inclusive) for this number.
   num? get minimum => _value['minimum'] as num?;
@@ -384,17 +377,16 @@ extension type IntegerSchema.fromMap(Map<String, Object?> _value)
     int? exclusiveMinimum,
     int? exclusiveMaximum,
     num? multipleOf,
-  }) =>
-      IntegerSchema.fromMap({
-        'type': JsonType.int.typeName,
-        if (title != null) 'title': title,
-        if (description != null) 'description': description,
-        if (minimum != null) 'minimum': minimum,
-        if (maximum != null) 'maximum': maximum,
-        if (exclusiveMinimum != null) 'exclusiveMinimum': exclusiveMinimum,
-        if (exclusiveMaximum != null) 'exclusiveMaximum': exclusiveMaximum,
-        if (multipleOf != null) 'multipleOf': multipleOf,
-      });
+  }) => IntegerSchema.fromMap({
+    'type': JsonType.int.typeName,
+    if (title != null) 'title': title,
+    if (description != null) 'description': description,
+    if (minimum != null) 'minimum': minimum,
+    if (maximum != null) 'maximum': maximum,
+    if (exclusiveMinimum != null) 'exclusiveMinimum': exclusiveMinimum,
+    if (exclusiveMaximum != null) 'exclusiveMaximum': exclusiveMaximum,
+    if (multipleOf != null) 'multipleOf': multipleOf,
+  });
 
   /// The minimum value (inclusive) for this integer.
   int? get minimum => _value['minimum'] as int?;
@@ -415,10 +407,7 @@ extension type IntegerSchema.fromMap(Map<String, Object?> _value)
 /// A JSON Schema definition for a [bool].
 extension type BooleanSchema.fromMap(Map<String, Object?> _value)
     implements Schema {
-  factory BooleanSchema({
-    String? title,
-    String? description,
-  }) =>
+  factory BooleanSchema({String? title, String? description}) =>
       BooleanSchema.fromMap({
         'type': JsonType.bool.typeName,
         if (title != null) 'title': title,
@@ -429,10 +418,7 @@ extension type BooleanSchema.fromMap(Map<String, Object?> _value)
 /// A JSON Schema definition for `null`.
 extension type NullSchema.fromMap(Map<String, Object?> _value)
     implements Schema {
-  factory NullSchema({
-    String? title,
-    String? description,
-  }) =>
+  factory NullSchema({String? title, String? description}) =>
       NullSchema.fromMap({
         'type': JsonType.nil.typeName,
         if (title != null) 'title': title,
@@ -452,18 +438,17 @@ extension type ListSchema.fromMap(Map<String, Object?> _value)
     int? minItems,
     int? maxItems,
     bool? uniqueItems,
-  }) =>
-      ListSchema.fromMap({
-        'type': JsonType.list.typeName,
-        if (title != null) 'title': title,
-        if (description != null) 'description': description,
-        if (items != null) 'items': items,
-        if (prefixItems != null) 'prefixItems': prefixItems,
-        if (unevaluatedItems != null) 'unevaluatedItems': unevaluatedItems,
-        if (minItems != null) 'minItems': minItems,
-        if (maxItems != null) 'maxItems': maxItems,
-        if (uniqueItems != null) 'uniqueItems': uniqueItems,
-      });
+  }) => ListSchema.fromMap({
+    'type': JsonType.list.typeName,
+    if (title != null) 'title': title,
+    if (description != null) 'description': description,
+    if (items != null) 'items': items,
+    if (prefixItems != null) 'prefixItems': prefixItems,
+    if (unevaluatedItems != null) 'unevaluatedItems': unevaluatedItems,
+    if (minItems != null) 'minItems': minItems,
+    if (maxItems != null) 'maxItems': maxItems,
+    if (uniqueItems != null) 'uniqueItems': uniqueItems,
+  });
 
   /// The schema for all the items in this list, or all those after
   /// [prefixItems] (if present).

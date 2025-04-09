@@ -50,13 +50,14 @@ class TestHarness {
   static Future<TestHarness> start({
     @Deprecated('For debugging only, do not submit') bool debugMode = false,
   }) async {
-    final platform = Platform.isLinux
-        ? 'linux'
-        : Platform.isMacOS
+    final platform =
+        Platform.isLinux
+            ? 'linux'
+            : Platform.isMacOS
             ? 'macos'
             : throw StateError(
-                'unsupported platform, only mac and linux are supported',
-              );
+              'unsupported platform, only mac and linux are supported',
+            );
     final flutterProcess = await TestProcess.start(
       // TODO: Get flutter SDK location from somewhere.
       'flutter',
@@ -92,7 +93,8 @@ class TestHarness {
     final tools = (await mcpServerConnection.listTools()).tools;
 
     final connectTool = tools.singleWhere(
-        (t) => t.name == DartToolingDaemonSupport.connectTool.name);
+      (t) => t.name == DartToolingDaemonSupport.connectTool.name,
+    );
 
     final result = await callToolWithRetry(
       CallToolRequest(name: connectTool.name, arguments: {'uri': dtdUri}),
@@ -104,8 +106,10 @@ class TestHarness {
   /// Sends [request] to [mcpServerConnection], retrying [maxTries] times.
   ///
   /// Some methods will fail if the DTD connection is not yet ready.
-  Future<CallToolResult> callToolWithRetry(CallToolRequest request,
-      {int maxTries = 5}) async {
+  Future<CallToolResult> callToolWithRetry(
+    CallToolRequest request, {
+    int maxTries = 5,
+  }) async {
     var tryCount = 0;
     late CallToolResult lastResult;
     while (tryCount++ < maxTries) {
@@ -124,15 +128,18 @@ class TestHarness {
 
 final class DartToolingMCPClient extends MCPClient with RootsSupport {
   DartToolingMCPClient()
-      : super(
-          ClientImplementation(
-            name: 'test client for the dart tooling mcp server',
-            version: '0.1.0',
-          ),
-        ) {
-    addRoot(Root(
+    : super(
+        ClientImplementation(
+          name: 'test client for the dart tooling mcp server',
+          version: '0.1.0',
+        ),
+      ) {
+    addRoot(
+      Root(
         uri: Directory(counterAppPath).absolute.uri.toString(),
-        name: 'counter app test fixture'));
+        name: 'counter app test fixture',
+      ),
+    );
   }
 }
 
@@ -163,8 +170,9 @@ class FakeEditorExtension {
     while (await stdout.hasNext) {
       final line = await stdout.next;
       if (line.contains('A Dart VM Service')) {
-        vmServiceUri =
-            line.substring(line.indexOf('http:')).replaceFirst('http:', 'ws:');
+        vmServiceUri = line
+            .substring(line.indexOf('http:'))
+            .replaceFirst('http:', 'ws:');
         await stdout.cancel();
         break;
       }
@@ -263,10 +271,7 @@ Future<ServerConnection> _initializeMCPServer(
     addTearDown(mcpServer.shutdown);
     connection = client.connectServer(clientChannel);
   } else {
-    connection = await client.connectStdioServer(
-      await _compileMCPServer(),
-      [],
-    );
+    connection = await client.connectStdioServer(await _compileMCPServer(), []);
   }
 
   final initializeResult = await connection.initialize(

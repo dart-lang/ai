@@ -23,12 +23,11 @@ extension type ListResourcesResult.fromMap(Map<String, Object?> _value)
     required List<Resource> resources,
     Cursor? cursor,
     Meta? meta,
-  }) =>
-      ListResourcesResult.fromMap({
-        'resources': resources,
-        if (cursor != null) 'cursor': cursor,
-        if (meta != null) '_meta': meta,
-      });
+  }) => ListResourcesResult.fromMap({
+    'resources': resources,
+    if (cursor != null) 'cursor': cursor,
+    if (meta != null) '_meta': meta,
+  });
 
   List<Resource> get resources =>
       (_value['resources'] as List).cast<Resource>();
@@ -43,11 +42,10 @@ extension type ListResourceTemplatesRequest.fromMap(Map<String, Object?> _value)
   factory ListResourceTemplatesRequest({
     Cursor? cursor,
     MetaWithProgressToken? meta,
-  }) =>
-      ListResourceTemplatesRequest.fromMap({
-        if (cursor != null) 'cursor': cursor,
-        if (meta != null) '_meta': meta,
-      });
+  }) => ListResourceTemplatesRequest.fromMap({
+    if (cursor != null) 'cursor': cursor,
+    if (meta != null) '_meta': meta,
+  });
 }
 
 /// The server's response to a resources/templates/list request from the client.
@@ -57,12 +55,11 @@ extension type ListResourceTemplatesResult.fromMap(Map<String, Object?> _value)
     required List<ResourceTemplate> resourceTemplates,
     Cursor? cursor,
     Meta? meta,
-  }) =>
-      ListResourceTemplatesResult.fromMap({
-        'resourceTemplates': resourceTemplates,
-        if (cursor != null) 'cursor': cursor,
-        if (meta != null) '_meta': meta,
-      });
+  }) => ListResourceTemplatesResult.fromMap({
+    'resourceTemplates': resourceTemplates,
+    if (cursor != null) 'cursor': cursor,
+    if (meta != null) '_meta': meta,
+  });
 
   List<ResourceTemplate> get resourceTemplates =>
       (_value['resourceTemplates'] as List).cast<ResourceTemplate>();
@@ -76,11 +73,10 @@ extension type ReadResourceRequest.fromMap(Map<String, Object?> _value)
   factory ReadResourceRequest({
     required String uri,
     MetaWithProgressToken? meta,
-  }) =>
-      ReadResourceRequest.fromMap({
-        'uri': uri,
-        if (meta != null) '_meta': meta,
-      });
+  }) => ReadResourceRequest.fromMap({
+    'uri': uri,
+    if (meta != null) '_meta': meta,
+  });
 
   /// The URI of the resource to read. The URI can use any protocol; it is
   /// up to the server how to interpret it.
@@ -93,11 +89,10 @@ extension type ReadResourceResult.fromMap(Map<String, Object?> _value)
   factory ReadResourceResult({
     required List<ResourceContents> contents,
     Meta? meta,
-  }) =>
-      ReadResourceResult.fromMap({
-        'contents': contents,
-        if (meta != null) '_meta': meta,
-      });
+  }) => ReadResourceResult.fromMap({
+    'contents': contents,
+    if (meta != null) '_meta': meta,
+  });
 
   List<ResourceContents> get contents =>
       (_value['contents'] as List).cast<ResourceContents>();
@@ -109,7 +104,9 @@ extension type ReadResourceResult.fromMap(Map<String, Object?> _value)
 /// This may be issued by servers without any previous subscription from the
 /// client.
 extension type ResourceListChangedNotification.fromMap(
-    Map<String, Object?> _value) implements Notification {
+  Map<String, Object?> _value
+)
+    implements Notification {
   static const methodName = 'notifications/resources/list_changed';
 
   factory ResourceListChangedNotification({Meta? meta}) =>
@@ -127,8 +124,7 @@ extension type SubscribeRequest.fromMap(Map<String, Object?> _value)
   factory SubscribeRequest({
     required String uri,
     MetaWithProgressToken? meta,
-  }) =>
-      SubscribeRequest.fromMap({'uri': uri, if (meta != null) '_meta': meta});
+  }) => SubscribeRequest.fromMap({'uri': uri, if (meta != null) '_meta': meta});
 
   /// The URI of the resource to subscribe to. The URI can use any protocol;
   /// it is up to the server how to interpret it.
@@ -185,15 +181,14 @@ extension type Resource.fromMap(Map<String, Object?> _value)
     String? description,
     String? mimeType,
     int? size,
-  }) =>
-      Resource.fromMap({
-        'uri': uri,
-        'name': name,
-        if (annotations != null) 'annotations': annotations,
-        if (description != null) 'description': description,
-        if (mimeType != null) 'mimeType': mimeType,
-        if (size != null) 'size': size,
-      });
+  }) => Resource.fromMap({
+    'uri': uri,
+    'name': name,
+    if (annotations != null) 'annotations': annotations,
+    if (description != null) 'description': description,
+    if (mimeType != null) 'mimeType': mimeType,
+    if (size != null) 'size': size,
+  });
 
   /// The URI of this resource.
   String get uri => _value['uri'] as String;
@@ -229,14 +224,13 @@ extension type ResourceTemplate.fromMap(Map<String, Object?> _value)
     Annotations? annotations,
     String? description,
     String? mimeType,
-  }) =>
-      ResourceTemplate.fromMap({
-        'uriTemplate': uriTemplate,
-        'name': name,
-        if (annotations != null) 'annotations': annotations,
-        if (description != null) 'description': description,
-        if (mimeType != null) 'mimeType': mimeType,
-      });
+  }) => ResourceTemplate.fromMap({
+    'uriTemplate': uriTemplate,
+    'name': name,
+    if (annotations != null) 'annotations': annotations,
+    if (description != null) 'description': description,
+    if (mimeType != null) 'mimeType': mimeType,
+  });
 
   /// A URI template (according to RFC 6570) that can be used to construct
   /// resource URIs.
@@ -285,12 +279,11 @@ extension type TextResourceContents.fromMap(Map<String, Object?> _value)
     required String uri,
     required String text,
     String? mimeType,
-  }) =>
-      TextResourceContents.fromMap({
-        'uri': uri,
-        'text': text,
-        if (mimeType != null) 'mimeType': mimeType,
-      });
+  }) => TextResourceContents.fromMap({
+    'uri': uri,
+    'text': text,
+    if (mimeType != null) 'mimeType': mimeType,
+  });
 
   /// The text of the item.
   ///
@@ -306,12 +299,11 @@ extension type BlobResourceContents.fromMap(Map<String, Object?> _value)
     required String uri,
     required String blob,
     String? mimeType,
-  }) =>
-      BlobResourceContents.fromMap({
-        'uri': uri,
-        'blob': blob,
-        if (mimeType != null) 'mimeType': mimeType,
-      });
+  }) => BlobResourceContents.fromMap({
+    'uri': uri,
+    'blob': blob,
+    if (mimeType != null) 'mimeType': mimeType,
+  });
 
   /// A base64-encoded string representing the binary data of the item.
   String get blob => _value['blob'] as String;

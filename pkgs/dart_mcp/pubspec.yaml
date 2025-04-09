@@ -2,7 +2,7 @@ name: dart_mcp
 description: A package for making MCP servers and clients.
 version: 0.1.0-wip
 environment:
-  sdk: ^3.6.1 # The version of dart in the current flutter stable
+  sdk: ^3.7.0 # The version of dart in the current flutter stable
 dependencies:
   async: ^2.13.0
   collection: ^1.19.1

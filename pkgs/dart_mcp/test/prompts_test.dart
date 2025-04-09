@@ -105,7 +105,8 @@ final class TestMCPServerWithPrompts extends TestMCPServer with PromptsSupport {
     arguments: [
       PromptArgument(
         name: 'style',
-        description: 'The style in which the greeting should be (for example, '
+        description:
+            'The style in which the greeting should be (for example, '
             '"joyously" or "angrily")',
         required: true,
       ),

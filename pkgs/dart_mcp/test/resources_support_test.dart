@@ -37,7 +37,9 @@ void main() {
     );
     expect(
       result.contents.single,
-      isA<ResourceContents>().having((c) => c.isText, 'isText', true).having(
+      isA<ResourceContents>()
+          .having((c) => c.isText, 'isText', true)
+          .having(
             (c) => (c as TextResourceContents).text,
             'text',
             'hello world!',

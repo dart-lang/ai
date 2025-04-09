@@ -16,25 +16,25 @@ void main() {
         .transform(StreamChannelTransformer.fromCodec(utf8))
         .transformStream(const LineSplitter())
         .transformSink(
-      StreamSinkTransformer.fromHandlers(
-        handleData: (data, sink) {
-          sink.add('$data\n');
-        },
-      ),
-    ),
+          StreamSinkTransformer.fromHandlers(
+            handleData: (data, sink) {
+              sink.add('$data\n');
+            },
+          ),
+        ),
   );
 }
 
 /// Our actual MCP server.
 base class DartMCPServer extends MCPServer with ToolsSupport {
   DartMCPServer({required super.channel})
-      : super.fromStreamChannel(
-          implementation: ServerImplementation(
-            name: 'example dart server',
-            version: '0.1.0',
-          ),
-          instructions: 'A basic tool that can respond with "hello world!"',
-        );
+    : super.fromStreamChannel(
+        implementation: ServerImplementation(
+          name: 'example dart server',
+          version: '0.1.0',
+        ),
+        instructions: 'A basic tool that can respond with "hello world!"',
+      );
 
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {

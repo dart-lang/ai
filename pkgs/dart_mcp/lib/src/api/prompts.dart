@@ -24,12 +24,11 @@ extension type ListPromptsResult.fromMap(Map<String, Object?> _value)
     required List<Prompt> prompts,
     Cursor? cursor,
     Meta? meta,
-  }) =>
-      ListPromptsResult.fromMap({
-        'prompts': prompts,
-        if (cursor != null) 'cursor': cursor,
-        if (meta != null) '_meta': meta,
-      });
+  }) => ListPromptsResult.fromMap({
+    'prompts': prompts,
+    if (cursor != null) 'cursor': cursor,
+    if (meta != null) '_meta': meta,
+  });
 
   List<Prompt> get prompts => (_value['prompts'] as List).cast<Prompt>();
 }
@@ -43,12 +42,11 @@ extension type GetPromptRequest.fromMap(Map<String, Object?> _value)
     required String name,
     Map<String, Object?>? arguments,
     MetaWithProgressToken? meta,
-  }) =>
-      GetPromptRequest.fromMap({
-        'name': name,
-        if (arguments != null) 'arguments': arguments,
-        if (meta != null) '_meta': meta,
-      });
+  }) => GetPromptRequest.fromMap({
+    'name': name,
+    if (arguments != null) 'arguments': arguments,
+    if (meta != null) '_meta': meta,
+  });
 
   /// The name of the prompt or prompt template.
   String get name => _value['name'] as String;
@@ -65,12 +63,11 @@ extension type GetPromptResult.fromMap(Map<String, Object?> _value)
     String? description,
     required List<PromptMessage> messages,
     Meta? meta,
-  }) =>
-      GetPromptResult.fromMap({
-        if (description != null) 'description': description,
-        'messages': messages,
-        if (meta != null) '_meta': meta,
-      });
+  }) => GetPromptResult.fromMap({
+    if (description != null) 'description': description,
+    'messages': messages,
+    if (meta != null) '_meta': meta,
+  });
 
   /// An optional description for the prompt.
   String? get description => _value['description'] as String?;
@@ -88,12 +85,11 @@ extension type Prompt.fromMap(Map<String, Object?> _value) {
     required String name,
     String? description,
     List<PromptArgument>? arguments,
-  }) =>
-      Prompt.fromMap({
-        'name': name,
-        if (description != null) 'description': description,
-        if (arguments != null) 'arguments': arguments,
-      });
+  }) => Prompt.fromMap({
+    'name': name,
+    if (description != null) 'description': description,
+    if (arguments != null) 'arguments': arguments,
+  });
 
   /// The name of the prompt or prompt template.
   String get name => _value['name'] as String;
@@ -111,12 +107,11 @@ extension type PromptArgument.fromMap(Map<String, Object?> _value) {
     required String name,
     String? description,
     bool? required,
-  }) =>
-      PromptArgument.fromMap({
-        'name': name,
-        if (description != null) 'description': description,
-        if (required != null) 'required': required,
-      });
+  }) => PromptArgument.fromMap({
+    'name': name,
+    if (description != null) 'description': description,
+    if (required != null) 'required': required,
+  });
 
   /// The name of the argument.
   String get name => _value['name'] as String;
@@ -154,7 +149,9 @@ extension type PromptMessage.fromMap(Map<String, Object?> _value) {
 /// This may be issued by servers without any previous subscription from the
 /// client.
 extension type PromptListChangedNotification.fromMap(
-    Map<String, Object?> _value) implements Notification {
+  Map<String, Object?> _value
+)
+    implements Notification {
   static const methodName = 'notifications/prompts/list_changed';
 
   factory PromptListChangedNotification({Meta? meta}) =>

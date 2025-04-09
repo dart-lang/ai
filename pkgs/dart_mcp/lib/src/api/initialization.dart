@@ -15,13 +15,12 @@ extension type InitializeRequest._fromMap(Map<String, Object?> _value)
     required ClientCapabilities capabilities,
     required ClientImplementation clientInfo,
     MetaWithProgressToken? meta,
-  }) =>
-      InitializeRequest._fromMap({
-        'protocolVersion': protocolVersion,
-        'capabilities': capabilities,
-        'clientInfo': clientInfo,
-        if (meta != null) '_meta': meta,
-      });
+  }) => InitializeRequest._fromMap({
+    'protocolVersion': protocolVersion,
+    'capabilities': capabilities,
+    'clientInfo': clientInfo,
+    if (meta != null) '_meta': meta,
+  });
 
   /// The latest version of the Model Context Protocol that the client supports.
   ///
@@ -42,13 +41,12 @@ extension type InitializeResult.fromMap(Map<String, Object?> _value)
     required ServerCapabilities serverCapabilities,
     required ServerImplementation serverInfo,
     required String instructions,
-  }) =>
-      InitializeResult.fromMap({
-        'protocolVersion': protocolVersion,
-        'capabilities': serverCapabilities,
-        'serverInfo': serverInfo,
-        'instructions': instructions,
-      });
+  }) => InitializeResult.fromMap({
+    'protocolVersion': protocolVersion,
+    'capabilities': serverCapabilities,
+    'serverInfo': serverInfo,
+    'instructions': instructions,
+  });
 
   /// The version of the Model Context Protocol that the server wants to use.
   ///
@@ -89,12 +87,11 @@ extension type ClientCapabilities.fromMap(Map<String, Object?> _value) {
     Map<String, Object?>? experimental,
     RootsCapabilities? roots,
     Map<String, Object?>? sampling,
-  }) =>
-      ClientCapabilities.fromMap({
-        if (experimental != null) 'experimental': experimental,
-        if (roots != null) 'roots': roots,
-        if (sampling != null) 'sampling': sampling,
-      });
+  }) => ClientCapabilities.fromMap({
+    if (experimental != null) 'experimental': experimental,
+    if (roots != null) 'roots': roots,
+    if (sampling != null) 'sampling': sampling,
+  });
 
   /// Experimental, non-standard capabilities that the client supports.
   Map<String, Object?>? get experimental =>
@@ -129,8 +126,8 @@ extension type ClientCapabilities.fromMap(Map<String, Object?> _value) {
 /// Whether the client supports notifications for changes to the roots list.
 extension type RootsCapabilities.fromMap(Map<String, Object?> _value) {
   factory RootsCapabilities({bool? listChanged}) => RootsCapabilities.fromMap({
-        if (listChanged != null) 'listChanged': listChanged,
-      });
+    if (listChanged != null) 'listChanged': listChanged,
+  });
 
   /// Present if the client supports listing roots.
   bool? get listChanged => _value['listChanged'] as bool?;
@@ -154,14 +151,13 @@ extension type ServerCapabilities.fromMap(Map<String, Object?> _value) {
     Prompts? prompts,
     Resources? resources,
     Tools? tools,
-  }) =>
-      ServerCapabilities.fromMap({
-        if (experimental != null) 'experimental': experimental,
-        if (logging != null) 'logging': logging,
-        if (prompts != null) 'prompts': prompts,
-        if (resources != null) 'resources': resources,
-        if (tools != null) 'tools': tools,
-      });
+  }) => ServerCapabilities.fromMap({
+    if (experimental != null) 'experimental': experimental,
+    if (logging != null) 'logging': logging,
+    if (prompts != null) 'prompts': prompts,
+    if (resources != null) 'resources': resources,
+    if (tools != null) 'tools': tools,
+  });
 
   /// Experimental, non-standard capabilities that the server supports.
   Map<String, Object?>? get experimental =>
@@ -243,9 +239,9 @@ extension type Prompts.fromMap(Map<String, Object?> _value) {
 /// Resources parameter for [ServerCapabilities].
 extension type Resources.fromMap(Map<String, Object?> _value) {
   factory Resources({bool? listChanged, bool? subscribe}) => Resources.fromMap({
-        if (listChanged != null) 'listChanged': listChanged,
-        if (subscribe != null) 'subscribe': subscribe,
-      });
+    if (listChanged != null) 'listChanged': listChanged,
+    if (subscribe != null) 'subscribe': subscribe,
+  });
 
   /// Whether this server supports notifications for changes to the resource
   /// list.
@@ -287,8 +283,7 @@ extension type ClientImplementation.fromMap(Map<String, Object?> _value) {
   factory ClientImplementation({
     required String name,
     required String version,
-  }) =>
-      ClientImplementation.fromMap({'name': name, 'version': version});
+  }) => ClientImplementation.fromMap({'name': name, 'version': version});
 
   String get name => _value['name'] as String;
   String get version => _value['version'] as String;
@@ -299,8 +294,7 @@ extension type ServerImplementation.fromMap(Map<String, Object?> _value) {
   factory ServerImplementation({
     required String name,
     required String version,
-  }) =>
-      ServerImplementation.fromMap({'name': name, 'version': version});
+  }) => ServerImplementation.fromMap({'name': name, 'version': version});
 
   String get name => _value['name'] as String;
   String get version => _value['version'] as String;
