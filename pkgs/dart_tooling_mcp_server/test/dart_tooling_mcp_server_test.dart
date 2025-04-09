@@ -14,10 +14,14 @@ void main() {
   // issue.
   setUp(() async {
     testHarness = await TestHarness.start();
-    await testHarness.connectToDtd();
   });
 
   test('can take a screenshot', () async {
+    await testHarness.connectToDtd();
+
+    await testHarness.startDebugSession(counterAppPath, 'lib/main.dart',
+        isFlutter: true);
+
     final tools = (await testHarness.mcpServerConnection.listTools()).tools;
     final screenshotTool = tools.singleWhere(
       (t) => t.name == 'take_screenshot',
