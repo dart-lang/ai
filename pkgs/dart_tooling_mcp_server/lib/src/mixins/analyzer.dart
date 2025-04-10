@@ -14,7 +14,8 @@ import 'package:watcher/watcher.dart';
 
 /// Mix this in to any MCPServer to add support for analyzing Dart projects.
 ///
-/// The MCPServer must already have the [ToolsSupport] mixin applied.
+/// The MCPServer must already have the [ToolsSupport] and [LoggingSupport]
+/// mixins applied.
 base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
   /// The analyzed contexts.
   AnalysisContextCollection? _analysisContexts;

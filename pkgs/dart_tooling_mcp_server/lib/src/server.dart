@@ -8,6 +8,7 @@ import 'package:dart_mcp/server.dart';
 import 'package:stream_channel/stream_channel.dart';
 
 import 'mixins/analyzer.dart';
+import 'mixins/dart_cli.dart';
 import 'mixins/dtd.dart';
 
 /// An MCP server for Dart and Flutter tooling.
@@ -16,6 +17,7 @@ final class DartToolingMCPServer extends MCPServer
         LoggingSupport,
         ToolsSupport,
         DartAnalyzerSupport,
+        DartCliSupport,
         DartToolingDaemonSupport {
   DartToolingMCPServer({required super.channel})
       : super.fromStreamChannel(
