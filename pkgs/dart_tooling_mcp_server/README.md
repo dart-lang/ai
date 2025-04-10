@@ -33,6 +33,10 @@ If you are directly editing your mcp.json file, it should look like this:
 }
 ```
 
+Each time you make changes to the server, you'll need to re-run
+`dart compile exe bin/main.dart` and reload the Cursor window
+(Developer: Reload Window from the Command Pallete) to see the changes.
+
 ## Debugging MCP Servers
 
 For local development, use the [MCP Inspector](https://modelcontextprotocol.io/docs/tools/inspector).
