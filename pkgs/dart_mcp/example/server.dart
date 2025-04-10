@@ -39,7 +39,7 @@ base class DartMCPServer extends MCPServer with ToolsSupport {
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
     registerTool(
-      Tool(name: 'hello world', inputSchema: InputSchema()),
+      Tool(name: 'hello world', inputSchema: ObjectSchema()),
       (_) => CallToolResult(content: [TextContent(text: 'hello world!')]),
     );
     return super.initialize(request);

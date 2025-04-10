@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:dart_mcp/server.dart';
 import 'package:dtd/dtd.dart';
 import 'package:json_rpc_2/json_rpc_2.dart';
+import 'package:meta/meta.dart';
 import 'package:vm_service/vm_service.dart';
 import 'package:vm_service/vm_service_io.dart';
 
@@ -30,9 +31,9 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
 
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) async {
-    registerTool(_connectTool, _connect);
-    registerTool(_screenshotTool, takeScreenshot);
-    registerTool(_hotReloadTool, hotReload);
+    registerTool(connectTool, _connect);
+    registerTool(screenshotTool, takeScreenshot);
+    registerTool(hotReloadTool, hotReload);
     return super.initialize(request);
   }
 
@@ -142,25 +143,37 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
       callback: (vmService) async {
         final vm = await vmService.getVM();
 
-        String? hotReloadMethodName;
+        final hotReloadMethodNameCompleter = Completer<String?>();
         vmService.onEvent(EventStreams.kService).listen((Event e) {
           if (e.kind == EventKind.kServiceRegistered) {
             final serviceName = e.service!;
             if (serviceName == 'reloadSources') {
               // This may look something like 's0.reloadSources'.
-              hotReloadMethodName = e.method!;
+              hotReloadMethodNameCompleter.complete(e.method);
             }
           }
         });
         await vmService.streamListen(EventStreams.kService);
-
-        // Short delay to allow the service registration event to be sent.
-        await Future<void>.delayed(const Duration(seconds: 1));
+        final hotReloadMethodName = await hotReloadMethodNameCompleter.future
+            .timeout(const Duration(milliseconds: 1000), onTimeout: () async {
+          return null;
+        });
         await vmService.streamCancel(EventStreams.kService);
-        if (hotReloadMethodName == null) return _hotReloadNotReady;
+
+        if (hotReloadMethodName == null) {
+          return CallToolResult(
+            isError: true,
+            content: [
+              TextContent(
+                text: 'The hot reload service has not been registered yet, '
+                    'please wait a few seconds and try again.',
+              ),
+            ],
+          );
+        }
 
         final result = await vmService.callMethod(
-          hotReloadMethodName!,
+          hotReloadMethodName,
           isolateId: vm.isolates!.first.id,
         );
         final resultType = result.json?['type'];
@@ -210,10 +223,11 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
     }
   }
 
-  static final _connectTool = Tool(
-    inputSchema: InputSchema(
-      properties: const {
-        'uri': {'type': 'string'},
+  @visibleForTesting
+  static final connectTool = Tool(
+    inputSchema: ObjectSchema(
+      properties: {
+        'uri': StringSchema(),
       },
       required: const ['uri'],
     ),
@@ -224,31 +238,22 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
         'command. Do not just make up a random URI to pass.',
   );
 
-  static final _screenshotTool = Tool(
+  @visibleForTesting
+  static final screenshotTool = Tool(
     name: 'take_screenshot',
     description: 'Takes a screenshot of the active flutter application in its '
-        'current state. Requires "${_connectTool.name}" to be successfully '
+        'current state. Requires "${connectTool.name}" to be successfully '
         'called first.',
-    inputSchema: InputSchema(),
+    inputSchema: ObjectSchema(),
   );
 
-  static final _hotReloadTool = Tool(
-    name: 'hot_reload',
+  @visibleForTesting
+  static final hotReloadTool = Tool(
+    name: 'Hot Reload',
     description: 'Performs a hot reload of the active Flutter application. '
         'This is to apply the latest code changes to the running application. '
-        'Requires "${_connectTool.name}" to be successfully called first.',
-    inputSchema: InputSchema(),
-  );
-
-  static final _hotReloadNotReady = CallToolResult(
-    isError: true,
-    content: [
-      TextContent(
-        text:
-            'The hot reload service has not been registered yet, please wait a '
-            'few seconds and try again.',
-      ),
-    ],
+        'Requires "${connectTool.name}" to be successfully called first.',
+    inputSchema: ObjectSchema(),
   );
 
   static final _dtdNotConnected = CallToolResult(
@@ -256,7 +261,7 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
     content: [
       TextContent(
         text: 'The dart tooling daemon is not connected, you need to call '
-            '"${_connectTool.name}" first.',
+            '"${connectTool.name}" first.',
       ),
     ],
   );
@@ -266,7 +271,7 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
     content: [
       TextContent(
         text: 'The dart tooling daemon is already connected, you cannot call '
-            '"${_connectTool.name}" again.',
+            '"${connectTool.name}" again.',
       ),
     ],
   );

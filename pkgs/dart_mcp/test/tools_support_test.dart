@@ -60,7 +60,7 @@ void main() {
     );
 
     server.registerTool(
-      Tool(name: 'foo', inputSchema: InputSchema()),
+      Tool(name: 'foo', inputSchema: ObjectSchema()),
       (_) => CallToolResult(content: []),
     );
 
@@ -71,6 +71,198 @@ void main() {
 
     // Need to manually close so the stream matchers can complete.
     await environment.shutdown();
+  });
+
+  group('Schemas', () {
+    test('ObjectSchema', () {
+      final schema = ObjectSchema(
+        title: 'Foo',
+        description: 'Bar',
+        patternProperties: {'^foo': StringSchema()},
+        properties: {
+          'foo': StringSchema(),
+          'bar': IntegerSchema(),
+        },
+        required: ['foo'],
+        additionalProperties: false,
+        unevaluatedProperties: true,
+        propertyNames: StringSchema(pattern: r'^[a-z]+$'),
+        minProperties: 1,
+        maxProperties: 2,
+      );
+      expect(schema, {
+        'type': 'object',
+        'title': 'Foo',
+        'description': 'Bar',
+        'patternProperties': {
+          '^foo': {'type': 'string'}
+        },
+        'properties': {
+          'foo': {'type': 'string'},
+          'bar': {'type': 'integer'}
+        },
+        'required': ['foo'],
+        'additionalProperties': false,
+        'unevaluatedProperties': true,
+        'propertyNames': {'type': 'string', 'pattern': r'^[a-z]+$'},
+        'minProperties': 1,
+        'maxProperties': 2
+      });
+    });
+
+    test('StringSchema', () {
+      final schema = StringSchema(
+        title: 'Foo',
+        description: 'Bar',
+        minLength: 1,
+        maxLength: 10,
+        pattern: r'^[a-z]+$',
+      );
+      expect(schema, {
+        'type': 'string',
+        'title': 'Foo',
+        'description': 'Bar',
+        'minLength': 1,
+        'maxLength': 10,
+        'pattern': r'^[a-z]+$'
+      });
+    });
+
+    test('NumberSchema', () {
+      final schema = NumberSchema(
+        title: 'Foo',
+        description: 'Bar',
+        minimum: 1,
+        maximum: 10,
+        exclusiveMinimum: 0,
+        exclusiveMaximum: 11,
+        multipleOf: 2,
+      );
+      expect(schema, {
+        'type': 'number',
+        'title': 'Foo',
+        'description': 'Bar',
+        'minimum': 1,
+        'maximum': 10,
+        'exclusiveMinimum': 0,
+        'exclusiveMaximum': 11,
+        'multipleOf': 2
+      });
+    });
+
+    test('IntegerSchema', () {
+      final schema = IntegerSchema(
+        title: 'Foo',
+        description: 'Bar',
+        minimum: 1,
+        maximum: 10,
+        exclusiveMinimum: 0,
+        exclusiveMaximum: 11,
+        multipleOf: 2,
+      );
+      expect(schema, {
+        'type': 'integer',
+        'title': 'Foo',
+        'description': 'Bar',
+        'minimum': 1,
+        'maximum': 10,
+        'exclusiveMinimum': 0,
+        'exclusiveMaximum': 11,
+        'multipleOf': 2,
+      });
+    });
+
+    test('BooleanSchema', () {
+      final schema = BooleanSchema(
+        title: 'Foo',
+        description: 'Bar',
+      );
+      expect(schema, {
+        'type': 'boolean',
+        'title': 'Foo',
+        'description': 'Bar',
+      });
+    });
+
+    test('NullSchema', () {
+      final schema = NullSchema(
+        title: 'Foo',
+        description: 'Bar',
+      );
+      expect(schema, {
+        'type': 'null',
+        'title': 'Foo',
+        'description': 'Bar',
+      });
+    });
+
+    test('ListSchema', () {
+      final schema = ListSchema(
+        title: 'Foo',
+        description: 'Bar',
+        items: StringSchema(),
+        prefixItems: [IntegerSchema(), BooleanSchema()],
+        unevaluatedItems: false,
+        minItems: 1,
+        maxItems: 10,
+        uniqueItems: true,
+      );
+      expect(schema, {
+        'type': 'array',
+        'title': 'Foo',
+        'description': 'Bar',
+        'items': {'type': 'string'},
+        'prefixItems': [
+          {'type': 'integer'},
+          {'type': 'boolean'}
+        ],
+        'unevaluatedItems': false,
+        'minItems': 1,
+        'maxItems': 10,
+        'uniqueItems': true
+      });
+    });
+
+    test('Schema', () {
+      final schema = Schema.combined(
+        type: JsonType.bool,
+        title: 'Foo',
+        description: 'Bar',
+        allOf: [
+          StringSchema(),
+          IntegerSchema(),
+        ],
+        anyOf: [
+          StringSchema(),
+          IntegerSchema(),
+        ],
+        oneOf: [
+          StringSchema(),
+          IntegerSchema(),
+        ],
+        not: [StringSchema()],
+      );
+      expect(schema, {
+        'type': 'boolean',
+        'title': 'Foo',
+        'description': 'Bar',
+        'allOf': [
+          {'type': 'string'},
+          {'type': 'integer'}
+        ],
+        'anyOf': [
+          {'type': 'string'},
+          {'type': 'integer'}
+        ],
+        'oneOf': [
+          {'type': 'string'},
+          {'type': 'integer'}
+        ],
+        'not': [
+          {'type': 'string'}
+        ],
+      });
+    });
   });
 }
 
@@ -88,7 +280,7 @@ final class TestMCPServerWithTools extends TestMCPServer with ToolsSupport {
 
   static final helloWorld = Tool(
     name: 'hello world',
-    inputSchema: InputSchema(),
+    inputSchema: ObjectSchema(),
   );
 
   static final helloWorldContent = TextContent(

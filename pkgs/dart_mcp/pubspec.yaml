@@ -5,6 +5,7 @@ environment:
   sdk: ^3.6.1 # The version of dart in the current flutter stable
 dependencies:
   async: ^2.13.0
+  collection: ^1.19.1
   json_rpc_2: ^3.0.3
   meta: ^1.16.0
   stream_channel: ^2.1.4

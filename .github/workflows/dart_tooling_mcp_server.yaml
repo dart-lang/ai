@@ -35,6 +35,11 @@ jobs:
       - uses: subosito/flutter-action@v1
         with:
           channel: ${{ matrix.flutterSdk }}
+          cache: true
+          cache-key: "flutter-:os:-:channel:-:version:-:arch:-:hash:"
+      # Exposes the DART_SDK environment variable to all other actions.
+      # https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#setting-an-environment-variable
+      - run: echo "DART_SDK=$(which dart | xargs dirname | xargs dirname)" >> "$GITHUB_ENV"
 
       # Required to build for linux
       - run: |
