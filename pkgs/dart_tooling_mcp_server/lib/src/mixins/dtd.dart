@@ -32,6 +32,10 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) async {
     registerTool(connectTool, _connect);
+    // TODO: these tools should only be registered for Flutter applications, or
+    // they should return an error when used against a pure Dart app (or a
+    // Flutter app that does not support the operation, e.g. hot reload is not
+    // supported in profile mode).
     registerTool(screenshotTool, takeScreenshot);
     registerTool(hotReloadTool, hotReload);
     return super.initialize(request);
