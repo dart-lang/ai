@@ -17,7 +17,7 @@ base mixin ToolsSupport on MCPServer {
 
   /// The registered tool implementations by name.
   final Map<String, FutureOr<CallToolResult> Function(CallToolRequest)>
-      _registeredToolImpls = {};
+  _registeredToolImpls = {};
 
   /// Invoked by the client as a part of initialization.
   ///
@@ -31,7 +31,7 @@ base mixin ToolsSupport on MCPServer {
     registerRequestHandler(ListToolsRequest.methodName, _listTools);
     registerRequestHandler(CallToolRequest.methodName, _callTool);
 
-    var result = await super.initialize(request);
+    final result = await super.initialize(request);
     (result.capabilities.tools ??= Tools()).listChanged = true;
     return result;
   }
@@ -101,7 +101,7 @@ base mixin ToolsSupport on MCPServer {
   /// Called whenever the list of tools changes, it is the job of the client to
   /// then ask again for the list of tools.
   void _notifyToolListChanged() => sendNotification(
-        ToolListChangedNotification.methodName,
-        ToolListChangedNotification(),
-      );
+    ToolListChangedNotification.methodName,
+    ToolListChangedNotification(),
+  );
 }

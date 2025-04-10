@@ -19,7 +19,7 @@ base mixin PromptsSupport on MCPServer {
 
   /// The added prompt implementations by name.
   final Map<String, FutureOr<GetPromptResult> Function(GetPromptRequest)>
-      _promptImpls = {};
+  _promptImpls = {};
 
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) async {
@@ -73,7 +73,7 @@ base mixin PromptsSupport on MCPServer {
 
   /// Notifies clients that the prompts list has changed.
   void _notifyPromptListChanged() => sendNotification(
-        PromptListChangedNotification.methodName,
-        PromptListChangedNotification(),
-      );
+    PromptListChangedNotification.methodName,
+    PromptListChangedNotification(),
+  );
 }

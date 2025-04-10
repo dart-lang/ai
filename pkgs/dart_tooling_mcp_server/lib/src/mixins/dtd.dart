@@ -230,9 +230,7 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
   @visibleForTesting
   static final connectTool = Tool(
     inputSchema: ObjectSchema(
-      properties: {
-        'uri': StringSchema(),
-      },
+      properties: {'uri': StringSchema()},
       required: const ['uri'],
     ),
     name: 'connectDartToolingDaemon',

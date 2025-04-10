@@ -16,7 +16,7 @@ void main() async {
   print('server started');
 
   print('initializing server');
-  var initializeResult = await server.initialize(
+  final initializeResult = await server.initialize(
     InitializeRequest(
       protocolVersion: protocolVersion,
       capabilities: client.capabilities,

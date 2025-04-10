@@ -21,38 +21,44 @@ void main(List<String> args) async {
   }
 
   DartToolingMCPServer? server;
-  await runZonedGuarded(() async {
-    server = await DartToolingMCPServer.connect(
-      StreamChannel.withCloseGuarantee(io.stdin, io.stdout)
-          .transform(StreamChannelTransformer.fromCodec(utf8))
-          .transformStream(const LineSplitter())
-          .transformSink(
-        StreamSinkTransformer.fromHandlers(
-          handleData: (data, sink) {
-            sink.add('$data\n');
-          },
-        ),
-      ),
-    );
-  }, (e, s) {
-    if (server != null) {
-      try {
-        // Log unhandled errors to the client, if we managed to connect.
-        server!.log(LoggingLevel.error, '$e\n$s');
-      } catch (_) {}
-    } else {
-      // Otherwise log to stderr.
-      io.stderr
-        ..writeln(e)
-        ..writeln(s);
-    }
-  }, zoneSpecification: ZoneSpecification(print: (_, __, ___, value) {
-    if (server != null) {
-      try {
-        // Don't allow `print` since this breaks stdio communication, but if we
-        // have a server we do log messages to the client.
-        server!.log(LoggingLevel.info, value);
-      } catch (_) {}
-    }
-  }));
+  await runZonedGuarded(
+    () async {
+      server = await DartToolingMCPServer.connect(
+        StreamChannel.withCloseGuarantee(io.stdin, io.stdout)
+            .transform(StreamChannelTransformer.fromCodec(utf8))
+            .transformStream(const LineSplitter())
+            .transformSink(
+              StreamSinkTransformer.fromHandlers(
+                handleData: (data, sink) {
+                  sink.add('$data\n');
+                },
+              ),
+            ),
+      );
+    },
+    (e, s) {
+      if (server != null) {
+        try {
+          // Log unhandled errors to the client, if we managed to connect.
+          server!.log(LoggingLevel.error, '$e\n$s');
+        } catch (_) {}
+      } else {
+        // Otherwise log to stderr.
+        io.stderr
+          ..writeln(e)
+          ..writeln(s);
+      }
+    },
+    zoneSpecification: ZoneSpecification(
+      print: (_, _, _, value) {
+        if (server != null) {
+          try {
+            // Don't allow `print` since this breaks stdio communication, but if
+            // we have a server we do log messages to the client.
+            server!.log(LoggingLevel.info, value);
+          } catch (_) {}
+        }
+      },
+    ),
+  );
 }

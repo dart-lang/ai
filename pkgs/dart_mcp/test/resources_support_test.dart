@@ -12,7 +12,7 @@ import 'test_utils.dart';
 
 void main() {
   test('client can read resources from the server', () async {
-    var environment = TestEnvironment(
+    final environment = TestEnvironment(
       TestMCPClient(),
       (c) => TestMCPServerWithResources(channel: c),
     );
@@ -37,7 +37,9 @@ void main() {
     );
     expect(
       result.contents.single,
-      isA<ResourceContents>().having((c) => c.isText, 'isText', true).having(
+      isA<ResourceContents>()
+          .having((c) => c.isText, 'isText', true)
+          .having(
             (c) => (c as TextResourceContents).text,
             'text',
             'hello world!',
@@ -46,7 +48,7 @@ void main() {
   });
 
   test('client can subscribe to resource updates from the server', () async {
-    var environment = TestEnvironment(
+    final environment = TestEnvironment(
       TestMCPClient(),
       (c) => TestMCPServerWithResources(channel: c),
     );

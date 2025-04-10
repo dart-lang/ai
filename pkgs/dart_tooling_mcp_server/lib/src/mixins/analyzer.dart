@@ -30,7 +30,8 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
     if (request.capabilities.roots == null) {
       throw StateError(
-          'This server requires the "roots" capability to be implemented.');
+        'This server requires the "roots" capability to be implemented.',
+      );
     }
     registerTool(analyzeFilesTool, _analyzeFiles);
     initialized.then(_listenForRoots);
@@ -75,10 +76,13 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
 
     final paths = <String>[];
     for (var root in result.roots) {
-      var uri = Uri.parse(root.uri);
+      final uri = Uri.parse(root.uri);
       if (uri.scheme != 'file') {
         throw ArgumentError.value(
-            root.uri, 'uri', 'Only file scheme uris are allowed for roots');
+          root.uri,
+          'uri',
+          'Only file scheme uris are allowed for roots',
+        );
       }
       paths.add(p.normalize(uri.path));
     }
@@ -86,67 +90,90 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
     _disposeWatchSubscriptions();
 
     for (var rootPath in paths) {
-      var watcher = DirectoryWatcher(rootPath);
-      _watchSubscriptions.add(watcher.events.listen((event) {
-        _analysisContexts
-            ?.contextFor(event.path)
-            .changeFile(p.normalize(event.path));
-      }));
+      final watcher = DirectoryWatcher(rootPath);
+      _watchSubscriptions.add(
+        watcher.events.listen((event) {
+          _analysisContexts
+              ?.contextFor(event.path)
+              .changeFile(p.normalize(event.path));
+        }),
+      );
     }
 
-    _analysisContexts =
-        AnalysisContextCollection(includedPaths: paths, sdkPath: sdkPath);
+    _analysisContexts = AnalysisContextCollection(
+      includedPaths: paths,
+      sdkPath: sdkPath,
+    );
   }
 
   /// Implementation of the [analyzeFilesTool], analyzes the requested files
   /// under the requested project roots.
   Future<CallToolResult> _analyzeFiles(CallToolRequest request) async {
-    var contexts = _analysisContexts;
+    final contexts = _analysisContexts;
     if (contexts == null) {
-      return CallToolResult(content: [
-        TextContent(
-            text: 'Analysis not yet ready, please wait a few seconds and try '
-                'again.')
-      ], isError: true);
+      return CallToolResult(
+        content: [
+          TextContent(
+            text:
+                'Analysis not yet ready, please wait a few seconds and try '
+                'again.',
+          ),
+        ],
+        isError: true,
+      );
     }
 
-    var messages = <TextContent>[];
+    final messages = <TextContent>[];
     final rootConfigs =
         (request.arguments!['roots'] as List).cast<Map<String, Object?>>();
     for (var rootConfig in rootConfigs) {
-      var rootUri = Uri.parse(rootConfig['root'] as String);
+      final rootUri = Uri.parse(rootConfig['root'] as String);
       if (rootUri.scheme != 'file') {
-        return CallToolResult(content: [
-          TextContent(
-              text: 'Only file scheme uris are allowed for roots, but got '
-                  '$rootUri')
-        ], isError: true);
+        return CallToolResult(
+          content: [
+            TextContent(
+              text:
+                  'Only file scheme uris are allowed for roots, but got '
+                  '$rootUri',
+            ),
+          ],
+          isError: true,
+        );
       }
-      var paths = (rootConfig['paths'] as List?)?.cast<String>();
+      final paths = (rootConfig['paths'] as List?)?.cast<String>();
       if (paths == null) {
-        return CallToolResult(content: [
-          TextContent(
+        return CallToolResult(
+          content: [
+            TextContent(
               text:
                   'Missing required argument `paths`, which should be the list '
-                  'of relative paths to analyze.')
-        ], isError: true);
+                  'of relative paths to analyze.',
+            ),
+          ],
+          isError: true,
+        );
       }
 
-      var context = contexts.contextFor(p.normalize(rootUri.path));
+      final context = contexts.contextFor(p.normalize(rootUri.path));
       await context.applyPendingFileChanges();
 
       for (var path in paths) {
-        var normalized =
-            p.normalize(p.isAbsolute(path) ? path : p.join(rootUri.path, path));
-        var errorsResult = await context.currentSession.getErrors(normalized);
+        final normalized = p.normalize(
+          p.isAbsolute(path) ? path : p.join(rootUri.path, path),
+        );
+        final errorsResult = await context.currentSession.getErrors(normalized);
         if (errorsResult is! ErrorsResult) {
-          return CallToolResult(content: [
-            TextContent(text: 'Error computing analyzer errors $errorsResult'),
-          ]);
+          return CallToolResult(
+            content: [
+              TextContent(
+                text: 'Error computing analyzer errors $errorsResult',
+              ),
+            ],
+          );
         }
         for (var error in errorsResult.errors) {
           messages.add(TextContent(text: 'Error: ${error.message}'));
-          if (error.correctionMessage case var correctionMessage?) {
+          if (error.correctionMessage case final correctionMessage?) {
             messages.add(TextContent(text: correctionMessage));
           }
         }
@@ -158,27 +185,33 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
 
   @visibleForTesting
   static final analyzeFilesTool = Tool(
-      name: 'analyze files',
-      description:
-          'Analyzes the requested file paths under the specified project roots '
-          'and returns the results as a list of messages.',
-      inputSchema: ObjectSchema(properties: {
+    name: 'analyze files',
+    description:
+        'Analyzes the requested file paths under the specified project roots '
+        'and returns the results as a list of messages.',
+    inputSchema: ObjectSchema(
+      properties: {
         'roots': ListSchema(
-            title: 'All projects roots to analyze',
-            description:
-                'These must match a root returned by a call to "listRoots".',
-            items: ObjectSchema(
-              properties: {
-                'root': StringSchema(
-                    title: 'The URI of the project root to analyze.'),
-                'paths': ListSchema(
-                    title: 'Relative or absolute paths to analyze under the '
-                        '"root", must correspond to files and not directories.',
-                    items: StringSchema()),
-              },
-              required: ['root'],
-            )),
-      }, required: [
-        'roots'
-      ]));
+          title: 'All projects roots to analyze',
+          description:
+              'These must match a root returned by a call to "listRoots".',
+          items: ObjectSchema(
+            properties: {
+              'root': StringSchema(
+                title: 'The URI of the project root to analyze.',
+              ),
+              'paths': ListSchema(
+                title:
+                    'Relative or absolute paths to analyze under the '
+                    '"root", must correspond to files and not directories.',
+                items: StringSchema(),
+              ),
+            },
+            required: ['root'],
+          ),
+        ),
+      },
+      required: ['roots'],
+    ),
+  );
 }

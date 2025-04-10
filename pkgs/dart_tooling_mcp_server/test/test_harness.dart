@@ -70,19 +70,27 @@ class TestHarness {
   }
 
   /// Starts an app debug session.
-  Future<AppDebugSession> startDebugSession(String projectRoot, String appPath,
-      {required bool isFlutter}) async {
-    var session = await AppDebugSession._start(projectRoot, appPath,
-        isFlutter: isFlutter);
+  Future<AppDebugSession> startDebugSession(
+    String projectRoot,
+    String appPath, {
+    required bool isFlutter,
+  }) async {
+    final session = await AppDebugSession._start(
+      projectRoot,
+      appPath,
+      isFlutter: isFlutter,
+    );
     fakeEditorExtension.debugSessions.add(session);
-    var root = rootForPath(projectRoot);
-    var roots = (await mcpClient.handleListRoots(ListRootsRequest())).roots;
+    final root = rootForPath(projectRoot);
+    final roots = (await mcpClient.handleListRoots(ListRootsRequest())).roots;
     if (!roots.any((r) => r.uri == root.uri)) {
       mcpClient.addRoot(root);
     }
-    unawaited(session.appProcess.exitCode.then((_) {
-      fakeEditorExtension.debugSessions.remove(session);
-    }));
+    unawaited(
+      session.appProcess.exitCode.then((_) {
+        fakeEditorExtension.debugSessions.remove(session);
+      }),
+    );
     return session;
   }
 
@@ -92,7 +100,8 @@ class TestHarness {
     final tools = (await mcpServerConnection.listTools()).tools;
 
     final connectTool = tools.singleWhere(
-        (t) => t.name == DartToolingDaemonSupport.connectTool.name);
+      (t) => t.name == DartToolingDaemonSupport.connectTool.name,
+    );
 
     final result = await callToolWithRetry(
       CallToolRequest(name: connectTool.name, arguments: {'uri': dtdUri}),
@@ -104,8 +113,10 @@ class TestHarness {
   /// Sends [request] to [mcpServerConnection], retrying [maxTries] times.
   ///
   /// Some methods will fail if the DTD connection is not yet ready.
-  Future<CallToolResult> callToolWithRetry(CallToolRequest request,
-      {int maxTries = 5}) async {
+  Future<CallToolResult> callToolWithRetry(
+    CallToolRequest request, {
+    int maxTries = 5,
+  }) async {
     var tryCount = 0;
     late CallToolResult lastResult;
     while (tryCount++ < maxTries) {
@@ -132,35 +143,33 @@ final class AppDebugSession {
   final String vmServiceUri;
   final bool isFlutter;
 
-  AppDebugSession._(
-      {required this.appProcess,
-      required this.vmServiceUri,
-      required this.projectRoot,
-      required this.appPath,
-      required this.isFlutter});
+  AppDebugSession._({
+    required this.appProcess,
+    required this.vmServiceUri,
+    required this.projectRoot,
+    required this.appPath,
+    required this.isFlutter,
+  });
 
-  static Future<AppDebugSession> _start(String projectRoot, String appPath,
-      {required bool isFlutter}) async {
-    final platform = Platform.isLinux
-        ? 'linux'
-        : Platform.isMacOS
+  static Future<AppDebugSession> _start(
+    String projectRoot,
+    String appPath, {
+    required bool isFlutter,
+  }) async {
+    final platform =
+        Platform.isLinux
+            ? 'linux'
+            : Platform.isMacOS
             ? 'macos'
             : throw StateError(
-                'unsupported platform, only mac and linux are supported',
-              );
-    final process = await TestProcess.start(
-      isFlutter ? 'flutter' : 'dart',
-      [
-        'run',
-        if (!isFlutter) '--enable-vm-service',
-        if (isFlutter) ...[
-          '-d',
-          platform,
-        ],
-        appPath,
-      ],
-      workingDirectory: projectRoot,
-    );
+              'unsupported platform, only mac and linux are supported',
+            );
+    final process = await TestProcess.start(isFlutter ? 'flutter' : 'dart', [
+      'run',
+      if (!isFlutter) '--enable-vm-service',
+      if (isFlutter) ...['-d', platform],
+      appPath,
+    ], workingDirectory: projectRoot);
 
     addTearDown(() async {
       if (isFlutter) {
@@ -176,8 +185,9 @@ final class AppDebugSession {
     while (vmServiceUri == null && await stdout.hasNext) {
       final line = await stdout.next;
       if (line.contains('A Dart VM Service')) {
-        vmServiceUri =
-            line.substring(line.indexOf('http:')).replaceFirst('http:', 'ws:');
+        vmServiceUri = line
+            .substring(line.indexOf('http:'))
+            .replaceFirst('http:', 'ws:');
         await stdout.cancel();
       }
     }
@@ -187,23 +197,24 @@ final class AppDebugSession {
       );
     }
     return AppDebugSession._(
-        appProcess: process,
-        vmServiceUri: vmServiceUri,
-        projectRoot: projectRoot,
-        appPath: appPath,
-        isFlutter: isFlutter);
+      appProcess: process,
+      vmServiceUri: vmServiceUri,
+      projectRoot: projectRoot,
+      appPath: appPath,
+      isFlutter: isFlutter,
+    );
   }
 }
 
 /// A basic MCP client which is started as a part of the harness.
 final class DartToolingMCPClient extends MCPClient with RootsSupport {
   DartToolingMCPClient()
-      : super(
-          ClientImplementation(
-            name: 'test client for the dart tooling mcp server',
-            version: '0.1.0',
-          ),
-        );
+    : super(
+        ClientImplementation(
+          name: 'test client for the dart tooling mcp server',
+          version: '0.1.0',
+        ),
+      );
 }
 
 /// The dart tooling daemon currently expects to get vm service uris through
@@ -221,9 +232,7 @@ class FakeEditorExtension {
     _registerService();
   }
 
-  static Future<FakeEditorExtension> connect(
-    String dtdUri,
-  ) async {
+  static Future<FakeEditorExtension> connect(String dtdUri) async {
     final dtd = await DartToolingDaemon.connect(Uri.parse(dtdUri));
     return FakeEditorExtension(dtd);
   }
@@ -275,7 +284,7 @@ Future<String> _getDTDUri(TestProcess dtdProcess) async {
 /// Compiles the dart tooling mcp server to AOT and returns the location.
 Future<String> _compileMCPServer() async {
   final filePath = d.path('main.exe');
-  var result = await TestProcess.start(Platform.executable, [
+  final result = await TestProcess.start(Platform.executable, [
     'compile',
     'exe',
     'bin/main.dart',
@@ -316,10 +325,7 @@ Future<ServerConnection> _initializeMCPServer(
     addTearDown(mcpServer.shutdown);
     connection = client.connectServer(clientChannel);
   } else {
-    connection = await client.connectStdioServer(
-      await _compileMCPServer(),
-      [],
-    );
+    connection = await client.connectStdioServer(await _compileMCPServer(), []);
   }
 
   final initializeResult = await connection.initialize(

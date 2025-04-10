@@ -9,7 +9,7 @@ import 'test_utils.dart';
 
 void main() {
   test('client can set the logging level', () async {
-    var environment = TestEnvironment(
+    final environment = TestEnvironment(
       TestMCPClient(),
       (c) => TestMCPServerWithLogging(channel: c),
     );
@@ -38,7 +38,7 @@ void main() {
   });
 
   test('client can receive log messages', () async {
-    var environment = TestEnvironment(
+    final environment = TestEnvironment(
       TestMCPClient(),
       (c) => TestMCPServerWithLogging(channel: c),
     );
@@ -52,7 +52,7 @@ void main() {
     );
 
     final logger = 'myLogger';
-    var notifications = [
+    final notifications = [
       for (var level in LoggingLevel.values)
         LoggingMessageNotification(
           data: '${level.name} message',
@@ -93,7 +93,7 @@ void main() {
   });
 
   test('server can log functions for lazy evaluation', () async {
-    var environment = TestEnvironment(
+    final environment = TestEnvironment(
       TestMCPClient(),
       (c) => TestMCPServerWithLogging(channel: c),
     );
@@ -131,7 +131,8 @@ void main() {
     expect(
       () => server.log(LoggingLevel.warning, (int x) => 'hello'),
       throwsA(isA<ArgumentError>()),
-      reason: 'Lazy message functions should not have required positional '
+      reason:
+          'Lazy message functions should not have required positional '
           'arguments',
     );
 

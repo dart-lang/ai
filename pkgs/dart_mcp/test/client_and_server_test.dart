@@ -15,11 +15,11 @@ import 'test_utils.dart';
 
 void main() {
   test('client and server can communicate', () async {
-    var environment = TestEnvironment(
+    final environment = TestEnvironment(
       TestMCPClient(),
       (c) => TestMCPServer(channel: c),
     );
-    var initializeResult = await environment.initializeServer();
+    final initializeResult = await environment.initializeServer();
 
     expect(initializeResult.capabilities, isEmpty);
     expect(initializeResult.instructions, environment.server.instructions);
@@ -45,7 +45,7 @@ void main() {
   });
 
   test('client and server can ping each other', () async {
-    var environment = TestEnvironment(
+    final environment = TestEnvironment(
       TestMCPClient(),
       (c) => TestMCPServer(channel: c),
     );
@@ -56,7 +56,7 @@ void main() {
   });
 
   test('client can handle ping timeouts', () async {
-    var environment = TestEnvironment(TestMCPClient(), (channel) {
+    final environment = TestEnvironment(TestMCPClient(), (channel) {
       channel = channel.transformStream(
         StreamTransformer.fromHandlers(
           handleData: (data, sink) async {
@@ -79,7 +79,7 @@ void main() {
   });
 
   test('server can handle ping timeouts', () async {
-    var environment = TestEnvironment(TestMCPClient(), (channel) {
+    final environment = TestEnvironment(TestMCPClient(), (channel) {
       channel = channel.transformSink(
         StreamSinkTransformer.fromHandlers(
           handleData: (data, sink) async {
@@ -100,14 +100,14 @@ void main() {
   });
 
   test('clients can handle progress notifications', () async {
-    var environment = TestEnvironment(
+    final environment = TestEnvironment(
       TestMCPClient(),
       (c) => InitializeProgressTestMCPServer(channel: c),
     );
     await environment.initializeServer();
-    var serverConnection = environment.serverConnection;
+    final serverConnection = environment.serverConnection;
 
-    var request = CallToolRequest(
+    final request = CallToolRequest(
       name: InitializeProgressTestMCPServer.myProgressTool.name,
       meta: MetaWithProgressToken(progressToken: ProgressToken(1337)),
     );
@@ -145,7 +145,7 @@ void main() {
   });
 
   test('servers can handle progress notifications', () async {
-    var environment = TestEnvironment(
+    final environment = TestEnvironment(
       ListRootsProgressTestMCPClient(),
       (channel) => TestMCPServer(
         channel: channel.transformSink(
@@ -163,16 +163,16 @@ void main() {
       ),
     );
     await environment.initializeServer();
-    var server = environment.server;
+    final server = environment.server;
 
-    var request = ListRootsRequest(
+    final request = ListRootsRequest(
       meta: MetaWithProgressToken(progressToken: ProgressToken(1337)),
     );
 
     // Ensure the subscription is set up before calling the tool.
     await pumpEventQueue();
 
-    var onDone = server.listRoots(request);
+    final onDone = server.listRoots(request);
     final expectedNotification = ProgressNotification(
       progressToken: request.meta!.progressToken!,
       progress: 50,
@@ -198,7 +198,7 @@ void main() {
   });
 
   test('closing a server removes the connection', () async {
-    var environment = TestEnvironment(
+    final environment = TestEnvironment(
       TestMCPClient(),
       (c) => TestMCPServer(channel: c),
     );

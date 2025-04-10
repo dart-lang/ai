@@ -17,11 +17,10 @@ extension type SetLevelRequest.fromMap(Map<String, Object?> _value)
   factory SetLevelRequest({
     required LoggingLevel level,
     MetaWithProgressToken? meta,
-  }) =>
-      SetLevelRequest.fromMap({
-        'level': level.name,
-        if (meta != null) '_meta': meta,
-      });
+  }) => SetLevelRequest.fromMap({
+    'level': level.name,
+    if (meta != null) '_meta': meta,
+  });
 
   /// The level of logging that the client wants to receive from the server.
   ///
@@ -44,13 +43,12 @@ extension type LoggingMessageNotification.fromMap(Map<String, Object?> _value)
     String? logger,
     required Object data,
     Meta? meta,
-  }) =>
-      LoggingMessageNotification.fromMap({
-        'level': level.name,
-        if (logger != null) 'logger': logger,
-        'data': data,
-        if (meta != null) '_meta': meta,
-      });
+  }) => LoggingMessageNotification.fromMap({
+    'level': level.name,
+    if (logger != null) 'logger': logger,
+    'data': data,
+    if (meta != null) '_meta': meta,
+  });
 
   /// The severity of this log message.
   LoggingLevel get level =>

@@ -18,15 +18,15 @@ final class DartToolingMCPServer extends MCPServer
         DartAnalyzerSupport,
         DartToolingDaemonSupport {
   DartToolingMCPServer({required super.channel})
-      : super.fromStreamChannel(
-          implementation: ServerImplementation(
-            name: 'dart and flutter tooling',
-            version: '0.1.0-wip',
-          ),
-          instructions:
-              'This server helps to connect Dart and Flutter developers to '
-              'their development tools and running applications.',
-        );
+    : super.fromStreamChannel(
+        implementation: ServerImplementation(
+          name: 'dart and flutter tooling',
+          version: '0.1.0-wip',
+        ),
+        instructions:
+            'This server helps to connect Dart and Flutter developers to '
+            'their development tools and running applications.',
+      );
 
   static Future<DartToolingMCPServer> connect(
     StreamChannel<String> mcpChannel,

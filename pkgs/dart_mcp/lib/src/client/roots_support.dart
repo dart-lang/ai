@@ -32,7 +32,7 @@ base mixin RootsSupport on MCPClient {
   /// Notifies all connected servers of the change to the list of roots, if the
   /// [root] was added.
   bool addRoot(Root root) {
-    var changed = _roots.add(root);
+    final changed = _roots.add(root);
     if (changed) _notifyRootsListChanged();
     return changed;
   }
@@ -45,7 +45,7 @@ base mixin RootsSupport on MCPClient {
   /// Notifies all connected servers of the change to the list of roots, if
   /// a root was in fact removed.
   bool removeRoot(Root root) {
-    var removed = _roots.remove(root);
+    final removed = _roots.remove(root);
     if (removed) _notifyRootsListChanged();
     return removed;
   }

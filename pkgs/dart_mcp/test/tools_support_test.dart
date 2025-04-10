@@ -11,11 +11,11 @@ import 'test_utils.dart';
 
 void main() {
   test('client can list and invoke tools from the server', () async {
-    var environment = TestEnvironment(
+    final environment = TestEnvironment(
       TestMCPClient(),
       (c) => TestMCPServerWithTools(channel: c),
     );
-    var initializeResult = await environment.initializeServer();
+    final initializeResult = await environment.initializeServer();
     expect(
       initializeResult.capabilities.tools,
       equals(Tools(listChanged: true)),
@@ -42,7 +42,7 @@ void main() {
   });
 
   test('client can subscribe to tool list updates from the server', () async {
-    var environment = TestEnvironment(
+    final environment = TestEnvironment(
       TestMCPClient(),
       (c) => TestMCPServerWithTools(channel: c),
     );
@@ -79,10 +79,7 @@ void main() {
         title: 'Foo',
         description: 'Bar',
         patternProperties: {'^foo': StringSchema()},
-        properties: {
-          'foo': StringSchema(),
-          'bar': IntegerSchema(),
-        },
+        properties: {'foo': StringSchema(), 'bar': IntegerSchema()},
         required: ['foo'],
         additionalProperties: false,
         unevaluatedProperties: true,
@@ -95,18 +92,18 @@ void main() {
         'title': 'Foo',
         'description': 'Bar',
         'patternProperties': {
-          '^foo': {'type': 'string'}
+          '^foo': {'type': 'string'},
         },
         'properties': {
           'foo': {'type': 'string'},
-          'bar': {'type': 'integer'}
+          'bar': {'type': 'integer'},
         },
         'required': ['foo'],
         'additionalProperties': false,
         'unevaluatedProperties': true,
         'propertyNames': {'type': 'string', 'pattern': r'^[a-z]+$'},
         'minProperties': 1,
-        'maxProperties': 2
+        'maxProperties': 2,
       });
     });
 
@@ -124,7 +121,7 @@ void main() {
         'description': 'Bar',
         'minLength': 1,
         'maxLength': 10,
-        'pattern': r'^[a-z]+$'
+        'pattern': r'^[a-z]+$',
       });
     });
 
@@ -146,7 +143,7 @@ void main() {
         'maximum': 10,
         'exclusiveMinimum': 0,
         'exclusiveMaximum': 11,
-        'multipleOf': 2
+        'multipleOf': 2,
       });
     });
 
@@ -173,27 +170,13 @@ void main() {
     });
 
     test('BooleanSchema', () {
-      final schema = BooleanSchema(
-        title: 'Foo',
-        description: 'Bar',
-      );
-      expect(schema, {
-        'type': 'boolean',
-        'title': 'Foo',
-        'description': 'Bar',
-      });
+      final schema = BooleanSchema(title: 'Foo', description: 'Bar');
+      expect(schema, {'type': 'boolean', 'title': 'Foo', 'description': 'Bar'});
     });
 
     test('NullSchema', () {
-      final schema = NullSchema(
-        title: 'Foo',
-        description: 'Bar',
-      );
-      expect(schema, {
-        'type': 'null',
-        'title': 'Foo',
-        'description': 'Bar',
-      });
+      final schema = NullSchema(title: 'Foo', description: 'Bar');
+      expect(schema, {'type': 'null', 'title': 'Foo', 'description': 'Bar'});
     });
 
     test('ListSchema', () {
@@ -214,12 +197,12 @@ void main() {
         'items': {'type': 'string'},
         'prefixItems': [
           {'type': 'integer'},
-          {'type': 'boolean'}
+          {'type': 'boolean'},
         ],
         'unevaluatedItems': false,
         'minItems': 1,
         'maxItems': 10,
-        'uniqueItems': true
+        'uniqueItems': true,
       });
     });
 
@@ -228,18 +211,9 @@ void main() {
         type: JsonType.bool,
         title: 'Foo',
         description: 'Bar',
-        allOf: [
-          StringSchema(),
-          IntegerSchema(),
-        ],
-        anyOf: [
-          StringSchema(),
-          IntegerSchema(),
-        ],
-        oneOf: [
-          StringSchema(),
-          IntegerSchema(),
-        ],
+        allOf: [StringSchema(), IntegerSchema()],
+        anyOf: [StringSchema(), IntegerSchema()],
+        oneOf: [StringSchema(), IntegerSchema()],
         not: [StringSchema()],
       );
       expect(schema, {
@@ -248,18 +222,18 @@ void main() {
         'description': 'Bar',
         'allOf': [
           {'type': 'string'},
-          {'type': 'integer'}
+          {'type': 'integer'},
         ],
         'anyOf': [
           {'type': 'string'},
-          {'type': 'integer'}
+          {'type': 'integer'},
         ],
         'oneOf': [
           {'type': 'string'},
-          {'type': 'integer'}
+          {'type': 'integer'},
         ],
         'not': [
-          {'type': 'string'}
+          {'type': 'string'},
         ],
       });
     });

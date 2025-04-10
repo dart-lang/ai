@@ -11,25 +11,25 @@ import 'test_utils.dart';
 
 void main() {
   test('client can list and get prompts from the server', () async {
-    var environment = TestEnvironment(
+    final environment = TestEnvironment(
       TestMCPClient(),
       (c) => TestMCPServerWithPrompts(channel: c),
     );
-    var initializeResult = await environment.initializeServer();
+    final initializeResult = await environment.initializeServer();
 
     expect(
       initializeResult.capabilities,
       ServerCapabilities(prompts: Prompts(listChanged: true)),
     );
 
-    var serverConnection = environment.serverConnection;
+    final serverConnection = environment.serverConnection;
 
-    var promptsResult = await serverConnection.listPrompts(
+    final promptsResult = await serverConnection.listPrompts(
       ListPromptsRequest(),
     );
     expect(promptsResult.prompts, [TestMCPServerWithPrompts.greeting]);
 
-    var greetingResult = await serverConnection.getPrompt(
+    final greetingResult = await serverConnection.getPrompt(
       GetPromptRequest(
         name: promptsResult.prompts.single.name,
         arguments: {'style': 'joyously'},
@@ -46,13 +46,13 @@ void main() {
   });
 
   test('client is notified of changes to prompts from the server', () async {
-    var environment = TestEnvironment(
+    final environment = TestEnvironment(
       TestMCPClient(),
       (c) => TestMCPServerWithPrompts(channel: c),
     );
     await environment.initializeServer();
 
-    var serverConnection = environment.serverConnection;
+    final serverConnection = environment.serverConnection;
     expect(
       serverConnection.promptListChanged,
       emitsInOrder([
@@ -62,7 +62,7 @@ void main() {
       reason: 'We should get a notification for new and removed prompts',
     );
 
-    var server = environment.server;
+    final server = environment.server;
     server.addPrompt(
       Prompt(name: 'new prompt'),
       (_) => GetPromptResult(messages: []),
@@ -105,7 +105,8 @@ final class TestMCPServerWithPrompts extends TestMCPServer with PromptsSupport {
     arguments: [
       PromptArgument(
         name: 'style',
-        description: 'The style in which the greeting should be (for example, '
+        description:
+            'The style in which the greeting should be (for example, '
             '"joyously" or "angrily")',
         required: true,
       ),
