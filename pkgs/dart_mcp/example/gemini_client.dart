@@ -106,7 +106,7 @@ final class GeminiClient extends MCPClient with RootsSupport {
             'It looks like you want to invoke tool ${part.name} with args '
             '${jsonEncode(part.args)}, is that correct? (y/n)',
           );
-          var answer = await stdinQueue.next;
+          final answer = await stdinQueue.next;
           chatHistory.add(gemini.Content.text('Yes'));
           if (answer == 'y') {
             chatToUser(
