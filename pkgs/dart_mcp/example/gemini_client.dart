@@ -81,23 +81,35 @@ final class GeminiClient extends MCPClient with RootsSupport {
       'available from the connected servers, feel free to ask me about them.',
     );
     print('ready to chat!');
+    final chatHistory = <gemini.Content>[];
+
+    // Prints `text` and adds it to the chat history
+    void chatToUser(String text) {
+      print(text);
+      chatHistory.add(gemini.Content.text(text));
+    }
+
     while (true) {
-      final modelResponse = await model.generateContent([
-        gemini.Content.text(await stdinQueue.next),
-      ], tools: serverTools);
+      chatHistory.add(gemini.Content.text(await stdinQueue.next));
+      final modelResponse = await model.generateContent(
+        chatHistory,
+        tools: serverTools,
+      );
 
       for (final candidate in modelResponse.candidates) {
         final part = candidate.content.parts.first;
         if (part is gemini.TextPart) {
-          print(part.text);
+          chatToUser(part.text);
         } else if (part is gemini.FunctionCall) {
           final userResponse = StringBuffer();
-          print(
+          chatToUser(
             'It looks like you want to invoke tool ${part.name} with args '
             '${jsonEncode(part.args)}, is that correct? (y/n)',
           );
-          if (await stdinQueue.next == 'y') {
-            print(
+          var answer = await stdinQueue.next;
+          chatHistory.add(gemini.Content.text('Yes'));
+          if (answer == 'y') {
+            chatToUser(
               'Running tool ${part.name} with args ${jsonEncode(part.args)}',
             );
 
@@ -114,9 +126,9 @@ final class GeminiClient extends MCPClient with RootsSupport {
                 );
               }
             }
-            print(userResponse);
+            chatToUser(userResponse.toString());
           } else {
-            print(
+            chatToUser(
               'I see you didn\'t want to run the tool, trying next response '
               'candidate.',
             );
