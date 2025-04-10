@@ -156,20 +156,22 @@ final class AppDebugSession {
     String appPath, {
     required bool isFlutter,
   }) async {
-    final platform =
-        Platform.isLinux
-            ? 'linux'
-            : Platform.isMacOS
+    final platform = Platform.isLinux
+        ? 'linux'
+        : Platform.isMacOS
             ? 'macos'
             : throw StateError(
-              'unsupported platform, only mac and linux are supported',
-            );
-    final process = await TestProcess.start(isFlutter ? 'flutter' : 'dart', [
-      'run',
-      if (!isFlutter) '--enable-vm-service',
-      if (isFlutter) ...['-d', platform],
-      appPath,
-    ], workingDirectory: projectRoot);
+                'unsupported platform, only mac and linux are supported',
+              );
+    final process = await TestProcess.start(
+        isFlutter ? 'flutter' : 'dart',
+        [
+          'run',
+          if (!isFlutter) '--enable-vm-service',
+          if (isFlutter) ...['-d', platform],
+          appPath,
+        ],
+        workingDirectory: projectRoot);
 
     addTearDown(() async {
       if (isFlutter) {
@@ -185,9 +187,8 @@ final class AppDebugSession {
     while (vmServiceUri == null && await stdout.hasNext) {
       final line = await stdout.next;
       if (line.contains('A Dart VM Service')) {
-        vmServiceUri = line
-            .substring(line.indexOf('http:'))
-            .replaceFirst('http:', 'ws:');
+        vmServiceUri =
+            line.substring(line.indexOf('http:')).replaceFirst('http:', 'ws:');
         await stdout.cancel();
       }
     }
@@ -209,12 +210,12 @@ final class AppDebugSession {
 /// A basic MCP client which is started as a part of the harness.
 final class DartToolingMCPClient extends MCPClient with RootsSupport {
   DartToolingMCPClient()
-    : super(
-        ClientImplementation(
-          name: 'test client for the dart tooling mcp server',
-          version: '0.1.0',
-        ),
-      );
+      : super(
+          ClientImplementation(
+            name: 'test client for the dart tooling mcp server',
+            version: '0.1.0',
+          ),
+        );
 }
 
 /// The dart tooling daemon currently expects to get vm service uris through
