@@ -50,11 +50,11 @@ void main(List<String> args) async {
       }
     },
     zoneSpecification: ZoneSpecification(
-      print: (_, __, ___, value) {
+      print: (_, _, _, value) {
         if (server != null) {
           try {
-            // Don't allow `print` since this breaks stdio communication, but if we
-            // have a server we do log messages to the client.
+            // Don't allow `print` since this breaks stdio communication, but if
+            // we have a server we do log messages to the client.
             server!.log(LoggingLevel.info, value);
           } catch (_) {}
         }
