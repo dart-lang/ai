@@ -244,7 +244,7 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
 
   @visibleForTesting
   static final screenshotTool = Tool(
-    name: 'take_screenshot',
+    name: 'takeScreenshot',
     description: 'Takes a screenshot of the active flutter application in its '
         'current state. Requires "${connectTool.name}" to be successfully '
         'called first.',
@@ -253,7 +253,7 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
 
   @visibleForTesting
   static final hotReloadTool = Tool(
-    name: 'Hot Reload',
+    name: 'hotReload',
     description: 'Performs a hot reload of the active Flutter application. '
         'This is to apply the latest code changes to the running application. '
         'Requires "${connectTool.name}" to be successfully called first.',
