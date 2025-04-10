@@ -25,19 +25,20 @@ import 'package:test_process/test_process.dart';
 ///   allow for breakpoints, but the default mode is to run the server in a
 ///   separate process.
 class TestHarness {
-  final TestProcess flutterProcess;
+  final FakeEditorExtension fakeEditorExtension;
   final DartToolingMCPClient mcpClient;
   final ServerConnection mcpServerConnection;
   final String dtdUri;
 
   TestHarness._(
-    this.flutterProcess,
     this.mcpClient,
     this.mcpServerConnection,
+    this.fakeEditorExtension,
     this.dtdUri,
   );
 
-  /// Starts a flutter process as well as an MCP client and server.
+  /// Starts a Dart Tooling Daemon as well as an MCP client and server, and
+  /// a [FakeEditorExtension] to manage registering debug sessions.
   ///
   /// Handles the initialization handshake between the MCP client and server as
   /// well.
@@ -47,30 +48,11 @@ class TestHarness {
   /// breakpoints in the server don't work however, so you can set [debugMode]
   /// to `true` and we will run it in process instead, which allows breakpoints
   /// since everything is running in the same isolate.
+  ///
+  /// Use [startDebugSession] to start up apps and connect to them.
   static Future<TestHarness> start({
     @Deprecated('For debugging only, do not submit') bool debugMode = false,
   }) async {
-    final platform =
-        Platform.isLinux
-            ? 'linux'
-            : Platform.isMacOS
-            ? 'macos'
-            : throw StateError(
-              'unsupported platform, only mac and linux are supported',
-            );
-    final flutterProcess = await TestProcess.start(
-      // TODO: Get flutter SDK location from somewhere.
-      'flutter',
-      ['run', '-d', platform, '--print-dtd'],
-      workingDirectory: counterAppPath,
-    );
-    addTearDown(() async {
-      flutterProcess.stdin.writeln('q');
-      await flutterProcess.shouldExit(0);
-    });
-
-    final dtdUri = await _getDTDUri(flutterProcess);
-
     final mcpClient = DartToolingMCPClient();
     addTearDown(mcpClient.shutdown);
     final connection = await _initializeMCPServer(mcpClient, debugMode);
@@ -78,13 +60,38 @@ class TestHarness {
       printOnFailure('MCP Server Log: $log');
     });
 
-    final fakeEditorExtension = await FakeEditorExtension.connect(
-      flutterProcess,
-      dtdUri,
-    );
+    final dtdProcess = await TestProcess.start('dart', ['tooling-daemon']);
+    final dtdUri = await _getDTDUri(dtdProcess);
+
+    final fakeEditorExtension = await FakeEditorExtension.connect(dtdUri);
     addTearDown(fakeEditorExtension.shutdown);
 
-    return TestHarness._(flutterProcess, mcpClient, connection, dtdUri);
+    return TestHarness._(mcpClient, connection, fakeEditorExtension, dtdUri);
+  }
+
+  /// Starts an app debug session.
+  Future<AppDebugSession> startDebugSession(
+    String projectRoot,
+    String appPath, {
+    required bool isFlutter,
+  }) async {
+    var session = await AppDebugSession._start(
+      projectRoot,
+      appPath,
+      isFlutter: isFlutter,
+    );
+    fakeEditorExtension.debugSessions.add(session);
+    var root = rootForPath(projectRoot);
+    var roots = (await mcpClient.handleListRoots(ListRootsRequest())).roots;
+    if (!roots.any((r) => r.uri == root.uri)) {
+      mcpClient.addRoot(root);
+    }
+    unawaited(
+      session.appProcess.exitCode.then((_) {
+        fakeEditorExtension.debugSessions.remove(session);
+      }),
+    );
+    return session;
   }
 
   /// Connects the MCP server to the dart tooling daemon at [dtdUri] using the
@@ -126,6 +133,80 @@ class TestHarness {
   }
 }
 
+/// The debug session for a single app.
+///
+/// Should be started using [TestHarness.startDebugSession].
+final class AppDebugSession {
+  final TestProcess appProcess;
+  final String appPath;
+  final String projectRoot;
+  final String vmServiceUri;
+  final bool isFlutter;
+
+  AppDebugSession._({
+    required this.appProcess,
+    required this.vmServiceUri,
+    required this.projectRoot,
+    required this.appPath,
+    required this.isFlutter,
+  });
+
+  static Future<AppDebugSession> _start(
+    String projectRoot,
+    String appPath, {
+    required bool isFlutter,
+  }) async {
+    final platform =
+        Platform.isLinux
+            ? 'linux'
+            : Platform.isMacOS
+            ? 'macos'
+            : throw StateError(
+              'unsupported platform, only mac and linux are supported',
+            );
+    final process = await TestProcess.start(isFlutter ? 'flutter' : 'dart', [
+      'run',
+      if (!isFlutter) '--enable-vm-service',
+      if (isFlutter) ...['-d', platform],
+      appPath,
+    ], workingDirectory: projectRoot);
+
+    addTearDown(() async {
+      if (isFlutter) {
+        process.stdin.writeln('q');
+      } else {
+        unawaited(process.kill());
+      }
+      await process.shouldExit(0);
+    });
+
+    String? vmServiceUri;
+    final stdout = StreamQueue(process.stdoutStream());
+    while (vmServiceUri == null && await stdout.hasNext) {
+      final line = await stdout.next;
+      if (line.contains('A Dart VM Service')) {
+        vmServiceUri = line
+            .substring(line.indexOf('http:'))
+            .replaceFirst('http:', 'ws:');
+        await stdout.cancel();
+      }
+    }
+    if (vmServiceUri == null) {
+      throw StateError(
+        'Failed to read vm service URI from the flutter run output',
+      );
+    }
+    return AppDebugSession._(
+      appProcess: process,
+      vmServiceUri: vmServiceUri,
+      projectRoot: projectRoot,
+      appPath: appPath,
+      isFlutter: isFlutter,
+    );
+  }
+}
+
+/// A basic MCP client which is started as a part of the harness.
 final class DartToolingMCPClient extends MCPClient with RootsSupport {
   DartToolingMCPClient()
     : super(
@@ -133,14 +214,7 @@ final class DartToolingMCPClient extends MCPClient with RootsSupport {
           name: 'test client for the dart tooling mcp server',
           version: '0.1.0',
         ),
-      ) {
-    addRoot(
-      Root(
-        uri: Directory(counterAppPath).absolute.uri.toString(),
-        name: 'counter app test fixture',
-      ),
-    );
-  }
+      );
 }
 
 /// The dart tooling daemon currently expects to get vm service uris through
@@ -149,50 +223,32 @@ final class DartToolingMCPClient extends MCPClient with RootsSupport {
 /// This class registers a similar extension for a normal `flutter run` process,
 /// without having the normal editor extension in place.
 class FakeEditorExtension {
-  final TestProcess flutterProcess;
+  final List<AppDebugSession> debugSessions = [];
   final DartToolingDaemon dtd;
+  int get nextId => ++_nextId;
+  int _nextId = 0;
 
-  FakeEditorExtension(this.flutterProcess, this.dtd) {
+  FakeEditorExtension(this.dtd) {
     _registerService();
   }
 
-  static Future<FakeEditorExtension> connect(
-    TestProcess flutterProcess,
-    String dtdUri,
-  ) async {
+  static Future<FakeEditorExtension> connect(String dtdUri) async {
     final dtd = await DartToolingDaemon.connect(Uri.parse(dtdUri));
-    return FakeEditorExtension(flutterProcess, dtd);
+    return FakeEditorExtension(dtd);
   }
 
   void _registerService() async {
-    String? vmServiceUri;
-    final stdout = StreamQueue(flutterProcess.stdoutStream());
-    while (await stdout.hasNext) {
-      final line = await stdout.next;
-      if (line.contains('A Dart VM Service')) {
-        vmServiceUri = line
-            .substring(line.indexOf('http:'))
-            .replaceFirst('http:', 'ws:');
-        await stdout.cancel();
-        break;
-      }
-    }
-    if (vmServiceUri == null) {
-      throw StateError(
-        'Failed to read vm service URI from the flutter run output',
-      );
-    }
-
     await dtd.registerService('Editor', 'getDebugSessions', (request) async {
       return GetDebugSessionsResponse(
         debugSessions: [
-          DebugSession(
-            debuggerType: 'Flutter',
-            id: '1',
-            name: 'example flutter project',
-            projectRootPath: counterAppPath,
-            vmServiceUri: vmServiceUri!,
-          ),
+          for (var debugSession in debugSessions)
+            DebugSession(
+              debuggerType: debugSession.isFlutter ? 'Flutter' : 'Dart',
+              id: nextId.toString(),
+              name: 'Test app',
+              projectRootPath: debugSession.projectRoot,
+              vmServiceUri: debugSession.vmServiceUri,
+            ),
         ],
       );
     });
@@ -203,14 +259,13 @@ class FakeEditorExtension {
   }
 }
 
-/// Reads the devtools server uri from the [flutterProcess] output, then asks it
-/// for the DTD uri, and returns it.
-Future<String> _getDTDUri(TestProcess flutterProcess) async {
+/// Reads DTD uri from the [dtdProcess] output.
+Future<String> _getDTDUri(TestProcess dtdProcess) async {
   String? dtdUri;
-  final stdout = StreamQueue(flutterProcess.stdoutStream());
+  final stdout = StreamQueue(dtdProcess.stdoutStream());
   while (await stdout.hasNext) {
     final line = await stdout.next;
-    const devtoolsLineStart = 'The Dart Tooling Daemon is available at';
+    const devtoolsLineStart = 'The Dart Tooling Daemon is listening on';
     if (line.startsWith(devtoolsLineStart)) {
       dtdUri = line.substring(line.indexOf('ws:'));
       await stdout.cancel();
@@ -219,8 +274,7 @@ Future<String> _getDTDUri(TestProcess flutterProcess) async {
   }
   if (dtdUri == null) {
     throw StateError(
-      'Failed to scrape the Dart Tooling Daemon URI from the flutter run '
-      'output',
+      'Failed to scrape the Dart Tooling Daemon URI from the process output.',
     );
   }
 
@@ -285,5 +339,9 @@ Future<ServerConnection> _initializeMCPServer(
   connection.notifyInitialized(InitializedNotification());
   return connection;
 }
+
+/// Creates a canoncical [Root] object for a given [projectPath].
+Root rootForPath(String projectPath) =>
+    Root(uri: Directory(projectPath).absolute.uri.toString());
 
 const counterAppPath = 'test_fixtures/counter_app';

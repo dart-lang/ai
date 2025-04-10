@@ -17,10 +17,17 @@ void main() {
   // issue.
   setUp(() async {
     testHarness = await TestHarness.start();
-    await testHarness.connectToDtd();
   });
 
   test('can take a screenshot', () async {
+    await testHarness.connectToDtd();
+
+    await testHarness.startDebugSession(
+      counterAppPath,
+      'lib/main.dart',
+      isFlutter: true,
+    );
+
     final tools = (await testHarness.mcpServerConnection.listTools()).tools;
     final screenshotTool = tools.singleWhere(
       (t) => t.name == DartToolingDaemonSupport.screenshotTool.name,
@@ -46,12 +53,18 @@ void main() {
     });
 
     test('can analyze a project', () async {
+      final counterAppRoot = rootForPath(counterAppPath);
+      testHarness.mcpClient.addRoot(counterAppRoot);
+      // Allow the notification to propagate, and the server to ask for the new
+      // list of roots.
+      await pumpEventQueue();
+
       final request = CallToolRequest(
         name: analyzeTool.name,
         arguments: {
           'roots': [
             {
-              'root': Uri.base.resolve(counterAppPath).toString(),
+              'root': counterAppRoot.uri,
               'paths': ['lib/main.dart'],
             },
           ],
@@ -67,7 +80,7 @@ void main() {
         d.file('main.dart', 'void main() => 1 + "2";'),
       ]);
       await example.create();
-      final exampleRoot = Root(uri: example.io.absolute.uri.toString());
+      final exampleRoot = rootForPath(example.io.path);
       testHarness.mcpClient.addRoot(exampleRoot);
 
       // Allow the notification to propagate, and the server to ask for the new
