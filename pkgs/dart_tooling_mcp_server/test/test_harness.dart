@@ -75,14 +75,14 @@ class TestHarness {
     String appPath, {
     required bool isFlutter,
   }) async {
-    var session = await AppDebugSession._start(
+    final session = await AppDebugSession._start(
       projectRoot,
       appPath,
       isFlutter: isFlutter,
     );
     fakeEditorExtension.debugSessions.add(session);
-    var root = rootForPath(projectRoot);
-    var roots = (await mcpClient.handleListRoots(ListRootsRequest())).roots;
+    final root = rootForPath(projectRoot);
+    final roots = (await mcpClient.handleListRoots(ListRootsRequest())).roots;
     if (!roots.any((r) => r.uri == root.uri)) {
       mcpClient.addRoot(root);
     }
