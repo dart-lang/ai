@@ -12,5 +12,7 @@ dependencies:
 executables:
   dart_mcp_server: server
 dev_dependencies:
+  args: ^2.7.0
   dart_flutter_team_lints: ^3.2.1
+  google_generative_ai: ^0.4.6
   test: ^1.25.15
