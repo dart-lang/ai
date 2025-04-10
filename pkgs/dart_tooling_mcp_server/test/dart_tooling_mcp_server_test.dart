@@ -22,8 +22,11 @@ void main() {
   test('can take a screenshot', () async {
     await testHarness.connectToDtd();
 
-    await testHarness.startDebugSession(counterAppPath, 'lib/main.dart',
-        isFlutter: true);
+    await testHarness.startDebugSession(
+      counterAppPath,
+      'lib/main.dart',
+      isFlutter: true,
+    );
 
     final tools = (await testHarness.mcpServerConnection.listTools()).tools;
     final screenshotTool = tools.singleWhere(
@@ -40,6 +43,29 @@ void main() {
         'type': ImageContent.expectedType
       },
     );
+  });
+
+  test('can perform a hot reload', () async {
+    await testHarness.connectToDtd();
+
+    await testHarness.startDebugSession(
+      counterAppPath,
+      'lib/main.dart',
+      isFlutter: true,
+    );
+
+    final tools = (await testHarness.mcpServerConnection.listTools()).tools;
+    final hotReloadTool = tools.singleWhere(
+      (t) => t.name == DartToolingDaemonSupport.hotReloadTool.name,
+    );
+    final hotReloadResult = await testHarness.callToolWithRetry(
+      CallToolRequest(name: hotReloadTool.name),
+    );
+
+    expect(hotReloadResult.isError, isNot(true));
+    expect(hotReloadResult.content, [
+      TextContent(text: 'Hot reload succeeded.'),
+    ]);
   });
 
   group('analysis', () {
