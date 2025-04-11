@@ -86,18 +86,18 @@ final class GeminiClient extends MCPClient with RootsSupport {
     // Prints `text` and adds it to the chat history
     void chatToUser(String text) {
       print(text);
-      chatHistory.add(gemini.Content.text(text));
+      chatHistory.add(gemini.Content('model', [gemini.TextPart(text)]));
     }
 
     while (true) {
       chatHistory.add(gemini.Content.text(await stdinQueue.next));
-      final modelResponse = await model.generateContent(
-        chatHistory,
-        tools: serverTools,
-      );
+      final modelResponse =
+          (await model.generateContent(
+            chatHistory,
+            tools: serverTools,
+          )).candidates.single.content;
 
-      for (final candidate in modelResponse.candidates) {
-        final part = candidate.content.parts.first;
+      for (var part in modelResponse.parts) {
         if (part is gemini.TextPart) {
           chatToUser(part.text);
         } else if (part is gemini.FunctionCall) {
@@ -107,12 +107,10 @@ final class GeminiClient extends MCPClient with RootsSupport {
             '${jsonEncode(part.args)}, is that correct? (y/n)',
           );
           final answer = await stdinQueue.next;
-          chatHistory.add(gemini.Content.text('Yes'));
+          chatHistory.add(gemini.Content.text(answer));
           if (answer == 'y') {
-            chatToUser(
-              'Running tool ${part.name} with args ${jsonEncode(part.args)}',
-            );
-
+            print('Running tool ...');
+            chatHistory.add(gemini.Content('model', [part]));
             final connection = connectionForFunction[part.name]!;
             final result = await connection.callTool(
               CallToolRequest(name: part.name, arguments: part.args),
