@@ -25,7 +25,7 @@ void main(List<String> args) {
 
   final parsedArgs = argParser.parse(args);
   final serverCommands = parsedArgs['server'] as List<String>;
-  GeminiClient(serverCommands, geminiApiKey: geminiApiKey);
+  DashClient(serverCommands, geminiApiKey: geminiApiKey);
 }
 
 final argParser =
@@ -35,22 +35,23 @@ final argParser =
       help: 'A command to run to start an MCP server',
     );
 
-final class GeminiClient extends MCPClient with RootsSupport {
+final class DashClient extends MCPClient with RootsSupport {
   final StreamQueue<String> stdinQueue;
   final List<String> serverCommands;
   final List<ServerConnection> serverConnections = [];
-  final List<gemini.Tool> serverTools = [];
   final Map<String, ServerConnection> connectionForFunction = {};
-  final gemini.GenerativeModel model;
   final List<gemini.Content> chatHistory = [];
+  final gemini.GenerativeModel model;
 
-  GeminiClient(this.serverCommands, {required String geminiApiKey})
-    : stdinQueue = StreamQueue(
-        stdin.transform(utf8.decoder).transform(const LineSplitter()),
-      ),
-      model = gemini.GenerativeModel(
-        model: 'gemini-2.5-pro-exp-03-25',
+  DashClient(this.serverCommands, {required String geminiApiKey})
+    : model = gemini.GenerativeModel(
+        // model: 'gemini-2.5-pro-exp-03-25',
+        model: 'gemini-2.0-flash',
         apiKey: geminiApiKey,
+        systemInstruction: systemInstructions,
+      ),
+      stdinQueue = StreamQueue(
+        stdin.transform(utf8.decoder).transform(const LineSplitter()),
       ),
       super(
         ClientImplementation(name: 'Example gemini client', version: '0.1.0'),
@@ -62,28 +63,21 @@ final class GeminiClient extends MCPClient with RootsSupport {
   }
 
   void _startChat() async {
-    print('Welcome to our example gemini chat bot!');
     await _connectOwnServer();
     if (serverCommands.isNotEmpty) {
-      print('connecting to your MCP servers...');
       await _connectToServers();
-    } else {
-      print(
-        'It looks like you didn\'t provide me with any servers, continuing '
-        'as just a normal chat bot.',
-      );
     }
     await _initializeServers();
-    print('discovering capabilities...');
-    await _listServerCapabilities();
-    print(
-      'I have ${serverTools.single.functionDeclarations!.length} tools '
-      'available from the connected servers, feel free to ask me about them.',
-    );
-    print('ready to chat!');
+    final serverTools = await _listServerCapabilities();
 
+    // If assigned then it is used as the next input from the user
+    // instead of reading from stdin.
+    String? continuation =
+        'Please introduce yourself and explain how you can help';
     while (true) {
-      chatHistory.add(gemini.Content.text(await stdinQueue.next));
+      final nextMessage = continuation ?? await stdinQueue.next;
+      continuation = null;
+      chatHistory.add(gemini.Content.text(nextMessage));
       final modelResponse =
           (await model.generateContent(
             chatHistory,
@@ -93,34 +87,44 @@ final class GeminiClient extends MCPClient with RootsSupport {
       for (var part in modelResponse.parts) {
         switch (part) {
           case gemini.TextPart():
-            _chatToUser(part.text);
+            await _chatToUser(part.text);
           case gemini.FunctionCall():
-            await _handleFunctionCall(part);
+            continuation = await _handleFunctionCall(part);
           default:
-            throw UnimplementedError('Unhandled response type $modelResponse');
+            print('Unrecognized response type from the model $modelResponse');
         }
       }
     }
   }
 
   // Prints `text` and adds it to the chat history
-  void _chatToUser(String text) {
-    print(text);
-    chatHistory.add(gemini.Content.model([gemini.TextPart(text)]));
+  Future<void> _chatToUser(String text) async {
+    final dashSpeakResponse =
+        (await model.generateContent([
+          gemini.Content.text(
+            'Please rewrite the following message in your own voice',
+          ),
+          gemini.Content.text(text),
+        ])).candidates.single.content;
+    final dashText = StringBuffer();
+    for (var part in dashSpeakResponse.parts.whereType<gemini.TextPart>()) {
+      dashText.write(part.text);
+    }
+    print(dashText);
+    chatHistory.add(
+      gemini.Content.model([gemini.TextPart(dashText.toString())]),
+    );
   }
 
   /// Handles a function call response from the model.
-  Future<void> _handleFunctionCall(gemini.FunctionCall functionCall) async {
-    _chatToUser(
+  Future<String?> _handleFunctionCall(gemini.FunctionCall functionCall) async {
+    await _chatToUser(
       'It looks like you want to invoke tool ${functionCall.name} with args '
       '${jsonEncode(functionCall.args)}, is that correct? (y/n)',
     );
-    final answer = await stdinQueue.peek;
+    final answer = await stdinQueue.next;
     chatHistory.add(gemini.Content.text(answer));
     if (answer == 'y') {
-      // We only peeked the answer, now lets consume it.
-      await stdinQueue.skip(1);
-      print('Running tool ...');
       chatHistory.add(gemini.Content.model([functionCall]));
       final connection = connectionForFunction[functionCall.name]!;
       final result = await connection.callTool(
@@ -140,11 +144,14 @@ final class GeminiClient extends MCPClient with RootsSupport {
             response.writeln('Got unsupported response type ${content.type}');
         }
       }
-      _chatToUser(response.toString());
+      await _chatToUser(response.toString());
+      return null;
+    } else {
+      return answer;
     }
   }
 
-  /// Connects us to a local [GeminiChatBotServer].
+  /// Connects us to a local [DashChatBotServer].
   Future<void> _connectOwnServer() async {
     /// The client side of the communication channel - the stream is the
     /// incoming data and the sink is outgoing data.
@@ -162,7 +169,7 @@ final class GeminiClient extends MCPClient with RootsSupport {
       clientController.stream,
       serverController.sink,
     );
-    GeminiChatBotServer(channel: serverChannel);
+    DashChatBotServer(this, channel: serverChannel);
     serverConnections.add(connectServer(clientChannel));
   }
 
@@ -197,7 +204,7 @@ final class GeminiClient extends MCPClient with RootsSupport {
   }
 
   /// Lists all the tools available the [serverConnections].
-  Future<void> _listServerCapabilities() async {
+  Future<List<gemini.Tool>> _listServerCapabilities() async {
     final functions = <gemini.FunctionDeclaration>[];
     for (var connection in serverConnections) {
       for (var tool in (await connection.listTools()).tools) {
@@ -211,7 +218,7 @@ final class GeminiClient extends MCPClient with RootsSupport {
         connectionForFunction[tool.name] = connection;
       }
     }
-    serverTools.add(gemini.Tool(functionDeclarations: functions));
+    return [gemini.Tool(functionDeclarations: functions)];
   }
 
   gemini.Schema _schemaToGeminiSchema(Schema inputSchema, {bool? nullable}) {
@@ -270,8 +277,10 @@ final class GeminiClient extends MCPClient with RootsSupport {
   }
 }
 
-final class GeminiChatBotServer extends MCPServer with ToolsSupport {
-  GeminiChatBotServer({required super.channel})
+final class DashChatBotServer extends MCPServer with ToolsSupport {
+  final DashClient client;
+
+  DashChatBotServer(this.client, {required super.channel})
     : super.fromStreamChannel(
         implementation: ServerImplementation(
           name: 'Gemini Chat Bot',
@@ -285,7 +294,40 @@ final class GeminiChatBotServer extends MCPServer with ToolsSupport {
       print('goodbye!');
       exit(0);
     });
+
+    registerTool(removeImagesTool, (_) async {
+      final oldLength = client.chatHistory.length;
+      client.chatHistory.removeWhere((content) => content is ImageContent);
+      return CallToolResult(
+        content: [
+          TextContent(
+            text:
+                'Removed ${oldLength - client.chatHistory.length} images from '
+                'the context.',
+          ),
+        ],
+      );
+    });
   }
 
   static final exitTool = Tool(name: 'exit', inputSchema: Schema.object());
+
+  static final removeImagesTool = Tool(
+    name: 'removeImagesFromContext',
+    description: 'Removes all images from the chat context',
+    inputSchema: Schema.object(),
+  );
 }
+
+final systemInstructions = gemini.Content.system('''
+You are a developer assistant for Dart and Flutter apps. Your persona is a cute
+blue humingbird named Dash, and you are also the mascot for the Dart and Flutter
+brands. Your personality is extremely cheery and bright, and your tone is always
+positive.
+
+You can help developers by connecting into the live state of their apps, helping
+them with all aspects of the software development lifecycle.
+
+If a user asks about an error in the app, you should have several tools
+available to you to aid in debugging, so make sure to use those.
+''');
