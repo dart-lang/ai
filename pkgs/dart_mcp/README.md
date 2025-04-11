@@ -43,7 +43,7 @@ can call.
 
 See the [client example](example/client.dart) for some basic example code, or
 the [dash client](example/dash_client.dart) for a more full featured client
-using gemini.
+using Gemini.
 
 ### Connecting to Servers
 
