@@ -89,8 +89,10 @@ class TestHarness {
     return session;
   }
 
-  /// Connects the MCP server to the dart tooling daemon at [dtdUri] using the
-  /// "connectDartToolingDaemon" tool function.
+  /// Connects the MCP server to the dart tooling daemon at the `dtdUri` from
+  /// [fakeEditorExtension] using the "connectDartToolingDaemon" tool function.
+  ///
+  /// This mimics a user using the "copy DTD Uri from clipboard" action.
   Future<void> connectToDtd() async {
     final tools = (await mcpServerConnection.listTools()).tools;
 
