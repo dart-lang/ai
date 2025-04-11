@@ -162,6 +162,8 @@ void main() {
       // test runs do not affect the original test_fixture code. Copy inside of
       // the `dart_cli_app` folder so that the `analysis_options.yaml` file
       // applies to the copied directory.
+      // TODO(https://github.com/dart-lang/ai/issues/51): it would be better to
+      // copy this to a temp directory.
       copyDartCliAppsBin = p.join(dartCliAppsPath, copyDirectoryName);
       await _copyDirectory(
         Directory(p.join(dartCliAppsPath, 'bin')),
@@ -177,6 +179,11 @@ void main() {
             p.join(copyDartCliAppsBin, 'dart_format.dart'),
           ).readAsStringSync();
       expect(dartFormatContent, contains('void main() {print("hello");}'));
+
+      addTearDown(() async {
+        // Delete the copy.
+        await Directory(copyDartCliAppsBin).delete(recursive: true);
+      });
     }
 
     setUp(() async {
@@ -189,11 +196,6 @@ void main() {
       dartFormatTool = tools.singleWhere(
         (t) => t.name == DartCliSupport.dartFormatTool.name,
       );
-    });
-
-    tearDown(() async {
-      // Delete the copy.
-      await Directory(copyDartCliAppsBin).delete(recursive: true);
     });
 
     test('can run dart fix', () async {
@@ -280,6 +282,68 @@ void main() {
           'Formatted ${Directory(copyDartCliAppsBin).listSync().length} files '
           '(0 changed)',
         ),
+      );
+    });
+
+    test('can run dart format with paths', () async {
+      // Create copies of the file with formatting issues.
+      final file = File(p.join(copyDartCliAppsBin, 'dart_format.dart'));
+      for (var i = 1; i <= 3; i++) {
+        await file.copy(p.join(copyDartCliAppsBin, 'dart_format_$i.dart'));
+      }
+
+      final root = rootForPath(copyDartCliAppsBin);
+      testHarness.mcpClient.addRoot(root);
+      await pumpEventQueue();
+
+      final request = CallToolRequest(
+        name: dartFormatTool.name,
+        arguments: {
+          'roots': [
+            {
+              'root': root.uri,
+              'paths': ['dart_format.dart', 'dart_format_1.dart'],
+            },
+          ],
+        },
+      );
+      final result = await testHarness.callToolWithRetry(request);
+      expect(result.isError, isNot(true));
+      expect(
+        (result.content.single as TextContent).text,
+        contains('Formatted 2 files (2 changed)'),
+      );
+
+      // Check that the files were modified
+      final firstFormattedFile = File(
+        p.join(copyDartCliAppsBin, 'dart_format.dart'),
+      );
+      expect(
+        firstFormattedFile.readAsStringSync(),
+        contains('void main() {\n  print("hello");\n}\n'),
+      );
+      final secondFormattedFile = File(
+        p.join(copyDartCliAppsBin, 'dart_format_1.dart'),
+      );
+      expect(
+        secondFormattedFile.readAsStringSync(),
+        contains('void main() {\n  print("hello");\n}\n'),
+      );
+
+      // Check that the other files in the directory were unmodified.
+      final firstUnformattedFile = File(
+        p.join(copyDartCliAppsBin, 'dart_format_2.dart'),
+      );
+      expect(
+        firstUnformattedFile.readAsStringSync(),
+        contains('void main() {print("hello");}'),
+      );
+      final secondUnormattedFile = File(
+        p.join(copyDartCliAppsBin, 'dart_format_3.dart'),
+      );
+      expect(
+        secondUnormattedFile.readAsStringSync(),
+        contains('void main() {print("hello");}'),
       );
     });
   });

@@ -35,15 +35,21 @@ base mixin DartCliSupport on ToolsSupport, LoggingSupport {
 
   /// Implementation of the [dartFormatTool].
   Future<CallToolResult> _runDartFormatTool(CallToolRequest request) async {
-    return _runDartCommandInRoots(request, 'dart format', ['format', '.']);
+    return _runDartCommandInRoots(
+      request,
+      'dart format',
+      ['format'],
+      defaultPaths: ['.'],
+    );
   }
 
   /// Helper to run a dart command in multiple project roots.
   Future<CallToolResult> _runDartCommandInRoots(
     CallToolRequest request,
     String commandName,
-    List<String> commandArgs,
-  ) async {
+    List<String> commandArgs, {
+    List<String> defaultPaths = const <String>[],
+  }) async {
     final rootConfigs =
         (request.arguments?['roots'] as List?)?.cast<Map<String, Object?>>();
     if (rootConfigs == null) {
@@ -83,6 +89,13 @@ base mixin DartCliSupport on ToolsSupport, LoggingSupport {
       }
       final projectRoot = Directory(rootUri.toFilePath());
 
+      final paths = (rootConfig['paths'] as List?)?.cast<String>();
+      if (paths != null) {
+        commandArgs.addAll(paths);
+      } else {
+        commandArgs.addAll(defaultPaths);
+      }
+
       final result = await Process.run(
         'dart',
         commandArgs,
@@ -96,7 +109,9 @@ base mixin DartCliSupport on ToolsSupport, LoggingSupport {
         return CallToolResult(
           content: [
             TextContent(
-              text: '$commandName failed in ${projectRoot.path}:\n$errors',
+              text:
+                  '$commandName failed in ${projectRoot.path}:\n$output\n\n'
+                  'Errors\n$errors',
             ),
           ],
           isError: true,
@@ -147,6 +162,13 @@ base mixin DartCliSupport on ToolsSupport, LoggingSupport {
             properties: {
               'root': StringSchema(
                 title: 'The URI of the project root to run `dart format` in.',
+              ),
+              'paths': ListSchema(
+                title:
+                    'Relative or absolute paths to analyze under the '
+                    '"root". Paths must correspond to files and not '
+                    'directories.',
+                items: StringSchema(),
               ),
             },
             required: ['root'],
