@@ -28,13 +28,11 @@ class TestHarness {
   final FakeEditorExtension fakeEditorExtension;
   final DartToolingMCPClient mcpClient;
   final ServerConnection mcpServerConnection;
-  final String dtdUri;
 
   TestHarness._(
     this.mcpClient,
     this.mcpServerConnection,
     this.fakeEditorExtension,
-    this.dtdUri,
   );
 
   /// Starts a Dart Tooling Daemon as well as an MCP client and server, and
@@ -63,12 +61,7 @@ class TestHarness {
     final fakeEditorExtension = await FakeEditorExtension.connect();
     addTearDown(fakeEditorExtension.shutdown);
 
-    return TestHarness._(
-      mcpClient,
-      connection,
-      fakeEditorExtension,
-      fakeEditorExtension.dtdUri,
-    );
+    return TestHarness._(mcpClient, connection, fakeEditorExtension);
   }
 
   /// Starts an app debug session.
@@ -106,7 +99,10 @@ class TestHarness {
     );
 
     final result = await callToolWithRetry(
-      CallToolRequest(name: connectTool.name, arguments: {'uri': dtdUri}),
+      CallToolRequest(
+        name: connectTool.name,
+        arguments: {'uri': fakeEditorExtension.dtdUri},
+      ),
     );
 
     expect(result.isError, isNot(true), reason: result.content.join('\n'));
