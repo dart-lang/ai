@@ -5,8 +5,3 @@ include: package:dart_flutter_team_lints/analysis_options.yaml
 linter:
   rules:
     - prefer_final_locals
-
-analyzer: 
-  exclude:
-    # This directory has intentional analysis errors and warnings.
-    - test_fixtures/dart_cli_app/**

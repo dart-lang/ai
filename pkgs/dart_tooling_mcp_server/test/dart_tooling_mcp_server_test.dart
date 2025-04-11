@@ -8,6 +8,7 @@ import 'package:dart_mcp/server.dart';
 import 'package:dart_tooling_mcp_server/src/mixins/analyzer.dart';
 import 'package:dart_tooling_mcp_server/src/mixins/dart_cli.dart';
 import 'package:dart_tooling_mcp_server/src/mixins/dtd.dart';
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
 
@@ -22,50 +23,52 @@ void main() {
     testHarness = await TestHarness.start();
   });
 
-  test('can take a screenshot', () async {
-    await testHarness.connectToDtd();
+  group('flutter tools', () {
+    test('can take a screenshot', () async {
+      await testHarness.connectToDtd();
 
-    await testHarness.startDebugSession(
-      counterAppPath,
-      'lib/main.dart',
-      isFlutter: true,
-    );
+      await testHarness.startDebugSession(
+        counterAppPath,
+        'lib/main.dart',
+        isFlutter: true,
+      );
 
-    final tools = (await testHarness.mcpServerConnection.listTools()).tools;
-    final screenshotTool = tools.singleWhere(
-      (t) => t.name == DartToolingDaemonSupport.screenshotTool.name,
-    );
-    final screenshotResult = await testHarness.callToolWithRetry(
-      CallToolRequest(name: screenshotTool.name),
-    );
-    expect(screenshotResult.content.single, {
-      'data': anything,
-      'mimeType': 'image/png',
-      'type': ImageContent.expectedType,
+      final tools = (await testHarness.mcpServerConnection.listTools()).tools;
+      final screenshotTool = tools.singleWhere(
+        (t) => t.name == DartToolingDaemonSupport.screenshotTool.name,
+      );
+      final screenshotResult = await testHarness.callToolWithRetry(
+        CallToolRequest(name: screenshotTool.name),
+      );
+      expect(screenshotResult.content.single, {
+        'data': anything,
+        'mimeType': 'image/png',
+        'type': ImageContent.expectedType,
+      });
     });
-  });
 
-  test('can perform a hot reload', () async {
-    await testHarness.connectToDtd();
+    test('can perform a hot reload', () async {
+      await testHarness.connectToDtd();
 
-    await testHarness.startDebugSession(
-      counterAppPath,
-      'lib/main.dart',
-      isFlutter: true,
-    );
+      await testHarness.startDebugSession(
+        counterAppPath,
+        'lib/main.dart',
+        isFlutter: true,
+      );
 
-    final tools = (await testHarness.mcpServerConnection.listTools()).tools;
-    final hotReloadTool = tools.singleWhere(
-      (t) => t.name == DartToolingDaemonSupport.hotReloadTool.name,
-    );
-    final hotReloadResult = await testHarness.callToolWithRetry(
-      CallToolRequest(name: hotReloadTool.name),
-    );
+      final tools = (await testHarness.mcpServerConnection.listTools()).tools;
+      final hotReloadTool = tools.singleWhere(
+        (t) => t.name == DartToolingDaemonSupport.hotReloadTool.name,
+      );
+      final hotReloadResult = await testHarness.callToolWithRetry(
+        CallToolRequest(name: hotReloadTool.name),
+      );
 
-    expect(hotReloadResult.isError, isNot(true));
-    expect(hotReloadResult.content, [
-      TextContent(text: 'Hot reload succeeded.'),
-    ]);
+      expect(hotReloadResult.isError, isNot(true));
+      expect(hotReloadResult.content, [
+        TextContent(text: 'Hot reload succeeded.'),
+      ]);
+    });
   });
 
   group('analysis', () {
@@ -151,8 +154,34 @@ void main() {
   group('dart cli', () {
     late Tool dartFixTool;
     late Tool dartFormatTool;
+    late String copyDartCliAppsBin;
+    const copyDirectoryName = 'bin_copy';
+
+    Future<void> copyDartCliAppAndVerifyContents() async {
+      // Copy the original `dart_cli_app` directory so that changes from these
+      // test runs do not affect the original test_fixture code. Copy inside of
+      // the `dart_cli_app` folder so that the `analysis_options.yaml` file
+      // applies to the copied directory.
+      copyDartCliAppsBin = p.join(dartCliAppsPath, copyDirectoryName);
+      await _copyDirectory(
+        Directory(p.join(dartCliAppsPath, 'bin')),
+        Directory(copyDartCliAppsBin),
+      );
+
+      final dartFixContent =
+          File(p.join(copyDartCliAppsBin, 'dart_fix.dart')).readAsStringSync();
+      expect(dartFixContent, contains('var myObject = MyClass();'));
+
+      final dartFormatContent =
+          File(
+            p.join(copyDartCliAppsBin, 'dart_format.dart'),
+          ).readAsStringSync();
+      expect(dartFormatContent, contains('void main() {print("hello");}'));
+    }
 
     setUp(() async {
+      await copyDartCliAppAndVerifyContents();
+
       final tools = (await testHarness.mcpServerConnection.listTools()).tools;
       dartFixTool = tools.singleWhere(
         (t) => t.name == DartCliSupport.dartFixTool.name,
@@ -162,54 +191,64 @@ void main() {
       );
     });
 
+    tearDown(() async {
+      // Delete the copy.
+      await Directory(copyDartCliAppsBin).delete(recursive: true);
+    });
+
     test('can run dart fix', () async {
-      final fixExample = d.dir('fix_example', [
-        d.file('main.dart', 'void main() { print("hello"); }'),
-      ]);
-      await fixExample.create();
-      final fixExampleRoot = rootForPath(fixExample.io.path);
-      testHarness.mcpClient.addRoot(fixExampleRoot);
+      final root = rootForPath(copyDartCliAppsBin);
+      testHarness.mcpClient.addRoot(root);
       await pumpEventQueue();
 
       final request = CallToolRequest(
         name: dartFixTool.name,
         arguments: {
           'roots': [
-            {'root': fixExampleRoot.uri},
+            {'root': root.uri},
           ],
         },
       );
       final result = await testHarness.callToolWithRetry(request);
+
       expect(result.isError, isNot(true));
       expect(
         (result.content.single as TextContent).text,
-        contains('dart fix in ${fixExample.io.path}'),
+        contains('Computing fixes in $copyDirectoryName...'),
       );
       expect(
         (result.content.single as TextContent).text,
-        contains('Applied 1 fix'),
+        contains('Applying fixes...'),
+      );
+      expect(
+        (result.content.single as TextContent).text,
+        isNot(contains('Nothing to fix!')),
       );
 
       // Check that the file was modified
       final fixedContent =
-          File(d.path('fix_example/main.dart')).readAsStringSync();
-      expect(fixedContent, 'void main() {\n  print("hello");\n}\n');
+          File(p.join(copyDartCliAppsBin, 'dart_fix.dart')).readAsStringSync();
+      expect(fixedContent, contains('final myObject = MyClass();'));
+
+      // Run dart fix again and verify there are no changes.
+      final secondResult = await testHarness.callToolWithRetry(request);
+      expect(secondResult.isError, isNot(true));
+      expect(
+        (secondResult.content.single as TextContent).text,
+        contains('Nothing to fix!'),
+      );
     });
 
     test('can run dart format', () async {
-      final formatExample = d.dir('format_example', [
-        d.file('main.dart', 'void main() {print("hello");}'),
-      ]);
-      await formatExample.create();
-      final formatExampleRoot = rootForPath(formatExample.io.path);
-      testHarness.mcpClient.addRoot(formatExampleRoot);
+      final root = rootForPath(copyDartCliAppsBin);
+      testHarness.mcpClient.addRoot(root);
       await pumpEventQueue();
 
       final request = CallToolRequest(
         name: dartFormatTool.name,
         arguments: {
           'roots': [
-            {'root': formatExampleRoot.uri},
+            {'root': root.uri},
           ],
         },
       );
@@ -217,17 +256,50 @@ void main() {
       expect(result.isError, isNot(true));
       expect(
         (result.content.single as TextContent).text,
-        contains('dart format in ${formatExample.io.path}'),
-      );
-      expect(
-        (result.content.single as TextContent).text,
-        contains('Formatted 1 file'),
+        contains(
+          'Formatted ${Directory(copyDartCliAppsBin).listSync().length} files '
+          '(1 changed)',
+        ),
       );
 
       // Check that the file was modified
-      final formattedContent =
-          File(d.path('format_example/main.dart')).readAsStringSync();
-      expect(formattedContent, 'void main() {\n  print("hello");\n}\n');
+      final formattedFile = File(
+        p.join(copyDartCliAppsBin, 'dart_format.dart'),
+      );
+      expect(
+        formattedFile.readAsStringSync(),
+        contains('void main() {\n  print("hello");\n}\n'),
+      );
+
+      // Run dart format again and verify there are no changes.
+      final secondResult = await testHarness.callToolWithRetry(request);
+      expect(secondResult.isError, isNot(true));
+      expect(
+        (secondResult.content.single as TextContent).text,
+        contains(
+          'Formatted ${Directory(copyDartCliAppsBin).listSync().length} files '
+          '(0 changed)',
+        ),
+      );
     });
   });
+}
+
+/// Helper function to recursively copy a directory.
+Future<void> _copyDirectory(Directory source, Directory destination) async {
+  await destination.create(recursive: true);
+  // Add a small delay to allow filesystem changes to propagate.
+  await Future<void>.delayed(const Duration(milliseconds: 10));
+
+  assert(await source.exists());
+  assert(await destination.exists());
+
+  await for (var entity in source.list(recursive: false)) {
+    final newPath = p.join(destination.path, p.basename(entity.path));
+    if (entity is File) {
+      await entity.copy(newPath);
+    } else if (entity is Directory) {
+      await _copyDirectory(entity, Directory(newPath));
+    }
+  }
 }

@@ -10,6 +10,7 @@ import 'package:dart_mcp/client.dart';
 import 'package:dart_tooling_mcp_server/src/mixins/dtd.dart';
 import 'package:dart_tooling_mcp_server/src/server.dart';
 import 'package:dtd/dtd.dart';
+import 'package:path/path.dart' as p;
 import 'package:stream_channel/stream_channel.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
@@ -156,22 +157,20 @@ final class AppDebugSession {
     String appPath, {
     required bool isFlutter,
   }) async {
-    final platform = Platform.isLinux
-        ? 'linux'
-        : Platform.isMacOS
+    final platform =
+        Platform.isLinux
+            ? 'linux'
+            : Platform.isMacOS
             ? 'macos'
             : throw StateError(
-                'unsupported platform, only mac and linux are supported',
-              );
-    final process = await TestProcess.start(
-        isFlutter ? 'flutter' : 'dart',
-        [
-          'run',
-          if (!isFlutter) '--enable-vm-service',
-          if (isFlutter) ...['-d', platform],
-          appPath,
-        ],
-        workingDirectory: projectRoot);
+              'unsupported platform, only mac and linux are supported',
+            );
+    final process = await TestProcess.start(isFlutter ? 'flutter' : 'dart', [
+      'run',
+      if (!isFlutter) '--enable-vm-service',
+      if (isFlutter) ...['-d', platform],
+      appPath,
+    ], workingDirectory: projectRoot);
 
     addTearDown(() async {
       if (isFlutter) {
@@ -187,8 +186,9 @@ final class AppDebugSession {
     while (vmServiceUri == null && await stdout.hasNext) {
       final line = await stdout.next;
       if (line.contains('A Dart VM Service')) {
-        vmServiceUri =
-            line.substring(line.indexOf('http:')).replaceFirst('http:', 'ws:');
+        vmServiceUri = line
+            .substring(line.indexOf('http:'))
+            .replaceFirst('http:', 'ws:');
         await stdout.cancel();
       }
     }
@@ -210,12 +210,12 @@ final class AppDebugSession {
 /// A basic MCP client which is started as a part of the harness.
 final class DartToolingMCPClient extends MCPClient with RootsSupport {
   DartToolingMCPClient()
-      : super(
-          ClientImplementation(
-            name: 'test client for the dart tooling mcp server',
-            version: '0.1.0',
-          ),
-        );
+    : super(
+        ClientImplementation(
+          name: 'test client for the dart tooling mcp server',
+          version: '0.1.0',
+        ),
+      );
 }
 
 /// The dart tooling daemon currently expects to get vm service uris through
@@ -345,4 +345,6 @@ Future<ServerConnection> _initializeMCPServer(
 Root rootForPath(String projectPath) =>
     Root(uri: Directory(projectPath).absolute.uri.toString());
 
-const counterAppPath = 'test_fixtures/counter_app';
+final counterAppPath = p.join('test_fixtures', 'counter_app');
+
+final dartCliAppsPath = p.join('test_fixtures', 'dart_cli_app');
