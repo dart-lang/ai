@@ -166,7 +166,7 @@ final class AppDebugSession {
             );
     final process = await TestProcess.start(isFlutter ? 'flutter' : 'dart', [
       'run',
-      '--no-serve-devtools',
+      '--no${isFlutter ? '' : '-serve'}-devtools',
       if (!isFlutter) '--enable-vm-service',
       if (isFlutter) ...['-d', platform],
       appPath,
