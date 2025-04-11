@@ -42,14 +42,14 @@ final class GeminiClient extends MCPClient with RootsSupport {
   final List<gemini.Tool> serverTools = [];
   final Map<String, ServerConnection> connectionForFunction = {};
   final gemini.GenerativeModel model;
+  final List<gemini.Content> chatHistory = [];
 
   GeminiClient(this.serverCommands, {required String geminiApiKey})
     : stdinQueue = StreamQueue(
         stdin.transform(utf8.decoder).transform(const LineSplitter()),
       ),
       model = gemini.GenerativeModel(
-        model: 'models/gemini-2.0-flash',
-        // model:  'gemini-2.5-pro-exp-03-25',
+        model: 'gemini-2.5-pro-exp-03-25',
         apiKey: geminiApiKey,
       ),
       super(
@@ -81,13 +81,6 @@ final class GeminiClient extends MCPClient with RootsSupport {
       'available from the connected servers, feel free to ask me about them.',
     );
     print('ready to chat!');
-    final chatHistory = <gemini.Content>[];
-
-    // Prints `text` and adds it to the chat history
-    void chatToUser(String text) {
-      print(text);
-      chatHistory.add(gemini.Content('model', [gemini.TextPart(text)]));
-    }
 
     while (true) {
       chatHistory.add(gemini.Content.text(await stdinQueue.next));
@@ -98,43 +91,56 @@ final class GeminiClient extends MCPClient with RootsSupport {
           )).candidates.single.content;
 
       for (var part in modelResponse.parts) {
-        if (part is gemini.TextPart) {
-          chatToUser(part.text);
-        } else if (part is gemini.FunctionCall) {
-          final userResponse = StringBuffer();
-          chatToUser(
-            'It looks like you want to invoke tool ${part.name} with args '
-            '${jsonEncode(part.args)}, is that correct? (y/n)',
-          );
-          final answer = await stdinQueue.next;
-          chatHistory.add(gemini.Content.text(answer));
-          if (answer == 'y') {
-            print('Running tool ...');
-            chatHistory.add(gemini.Content('model', [part]));
-            final connection = connectionForFunction[part.name]!;
-            final result = await connection.callTool(
-              CallToolRequest(name: part.name, arguments: part.args),
-            );
-            for (var content in result.content) {
-              if (content case final TextContent content when content.isText) {
-                userResponse.writeln(content.text);
-              } else {
-                userResponse.writeln(
-                  'Got unsupported response type ${content.type}',
-                );
-              }
-            }
-            chatToUser(userResponse.toString());
-          } else {
-            chatToUser(
-              'I see you didn\'t want to run the tool, trying next response '
-              'candidate.',
-            );
-          }
-        } else {
-          throw UnimplementedError('Unhandled response type $modelResponse');
+        switch (part) {
+          case gemini.TextPart():
+            _chatToUser(part.text);
+          case gemini.FunctionCall():
+            await _handleFunctionCall(part);
+          default:
+            throw UnimplementedError('Unhandled response type $modelResponse');
         }
       }
+    }
+  }
+
+  // Prints `text` and adds it to the chat history
+  void _chatToUser(String text) {
+    print(text);
+    chatHistory.add(gemini.Content.model([gemini.TextPart(text)]));
+  }
+
+  /// Handles a function call response from the model.
+  Future<void> _handleFunctionCall(gemini.FunctionCall functionCall) async {
+    _chatToUser(
+      'It looks like you want to invoke tool ${functionCall.name} with args '
+      '${jsonEncode(functionCall.args)}, is that correct? (y/n)',
+    );
+    final answer = await stdinQueue.peek;
+    chatHistory.add(gemini.Content.text(answer));
+    if (answer == 'y') {
+      // We only peeked the answer, now lets consume it.
+      await stdinQueue.skip(1);
+      print('Running tool ...');
+      chatHistory.add(gemini.Content.model([functionCall]));
+      final connection = connectionForFunction[functionCall.name]!;
+      final result = await connection.callTool(
+        CallToolRequest(name: functionCall.name, arguments: functionCall.args),
+      );
+      final response = StringBuffer();
+      for (var content in result.content) {
+        switch (content) {
+          case final TextContent content when content.isText:
+            response.writeln(content.text);
+          case final ImageContent content when content.isImage:
+            chatHistory.add(
+              gemini.Content.data('image/png', base64Decode(content.data)),
+            );
+            response.writeln('Image added to context');
+          default:
+            response.writeln('Got unsupported response type ${content.type}');
+        }
+      }
+      _chatToUser(response.toString());
     }
   }
 
