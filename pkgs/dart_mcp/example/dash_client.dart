@@ -120,35 +120,56 @@ final class DashClient extends MCPClient with RootsSupport {
   Future<String?> _handleFunctionCall(gemini.FunctionCall functionCall) async {
     await _chatToUser(
       'It looks like you want to invoke tool ${functionCall.name} with args '
-      '${jsonEncode(functionCall.args)}, is that correct? (y/n)',
+      '${jsonEncode(functionCall.args)}, is that correct?',
     );
-    final answer = await stdinQueue.next;
-    chatHistory.add(gemini.Content.text(answer));
-    if (answer == 'y') {
-      chatHistory.add(gemini.Content.model([functionCall]));
-      final connection = connectionForFunction[functionCall.name]!;
-      final result = await connection.callTool(
-        CallToolRequest(name: functionCall.name, arguments: functionCall.args),
-      );
-      final response = StringBuffer();
-      for (var content in result.content) {
-        switch (content) {
-          case final TextContent content when content.isText:
-            response.writeln(content.text);
-          case final ImageContent content when content.isImage:
-            chatHistory.add(
-              gemini.Content.data('image/png', base64Decode(content.data)),
-            );
-            response.writeln('Image added to context');
-          default:
-            response.writeln('Got unsupported response type ${content.type}');
-        }
+    final userResponse = await stdinQueue.next;
+    final wasApproval = await _analyzeSentiment(userResponse);
+
+    // If they did not approve the action, just treat their response as a
+    // prompt.
+    if (!wasApproval) return userResponse;
+
+    chatHistory.add(gemini.Content.model([functionCall]));
+    final connection = connectionForFunction[functionCall.name]!;
+    final result = await connection.callTool(
+      CallToolRequest(name: functionCall.name, arguments: functionCall.args),
+    );
+    final response = StringBuffer();
+    for (var content in result.content) {
+      switch (content) {
+        case final TextContent content when content.isText:
+          response.writeln(content.text);
+        case final ImageContent content when content.isImage:
+          chatHistory.add(
+            gemini.Content.data('image/png', base64Decode(content.data)),
+          );
+          response.writeln('Image added to context');
+        default:
+          response.writeln('Got unsupported response type ${content.type}');
       }
-      await _chatToUser(response.toString());
-      return null;
-    } else {
-      return answer;
     }
+    await _chatToUser(response.toString());
+    return null;
+  }
+
+  /// Analyzes a user [message] to see if it looks like they approved of the
+  /// previous action.
+  Future<bool> _analyzeSentiment(String message) async {
+    if (message == 'y' || message == 'yes') return true;
+    final sentimentResult =
+        (await model.generateContent([
+          gemini.Content.text(
+            'Analyze the sentiment of the following response. If you are '
+            'highly confident that the user approves of running the previous '
+            'action then respond with a single character "y".',
+          ),
+          gemini.Content.text(message),
+        ])).candidates.single.content;
+    final response = StringBuffer();
+    for (var part in sentimentResult.parts.whereType<gemini.TextPart>()) {
+      response.write(part.text.trim());
+    }
+    return response.toString() == 'y';
   }
 
   /// Connects us to a local [DashChatBotServer].
