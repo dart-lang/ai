@@ -97,7 +97,7 @@ final class DashClient extends MCPClient with RootsSupport {
     }
   }
 
-  // Prints `text` and adds it to the chat history
+  /// Prints `text` and adds it to the chat history
   Future<void> _chatToUser(String text) async {
     final dashSpeakResponse =
         (await model.generateContent([
