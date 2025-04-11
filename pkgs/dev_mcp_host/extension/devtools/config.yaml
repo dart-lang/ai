@@ -1,0 +1,5 @@
+name: dev_mcp_host
+issueTracker: https://github.com/dart-lang/ai/issues
+version: 0.0.1
+materialIconCodePoint: '0xf04e4'
+requiresConnection: false
