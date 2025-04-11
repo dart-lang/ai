@@ -60,13 +60,15 @@ class TestHarness {
       printOnFailure('MCP Server Log: $log');
     });
 
-    final dtdProcess = await TestProcess.start('dart', ['tooling-daemon']);
-    final dtdUri = await _getDTDUri(dtdProcess);
-
-    final fakeEditorExtension = await FakeEditorExtension.connect(dtdUri);
+    final fakeEditorExtension = await FakeEditorExtension.connect();
     addTearDown(fakeEditorExtension.shutdown);
 
-    return TestHarness._(mcpClient, connection, fakeEditorExtension, dtdUri);
+    return TestHarness._(
+      mcpClient,
+      connection,
+      fakeEditorExtension,
+      fakeEditorExtension.dtdUri,
+    );
   }
 
   /// Starts an app debug session.
@@ -156,22 +158,21 @@ final class AppDebugSession {
     String appPath, {
     required bool isFlutter,
   }) async {
-    final platform = Platform.isLinux
-        ? 'linux'
-        : Platform.isMacOS
+    final platform =
+        Platform.isLinux
+            ? 'linux'
+            : Platform.isMacOS
             ? 'macos'
             : throw StateError(
-                'unsupported platform, only mac and linux are supported',
-              );
-    final process = await TestProcess.start(
-        isFlutter ? 'flutter' : 'dart',
-        [
-          'run',
-          if (!isFlutter) '--enable-vm-service',
-          if (isFlutter) ...['-d', platform],
-          appPath,
-        ],
-        workingDirectory: projectRoot);
+              'unsupported platform, only mac and linux are supported',
+            );
+    final process = await TestProcess.start(isFlutter ? 'flutter' : 'dart', [
+      'run',
+      '--no-serve-devtools',
+      if (!isFlutter) '--enable-vm-service',
+      if (isFlutter) ...['-d', platform],
+      appPath,
+    ], workingDirectory: projectRoot);
 
     addTearDown(() async {
       if (isFlutter) {
@@ -187,8 +188,9 @@ final class AppDebugSession {
     while (vmServiceUri == null && await stdout.hasNext) {
       final line = await stdout.next;
       if (line.contains('A Dart VM Service')) {
-        vmServiceUri =
-            line.substring(line.indexOf('http:')).replaceFirst('http:', 'ws:');
+        vmServiceUri = line
+            .substring(line.indexOf('http:'))
+            .replaceFirst('http:', 'ws:');
         await stdout.cancel();
       }
     }
@@ -210,12 +212,12 @@ final class AppDebugSession {
 /// A basic MCP client which is started as a part of the harness.
 final class DartToolingMCPClient extends MCPClient with RootsSupport {
   DartToolingMCPClient()
-      : super(
-          ClientImplementation(
-            name: 'test client for the dart tooling mcp server',
-            version: '0.1.0',
-          ),
-        );
+    : super(
+        ClientImplementation(
+          name: 'test client for the dart tooling mcp server',
+          version: '0.1.0',
+        ),
+      );
 }
 
 /// The dart tooling daemon currently expects to get vm service uris through
@@ -225,17 +227,21 @@ final class DartToolingMCPClient extends MCPClient with RootsSupport {
 /// without having the normal editor extension in place.
 class FakeEditorExtension {
   final List<AppDebugSession> debugSessions = [];
+  final TestProcess dtdProcess;
   final DartToolingDaemon dtd;
+  final String dtdUri;
   int get nextId => ++_nextId;
   int _nextId = 0;
 
-  FakeEditorExtension(this.dtd) {
+  FakeEditorExtension(this.dtd, this.dtdProcess, this.dtdUri) {
     _registerService();
   }
 
-  static Future<FakeEditorExtension> connect(String dtdUri) async {
+  static Future<FakeEditorExtension> connect() async {
+    final dtdProcess = await TestProcess.start('dart', ['tooling-daemon']);
+    final dtdUri = await _getDTDUri(dtdProcess);
     final dtd = await DartToolingDaemon.connect(Uri.parse(dtdUri));
-    return FakeEditorExtension(dtd);
+    return FakeEditorExtension(dtd, dtdProcess, dtdUri);
   }
 
   void _registerService() async {
@@ -256,6 +262,7 @@ class FakeEditorExtension {
   }
 
   Future<void> shutdown() async {
+    await dtdProcess.kill();
     await dtd.close();
   }
 }
@@ -341,7 +348,7 @@ Future<ServerConnection> _initializeMCPServer(
   return connection;
 }
 
-/// Creates a canoncical [Root] object for a given [projectPath].
+/// Creates a canonical [Root] object for a given [projectPath].
 Root rootForPath(String projectPath) =>
     Root(uri: Directory(projectPath).absolute.uri.toString());
 
