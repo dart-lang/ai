@@ -5,6 +5,7 @@
 import 'dart:async';
 
 import 'package:dart_mcp/server.dart';
+import 'package:dds_service_extensions/dds_service_extensions.dart';
 import 'package:dtd/dtd.dart';
 import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:meta/meta.dart';
@@ -32,12 +33,15 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) async {
     registerTool(connectTool, _connect);
+    registerTool(getRuntimeErrorsTool, runtimeErrors);
+
     // TODO: these tools should only be registered for Flutter applications, or
     // they should return an error when used against a pure Dart app (or a
     // Flutter app that does not support the operation, e.g. hot reload is not
     // supported in profile mode).
     registerTool(screenshotTool, takeScreenshot);
     registerTool(hotReloadTool, hotReload);
+
     return super.initialize(request);
   }
 
@@ -207,6 +211,78 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
     );
   }
 
+  /// Retrieves runtime errors from the currently running app.
+  ///
+  /// If more than one debug session is active, then it just uses the first one.
+  ///
+  // TODO: support passing a debug session id when there is more than one debug
+  // session.
+  Future<CallToolResult> runtimeErrors(CallToolRequest request) async {
+    return _callOnVmService(
+      callback: (vmService) async {
+        final errors = <String>[];
+        StreamSubscription<Event>? extensionEvents;
+        StreamSubscription<Event>? stderrEvents;
+        try {
+          // We need to listen to streams with history so that we can get errors
+          // that occurred before this tool call.
+          // TODO(https://github.com/dart-lang/ai/issues/57): this can result in
+          // duplicate errors that we need to de-duplicate somehow.
+          extensionEvents = vmService.onExtensionEventWithHistory.listen((
+            Event e,
+          ) {
+            if (e.extensionKind == 'Flutter.Error') {
+              // TODO(https://github.com/dart-lang/ai/issues/57): consider
+              // pruning this content down to only what is useful for the LLM to
+              // understand the error and its source.
+              errors.add(e.json.toString());
+            }
+          });
+          stderrEvents = vmService.onStderrEventWithHistory.listen((Event e) {
+            final message = decodeBase64(e.bytes!);
+            // TODO(https://github.com/dart-lang/ai/issues/57): consider
+            // pruning this content down to only what is useful for the LLM to
+            // understand the error and its source.
+            errors.add(message);
+          });
+
+          await vmService.streamListen(EventStreams.kExtension);
+          await vmService.streamListen(EventStreams.kStderr);
+
+          // Await a short delay to allow the error events to come over the open
+          // Streams.
+          await Future<void>.delayed(const Duration(seconds: 1));
+
+          if (errors.isEmpty) {
+            return CallToolResult(
+              content: [TextContent(text: 'No runtime errors found.')],
+            );
+          }
+          return CallToolResult(
+            content: [
+              TextContent(
+                text:
+                    'Found ${errors.length} '
+                    'error${errors.length == 1 ? '' : 's'}:\n',
+              ),
+              ...errors.map((e) => TextContent(text: e.toString())),
+            ],
+          );
+        } catch (e) {
+          return CallToolResult(
+            isError: true,
+            content: [TextContent(text: 'Failed to get runtime errors: $e')],
+          );
+        } finally {
+          await extensionEvents?.cancel();
+          await stderrEvents?.cancel();
+          await vmService.streamCancel(EventStreams.kExtension);
+          await vmService.streamCancel(EventStreams.kStderr);
+        }
+      },
+    );
+  }
+
   /// Calls [callback] on the first active debug session, if available.
   Future<CallToolResult> _callOnVmService({
     required Future<CallToolResult> Function(VmService) callback,
@@ -240,7 +316,7 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
       properties: {'uri': StringSchema()},
       required: const ['uri'],
     ),
-    name: 'connectDartToolingDaemon',
+    name: 'connect_dart_tooling_daemon',
     description:
         'Connects to the Dart Tooling Daemon. You should ask the user for the '
         'dart tooling daemon URI, and suggest the "Copy DTD Uri to clipboard" '
@@ -249,9 +325,9 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
 
   @visibleForTesting
   static final screenshotTool = Tool(
-    name: 'takeScreenshot',
+    name: 'take_screenshot',
     description:
-        'Takes a screenshot of the active flutter application in its '
+        'Takes a screenshot of the active Flutter application in its '
         'current state. Requires "${connectTool.name}" to be successfully '
         'called first.',
     inputSchema: ObjectSchema(),
@@ -259,11 +335,21 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
 
   @visibleForTesting
   static final hotReloadTool = Tool(
-    name: 'hotReload',
+    name: 'hot_reload',
     description:
         'Performs a hot reload of the active Flutter application. '
         'This is to apply the latest code changes to the running application. '
         'Requires "${connectTool.name}" to be successfully called first.',
+    inputSchema: ObjectSchema(),
+  );
+
+  @visibleForTesting
+  static final getRuntimeErrorsTool = Tool(
+    name: 'get_runtime_errors',
+    description:
+        'Retrieves the list of runtime errors that have occurred in the active '
+        'Dart or Flutter application. Requires "${connectTool.name}" to be '
+        'successfully called first.',
     inputSchema: ObjectSchema(),
   );
 

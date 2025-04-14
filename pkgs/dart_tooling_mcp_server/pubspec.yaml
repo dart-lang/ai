@@ -9,6 +9,7 @@ dependencies:
   async: ^2.13.0
   dart_mcp:
     path: ../dart_mcp
+  dds_service_extensions: ^2.0.1
   devtools_shared: ^11.2.0
   dtd: ^2.4.0
   json_rpc_2: ^3.0.3

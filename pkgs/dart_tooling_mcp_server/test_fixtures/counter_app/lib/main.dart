@@ -52,7 +52,16 @@ class _MyHomePageState extends State<MyHomePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            const Text('You have pushed the button this many times:'),
+            const Row(
+              children: [
+                Text('You have pushed the button this many times:'),
+                Text(
+                  'And this Row should create an overflow error because it '
+                  'contains way more text than could ever fit on a single Row '
+                  'on both a mobile app or the default size of a desktop app.',
+                ),
+              ],
+            ),
             Text(
               '$_counter',
               style: Theme.of(context).textTheme.headlineMedium,

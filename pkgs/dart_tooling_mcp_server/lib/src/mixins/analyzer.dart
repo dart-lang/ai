@@ -186,7 +186,7 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
 
   @visibleForTesting
   static final analyzeFilesTool = Tool(
-    name: 'analyzeFiles',
+    name: 'analyze_files',
     description:
         'Analyzes the requested file paths under the specified project roots '
         'and returns the results as a list of messages.',

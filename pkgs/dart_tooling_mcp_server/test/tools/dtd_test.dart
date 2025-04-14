@@ -15,18 +15,16 @@ void main() {
   // issue.
   setUp(() async {
     testHarness = await TestHarness.start();
+    await testHarness.connectToDtd();
+    await testHarness.startDebugSession(
+      counterAppPath,
+      'lib/main.dart',
+      isFlutter: true,
+    );
   });
 
   group('dart tooling daemon tools', () {
     test('can take a screenshot', () async {
-      await testHarness.connectToDtd();
-
-      await testHarness.startDebugSession(
-        counterAppPath,
-        'lib/main.dart',
-        isFlutter: true,
-      );
-
       final tools = (await testHarness.mcpServerConnection.listTools()).tools;
       final screenshotTool = tools.singleWhere(
         (t) => t.name == DartToolingDaemonSupport.screenshotTool.name,
@@ -42,14 +40,6 @@ void main() {
     });
 
     test('can perform a hot reload', () async {
-      await testHarness.connectToDtd();
-
-      await testHarness.startDebugSession(
-        counterAppPath,
-        'lib/main.dart',
-        isFlutter: true,
-      );
-
       final tools = (await testHarness.mcpServerConnection.listTools()).tools;
       final hotReloadTool = tools.singleWhere(
         (t) => t.name == DartToolingDaemonSupport.hotReloadTool.name,
@@ -62,6 +52,27 @@ void main() {
       expect(hotReloadResult.content, [
         TextContent(text: 'Hot reload succeeded.'),
       ]);
+    });
+
+    test('can get runtime errors', () async {
+      final tools = (await testHarness.mcpServerConnection.listTools()).tools;
+      final runtimeErrorsTool = tools.singleWhere(
+        (t) => t.name == DartToolingDaemonSupport.getRuntimeErrorsTool.name,
+      );
+      final runtimeErrorsResult = await testHarness.callToolWithRetry(
+        CallToolRequest(name: runtimeErrorsTool.name),
+      );
+
+      expect(runtimeErrorsResult.isError, isNot(true));
+      final errorCountRegex = RegExp(r'Found \d+ errors?:');
+      expect(
+        (runtimeErrorsResult.content.first as TextContent).text,
+        contains(errorCountRegex),
+      );
+      expect(
+        (runtimeErrorsResult.content[1] as TextContent).text,
+        contains('A RenderFlex overflowed by'),
+      );
     });
   });
 }
