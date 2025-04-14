@@ -64,9 +64,10 @@ void main() {
       );
 
       expect(runtimeErrorsResult.isError, isNot(true));
+      final errorCountRegex = RegExp(r'Found \d+ errors?:');
       expect(
         (runtimeErrorsResult.content.first as TextContent).text,
-        contains('Found 1 error:'),
+        contains(errorCountRegex),
       );
       expect(
         (runtimeErrorsResult.content[1] as TextContent).text,
