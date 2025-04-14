@@ -83,6 +83,7 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
     // supported in profile mode).
     registerTool(screenshotTool, takeScreenshot);
     registerTool(hotReloadTool, hotReload);
+    registerTool(getWidgetTreeTool, widgetTree);
 
     return super.initialize(request);
   }
@@ -335,6 +336,65 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
     );
   }
 
+  /// Retrieves the Flutter widget tree from the currently running app.
+  ///
+  /// If more than one debug session is active, then it just uses the first one.
+  ///
+  // TODO: support passing a debug session id when there is more than one debug
+  // session.
+  Future<CallToolResult> widgetTree(CallToolRequest request) async {
+    return _callOnVmService(
+      callback: (vmService) async {
+        final vm = await vmService.getVM();
+        final isolateId = vm.isolates!.first.id;
+        final groupId = 'dart-tooling-mcp-server';
+        const inspectorExtensionPrefix = 'ext.flutter.inspector';
+        try {
+          final result = await vmService.callServiceExtension(
+            '$inspectorExtensionPrefix.getRootWidgetTree',
+            isolateId: isolateId,
+            args: {
+              'groupName': groupId,
+              // TODO: consider making these configurable or using defaults that
+              // are better for the LLM.
+              'isSummaryTree': 'true',
+              'withPreviews': 'true',
+              'fullDetails': 'false',
+            },
+          );
+          final tree = result.json?['result'];
+          if (tree == null) {
+            return CallToolResult(
+              content: [
+                TextContent(
+                  text:
+                      'Could not get Widget tree. '
+                      'Unexpected result: ${result.json}.',
+                ),
+              ],
+            );
+          }
+          return CallToolResult(content: [TextContent(text: tree.toString())]);
+        } catch (e) {
+          return CallToolResult(
+            isError: true,
+            content: [
+              TextContent(
+                text: 'Unknown error or bad response getting widget tree:\n$e',
+              ),
+            ],
+          );
+        } finally {
+          await vmService.callServiceExtension(
+            '$inspectorExtensionPrefix.disposeGroup',
+            isolateId: isolateId,
+            args: {'objectGroup': groupId},
+          );
+        }
+      },
+    );
+  }
+
   /// Calls [callback] on the first active debug session, if available.
   Future<CallToolResult> _callOnVmService({
     required Future<CallToolResult> Function(VmService) callback,
@@ -369,6 +429,16 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
   );
 
   @visibleForTesting
+  static final getRuntimeErrorsTool = Tool(
+    name: 'get_runtime_errors',
+    description:
+        'Retrieves the list of runtime errors that have occurred in the active '
+        'Dart or Flutter application. Requires "${connectTool.name}" to be '
+        'successfully called first.',
+    inputSchema: ObjectSchema(),
+  );
+
+  @visibleForTesting
   static final screenshotTool = Tool(
     name: 'take_screenshot',
     description:
@@ -389,12 +459,11 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
   );
 
   @visibleForTesting
-  static final getRuntimeErrorsTool = Tool(
-    name: 'get_runtime_errors',
+  static final getWidgetTreeTool = Tool(
+    name: 'get_widget_tree',
     description:
-        'Retrieves the list of runtime errors that have occurred in the active '
-        'Dart or Flutter application. Requires "${connectTool.name}" to be '
-        'successfully called first.',
+        'Retrieves the widget tree from the active Flutter application. '
+        'Requires "${connectTool.name}" to be successfully called first.',
     inputSchema: ObjectSchema(),
   );
 

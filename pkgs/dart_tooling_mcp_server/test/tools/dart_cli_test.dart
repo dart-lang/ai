@@ -38,20 +38,27 @@ void main() {
         Directory(copyDartCliAppsBin),
       );
 
-      final dartFixContent =
-          File(p.join(copyDartCliAppsBin, 'dart_fix.dart')).readAsStringSync();
-      expect(dartFixContent, contains('var myObject = MyClass();'));
-
-      final dartFormatContent =
-          File(
-            p.join(copyDartCliAppsBin, 'dart_format.dart'),
-          ).readAsStringSync();
-      expect(dartFormatContent, contains('void main() {print("hello");}'));
-
       addTearDown(() async {
         // Delete the copy.
         await Directory(copyDartCliAppsBin).delete(recursive: true);
       });
+
+      final dartFixContent =
+          File(p.join(copyDartCliAppsBin, 'dart_fix.dart')).readAsStringSync();
+      expect(dartFixContent, contains('var myObject = MyClass();'));
+
+      // Read the initial (formatted) contents, and then remove the newlines and
+      // write that as the new contents.
+      final dartFormatFile = File(
+        p.join(copyDartCliAppsBin, 'dart_format.dart'),
+      );
+      final dartFormatContent = dartFormatFile.readAsStringSync();
+      final newContent = dartFormatContent.replaceFirst(
+        "\n  print('hello');\n",
+        "print('hello');",
+      );
+      expect(dartFormatContent, isNot(newContent));
+      await dartFormatFile.writeAsString(newContent);
     }
 
     setUp(() async {
@@ -138,7 +145,7 @@ void main() {
       );
       expect(
         formattedFile.readAsStringSync(),
-        contains('void main() {\n  print("hello");\n}\n'),
+        contains("void main() {\n  print('hello');\n}\n"),
       );
 
       // Run dart format again and verify there are no changes.
@@ -156,6 +163,10 @@ void main() {
     test('can run dart format with paths', () async {
       // Create copies of the file with formatting issues.
       final file = File(p.join(copyDartCliAppsBin, 'dart_format.dart'));
+      expect(
+        file.readAsStringSync(),
+        contains("void main() {print('hello');}"),
+      );
       for (var i = 1; i <= 3; i++) {
         await file.copy(p.join(copyDartCliAppsBin, 'dart_format_$i.dart'));
       }
@@ -188,14 +199,14 @@ void main() {
       );
       expect(
         firstFormattedFile.readAsStringSync(),
-        contains('void main() {\n  print("hello");\n}\n'),
+        contains("void main() {\n  print('hello');\n}\n"),
       );
       final secondFormattedFile = File(
         p.join(copyDartCliAppsBin, 'dart_format_1.dart'),
       );
       expect(
         secondFormattedFile.readAsStringSync(),
-        contains('void main() {\n  print("hello");\n}\n'),
+        contains("void main() {\n  print('hello');\n}\n"),
       );
 
       // Check that the other files in the directory were unmodified.
@@ -204,14 +215,14 @@ void main() {
       );
       expect(
         firstUnformattedFile.readAsStringSync(),
-        contains('void main() {print("hello");}'),
+        contains("void main() {print('hello');}"),
       );
-      final secondUnormattedFile = File(
+      final secondUnformattedFile = File(
         p.join(copyDartCliAppsBin, 'dart_format_3.dart'),
       );
       expect(
-        secondUnormattedFile.readAsStringSync(),
-        contains('void main() {print("hello");}'),
+        secondUnformattedFile.readAsStringSync(),
+        contains("void main() {print('hello');}"),
       );
     });
   });
