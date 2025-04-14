@@ -29,19 +29,19 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
   ///
   /// [VmService] objects are automatically removed from the Map when the
   /// [VmService] shuts down.
-  final activeVmServices = <String, VmService>{};
+  final _activeVmServices = <String, VmService>{};
 
   /// Called when the DTD connection is lost, resets all associated state.
   Future<void> _resetDtd() async {
     _dtd = null;
     _getDebugSessionsReady = false;
     await Future.wait(
-      activeVmServices.values.map((vmService) => vmService.dispose()),
+      _activeVmServices.values.map((vmService) => vmService.dispose()),
     );
-    activeVmServices.clear();
+    _activeVmServices.clear();
   }
 
-  Future<void> updateActiveVmServices() async {
+  Future<void> _updateActiveVmServices() async {
     final dtd = _dtd;
     if (dtd == null) return;
 
@@ -56,14 +56,14 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
     final response = await dtd.getDebugSessions();
     final debugSessions = response.debugSessions;
     for (final debugSession in debugSessions) {
-      if (activeVmServices.containsKey(debugSession.vmServiceUri)) {
+      if (_activeVmServices.containsKey(debugSession.vmServiceUri)) {
         continue;
       }
       final vmService = await vmServiceConnectUri(debugSession.vmServiceUri);
-      activeVmServices[debugSession.vmServiceUri] = vmService;
+      _activeVmServices[debugSession.vmServiceUri] = vmService;
       unawaited(
         vmService.onDone.then((_) {
-          activeVmServices.remove(debugSession.vmServiceUri);
+          _activeVmServices.remove(debugSession.vmServiceUri);
           vmService.dispose();
         }),
       );
@@ -345,11 +345,11 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
       if (!_getDebugSessionsReady) return _dtdNotReady;
     }
 
-    await updateActiveVmServices();
-    if (activeVmServices.isEmpty) return _noActiveDebugSession;
+    await _updateActiveVmServices();
+    if (_activeVmServices.isEmpty) return _noActiveDebugSession;
 
     // TODO: support selecting a VM Service if more than one are available.
-    final vmService = activeVmServices.values.first;
+    final vmService = _activeVmServices.values.first;
     return await callback(vmService);
   }
 
