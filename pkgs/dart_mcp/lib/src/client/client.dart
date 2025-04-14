@@ -112,6 +112,11 @@ base class ServerConnection extends MCPBase {
   /// Only assigned after [initialize] has successfully completed.
   late ServerImplementation serverInfo;
 
+  /// The [ServerCapabilities] returned from the [initialize] request.
+  ///
+  /// Only assigned after [initialize] has successfully completed.
+  late ServerCapabilities serverCapabilities;
+
   /// Emits an event any time the server notifies us of a change to the list of
   /// prompts it supports.
   ///
@@ -240,6 +245,7 @@ base class ServerConnection extends MCPBase {
       request,
     );
     serverInfo = response.serverInfo;
+    serverCapabilities = response.capabilities;
     return response;
   }
 
