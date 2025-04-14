@@ -29,31 +29,34 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
 
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
-    registerTool(analyzeFilesTool, _analyzeFiles);
+    // We check for requirements and store a message to log after initialization
+    // if some requirement isn't satisfied.
+    final unsupportedReason =
+        request.capabilities.roots == null
+            ? 'Project analysis requires the "roots" capability which is not '
+                'supported. Analysis tools have been disabled.'
+            : Platform.environment['DART_SDK'] == null
+            ? 'Project analysis requires a "DART_SDK" environment variable to '
+                'be set (this should be the path to the root of the dart SDK). '
+                'Analysis tools have been disabled.'
+            : null;
+
+    if (unsupportedReason == null) {
+      // Requirements met, register the tool.
+      registerTool(analyzeFilesTool, _analyzeFiles);
+    }
+
+    // Don't call any methods on the client until we are fully initialized
+    // (even logging).
     initialized.then((_) {
-      // We prefer to lazily unregister the tool, as opposed to lazily
-      // registering it, because it is better to have them miss the unregister
-      // event than the register event.
-      if (request.capabilities.roots == null) {
-        unregisterTool(analyzeFilesTool.name);
-        log(
-          LoggingLevel.warning,
-          'Project analysis requires the "roots" capability which is not '
-          'supported. Analysis tools have been disabled.',
-        );
-      } else if (Platform.environment['DART_SDK'] == null) {
-        unregisterTool(analyzeFilesTool.name);
-        log(
-          LoggingLevel.warning,
-          'Project analysis requires a "DART_SDK" environment variable to be '
-          'set (this should be the path to the root of the dart SDK). Analysis '
-          'tools have been disabled.',
-        );
+      if (unsupportedReason != null) {
+        log(LoggingLevel.warning, unsupportedReason);
       } else {
         // All requirements satisfied, ask the client for its roots.
         _listenForRoots();
       }
     });
+
     return super.initialize(request);
   }
 
