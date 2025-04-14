@@ -14,7 +14,8 @@ import 'package:watcher/watcher.dart';
 
 /// Mix this in to any MCPServer to add support for analyzing Dart projects.
 ///
-/// The MCPServer must already have the [ToolsSupport] mixin applied.
+/// The MCPServer must already have the [ToolsSupport] and [LoggingSupport]
+/// mixins applied.
 base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
   /// The analyzed contexts.
   AnalysisContextCollection? _analysisContexts;
@@ -185,7 +186,7 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
 
   @visibleForTesting
   static final analyzeFilesTool = Tool(
-    name: 'analyze files',
+    name: 'analyzeFiles',
     description:
         'Analyzes the requested file paths under the specified project roots '
         'and returns the results as a list of messages.',

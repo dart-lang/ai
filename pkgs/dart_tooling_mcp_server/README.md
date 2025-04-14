@@ -13,6 +13,15 @@ and use the compiled path as the command in your MCP server config.
 dart compile exe bin/main.dart
 ```
 
+### With the example DashBot
+
+After compiling the binary, you can run the example dash chat bot to interact
+with it, from the root of this package, after compiling the binary, run:
+
+```dart
+dart ../dart_mcp/example/dash_client.dart --server bin/main.exe
+```
+
 ### With Cursor
 
 Go to Cursor -> Settings -> Cursor Settings and select "MCP".

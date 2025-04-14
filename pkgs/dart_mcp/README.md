@@ -1,5 +1,7 @@
 A Dart package for making MCP servers and clients.
 
+**Note**: This package is still experimental and is likely to evolve quickly.
+
 ## Implementing Servers
 
 To implement a server, import `package:dart_mcp/server.dart` and extend the
@@ -39,7 +41,9 @@ doc comments explaining how to use it - some may require you to provide
 implementations of methods, while others may just expose new methods that you
 can call.
 
-See the [client example](example/client.dart) for some example code.
+See the [client example](example/client.dart) for some basic example code, or
+the [dash client](example/dash_client.dart) for a more full featured client
+using Gemini.
 
 ### Connecting to Servers
 
