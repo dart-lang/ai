@@ -307,7 +307,7 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
               // are better for the LLM.
               'isSummaryTree': 'true',
               'withPreviews': 'true',
-              'fullDetails': 'true',
+              'fullDetails': 'false',
             },
           );
           final tree = result.json?['result'];
