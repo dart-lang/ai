@@ -74,5 +74,21 @@ void main() {
         contains('A RenderFlex overflowed by'),
       );
     });
+
+    test('can get the widget tree', () async {
+      final tools = (await testHarness.mcpServerConnection.listTools()).tools;
+      final getWidgetTreeTool = tools.singleWhere(
+        (t) => t.name == DartToolingDaemonSupport.getWidgetTreeTool.name,
+      );
+      final getWidgetTreeResult = await testHarness.callToolWithRetry(
+        CallToolRequest(name: getWidgetTreeTool.name),
+      );
+
+      expect(getWidgetTreeResult.isError, isNot(true));
+      expect(
+        (getWidgetTreeResult.content.first as TextContent).text,
+        contains('MyHomePage'),
+      );
+    });
   });
 }
