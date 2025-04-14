@@ -78,7 +78,7 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
   /// Lists the roots, and listens for changes to them.
   ///
   /// Whenever new roots are found, creates a new [AnalysisContextCollection].
-  void _listenForRoots([void _]) async {
+  void _listenForRoots() async {
     rootsListChanged!.listen((event) async {
       unawaited(_analysisContexts?.dispose());
       _analysisContexts = null;

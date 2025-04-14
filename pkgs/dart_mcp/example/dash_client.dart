@@ -57,7 +57,10 @@ final class DashClient extends MCPClient with RootsSupport {
         ClientImplementation(name: 'Example gemini client', version: '0.1.0'),
       ) {
     addRoot(
-      Root(uri: Directory.current.absolute.path, name: 'The working dir'),
+      Root(
+        uri: Directory.current.absolute.uri.toString(),
+        name: 'The working dir',
+      ),
     );
     _startChat();
   }
