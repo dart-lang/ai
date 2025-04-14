@@ -94,9 +94,15 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
       final watcher = DirectoryWatcher(rootPath);
       _watchSubscriptions.add(
         watcher.events.listen((event) {
+          try {
           _analysisContexts
               ?.contextFor(event.path)
               .changeFile(p.normalize(event.path));
+          } catch (_) {
+            // Fail gracefully.
+            // TODO(https://github.com/dart-lang/ai/issues/65): remove this
+            // catch if possible.
+          }
         }),
       );
     }

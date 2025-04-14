@@ -138,13 +138,13 @@ void main() {
       expect(server.activeVmServices.length, 1);
       expect(originalVmService, server.activeVmServices.values.single);
 
-      // await testHarness.startDebugSession(
-      //   counterAppPath,
-      //   'lib/main.dart',
-      //   isFlutter: true,
-      // );
-      // await server.updateActiveVmServices();
-      // expect(server.activeVmServices.length, 2);
+      await testHarness.startDebugSession(
+        counterAppPath,
+        'lib/main.dart',
+        isFlutter: true,
+      );
+      await server.updateActiveVmServices();
+      expect(server.activeVmServices.length, 2);
     });
 
     test('automatically removes vm services upon shutdown', () async {
