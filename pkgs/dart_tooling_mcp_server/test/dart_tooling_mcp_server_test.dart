@@ -125,7 +125,8 @@ void main() {
       expect(result.isError, isNot(true));
       expect(result.content, [
         TextContent(
-          text: "Error: The argument type 'String' can't be assigned to the "
+          text:
+              "Error: The argument type 'String' can't be assigned to the "
               "parameter type 'num'. ",
         ),
       ]);

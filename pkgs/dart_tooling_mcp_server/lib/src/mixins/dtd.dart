@@ -126,7 +126,8 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
             isError: true,
             content: [
               TextContent(
-                text: 'Unknown error or bad response taking screenshot:\n'
+                text:
+                    'Unknown error or bad response taking screenshot:\n'
                     '${result.json}',
               ),
             ],
@@ -159,9 +160,12 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
         });
         await vmService.streamListen(EventStreams.kService);
         final hotReloadMethodName = await hotReloadMethodNameCompleter.future
-            .timeout(const Duration(milliseconds: 1000), onTimeout: () async {
-          return null;
-        });
+            .timeout(
+              const Duration(milliseconds: 1000),
+              onTimeout: () async {
+                return null;
+              },
+            );
         await vmService.streamCancel(EventStreams.kService);
 
         if (hotReloadMethodName == null) {
@@ -169,7 +173,8 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
             isError: true,
             content: [
               TextContent(
-                text: 'The hot reload service has not been registered yet, '
+                text:
+                    'The hot reload service has not been registered yet, '
                     'please wait a few seconds and try again.',
               ),
             ],
@@ -191,7 +196,8 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
             isError: true,
             content: [
               TextContent(
-                text: 'Hot reload failed:\n'
+                text:
+                    'Hot reload failed:\n'
                     '${result.json}',
               ),
             ],
@@ -218,8 +224,9 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
     if (debugSessions.isEmpty) return _noActiveDebugSession;
 
     // TODO: Consider holding on to this connection.
-    final vmService =
-        await vmServiceConnectUri(debugSessions.first.vmServiceUri);
+    final vmService = await vmServiceConnectUri(
+      debugSessions.first.vmServiceUri,
+    );
     try {
       return await callback(vmService);
     } finally {
@@ -243,7 +250,8 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
   @visibleForTesting
   static final screenshotTool = Tool(
     name: 'takeScreenshot',
-    description: 'Takes a screenshot of the active flutter application in its '
+    description:
+        'Takes a screenshot of the active flutter application in its '
         'current state. Requires "${connectTool.name}" to be successfully '
         'called first.',
     inputSchema: ObjectSchema(),
@@ -252,7 +260,8 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
   @visibleForTesting
   static final hotReloadTool = Tool(
     name: 'hotReload',
-    description: 'Performs a hot reload of the active Flutter application. '
+    description:
+        'Performs a hot reload of the active Flutter application. '
         'This is to apply the latest code changes to the running application. '
         'Requires "${connectTool.name}" to be successfully called first.',
     inputSchema: ObjectSchema(),
@@ -262,7 +271,8 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
     isError: true,
     content: [
       TextContent(
-        text: 'The dart tooling daemon is not connected, you need to call '
+        text:
+            'The dart tooling daemon is not connected, you need to call '
             '"${connectTool.name}" first.',
       ),
     ],
@@ -272,7 +282,8 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
     isError: true,
     content: [
       TextContent(
-        text: 'The dart tooling daemon is already connected, you cannot call '
+        text:
+            'The dart tooling daemon is already connected, you cannot call '
             '"${connectTool.name}" again.',
       ),
     ],
@@ -289,7 +300,8 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
     isError: true,
     content: [
       TextContent(
-        text: 'The dart tooling daemon is not ready yet, please wait a few '
+        text:
+            'The dart tooling daemon is not ready yet, please wait a few '
             'seconds and try again.',
       ),
     ],
@@ -350,11 +362,10 @@ extension type GetDebugSessionsResponse.fromJson(Map<String, Object?> _value)
 
   factory GetDebugSessionsResponse({
     required List<DebugSession> debugSessions,
-  }) =>
-      GetDebugSessionsResponse.fromJson({
-        'debugSessions': debugSessions,
-        'type': type,
-      });
+  }) => GetDebugSessionsResponse.fromJson({
+    'debugSessions': debugSessions,
+    'type': type,
+  });
 }
 
 /// An individual debug session.
@@ -375,12 +386,11 @@ extension type DebugSession.fromJson(Map<String, Object?> _value)
     required String name,
     required String projectRootPath,
     required String vmServiceUri,
-  }) =>
-      DebugSession.fromJson({
-        'debuggerType': debuggerType,
-        'id': id,
-        'name': name,
-        'projectRootPath': projectRootPath,
-        'vmServiceUri': vmServiceUri,
-      });
+  }) => DebugSession.fromJson({
+    'debuggerType': debuggerType,
+    'id': id,
+    'name': name,
+    'projectRootPath': projectRootPath,
+    'vmServiceUri': vmServiceUri,
+  });
 }
