@@ -56,6 +56,9 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
     final response = await dtd.getDebugSessions();
     final debugSessions = response.debugSessions;
     for (final debugSession in debugSessions) {
+      if (activeVmServices.containsKey(debugSession.vmServiceUri)) {
+        continue;
+      }
       final vmService = await vmServiceConnectUri(debugSession.vmServiceUri);
       activeVmServices[debugSession.vmServiceUri] = vmService;
       unawaited(
