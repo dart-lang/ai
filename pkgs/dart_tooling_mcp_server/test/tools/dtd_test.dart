@@ -16,7 +16,7 @@ void main() {
     // TODO: Use setUpAll, currently this fails due to an apparent TestProcess
     // issue.
     setUp(() async {
-      testHarness = await TestHarness.start(inProcess: true);
+      testHarness = await TestHarness.start();
       await testHarness.connectToDtd();
     });
 
@@ -88,6 +88,11 @@ void main() {
     });
 
     test('can get the widget tree', () async {
+      await testHarness.startDebugSession(
+        counterAppPath,
+        'lib/main.dart',
+        isFlutter: true,
+      );
       final tools = (await testHarness.mcpServerConnection.listTools()).tools;
       final getWidgetTreeTool = tools.singleWhere(
         (t) => t.name == DartToolingDaemonSupport.getWidgetTreeTool.name,
