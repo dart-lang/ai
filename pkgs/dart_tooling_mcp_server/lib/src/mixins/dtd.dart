@@ -221,15 +221,14 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
     return _callOnVmService(
       callback: (vmService) async {
         final errors = <String>[];
+        StreamSubscription<Event>? extensionEvents;
+        StreamSubscription<Event>? stderrEvents;
         try {
-          await vmService.streamListen(EventStreams.kExtension);
-          await vmService.streamListen(EventStreams.kStderr);
-
           // We need to listen to streams with history so that we can get errors
           // that occurred before this tool call.
           // TODO(https://github.com/dart-lang/ai/issues/57): this can result in
           // duplicate errors that we need to de-duplicate somehow.
-          final extensionEvents = vmService.onExtensionEventWithHistory.listen((
+          extensionEvents = vmService.onExtensionEventWithHistory.listen((
             Event e,
           ) {
             if (e.extensionKind == 'Flutter.Error') {
@@ -239,9 +238,7 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
               errors.add(e.json.toString());
             }
           });
-          final stderrEvents = vmService.onStderrEventWithHistory.listen((
-            Event e,
-          ) {
+          stderrEvents = vmService.onStderrEventWithHistory.listen((Event e) {
             final message = decodeBase64(e.bytes!);
             // TODO(https://github.com/dart-lang/ai/issues/57): consider
             // pruning this content down to only what is useful for the LLM to
@@ -249,14 +246,12 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
             errors.add(message);
           });
 
+          await vmService.streamListen(EventStreams.kExtension);
+          await vmService.streamListen(EventStreams.kStderr);
+
           // Await a short delay to allow the error events to come over the open
           // Streams.
           await Future<void>.delayed(const Duration(seconds: 1));
-
-          await vmService.streamCancel(EventStreams.kExtension);
-          await vmService.streamCancel(EventStreams.kStderr);
-          await extensionEvents.cancel();
-          await stderrEvents.cancel();
 
           if (errors.isEmpty) {
             return CallToolResult(
@@ -273,22 +268,16 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
               ...errors.map((e) => TextContent(text: e.toString())),
             ],
           );
-        } on RPCError catch (e) {
-          return CallToolResult(
-            isError: true,
-            content: [
-              TextContent(
-                text:
-                    'Failed to get runtime errors: ${e.message} '
-                    '(Code: ${e.code})',
-              ),
-            ],
-          );
         } catch (e) {
           return CallToolResult(
             isError: true,
-            content: [TextContent(text: 'An unexpected error occurred: $e')],
+            content: [TextContent(text: 'Failed to get runtime errors: $e')],
           );
+        } finally {
+          await extensionEvents?.cancel();
+          await stderrEvents?.cancel();
+          await vmService.streamCancel(EventStreams.kExtension);
+          await vmService.streamCancel(EventStreams.kStderr);
         }
       },
     );
