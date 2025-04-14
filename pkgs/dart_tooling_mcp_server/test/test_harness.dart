@@ -28,11 +28,13 @@ import 'package:test_process/test_process.dart';
 class TestHarness {
   final FakeEditorExtension fakeEditorExtension;
   final DartToolingMCPClient mcpClient;
-  final ServerConnection mcpServerConnection;
+  final ServerConnectionPair serverConnectionPair;
+  ServerConnection get mcpServerConnection =>
+      serverConnectionPair.serverConnection;
 
   TestHarness._(
     this.mcpClient,
-    this.mcpServerConnection,
+    this.serverConnectionPair,
     this.fakeEditorExtension,
   );
 
@@ -43,18 +45,23 @@ class TestHarness {
   /// well.
   ///
   /// By default this will run with the MCP server compiled as a separate binary
-  /// to mimic as closely as possible the real world behavior. This makes it so
-  /// breakpoints in the server don't work however, so you can set [debugMode]
-  /// to `true` and we will run it in process instead, which allows breakpoints
-  /// since everything is running in the same isolate.
+  /// to mimic as closely as possible the real world behavior. Set `inProcess`
+  /// to true to run the MCP server in the same isolate as the test. This will
+  /// allow for testing the logic inside of the MCP server support mixins.
+  /// Setting this to true is also useful for local debugging of tests that run
+  /// the MCP server as a separate binary, since breakpoints will work when the
+  /// MCP server is ran in process.
   ///
   /// Use [startDebugSession] to start up apps and connect to them.
-  static Future<TestHarness> start({
-    @Deprecated('For debugging only, do not submit') bool debugMode = false,
-  }) async {
+  static Future<TestHarness> start({bool inProcess = false}) async {
     final mcpClient = DartToolingMCPClient();
     addTearDown(mcpClient.shutdown);
-    final connection = await _initializeMCPServer(mcpClient, debugMode);
+
+    final serverConnectionPair = await _initializeMCPServer(
+      mcpClient,
+      inProcess,
+    );
+    final connection = serverConnectionPair.serverConnection;
     connection.onLog.listen((log) {
       printOnFailure('MCP Server Log: $log');
     });
@@ -62,7 +69,7 @@ class TestHarness {
     final fakeEditorExtension = await FakeEditorExtension.connect();
     addTearDown(fakeEditorExtension.shutdown);
 
-    return TestHarness._(mcpClient, connection, fakeEditorExtension);
+    return TestHarness._(mcpClient, serverConnectionPair, fakeEditorExtension);
   }
 
   /// Starts an app debug session.
@@ -70,11 +77,13 @@ class TestHarness {
     String projectRoot,
     String appPath, {
     required bool isFlutter,
+    List<String> args = const [],
   }) async {
     final session = await AppDebugSession._start(
       projectRoot,
       appPath,
       isFlutter: isFlutter,
+      args: args,
     );
     fakeEditorExtension.debugSessions.add(session);
     final root = rootForPath(projectRoot);
@@ -88,6 +97,11 @@ class TestHarness {
       }),
     );
     return session;
+  }
+
+  /// Stops an app debug session.
+  Future<void> stopDebugSession(AppDebugSession session) async {
+    await AppDebugSession.kill(session.appProcess, session.isFlutter);
   }
 
   /// Connects the MCP server to the dart tooling daemon at the `dtdUri` from
@@ -155,6 +169,7 @@ final class AppDebugSession {
   static Future<AppDebugSession> _start(
     String projectRoot,
     String appPath, {
+    List<String> args = const [],
     required bool isFlutter,
   }) async {
     final platform =
@@ -171,15 +186,11 @@ final class AppDebugSession {
       if (!isFlutter) '--enable-vm-service',
       if (isFlutter) ...['-d', platform],
       appPath,
+      ...args,
     ], workingDirectory: projectRoot);
 
     addTearDown(() async {
-      if (isFlutter) {
-        process.stdin.writeln('q');
-      } else {
-        unawaited(process.kill());
-      }
-      await process.shouldExit(0);
+      await kill(process, isFlutter);
     });
 
     String? vmServiceUri;
@@ -205,6 +216,15 @@ final class AppDebugSession {
       appPath: appPath,
       isFlutter: isFlutter,
     );
+  }
+
+  static Future<void> kill(TestProcess process, bool isFlutter) async {
+    if (isFlutter) {
+      process.stdin.writeln('q');
+    } else {
+      unawaited(process.kill());
+    }
+    await process.shouldExit(0);
   }
 }
 
@@ -302,16 +322,20 @@ Future<String> _compileMCPServer() async {
   return filePath;
 }
 
+typedef ServerConnectionPair =
+    ({ServerConnection serverConnection, DartToolingMCPServer? server});
+
 /// Starts up the [DartToolingMCPServer] and connects [client] to it.
 ///
 /// Also handles the full intialization handshake between the client and
 /// server.
-Future<ServerConnection> _initializeMCPServer(
+Future<ServerConnectionPair> _initializeMCPServer(
   MCPClient client,
-  bool debugMode,
+  bool inProcess,
 ) async {
   ServerConnection connection;
-  if (debugMode) {
+  DartToolingMCPServer? server;
+  if (inProcess) {
     /// The client side of the communication channel - the stream is the
     /// incoming data and the sink is outgoing data.
     final clientController = StreamController<String>();
@@ -328,8 +352,8 @@ Future<ServerConnection> _initializeMCPServer(
       clientController.stream,
       serverController.sink,
     );
-    final mcpServer = DartToolingMCPServer(channel: serverChannel);
-    addTearDown(mcpServer.shutdown);
+    server = DartToolingMCPServer(channel: serverChannel);
+    addTearDown(server.shutdown);
     connection = client.connectServer(clientChannel);
   } else {
     connection = await client.connectStdioServer(await _compileMCPServer(), []);
@@ -344,7 +368,7 @@ Future<ServerConnection> _initializeMCPServer(
   );
   expect(initializeResult.protocolVersion, protocolVersion);
   connection.notifyInitialized(InitializedNotification());
-  return connection;
+  return (serverConnection: connection, server: server);
 }
 
 /// Creates a canonical [Root] object for a given [projectPath].

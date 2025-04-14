@@ -35,6 +35,10 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   int _counter = 0;
 
+  static const includeLayoutError = bool.fromEnvironment(
+    'include_layout_error',
+  );
+
   void _incrementCounter() {
     setState(() {
       _counter++;
@@ -55,11 +59,13 @@ class _MyHomePageState extends State<MyHomePage> {
             const Row(
               children: [
                 Text('You have pushed the button this many times:'),
-                Text(
-                  'And this Row should create an overflow error because it '
-                  'contains way more text than could ever fit on a single Row '
-                  'on both a mobile app or the default size of a desktop app.',
-                ),
+                if (includeLayoutError)
+                  Text(
+                    'And this Row should create an overflow error because it '
+                    'contains way more text than could ever fit on a single '
+                    'Row on both a mobile app or the default size of a desktop '
+                    'app.',
+                  ),
               ],
             ),
             Text(
