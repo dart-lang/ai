@@ -32,13 +32,23 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
   @visibleForTesting
   final activeVmServices = <String, VmService>{};
 
+  /// Whether to await the disposal of all [VmService] objects in
+  /// [activeVmServices] upon server shutdown or loss of DTD connection.
+  ///
+  /// Defaults to false but can be flipped to true for testing purposes.
+  @visibleForTesting
+  static bool debugAwaitVmServiceDisposal = false;
+
   /// Called when the DTD connection is lost, resets all associated state.
   Future<void> _resetDtd() async {
     _dtd = null;
     _getDebugSessionsReady = false;
-    await Future.wait(
+
+    final future = Future.wait(
       activeVmServices.values.map((vmService) => vmService.dispose()),
     );
+    debugAwaitVmServiceDisposal ? await future : unawaited(future);
+
     activeVmServices.clear();
   }
 

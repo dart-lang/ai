@@ -111,6 +111,11 @@ void main() {
 
   group('$VmService management', () {
     setUp(() async {
+      DartToolingDaemonSupport.debugAwaitVmServiceDisposal = true;
+      addTearDown(
+        () => DartToolingDaemonSupport.debugAwaitVmServiceDisposal = false,
+      );
+
       testHarness = await TestHarness.start(inProcess: true);
       await testHarness.connectToDtd();
     });
