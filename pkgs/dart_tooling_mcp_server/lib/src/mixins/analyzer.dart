@@ -29,13 +29,31 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
 
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
-    if (request.capabilities.roots == null) {
-      throw StateError(
-        'This server requires the "roots" capability to be implemented.',
-      );
-    }
     registerTool(analyzeFilesTool, _analyzeFiles);
-    initialized.then(_listenForRoots);
+    initialized.then((_) {
+      // We prefer to lazily unregister the tool, as opposed to lazily
+      // registering it, because it is better to have them miss the unregister
+      // event than the register event.
+      if (request.capabilities.roots == null) {
+        unregisterTool(analyzeFilesTool.name);
+        log(
+          LoggingLevel.warning,
+          'Project analysis requires the "roots" capability which is not '
+          'supported. Analysis tools have been disabled.',
+        );
+      } else if (Platform.environment['DART_SDK'] == null) {
+        unregisterTool(analyzeFilesTool.name);
+        log(
+          LoggingLevel.warning,
+          'Project analysis requires a "DART_SDK" environment variable to be '
+          'set (this should be the path to the root of the dart SDK). Analysis '
+          'tools have been disabled.',
+        );
+      } else {
+        // All requirements satisfied, ask the client for its roots.
+        _listenForRoots();
+      }
+    });
     return super.initialize(request);
   }
 
