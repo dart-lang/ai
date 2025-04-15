@@ -10,12 +10,8 @@ dependencies:
   json_rpc_2: ^3.0.3
   meta: ^1.16.0
   stream_channel: ^2.1.4
-  uri: ^2.0.0
 dev_dependencies:
   args: ^2.7.0
   dart_flutter_team_lints: ^3.2.1
   google_generative_ai: ^0.4.6
   test: ^1.25.15
-dependency_overrides:
-  uri:
-    path: ../../../uri.dart

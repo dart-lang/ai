@@ -184,9 +184,10 @@ final class TestMCPServerWithResources extends TestMCPServer
     return super.initialize(request);
   }
 
-  Future<ReadResourceResult> _readPackageResource(
+  Future<ReadResourceResult?> _readPackageResource(
     ReadResourceRequest request,
   ) async {
+    if (!request.uri.startsWith('package:')) return null;
     if (!request.uri.endsWith('.dart')) {
       throw UnsupportedError('Only dart files can be read');
     }

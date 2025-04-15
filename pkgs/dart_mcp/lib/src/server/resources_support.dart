@@ -5,7 +5,7 @@
 part of 'server.dart';
 
 typedef ReadResourceHandler =
-    FutureOr<ReadResourceResult> Function(ReadResourceRequest);
+    FutureOr<ReadResourceResult?> Function(ReadResourceRequest);
 
 /// A mixin for MCP servers which support the `resources` capability.
 ///
@@ -34,13 +34,7 @@ base mixin ResourcesSupport on MCPServer {
 
   /// All the resource templates supported by this server, see
   /// [addResourceTemplate].
-  final List<
-    ({
-      ResourceTemplate template,
-      UriParser parser,
-      ReadResourceHandler handler,
-    })
-  >
+  final List<({ResourceTemplate template, ReadResourceHandler handler})>
   _resourceTemplates = [];
 
   /// The list of currently subscribed resources by URI.
@@ -99,10 +93,13 @@ base mixin ResourcesSupport on MCPServer {
     }
   }
 
-  /// Adds [template] to call [handler] when a [ReadResourceRequest] has a URI
-  /// matching the [template].
+  /// Adds [template], as a [ResourceTemplate].
   ///
-  /// Templates must conform to https://datatracker.ietf.org/doc/html/rfc6570.
+  /// When reading resources, first regular resources added by [addResource]
+  /// are prioritized. Then, we call the [handler] for each [template], in the
+  /// order they were added (using this method), and the first one to return a
+  /// non-null response wins. This package does not automatically handle
+  /// matching of templates and handlers must accept URIs in any form.
   ///
   /// Throws a [StateError] if there is already a template registered with the
   /// same uri template.
@@ -119,11 +116,7 @@ base mixin ResourcesSupport on MCPServer {
         '${template.uriTemplate}.',
       );
     }
-    _resourceTemplates.add((
-      template: template,
-      parser: UriParser(UriTemplate(template.uriTemplate)),
-      handler: handler,
-    ));
+    _resourceTemplates.add((template: template, handler: handler));
   }
 
   /// Lists all the [ResourceTemplate]s currently available.
@@ -181,23 +174,23 @@ base mixin ResourcesSupport on MCPServer {
   ///
   /// Throws an [ArgumentError] if it does not exist (this gets translated into
   /// a generic JSON RPC2 error response).
-  FutureOr<ReadResourceResult> _readResource(ReadResourceRequest request) {
+  FutureOr<ReadResourceResult> _readResource(
+    ReadResourceRequest request,
+  ) async {
     final impl = _resourceImpls[request.uri];
     if (impl == null) {
-      final parsedUri = Uri.parse(request.uri);
-      // Check if it matches a template.
+      // Check if it matches any resource template.
       for (var descriptor in _resourceTemplates) {
-        if (descriptor.parser.matches(parsedUri)) {
-          return descriptor.handler(request);
-        }
+        final response = await descriptor.handler(request);
+        if (response != null) return response;
       }
     }
 
-    if (impl == null) {
+    final response = await impl?.call(request);
+    if (response == null) {
       throw ArgumentError.value(request.uri, 'uri', 'Resource not found');
     }
-
-    return impl(request);
+    return response;
   }
 
   /// Subscribes the client to the resource at `request.uri`.
