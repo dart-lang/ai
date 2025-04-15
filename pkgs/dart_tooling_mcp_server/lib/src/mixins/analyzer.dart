@@ -35,11 +35,11 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
         request.capabilities.roots == null
             ? 'Project analysis requires the "roots" capability which is not '
                 'supported. Analysis tools have been disabled.'
-            : Platform.environment['DART_SDK'] == null
-            ? 'Project analysis requires a "DART_SDK" environment variable to '
-                'be set (this should be the path to the root of the dart SDK). '
-                'Analysis tools have been disabled.'
-            : null;
+            : (Platform.environment['DART_SDK'] == null
+                ? 'Project analysis requires a "DART_SDK" environment variable '
+                    'to be set (this should be the path to the root of the '
+                    'dart SDK). Analysis tools have been disabled.'
+                : null);
 
     if (unsupportedReason == null) {
       // Requirements met, register the tool.
