@@ -156,7 +156,7 @@ final class DashClient extends MCPClient with RootsSupport {
           response.writeln(content.text);
         case final ImageContent content when content.isImage:
           chatHistory.add(
-            gemini.Content.data('image/png', base64Decode(content.data)),
+            gemini.Content.data(content.mimeType, base64Decode(content.data)),
           );
           response.writeln('Image added to context');
         default:
@@ -254,7 +254,7 @@ final class DashClient extends MCPClient with RootsSupport {
       connection.onLog.listen((event) {
         print(
           'Server Log(${event.level.name}): '
-          '${event.logger != null ? '[${event.logger}] ' : ''} ${event.data}',
+          '${event.logger != null ? '[${event.logger}] ' : ''}${event.data}',
         );
       });
     }
@@ -354,7 +354,11 @@ final class DashChatBotServer extends MCPServer with ToolsSupport {
 
     registerTool(removeImagesTool, (_) async {
       final oldLength = client.chatHistory.length;
-      client.chatHistory.removeWhere((content) => content is ImageContent);
+      // TODO: Something more robust than this, maybe just remove them by object
+      // reference.
+      client.chatHistory.removeWhere(
+        (content) => content.parts.first is gemini.DataPart,
+      );
       return CallToolResult(
         content: [
           TextContent(
