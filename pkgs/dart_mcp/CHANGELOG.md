@@ -2,6 +2,7 @@
 
 - Save the `ServerCapabilities` object on the `ServerConnection` class to make
   it easier to check the capabilities of the server.
+- Added support for adding and listing `ResourceTemplate`s.
 
 ## 0.1.0
 
