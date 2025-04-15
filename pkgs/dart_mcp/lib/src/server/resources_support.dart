@@ -4,11 +4,14 @@
 
 part of 'server.dart';
 
+typedef ReadResourceHandler =
+    FutureOr<ReadResourceResult> Function(ReadResourceRequest);
+
 /// A mixin for MCP servers which support the `resources` capability.
 ///
-/// Servers should add resources using the [addResource] method, typically
-/// inside the [initialize] method, but they may also be added after
-/// initialization if needed.
+/// Servers should add [Resource]s using the [addResource] method, typically
+/// inside the [initialize] method or constructor, but they may also be added
+/// after initialization if needed.
 ///
 /// Resources can later be removed using [removeResource], or the client can be
 /// notified of updates using [updateResource].
@@ -16,14 +19,29 @@ part of 'server.dart';
 /// Implements the `subscribe` and `listChanges` capabilities for clients, so
 /// they can be notified of changes to resources.
 ///
+/// Any [ResourceTemplate]s, should typically be added in [initialize] method or
+/// the constructor using [addResourceTemplate]. There is no notification
+/// protocol for templates which are added after a client requests them once, so
+/// they should be added eagerly.
+///
 /// See https://modelcontextprotocol.io/docs/concepts/resources.
 base mixin ResourcesSupport on MCPServer {
   /// The current resources by URI.
   final Map<String, Resource> _resources = {};
 
   /// The current resource implementations by URI.
-  final Map<String, FutureOr<ReadResourceResult> Function(ReadResourceRequest)>
-  _resourceImpls = {};
+  final Map<String, ReadResourceHandler> _resourceImpls = {};
+
+  /// All the resource templates supported by this server, see
+  /// [addResourceTemplate].
+  final List<
+    ({
+      ResourceTemplate template,
+      UriParser parser,
+      ReadResourceHandler handler,
+    })
+  >
+  _resourceTemplates = [];
 
   /// The list of currently subscribed resources by URI.
   final Set<String> _subscribedResources = {};
@@ -39,6 +57,10 @@ base mixin ResourcesSupport on MCPServer {
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) async {
     registerRequestHandler(ListResourcesRequest.methodName, _listResources);
+    registerRequestHandler(
+      ListResourceTemplatesRequest.methodName,
+      _listResourceTemplates,
+    );
 
     registerRequestHandler(ReadResourceRequest.methodName, _readResource);
 
@@ -57,7 +79,7 @@ base mixin ResourcesSupport on MCPServer {
   /// If this server is already initialized and still connected to a client,
   /// then the client will be notified that the resources list has changed.
   ///
-  /// Throws a [StateError] if there is already a [Tool] registered with the
+  /// Throws a [StateError] if there is already a [Resource] registered with the
   /// same name.
   void addResource(
     Resource resource,
@@ -75,6 +97,44 @@ base mixin ResourcesSupport on MCPServer {
     if (ready) {
       _notifyResourceListChanged();
     }
+  }
+
+  /// Adds [template] to call [handler] when a [ReadResourceRequest] has a URI
+  /// matching the [template].
+  ///
+  /// Templates must conform to https://datatracker.ietf.org/doc/html/rfc6570.
+  ///
+  /// Throws a [StateError] if there is already a template registered with the
+  /// same uri template.
+  void addResourceTemplate(
+    ResourceTemplate template,
+    ReadResourceHandler handler,
+  ) {
+    if (_resourceTemplates.any(
+      (t) => t.template.uriTemplate == template.uriTemplate,
+    )) {
+      throw StateError(
+        'Failed to add resource template ${template.name}, there is '
+        'already a resource template with the same uri pattern '
+        '${template.uriTemplate}.',
+      );
+    }
+    _resourceTemplates.add((
+      template: template,
+      parser: UriParser(UriTemplate(template.uriTemplate)),
+      handler: handler,
+    ));
+  }
+
+  /// Lists all the [ResourceTemplate]s currently available.
+  ListResourceTemplatesResult _listResourceTemplates(
+    ListResourceTemplatesRequest request,
+  ) {
+    return ListResourceTemplatesResult(
+      resourceTemplates: [
+        for (var descriptor in _resourceTemplates) descriptor.template,
+      ],
+    );
   }
 
   /// Notifies the client that [resource] has been updated.
@@ -123,6 +183,16 @@ base mixin ResourcesSupport on MCPServer {
   /// a generic JSON RPC2 error response).
   FutureOr<ReadResourceResult> _readResource(ReadResourceRequest request) {
     final impl = _resourceImpls[request.uri];
+    if (impl == null) {
+      final parsedUri = Uri.parse(request.uri);
+      // Check if it matches a template.
+      for (var descriptor in _resourceTemplates) {
+        if (descriptor.parser.matches(parsedUri)) {
+          return descriptor.handler(request);
+        }
+      }
+    }
+
     if (impl == null) {
       throw ArgumentError.value(request.uri, 'uri', 'Resource not found');
     }

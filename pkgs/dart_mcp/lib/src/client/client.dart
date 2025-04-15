@@ -257,13 +257,18 @@ base class ServerConnection extends MCPBase {
   Future<CallToolResult> callTool(CallToolRequest request) =>
       sendRequest(CallToolRequest.methodName, request);
 
-  /// Lists all the resources from this server.
+  /// Lists all the [Resource]s from this server.
   Future<ListResourcesResult> listResources(ListResourcesRequest request) =>
       sendRequest(ListResourcesRequest.methodName, request);
 
   /// Reads a [Resource] returned from the [ListResourcesResult].
   Future<ReadResourceResult> readResource(ReadResourceRequest request) =>
       sendRequest(ReadResourceRequest.methodName, request);
+
+  /// Lists all the [Resource] templates from this server.
+  Future<ListResourceTemplatesResult> listResourceTemplates(
+    ListResourceTemplatesRequest request,
+  ) => sendRequest(ListResourceTemplatesRequest.methodName, request);
 
   /// Lists all the prompts from this server.
   Future<ListPromptsResult> listPrompts(ListPromptsRequest request) =>
