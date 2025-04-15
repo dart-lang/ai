@@ -261,11 +261,12 @@ base class ServerConnection extends MCPBase {
   Future<ListResourcesResult> listResources(ListResourcesRequest request) =>
       sendRequest(ListResourcesRequest.methodName, request);
 
-  /// Reads a [Resource] returned from the [ListResourcesResult].
+  /// Reads a [Resource] returned from the [ListResourcesResult] or matching
+  /// a [ResourceTemplate] from a [ListResourceTemplatesResult].
   Future<ReadResourceResult> readResource(ReadResourceRequest request) =>
       sendRequest(ReadResourceRequest.methodName, request);
 
-  /// Lists all the [Resource] templates from this server.
+  /// Lists all the [ResourceTemplate]s from this server.
   Future<ListResourceTemplatesResult> listResourceTemplates(
     ListResourceTemplatesRequest request,
   ) => sendRequest(ListResourceTemplatesRequest.methodName, request);

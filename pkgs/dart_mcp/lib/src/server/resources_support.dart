@@ -93,7 +93,7 @@ base mixin ResourcesSupport on MCPServer {
     }
   }
 
-  /// Adds [template], as a [ResourceTemplate].
+  /// Adds the [ResourceTemplate] [template] with [handler].
   ///
   /// When reading resources, first regular resources added by [addResource]
   /// are prioritized. Then, we call the [handler] for each [template], in the
