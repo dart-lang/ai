@@ -10,6 +10,8 @@
   - Save the negotiated `ProtocolVersion` in a `protocolVersion` field for both
     `MCPServer` and the `ServerConnection` classes.
   - Automatically disconnect from servers if version negotiation fails.
+- Added support for adding and listing `ResourceTemplate`s.
+  - Handlers have to handle their own matching of templates.
 - **Breaking**: Fixed paginated result subtypes to use `nextCursor` instead of
   `cursor` as the key for the next cursor.
 - **Breaking**: Change the `ProgressNotification.progress` and

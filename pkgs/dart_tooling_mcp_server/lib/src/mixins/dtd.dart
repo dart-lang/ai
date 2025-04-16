@@ -24,10 +24,62 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
   /// ready to be invoked.
   bool _getDebugSessionsReady = false;
 
+  /// A Map of [VmService] objects by their associated VM Service URI
+  /// (represented as a String).
+  ///
+  /// [VmService] objects are automatically removed from the Map when the
+  /// [VmService] shuts down.
+  @visibleForTesting
+  final activeVmServices = <String, VmService>{};
+
+  /// Whether to await the disposal of all [VmService] objects in
+  /// [activeVmServices] upon server shutdown or loss of DTD connection.
+  ///
+  /// Defaults to false but can be flipped to true for testing purposes.
+  @visibleForTesting
+  static bool debugAwaitVmServiceDisposal = false;
+
   /// Called when the DTD connection is lost, resets all associated state.
-  void _resetDtd() {
+  Future<void> _resetDtd() async {
     _dtd = null;
     _getDebugSessionsReady = false;
+
+    final future = Future.wait(
+      activeVmServices.values.map((vmService) => vmService.dispose()),
+    );
+    debugAwaitVmServiceDisposal ? await future : unawaited(future);
+
+    activeVmServices.clear();
+  }
+
+  @visibleForTesting
+  Future<void> updateActiveVmServices() async {
+    final dtd = _dtd;
+    if (dtd == null) return;
+
+    // TODO: in the future, get the active VM service URIs from DTD directly
+    // instead of from the `Editor.getDebugSessions` service method.
+    if (!_getDebugSessionsReady) {
+      // Give it a chance to get ready.
+      await Future<void>.delayed(const Duration(seconds: 1));
+      if (!_getDebugSessionsReady) return;
+    }
+
+    final response = await dtd.getDebugSessions();
+    final debugSessions = response.debugSessions;
+    for (final debugSession in debugSessions) {
+      if (activeVmServices.containsKey(debugSession.vmServiceUri)) {
+        continue;
+      }
+      final vmService = await vmServiceConnectUri(debugSession.vmServiceUri);
+      activeVmServices[debugSession.vmServiceUri] = vmService;
+      unawaited(
+        vmService.onDone.then((_) {
+          activeVmServices.remove(debugSession.vmServiceUri);
+          vmService.dispose();
+        }),
+      );
+    }
   }
 
   @override
@@ -44,6 +96,12 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
     registerTool(getWidgetTreeTool, widgetTree);
 
     return super.initialize(request);
+  }
+
+  @override
+  Future<void> shutdown() async {
+    await _resetDtd();
+    await super.shutdown();
   }
 
   /// Connects to the Dart Tooling Daemon.
@@ -65,7 +123,7 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
       _dtd = await DartToolingDaemon.connect(
         Uri.parse(request.arguments!['uri'] as String),
       );
-      unawaited(_dtd!.done.then((_) => _resetDtd()));
+      unawaited(_dtd!.done.then((_) async => await _resetDtd()));
 
       _listenForServices();
       return CallToolResult(
@@ -151,62 +209,66 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
   Future<CallToolResult> hotReload(CallToolRequest request) async {
     return _callOnVmService(
       callback: (vmService) async {
-        final vm = await vmService.getVM();
+        StreamSubscription<Event>? serviceStreamSubscription;
+        try {
+          final hotReloadMethodNameCompleter = Completer<String?>();
+          serviceStreamSubscription = vmService
+              .onEvent(EventStreams.kService)
+              .listen((Event e) {
+                if (e.kind == EventKind.kServiceRegistered) {
+                  final serviceName = e.service!;
+                  if (serviceName == 'reloadSources') {
+                    // This may look something like 's0.reloadSources'.
+                    hotReloadMethodNameCompleter.complete(e.method);
+                  }
+                }
+              });
 
-        final hotReloadMethodNameCompleter = Completer<String?>();
-        vmService.onEvent(EventStreams.kService).listen((Event e) {
-          if (e.kind == EventKind.kServiceRegistered) {
-            final serviceName = e.service!;
-            if (serviceName == 'reloadSources') {
-              // This may look something like 's0.reloadSources'.
-              hotReloadMethodNameCompleter.complete(e.method);
-            }
-          }
-        });
-        await vmService.streamListen(EventStreams.kService);
-        final hotReloadMethodName = await hotReloadMethodNameCompleter.future
-            .timeout(
-              const Duration(milliseconds: 1000),
-              onTimeout: () async {
-                return null;
-              },
+          await vmService.streamListen(EventStreams.kService);
+
+          final hotReloadMethodName = await hotReloadMethodNameCompleter.future
+              .timeout(
+                const Duration(milliseconds: 1000),
+                onTimeout: () async {
+                  return null;
+                },
+              );
+          if (hotReloadMethodName == null) {
+            return CallToolResult(
+              isError: true,
+              content: [
+                TextContent(
+                  text:
+                      'The hot reload service has not been registered yet. '
+                      'Please wait a few seconds and try again.',
+                ),
+              ],
             );
-        await vmService.streamCancel(EventStreams.kService);
+          }
 
-        if (hotReloadMethodName == null) {
-          return CallToolResult(
-            isError: true,
-            content: [
-              TextContent(
-                text:
-                    'The hot reload service has not been registered yet, '
-                    'please wait a few seconds and try again.',
-              ),
-            ],
+          final vm = await vmService.getVM();
+          final result = await vmService.callMethod(
+            hotReloadMethodName,
+            isolateId: vm.isolates!.first.id,
           );
-        }
-
-        final result = await vmService.callMethod(
-          hotReloadMethodName,
-          isolateId: vm.isolates!.first.id,
-        );
-        final resultType = result.json?['type'];
-        if (resultType == 'Success' ||
-            (resultType == 'ReloadReport' && result.json?['success'] == true)) {
-          return CallToolResult(
-            content: [TextContent(text: 'Hot reload succeeded.')],
-          );
-        } else {
-          return CallToolResult(
-            isError: true,
-            content: [
-              TextContent(
-                text:
-                    'Hot reload failed:\n'
-                    '${result.json}',
-              ),
-            ],
-          );
+          final resultType = result.json?['type'];
+          if (resultType == 'Success' ||
+              (resultType == 'ReloadReport' &&
+                  result.json?['success'] == true)) {
+            return CallToolResult(
+              content: [TextContent(text: 'Hot reload succeeded.')],
+            );
+          } else {
+            return CallToolResult(
+              isError: true,
+              content: [
+                TextContent(text: 'Hot reload failed:\n${result.json}'),
+              ],
+            );
+          }
+        } finally {
+          await serviceStreamSubscription?.cancel();
+          await vmService.streamCancel(EventStreams.kService);
         }
       },
     );
@@ -355,19 +417,12 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
       if (!_getDebugSessionsReady) return _dtdNotReady;
     }
 
-    final response = await dtd.getDebugSessions();
-    final debugSessions = response.debugSessions;
-    if (debugSessions.isEmpty) return _noActiveDebugSession;
+    await updateActiveVmServices();
+    if (activeVmServices.isEmpty) return _noActiveDebugSession;
 
-    // TODO: Consider holding on to this connection.
-    final vmService = await vmServiceConnectUri(
-      debugSessions.first.vmServiceUri,
-    );
-    try {
-      return await callback(vmService);
-    } finally {
-      unawaited(vmService.dispose());
-    }
+    // TODO: support selecting a VM Service if more than one are available.
+    final vmService = activeVmServices.values.first;
+    return await callback(vmService);
   }
 
   @visibleForTesting

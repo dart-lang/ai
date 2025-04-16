@@ -3,6 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:io';
+import 'dart:isolate';
 
 import 'package:async/async.dart';
 import 'package:dart_mcp/server.dart';
@@ -133,6 +135,35 @@ void main() {
     /// complete.
     await environment.shutdown();
   });
+
+  test('Resource templates can be listed and queried', () async {
+    final environment = TestEnvironment(
+      TestMCPClient(),
+      (c) => TestMCPServerWithResources(channel: c),
+    );
+    await environment.initializeServer();
+
+    final serverConnection = environment.serverConnection;
+
+    final templatesResponse = await serverConnection.listResourceTemplates(
+      ListResourceTemplatesRequest(),
+    );
+
+    expect(
+      templatesResponse.resourceTemplates.single,
+      TestMCPServerWithResources.packageUriTemplate,
+    );
+
+    final readResourceResponse = await serverConnection.readResource(
+      ReadResourceRequest(uri: 'package:test/test.dart'),
+    );
+    expect(
+      (readResourceResponse.contents.single as TextResourceContents).text,
+      await File.fromUri(
+        (await Isolate.resolvePackageUri(Uri.parse('package:test/test.dart')))!,
+      ).readAsString(),
+    );
+  });
 }
 
 final class TestMCPServerWithResources extends TestMCPServer
@@ -149,8 +180,34 @@ final class TestMCPServerWithResources extends TestMCPServer
         ],
       ),
     );
+    addResourceTemplate(packageUriTemplate, _readPackageResource);
     return super.initialize(request);
   }
 
+  Future<ReadResourceResult?> _readPackageResource(
+    ReadResourceRequest request,
+  ) async {
+    if (!request.uri.startsWith('package:')) return null;
+    if (!request.uri.endsWith('.dart')) {
+      throw UnsupportedError('Only dart files can be read');
+    }
+    final resolvedUri =
+        (await Isolate.resolvePackageUri(Uri.parse(request.uri)))!;
+
+    return ReadResourceResult(
+      contents: [
+        TextResourceContents(
+          uri: request.uri,
+          text: await File.fromUri(resolvedUri).readAsString(),
+        ),
+      ],
+    );
+  }
+
   static final helloWorld = Resource(name: 'hello world', uri: 'hello://world');
+
+  static final packageUriTemplate = ResourceTemplate(
+    uriTemplate: 'package:{package}/{library}',
+    name: 'Dart package resource',
+  );
 }

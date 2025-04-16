@@ -44,6 +44,9 @@ base mixin DartCliSupport on ToolsSupport, LoggingSupport {
   }
 
   /// Helper to run a dart command in multiple project roots.
+  ///
+  /// [defaultPaths] may be specified if one or more path arguments are required
+  /// for the dart command (e.g. `dart format <default paths>`).
   Future<CallToolResult> _runDartCommandInRoots(
     CallToolRequest request,
     String commandName,
