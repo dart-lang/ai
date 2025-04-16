@@ -99,8 +99,8 @@ Both the `MCPServer` and `MCPClient` support these.
 This table describes the supported
 [transport mechanisms](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports).
 
-At its core this package is just build on streams, so any transport mechanism
-can be used, but some are supported out of the box.
+At its core this package is just built on streams, so any transport mechanism
+can be used, but some are directly supported out of the box.
 
 | Transport | Support | Notes |
 | --- | --- | --- |
