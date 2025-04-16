@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dart_mcp/server.dart';
 import 'package:dds_service_extensions/dds_service_extensions.dart';
@@ -39,10 +40,24 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
   @visibleForTesting
   static bool debugAwaitVmServiceDisposal = false;
 
+  /// The id for the object group used when calling Flutter Widget
+  /// Inspector service extensions from DTD tools.
+  @visibleForTesting
+  static const inspectorObjectGroup = 'dart-tooling-mcp-server';
+
+  /// The prefix for Flutter Widget Inspector service extensions.
+  ///
+  /// See https://github.com/flutter/flutter/blob/master/packages/flutter/lib/src/widgets/service_extensions.dart#L126
+  /// for full list of available Flutter Widget Inspector service extensions.
+  static const _inspectorServiceExtensionPrefix = 'ext.flutter.inspector';
+
   /// Called when the DTD connection is lost, resets all associated state.
   Future<void> _resetDtd() async {
     _dtd = null;
     _getDebugSessionsReady = false;
+
+    // TODO: determine whether we need to dispose the [inspectorObjectGroup] on
+    // the Flutter Widget Inspector for each VM service instance.
 
     final future = Future.wait(
       activeVmServices.values.map((vmService) => vmService.dispose()),
@@ -94,6 +109,7 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
     registerTool(screenshotTool, takeScreenshot);
     registerTool(hotReloadTool, hotReload);
     registerTool(getWidgetTreeTool, widgetTree);
+    registerTool(getSelectedWidgetTool, selectedWidget);
 
     return super.initialize(request);
   }
@@ -357,14 +373,12 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
       callback: (vmService) async {
         final vm = await vmService.getVM();
         final isolateId = vm.isolates!.first.id;
-        final groupId = 'dart-tooling-mcp-server';
-        const inspectorExtensionPrefix = 'ext.flutter.inspector';
         try {
           final result = await vmService.callServiceExtension(
-            '$inspectorExtensionPrefix.getRootWidgetTree',
+            '$_inspectorServiceExtensionPrefix.getRootWidgetTree',
             isolateId: isolateId,
             args: {
-              'groupName': groupId,
+              'groupName': inspectorObjectGroup,
               // TODO: consider making these configurable or using defaults that
               // are better for the LLM.
               'isSummaryTree': 'true',
@@ -384,7 +398,7 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
               ],
             );
           }
-          return CallToolResult(content: [TextContent(text: tree.toString())]);
+          return CallToolResult(content: [TextContent(text: jsonEncode(tree))]);
         } catch (e) {
           return CallToolResult(
             isError: true,
@@ -394,11 +408,43 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
               ),
             ],
           );
-        } finally {
-          await vmService.callServiceExtension(
-            '$inspectorExtensionPrefix.disposeGroup',
+        }
+      },
+    );
+  }
+
+  /// Retrieves the selected widget from the currently running app.
+  ///
+  /// If more than one debug session is active, then it just uses the first one.
+  // TODO: support passing a debug session id when there is more than one debug
+  // session.
+  Future<CallToolResult> selectedWidget(CallToolRequest request) async {
+    return _callOnVmService(
+      callback: (vmService) async {
+        final vm = await vmService.getVM();
+        final isolateId = vm.isolates!.first.id;
+        try {
+          final result = await vmService.callServiceExtension(
+            '$_inspectorServiceExtensionPrefix.getSelectedSummaryWidget',
             isolateId: isolateId,
-            args: {'objectGroup': groupId},
+            args: {'objectGroup': inspectorObjectGroup},
+          );
+
+          final widget = result.json?['result'];
+          if (widget == null) {
+            return CallToolResult(
+              content: [
+                TextContent(text: 'No Widget selected: ${result.json}'),
+              ],
+            );
+          }
+          return CallToolResult(
+            content: [TextContent(text: widget.toString())],
+          );
+        } catch (e) {
+          return CallToolResult(
+            isError: true,
+            content: [TextContent(text: 'Failed to get selected widget: $e')],
           );
         }
       },
@@ -473,6 +519,15 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
     name: 'get_widget_tree',
     description:
         'Retrieves the widget tree from the active Flutter application. '
+        'Requires "${connectTool.name}" to be successfully called first.',
+    inputSchema: ObjectSchema(),
+  );
+
+  @visibleForTesting
+  static final getSelectedWidgetTool = Tool(
+    name: 'get_selected_widget',
+    description:
+        'Retrieves the selected widget from the active Flutter application. '
         'Requires "${connectTool.name}" to be successfully called first.',
     inputSchema: ObjectSchema(),
   );
