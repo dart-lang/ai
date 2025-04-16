@@ -434,7 +434,7 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
           if (widget == null) {
             return CallToolResult(
               content: [
-                TextContent(text: 'No Widget selected: ${result.json}'),
+                TextContent(text: 'No Widget selected.'),
               ],
             );
           }
