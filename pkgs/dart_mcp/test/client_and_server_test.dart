@@ -205,6 +205,48 @@ void main() {
     await environment.serverConnection.shutdown();
     expect(environment.client.connections, isEmpty);
   });
+
+  group('version negotiation', () {
+    test('server can downgrade the version', () async {
+      final environment = TestEnvironment(
+        TestMCPClient(),
+        (c) => TestOldMcpServer(channel: c),
+      );
+
+      final initializeResult = await environment.initializeServer();
+      expect(
+        initializeResult.protocolVersion,
+        ProtocolVersion.oldestSupportedVersion,
+      );
+    });
+
+    test('server can accept a lower version', () async {
+      final environment = TestEnvironment(
+        TestMCPClient(),
+        (c) => TestMCPServer(channel: c),
+      );
+      final initializeResult = await environment.initializeServer(
+        protocolVersion: ProtocolVersion.oldestSupportedVersion,
+      );
+      expect(
+        initializeResult.protocolVersion,
+        ProtocolVersion.oldestSupportedVersion,
+      );
+    });
+
+    test(
+      'client will shut down the server if version negotiation fails',
+      () async {
+        final environment = TestEnvironment(
+          TestMCPClient(),
+          (c) => TestUnrecognizedVersionMcpServer(channel: c),
+        );
+        await environment.initializeServer();
+        expect(environment.client.connections, isEmpty);
+        expect(environment.serverConnection.isActive, false);
+      },
+    );
+  });
 }
 
 final class InitializeProgressTestMCPServer extends TestMCPServer
@@ -243,3 +285,24 @@ final class InitializeProgressTestMCPServer extends TestMCPServer
 
 final class ListRootsProgressTestMCPClient extends TestMCPClient
     with RootsSupport {}
+
+final class TestOldMcpServer extends TestMCPServer {
+  TestOldMcpServer({required super.channel});
+
+  @override
+  Future<InitializeResult> initialize(InitializeRequest request) async {
+    return (await super.initialize(request))
+      ..protocolVersion = ProtocolVersion.oldestSupportedVersion;
+  }
+}
+
+final class TestUnrecognizedVersionMcpServer extends TestMCPServer {
+  TestUnrecognizedVersionMcpServer({required super.channel});
+
+  @override
+  Future<InitializeResult> initialize(InitializeRequest request) async {
+    final response = await super.initialize(request);
+    (response as Map<String, Object?>)['protocolVersion'] = 'fooBar';
+    return response;
+  }
+}

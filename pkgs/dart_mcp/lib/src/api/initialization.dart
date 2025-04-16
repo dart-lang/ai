@@ -62,6 +62,15 @@ extension type InitializeResult.fromMap(Map<String, Object?> _value)
   ProtocolVersion? get protocolVersion =>
       ProtocolVersion.tryParse(_value['protocolVersion'] as String);
 
+  /// Sets the protocol version, by default this is set for you, but you can
+  /// override it to a specific version if desired.
+  ///
+  /// While this API is typed as nullable, `null` is not an allowed value.
+  set protocolVersion(ProtocolVersion? value) {
+    assert(value != null);
+    _value['protocolVersion'] = value!.versionString;
+  }
+
   ServerCapabilities get capabilities =>
       _value['capabilities'] as ServerCapabilities;
 

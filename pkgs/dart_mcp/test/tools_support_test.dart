@@ -253,8 +253,16 @@ final class TestMCPServerWithTools extends TestMCPServer with ToolsSupport {
   }
 
   static final helloWorld = Tool(
-    name: 'hello world',
+    name: 'hello_world',
+    description: 'Says hello world!',
     inputSchema: ObjectSchema(),
+    annotations: ToolAnnotations(
+      destructiveHint: false,
+      idempotentHint: false,
+      readOnlyHint: true,
+      openWorldHint: false,
+      title: 'Hello World',
+    ),
   );
 
   static final helloWorldContent = TextContent(
