@@ -2,6 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+/// Note that all features here are only supported since version `2025-03-26`.
 part of 'api.dart';
 
 /// A request from the client to the server, to ask for completion options.

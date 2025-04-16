@@ -17,8 +17,15 @@ part 'roots.dart';
 part 'sampling.dart';
 part 'tools.dart';
 
-/// The current protocol version
-const protocolVersion = '2024-11-05';
+/// The latest supported protocol version, the API exposed here reflects this
+/// version but it is backwards compatible with all the versions in
+/// [supportedVersions].
+const protocolVersion = '2025-03-26';
+
+/// The supported protocol versions.
+///
+/// The APIs in this package are
+const supportedVersions = ['2025-03-26', '2024-11-05'];
 
 /// A progress token, used to associate progress notifications with the original
 /// request.
@@ -136,14 +143,16 @@ extension type ProgressNotification.fromMap(Map<String, Object?> _value)
 
   factory ProgressNotification({
     required ProgressToken progressToken,
-    required int progress,
-    int? total,
+    required num progress,
+    num? total,
     Meta? meta,
+    String? message,
   }) => ProgressNotification.fromMap({
     'progressToken': progressToken,
     'progress': progress,
     if (total != null) 'total': total,
     if (meta != null) '_meta': meta,
+    if (message != null) 'message': message,
   });
 
   /// The progress token which was given in the initial request, used to
@@ -154,11 +163,14 @@ extension type ProgressNotification.fromMap(Map<String, Object?> _value)
   ///
   /// This should increase every time progress is made, even if the total is
   /// unknown.
-  int get progress => _value['progress'] as int;
+  num get progress => _value['progress'] as num;
 
   /// Total number of items to process (or total progress required), if
   /// known.
-  int? get total => _value['total'] as int?;
+  num? get total => _value['total'] as num?;
+
+  /// An optional message describing the current progress.
+  String? get message => _value['message'] as String?;
 }
 
 /// A "mixin"-like extension type for any request that contains a [Cursor] at
@@ -188,7 +200,8 @@ extension type PaginatedResult._fromMap(Map<String, Object?> _value)
   Cursor? get nextCursor => _value['nextCursor'] as Cursor?;
 }
 
-/// Could be either [TextContent], [ImageContent] or [EmbeddedResource].
+/// Could be either [TextContent], [ImageContent], [AudioContent] or
+/// [EmbeddedResource].
 ///
 /// Use [isText], [isImage] and [isEmbeddedResource] before casting to the more
 /// specific types, or switch on the [type] and then cast.
@@ -201,11 +214,26 @@ extension type Content._(Map<String, Object?> _value) {
     return Content._(value);
   }
 
+  /// Alias for [TextContent.new].
+  static const text = TextContent.new;
+
+  /// Alias for [ImageContent.new].
+  static const image = ImageContent.new;
+
+  /// Alias for [AudioContent.new].
+  static const audio = AudioContent.new;
+
+  /// Alias for [EmbeddedResource.new].
+  static const embeddedResource = EmbeddedResource.new;
+
   /// Whether or not this is a [TextContent].
   bool get isText => _value['type'] == TextContent.expectedType;
 
-  /// Whether or not this is a [ImageContent].
+  /// Whether or not this is an [ImageContent].
   bool get isImage => _value['type'] == ImageContent.expectedType;
+
+  /// Whether or not this is an [AudioContent].
+  bool get isAudio => _value['type'] == AudioContent.expectedType;
 
   /// Whether or not this is an [EmbeddedResource].
   bool get isEmbeddedResource =>
@@ -214,12 +242,12 @@ extension type Content._(Map<String, Object?> _value) {
   /// The type of content.
   ///
   /// You can use this in a switch to handle the various types (see the static
-  /// `expectedType` getters), or you can use [isText], [isImage], and
+  /// `expectedType` getters), or you can use [isText], [isImage], [isAudio] and
   /// [isEmbeddedResource] to determine the type and then do the cast.
   String get type => _value['type'] as String;
 }
 
-/// Text provided to an LLM.
+/// Text provided to or from an LLM.
 extension type TextContent.fromMap(Map<String, Object?> _value)
     implements Content, Annotated {
   static const expectedType = 'text';
@@ -241,7 +269,7 @@ extension type TextContent.fromMap(Map<String, Object?> _value)
   String get text => _value['text'] as String;
 }
 
-/// An image provided to an LLM.
+/// An image provided to or from an LLM.
 extension type ImageContent.fromMap(Map<String, Object?> _value)
     implements Content, Annotated {
   static const expectedType = 'image';
@@ -263,11 +291,43 @@ extension type ImageContent.fromMap(Map<String, Object?> _value)
     return type;
   }
 
-  /// If the [type] is `image`, this is the base64 encoded image data.
+  /// The base64 encoded image data.
   String get data => _value['data'] as String;
 
-  /// If the [type] is `image`, the MIME type of the image. Different providers
-  /// may support different image types.
+  /// The MIME type of the image. Different providers may support different
+  /// image types.
+  String get mimeType => _value['mimeType'] as String;
+}
+
+/// Audio provided to or from an LLM.
+///
+/// Only supported since version `2025-03-26`.
+extension type AudioContent.fromMap(Map<String, Object?> _value)
+    implements Content, Annotated {
+  static const expectedType = 'audio';
+
+  factory AudioContent({
+    required String data,
+    required String mimeType,
+    Annotations? annotations,
+  }) => AudioContent.fromMap({
+    'data': data,
+    'mimeType': mimeType,
+    'type': expectedType,
+    if (annotations != null) 'annotations': annotations,
+  });
+
+  String get type {
+    final type = _value['type'] as String;
+    assert(type == expectedType);
+    return type;
+  }
+
+  /// The base64 encoded image data.
+  String get data => _value['data'] as String;
+
+  /// The MIME type of the audio. Different providers may support different
+  /// audio types.
   String get mimeType => _value['mimeType'] as String;
 }
 
