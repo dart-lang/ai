@@ -1,5 +1,7 @@
-## 0.1.1-wip
+## 0.2.0-wip
 
+- **Breaking**: Fixed paginated result subtypes to use `nextCursor` instead of
+  `cursor` as the key for the next cursor.
 - Save the `ServerCapabilities` object on the `ServerConnection` class to make
   it easier to check the capabilities of the server.
 

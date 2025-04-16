@@ -21,11 +21,11 @@ extension type ListToolsResult.fromMap(Map<String, Object?> _value)
     implements PaginatedResult {
   factory ListToolsResult({
     required List<Tool> tools,
-    Cursor? cursor,
+    Cursor? nextCursor,
     Meta? meta,
   }) => ListToolsResult.fromMap({
     'tools': tools,
-    if (cursor != null) 'cursor': cursor,
+    if (nextCursor != null) 'nextCursor': nextCursor,
     if (meta != null) '_meta': meta,
   });
 

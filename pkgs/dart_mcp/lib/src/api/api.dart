@@ -185,7 +185,7 @@ extension type PaginatedRequest._fromMap(Map<String, Object?> _value)
 /// constructor.
 extension type PaginatedResult._fromMap(Map<String, Object?> _value)
     implements Result {
-  Cursor? get cursor => _value['cursor'] as Cursor?;
+  Cursor? get nextCursor => _value['nextCursor'] as Cursor?;
 }
 
 /// Could be either [TextContent], [ImageContent] or [EmbeddedResource].
