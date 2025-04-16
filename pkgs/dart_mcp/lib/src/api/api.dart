@@ -41,7 +41,7 @@ enum ProtocolVersion {
   /// Whether or not this API is compatible with the current version.
   ///
   /// **Note**: There may be extra fields included.
-  bool get isSupported => this >= oldestSupported;
+  bool get isSupported => this >= oldestSupported && this <= latestSupported;
 
   bool operator <(ProtocolVersion other) => index < other.index;
   bool operator <=(ProtocolVersion other) => index <= other.index;
