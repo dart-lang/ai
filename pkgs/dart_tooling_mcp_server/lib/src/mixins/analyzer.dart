@@ -114,17 +114,26 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
     for (var rootPath in paths) {
       final watcher = DirectoryWatcher(rootPath);
       _watchSubscriptions.add(
-        watcher.events.listen((event) {
-          try {
-            _analysisContexts
-                ?.contextFor(event.path)
-                .changeFile(p.normalize(event.path));
-          } catch (_) {
-            // Fail gracefully.
-            // TODO(https://github.com/dart-lang/ai/issues/65): remove this
-            // catch if possible.
-          }
-        }),
+        watcher.events.listen(
+          (event) {
+            try {
+              _analysisContexts
+                  ?.contextFor(event.path)
+                  .changeFile(p.normalize(event.path));
+            } catch (_) {
+              // Fail gracefully.
+              // TODO(https://github.com/dart-lang/ai/issues/65): remove this
+              // catch if possible.
+            }
+          },
+          onError: (Object error, StackTrace stackTrace) {
+            // We can get spurious file system errors, likely based on race
+            // conditions. We can safely just ignore those.
+            if (error is FileSystemException) return;
+            // Re-throw all other errors.
+            throw error; // ignore: only_throw_errors
+          },
+        ),
       );
     }
 
