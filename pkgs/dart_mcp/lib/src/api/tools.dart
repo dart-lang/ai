@@ -106,8 +106,7 @@ extension type Tool.fromMap(Map<String, Object?> _value) {
     required String name,
     String? description,
     required ObjectSchema inputSchema,
-
-    /// Only supported since version [ProtocolVersion.v2025_03_26].
+    // Only supported since version `ProtocolVersion.v2025_03_26`.
     ToolAnnotations? annotations,
   }) => Tool.fromMap({
     'name': name,
