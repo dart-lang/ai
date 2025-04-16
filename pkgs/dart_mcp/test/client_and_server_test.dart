@@ -246,6 +246,47 @@ void main() {
         expect(environment.serverConnection.isActive, false);
       },
     );
+
+    test('protocol versions can be compared', () {
+      expect(
+        ProtocolVersion.latest > ProtocolVersion.oldestSupportedVersion,
+        true,
+      );
+      expect(
+        ProtocolVersion.latest >= ProtocolVersion.oldestSupportedVersion,
+        true,
+      );
+      expect(
+        ProtocolVersion.latest < ProtocolVersion.oldestSupportedVersion,
+        false,
+      );
+      expect(
+        ProtocolVersion.latest <= ProtocolVersion.oldestSupportedVersion,
+        false,
+      );
+
+      expect(
+        ProtocolVersion.oldestSupportedVersion > ProtocolVersion.latest,
+        false,
+      );
+      expect(
+        ProtocolVersion.oldestSupportedVersion >= ProtocolVersion.latest,
+        false,
+      );
+      expect(
+        ProtocolVersion.oldestSupportedVersion < ProtocolVersion.latest,
+        true,
+      );
+      expect(
+        ProtocolVersion.oldestSupportedVersion <= ProtocolVersion.latest,
+        true,
+      );
+
+      expect(ProtocolVersion.latest <= ProtocolVersion.latest, true);
+      expect(ProtocolVersion.latest >= ProtocolVersion.latest, true);
+      expect(ProtocolVersion.latest < ProtocolVersion.latest, false);
+      expect(ProtocolVersion.latest > ProtocolVersion.latest, false);
+    });
   });
 }
 

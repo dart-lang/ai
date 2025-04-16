@@ -6,11 +6,19 @@
   - Adds support for `ProgressNotification` messages.
 - Save the `ServerCapabilities` object on the `ServerConnection` class to make
   it easier to check the capabilities of the server.
+- Add default version negotiation logic.
+  - Save the negotiated `ProtocolVersion` in a `protocolVersion` field for both
+    `MCPServer` and the `ServerConnection` classes.
+  - Automatically disconnect from servers if version negotiation fails.
 - **Breaking**: Fixed paginated result subtypes to use `nextCursor` instead of
   `cursor` as the key for the next cursor.
 - **Breaking**: Change the `ProgressNotification.progress` and
   `ProgressNotification.total` types to `num` instead of `int` to align with the
   spec.
+- **Breaking**: Change the `protocolVersion` string to a `ProtocolVersion` enum,
+  which has all supported versions and whether or not they are supported.
+- **Breaking**: Change `InitializeRequest` and `InitializeResult` to take a
+  `ProtocolVersion` instead of a string.
 
 ## 0.1.0
 
