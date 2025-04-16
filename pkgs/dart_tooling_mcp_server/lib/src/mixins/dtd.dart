@@ -439,7 +439,7 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
             );
           }
           return CallToolResult(
-            content: [TextContent(text: widget.toString())],
+            content: [TextContent(text: jsonEncode(widget))],
           );
         } catch (e) {
           return CallToolResult(
