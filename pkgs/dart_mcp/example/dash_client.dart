@@ -224,15 +224,16 @@ final class DashClient extends MCPClient with RootsSupport {
     for (var connection in serverConnections) {
       final result = await connection.initialize(
         InitializeRequest(
-          protocolVersion: ProtocolVersion.latest,
+          protocolVersion: ProtocolVersion.latestSupported,
           capabilities: capabilities,
           clientInfo: implementation,
         ),
       );
-      if (result.protocolVersion != ProtocolVersion.latest) {
+      if (result.protocolVersion != ProtocolVersion.latestSupported) {
         print(
-          'Protocol version mismatch, expected ${ProtocolVersion.latest}, '
-          'got ${result.protocolVersion}, disconnecting from server',
+          'Protocol version mismatch, expected '
+          '${ProtocolVersion.latestSupported}, got ${result.protocolVersion}, '
+          'disconnecting from server',
         );
         await connection.shutdown();
         serverConnections.remove(connection);

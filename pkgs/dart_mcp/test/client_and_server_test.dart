@@ -23,7 +23,7 @@ void main() {
 
     expect(initializeResult.capabilities, isEmpty);
     expect(initializeResult.instructions, environment.server.instructions);
-    expect(initializeResult.protocolVersion, ProtocolVersion.latest);
+    expect(initializeResult.protocolVersion, ProtocolVersion.latestSupported);
 
     expect(
       environment.serverConnection.listTools(ListToolsRequest()),
@@ -214,10 +214,7 @@ void main() {
       );
 
       final initializeResult = await environment.initializeServer();
-      expect(
-        initializeResult.protocolVersion,
-        ProtocolVersion.oldestSupportedVersion,
-      );
+      expect(initializeResult.protocolVersion, ProtocolVersion.oldestSupported);
     });
 
     test('server can accept a lower version', () async {
@@ -226,12 +223,9 @@ void main() {
         (c) => TestMCPServer(channel: c),
       );
       final initializeResult = await environment.initializeServer(
-        protocolVersion: ProtocolVersion.oldestSupportedVersion,
+        protocolVersion: ProtocolVersion.oldestSupported,
       );
-      expect(
-        initializeResult.protocolVersion,
-        ProtocolVersion.oldestSupportedVersion,
-      );
+      expect(initializeResult.protocolVersion, ProtocolVersion.oldestSupported);
     });
 
     test(
@@ -292,7 +286,7 @@ final class TestOldMcpServer extends TestMCPServer {
   @override
   Future<InitializeResult> initialize(InitializeRequest request) async {
     return (await super.initialize(request))
-      ..protocolVersion = ProtocolVersion.oldestSupportedVersion;
+      ..protocolVersion = ProtocolVersion.oldestSupported;
   }
 }
 

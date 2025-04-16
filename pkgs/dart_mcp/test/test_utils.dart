@@ -48,7 +48,7 @@ class TestEnvironment<Client extends MCPClient, Server extends MCPServer> {
   /// notification, then returns the original [InitializeResult] for tests
   /// to inspect if desired.
   Future<InitializeResult> initializeServer({
-    ProtocolVersion protocolVersion = ProtocolVersion.latest,
+    ProtocolVersion protocolVersion = ProtocolVersion.latestSupported,
   }) async {
     final initializeResult = await serverConnection.initialize(
       InitializeRequest(

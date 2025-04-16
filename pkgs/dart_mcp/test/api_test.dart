@@ -8,42 +8,54 @@ import 'package:test/test.dart';
 void main() {
   test('protocol versions can be compared', () {
     expect(
-      ProtocolVersion.latest > ProtocolVersion.oldestSupportedVersion,
+      ProtocolVersion.latestSupported > ProtocolVersion.oldestSupported,
       true,
     );
     expect(
-      ProtocolVersion.latest >= ProtocolVersion.oldestSupportedVersion,
+      ProtocolVersion.latestSupported >= ProtocolVersion.oldestSupported,
       true,
     );
     expect(
-      ProtocolVersion.latest < ProtocolVersion.oldestSupportedVersion,
+      ProtocolVersion.latestSupported < ProtocolVersion.oldestSupported,
       false,
     );
     expect(
-      ProtocolVersion.latest <= ProtocolVersion.oldestSupportedVersion,
+      ProtocolVersion.latestSupported <= ProtocolVersion.oldestSupported,
       false,
     );
 
     expect(
-      ProtocolVersion.oldestSupportedVersion > ProtocolVersion.latest,
+      ProtocolVersion.oldestSupported > ProtocolVersion.latestSupported,
       false,
     );
     expect(
-      ProtocolVersion.oldestSupportedVersion >= ProtocolVersion.latest,
+      ProtocolVersion.oldestSupported >= ProtocolVersion.latestSupported,
       false,
     );
     expect(
-      ProtocolVersion.oldestSupportedVersion < ProtocolVersion.latest,
+      ProtocolVersion.oldestSupported < ProtocolVersion.latestSupported,
       true,
     );
     expect(
-      ProtocolVersion.oldestSupportedVersion <= ProtocolVersion.latest,
+      ProtocolVersion.oldestSupported <= ProtocolVersion.latestSupported,
       true,
     );
 
-    expect(ProtocolVersion.latest <= ProtocolVersion.latest, true);
-    expect(ProtocolVersion.latest >= ProtocolVersion.latest, true);
-    expect(ProtocolVersion.latest < ProtocolVersion.latest, false);
-    expect(ProtocolVersion.latest > ProtocolVersion.latest, false);
+    expect(
+      ProtocolVersion.latestSupported <= ProtocolVersion.latestSupported,
+      true,
+    );
+    expect(
+      ProtocolVersion.latestSupported >= ProtocolVersion.latestSupported,
+      true,
+    );
+    expect(
+      ProtocolVersion.latestSupported < ProtocolVersion.latestSupported,
+      false,
+    );
+    expect(
+      ProtocolVersion.latestSupported > ProtocolVersion.latestSupported,
+      false,
+    );
   });
 }

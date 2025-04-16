@@ -87,7 +87,7 @@ abstract base class MCPServer extends MCPBase {
     // terminate the connection.
     final clientProtocolVersion = request.protocolVersion;
     if (clientProtocolVersion == null || !clientProtocolVersion.isSupported) {
-      protocolVersion = ProtocolVersion.latest;
+      protocolVersion = ProtocolVersion.latestSupported;
     } else {
       protocolVersion = clientProtocolVersion;
     }

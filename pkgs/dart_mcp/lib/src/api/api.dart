@@ -30,10 +30,10 @@ enum ProtocolVersion {
       values.firstWhereOrNull((v) => v.versionString == version);
 
   /// The oldest version supported by the current API.
-  static const oldestSupportedVersion = ProtocolVersion.v2024_11_05;
+  static const oldestSupported = ProtocolVersion.v2024_11_05;
 
   /// The most recent version supported by the current API.
-  static const latest = ProtocolVersion.v2025_03_26;
+  static const latestSupported = ProtocolVersion.v2025_03_26;
 
   /// The version string used over the wire to identify this version.
   final String versionString;
@@ -41,7 +41,7 @@ enum ProtocolVersion {
   /// Whether or not this API is compatible with the current version.
   ///
   /// **Note**: There may be extra fields included.
-  bool get isSupported => this >= oldestSupportedVersion;
+  bool get isSupported => this >= oldestSupported;
 
   bool operator <(ProtocolVersion other) => index < other.index;
   bool operator <=(ProtocolVersion other) => index <= other.index;
@@ -316,8 +316,9 @@ extension type ImageContent.fromMap(Map<String, Object?> _value)
   /// The base64 encoded image data.
   String get data => _value['data'] as String;
 
-  /// The MIME type of the image. Different providers may support different
-  /// image types.
+  /// The MIME type of the image.
+  ///
+  /// Different providers may support different image types.
   String get mimeType => _value['mimeType'] as String;
 }
 
@@ -345,11 +346,12 @@ extension type AudioContent.fromMap(Map<String, Object?> _value)
     return type;
   }
 
-  /// The base64 encoded image data.
+  /// The base64 encoded audio data.
   String get data => _value['data'] as String;
 
-  /// The MIME type of the audio. Different providers may support different
-  /// audio types.
+  /// The MIME type of the audio.
+  ///
+  /// Different providers may support different audio types.
   String get mimeType => _value['mimeType'] as String;
 }
 

@@ -114,7 +114,7 @@ creating batch requests at this time.
 
 ## Authorization
 
-Authorization is not supported at this time, this package is primarily targeted
+Authorization is not supported at this time. This package is primarily targeted
 at local MCP server usage for now.
 
 ## Server Capabilities
