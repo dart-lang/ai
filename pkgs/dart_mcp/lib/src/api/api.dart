@@ -17,15 +17,37 @@ part 'roots.dart';
 part 'sampling.dart';
 part 'tools.dart';
 
-/// The latest supported protocol version, the API exposed here reflects this
-/// version but it is backwards compatible with all the versions in
-/// [supportedVersions].
-const protocolVersion = '2025-03-26';
+/// Enum of the known protocol versions.
+enum ProtocolVersion {
+  v2024_11_05('2024-11-05'),
+  v2025_03_26('2025-03-26');
 
-/// The supported protocol versions.
-///
-/// The APIs in this package are
-const supportedVersions = ['2025-03-26', '2024-11-05'];
+  const ProtocolVersion(this.versionString);
+
+  /// Returns the [ProtocolVersion] based on the [version] string, or `null` if
+  /// it was not recognized.
+  static ProtocolVersion? tryParse(String version) =>
+      values.firstWhereOrNull((v) => v.versionString == version);
+
+  /// The oldest version supported by the current API.
+  static const oldestSupportedVersion = ProtocolVersion.v2024_11_05;
+
+  /// The most recent version supported by the current API.
+  static const latest = ProtocolVersion.v2025_03_26;
+
+  /// The version string used over the wire to identify this version.
+  final String versionString;
+
+  /// Whether or not this API is compatible with the current version.
+  ///
+  /// **Note**: There may be extra fields included.
+  bool get isSupported => this >= oldestSupportedVersion;
+
+  bool operator <(ProtocolVersion other) => index < other.index;
+  bool operator <=(ProtocolVersion other) => index <= other.index;
+  bool operator >(ProtocolVersion other) => index > other.index;
+  bool operator >=(ProtocolVersion other) => index >= other.index;
+}
 
 /// A progress token, used to associate progress notifications with the original
 /// request.
@@ -301,7 +323,7 @@ extension type ImageContent.fromMap(Map<String, Object?> _value)
 
 /// Audio provided to or from an LLM.
 ///
-/// Only supported since version `2025-03-26`.
+/// Only supported since version [ProtocolVersion.v2025_03_26].
 extension type AudioContent.fromMap(Map<String, Object?> _value)
     implements Content, Annotated {
   static const expectedType = 'audio';

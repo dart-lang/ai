@@ -107,6 +107,12 @@ base class MCPClient {
 
 /// An active server connection.
 base class ServerConnection extends MCPBase {
+  /// The version of the protocol that was negotiated during intialization.
+  ///
+  /// Some APIs may error if you attempt to use them without first checking the
+  /// protocol version.
+  late ProtocolVersion protocolVersion;
+
   /// The [ServerImplementation] returned from the [initialize] request.
   ///
   /// Only assigned after [initialize] has successfully completed.
@@ -246,6 +252,10 @@ base class ServerConnection extends MCPBase {
     );
     serverInfo = response.serverInfo;
     serverCapabilities = response.capabilities;
+    final serverVersion = response.protocolVersion;
+    if (serverVersion?.isSupported != true) {
+      await shutdown();
+    }
     return response;
   }
 
@@ -296,6 +306,8 @@ base class ServerConnection extends MCPBase {
   /// Clients should debounce their calls to this API to avoid overloading the
   /// server.
   ///
+  /// You should check the [protocolVersion] before using this API, it must be
+  /// >= [ProtocolVersion.v2025_03_26].
   // TODO: Implement automatic debouncing.
   Future<CompleteResult> requestCompletions(CompleteRequest request) =>
       sendRequest(CompleteRequest.methodName, request);

@@ -18,15 +18,15 @@ void main() async {
   print('initializing server');
   final initializeResult = await server.initialize(
     InitializeRequest(
-      protocolVersion: protocolVersion,
+      protocolVersion: ProtocolVersion.latest,
       capabilities: client.capabilities,
       clientInfo: client.implementation,
     ),
   );
   print('initialized: $initializeResult');
-  if (initializeResult.protocolVersion != protocolVersion) {
+  if (initializeResult.protocolVersion != ProtocolVersion.latest) {
     throw StateError(
-      'Protocol version mismatch, expected $protocolVersion, '
+      'Protocol version mismatch, expected ${ProtocolVersion.latest}, '
       'got ${initializeResult.protocolVersion}',
     );
   }

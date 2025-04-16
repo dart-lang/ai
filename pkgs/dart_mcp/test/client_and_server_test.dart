@@ -23,7 +23,7 @@ void main() {
 
     expect(initializeResult.capabilities, isEmpty);
     expect(initializeResult.instructions, environment.server.instructions);
-    expect(initializeResult.protocolVersion, protocolVersion);
+    expect(initializeResult.protocolVersion, ProtocolVersion.latest);
 
     expect(
       environment.serverConnection.listTools(ListToolsRequest()),

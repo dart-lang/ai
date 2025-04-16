@@ -337,12 +337,12 @@ Future<ServerConnection> _initializeMCPServer(
 
   final initializeResult = await connection.initialize(
     InitializeRequest(
-      protocolVersion: protocolVersion,
+      protocolVersion: ProtocolVersion.latest,
       capabilities: client.capabilities,
       clientInfo: client.implementation,
     ),
   );
-  expect(initializeResult.protocolVersion, protocolVersion);
+  expect(initializeResult.protocolVersion, ProtocolVersion.latest);
   connection.notifyInitialized(InitializedNotification());
   return connection;
 }

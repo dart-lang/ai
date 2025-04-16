@@ -107,7 +107,7 @@ extension type Tool.fromMap(Map<String, Object?> _value) {
     String? description,
     required ObjectSchema inputSchema,
 
-    /// Only supported since version `2025-03-26`.
+    /// Only supported since version [ProtocolVersion.v2025_03_26].
     ToolAnnotations? annotations,
   }) => Tool.fromMap({
     'name': name,
@@ -118,7 +118,7 @@ extension type Tool.fromMap(Map<String, Object?> _value) {
 
   /// Optional additional tool information.
   ///
-  /// Only supported since version `2025-03-26`.
+  /// Only supported since version [ProtocolVersion.v2025_03_26].
   ToolAnnotations? get toolAnnotations =>
       (_value['annotations'] as Map?)?.cast<String, Object?>()
           as ToolAnnotations?;

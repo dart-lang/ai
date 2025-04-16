@@ -50,7 +50,7 @@ class TestEnvironment<Client extends MCPClient, Server extends MCPServer> {
   Future<InitializeResult> initializeServer() async {
     final initializeResult = await serverConnection.initialize(
       InitializeRequest(
-        protocolVersion: protocolVersion,
+        protocolVersion: ProtocolVersion.latest,
         capabilities: client.capabilities,
         clientInfo: client.implementation,
       ),
