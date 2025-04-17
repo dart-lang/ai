@@ -21,11 +21,11 @@ extension type ListToolsResult.fromMap(Map<String, Object?> _value)
     implements PaginatedResult {
   factory ListToolsResult({
     required List<Tool> tools,
-    Cursor? cursor,
+    Cursor? nextCursor,
     Meta? meta,
   }) => ListToolsResult.fromMap({
     'tools': tools,
-    if (cursor != null) 'cursor': cursor,
+    if (nextCursor != null) 'nextCursor': nextCursor,
     if (meta != null) '_meta': meta,
   });
 
@@ -106,11 +106,21 @@ extension type Tool.fromMap(Map<String, Object?> _value) {
     required String name,
     String? description,
     required ObjectSchema inputSchema,
+    // Only supported since version `ProtocolVersion.v2025_03_26`.
+    ToolAnnotations? annotations,
   }) => Tool.fromMap({
     'name': name,
     if (description != null) 'description': description,
     'inputSchema': inputSchema,
+    if (annotations != null) 'annotations': annotations,
   });
+
+  /// Optional additional tool information.
+  ///
+  /// Only supported since version [ProtocolVersion.v2025_03_26].
+  ToolAnnotations? get toolAnnotations =>
+      (_value['annotations'] as Map?)?.cast<String, Object?>()
+          as ToolAnnotations?;
 
   /// The name of the tool.
   String get name => _value['name'] as String;
@@ -121,6 +131,55 @@ extension type Tool.fromMap(Map<String, Object?> _value) {
   /// A JSON [ObjectSchema] object defining the expected parameters for the
   /// tool.
   ObjectSchema get inputSchema => _value['inputSchema'] as ObjectSchema;
+}
+
+/// Additional properties describing a Tool to clients.
+///
+/// NOTE: all properties in ToolAnnotations are **hints**. They are not
+/// guaranteed to provide a faithful description of tool behavior (including
+/// descriptive properties like `title`).
+///
+/// Clients should never make tool use decisions based on ToolAnnotations
+/// received from untrusted servers.
+extension type ToolAnnotations.fromMap(Map<String, Object?> _value) {
+  factory ToolAnnotations({
+    bool? destructiveHint,
+    bool? idempotentHint,
+    bool? openWorldHint,
+    bool? readOnlyHint,
+    String? title,
+  }) => ToolAnnotations.fromMap({
+    if (destructiveHint != null) 'destructiveHint': destructiveHint,
+    if (idempotentHint != null) 'idempotentHint': idempotentHint,
+    if (openWorldHint != null) 'openWorldHint': openWorldHint,
+    if (readOnlyHint != null) 'readOnlyHint': readOnlyHint,
+    if (title != null) 'title': title,
+  });
+
+  /// If true, the tool may perform destructive updates to its environment.
+  ///
+  /// If false, the tool performs only additive updates.
+  ///
+  /// (This property is meaningful only when `readOnlyHint == false`)
+  bool? get destructiveHint => _value['destructiveHint'] as bool?;
+
+  /// If true, calling the tool repeatedly with the same arguments will have no
+  /// additional effect on the its environment.
+  ///
+  /// (This property is meaningful only when `readOnlyHint == false`)
+  bool? get idempotentHint => _value['idempotentHint'] as bool?;
+
+  /// If true, this tool may interact with an "open world" of external entities.
+  ///
+  /// If false, the tool's domain of interaction is closed. For example, the
+  /// world of a web search tool is open, whereas that of a memory tool is not.
+  bool? get openWorldHint => _value['openWorldHint'] as bool?;
+
+  /// If true, the tool does not modify its environment.
+  bool? get readOnlyHint => _value['readOnlyHint'] as bool?;
+
+  /// A human-readable title for the tool.
+  String? get title => _value['title'] as String?;
 }
 
 /// The valid types for properties in a JSON-RCP2 schema.

@@ -21,11 +21,11 @@ extension type ListResourcesResult.fromMap(Map<String, Object?> _value)
     implements PaginatedResult {
   factory ListResourcesResult({
     required List<Resource> resources,
-    Cursor? cursor,
+    Cursor? nextCursor,
     Meta? meta,
   }) => ListResourcesResult.fromMap({
     'resources': resources,
-    if (cursor != null) 'cursor': cursor,
+    if (nextCursor != null) 'nextCursor': nextCursor,
     if (meta != null) '_meta': meta,
   });
 
@@ -53,11 +53,11 @@ extension type ListResourceTemplatesResult.fromMap(Map<String, Object?> _value)
     implements PaginatedResult {
   factory ListResourceTemplatesResult({
     required List<ResourceTemplate> resourceTemplates,
-    Cursor? cursor,
+    Cursor? nextCursor,
     Meta? meta,
   }) => ListResourceTemplatesResult.fromMap({
     'resourceTemplates': resourceTemplates,
-    if (cursor != null) 'cursor': cursor,
+    if (nextCursor != null) 'nextCursor': nextCursor,
     if (meta != null) '_meta': meta,
   });
 

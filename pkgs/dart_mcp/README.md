@@ -94,6 +94,29 @@ Both the `MCPServer` and `MCPClient` support these.
 | [Cancellation](https://spec.modelcontextprotocol.io/specification/2024-11-05/basic/utilities/cancellation/) | :x: | https://github.com/dart-lang/ai/issues/37 |
 | [Progress](https://spec.modelcontextprotocol.io/specification/2024-11-05/basic/utilities/progress/) | :heavy_check_mark: |  |
 
+## Transport Mechanisms
+
+This table describes the supported
+[transport mechanisms](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports).
+
+At its core this package is just built on streams, so any transport mechanism
+can be used, but some are directly supported out of the box.
+
+| Transport | Support | Notes |
+| --- | --- | --- |
+| [Stdio](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#stdio) | :heavy_check_mark: |  |
+| [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) | :x: | Unsupported at this time, may come in the future. |
+
+## Batching Requests
+
+Both the client and server support processing batch requests, but do not support
+creating batch requests at this time.
+
+## Authorization
+
+Authorization is not supported at this time. This package is primarily targeted
+at local MCP server usage for now.
+
 ## Server Capabilities
 
 This table describes the state of implementation for the

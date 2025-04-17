@@ -361,12 +361,12 @@ Future<ServerConnectionPair> _initializeMCPServer(
 
   final initializeResult = await connection.initialize(
     InitializeRequest(
-      protocolVersion: protocolVersion,
+      protocolVersion: ProtocolVersion.latestSupported,
       capabilities: client.capabilities,
       clientInfo: client.implementation,
     ),
   );
-  expect(initializeResult.protocolVersion, protocolVersion);
+  expect(initializeResult.protocolVersion, ProtocolVersion.latestSupported);
   connection.notifyInitialized(InitializedNotification());
   return (serverConnection: connection, server: server);
 }

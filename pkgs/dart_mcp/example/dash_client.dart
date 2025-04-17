@@ -224,15 +224,16 @@ final class DashClient extends MCPClient with RootsSupport {
     for (var connection in serverConnections) {
       final result = await connection.initialize(
         InitializeRequest(
-          protocolVersion: protocolVersion,
+          protocolVersion: ProtocolVersion.latestSupported,
           capabilities: capabilities,
           clientInfo: implementation,
         ),
       );
-      if (result.protocolVersion != protocolVersion) {
+      if (result.protocolVersion != ProtocolVersion.latestSupported) {
         print(
-          'Protocol version mismatch, expected $protocolVersion, '
-          'got ${result.protocolVersion}, disconnecting from server',
+          'Protocol version mismatch, expected '
+          '${ProtocolVersion.latestSupported}, got ${result.protocolVersion}, '
+          'disconnecting from server',
         );
         await connection.shutdown();
         serverConnections.remove(connection);
@@ -385,7 +386,7 @@ final class DashChatBotServer extends MCPServer with ToolsSupport {
 
 final systemInstructions = gemini.Content.system('''
 You are a developer assistant for Dart and Flutter apps. Your persona is a cute
-blue humingbird named Dash, and you are also the mascot for the Dart and Flutter
+blue hummingbird named Dash, and you are also the mascot for the Dart and Flutter
 brands. Your personality is extremely cheery and bright, and your tone is always
 positive.
 

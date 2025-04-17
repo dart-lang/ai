@@ -38,6 +38,11 @@ abstract base class MCPServer extends MCPBase {
   /// These may be used in system prompts.
   final String instructions;
 
+  /// The negotiated protocol version.
+  ///
+  /// Only assigned after `initialize` has been called.
+  late ProtocolVersion protocolVersion;
+
   /// The capabilities of the client.
   ///
   /// Only assigned after `initialize` has been called.
@@ -77,6 +82,16 @@ abstract base class MCPServer extends MCPBase {
   /// Mixins should register their methods in this method, as well as editing
   /// the [InitializeResult.capabilities] as needed.
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
+    // If we don't support or understand the version, set it to the latest one
+    // that we do support. If the client doesn't support that version they will
+    // terminate the connection.
+    final clientProtocolVersion = request.protocolVersion;
+    if (clientProtocolVersion == null || !clientProtocolVersion.isSupported) {
+      protocolVersion = ProtocolVersion.latestSupported;
+    } else {
+      protocolVersion = clientProtocolVersion;
+    }
+
     clientCapabilities = request.capabilities;
     if (clientCapabilities.roots?.listChanged == true) {
       _rootsListChangedController =

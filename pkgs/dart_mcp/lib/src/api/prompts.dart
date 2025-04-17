@@ -22,11 +22,11 @@ extension type ListPromptsResult.fromMap(Map<String, Object?> _value)
     implements PaginatedResult {
   factory ListPromptsResult({
     required List<Prompt> prompts,
-    Cursor? cursor,
+    Cursor? nextCursor,
     Meta? meta,
   }) => ListPromptsResult.fromMap({
     'prompts': prompts,
-    if (cursor != null) 'cursor': cursor,
+    if (nextCursor != null) 'nextCursor': nextCursor,
     if (meta != null) '_meta': meta,
   });
 

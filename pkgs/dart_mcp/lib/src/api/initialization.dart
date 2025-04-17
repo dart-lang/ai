@@ -11,12 +11,12 @@ extension type InitializeRequest._fromMap(Map<String, Object?> _value)
   static const methodName = 'initialize';
 
   factory InitializeRequest({
-    required String protocolVersion,
+    required ProtocolVersion protocolVersion,
     required ClientCapabilities capabilities,
     required ClientImplementation clientInfo,
     MetaWithProgressToken? meta,
   }) => InitializeRequest._fromMap({
-    'protocolVersion': protocolVersion,
+    'protocolVersion': protocolVersion.versionString,
     'capabilities': capabilities,
     'clientInfo': clientInfo,
     if (meta != null) '_meta': meta,
@@ -25,9 +25,14 @@ extension type InitializeRequest._fromMap(Map<String, Object?> _value)
   /// The latest version of the Model Context Protocol that the client supports.
   ///
   /// The client MAY decide to support older versions as well.
-  String get protocolVersion => _value['protocolVersion'] as String;
+  ///
+  /// May be `null` if the version is not recognized.
+  ProtocolVersion? get protocolVersion =>
+      ProtocolVersion.tryParse(_value['protocolVersion'] as String);
+
   ClientCapabilities get capabilities =>
       _value['capabilities'] as ClientCapabilities;
+
   ClientImplementation get clientInfo =>
       _value['clientInfo'] as ClientImplementation;
 }
@@ -37,12 +42,12 @@ extension type InitializeRequest._fromMap(Map<String, Object?> _value)
 extension type InitializeResult.fromMap(Map<String, Object?> _value)
     implements Result {
   factory InitializeResult({
-    required String protocolVersion,
+    required ProtocolVersion protocolVersion,
     required ServerCapabilities serverCapabilities,
     required ServerImplementation serverInfo,
     required String instructions,
   }) => InitializeResult.fromMap({
-    'protocolVersion': protocolVersion,
+    'protocolVersion': protocolVersion.versionString,
     'capabilities': serverCapabilities,
     'serverInfo': serverInfo,
     'instructions': instructions,
@@ -52,7 +57,19 @@ extension type InitializeResult.fromMap(Map<String, Object?> _value)
   ///
   /// This may not match the version that the client requested. If the client
   /// cannot support this version, it MUST disconnect.
-  String get protocolVersion => _value['protocolVersion'] as String;
+  ///
+  /// May be `null` if the version is not recognized.
+  ProtocolVersion? get protocolVersion =>
+      ProtocolVersion.tryParse(_value['protocolVersion'] as String);
+
+  /// Sets the protocol version, by default this is set for you, but you can
+  /// override it to a specific version if desired.
+  ///
+  /// While this API is typed as nullable, `null` is not an allowed value.
+  set protocolVersion(ProtocolVersion? value) {
+    assert(value != null);
+    _value['protocolVersion'] = value!.versionString;
+  }
 
   ServerCapabilities get capabilities =>
       _value['capabilities'] as ServerCapabilities;
