@@ -3,12 +3,14 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:async/async.dart';
 import 'package:dart_mcp/client.dart';
 import 'package:dart_tooling_mcp_server/src/mixins/dtd.dart';
 import 'package:dart_tooling_mcp_server/src/server.dart';
+import 'package:dart_tooling_mcp_server/src/utils/process_manager.dart';
 import 'package:dtd/dtd.dart';
 import 'package:path/path.dart' as p;
 import 'package:stream_channel/stream_channel.dart';
@@ -352,7 +354,10 @@ Future<ServerConnectionPair> _initializeMCPServer(
       clientController.stream,
       serverController.sink,
     );
-    server = DartToolingMCPServer(channel: serverChannel);
+    server = DartToolingMCPServer(
+      channel: serverChannel,
+      processManager: TestProcessManager(),
+    );
     addTearDown(server.shutdown);
     connection = client.connectServer(clientChannel);
   } else {
@@ -378,3 +383,19 @@ Root rootForPath(String projectPath) =>
 final counterAppPath = p.join('test_fixtures', 'counter_app');
 
 final dartCliAppsPath = p.join('test_fixtures', 'dart_cli_app');
+
+class TestProcessManager extends ProcessManager {
+  final commands = <CliCommand>[];
+
+  int nextPid = 0;
+
+  @override
+  Future<ProcessResult> run(CliCommand command) async {
+    commands.add(command);
+    return ProcessResult(nextPid++, 0, null, null);
+  }
+
+  void reset() {
+    commands.clear();
+  }
+}
