@@ -22,6 +22,15 @@ with it, from the root of this package, after compiling the binary, run:
 dart ../dart_mcp/example/dash_client.dart --server bin/main.exe
 ```
 
+### With the example WorkflowBot
+
+After compiling the binary, you can run the example dash chat bot to interact
+with it, from the root of this package, after compiling the binary, run:
+
+```dart
+dart ../dart_mcp/example/workflow_client.dart --server bin/main.exe
+```
+
 ### With Cursor
 
 Go to Cursor -> Settings -> Cursor Settings and select "MCP".
