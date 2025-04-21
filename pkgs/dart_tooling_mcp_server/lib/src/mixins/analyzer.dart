@@ -9,9 +9,8 @@ import 'dart:io';
 
 import 'package:dart_mcp/server.dart';
 import 'package:json_rpc_2/json_rpc_2.dart';
-import 'package:language_server_protocol/protocol_custom_generated.dart' as lsp;
 import 'package:language_server_protocol/protocol_generated.dart' as lsp;
-import 'package:language_server_protocol/protocol_special.dart' as lsp;
+import 'package:meta/meta.dart';
 
 import '../lsp/wire_format.dart';
 
@@ -29,7 +28,13 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
   /// The current diagnostics for a given file.
   Map<Uri, List<lsp.Diagnostic>> diagnostics = {};
 
+  /// If currently analyzing, a completer which will be completed once analysis
+  /// is over.
+  Completer<void>? _doneAnalyzing = Completer();
+
   /// All known workspace roots.
+  ///
+  /// Identity is controlled by the [Root.uri].
   Set<Root> workspaceRoots = HashSet(
     equals: (r1, r2) => r2.uri == r2.uri,
     hashCode: (r) => r.uri.hashCode,
@@ -50,6 +55,9 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
                 : null);
 
     unsupportedReason ??= await _initializeAnalyzerLspServer();
+    if (unsupportedReason == null) {
+      registerTool(analyzeFilesTool, _analyzeFiles);
+    }
 
     // Don't call any methods on the client until we are fully initialized
     // (even logging).
@@ -75,16 +83,20 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
   Future<String?> _initializeAnalyzerLspServer() async {
     _lspServer = await Process.start('dart', [
       'language-server',
+      // Required even though it is documented as the default.
+      // https://github.com/dart-lang/sdk/issues/60574
       '--protocol',
       'lsp',
-      '--protocol-traffic-log',
-      'language-server-protocol.log',
+      // Uncomment these to log the analyzer traffic.
+      // '--protocol-traffic-log',
+      // 'language-server-protocol.log',
     ]);
     _lspServer.stderr
         .transform(utf8.decoder)
         .transform(const LineSplitter())
-        .listen((line) {
-          stderr.writeln('[StdErr from analyzer lsp server]: $line');
+        .listen((line) async {
+          await initialized;
+          log(LoggingLevel.warning, line, logger: 'DartLanguageServer');
         });
     final channel = lspChannel(_lspServer.stdout, _lspServer.stdin);
     _lspConnection = Peer(channel);
@@ -94,11 +106,20 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
       _handleDiagnostics,
     );
 
-    stderr.writeln('initializing lsp server');
+    _lspConnection.registerMethod(r'$/analyzerStatus', _handleAnalyzerStatus);
+
+    _lspConnection.registerFallback((Parameters params) {
+      log(LoggingLevel.debug, 'fallback: ${params.method} - ${params.asMap}');
+    });
+
+    unawaited(_lspConnection.listen());
+
+    log(LoggingLevel.debug, 'Connecting to analyzer lsp server');
     lsp.InitializeResult? initializeResult;
+    String? error;
     try {
       /// Initialize with the server.
-      lsp.InitializeResult.fromJson(
+      initializeResult = lsp.InitializeResult.fromJson(
         (await _lspConnection.sendRequest(
               lsp.Method.initialize.toString(),
               lsp.InitializeParams(
@@ -117,33 +138,32 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
             ))
             as Map<String, Object?>,
       );
-    } catch (e, s) {
-      stderr.writeln('error initializing lsp server');
-      stderr.writeln(e);
-      stderr.writeln(s);
-      return 'error initializing lsp server';
+    } catch (e) {
+      error = 'Error connecting to analyzer lsp server: $e';
     }
-    stderr.writeln('done initializing lsp server');
 
-    String? error;
-    final workspaceSupport =
-        initializeResult!.capabilities.workspace?.workspaceFolders;
-    if (workspaceSupport?.supported != true) {
-      error = 'Workspaces are not supported by the LSP server';
-    }
-    if (workspaceSupport?.changeNotifications?.valueEquals(true) != true) {
-      error =
-          'Workspace change notifications are not supported by the LSP '
-          'server';
+    if (initializeResult != null) {
+      final workspaceSupport =
+          initializeResult.capabilities.workspace?.workspaceFolders;
+      if (workspaceSupport?.supported != true) {
+        error ??= 'Workspaces are not supported by the LSP server';
+      }
+      if (workspaceSupport?.changeNotifications?.valueEquals(true) != true) {
+        error ??=
+            'Workspace change notifications are not supported by the LSP '
+            'server';
+      }
     }
 
     if (error != null) {
       _lspServer.kill();
       await _lspConnection.close();
     } else {
-      _lspConnection.sendNotification(lsp.Method.initialized.toString());
+      _lspConnection.sendNotification(
+        lsp.Method.initialized.toString(),
+        lsp.InitializedParams().toJson(),
+      );
     }
-
     return error;
   }
 
@@ -154,16 +174,52 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
     await _lspConnection.close();
   }
 
+  /// Implementation of the [analyzeFilesTool], analyzes all the files in all
+  /// workspace dirs.
+  ///
+  /// Waits for any pending analysis before returning.
+  Future<CallToolResult> _analyzeFiles(CallToolRequest request) async {
+    await _doneAnalyzing?.future;
+    final messages = <Content>[];
+    for (var entry in diagnostics.entries) {
+      for (var diagnostic in entry.value) {
+        final diagnosticJson = diagnostic.toJson();
+        diagnosticJson['uri'] = entry.key.toString();
+        messages.add(TextContent(text: jsonEncode(diagnosticJson)));
+      }
+    }
+    if (messages.isEmpty) {
+      messages.add(TextContent(text: 'No errors'));
+    }
+    return CallToolResult(content: messages);
+  }
+
+  /// Handles `$/analyzerStatus` events, which tell us when analysis starts and
+  /// stops.
+  void _handleAnalyzerStatus(Parameters params) {
+    final isAnalyzing = params.asMap['isAnalyzing'] as bool;
+    if (isAnalyzing) {
+      /// Leave existing completer in place - we start with one so we don't
+      /// respond too early to the first analyze request.
+      _doneAnalyzing ??= Completer<void>();
+    } else {
+      assert(_doneAnalyzing != null);
+      _doneAnalyzing?.complete();
+      _doneAnalyzing = null;
+    }
+  }
+
+  /// Handles `textDocument/publishDiagnostics` events.
   void _handleDiagnostics(Parameters params) {
     final diagnosticParams = lsp.PublishDiagnosticsParams.fromJson(
       params.value as Map<String, Object?>,
     );
     diagnostics[diagnosticParams.uri] = diagnosticParams.diagnostics;
-    log(LoggingLevel.error, {
+    log(LoggingLevel.debug, {
       'uri': diagnosticParams.uri,
       'diagnostics':
           diagnosticParams.diagnostics.map((d) => d.toJson()).toList(),
-    }, logger: 'Static errors from a root!');
+    });
   }
 
   /// Lists the roots, and listens for changes to them.
@@ -182,21 +238,37 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
       equals: (r1, r2) => r1.uri == r2.uri,
       hashCode: (r) => r.uri.hashCode,
     )..addAll((await listRoots(ListRootsRequest())).roots);
+
     final removed = workspaceRoots.difference(newRoots);
     final added = newRoots.difference(workspaceRoots);
-
     workspaceRoots = newRoots;
+
+    final event = lsp.WorkspaceFoldersChangeEvent(
+      added: [for (var root in added) root.asWorkspaceFolder],
+      removed: [for (var root in removed) root.asWorkspaceFolder],
+    );
+
+    log(
+      LoggingLevel.debug,
+      () => 'Notifying of workspace root change: ${event.toJson()}',
+    );
+
     _lspConnection.sendNotification(
       lsp.Method.workspace_didChangeWorkspaceFolders.toString(),
-      lsp.WorkspaceFoldersChangeEvent(
-        added: [for (var root in added) root.asWorkspaceFolder],
-        removed: [for (var root in removed) root.asWorkspaceFolder],
-      ),
+      lsp.DidChangeWorkspaceFoldersParams(event: event).toJson(),
     );
   }
+
+  @visibleForTesting
+  static final analyzeFilesTool = Tool(
+    name: 'analyze_files',
+    description: 'Analyzes the entire project for errors.',
+    inputSchema: ObjectSchema(),
+  );
 }
 
 extension on Root {
+  /// Converts a [Root] to an [lsp.WorkspaceFolder].
   lsp.WorkspaceFolder get asWorkspaceFolder =>
       lsp.WorkspaceFolder(name: name ?? '', uri: Uri.parse(uri));
 }

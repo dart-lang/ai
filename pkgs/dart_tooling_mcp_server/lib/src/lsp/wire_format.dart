@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'package:async/async.dart';
 import 'package:stream_channel/stream_channel.dart';
 
+/// Handles LSP communication with its associated headers.
 StreamChannel<String> lspChannel(
   Stream<List<int>> stream,
   StreamSink<List<int>> sink,
@@ -23,6 +24,9 @@ StreamChannel<String> lspChannel(
   return StreamChannel.withGuarantees(parser.stream, outSink);
 }
 
+/// Writes [data] to [sink], with the appropriate content length header.
+///
+/// Writes the [data] in 1KB chunks.
 void _serialize(String data, EventSink<List<int>> sink) {
   final message = utf8.encode(data);
   final header = 'Content-Length: ${message.length}\r\n\r\n';
@@ -32,24 +36,40 @@ void _serialize(String data, EventSink<List<int>> sink) {
   }
 }
 
+/// Parses content headers and the following messages.
+///
+/// Returns a [stream] of just the message contents.
 class _Parser {
-  final _streamCtl = StreamController<String>();
-  Stream<String> get stream => _streamCtl.stream;
+  /// Controller that gets a single [String] per entire
+  /// JSON message received as input.
+  final _messageController = StreamController<String>();
 
+  /// Stream of full JSON messages in [String] form.
+  Stream<String> get stream => _messageController.stream;
+
+  /// All the input bytes for the message or header we are currently working
+  /// with.
   final _buffer = <int>[];
+
+  /// Whether or not we are still parsing the header.
   bool _headerMode = true;
+
+  /// The parsed content length, or -1.
   int _contentLength = -1;
 
+  /// The subscription for the input bytes stream.
   late final StreamSubscription _subscription;
 
   _Parser(Stream<List<int>> stream) {
     _subscription = stream
         .expand((bytes) => bytes)
-        .listen(_handleByte, onDone: _streamCtl.close);
+        .listen(_handleByte, onDone: _messageController.close);
   }
 
+  /// Shut down this parser.
   Future<void> close() => _subscription.cancel();
 
+  /// Handles each incoming byte one at a time.
   void _handleByte(int byte) {
     _buffer.add(byte);
     if (_headerMode && _headerComplete) {
@@ -57,7 +77,7 @@ class _Parser {
       _buffer.clear();
       _headerMode = false;
     } else if (!_headerMode && _messageComplete) {
-      _streamCtl.add(utf8.decode(_buffer));
+      _messageController.add(utf8.decode(_buffer));
       _buffer.clear();
       _headerMode = true;
     }
@@ -88,6 +108,7 @@ class _Parser {
   }
 }
 
+/// Splits [data] into chunks of at most [chunkSize].
 Iterable<List<T>> _chunks<T>(List<T> data, int chunkSize) sync* {
   if (data.length <= chunkSize) {
     yield data;

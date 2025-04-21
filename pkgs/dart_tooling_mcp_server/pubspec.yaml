@@ -33,5 +33,3 @@ dev_dependencies:
 dependency_overrides:
   dart_mcp:
     path: ../dart_mcp
-  json_rpc_2:
-    path: ../../tools/pkgs/json_rpc_2

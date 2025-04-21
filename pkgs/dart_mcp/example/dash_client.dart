@@ -39,7 +39,7 @@ final argParser =
         abbr: 's',
         help: 'A command to run to start an MCP server',
       )
-      ..addOption(
+      ..addFlag(
         'verbose',
         abbr: 'v',
         help: 'Enables verbose logging for logs from servers.',
