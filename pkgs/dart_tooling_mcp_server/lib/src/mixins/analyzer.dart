@@ -3,35 +3,43 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:collection';
+import 'dart:convert';
 import 'dart:io';
 
-import 'package:analyzer/dart/analysis/analysis_context_collection.dart';
-import 'package:analyzer/dart/analysis/results.dart';
 import 'package:dart_mcp/server.dart';
-import 'package:meta/meta.dart';
-import 'package:path/path.dart' as p;
-import 'package:watcher/watcher.dart';
+import 'package:json_rpc_2/json_rpc_2.dart';
+import 'package:language_server_protocol/protocol_custom_generated.dart' as lsp;
+import 'package:language_server_protocol/protocol_generated.dart' as lsp;
+import 'package:language_server_protocol/protocol_special.dart' as lsp;
+
+import '../lsp/wire_format.dart';
 
 /// Mix this in to any MCPServer to add support for analyzing Dart projects.
 ///
 /// The MCPServer must already have the [ToolsSupport] and [LoggingSupport]
 /// mixins applied.
 base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
-  /// The analyzed contexts.
-  AnalysisContextCollection? _analysisContexts;
+  /// The LSP server connection for the analysis server.
+  late final Peer _lspConnection;
 
-  /// All active directory watcher streams.
-  ///
-  /// The watcher package doesn't let you close watchers, you just have to
-  /// stop listening to their streams instead, so we store the stream
-  /// subscriptions instead of the watchers themselves.
-  final List<StreamSubscription> _watchSubscriptions = [];
+  /// The actual process for the LSP server.
+  late final Process _lspServer;
+
+  /// The current diagnostics for a given file.
+  Map<Uri, List<lsp.Diagnostic>> diagnostics = {};
+
+  /// All known workspace roots.
+  Set<Root> workspaceRoots = HashSet(
+    equals: (r1, r2) => r2.uri == r2.uri,
+    hashCode: (r) => r.uri.hashCode,
+  );
 
   @override
-  FutureOr<InitializeResult> initialize(InitializeRequest request) {
+  FutureOr<InitializeResult> initialize(InitializeRequest request) async {
     // We check for requirements and store a message to log after initialization
     // if some requirement isn't satisfied.
-    final unsupportedReason =
+    var unsupportedReason =
         request.capabilities.roots == null
             ? 'Project analysis requires the "roots" capability which is not '
                 'supported. Analysis tools have been disabled.'
@@ -41,214 +49,154 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
                     'dart SDK). Analysis tools have been disabled.'
                 : null);
 
-    if (unsupportedReason == null) {
-      // Requirements met, register the tool.
-      registerTool(analyzeFilesTool, _analyzeFiles);
-    }
+    unsupportedReason ??= await _initializeAnalyzerLspServer();
 
     // Don't call any methods on the client until we are fully initialized
     // (even logging).
-    initialized.then((_) {
-      if (unsupportedReason != null) {
-        log(LoggingLevel.warning, unsupportedReason);
-      } else {
-        // All requirements satisfied, ask the client for its roots.
-        _listenForRoots();
-      }
-    });
+    unawaited(
+      initialized.then((_) {
+        if (unsupportedReason != null) {
+          log(LoggingLevel.warning, unsupportedReason);
+        } else {
+          // All requirements satisfied, ask the client for its roots.
+          _listenForRoots();
+        }
+      }),
+    );
 
     return super.initialize(request);
+  }
+
+  /// Initializes the analyzer lsp server.
+  ///
+  /// On success, returns `null`.
+  ///
+  /// On failure, returns a reason for the failure.
+  Future<String?> _initializeAnalyzerLspServer() async {
+    _lspServer = await Process.start('dart', [
+      'language-server',
+      '--protocol',
+      'lsp',
+      '--protocol-traffic-log',
+      'language-server-protocol.log',
+    ]);
+    _lspServer.stderr
+        .transform(utf8.decoder)
+        .transform(const LineSplitter())
+        .listen((line) {
+          stderr.writeln('[StdErr from analyzer lsp server]: $line');
+        });
+    final channel = lspChannel(_lspServer.stdout, _lspServer.stdin);
+    _lspConnection = Peer(channel);
+
+    _lspConnection.registerMethod(
+      lsp.Method.textDocument_publishDiagnostics.toString(),
+      _handleDiagnostics,
+    );
+
+    stderr.writeln('initializing lsp server');
+    lsp.InitializeResult? initializeResult;
+    try {
+      /// Initialize with the server.
+      lsp.InitializeResult.fromJson(
+        (await _lspConnection.sendRequest(
+              lsp.Method.initialize.toString(),
+              lsp.InitializeParams(
+                capabilities: lsp.ClientCapabilities(
+                  workspace: lsp.WorkspaceClientCapabilities(
+                    diagnostics: lsp.DiagnosticWorkspaceClientCapabilities(
+                      refreshSupport: true,
+                    ),
+                  ),
+                  textDocument: lsp.TextDocumentClientCapabilities(
+                    publishDiagnostics:
+                        lsp.PublishDiagnosticsClientCapabilities(),
+                  ),
+                ),
+              ).toJson(),
+            ))
+            as Map<String, Object?>,
+      );
+    } catch (e, s) {
+      stderr.writeln('error initializing lsp server');
+      stderr.writeln(e);
+      stderr.writeln(s);
+      return 'error initializing lsp server';
+    }
+    stderr.writeln('done initializing lsp server');
+
+    String? error;
+    final workspaceSupport =
+        initializeResult!.capabilities.workspace?.workspaceFolders;
+    if (workspaceSupport?.supported != true) {
+      error = 'Workspaces are not supported by the LSP server';
+    }
+    if (workspaceSupport?.changeNotifications?.valueEquals(true) != true) {
+      error =
+          'Workspace change notifications are not supported by the LSP '
+          'server';
+    }
+
+    if (error != null) {
+      _lspServer.kill();
+      await _lspConnection.close();
+    } else {
+      _lspConnection.sendNotification(lsp.Method.initialized.toString());
+    }
+
+    return error;
   }
 
   @override
   Future<void> shutdown() async {
     await super.shutdown();
-    await _analysisContexts?.dispose();
-    _disposeWatchSubscriptions();
+    _lspServer.kill();
+    await _lspConnection.close();
   }
 
-  /// Cancels all [_watchSubscriptions] and clears the list.
-  void _disposeWatchSubscriptions() async {
-    for (var subscription in _watchSubscriptions) {
-      unawaited(subscription.cancel());
-    }
-    _watchSubscriptions.clear();
+  void _handleDiagnostics(Parameters params) {
+    final diagnosticParams = lsp.PublishDiagnosticsParams.fromJson(
+      params.value as Map<String, Object?>,
+    );
+    diagnostics[diagnosticParams.uri] = diagnosticParams.diagnostics;
+    log(LoggingLevel.error, {
+      'uri': diagnosticParams.uri,
+      'diagnostics':
+          diagnosticParams.diagnostics.map((d) => d.toJson()).toList(),
+    }, logger: 'Static errors from a root!');
   }
 
   /// Lists the roots, and listens for changes to them.
   ///
-  /// Whenever new roots are found, creates a new [AnalysisContextCollection].
+  /// Sends workspace change notifications to the LSP server based on the roots.
   void _listenForRoots() async {
     rootsListChanged!.listen((event) async {
-      unawaited(_analysisContexts?.dispose());
-      _analysisContexts = null;
-      _createAnalysisContext(await listRoots(ListRootsRequest()));
+      await _updateRoots();
     });
-    _createAnalysisContext(await listRoots(ListRootsRequest()));
+    await _updateRoots();
   }
 
-  /// Creates an analysis context from a list of roots.
-  //
-  // TODO: Better configuration for the DART_SDK location.
-  void _createAnalysisContext(ListRootsResult result) async {
-    final sdkPath = Platform.environment['DART_SDK'];
-    if (sdkPath == null) {
-      throw StateError('DART_SDK environment variable not set');
-    }
+  /// Updates the set of [workspaceRoots] and notifies the server.
+  Future<void> _updateRoots() async {
+    final newRoots = HashSet<Root>(
+      equals: (r1, r2) => r1.uri == r2.uri,
+      hashCode: (r) => r.uri.hashCode,
+    )..addAll((await listRoots(ListRootsRequest())).roots);
+    final removed = workspaceRoots.difference(newRoots);
+    final added = newRoots.difference(workspaceRoots);
 
-    final paths = <String>[];
-    for (var root in result.roots) {
-      final uri = Uri.parse(root.uri);
-      if (uri.scheme != 'file') {
-        throw ArgumentError.value(
-          root.uri,
-          'uri',
-          'Only file scheme uris are allowed for roots',
-        );
-      }
-      paths.add(p.normalize(uri.path));
-    }
-
-    _disposeWatchSubscriptions();
-
-    for (var rootPath in paths) {
-      final watcher = DirectoryWatcher(rootPath);
-      _watchSubscriptions.add(
-        watcher.events.listen(
-          (event) {
-            try {
-              _analysisContexts
-                  ?.contextFor(event.path)
-                  .changeFile(p.normalize(event.path));
-            } catch (_) {
-              // Fail gracefully.
-              // TODO(https://github.com/dart-lang/ai/issues/65): remove this
-              // catch if possible.
-            }
-          },
-          onError: (Object error, StackTrace stackTrace) {
-            // We can get spurious file system errors, likely based on race
-            // conditions. We can safely just ignore those.
-            if (error is FileSystemException) return;
-            // Re-throw all other errors.
-            throw error; // ignore: only_throw_errors
-          },
-        ),
-      );
-    }
-
-    _analysisContexts = AnalysisContextCollection(
-      includedPaths: paths,
-      sdkPath: sdkPath,
+    workspaceRoots = newRoots;
+    _lspConnection.sendNotification(
+      lsp.Method.workspace_didChangeWorkspaceFolders.toString(),
+      lsp.WorkspaceFoldersChangeEvent(
+        added: [for (var root in added) root.asWorkspaceFolder],
+        removed: [for (var root in removed) root.asWorkspaceFolder],
+      ),
     );
   }
+}
 
-  /// Implementation of the [analyzeFilesTool], analyzes the requested files
-  /// under the requested project roots.
-  Future<CallToolResult> _analyzeFiles(CallToolRequest request) async {
-    final contexts = _analysisContexts;
-    if (contexts == null) {
-      return CallToolResult(
-        content: [
-          TextContent(
-            text:
-                'Analysis not yet ready, please wait a few seconds and try '
-                'again.',
-          ),
-        ],
-        isError: true,
-      );
-    }
-
-    final messages = <TextContent>[];
-    final rootConfigs =
-        (request.arguments!['roots'] as List).cast<Map<String, Object?>>();
-    for (var rootConfig in rootConfigs) {
-      final rootUri = Uri.parse(rootConfig['root'] as String);
-      if (rootUri.scheme != 'file') {
-        return CallToolResult(
-          content: [
-            TextContent(
-              text:
-                  'Only file scheme uris are allowed for roots, but got '
-                  '$rootUri',
-            ),
-          ],
-          isError: true,
-        );
-      }
-      final paths = (rootConfig['paths'] as List?)?.cast<String>();
-      if (paths == null) {
-        return CallToolResult(
-          content: [
-            TextContent(
-              text:
-                  'Missing required argument `paths`, which should be the list '
-                  'of relative paths to analyze.',
-            ),
-          ],
-          isError: true,
-        );
-      }
-
-      final context = contexts.contextFor(p.normalize(rootUri.path));
-      await context.applyPendingFileChanges();
-
-      for (var path in paths) {
-        final normalized = p.normalize(
-          p.isAbsolute(path) ? path : p.join(rootUri.path, path),
-        );
-        final errorsResult = await context.currentSession.getErrors(normalized);
-        if (errorsResult is! ErrorsResult) {
-          return CallToolResult(
-            content: [
-              TextContent(
-                text: 'Error computing analyzer errors $errorsResult',
-              ),
-            ],
-          );
-        }
-        for (var error in errorsResult.errors) {
-          messages.add(TextContent(text: 'Error: ${error.message}'));
-          if (error.correctionMessage case final correctionMessage?) {
-            messages.add(TextContent(text: correctionMessage));
-          }
-        }
-      }
-    }
-
-    return CallToolResult(content: messages);
-  }
-
-  @visibleForTesting
-  static final analyzeFilesTool = Tool(
-    name: 'analyze_files',
-    description:
-        'Analyzes the requested file paths under the specified project roots '
-        'and returns the results as a list of messages.',
-    inputSchema: ObjectSchema(
-      properties: {
-        'roots': ListSchema(
-          title: 'All projects roots to analyze',
-          description:
-              'These must match a root returned by a call to "listRoots".',
-          items: ObjectSchema(
-            properties: {
-              'root': StringSchema(
-                title: 'The URI of the project root to analyze.',
-              ),
-              'paths': ListSchema(
-                title:
-                    'Relative or absolute paths to analyze under the '
-                    '"root", must correspond to files and not directories.',
-                items: StringSchema(),
-              ),
-            },
-            required: ['root'],
-          ),
-        ),
-      },
-      required: ['roots'],
-    ),
-  );
+extension on Root {
+  lsp.WorkspaceFolder get asWorkspaceFolder =>
+      lsp.WorkspaceFolder(name: name ?? '', uri: Uri.parse(uri));
 }
