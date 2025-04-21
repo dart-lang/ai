@@ -43,7 +43,7 @@ void main() {
       );
     });
 
-    test('can run dart fix', () async {
+    test('dart fix', () async {
       final request = CallToolRequest(
         name: dartFixTool.name,
         arguments: {
@@ -56,10 +56,12 @@ void main() {
 
       // Verify the command was sent to the process maanger without error.
       expect(result.isError, isNot(true));
-      expect(testProcessManager.commandsRan, ['dart fix --apply']);
+      expect(testProcessManager.commandsRan, [
+        ['dart', 'fix', '--apply'],
+      ]);
     });
 
-    test('can run dart format', () async {
+    test('dart format', () async {
       final request = CallToolRequest(
         name: dartFormatTool.name,
         arguments: {
@@ -72,10 +74,12 @@ void main() {
 
       // Verify the command was sent to the process maanger without error.
       expect(result.isError, isNot(true));
-      expect(testProcessManager.commandsRan, ['dart format .']);
+      expect(testProcessManager.commandsRan, [
+        ['dart', 'format', '.'],
+      ]);
     });
 
-    test('can run dart format with paths', () async {
+    test('dart format with paths', () async {
       final request = CallToolRequest(
         name: dartFormatTool.name,
         arguments: {
@@ -91,7 +95,9 @@ void main() {
 
       // Verify the command was sent to the process maanger without error.
       expect(result.isError, isNot(true));
-      expect(testProcessManager.commandsRan, ['dart format foo.dart bar.dart']);
+      expect(testProcessManager.commandsRan, [
+        ['dart', 'format', 'foo.dart', 'bar.dart'],
+      ]);
     });
   });
 }

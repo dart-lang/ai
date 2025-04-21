@@ -391,7 +391,7 @@ class TestProcessManager extends LocalProcessManager {
     addTearDown(reset);
   }
 
-  final commandsRan = <String>[];
+  final commandsRan = <List<Object>>[];
 
   int nextPid = 0;
 
@@ -405,7 +405,7 @@ class TestProcessManager extends LocalProcessManager {
     Encoding? stdoutEncoding = systemEncoding,
     Encoding? stderrEncoding = systemEncoding,
   }) async {
-    commandsRan.add(command.join(' '));
+    commandsRan.add(command);
     return ProcessResult(nextPid++, 0, '', '');
   }
 
