@@ -387,7 +387,11 @@ final dartCliAppsPath = p.join('test_fixtures', 'dart_cli_app');
 /// A test wrapper around [LocalProcessManager] that stores commands locally
 /// instead of running them by spawning sub-processes.
 class TestProcessManager extends LocalProcessManager {
-  final commands = <String>[];
+  TestProcessManager() {
+    addTearDown(reset);
+  }
+
+  final commandsRan = <String>[];
 
   int nextPid = 0;
 
@@ -401,11 +405,11 @@ class TestProcessManager extends LocalProcessManager {
     Encoding? stdoutEncoding = systemEncoding,
     Encoding? stderrEncoding = systemEncoding,
   }) async {
-    commands.add(command.join(' '));
+    commandsRan.add(command.join(' '));
     return ProcessResult(nextPid++, 0, '', '');
   }
 
   void reset() {
-    commands.clear();
+    commandsRan.clear();
   }
 }

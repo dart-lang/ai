@@ -17,16 +17,15 @@ import 'utils/process_manager.dart';
 /// An MCP server for Dart and Flutter tooling.
 final class DartToolingMCPServer extends MCPServer
     with
-        ProcessManagerSupport,
         LoggingSupport,
         ToolsSupport,
         DartAnalyzerSupport,
         DartCliSupport,
-        DartToolingDaemonSupport {
+        DartToolingDaemonSupport
+    implements ProcessManagerSupport {
   DartToolingMCPServer({
     required super.channel,
-    @visibleForTesting
-    LocalProcessManager processManager = const LocalProcessManager(),
+    @visibleForTesting this.processManager = const LocalProcessManager(),
   }) : super.fromStreamChannel(
          implementation: ServerImplementation(
            name: 'dart and flutter tooling',
@@ -35,9 +34,7 @@ final class DartToolingMCPServer extends MCPServer
          instructions:
              'This server helps to connect Dart and Flutter developers to '
              'their development tools and running applications.',
-       ) {
-    _processManager = processManager;
-  }
+       );
 
   static Future<DartToolingMCPServer> connect(
     StreamChannel<String> mcpChannel,
@@ -46,6 +43,5 @@ final class DartToolingMCPServer extends MCPServer
   }
 
   @override
-  LocalProcessManager get processManager => _processManager;
-  late final LocalProcessManager _processManager;
+  final LocalProcessManager processManager;
 }

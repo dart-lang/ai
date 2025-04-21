@@ -24,7 +24,6 @@ void main() {
     testProcessManager =
         testHarness.serverConnectionPair.server!.processManager
             as TestProcessManager;
-    addTearDown(() => testProcessManager.reset());
 
     testHarness.mcpClient.addRoot(testRoot);
     await pumpEventQueue();
@@ -57,7 +56,7 @@ void main() {
 
       // Verify the command was sent to the process maanger without error.
       expect(result.isError, isNot(true));
-      expect(testProcessManager.commands, ['dart fix --apply']);
+      expect(testProcessManager.commandsRan, ['dart fix --apply']);
     });
 
     test('can run dart format', () async {
@@ -73,7 +72,7 @@ void main() {
 
       // Verify the command was sent to the process maanger without error.
       expect(result.isError, isNot(true));
-      expect(testProcessManager.commands, ['dart format .']);
+      expect(testProcessManager.commandsRan, ['dart format .']);
     });
 
     test('can run dart format with paths', () async {
@@ -92,7 +91,7 @@ void main() {
 
       // Verify the command was sent to the process maanger without error.
       expect(result.isError, isNot(true));
-      expect(testProcessManager.commands, ['dart format foo.dart bar.dart']);
+      expect(testProcessManager.commandsRan, ['dart format foo.dart bar.dart']);
     });
   });
 }

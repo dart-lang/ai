@@ -17,8 +17,8 @@ import '../utils/process_manager.dart';
 ///
 /// The MCPServer must already have the [ToolsSupport] and [LoggingSupport]
 /// mixins applied.
-base mixin DartCliSupport
-    on ToolsSupport, LoggingSupport, ProcessManagerSupport {
+base mixin DartCliSupport on ToolsSupport, LoggingSupport
+    implements ProcessManagerSupport {
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
     if (request.capabilities.roots == null) {

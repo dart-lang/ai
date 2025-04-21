@@ -14,6 +14,6 @@ import 'package:process/process.dart';
 /// MCP support mixins like `DartCliSupport` that spawn processes should use
 /// [processManager] from this mixin instead of making direct calls to dart:io's
 /// [Process] class.
-mixin ProcessManagerSupport {
+abstract interface class ProcessManagerSupport {
   LocalProcessManager get processManager;
 }
