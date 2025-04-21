@@ -10,9 +10,9 @@ import 'package:async/async.dart';
 import 'package:dart_mcp/client.dart';
 import 'package:dart_tooling_mcp_server/src/mixins/dtd.dart';
 import 'package:dart_tooling_mcp_server/src/server.dart';
-import 'package:dart_tooling_mcp_server/src/utils/process_manager.dart';
 import 'package:dtd/dtd.dart';
 import 'package:path/path.dart' as p;
+import 'package:process/process.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
@@ -384,15 +384,25 @@ final counterAppPath = p.join('test_fixtures', 'counter_app');
 
 final dartCliAppsPath = p.join('test_fixtures', 'dart_cli_app');
 
-class TestProcessManager extends ProcessManager {
-  final commands = <CliCommand>[];
+/// A test wrapper around [LocalProcessManager] that stores commands locally
+/// instead of running them by spawning sub-processes.
+class TestProcessManager extends LocalProcessManager {
+  final commands = <String>[];
 
   int nextPid = 0;
 
   @override
-  Future<ProcessResult> run(CliCommand command) async {
-    commands.add(command);
-    return ProcessResult(nextPid++, 0, null, null);
+  Future<ProcessResult> run(
+    List<Object> command, {
+    String? workingDirectory,
+    Map<String, String>? environment,
+    bool includeParentEnvironment = true,
+    bool runInShell = false,
+    Encoding? stdoutEncoding = systemEncoding,
+    Encoding? stderrEncoding = systemEncoding,
+  }) async {
+    commands.add(command.join(' '));
+    return ProcessResult(nextPid++, 0, '', '');
   }
 
   void reset() {
