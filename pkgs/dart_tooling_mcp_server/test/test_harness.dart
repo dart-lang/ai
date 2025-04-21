@@ -133,6 +133,7 @@ class TestHarness {
   Future<CallToolResult> callToolWithRetry(
     CallToolRequest request, {
     int maxTries = 5,
+    bool expectError = false,
   }) async {
     var tryCount = 0;
     late CallToolResult lastResult;
@@ -143,7 +144,7 @@ class TestHarness {
     }
     expect(
       lastResult.isError,
-      isNot(true),
+      expectError ? true : isNot(true),
       reason: lastResult.content.join('\n'),
     );
     return lastResult;
