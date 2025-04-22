@@ -1,3 +1,6 @@
+[![pub package](https://img.shields.io/pub/v/dart_mcp.svg)](https://pub.dev/packages/dart_mcp)
+[![package publisher](https://img.shields.io/pub/publisher/dart_mcp.svg)](https://pub.dev/packages/dart_mcp/publisher)
+
 A Dart package for making MCP servers and clients.
 
 **Note**: This package is still experimental and is likely to evolve quickly.

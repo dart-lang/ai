@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:async/async.dart';
@@ -11,6 +12,7 @@ import 'package:dart_tooling_mcp_server/src/mixins/dtd.dart';
 import 'package:dart_tooling_mcp_server/src/server.dart';
 import 'package:dtd/dtd.dart';
 import 'package:path/path.dart' as p;
+import 'package:process/process.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
@@ -131,6 +133,7 @@ class TestHarness {
   Future<CallToolResult> callToolWithRetry(
     CallToolRequest request, {
     int maxTries = 5,
+    bool expectError = false,
   }) async {
     var tryCount = 0;
     late CallToolResult lastResult;
@@ -141,7 +144,7 @@ class TestHarness {
     }
     expect(
       lastResult.isError,
-      isNot(true),
+      expectError ? true : isNot(true),
       reason: lastResult.content.join('\n'),
     );
     return lastResult;
@@ -252,18 +255,18 @@ class FakeEditorExtension {
   int get nextId => ++_nextId;
   int _nextId = 0;
 
-  FakeEditorExtension(this.dtd, this.dtdProcess, this.dtdUri) {
-    _registerService();
-  }
+  FakeEditorExtension._(this.dtd, this.dtdProcess, this.dtdUri);
 
   static Future<FakeEditorExtension> connect() async {
     final dtdProcess = await TestProcess.start('dart', ['tooling-daemon']);
     final dtdUri = await _getDTDUri(dtdProcess);
     final dtd = await DartToolingDaemon.connect(Uri.parse(dtdUri));
-    return FakeEditorExtension(dtd, dtdProcess, dtdUri);
+    final extension = FakeEditorExtension._(dtd, dtdProcess, dtdUri);
+    await extension._registerService();
+    return extension;
   }
 
-  void _registerService() async {
+  Future<void> _registerService() async {
     await dtd.registerService('Editor', 'getDebugSessions', (request) async {
       return GetDebugSessionsResponse(
         debugSessions: [
@@ -352,7 +355,10 @@ Future<ServerConnectionPair> _initializeMCPServer(
       clientController.stream,
       serverController.sink,
     );
-    server = DartToolingMCPServer(channel: serverChannel);
+    server = DartToolingMCPServer(
+      channel: serverChannel,
+      processManager: TestProcessManager(),
+    );
     addTearDown(server.shutdown);
     connection = client.connectServer(clientChannel);
   } else {
@@ -378,3 +384,33 @@ Root rootForPath(String projectPath) =>
 final counterAppPath = p.join('test_fixtures', 'counter_app');
 
 final dartCliAppsPath = p.join('test_fixtures', 'dart_cli_app');
+
+/// A test wrapper around [LocalProcessManager] that stores commands locally
+/// instead of running them by spawning sub-processes.
+class TestProcessManager extends LocalProcessManager {
+  TestProcessManager() {
+    addTearDown(reset);
+  }
+
+  final commandsRan = <List<Object>>[];
+
+  int nextPid = 0;
+
+  @override
+  Future<ProcessResult> run(
+    List<Object> command, {
+    String? workingDirectory,
+    Map<String, String>? environment,
+    bool includeParentEnvironment = true,
+    bool runInShell = false,
+    Encoding? stdoutEncoding = systemEncoding,
+    Encoding? stderrEncoding = systemEncoding,
+  }) async {
+    commandsRan.add(command);
+    return ProcessResult(nextPid++, 0, '', '');
+  }
+
+  void reset() {
+    commandsRan.clear();
+  }
+}
