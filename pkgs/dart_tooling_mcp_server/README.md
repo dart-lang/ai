@@ -22,6 +22,11 @@ with it, from the root of this package, after compiling the binary, run:
 dart ../dart_mcp/example/dash_client.dart --server bin/main.exe
 ```
 
+- If you want the client to invoke server tools without asking for human approval,
+add the `--auto` flag.
+- If you want the client to output the raw LLM responses to the CLI instead of
+re-writing responses in the tone of Dash, add the `--raw` flag.
+
 ### With Cursor
 
 Go to Cursor -> Settings -> Cursor Settings and select "MCP".

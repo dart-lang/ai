@@ -28,7 +28,9 @@ void main(List<String> args) {
   DashClient(
     serverCommands,
     geminiApiKey: geminiApiKey,
-    verbose: parsedArgs['verbose'] == true,
+    auto: parsedArgs.flag('auto'),
+    raw: parsedArgs.flag('raw'),
+    verbose: parsedArgs.flag('verbose'),
   );
 }
 
@@ -39,7 +41,19 @@ final argParser =
         abbr: 's',
         help: 'A command to run to start an MCP server',
       )
-      ..addOption(
+      ..addFlag(
+        'auto',
+        help:
+            'Automatically invoke server tools without requesting human '
+            'approval.',
+      )
+      ..addFlag(
+        'raw',
+        help:
+            'Use the raw responses from Gemini instead of re-writing them in '
+            'the tone of Dash.',
+      )
+      ..addFlag(
         'verbose',
         abbr: 'v',
         help: 'Enables verbose logging for logs from servers.',
@@ -52,11 +66,15 @@ final class DashClient extends MCPClient with RootsSupport {
   final Map<String, ServerConnection> connectionForFunction = {};
   final List<gemini.Content> chatHistory = [];
   final gemini.GenerativeModel model;
+  final bool auto;
+  final bool raw;
   final bool verbose;
 
   DashClient(
     this.serverCommands, {
     required String geminiApiKey,
+    this.auto = false,
+    this.raw = false,
     this.verbose = false,
   }) : model = gemini.GenerativeModel(
          // model: 'gemini-2.5-pro-exp-03-25',
@@ -117,13 +135,16 @@ final class DashClient extends MCPClient with RootsSupport {
 
   /// Prints `text` and adds it to the chat history
   Future<void> _chatToUser(String text) async {
+    final currentText = gemini.Content.text(text);
     final dashSpeakResponse =
-        (await model.generateContent([
-          gemini.Content.text(
-            'Please rewrite the following message in your own voice',
-          ),
-          gemini.Content.text(text),
-        ])).candidates.single.content;
+        raw
+            ? currentText
+            : (await model.generateContent([
+              gemini.Content.text(
+                'Please rewrite the following message in your own voice',
+              ),
+              currentText,
+            ])).candidates.single.content;
     final dashText = StringBuffer();
     for (var part in dashSpeakResponse.parts.whereType<gemini.TextPart>()) {
       dashText.write(part.text);
@@ -136,16 +157,23 @@ final class DashClient extends MCPClient with RootsSupport {
 
   /// Handles a function call response from the model.
   Future<String?> _handleFunctionCall(gemini.FunctionCall functionCall) async {
-    await _chatToUser(
-      'It looks like you want to invoke tool ${functionCall.name} with args '
-      '${jsonEncode(functionCall.args)}, is that correct?',
-    );
-    final userResponse = await stdinQueue.next;
-    final wasApproval = await _analyzeSentiment(userResponse);
+    if (auto) {
+      await _chatToUser(
+        'I am going to run the ${functionCall.name} tool with args '
+        '${jsonEncode(functionCall.args)} to perform this task.',
+      );
+    } else {
+      await _chatToUser(
+        'It looks like you want to invoke tool ${functionCall.name} with args '
+        '${jsonEncode(functionCall.args)}, is that correct?',
+      );
+      final userResponse = await stdinQueue.next;
+      final wasApproval = await _analyzeSentiment(userResponse);
 
-    // If they did not approve the action, just treat their response as a
-    // prompt.
-    if (!wasApproval) return userResponse;
+      // If they did not approve the action, just treat their response as a
+      // prompt.
+      if (!wasApproval) return userResponse;
+    }
 
     chatHistory.add(gemini.Content.model([functionCall]));
     final connection = connectionForFunction[functionCall.name]!;
