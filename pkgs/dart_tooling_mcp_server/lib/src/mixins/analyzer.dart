@@ -98,19 +98,20 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
           await initialized;
           log(LoggingLevel.warning, line, logger: 'DartLanguageServer');
         });
-    final channel = lspChannel(_lspServer.stdout, _lspServer.stdin);
-    _lspConnection = Peer(channel);
 
-    _lspConnection.registerMethod(
-      lsp.Method.textDocument_publishDiagnostics.toString(),
-      _handleDiagnostics,
-    );
-
-    _lspConnection.registerMethod(r'$/analyzerStatus', _handleAnalyzerStatus);
-
-    _lspConnection.registerFallback((Parameters params) {
-      log(LoggingLevel.debug, 'fallback: ${params.method} - ${params.asMap}');
-    });
+    _lspConnection =
+        Peer(lspChannel(_lspServer.stdout, _lspServer.stdin))
+          ..registerMethod(
+            lsp.Method.textDocument_publishDiagnostics.toString(),
+            _handleDiagnostics,
+          )
+          ..registerMethod(r'$/analyzerStatus', _handleAnalyzerStatus)
+          ..registerFallback((Parameters params) {
+            log(
+              LoggingLevel.debug,
+              () => 'Unhandled LSP message: ${params.method} - ${params.asMap}',
+            );
+          });
 
     unawaited(_lspConnection.listen());
 
@@ -118,7 +119,7 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
     lsp.InitializeResult? initializeResult;
     String? error;
     try {
-      /// Initialize with the server.
+      // Initialize with the server.
       initializeResult = lsp.InitializeResult.fromJson(
         (await _lspConnection.sendRequest(
               lsp.Method.initialize.toString(),
@@ -137,6 +138,10 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
               ).toJson(),
             ))
             as Map<String, Object?>,
+      );
+      log(
+        LoggingLevel.debug,
+        'Completed initialize handshake analyzer lsp server',
       );
     } catch (e) {
       error = 'Error connecting to analyzer lsp server: $e';
@@ -199,8 +204,8 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
   void _handleAnalyzerStatus(Parameters params) {
     final isAnalyzing = params.asMap['isAnalyzing'] as bool;
     if (isAnalyzing) {
-      /// Leave existing completer in place - we start with one so we don't
-      /// respond too early to the first analyze request.
+      // Leave existing completer in place - we start with one so we don't
+      // respond too early to the first analyze request.
       _doneAnalyzing ??= Completer<void>();
     } else {
       assert(_doneAnalyzing != null);
