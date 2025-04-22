@@ -9,9 +9,7 @@ import 'dart:io';
 import 'package:args/args.dart';
 import 'package:async/async.dart';
 import 'package:dart_mcp/client.dart';
-import 'package:dart_mcp/server.dart';
 import 'package:google_generative_ai/google_generative_ai.dart' as gemini;
-import 'package:stream_channel/stream_channel.dart';
 
 void main(List<String> args) {
   final geminiApiKey = Platform.environment['GEMINI_API_KEY'];
@@ -80,7 +78,6 @@ final class WorkflowClient extends MCPClient with RootsSupport {
   final bool verbose;
 
   void _startChat() async {
-    await _connectOwnServer();
     if (serverCommands.isNotEmpty) {
       await _connectToServers();
     }
@@ -97,8 +94,10 @@ final class WorkflowClient extends MCPClient with RootsSupport {
         )).candidates.single.content;
     _handleModelResponse(introResponse);
 
-    final userPrompt = await _waitForInputAndAddToHistory();
-    await _makeAndExecutePlan(userPrompt, serverTools);
+    while (true) {
+      final next = await _waitForInputAndAddToHistory();
+      await _makeAndExecutePlan(next, serverTools);
+    }
   }
 
   void _handleModelResponse(gemini.Content response) {
@@ -119,7 +118,7 @@ final class WorkflowClient extends MCPClient with RootsSupport {
   }) async {
     final instruction =
         editPreviousPlan
-            ? 'Edit the previous plan with the following corrections:'
+            ? 'Edit the previous plan with the following changes:'
             : 'Create a new plan for the following task:';
     final planPrompt =
         '$instruction\n$userPrompt. After you have made a plan, ask the user '
@@ -169,6 +168,7 @@ final class WorkflowClient extends MCPClient with RootsSupport {
           case gemini.TextPart():
             _chatToUser(part.text);
           case gemini.FunctionCall():
+            print('[DEBUG] function call');
             final result = await _handleFunctionCall(part);
             if (result == null ||
                 result.contains('unsupported response type')) {
@@ -178,7 +178,7 @@ final class WorkflowClient extends MCPClient with RootsSupport {
                   '$result\n. Please proceed to the next step of the plan.';
             }
           default:
-            print('Unrecognized response type from the model $modelResponse');
+            print('Unrecognized response type from the model: $modelResponse.');
         }
       }
     }
@@ -255,28 +255,6 @@ final class WorkflowClient extends MCPClient with RootsSupport {
       }
     }
     return response.toString();
-  }
-
-  /// Connects us to a local [WorkflowChatBotServer].
-  Future<void> _connectOwnServer() async {
-    /// The client side of the communication channel - the stream is the
-    /// incoming data and the sink is outgoing data.
-    final clientController = StreamController<String>();
-
-    /// The server side of the communication channel - the stream is the
-    /// incoming data and the sink is outgoing data.
-    final serverController = StreamController<String>();
-
-    late final clientChannel = StreamChannel<String>.withCloseGuarantee(
-      serverController.stream,
-      clientController.sink,
-    );
-    late final serverChannel = StreamChannel<String>.withCloseGuarantee(
-      clientController.stream,
-      serverController.sink,
-    );
-    WorkflowChatBotServer(this, channel: serverChannel);
-    serverConnections.add(connectServer(clientChannel));
   }
 
   /// Connects to all servers using [serverCommands].
@@ -405,39 +383,36 @@ final class WorkflowClient extends MCPClient with RootsSupport {
   }
 }
 
-final class WorkflowChatBotServer extends MCPServer with ToolsSupport {
-  final WorkflowClient client;
-
-  WorkflowChatBotServer(this.client, {required super.channel})
-    : super.fromStreamChannel(
-        implementation: ServerImplementation(
-          name: 'Gemini Chat Bot',
-          version: '0.1.0',
-        ),
-        instructions:
-            'This server handles the specific tool interactions built '
-            'into the gemini chat bot.',
-      ) {
-    registerTool(exitTool, (_) async {
-      print('goodbye!');
-      exit(0);
-    });
-  }
-
-  static final exitTool = Tool(name: 'exit', inputSchema: Schema.object());
-}
-
 final systemInstructions = gemini.Content.system('''
 You are a developer assistant for Dart and Flutter apps. You are an expert
 software developer.
 
-You can help developers by connecting into the live state of their apps, helping
+You can help developers with writing code by generating Dart and Flutter code or
+making changes to their existing app. You can also help developers with
+debugging their code by connecting into the live state of their apps, helping
 them with all aspects of the software development lifecycle.
 
-If a user asks about an error in the app, you should have several tools
-available to you to aid in debugging, so make sure to use those.
+If a user asks about an error or a widget in the app, you should have several
+tools available to you to aid in debugging, so make sure to use those.
 
-When a user asks you to complete a task, make a plan, which may involve multiple
-steps and the use of tools available to you, and report that to the user before
-you start proceeding.
+If a user asks for code that requires adding or removing a dependency, you have
+several tools available to your for managing pub dependencies.
+
+When a user asks you to complete a task, you should first make a plan, which may
+involve multiple steps and the use of tools available to you. Report this plan
+back to the user before proceeding.
+
+Generally, if you are asked to make code changes, you should follow this high
+level process:
+
+1) Write the code and apply the changes to the codebase
+2) Check for static analysis errors and warnings
+3) Fix all errors and warnings that you can
+4) Hot reload the changes to the running app
+5) Check for runtime errors
+6) Fix any runtime errors that you can
+7) Ensure that all code is formatted properly
+
+If, while executing your plan, you end up skipping steps because they are no
+longer applicable, explain why you are skipping them.
 ''');
