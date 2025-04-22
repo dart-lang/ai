@@ -1,15 +1,19 @@
 name: dart_mcp
+version: 0.2.0-wip
 description: A package for making MCP servers and clients.
 repository: https://github.com/dart-lang/ai/tree/main/pkgs/dart_mcp
-version: 0.2.0-wip
+issue_tracker: https://github.com/dart-lang/ai/issues?q=is%3Aissue+is%3Aopen+label%3Apackage%3Adart_mcp
+
 environment:
   sdk: ^3.7.0
+
 dependencies:
   async: ^2.13.0
   collection: ^1.19.1
   json_rpc_2: ^3.0.3
   meta: ^1.16.0
   stream_channel: ^2.1.4
+
 dev_dependencies:
   args: ^2.7.0
   dart_flutter_team_lints: ^3.2.1
