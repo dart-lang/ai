@@ -254,18 +254,18 @@ class FakeEditorExtension {
   int get nextId => ++_nextId;
   int _nextId = 0;
 
-  FakeEditorExtension(this.dtd, this.dtdProcess, this.dtdUri) {
-    _registerService();
-  }
+  FakeEditorExtension._(this.dtd, this.dtdProcess, this.dtdUri);
 
   static Future<FakeEditorExtension> connect() async {
     final dtdProcess = await TestProcess.start('dart', ['tooling-daemon']);
     final dtdUri = await _getDTDUri(dtdProcess);
     final dtd = await DartToolingDaemon.connect(Uri.parse(dtdUri));
-    return FakeEditorExtension(dtd, dtdProcess, dtdUri);
+    final extension = FakeEditorExtension._(dtd, dtdProcess, dtdUri);
+    await extension._registerService();
+    return extension;
   }
 
-  void _registerService() async {
+  Future<void> _registerService() async {
     await dtd.registerService('Editor', 'getDebugSessions', (request) async {
       return GetDebugSessionsResponse(
         debugSessions: [
