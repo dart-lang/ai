@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:async/async.dart';
@@ -11,6 +12,7 @@ import 'package:dart_tooling_mcp_server/src/mixins/dtd.dart';
 import 'package:dart_tooling_mcp_server/src/server.dart';
 import 'package:dtd/dtd.dart';
 import 'package:path/path.dart' as p;
+import 'package:process/process.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
@@ -352,7 +354,10 @@ Future<ServerConnectionPair> _initializeMCPServer(
       clientController.stream,
       serverController.sink,
     );
-    server = DartToolingMCPServer(channel: serverChannel);
+    server = DartToolingMCPServer(
+      channel: serverChannel,
+      processManager: TestProcessManager(),
+    );
     addTearDown(server.shutdown);
     connection = client.connectServer(clientChannel);
   } else {
@@ -378,3 +383,33 @@ Root rootForPath(String projectPath) =>
 final counterAppPath = p.join('test_fixtures', 'counter_app');
 
 final dartCliAppsPath = p.join('test_fixtures', 'dart_cli_app');
+
+/// A test wrapper around [LocalProcessManager] that stores commands locally
+/// instead of running them by spawning sub-processes.
+class TestProcessManager extends LocalProcessManager {
+  TestProcessManager() {
+    addTearDown(reset);
+  }
+
+  final commandsRan = <List<Object>>[];
+
+  int nextPid = 0;
+
+  @override
+  Future<ProcessResult> run(
+    List<Object> command, {
+    String? workingDirectory,
+    Map<String, String>? environment,
+    bool includeParentEnvironment = true,
+    bool runInShell = false,
+    Encoding? stdoutEncoding = systemEncoding,
+    Encoding? stderrEncoding = systemEncoding,
+  }) async {
+    commandsRan.add(command);
+    return ProcessResult(nextPid++, 0, '', '');
+  }
+
+  void reset() {
+    commandsRan.clear();
+  }
+}

@@ -7,6 +7,8 @@ import 'dart:io';
 
 import 'package:dart_mcp/server.dart';
 
+import '../utils/process_manager.dart';
+
 // TODO: migrate the analyze files tool to use this mixin and run the
 // `dart analyze` command instead of the analyzer package.
 
@@ -15,7 +17,8 @@ import 'package:dart_mcp/server.dart';
 ///
 /// The MCPServer must already have the [ToolsSupport] and [LoggingSupport]
 /// mixins applied.
-base mixin DartCliSupport on ToolsSupport, LoggingSupport {
+base mixin DartCliSupport on ToolsSupport, LoggingSupport
+    implements ProcessManagerSupport {
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
     if (request.capabilities.roots == null) {
@@ -30,15 +33,19 @@ base mixin DartCliSupport on ToolsSupport, LoggingSupport {
 
   /// Implementation of the [dartFixTool].
   Future<CallToolResult> _runDartFixTool(CallToolRequest request) async {
-    return _runDartCommandInRoots(request, 'dart fix', ['fix', '--apply']);
+    return _runDartCommandInRoots(
+      request,
+      commandDescription: 'dart fix',
+      commandArgs: ['fix', '--apply'],
+    );
   }
 
   /// Implementation of the [dartFormatTool].
   Future<CallToolResult> _runDartFormatTool(CallToolRequest request) async {
     return _runDartCommandInRoots(
       request,
-      'dart format',
-      ['format'],
+      commandDescription: 'dart format',
+      commandArgs: ['format'],
       defaultPaths: ['.'],
     );
   }
@@ -48,9 +55,9 @@ base mixin DartCliSupport on ToolsSupport, LoggingSupport {
   /// [defaultPaths] may be specified if one or more path arguments are required
   /// for the dart command (e.g. `dart format <default paths>`).
   Future<CallToolResult> _runDartCommandInRoots(
-    CallToolRequest request,
-    String commandName,
-    List<String> commandArgs, {
+    CallToolRequest request, {
+    required String commandDescription,
+    required List<String> commandArgs,
     List<String> defaultPaths = const <String>[],
   }) async {
     final rootConfigs =
@@ -99,9 +106,8 @@ base mixin DartCliSupport on ToolsSupport, LoggingSupport {
         commandArgs.addAll(defaultPaths);
       }
 
-      final result = await Process.run(
-        'dart',
-        commandArgs,
+      final result = await processManager.run(
+        ['dart', ...commandArgs],
         workingDirectory: projectRoot.path,
         runInShell: true,
       );
@@ -113,8 +119,8 @@ base mixin DartCliSupport on ToolsSupport, LoggingSupport {
           content: [
             TextContent(
               text:
-                  '$commandName failed in ${projectRoot.path}:\n$output\n\n'
-                  'Errors\n$errors',
+                  '$commandDescription failed in ${projectRoot.path}:\n'
+                  '$output\n\nErrors\n$errors',
             ),
           ],
           isError: true,
@@ -122,7 +128,9 @@ base mixin DartCliSupport on ToolsSupport, LoggingSupport {
       }
       if (output.isNotEmpty) {
         outputs.add(
-          TextContent(text: '$commandName in ${projectRoot.path}:\n$output'),
+          TextContent(
+            text: '$commandDescription in ${projectRoot.path}:\n$output',
+          ),
         );
       }
     }
