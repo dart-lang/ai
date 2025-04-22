@@ -35,20 +35,13 @@ void main() {
       // list of roots.
       await pumpEventQueue();
 
-      final request = CallToolRequest(
-        name: analyzeTool.name,
-        arguments: {
-          'roots': [
-            {
-              'root': counterAppRoot.uri,
-              'paths': ['lib/main.dart'],
-            },
-          ],
-        },
-      );
+      final request = CallToolRequest(name: analyzeTool.name);
       final result = await testHarness.callToolWithRetry(request);
       expect(result.isError, isNot(true));
-      expect(result.content, isEmpty);
+      expect(
+        result.content.single,
+        isA<TextContent>().having((t) => t.text, 'text', 'No errors'),
+      );
     });
 
     test('can handle project changes', () async {
@@ -63,24 +56,17 @@ void main() {
       // list of roots.
       await pumpEventQueue();
 
-      final request = CallToolRequest(
-        name: analyzeTool.name,
-        arguments: {
-          'roots': [
-            {
-              'root': exampleRoot.uri,
-              'paths': ['main.dart'],
-            },
-          ],
-        },
-      );
+      final request = CallToolRequest(name: analyzeTool.name);
       var result = await testHarness.callToolWithRetry(request);
       expect(result.isError, isNot(true));
       expect(result.content, [
-        TextContent(
-          text:
-              "Error: The argument type 'String' can't be assigned to the "
-              "parameter type 'num'. ",
+        isA<TextContent>().having(
+          (t) => t.text,
+          'text',
+          contains(
+            "The argument type 'String' can't be assigned to the parameter "
+            "type 'num'.",
+          ),
         ),
       ]);
 
@@ -94,7 +80,10 @@ void main() {
 
       result = await testHarness.callToolWithRetry(request);
       expect(result.isError, isNot(true));
-      expect(result.content, isEmpty);
+      expect(
+        result.content.single,
+        isA<TextContent>().having((t) => t.text, 'text', 'No errors'),
+      );
     });
   });
 }

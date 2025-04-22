@@ -5,13 +5,18 @@ version: 0.1.0-wip
 environment:
   sdk: ^3.7.0 # The version of dart in the current flutter stable
 dependencies:
-  analyzer: ^7.3.0
   async: ^2.13.0
   dart_mcp: ^2.0.0
   dds_service_extensions: ^2.0.1
   devtools_shared: ^11.2.0
   dtd: ^2.4.0
   json_rpc_2: ^3.0.3
+  # TODO: Get this another way.
+  language_server_protocol:
+    git:
+      url: https://github.com/dart-lang/sdk.git
+      path:
+        third_party/pkg/language_server_protocol
   meta: ^1.16.0
   path: ^1.9.1
   process: ^5.0.3
@@ -19,7 +24,6 @@ dependencies:
   test_descriptor: ^2.0.2
   test_process: ^2.1.1
   vm_service: ^15.0.0
-  watcher: ^1.1.1
 executables:
   dart_tooling_mcp_server: main
 dev_dependencies:
