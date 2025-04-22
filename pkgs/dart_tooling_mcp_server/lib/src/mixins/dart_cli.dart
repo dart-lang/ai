@@ -278,6 +278,8 @@ base mixin DartCliSupport on ToolsSupport, LoggingSupport
 /// The set of supported `dart pub` subcommands.
 enum SupportedPubCommand {
   // This is supported in a simplified form: `dart pub add <package-name>`.
+  // TODO(https://github.com/dart-lang/ai/issues/77): add support for adding
+  //  dev dependencies.
   add(requiresPackageName: true),
 
   get,
