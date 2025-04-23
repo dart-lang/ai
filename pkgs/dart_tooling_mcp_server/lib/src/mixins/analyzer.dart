@@ -337,13 +337,19 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
   @visibleForTesting
   static final resolveWorkspaceSymbolTool = Tool(
     name: 'resolve_workspace_symbol',
-    description: 'Resolves a given symbol or symbols in a workspace.',
+    description: 'Look up a symbol or symbols in all workspaces by name.',
     inputSchema: Schema.object(
       properties: {
-        'query': Schema.string(title: 'The query for the symbol(s) to look up'),
+        'query': Schema.string(
+          description:
+              'Queries are matched based on a case-insensitive partial name '
+              'match, and do not support complex pattern matching, regexes, '
+              'or scoped lookups.',
+        ),
       },
       required: ['query'],
     ),
+    annotations: ToolAnnotations(title: 'Project search', readOnlyHint: true),
   );
 }
 
