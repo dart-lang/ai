@@ -21,14 +21,21 @@ base mixin DartCliSupport on ToolsSupport, LoggingSupport
     implements ProcessManagerSupport {
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
+    String? unsupportedReason;
     if (request.capabilities.roots == null) {
-      throw StateError(
-        'This server requires the "roots" capability to be implemented.',
+      unsupportedReason =
+          'Dart CLI tools require the "roots" capability to be implemented by '
+          'the client.';
+    }
+    if (unsupportedReason == null) {
+      registerTool(dartFixTool, _runDartFixTool);
+      registerTool(dartFormatTool, _runDartFormatTool);
+      registerTool(dartPubTool, _runDartPubTool);
+    } else {
+      unawaited(
+        initialized.then((_) => log(LoggingLevel.warning, unsupportedReason!)),
       );
     }
-    registerTool(dartFixTool, _runDartFixTool);
-    registerTool(dartFormatTool, _runDartFormatTool);
-    registerTool(dartPubTool, _runDartPubTool);
     return super.initialize(request);
   }
 
