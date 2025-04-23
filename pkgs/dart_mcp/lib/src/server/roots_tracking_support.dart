@@ -13,20 +13,20 @@ base mixin RootsTrackingSupport on LoggingSupport {
   ///
   /// May be a [Future] if we are currently requesting the roots.
   FutureOr<List<Root>> get roots => switch (_rootsState) {
-    RootsState.upToDate => _roots!,
-    RootsState.pending => _rootsCompleter!.future,
+    _RootsState.upToDate => _roots!,
+    _RootsState.pending => _rootsCompleter!.future,
   };
 
   /// The current state of [roots], whether it is up to date or waiting on
   /// updated values.
-  RootsState _rootsState = RootsState.pending;
+  _RootsState _rootsState = _RootsState.pending;
 
-  /// The list of [roots] if [_rootsState] is [RootsState.upToDate],
+  /// The list of [roots] if [_rootsState] is [_RootsState.upToDate],
   /// otherwise `null`.
   List<Root>? _roots;
 
   /// Completer for any pending [listRoots] call if [_rootsState] is
-  /// [RootsState.pending], otherwise `null`.
+  /// [_RootsState.pending], otherwise `null`.
   Completer<List<Root>>? _rootsCompleter = Completer();
 
   /// Whether or not the connected client supports [listRoots].
@@ -72,7 +72,7 @@ base mixin RootsTrackingSupport on LoggingSupport {
   /// a change notification.
   @mustCallSuper
   Future<void> updateRoots() async {
-    _rootsState = RootsState.pending;
+    _rootsState = _RootsState.pending;
     final previousCompleter = _rootsCompleter;
 
     // Always create a new completer so we can handle race conditions by
@@ -93,13 +93,13 @@ base mixin RootsTrackingSupport on LoggingSupport {
       newCompleter.complete(result.roots);
       _roots = result.roots;
       _rootsCompleter = null;
-      _rootsState = RootsState.upToDate;
+      _rootsState = _RootsState.upToDate;
     }
   }
 }
 
 /// The current state of the roots information.
-enum RootsState {
+enum _RootsState {
   /// No change notification since our last update.
   upToDate,
 
