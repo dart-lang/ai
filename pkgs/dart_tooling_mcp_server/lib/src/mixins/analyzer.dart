@@ -18,7 +18,8 @@ import '../lsp/wire_format.dart';
 ///
 /// The MCPServer must already have the [ToolsSupport] and [LoggingSupport]
 /// mixins applied.
-base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
+base mixin DartAnalyzerSupport
+    on ToolsSupport, LoggingSupport, RootsTrackingSupport {
   /// The LSP server connection for the analysis server.
   late final Peer _lspConnection;
 
@@ -32,30 +33,37 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
   /// is over.
   Completer<void>? _doneAnalyzing = Completer();
 
-  /// All known workspace roots.
-  ///
-  /// Identity is controlled by the [Root.uri].
-  Set<Root> workspaceRoots = HashSet(
-    equals: (r1, r2) => r2.uri == r2.uri,
-    hashCode: (r) => r.uri.hashCode,
-  );
+  /// The current LSP workspace folder state.
+  HashSet<lsp.WorkspaceFolder> _currentWorkspaceFolders =
+      HashSet<lsp.WorkspaceFolder>(
+        equals: (a, b) => a.uri == b.uri,
+        hashCode: (a) => a.uri.hashCode,
+      );
 
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) async {
+    // This should come first, assigns `clientCapabilities`.
+    final result = await super.initialize(request);
+
     // We check for requirements and store a message to log after initialization
     // if some requirement isn't satisfied.
-    var unsupportedReason =
-        request.capabilities.roots == null
-            ? 'Project analysis requires the "roots" capability which is not '
-                'supported. Analysis tools have been disabled.'
-            : (Platform.environment['DART_SDK'] == null
-                ? 'Project analysis requires a "DART_SDK" environment variable '
-                    'to be set (this should be the path to the root of the '
-                    'dart SDK). Analysis tools have been disabled.'
-                : null);
+    final unsupportedReasons = <String>[
+      if (!supportsRoots)
+        'Project analysis requires the "roots" capability which is not '
+            'supported. Analysis tools have been disabled.',
+      if (Platform.environment['DART_SDK'] == null)
+        'Project analysis requires a "DART_SDK" environment variable to be set '
+            '(this should be the path to the root of the dart SDK). Analysis '
+            'tools have been disabled.',
+    ];
 
-    unsupportedReason ??= await _initializeAnalyzerLspServer();
-    if (unsupportedReason == null) {
+    if (unsupportedReasons.isEmpty) {
+      if (await _initializeAnalyzerLspServer() case final failedReason?) {
+        unsupportedReasons.add(failedReason);
+      }
+    }
+
+    if (unsupportedReasons.isEmpty) {
       registerTool(analyzeFilesTool, _analyzeFiles);
     }
 
@@ -63,16 +71,13 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
     // (even logging).
     unawaited(
       initialized.then((_) {
-        if (unsupportedReason != null) {
-          log(LoggingLevel.warning, unsupportedReason);
-        } else {
-          // All requirements satisfied, ask the client for its roots.
-          _listenForRoots();
+        if (unsupportedReasons.isNotEmpty) {
+          log(LoggingLevel.warning, unsupportedReasons.join('\n'));
         }
       }),
     );
 
-    return super.initialize(request);
+    return result;
   }
 
   /// Initializes the analyzer lsp server.
@@ -227,41 +232,47 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
     });
   }
 
-  /// Lists the roots, and listens for changes to them.
-  ///
-  /// Sends workspace change notifications to the LSP server based on the roots.
-  void _listenForRoots() async {
-    rootsListChanged!.listen((event) async {
-      await _updateRoots();
-    });
-    await _updateRoots();
-  }
+  /// Update the LSP workspace dirs when our workspace [Root]s change.
+  @override
+  Future<void> updateRoots() async {
+    await super.updateRoots();
+    unawaited(() async {
+      final newRoots = await roots;
 
-  /// Updates the set of [workspaceRoots] and notifies the server.
-  Future<void> _updateRoots() async {
-    final newRoots = HashSet<Root>(
-      equals: (r1, r2) => r1.uri == r2.uri,
-      hashCode: (r) => r.uri.hashCode,
-    )..addAll((await listRoots(ListRootsRequest())).roots);
+      final oldWorkspaceFolders = _currentWorkspaceFolders;
+      final newWorkspaceFolders =
+          _currentWorkspaceFolders = HashSet<lsp.WorkspaceFolder>(
+            equals: (a, b) => a.uri == b.uri,
+            hashCode: (a) => a.uri.hashCode,
+          )..addAll(newRoots.map((r) => r.asWorkspaceFolder));
 
-    final removed = workspaceRoots.difference(newRoots);
-    final added = newRoots.difference(workspaceRoots);
-    workspaceRoots = newRoots;
+      final added =
+          newWorkspaceFolders.difference(oldWorkspaceFolders).toList();
+      final removed =
+          oldWorkspaceFolders.difference(newWorkspaceFolders).toList();
 
-    final event = lsp.WorkspaceFoldersChangeEvent(
-      added: [for (var root in added) root.asWorkspaceFolder],
-      removed: [for (var root in removed) root.asWorkspaceFolder],
-    );
+      // This can happen in the case of multiple notifications in quick
+      // succession, the `roots` future will complete only after the state has
+      // stabilized which can result in empty diffs.
+      if (added.isEmpty && removed.isEmpty) {
+        return;
+      }
 
-    log(
-      LoggingLevel.debug,
-      () => 'Notifying of workspace root change: ${event.toJson()}',
-    );
+      final event = lsp.WorkspaceFoldersChangeEvent(
+        added: added,
+        removed: removed,
+      );
 
-    _lspConnection.sendNotification(
-      lsp.Method.workspace_didChangeWorkspaceFolders.toString(),
-      lsp.DidChangeWorkspaceFoldersParams(event: event).toJson(),
-    );
+      log(
+        LoggingLevel.debug,
+        () => 'Notifying of workspace root change: ${event.toJson()}',
+      );
+
+      _lspConnection.sendNotification(
+        lsp.Method.workspace_didChangeWorkspaceFolders.toString(),
+        lsp.DidChangeWorkspaceFoldersParams(event: event).toJson(),
+      );
+    }());
   }
 
   @visibleForTesting

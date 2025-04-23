@@ -15,6 +15,7 @@ part 'completions_support.dart';
 part 'logging_support.dart';
 part 'prompts_support.dart';
 part 'resources_support.dart';
+part 'roots_tracking_support.dart';
 part 'tools_support.dart';
 
 /// Base class to extend when implementing an MCP server.

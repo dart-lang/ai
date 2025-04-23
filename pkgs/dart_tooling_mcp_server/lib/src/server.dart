@@ -19,6 +19,7 @@ final class DartToolingMCPServer extends MCPServer
     with
         LoggingSupport,
         ToolsSupport,
+        RootsTrackingSupport,
         DartAnalyzerSupport,
         DartCliSupport,
         DartToolingDaemonSupport

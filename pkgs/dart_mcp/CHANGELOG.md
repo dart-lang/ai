@@ -12,6 +12,8 @@
   - Automatically disconnect from servers if version negotiation fails.
 - Added support for adding and listing `ResourceTemplate`s.
   - Handlers have to handle their own matching of templates.
+- Added a `RootsTrackingSupport` server mixin which can be used to keep an
+  updated list of the roots set by the client.
 - **Breaking**: Fixed paginated result subtypes to use `nextCursor` instead of
   `cursor` as the key for the next cursor.
 - **Breaking**: Change the `ProgressNotification.progress` and
