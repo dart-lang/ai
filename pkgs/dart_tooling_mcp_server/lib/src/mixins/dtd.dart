@@ -471,15 +471,16 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
 
   @visibleForTesting
   static final connectTool = Tool(
-    inputSchema: ObjectSchema(
-      properties: {'uri': StringSchema()},
-      required: const ['uri'],
-    ),
     name: 'connect_dart_tooling_daemon',
     description:
         'Connects to the Dart Tooling Daemon. You should ask the user for the '
         'dart tooling daemon URI, and suggest the "Copy DTD Uri to clipboard" '
         'command. Do not just make up a random URI to pass.',
+    annotations: ToolAnnotations(title: 'Connect to DTD', readOnlyHint: true),
+    inputSchema: Schema.object(
+      properties: {'uri': Schema.string()},
+      required: const ['uri'],
+    ),
   );
 
   @visibleForTesting
@@ -489,7 +490,11 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
         'Retrieves the list of runtime errors that have occurred in the active '
         'Dart or Flutter application. Requires "${connectTool.name}" to be '
         'successfully called first.',
-    inputSchema: ObjectSchema(),
+    annotations: ToolAnnotations(
+      title: 'Get runtime errors',
+      readOnlyHint: true,
+    ),
+    inputSchema: Schema.object(),
   );
 
   @visibleForTesting
@@ -499,7 +504,8 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
         'Takes a screenshot of the active Flutter application in its '
         'current state. Requires "${connectTool.name}" to be successfully '
         'called first.',
-    inputSchema: ObjectSchema(),
+    annotations: ToolAnnotations(title: 'Take screenshot', readOnlyHint: true),
+    inputSchema: Schema.object(),
   );
 
   @visibleForTesting
@@ -509,7 +515,8 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
         'Performs a hot reload of the active Flutter application. '
         'This is to apply the latest code changes to the running application. '
         'Requires "${connectTool.name}" to be successfully called first.',
-    inputSchema: ObjectSchema(),
+    annotations: ToolAnnotations(title: 'Hot reload', readOnlyHint: true),
+    inputSchema: Schema.object(),
   );
 
   @visibleForTesting
@@ -518,7 +525,8 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
     description:
         'Retrieves the widget tree from the active Flutter application. '
         'Requires "${connectTool.name}" to be successfully called first.',
-    inputSchema: ObjectSchema(),
+    annotations: ToolAnnotations(title: 'Get widget tree', readOnlyHint: true),
+    inputSchema: Schema.object(),
   );
 
   @visibleForTesting
@@ -527,7 +535,11 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
     description:
         'Retrieves the selected widget from the active Flutter application. '
         'Requires "${connectTool.name}" to be successfully called first.',
-    inputSchema: ObjectSchema(),
+    annotations: ToolAnnotations(
+      title: 'Get selected widget',
+      readOnlyHint: true,
+    ),
+    inputSchema: Schema.object(),
   );
 
   static final _dtdNotConnected = CallToolResult(

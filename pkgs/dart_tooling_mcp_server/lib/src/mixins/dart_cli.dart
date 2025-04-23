@@ -140,15 +140,16 @@ base mixin DartCliSupport on ToolsSupport, LoggingSupport
   static final dartFixTool = Tool(
     name: 'dart_fix',
     description: 'Runs `dart fix --apply` for the given project roots.',
-    inputSchema: ObjectSchema(
+    annotations: ToolAnnotations(title: 'Dart fix', destructiveHint: true),
+    inputSchema: Schema.object(
       properties: {
-        'roots': ListSchema(
+        'roots': Schema.list(
           title: 'All projects roots to run dart fix in.',
           description:
               'These must match a root returned by a call to "listRoots".',
-          items: ObjectSchema(
+          items: Schema.object(
             properties: {
-              'root': StringSchema(
+              'root': Schema.string(
                 title: 'The URI of the project root to run `dart fix` in.',
               ),
             },
@@ -163,23 +164,24 @@ base mixin DartCliSupport on ToolsSupport, LoggingSupport
   static final dartFormatTool = Tool(
     name: 'dart_format',
     description: 'Runs `dart format .` for the given project roots.',
-    inputSchema: ObjectSchema(
+    annotations: ToolAnnotations(title: 'Dart format', destructiveHint: true),
+    inputSchema: Schema.object(
       properties: {
-        'roots': ListSchema(
+        'roots': Schema.list(
           title: 'All projects roots to run dart format in.',
           description:
               'These must match a root returned by a call to "listRoots".',
-          items: ObjectSchema(
+          items: Schema.object(
             properties: {
-              'root': StringSchema(
+              'root': Schema.string(
                 title: 'The URI of the project root to run `dart format` in.',
               ),
-              'paths': ListSchema(
+              'paths': Schema.list(
                 title:
                     'Relative or absolute paths to analyze under the '
                     '"root". Paths must correspond to files and not '
                     'directories.',
-                items: StringSchema(),
+                items: Schema.string(),
               ),
             },
             required: ['root'],

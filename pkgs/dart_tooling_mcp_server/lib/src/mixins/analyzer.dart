@@ -268,7 +268,8 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
   static final analyzeFilesTool = Tool(
     name: 'analyze_files',
     description: 'Analyzes the entire project for errors.',
-    inputSchema: ObjectSchema(),
+    inputSchema: Schema.object(),
+    annotations: ToolAnnotations(title: 'Analyze projects', readOnlyHint: true),
   );
 }
 
