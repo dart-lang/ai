@@ -515,7 +515,7 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
         'Performs a hot reload of the active Flutter application. '
         'This is to apply the latest code changes to the running application. '
         'Requires "${connectTool.name}" to be successfully called first.',
-    annotations: ToolAnnotations(title: 'Hot reload', readOnlyHint: true),
+    annotations: ToolAnnotations(title: 'Hot reload', destructiveHint: true),
     inputSchema: Schema.object(),
   );
 
