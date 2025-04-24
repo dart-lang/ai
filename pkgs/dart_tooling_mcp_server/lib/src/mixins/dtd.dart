@@ -101,6 +101,8 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
   FutureOr<InitializeResult> initialize(InitializeRequest request) async {
     registerTool(connectTool, _connect);
     registerTool(getRuntimeErrorsTool, runtimeErrors);
+    registerTool(readFileTool, _readFile);
+    registerTool(writeFileTool, _writeFile);
 
     // TODO: these tools should only be registered for Flutter applications, or
     // they should return an error when used against a pure Dart app (or a
@@ -449,6 +451,38 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
     );
   }
 
+  /// Reads a file by uri using DTD.
+  Future<CallToolResult> _readFile(CallToolRequest request) async {
+    final dtd = _dtd;
+    if (dtd == null) return _dtdNotConnected;
+    final uriString = request.arguments?['uri'] as String?;
+    if (uriString == null) {
+      return _requiredUriParamMissing;
+    }
+
+    final uri = Uri.parse(uriString);
+    final contents = await dtd.readFileAsString(uri);
+    return CallToolResult(content: [TextContent(text: contents.content!)]);
+  }
+
+  /// Reads a file by uri using DTD.
+  Future<CallToolResult> _writeFile(CallToolRequest request) async {
+    final dtd = _dtd;
+    if (dtd == null) return _dtdNotConnected;
+    final uriString = request.arguments?['uri'] as String?;
+    if (uriString == null) {
+      return _requiredUriParamMissing;
+    }
+    final content = request.arguments?['content'] as String?;
+    if (content == null) {
+      return _requiredContentParamMissing;
+    }
+
+    final uri = Uri.parse(uriString);
+    await dtd.writeFileAsString(uri, content);
+    return CallToolResult(content: [TextContent(text: 'Success')]);
+  }
+
   /// Calls [callback] on the first active debug session, if available.
   Future<CallToolResult> _callOnVmService({
     required Future<CallToolResult> Function(VmService) callback,
@@ -530,6 +564,39 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
     inputSchema: ObjectSchema(),
   );
 
+  static final readFileTool = Tool(
+    name: 'read_file',
+    description:
+        'Reads a file by URI as a utf8 String. Requires "${connectTool.name}" '
+        'to be successfully called first.',
+    inputSchema: Schema.object(
+      properties: {
+        'uri': Schema.string(title: 'uri', description: 'The file uri to read'),
+      },
+      required: ['uri'],
+    ),
+  );
+
+  static final writeFileTool = Tool(
+    name: 'write_file',
+    description:
+        'Writes a file by URI. Requires "${connectTool.name}" to be '
+        'successfully called first.',
+    inputSchema: Schema.object(
+      properties: {
+        'uri': Schema.string(
+          title: 'uri',
+          description: 'The file uri to write',
+        ),
+        'content': Schema.string(
+          title: 'content',
+          description: 'The utf8 String contents to write to the file',
+        ),
+      },
+      required: ['uri', 'content'],
+    ),
+  );
+
   static final _dtdNotConnected = CallToolResult(
     isError: true,
     content: [
@@ -568,6 +635,16 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
             'seconds and try again.',
       ),
     ],
+  );
+
+  static final _requiredUriParamMissing = CallToolResult(
+    isError: true,
+    content: [TextContent(text: 'Missing required parameter `uri`.')],
+  );
+
+  static final _requiredContentParamMissing = CallToolResult(
+    isError: true,
+    content: [TextContent(text: 'Missing required parameter `content`.')],
   );
 }
 

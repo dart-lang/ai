@@ -25,12 +25,20 @@ void main(List<String> args) {
 
   final parsedArgs = argParser.parse(args);
   final serverCommands = parsedArgs['server'] as List<String>;
-  DashClient(
-    serverCommands,
-    geminiApiKey: geminiApiKey,
-    auto: parsedArgs.flag('auto'),
-    raw: parsedArgs.flag('raw'),
-    verbose: parsedArgs.flag('verbose'),
+  runZonedGuarded(
+    () {
+      DashClient(
+        serverCommands,
+        geminiApiKey: geminiApiKey,
+        model: parsedArgs.option('model')!,
+        auto: parsedArgs.flag('auto'),
+        raw: parsedArgs.flag('raw'),
+        verbose: parsedArgs.flag('verbose'),
+      );
+    },
+    (e, s) {
+      stderr.writeln('$e\n$s');
+    },
   );
 }
 
@@ -40,6 +48,17 @@ final argParser =
         'server',
         abbr: 's',
         help: 'A command to run to start an MCP server',
+      )
+      ..addOption(
+        'model',
+        abbr: 'm',
+        help: 'The model to use',
+        defaultsTo: 'models/gemini-2.5-pro-preview-03-25',
+        allowed: [
+          'models/gemini-2.5-pro-preview-03-25',
+          'models/gemini-2.5-pro-exp-03-25',
+          'gemini-2.0-flash',
+        ],
       )
       ..addFlag(
         'auto',
@@ -65,7 +84,8 @@ final class DashClient extends MCPClient with RootsSupport {
   final List<ServerConnection> serverConnections = [];
   final Map<String, ServerConnection> connectionForFunction = {};
   final List<gemini.Content> chatHistory = [];
-  final gemini.GenerativeModel model;
+  final gemini.GenerativeModel proModel;
+  final gemini.GenerativeModel flashModel;
   final bool auto;
   final bool raw;
   final bool verbose;
@@ -73,11 +93,16 @@ final class DashClient extends MCPClient with RootsSupport {
   DashClient(
     this.serverCommands, {
     required String geminiApiKey,
+    required String model,
     this.auto = false,
     this.raw = false,
     this.verbose = false,
-  }) : model = gemini.GenerativeModel(
-         // model: 'gemini-2.5-pro-exp-03-25',
+  }) : proModel = gemini.GenerativeModel(
+         model: model,
+         apiKey: geminiApiKey,
+         systemInstruction: systemInstructions,
+       ),
+       flashModel = gemini.GenerativeModel(
          model: 'gemini-2.0-flash',
          apiKey: geminiApiKey,
          systemInstruction: systemInstructions,
@@ -114,8 +139,9 @@ final class DashClient extends MCPClient with RootsSupport {
       final nextMessage = continuation ?? await stdinQueue.next;
       continuation = null;
       chatHistory.add(gemini.Content.text(nextMessage));
+      print('thinking...');
       final modelResponse =
-          (await model.generateContent(
+          (await proModel.generateContent(
             chatHistory,
             tools: serverTools,
           )).candidates.single.content;
@@ -139,7 +165,7 @@ final class DashClient extends MCPClient with RootsSupport {
     final dashSpeakResponse =
         raw
             ? currentText
-            : (await model.generateContent([
+            : (await flashModel.generateContent([
               gemini.Content.text(
                 'Please rewrite the following message in your own voice',
               ),
@@ -195,7 +221,8 @@ final class DashClient extends MCPClient with RootsSupport {
       }
     }
     await _chatToUser(response.toString());
-    return null;
+    // After a function call, always ask gemini to keep going.
+    return 'Continue';
   }
 
   /// Analyzes a user [message] to see if it looks like they approved of the
@@ -203,7 +230,7 @@ final class DashClient extends MCPClient with RootsSupport {
   Future<bool> _analyzeSentiment(String message) async {
     if (message == 'y' || message == 'yes') return true;
     final sentimentResult =
-        (await model.generateContent([
+        (await flashModel.generateContent([
           gemini.Content.text(
             'Analyze the sentiment of the following response. If you are '
             'highly confident that the user approves of running the previous '
