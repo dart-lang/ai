@@ -7,10 +7,23 @@ import 'dart:io';
 import 'package:dart_mcp/server.dart';
 import 'package:process/process.dart';
 
-/// Helper to run a command in multiple project roots.
+/// Runs [command] in each of the project roots specified in the [request].
+///
+/// The [command] should be a list of strings that can be passed directly to
+/// [ProcessManager.run].
+///
+/// The [commandDescription] is used in the output to describe the command
+/// being run. For example, if the command is `['dart', 'fix', '--apply']`, the
+/// command description might be `dart fix`.
 ///
 /// [defaultPaths] may be specified if one or more path arguments are required
-/// for the command (e.g. `dart format <default paths>`).
+/// for the command (e.g. `dart format <default paths>`). The paths can be
+/// absolute or relative paths that point to the directories on which the
+/// command should be run. For example, the `dart format` command may pass a
+/// default path of '.', which indicates that every Dart file in the working
+/// directory should be formatted. The value of `defaultPaths` will only be used
+/// if the [request]'s root configuration does not contain a set value for a
+/// root's 'paths'.
 Future<CallToolResult> runCommandInRoots(
   CallToolRequest request, {
   required List<String> command,
@@ -55,15 +68,12 @@ Future<CallToolResult> runCommandInRoots(
     }
     final projectRoot = Directory(rootUri.toFilePath());
 
+    final commandWithPaths = List<String>.from(command);
     final paths = (rootConfig['paths'] as List?)?.cast<String>();
-    if (paths != null) {
-      command.addAll(paths);
-    } else {
-      command.addAll(defaultPaths);
-    }
+    commandWithPaths.addAll(paths ?? defaultPaths);
 
     final result = await processManager.run(
-      command,
+      commandWithPaths,
       workingDirectory: projectRoot.path,
       runInShell: true,
     );

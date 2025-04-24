@@ -9,11 +9,10 @@ import 'package:dart_mcp/server.dart';
 import '../utils/cli_utils.dart';
 import '../utils/process_manager.dart';
 
-// TODO: migrate the analyze files tool to use this mixin and run the
-// `dart analyze` command instead of the analyzer package.
-
-/// Mix this in to any MCPServer to add support for running Dart CLI commands
-/// like `dart fix` and `dart format`.
+/// Mix this in to any MCPServer to add support for running Pub commands like
+/// like `pub add` and `pub get`.
+///
+/// See [SupportedPubCommand] for the set of currently supported pub commands.
 ///
 /// The MCPServer must already have the [ToolsSupport] and [LoggingSupport]
 /// mixins applied.
@@ -21,11 +20,6 @@ base mixin PubSupport on ToolsSupport, LoggingSupport
     implements ProcessManagerSupport {
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
-    if (request.capabilities.roots == null) {
-      throw StateError(
-        'This server requires the "roots" capability to be implemented.',
-      );
-    }
     registerTool(pubTool, _runDartPubTool);
     return super.initialize(request);
   }
