@@ -77,26 +77,27 @@ base mixin PubSupport on ToolsSupport, LoggingSupport
     description:
         'Runs a dart pub command for the given project roots, like `dart pub '
         'get` or `dart pub add`.',
-    inputSchema: ObjectSchema(
+    annotations: ToolAnnotations(title: 'pub', readOnlyHint: false),
+    inputSchema: Schema.object(
       properties: {
-        'command': StringSchema(
+        'command': Schema.string(
           title: 'The dart pub command to run.',
           description:
               'Currently only ${SupportedPubCommand.listAll} are supported.',
         ),
-        'packageName': StringSchema(
+        'packageName': Schema.string(
           title: 'The package name to run the command for.',
           description:
               'This is required for the '
               '${SupportedPubCommand.listAllThatRequirePackageName} commands.',
         ),
-        'roots': ListSchema(
+        'roots': Schema.list(
           title: 'All projects roots to run the dart pub command in.',
           description:
               'These must match a root returned by a call to "listRoots".',
-          items: ObjectSchema(
+          items: Schema.object(
             properties: {
-              'root': StringSchema(
+              'root': Schema.string(
                 title:
                     'The URI of the project root to run the dart pub command '
                     'in.',
