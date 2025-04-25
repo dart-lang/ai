@@ -23,10 +23,18 @@ void main(List<String> args) {
 
   final parsedArgs = argParser.parse(args);
   final serverCommands = parsedArgs['server'] as List<String>;
-  WorkflowClient(
-    serverCommands,
-    geminiApiKey: geminiApiKey,
-    verbose: parsedArgs.flag('verbose'),
+  runZonedGuarded(
+    () {
+      WorkflowClient(
+        serverCommands,
+        geminiApiKey: geminiApiKey,
+        verbose: parsedArgs.flag('verbose'),
+        dtdUri: parsedArgs.option('dtd'),
+      );
+    },
+    (e, s) {
+      stderr.writeln('$e\n$s');
+    },
   );
 }
 
@@ -41,16 +49,22 @@ final argParser =
         'verbose',
         abbr: 'v',
         help: 'Enables verbose logging for logs from servers.',
+      )
+      ..addOption(
+        'dtd',
+        help: 'Pass the DTD URI to use for this workflow session.',
       );
 
 final class WorkflowClient extends MCPClient with RootsSupport {
   WorkflowClient(
     this.serverCommands, {
     required String geminiApiKey,
+    String? dtdUri,
     this.verbose = false,
   }) : model = gemini.GenerativeModel(
          model: 'gemini-2.5-pro-preview-03-25',
-         //  model: 'gemini-2.0-flash',
+         // model: 'gemini-2.0-flash',
+         //  model: 'gemini-2.5-flash-preview-04-17',
          apiKey: geminiApiKey,
          systemInstruction: systemInstructions,
        ),
@@ -66,6 +80,22 @@ final class WorkflowClient extends MCPClient with RootsSupport {
         name: 'The working dir',
       ),
     );
+    chatHistory.add(
+      gemini.Content.text(
+        'The current working directory is '
+        '${Directory.current.absolute.uri.toString()}. Convert all relative '
+        'URIs to absolute using this root. For tools that want a root, use this'
+        'URI.',
+      ),
+    );
+    if (dtdUri != null) {
+      chatHistory.add(
+        gemini.Content.text(
+          'If you need to establish a Dart Tooling Daemon (DTD) connection, '
+          'use this URI: $dtdUri.',
+        ),
+      );
+    }
     _startChat();
   }
 
@@ -135,7 +165,6 @@ final class WorkflowClient extends MCPClient with RootsSupport {
 
     final userResponse = await _waitForInputAndAddToHistory();
     final wasApproval = await _analyzeSentiment(userResponse);
-    print('[DEBUG] plan approved: $wasApproval');
     if (!wasApproval) {
       await _makeAndExecutePlan(
         userResponse,
@@ -168,15 +197,17 @@ final class WorkflowClient extends MCPClient with RootsSupport {
           case gemini.TextPart():
             _chatToUser(part.text);
           case gemini.FunctionCall():
-            print('[DEBUG] function call');
             final result = await _handleFunctionCall(part);
             if (result == null ||
                 result.contains('unsupported response type')) {
-              // Something went wrong. TODO: handle this.
-            } else {
-              continuation =
-                  '$result\n. Please proceed to the next step of the plan.';
+              _chatToUser(
+                'Something went wrong when trying to call the ${part.name} '
+                'function. Proceeding to next step of the plan.',
+              );
             }
+            continuation =
+                '$result\n. Please proceed to the next step of the plan.';
+
           default:
             print('Unrecognized response type from the model: $modelResponse.');
         }
@@ -231,8 +262,9 @@ final class WorkflowClient extends MCPClient with RootsSupport {
   /// Handles a function call response from the model.
   Future<String?> _handleFunctionCall(gemini.FunctionCall functionCall) async {
     _chatToUser(
-      'I am going to run the ${functionCall.name} tool with args '
-      '${jsonEncode(functionCall.args)} to perform this task.',
+      'I am going to run the ${functionCall.name} tool'
+      '${verbose ? ' with args ${jsonEncode(functionCall.args)}' : ''} to '
+      'perform this task.',
     );
 
     chatHistory.add(gemini.Content.model([functionCall]));
@@ -396,7 +428,13 @@ If a user asks about an error or a widget in the app, you should have several
 tools available to you to aid in debugging, so make sure to use those.
 
 If a user asks for code that requires adding or removing a dependency, you have
-several tools available to your for managing pub dependencies.
+several tools available to you for managing pub dependencies.
+
+If a user asks you to complete a task that requires writing to files, only edit
+the part of the file that is required. After you apply the edit, the file should
+contain all of the contents it did before with the changes you made applied.
+After editing files, always fix any errors and perform a hot reload to apply the
+changes.
 
 When a user asks you to complete a task, you should first make a plan, which may
 involve multiple steps and the use of tools available to you. Report this plan
@@ -406,12 +444,10 @@ Generally, if you are asked to make code changes, you should follow this high
 level process:
 
 1) Write the code and apply the changes to the codebase
-2) Check for static analysis errors and warnings
-3) Fix all errors and warnings that you can
-4) Hot reload the changes to the running app
-5) Check for runtime errors
-6) Fix any runtime errors that you can
-7) Ensure that all code is formatted properly
+2) Check for static analysis errors and warnings and fix them
+3) Check for runtime errors and fix them
+4) Ensure that all code is formatted properly
+5) Hot reload the changes to the running app
 
 If, while executing your plan, you end up skipping steps because they are no
 longer applicable, explain why you are skipping them.
