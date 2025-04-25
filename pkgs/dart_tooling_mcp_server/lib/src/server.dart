@@ -12,6 +12,7 @@ import 'package:stream_channel/stream_channel.dart';
 import 'mixins/analyzer.dart';
 import 'mixins/dart_cli.dart';
 import 'mixins/dtd.dart';
+import 'mixins/pub.dart';
 import 'utils/process_manager.dart';
 
 /// An MCP server for Dart and Flutter tooling.
@@ -21,6 +22,7 @@ final class DartToolingMCPServer extends MCPServer
         ToolsSupport,
         DartAnalyzerSupport,
         DartCliSupport,
+        PubSupport,
         DartToolingDaemonSupport
     implements ProcessManagerSupport {
   DartToolingMCPServer({

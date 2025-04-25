@@ -2,6 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:io';
+
 import 'package:dart_mcp/server.dart';
 import 'package:dart_tooling_mcp_server/src/mixins/analyzer.dart';
 import 'package:test/test.dart';
@@ -83,6 +85,29 @@ void main() {
       expect(
         result.content.single,
         isA<TextContent>().having((t) => t.text, 'text', 'No errors'),
+      );
+    });
+
+    test('can look up symbols in a workspace', () async {
+      final currentRoot = rootForPath(Directory.current.path);
+      testHarness.mcpClient.addRoot(currentRoot);
+      await pumpEventQueue();
+
+      final result = await testHarness.callToolWithRetry(
+        CallToolRequest(
+          name: DartAnalyzerSupport.resolveWorkspaceSymbolTool.name,
+          arguments: {'query': 'DartAnalyzerSupport'},
+        ),
+      );
+      expect(result.isError, isNot(true));
+
+      expect(
+        result.content.single,
+        isA<TextContent>().having(
+          (t) => t.text,
+          'text',
+          contains('analyzer.dart'),
+        ),
       );
     });
   });
