@@ -51,11 +51,7 @@ final argParser =
         abbr: 'v',
         help: 'Enables verbose logging for logs from servers.',
       )
-      ..addFlag(
-        'dash-persona',
-        help: 'Use the Dash persona.',
-        defaultsTo: false,
-      )
+      ..addFlag('dash', help: 'Use the Dash mascot persona.', defaultsTo: false)
       ..addOption(
         'dtd',
         help: 'Pass the DTD URI to use for this workflow session.',
