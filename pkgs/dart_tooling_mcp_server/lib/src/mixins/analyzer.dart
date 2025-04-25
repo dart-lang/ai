@@ -57,6 +57,7 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
     unsupportedReason ??= await _initializeAnalyzerLspServer();
     if (unsupportedReason == null) {
       registerTool(analyzeFilesTool, _analyzeFiles);
+      registerTool(resolveWorkspaceSymbolTool, _resolveWorkspaceSymbol);
     }
 
     // Don't call any methods on the client until we are fully initialized
@@ -129,6 +130,39 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
                     diagnostics: lsp.DiagnosticWorkspaceClientCapabilities(
                       refreshSupport: true,
                     ),
+                    symbol: lsp.WorkspaceSymbolClientCapabilities(
+                      symbolKind:
+                          lsp.WorkspaceSymbolClientCapabilitiesSymbolKind(
+                            valueSet: [
+                              lsp.SymbolKind.Array,
+                              lsp.SymbolKind.Boolean,
+                              lsp.SymbolKind.Class,
+                              lsp.SymbolKind.Constant,
+                              lsp.SymbolKind.Constructor,
+                              lsp.SymbolKind.Enum,
+                              lsp.SymbolKind.EnumMember,
+                              lsp.SymbolKind.Event,
+                              lsp.SymbolKind.Field,
+                              lsp.SymbolKind.File,
+                              lsp.SymbolKind.Function,
+                              lsp.SymbolKind.Interface,
+                              lsp.SymbolKind.Key,
+                              lsp.SymbolKind.Method,
+                              lsp.SymbolKind.Module,
+                              lsp.SymbolKind.Namespace,
+                              lsp.SymbolKind.Null,
+                              lsp.SymbolKind.Number,
+                              lsp.SymbolKind.Obj,
+                              lsp.SymbolKind.Operator,
+                              lsp.SymbolKind.Package,
+                              lsp.SymbolKind.Property,
+                              lsp.SymbolKind.Str,
+                              lsp.SymbolKind.Struct,
+                              lsp.SymbolKind.TypeParameter,
+                              lsp.SymbolKind.Variable,
+                            ],
+                          ),
+                    ),
                   ),
                   textDocument: lsp.TextDocumentClientCapabilities(
                     publishDiagnostics:
@@ -148,15 +182,30 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
     }
 
     if (initializeResult != null) {
+      // Checks that we can set workspaces on the LSP server.
       final workspaceSupport =
           initializeResult.capabilities.workspace?.workspaceFolders;
       if (workspaceSupport?.supported != true) {
         error ??= 'Workspaces are not supported by the LSP server';
-      }
-      if (workspaceSupport?.changeNotifications?.valueEquals(true) != true) {
+      } else if (workspaceSupport?.changeNotifications?.valueEquals(true) !=
+          true) {
         error ??=
             'Workspace change notifications are not supported by the LSP '
             'server';
+      }
+
+      // Checks that we resolve workspace symbols.
+      final workspaceSymbolProvider =
+          initializeResult.capabilities.workspaceSymbolProvider;
+      final symbolProvidersSupported =
+          workspaceSymbolProvider != null &&
+          workspaceSymbolProvider.map(
+            (b) => b,
+            (options) => options.resolveProvider == true,
+          );
+      if (!symbolProvidersSupported) {
+        error ??=
+            'Workspace symbol resolution is not supported by the LSP server';
       }
     }
 
@@ -197,6 +246,20 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
       messages.add(TextContent(text: 'No errors'));
     }
     return CallToolResult(content: messages);
+  }
+
+  /// Implementation of the [resolveWorkspaceSymbolTool], resolves a given
+  /// symbol or symbols in a workspace.
+  Future<CallToolResult> _resolveWorkspaceSymbol(
+    CallToolRequest request,
+  ) async {
+    await _doneAnalyzing?.future;
+    final query = request.arguments!['query'] as String;
+    final result = await _lspConnection.sendRequest(
+      lsp.Method.workspace_symbol.toString(),
+      lsp.WorkspaceSymbolParams(query: query).toJson(),
+    );
+    return CallToolResult(content: [TextContent(text: jsonEncode(result))]);
   }
 
   /// Handles `$/analyzerStatus` events, which tell us when analysis starts and
@@ -268,7 +331,25 @@ base mixin DartAnalyzerSupport on ToolsSupport, LoggingSupport {
   static final analyzeFilesTool = Tool(
     name: 'analyze_files',
     description: 'Analyzes the entire project for errors.',
-    inputSchema: ObjectSchema(),
+    inputSchema: Schema.object(),
+  );
+
+  @visibleForTesting
+  static final resolveWorkspaceSymbolTool = Tool(
+    name: 'resolve_workspace_symbol',
+    description: 'Look up a symbol or symbols in all workspaces by name.',
+    inputSchema: Schema.object(
+      properties: {
+        'query': Schema.string(
+          description:
+              'Queries are matched based on a case-insensitive partial name '
+              'match, and do not support complex pattern matching, regexes, '
+              'or scoped lookups.',
+        ),
+      },
+      required: ['query'],
+    ),
+    annotations: ToolAnnotations(title: 'Project search', readOnlyHint: true),
   );
 }
 
