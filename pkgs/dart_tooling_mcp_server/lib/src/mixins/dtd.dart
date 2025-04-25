@@ -299,6 +299,8 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
   Future<CallToolResult> runtimeErrors(CallToolRequest request) async {
     return _callOnVmService(
       callback: (vmService) async {
+        final since = request.arguments?['since'] as int?;
+
         final errors = <String>[];
         StreamSubscription<Event>? extensionEvents;
         StreamSubscription<Event>? stderrEvents;
@@ -310,7 +312,7 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
           extensionEvents = vmService.onExtensionEventWithHistory.listen((
             Event e,
           ) {
-            if (e.extensionKind == 'Flutter.Error') {
+            if (e.extensionKind == 'Flutter.Error' && e.wasSince(since)) {
               // TODO(https://github.com/dart-lang/ai/issues/57): consider
               // pruning this content down to only what is useful for the LLM to
               // understand the error and its source.
@@ -318,6 +320,8 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
             }
           });
           stderrEvents = vmService.onStderrEventWithHistory.listen((Event e) {
+            if (!e.wasSince(since)) return;
+
             final message = decodeBase64(e.bytes!);
             // TODO(https://github.com/dart-lang/ai/issues/57): consider
             // pruning this content down to only what is useful for the LLM to
@@ -494,7 +498,16 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
       title: 'Get runtime errors',
       readOnlyHint: true,
     ),
-    inputSchema: Schema.object(),
+    inputSchema: Schema.object(
+      properties: {
+        'since': Schema.int(
+          description:
+              'Only return errors that occurred after this timestamp (in '
+              'milliseconds since epoch). If not provided then all errors will '
+              'be returned.',
+        ),
+      },
+    ),
   );
 
   @visibleForTesting
@@ -668,4 +681,13 @@ extension type DebugSession.fromJson(Map<String, Object?> _value)
     'projectRootPath': projectRootPath,
     'vmServiceUri': vmServiceUri,
   });
+}
+
+extension on Event {
+  /// Returns `true` if [timestamp] is >= [since].
+  ///
+  /// If we cannot determine this due to either [timestamp] or [since] being
+  /// null, then we also return `true`.
+  bool wasSince(int? since) =>
+      since == null || timestamp == null ? true : timestamp! >= since;
 }
