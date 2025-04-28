@@ -18,7 +18,7 @@ import 'package:vm_service/vm_service_io.dart';
 /// https://pub.dev/packages/dtd).
 ///
 /// The MCPServer must already have the [ToolsSupport] mixin applied.
-base mixin DartToolingDaemonSupport on ToolsSupport {
+base mixin DartToolingDaemonSupport on LoggingSupport, ToolsSupport {
   DartToolingDaemon? _dtd;
 
   /// Whether or not the DTD extension to get the active debug sessions is
@@ -160,15 +160,27 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
   void _listenForServices() {
     final dtd = _dtd!;
     dtd.onEvent('Service').listen((e) async {
+      log(
+        LoggingLevel.debug,
+        () => 'DTD Service event:\n${e.kind}: ${jsonEncode(e.data)}',
+      );
       switch (e.kind) {
         case 'ServiceRegistered':
           if (e.data['service'] == 'Editor' &&
               e.data['method'] == 'getDebugSessions') {
+            log(
+              LoggingLevel.debug,
+              'Editor.getDebugSessions registered, dtd is ready',
+            );
             _getDebugSessionsReady = true;
           }
         case 'ServiceUnregistered':
           if (e.data['service'] == 'Editor' &&
               e.data['method'] == 'getDebugSessions') {
+            log(
+              LoggingLevel.debug,
+              'Editor.getDebugSessions unregistered, dtd is no longer ready',
+            );
             _getDebugSessionsReady = false;
           }
       }
