@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:dart_mcp/server.dart';
 import 'package:dart_tooling_mcp_server/src/mixins/dtd.dart';
@@ -86,6 +87,38 @@ void main() {
         );
         expect(
           (runtimeErrorsResult.content[1] as TextContent).text,
+          contains('A RenderFlex overflowed by'),
+        );
+
+        final now = DateTime.now().millisecondsSinceEpoch;
+        final sinceNowResult = await testHarness.callToolWithRetry(
+          CallToolRequest(
+            name: runtimeErrorsTool.name,
+            arguments: {'since': now},
+          ),
+        );
+        expect(
+          (sinceNowResult.content.first as TextContent).text,
+          contains('No runtime errors found'),
+        );
+
+        // Trigger a hot reload, should see the error again.
+        await testHarness.callToolWithRetry(
+          CallToolRequest(name: DartToolingDaemonSupport.hotReloadTool.name),
+        );
+
+        final finalRuntimeErrorsResult = await testHarness.callToolWithRetry(
+          CallToolRequest(
+            name: runtimeErrorsTool.name,
+            arguments: {'since': now},
+          ),
+        );
+        expect(
+          (finalRuntimeErrorsResult.content.first as TextContent).text,
+          contains(errorCountRegex),
+        );
+        expect(
+          (finalRuntimeErrorsResult.content[1] as TextContent).text,
           contains('A RenderFlex overflowed by'),
         );
       });
