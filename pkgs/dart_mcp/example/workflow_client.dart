@@ -30,7 +30,7 @@ void main(List<String> args) {
         geminiApiKey: geminiApiKey,
         verbose: parsedArgs.flag('verbose'),
         dtdUri: parsedArgs.option('dtd'),
-        persona: parsedArgs.flag('dash-persona') ? _dashPersona : null,
+        persona: parsedArgs.flag('dash') ? _dashPersona : null,
       );
     },
     (e, s) {
