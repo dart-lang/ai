@@ -387,7 +387,7 @@ base mixin DartAnalyzerSupport
     content: [
       TextContent(
         text:
-            'No roots set, at least one root must be set in order to use this '
+            'No roots set. At least one root must be set in order to use this '
             'tool.',
       ),
     ],
