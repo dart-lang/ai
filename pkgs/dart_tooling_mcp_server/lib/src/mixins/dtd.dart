@@ -93,7 +93,7 @@ base mixin DartToolingDaemonSupport
         // Start listening for and collecting errors immediately.
         final errorService = await _AppErrorsListener.forVmService(vmService);
         final resource = Resource(
-          uri: 'runtime-errors://${debugSession.id}',
+          uri: '$runtimeErrorsScheme://${debugSession.id}',
           name: debugSession.name,
         );
         addResource(resource, (request) async {
@@ -655,6 +655,8 @@ base mixin DartToolingDaemonSupport
       ),
     ],
   );
+
+  static final runtimeErrorsScheme = 'runtime-errors';
 }
 
 /// Listens on a VM service for errors.
