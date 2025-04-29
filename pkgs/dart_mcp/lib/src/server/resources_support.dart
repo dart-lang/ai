@@ -45,7 +45,7 @@ base mixin ResourcesSupport on MCPServer {
   final StreamController<void> _resourceListChangedController =
       StreamController<void>();
 
-  /// At most updates for the same resource or list of resources will only be
+  /// At most, updates for the same resource or list of resources will only be
   /// sent once per this [Duration].
   ///
   /// Override this getter in subtypes in order to configure the delay.
