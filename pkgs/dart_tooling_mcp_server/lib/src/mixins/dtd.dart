@@ -181,15 +181,27 @@ base mixin DartToolingDaemonSupport
   void _listenForServices() {
     final dtd = _dtd!;
     dtd.onEvent('Service').listen((e) async {
+      log(
+        LoggingLevel.debug,
+        () => 'DTD Service event:\n${e.kind}: ${jsonEncode(e.data)}',
+      );
       switch (e.kind) {
         case 'ServiceRegistered':
           if (e.data['service'] == 'Editor' &&
               e.data['method'] == 'getDebugSessions') {
+            log(
+              LoggingLevel.debug,
+              'Editor.getDebugSessions registered, dtd is ready',
+            );
             _getDebugSessionsReady = true;
           }
         case 'ServiceUnregistered':
           if (e.data['service'] == 'Editor' &&
               e.data['method'] == 'getDebugSessions') {
+            log(
+              LoggingLevel.debug,
+              'Editor.getDebugSessions unregistered, dtd is no longer ready',
+            );
             _getDebugSessionsReady = false;
           }
       }
@@ -537,7 +549,16 @@ base mixin DartToolingDaemonSupport
       title: 'Get runtime errors',
       readOnlyHint: true,
     ),
-    inputSchema: Schema.object(),
+    inputSchema: Schema.object(
+      properties: {
+        'since': Schema.int(
+          description:
+              'Only return errors that occurred after this timestamp (in '
+              'milliseconds since epoch). If not provided then all errors will '
+              'be returned.',
+        ),
+      },
+    ),
   );
 
   @visibleForTesting
@@ -792,4 +813,13 @@ extension type DebugSession.fromJson(Map<String, Object?> _value)
     'projectRootPath': projectRootPath,
     if (vmServiceUri != null) 'vmServiceUri': vmServiceUri,
   });
+}
+
+extension on Event {
+  /// Returns `true` if [timestamp] is >= [since].
+  ///
+  /// If we cannot determine this due to either [timestamp] or [since] being
+  /// null, then we also return `true`.
+  bool wasSince(int? since) =>
+      since == null || timestamp == null ? true : timestamp! >= since;
 }

@@ -88,6 +88,38 @@ void main() {
           (runtimeErrorsResult.content[1] as TextContent).text,
           contains('A RenderFlex overflowed by'),
         );
+
+        final now = DateTime.now().millisecondsSinceEpoch;
+        final sinceNowResult = await testHarness.callToolWithRetry(
+          CallToolRequest(
+            name: runtimeErrorsTool.name,
+            arguments: {'since': now},
+          ),
+        );
+        expect(
+          (sinceNowResult.content.first as TextContent).text,
+          contains('No runtime errors found'),
+        );
+
+        // Trigger a hot reload, should see the error again.
+        await testHarness.callToolWithRetry(
+          CallToolRequest(name: DartToolingDaemonSupport.hotReloadTool.name),
+        );
+
+        final finalRuntimeErrorsResult = await testHarness.callToolWithRetry(
+          CallToolRequest(
+            name: runtimeErrorsTool.name,
+            arguments: {'since': now},
+          ),
+        );
+        expect(
+          (finalRuntimeErrorsResult.content.first as TextContent).text,
+          contains(errorCountRegex),
+        );
+        expect(
+          (finalRuntimeErrorsResult.content[1] as TextContent).text,
+          contains('A RenderFlex overflowed by'),
+        );
       });
 
       test('can get the widget tree', () async {

@@ -238,7 +238,9 @@ base mixin DartAnalyzerSupport
   ///
   /// Waits for any pending analysis before returning.
   Future<CallToolResult> _analyzeFiles(CallToolRequest request) async {
-    await _doneAnalyzing?.future;
+    final errorResult = await _ensurePrerequisites(request);
+    if (errorResult != null) return errorResult;
+
     final messages = <Content>[];
     for (var entry in diagnostics.entries) {
       for (var diagnostic in entry.value) {
@@ -258,13 +260,28 @@ base mixin DartAnalyzerSupport
   Future<CallToolResult> _resolveWorkspaceSymbol(
     CallToolRequest request,
   ) async {
-    await _doneAnalyzing?.future;
+    final errorResult = await _ensurePrerequisites(request);
+    if (errorResult != null) return errorResult;
+
     final query = request.arguments!['query'] as String;
     final result = await _lspConnection.sendRequest(
       lsp.Method.workspace_symbol.toString(),
       lsp.WorkspaceSymbolParams(query: query).toJson(),
     );
     return CallToolResult(content: [TextContent(text: jsonEncode(result))]);
+  }
+
+  /// Ensures that all prerequites for any analysis task are met.
+  ///
+  /// Returns an error response if any prerequisite is not met, otherwise
+  /// returns `null`.
+  Future<CallToolResult?> _ensurePrerequisites(CallToolRequest request) async {
+    final roots = await this.roots;
+    if (roots.isEmpty) {
+      return noRootsSetResponse;
+    }
+    await _doneAnalyzing?.future;
+    return null;
   }
 
   /// Handles `$/analyzerStatus` events, which tell us when analysis starts and
@@ -362,6 +379,18 @@ base mixin DartAnalyzerSupport
       required: ['query'],
     ),
     annotations: ToolAnnotations(title: 'Project search', readOnlyHint: true),
+  );
+
+  @visibleForTesting
+  static final noRootsSetResponse = CallToolResult(
+    isError: true,
+    content: [
+      TextContent(
+        text:
+            'No roots set. At least one root must be set in order to use this '
+            'tool.',
+      ),
+    ],
   );
 }
 

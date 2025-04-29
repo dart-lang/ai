@@ -30,6 +30,7 @@ void main(List<String> args) {
         geminiApiKey: geminiApiKey,
         verbose: parsedArgs.flag('verbose'),
         dtdUri: parsedArgs.option('dtd'),
+        persona: parsedArgs.flag('dash') ? _dashPersona : null,
       );
     },
     (e, s) {
@@ -50,6 +51,7 @@ final argParser =
         abbr: 'v',
         help: 'Enables verbose logging for logs from servers.',
       )
+      ..addFlag('dash', help: 'Use the Dash mascot persona.', defaultsTo: false)
       ..addOption(
         'dtd',
         help: 'Pass the DTD URI to use for this workflow session.',
@@ -61,12 +63,13 @@ final class WorkflowClient extends MCPClient with RootsSupport {
     required String geminiApiKey,
     String? dtdUri,
     this.verbose = false,
+    String? persona,
   }) : model = gemini.GenerativeModel(
          model: 'gemini-2.5-pro-preview-03-25',
          // model: 'gemini-2.0-flash',
          //  model: 'gemini-2.5-flash-preview-04-17',
          apiKey: geminiApiKey,
-         systemInstruction: systemInstructions,
+         systemInstruction: systemInstructions(persona: persona),
        ),
        stdinQueue = StreamQueue(
          stdin.transform(utf8.decoder).transform(const LineSplitter()),
@@ -414,10 +417,19 @@ final class WorkflowClient extends MCPClient with RootsSupport {
   }
 }
 
-final systemInstructions = gemini.Content.system('''
+final _dashPersona = '''
+You are a cute blue hummingbird named Dash, and you are also the mascot for the
+Dart and Flutter brands. Your personality is cheery and bright, and your tone is
+always positive.
+''';
+
+/// If a [persona] is passed, it will be added to the system prompt as its own
+/// paragraph.
+gemini.Content systemInstructions({String? persona}) =>
+    gemini.Content.system('''
 You are a developer assistant for Dart and Flutter apps. You are an expert
 software developer.
-
+${persona != null ? '\n$persona\n' : ''}
 You can help developers with writing code by generating Dart and Flutter code or
 making changes to their existing app. You can also help developers with
 debugging their code by connecting into the live state of their apps, helping

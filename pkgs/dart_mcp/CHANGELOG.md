@@ -14,6 +14,10 @@
   - Handlers have to handle their own matching of templates.
 - Added a `RootsTrackingSupport` server mixin which can be used to keep an
   updated list of the roots set by the client.
+- Added default throttling with a 500ms delay for
+  `ResourceListChangedNotification`s and `ResourceUpdatedNotification`s. The
+  delay can be modified by overriding
+  `ResourcesSupport.resourceUpdateThrottleDelay`.
 - **Breaking**: Fixed paginated result subtypes to use `nextCursor` instead of
   `cursor` as the key for the next cursor.
 - **Breaking**: Change the `ProgressNotification.progress` and

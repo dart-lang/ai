@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_channel/stream_channel.dart';
+import 'package:stream_transform/stream_transform.dart';
 
 import '../api/api.dart';
 import '../shared.dart';

@@ -110,5 +110,38 @@ void main() {
         ),
       );
     });
+
+    test('cannot analyze without roots set', () async {
+      final result = await testHarness.callToolWithRetry(
+        CallToolRequest(name: DartAnalyzerSupport.analyzeFilesTool.name),
+        expectError: true,
+      );
+      expect(
+        result.content.single,
+        isA<TextContent>().having(
+          (t) => t.text,
+          'text',
+          contains('No roots set'),
+        ),
+      );
+    });
+
+    test('cannot look up symbols without roots set', () async {
+      final result = await testHarness.callToolWithRetry(
+        CallToolRequest(
+          name: DartAnalyzerSupport.resolveWorkspaceSymbolTool.name,
+          arguments: {'query': 'DartAnalyzerSupport'},
+        ),
+        expectError: true,
+      );
+      expect(
+        result.content.single,
+        isA<TextContent>().having(
+          (t) => t.text,
+          'text',
+          contains('No roots set'),
+        ),
+      );
+    });
   });
 }
