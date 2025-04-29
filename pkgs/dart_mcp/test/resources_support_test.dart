@@ -167,13 +167,8 @@ void main() {
     // Should get exactly two notifications even though we have more resources,
     // one initial notification and one after the throttle delay.
     await resourceListChangedQueue.take(2);
-    expect(
-      resourceListChangedQueue.hasNext.timeout(
-        const Duration(milliseconds: 10),
-        onTimeout: () => false,
-      ),
-      completion(false),
-    );
+    expect(resourceListChangedQueue.hasNext, completion(false));
+    await pumpEventQueue();
 
     final resourceChangedQueue = StreamQueue(serverConnection.resourceUpdated);
     final resource = resources.first;
@@ -200,13 +195,8 @@ void main() {
         ),
       );
     }
-    expect(
-      resourceChangedQueue.hasNext.timeout(
-        const Duration(milliseconds: 10),
-        onTimeout: () => false,
-      ),
-      completion(false),
-    );
+    expect(resourceChangedQueue.hasNext, completion(false));
+    await pumpEventQueue();
 
     await environment.shutdown();
   });
@@ -245,7 +235,7 @@ final class TestMCPServerWithResources extends TestMCPServer
     with ResourcesSupport {
   @override
   /// Shorten this delay for the test so they run quickly.
-  Duration get resourceUpdateThrottleDelay => const Duration(milliseconds: 1);
+  Duration get resourceUpdateThrottleDelay => Duration.zero;
 
   TestMCPServerWithResources({required super.channel});
 
