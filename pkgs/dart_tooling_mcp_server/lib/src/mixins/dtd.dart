@@ -18,7 +18,7 @@ import 'package:vm_service/vm_service_io.dart';
 /// https://pub.dev/packages/dtd).
 ///
 /// The MCPServer must already have the [ToolsSupport] mixin applied.
-base mixin DartToolingDaemonSupport on ToolsSupport {
+base mixin DartToolingDaemonSupport on ToolsSupport, LoggingSupport {
   DartToolingDaemon? _dtd;
 
   /// Whether or not the DTD extension to get the active debug sessions is
@@ -83,24 +83,31 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
     final response = await dtd.getDebugSessions();
     final debugSessions = response.debugSessions;
     for (final debugSession in debugSessions) {
-      if (activeVmServices.containsKey(debugSession.vmServiceUri)) {
+      if (activeVmServices.containsKey(debugSession.id)) {
         continue;
       }
-      final vmService = await vmServiceConnectUri(debugSession.vmServiceUri);
-      activeVmServices[debugSession.vmServiceUri] = vmService;
-      unawaited(
-        vmService.onDone.then((_) {
-          activeVmServices.remove(debugSession.vmServiceUri);
-          vmService.dispose();
-        }),
-      );
+      if (debugSession.vmServiceUri case final vmServiceUri?) {
+        final vmService = await vmServiceConnectUri(vmServiceUri);
+        activeVmServices[debugSession.id] = vmService;
+        unawaited(
+          vmService.onDone.then((_) {
+            activeVmServices.remove(debugSession.id);
+            vmService.dispose();
+          }),
+        );
+      }
     }
   }
 
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) async {
     registerTool(connectTool, _connect);
-    registerTool(getRuntimeErrorsTool, runtimeErrors);
+    // If we support sampling, then don't expose the runtime errors tool, as
+    // this might confuse the VM and supporting it would require caching all
+    // errors indefinitely.
+    if (request.capabilities.sampling != null) {
+      registerTool(getRuntimeErrorsTool, runtimeErrors);
+    }
 
     // TODO: these tools should only be registered for Flutter applications, or
     // they should return an error when used against a pure Dart app (or a
@@ -174,6 +181,21 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
       }
     });
     dtd.streamListen('Service');
+
+    dtd.onEvent('Editor').listen((e) async {
+      log(LoggingLevel.debug, e.toString());
+      switch (e.kind) {
+        case 'debugSessionStarted':
+        case 'debugSessionChanged':
+          await updateActiveVmServices();
+        case 'debugSessionStopped':
+          await activeVmServices
+              .remove((e.data['debugSession'] as DebugSession).id)
+              ?.dispose();
+        default:
+      }
+    });
+    dtd.streamListen('Editor');
   }
 
   /// Takes a screenshot of the currently running app.
@@ -299,38 +321,14 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
   Future<CallToolResult> runtimeErrors(CallToolRequest request) async {
     return _callOnVmService(
       callback: (vmService) async {
-        final errors = <String>[];
-        StreamSubscription<Event>? extensionEvents;
-        StreamSubscription<Event>? stderrEvents;
         try {
-          // We need to listen to streams with history so that we can get errors
-          // that occurred before this tool call.
-          // TODO(https://github.com/dart-lang/ai/issues/57): this can result in
-          // duplicate errors that we need to de-duplicate somehow.
-          extensionEvents = vmService.onExtensionEventWithHistory.listen((
-            Event e,
-          ) {
-            if (e.extensionKind == 'Flutter.Error') {
-              // TODO(https://github.com/dart-lang/ai/issues/57): consider
-              // pruning this content down to only what is useful for the LLM to
-              // understand the error and its source.
-              errors.add(e.json.toString());
-            }
-          });
-          stderrEvents = vmService.onStderrEventWithHistory.listen((Event e) {
-            final message = decodeBase64(e.bytes!);
-            // TODO(https://github.com/dart-lang/ai/issues/57): consider
-            // pruning this content down to only what is useful for the LLM to
-            // understand the error and its source.
-            errors.add(message);
-          });
-
-          await vmService.streamListen(EventStreams.kExtension);
-          await vmService.streamListen(EventStreams.kStderr);
-
+          final errorService = await _AppErrorsListener.forVmService(vmService);
+          final errors = <String>[];
+          errorService.errors.listen(errors.add);
           // Await a short delay to allow the error events to come over the open
           // Streams.
           await Future<void>.delayed(const Duration(seconds: 1));
+          await errorService.shutdown();
 
           if (errors.isEmpty) {
             return CallToolResult(
@@ -352,11 +350,6 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
             isError: true,
             content: [TextContent(text: 'Failed to get runtime errors: $e')],
           );
-        } finally {
-          await extensionEvents?.cancel();
-          await stderrEvents?.cancel();
-          await vmService.streamCancel(EventStreams.kExtension);
-          await vmService.streamCancel(EventStreams.kStderr);
         }
       },
     );
@@ -583,6 +576,64 @@ base mixin DartToolingDaemonSupport on ToolsSupport {
   );
 }
 
+/// Listens on a VM service for errors.
+class _AppErrorsListener {
+  Stream<String> get errors => errorsController.stream;
+  final StreamController<String> errorsController;
+  final StreamSubscription<Event> extensionEventsListener;
+  final StreamSubscription<Event> stderrEventsListener;
+  final VmService vmService;
+
+  _AppErrorsListener._(
+    this.errorsController,
+    this.extensionEventsListener,
+    this.stderrEventsListener,
+    this.vmService,
+  );
+
+  static Future<_AppErrorsListener> forVmService(VmService vmService) async {
+    final errorsController = StreamController<String>();
+    // We need to listen to streams with history so that we can get errors
+    // that occurred before this tool call.
+    // TODO(https://github.com/dart-lang/ai/issues/57): this can result in
+    // duplicate errors that we need to de-duplicate somehow.
+    final extensionEvents = vmService.onExtensionEventWithHistory.listen((
+      Event e,
+    ) {
+      if (e.extensionKind == 'Flutter.Error') {
+        // TODO(https://github.com/dart-lang/ai/issues/57): consider
+        // pruning this content down to only what is useful for the LLM to
+        // understand the error and its source.
+        errorsController.add(e.json.toString());
+      }
+    });
+    final stderrEvents = vmService.onStderrEventWithHistory.listen((Event e) {
+      final message = decodeBase64(e.bytes!);
+      // TODO(https://github.com/dart-lang/ai/issues/57): consider
+      // pruning this content down to only what is useful for the LLM to
+      // understand the error and its source.
+      errorsController.add(message);
+    });
+
+    await vmService.streamListen(EventStreams.kExtension);
+    await vmService.streamListen(EventStreams.kStderr);
+    return _AppErrorsListener._(
+      errorsController,
+      extensionEvents,
+      stderrEvents,
+      vmService,
+    );
+  }
+
+  Future<void> shutdown() async {
+    await extensionEventsListener.cancel();
+    await stderrEventsListener.cancel();
+    await vmService.streamCancel(EventStreams.kExtension);
+    await vmService.streamCancel(EventStreams.kStderr);
+    await errorsController.close();
+  }
+}
+
 /// Adds the [getDebugSessions] method to [DartToolingDaemon], so that calling
 /// the Editor.getDebugSessions service method can be wrapped nicely behind a
 /// method call from a given client.
@@ -653,19 +704,19 @@ extension type DebugSession.fromJson(Map<String, Object?> _value)
   String get id => _value['id'] as String;
   String get name => _value['name'] as String;
   String get projectRootPath => _value['projectRootPath'] as String;
-  String get vmServiceUri => _value['vmServiceUri'] as String;
+  String? get vmServiceUri => _value['vmServiceUri'] as String?;
 
   factory DebugSession({
     required String debuggerType,
     required String id,
     required String name,
     required String projectRootPath,
-    required String vmServiceUri,
+    required String? vmServiceUri,
   }) => DebugSession.fromJson({
     'debuggerType': debuggerType,
     'id': id,
     'name': name,
     'projectRootPath': projectRootPath,
-    'vmServiceUri': vmServiceUri,
+    if (vmServiceUri != null) 'vmServiceUri': vmServiceUri,
   });
 }
