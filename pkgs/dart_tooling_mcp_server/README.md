@@ -16,16 +16,16 @@ dart compile exe bin/main.dart
 ### With the example WorkflowBot
 
 After compiling the binary, you can run the example workflow chat bot to
-interact with it, from the root of this package, after compiling the binary
-using the previous instructions, run:
+interact with the server. Note that the workflow bot sets the current directory
+as the root directory, so if your server expects a certain root directory you
+will want to run the command above from there (and alter the paths as
+necessary). For example, you may want to run this command from the directory of
+the app you wish to test the server against.
+
 
 ```dart
 dart ../dart_mcp/example/workflow_client.dart --server bin/main.exe
 ```
-
-Note that the workflow bot sets the current directory as the root directory,
-so if your server expects a certain root directory you will want to run the
-command above from there (and alter the paths as necessary).
 
 ### With Cursor
 
