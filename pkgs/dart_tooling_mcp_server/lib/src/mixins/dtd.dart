@@ -89,6 +89,18 @@ base mixin DartToolingDaemonSupport on ToolsSupport, LoggingSupport {
       if (debugSession.vmServiceUri case final vmServiceUri?) {
         final vmService = await vmServiceConnectUri(vmServiceUri);
         activeVmServices[debugSession.id] = vmService;
+        if (clientCapabilities.sampling != null) {
+          (await _AppErrorsListener.forVmService(vmService)).errors.listen((
+            e,
+          ) async {
+            final result = await createMessage(
+              CreateMessageRequest(
+                messages: [SamplingMessage(role: Role.user, content: TextContent(text: 'Please fix the runtime error: $e'))],
+                maxTokens: maxTokens,
+              ),
+            );
+          });
+        }
         unawaited(
           vmService.onDone.then((_) {
             activeVmServices.remove(debugSession.id);
