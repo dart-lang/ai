@@ -814,12 +814,3 @@ extension type DebugSession.fromJson(Map<String, Object?> _value)
     if (vmServiceUri != null) 'vmServiceUri': vmServiceUri,
   });
 }
-
-extension on Event {
-  /// Returns `true` if [timestamp] is >= [since].
-  ///
-  /// If we cannot determine this due to either [timestamp] or [since] being
-  /// null, then we also return `true`.
-  bool wasSince(int? since) =>
-      since == null || timestamp == null ? true : timestamp! >= since;
-}
