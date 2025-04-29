@@ -93,7 +93,7 @@ base mixin ResourcesSupport on MCPServer {
     await _resourceListChangedController.close();
     final subscribed = _subscribedResources.values.toList();
     _subscribedResources.clear();
-    await Future.wait([for (var controller in subscribed) controller.close()]);
+    await subscribed.map((c) => c.close()).wait;
   }
 
   /// Register [resource] to call [impl] when invoked.
