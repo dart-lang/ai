@@ -18,7 +18,8 @@ import 'package:vm_service/vm_service_io.dart';
 /// https://pub.dev/packages/dtd).
 ///
 /// The MCPServer must already have the [ToolsSupport] mixin applied.
-base mixin DartToolingDaemonSupport on ToolsSupport, LoggingSupport {
+base mixin DartToolingDaemonSupport
+    on ToolsSupport, LoggingSupport, ResourcesSupport {
   DartToolingDaemon? _dtd;
 
   /// Whether or not the DTD extension to get the active debug sessions is
@@ -89,22 +90,27 @@ base mixin DartToolingDaemonSupport on ToolsSupport, LoggingSupport {
       if (debugSession.vmServiceUri case final vmServiceUri?) {
         final vmService = await vmServiceConnectUri(vmServiceUri);
         activeVmServices[debugSession.id] = vmService;
-        if (clientCapabilities.sampling != null) {
-          (await _AppErrorsListener.forVmService(vmService)).errors.listen((
-            e,
-          ) async {
-            final result = await createMessage(
-              CreateMessageRequest(
-                messages: [SamplingMessage(role: Role.user, content: TextContent(text: 'Please fix the runtime error: $e'))],
-                maxTokens: maxTokens,
-              ),
-            );
-          });
-        }
+        // Start listening for and collecting errors immediately.
+        final errorService = await _AppErrorsListener.forVmService(vmService);
+        final resource = Resource(
+          uri: 'runtime-errors://${debugSession.id}',
+          name: debugSession.name,
+        );
+        addResource(resource, (request) async {
+          final errors = errorService.errors;
+          return ReadResourceResult(
+            contents: [
+              for (var error in errors)
+                TextResourceContents(uri: resource.uri, text: error),
+            ],
+          );
+        });
+        errorService.errorsStream.listen((_) => updateResource(resource));
         unawaited(
           vmService.onDone.then((_) {
+            removeResource(resource.uri);
             activeVmServices.remove(debugSession.id);
-            vmService.dispose();
+            vmService.dispose(); // This will also shut down the `errorService`.
           }),
         );
       }
@@ -114,12 +120,7 @@ base mixin DartToolingDaemonSupport on ToolsSupport, LoggingSupport {
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) async {
     registerTool(connectTool, _connect);
-    // If we support sampling, then don't expose the runtime errors tool, as
-    // this might confuse the VM and supporting it would require caching all
-    // errors indefinitely.
-    if (request.capabilities.sampling != null) {
-      registerTool(getRuntimeErrorsTool, runtimeErrors);
-    }
+    registerTool(getRuntimeErrorsTool, runtimeErrors);
 
     // TODO: these tools should only be registered for Flutter applications, or
     // they should return an error when used against a pure Dart app (or a
@@ -335,12 +336,7 @@ base mixin DartToolingDaemonSupport on ToolsSupport, LoggingSupport {
       callback: (vmService) async {
         try {
           final errorService = await _AppErrorsListener.forVmService(vmService);
-          final errors = <String>[];
-          errorService.errors.listen(errors.add);
-          // Await a short delay to allow the error events to come over the open
-          // Streams.
-          await Future<void>.delayed(const Duration(seconds: 1));
-          await errorService.shutdown();
+          final errors = errorService.errors;
 
           if (errors.isEmpty) {
             return CallToolResult(
@@ -590,59 +586,72 @@ base mixin DartToolingDaemonSupport on ToolsSupport, LoggingSupport {
 
 /// Listens on a VM service for errors.
 class _AppErrorsListener {
-  Stream<String> get errors => errorsController.stream;
-  final StreamController<String> errorsController;
-  final StreamSubscription<Event> extensionEventsListener;
-  final StreamSubscription<Event> stderrEventsListener;
-  final VmService vmService;
+  final List<String> errors = [];
+  Stream<String> get errorsStream => _errorsController.stream;
+  final StreamController<String> _errorsController;
+  final StreamSubscription<Event> _extensionEventsListener;
+  final StreamSubscription<Event> _stderrEventsListener;
+  final VmService _vmService;
 
   _AppErrorsListener._(
-    this.errorsController,
-    this.extensionEventsListener,
-    this.stderrEventsListener,
-    this.vmService,
-  );
+    this._errorsController,
+    this._extensionEventsListener,
+    this._stderrEventsListener,
+    this._vmService,
+  ) {
+    errorsStream.listen(errors.add);
+    _vmService.onDone.then((_) => shutdown());
+  }
 
+  /// Maintain a cache of error listeners by [VmService] instance as an
+  /// [Expando] so we don't have to worry about explicit cleanup.
+  static final _errorListeners = Expando<_AppErrorsListener>();
+
+  /// Returns the canonical [_AppErrorsListener] for the [vmService] instance,
+  /// which may be an already existing instance.
   static Future<_AppErrorsListener> forVmService(VmService vmService) async {
-    final errorsController = StreamController<String>();
-    // We need to listen to streams with history so that we can get errors
-    // that occurred before this tool call.
-    // TODO(https://github.com/dart-lang/ai/issues/57): this can result in
-    // duplicate errors that we need to de-duplicate somehow.
-    final extensionEvents = vmService.onExtensionEventWithHistory.listen((
-      Event e,
-    ) {
-      if (e.extensionKind == 'Flutter.Error') {
+    return _errorListeners[vmService] ??= await () async {
+      final errorsController = StreamController<String>();
+      // We need to listen to streams with history so that we can get errors
+      // that occurred before this tool call.
+      // TODO(https://github.com/dart-lang/ai/issues/57): this can result in
+      // duplicate errors that we need to de-duplicate somehow.
+      final extensionEvents = vmService.onExtensionEventWithHistory.listen((
+        Event e,
+      ) {
+        if (e.extensionKind == 'Flutter.Error') {
+          // TODO(https://github.com/dart-lang/ai/issues/57): consider
+          // pruning this content down to only what is useful for the LLM to
+          // understand the error and its source.
+          errorsController.add(e.json.toString());
+        }
+      });
+      final stderrEvents = vmService.onStderrEventWithHistory.listen((Event e) {
+        final message = decodeBase64(e.bytes!);
         // TODO(https://github.com/dart-lang/ai/issues/57): consider
         // pruning this content down to only what is useful for the LLM to
         // understand the error and its source.
-        errorsController.add(e.json.toString());
-      }
-    });
-    final stderrEvents = vmService.onStderrEventWithHistory.listen((Event e) {
-      final message = decodeBase64(e.bytes!);
-      // TODO(https://github.com/dart-lang/ai/issues/57): consider
-      // pruning this content down to only what is useful for the LLM to
-      // understand the error and its source.
-      errorsController.add(message);
-    });
+        errorsController.add(message);
+      });
 
-    await vmService.streamListen(EventStreams.kExtension);
-    await vmService.streamListen(EventStreams.kStderr);
-    return _AppErrorsListener._(
-      errorsController,
-      extensionEvents,
-      stderrEvents,
-      vmService,
-    );
+      await vmService.streamListen(EventStreams.kExtension);
+      await vmService.streamListen(EventStreams.kStderr);
+      return _AppErrorsListener._(
+        errorsController,
+        extensionEvents,
+        stderrEvents,
+        vmService,
+      );
+    }();
   }
 
   Future<void> shutdown() async {
-    await extensionEventsListener.cancel();
-    await stderrEventsListener.cancel();
-    await vmService.streamCancel(EventStreams.kExtension);
-    await vmService.streamCancel(EventStreams.kStderr);
-    await errorsController.close();
+    errors.clear();
+    await _errorsController.close();
+    await _extensionEventsListener.cancel();
+    await _stderrEventsListener.cancel();
+    await _vmService.streamCancel(EventStreams.kExtension);
+    await _vmService.streamCancel(EventStreams.kStderr);
   }
 }
 
