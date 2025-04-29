@@ -37,10 +37,11 @@ base mixin ResourcesSupport on MCPServer {
   final List<({ResourceTemplate template, ReadResourceHandler handler})>
   _resourceTemplates = [];
 
-  /// The list of currently subscribed resources by URI.
+  /// The currently subscribed resource [StreamController]s by URI.
   final Map<String, StreamController<ResourceUpdatedNotification>>
   _subscribedResources = {};
 
+  /// The [StreamController] which controls [ResourceListChangedNotification]s.
   final StreamController<void> _resourceListChangedController =
       StreamController<void>();
 
