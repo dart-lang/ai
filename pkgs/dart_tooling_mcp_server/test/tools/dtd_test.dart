@@ -64,147 +64,6 @@ void main() {
         ]);
       });
 
-      group('runtime errors', () {
-        final errorCountRegex = RegExp(r'Found \d+ errors?:');
-
-        setUp(() async {
-          await testHarness.startDebugSession(
-            counterAppPath,
-            'lib/main.dart',
-            isFlutter: true,
-            args: ['--dart-define=include_layout_error=true'],
-          );
-        });
-
-        test('can be read and cleared using the tools', () async {
-          final tools =
-              (await testHarness.mcpServerConnection.listTools()).tools;
-          final runtimeErrorsTool = tools.singleWhere(
-            (t) => t.name == DartToolingDaemonSupport.getRuntimeErrorsTool.name,
-          );
-          final runtimeErrorsResult = await testHarness.callToolWithRetry(
-            CallToolRequest(name: runtimeErrorsTool.name),
-          );
-
-          expect(runtimeErrorsResult.isError, isNot(true));
-          expect(
-            (runtimeErrorsResult.content.first as TextContent).text,
-            contains(errorCountRegex),
-          );
-          expect(
-            (runtimeErrorsResult.content[1] as TextContent).text,
-            contains('A RenderFlex overflowed by'),
-          );
-
-          final clearRuntimeErrorsTool = tools.singleWhere(
-            (t) =>
-                t.name == DartToolingDaemonSupport.clearRuntimeErrorsTool.name,
-          );
-          final clearRuntimeErrorsResult = await testHarness.callToolWithRetry(
-            CallToolRequest(name: clearRuntimeErrorsTool.name),
-          );
-          expect(clearRuntimeErrorsResult.isError, isNot(true));
-
-          final nextResult = await testHarness.callToolWithRetry(
-            CallToolRequest(name: runtimeErrorsTool.name),
-          );
-          expect(
-            (nextResult.content.first as TextContent).text,
-            contains('No runtime errors found'),
-          );
-
-          // Trigger a hot reload, should see the error again.
-          await testHarness.callToolWithRetry(
-            CallToolRequest(name: DartToolingDaemonSupport.hotReloadTool.name),
-          );
-
-          final finalRuntimeErrorsResult = await testHarness.callToolWithRetry(
-            CallToolRequest(name: runtimeErrorsTool.name),
-          );
-          expect(
-            (finalRuntimeErrorsResult.content.first as TextContent).text,
-            contains(errorCountRegex),
-          );
-          expect(
-            (finalRuntimeErrorsResult.content[1] as TextContent).text,
-            contains('A RenderFlex overflowed by'),
-          );
-        });
-
-        test('can be read and subscribed to as a resource', () async {
-          final serverConnection = testHarness.mcpServerConnection;
-          final resources =
-              (await serverConnection.listResources(
-                ListResourcesRequest(),
-              )).resources;
-          final resource = resources.singleWhere(
-            (r) =>
-                r.uri.startsWith(DartToolingDaemonSupport.runtimeErrorsScheme),
-          );
-          final contents =
-              (await serverConnection.readResource(
-                ReadResourceRequest(uri: resource.uri),
-              )).contents;
-          final overflowMatcher = isA<TextResourceContents>().having(
-            (c) => c.text,
-            'text',
-            contains('A RenderFlex overflowed by'),
-          );
-          expect(contents.single, overflowMatcher);
-
-          final resourceUpdatedQueue = StreamQueue(
-            serverConnection.resourceUpdated,
-          );
-          await serverConnection.subscribeResource(
-            SubscribeRequest(uri: resource.uri),
-          );
-          await pumpEventQueue();
-
-          await testHarness.callToolWithRetry(
-            CallToolRequest(name: DartToolingDaemonSupport.hotReloadTool.name),
-          );
-
-          expect(
-            await resourceUpdatedQueue.next,
-            isA<ResourceUpdatedNotification>().having(
-              (n) => n.uri,
-              'uri',
-              resource.uri,
-            ),
-          );
-
-          final newContents =
-              (await serverConnection.readResource(
-                ReadResourceRequest(uri: resource.uri),
-              )).contents;
-          expect(newContents, [overflowMatcher, overflowMatcher]);
-
-          // Now hot reload but clear previous errors, should see exactly one
-          // error only (the new one).
-          await testHarness.callToolWithRetry(
-            CallToolRequest(
-              name: DartToolingDaemonSupport.hotReloadTool.name,
-              arguments: {'clearRuntimeErrors': 'true'},
-            ),
-          );
-
-          expect(
-            await resourceUpdatedQueue.next,
-            isA<ResourceUpdatedNotification>().having(
-              (n) => n.uri,
-              'uri',
-              resource.uri,
-            ),
-          );
-
-          final finalContents =
-              (await serverConnection.readResource(
-                ReadResourceRequest(uri: resource.uri),
-              )).contents;
-          expect(finalContents.single, overflowMatcher);
-        });
-      });
-
       test('can get the widget tree', () async {
         await testHarness.startDebugSession(
           counterAppPath,
@@ -313,7 +172,7 @@ void main() {
           final children = widgetTree['children'] as List<Object?>;
           final firstWidgetId =
               (children.first as Map<String, Object?>)['valueId'];
-          final appVmService = server.activeVmServices.values.first;
+          final appVmService = await server.activeVmServices.values.first;
           final vm = await appVmService.getVM();
           await appVmService.callServiceExtension(
             'ext.flutter.inspector.setSelectionById',
@@ -362,6 +221,179 @@ void main() {
           );
         });
       });
+
+      group('runtime errors', () {
+        final errorCountRegex = RegExp(r'Found \d+ errors?:');
+
+        setUp(() async {
+          await testHarness.startDebugSession(
+            counterAppPath,
+            'lib/main.dart',
+            isFlutter: true,
+            args: ['--dart-define=include_layout_error=true'],
+          );
+        });
+
+        test('can be read and cleared using the tools', () async {
+          final tools =
+              (await testHarness.mcpServerConnection.listTools()).tools;
+          final runtimeErrorsTool = tools.singleWhere(
+            (t) => t.name == DartToolingDaemonSupport.getRuntimeErrorsTool.name,
+          );
+          late CallToolResult runtimeErrorsResult;
+
+          // Give the errors at most a second to come through.
+          var count = 0;
+          while (true) {
+            runtimeErrorsResult = await testHarness.callToolWithRetry(
+              CallToolRequest(name: runtimeErrorsTool.name),
+            );
+            expect(runtimeErrorsResult.isError, isNot(true));
+            final firstText =
+                (runtimeErrorsResult.content.first as TextContent).text;
+            if (errorCountRegex.hasMatch(firstText)) {
+              break;
+            } else if (++count > 10) {
+              fail('No errors found, expected at least one');
+            } else {
+              await Future<void>.delayed(const Duration(milliseconds: 100));
+            }
+          }
+          expect(
+            (runtimeErrorsResult.content[1] as TextContent).text,
+            contains('A RenderFlex overflowed by'),
+          );
+
+          final clearRuntimeErrorsTool = tools.singleWhere(
+            (t) =>
+                t.name == DartToolingDaemonSupport.clearRuntimeErrorsTool.name,
+          );
+          final clearRuntimeErrorsResult = await testHarness.callToolWithRetry(
+            CallToolRequest(name: clearRuntimeErrorsTool.name),
+          );
+          expect(clearRuntimeErrorsResult.isError, isNot(true));
+
+          final nextResult = await testHarness.callToolWithRetry(
+            CallToolRequest(name: runtimeErrorsTool.name),
+          );
+          expect(
+            (nextResult.content.first as TextContent).text,
+            contains('No runtime errors found'),
+          );
+
+          // Trigger a hot reload, should see the error again.
+          await testHarness.callToolWithRetry(
+            CallToolRequest(name: DartToolingDaemonSupport.hotReloadTool.name),
+          );
+
+          final finalRuntimeErrorsResult = await testHarness.callToolWithRetry(
+            CallToolRequest(name: runtimeErrorsTool.name),
+          );
+          expect(
+            (finalRuntimeErrorsResult.content.first as TextContent).text,
+            contains(errorCountRegex),
+          );
+          expect(
+            (finalRuntimeErrorsResult.content[1] as TextContent).text,
+            contains('A RenderFlex overflowed by'),
+          );
+        });
+
+        test('can be read and subscribed to as a resource', () async {
+          final serverConnection = testHarness.mcpServerConnection;
+          final onResourceListChanged =
+              serverConnection.resourceListChanged.first;
+          var resources =
+              (await serverConnection.listResources(
+                ListResourcesRequest(),
+              )).resources;
+          if (resources.runtimeErrors.isEmpty) {
+            await onResourceListChanged;
+            resources =
+                (await serverConnection.listResources(
+                  ListResourcesRequest(),
+                )).resources;
+          }
+          final resource = resources.runtimeErrors.single;
+
+          final resourceUpdatedQueue = StreamQueue(
+            serverConnection.resourceUpdated,
+          );
+          await serverConnection.subscribeResource(
+            SubscribeRequest(uri: resource.uri),
+          );
+          await pumpEventQueue();
+          var contents =
+              (await serverConnection.readResource(
+                ReadResourceRequest(uri: resource.uri),
+              )).contents;
+          final overflowMatcher = isA<TextResourceContents>().having(
+            (c) => c.text,
+            'text',
+            contains('A RenderFlex overflowed by'),
+          );
+          // If we haven't seen errors initially, then listen for updates and
+          // re-read the resource.
+          if (contents.isEmpty) {
+            await resourceUpdatedQueue.next;
+            contents =
+                (await serverConnection.readResource(
+                  ReadResourceRequest(uri: resource.uri),
+                )).contents;
+          }
+          expect(contents.single, overflowMatcher);
+          await pumpEventQueue();
+
+          await testHarness.callToolWithRetry(
+            CallToolRequest(name: DartToolingDaemonSupport.hotReloadTool.name),
+          );
+
+          expect(
+            await resourceUpdatedQueue.next,
+            isA<ResourceUpdatedNotification>().having(
+              (n) => n.uri,
+              'uri',
+              resource.uri,
+            ),
+          );
+
+          final newContents =
+              (await serverConnection.readResource(
+                ReadResourceRequest(uri: resource.uri),
+              )).contents;
+          expect(newContents, [overflowMatcher, overflowMatcher]);
+
+          // Now hot reload but clear previous errors, should see exactly one
+          // error only (the new one).
+          await testHarness.callToolWithRetry(
+            CallToolRequest(
+              name: DartToolingDaemonSupport.hotReloadTool.name,
+              arguments: {'clearRuntimeErrors': true},
+            ),
+          );
+
+          expect(
+            await resourceUpdatedQueue.next,
+            isA<ResourceUpdatedNotification>().having(
+              (n) => n.uri,
+              'uri',
+              resource.uri,
+            ),
+          );
+
+          final finalContents =
+              (await serverConnection.readResource(
+                ReadResourceRequest(uri: resource.uri),
+              )).contents;
+          expect(finalContents.single, overflowMatcher);
+        });
+      });
     });
   });
+}
+
+extension on Iterable<Resource> {
+  Iterable<Resource> get runtimeErrors => where(
+    (r) => r.uri.startsWith(DartToolingDaemonSupport.runtimeErrorsScheme),
+  );
 }

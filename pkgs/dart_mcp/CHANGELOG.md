@@ -18,6 +18,8 @@
   `ResourceListChangedNotification`s and `ResourceUpdatedNotification`s. The
   delay can be modified by overriding
   `ResourcesSupport.resourceUpdateThrottleDelay`.
+- Only send notifications if the peer is still connected. Fixes issues where
+  notifications are delayed due to throttling and the client has since closed.
 - **Breaking**: Fixed paginated result subtypes to use `nextCursor` instead of
   `cursor` as the key for the next cursor.
 - **Breaking**: Change the `ProgressNotification.progress` and

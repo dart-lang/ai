@@ -87,7 +87,7 @@ class TestHarness {
       isFlutter: isFlutter,
       args: args,
     );
-    fakeEditorExtension.debugSessions.add(session);
+    fakeEditorExtension.addDebugSession(session);
     final root = rootForPath(projectRoot);
     final roots = (await mcpClient.handleListRoots(ListRootsRequest())).roots;
     if (!roots.any((r) => r.uri == root.uri)) {
@@ -95,7 +95,7 @@ class TestHarness {
     }
     unawaited(
       session.appProcess.exitCode.then((_) {
-        fakeEditorExtension.debugSessions.remove(session);
+        fakeEditorExtension.removeDebugSession(session);
       }),
     );
     return session;
@@ -160,6 +160,7 @@ final class AppDebugSession {
   final String projectRoot;
   final String vmServiceUri;
   final bool isFlutter;
+  final String id;
 
   AppDebugSession._({
     required this.appProcess,
@@ -167,6 +168,7 @@ final class AppDebugSession {
     required this.projectRoot,
     required this.appPath,
     required this.isFlutter,
+    required this.id,
   });
 
   static Future<AppDebugSession> _start(
@@ -218,6 +220,7 @@ final class AppDebugSession {
       projectRoot: projectRoot,
       appPath: appPath,
       isFlutter: isFlutter,
+      id: FakeEditorExtension.nextId.toString(),
     );
   }
 
@@ -229,6 +232,16 @@ final class AppDebugSession {
     }
     await process.shouldExit(0);
   }
+
+  /// Returns this as the Editor service representation.
+  DebugSession asEditorDebugSession({required bool includeVmServiceUri}) =>
+      DebugSession(
+        debuggerType: isFlutter ? 'Flutter' : 'Dart',
+        id: id,
+        name: 'Test app',
+        projectRootPath: projectRoot,
+        vmServiceUri: includeVmServiceUri ? vmServiceUri : null,
+      );
 }
 
 /// A basic MCP client which is started as a part of the harness.
@@ -248,14 +261,16 @@ final class DartToolingMCPClient extends MCPClient with RootsSupport {
 /// This class registers a similar extension for a normal `flutter run` process,
 /// without having the normal editor extension in place.
 class FakeEditorExtension {
-  final List<AppDebugSession> debugSessions = [];
+  Iterable<AppDebugSession> get debugSessions => _debugSessions;
+  final List<AppDebugSession> _debugSessions = [];
   final TestProcess dtdProcess;
   final DartToolingDaemon dtd;
   final String dtdUri;
-  int get nextId => ++_nextId;
-  int _nextId = 0;
 
   FakeEditorExtension._(this.dtd, this.dtdProcess, this.dtdUri);
+
+  static int get nextId => ++_nextId;
+  static int _nextId = 0;
 
   static Future<FakeEditorExtension> connect() async {
     final dtdProcess = await TestProcess.start('dart', ['tooling-daemon']);
@@ -266,18 +281,36 @@ class FakeEditorExtension {
     return extension;
   }
 
+  void addDebugSession(AppDebugSession session) async {
+    _debugSessions.add(session);
+    await dtd.postEvent(
+      'Editor',
+      'debugSessionStarted',
+      session.asEditorDebugSession(includeVmServiceUri: false),
+    );
+    // Fake a delay between session start and session ready (vm service URI is
+    // known).
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    await dtd.postEvent(
+      'Editor',
+      'debugSessionChanged',
+      session.asEditorDebugSession(includeVmServiceUri: true),
+    );
+  }
+
+  void removeDebugSession(AppDebugSession session) async {
+    _debugSessions.remove(session);
+    await dtd.postEvent('Editor', 'debugSessionStopped', {
+      'debugSession': session.asEditorDebugSession(includeVmServiceUri: false),
+    });
+  }
+
   Future<void> _registerService() async {
     await dtd.registerService('Editor', 'getDebugSessions', (request) async {
       return GetDebugSessionsResponse(
         debugSessions: [
           for (var debugSession in debugSessions)
-            DebugSession(
-              debuggerType: debugSession.isFlutter ? 'Flutter' : 'Dart',
-              id: nextId.toString(),
-              name: 'Test app',
-              projectRootPath: debugSession.projectRoot,
-              vmServiceUri: debugSession.vmServiceUri,
-            ),
+            debugSession.asEditorDebugSession(includeVmServiceUri: true),
         ],
       );
     });

@@ -70,7 +70,7 @@ base class MCPBase {
 
   /// Sends a notification to the peer.
   void sendNotification(String method, [Notification? notification]) =>
-      _peer.sendNotification(method, notification);
+      _peer.isClosed ? null : _peer.sendNotification(method, notification);
 
   /// Notifies the peer of progress towards completing some request.
   void notifyProgress(ProgressNotification notification) =>

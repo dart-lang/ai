@@ -32,7 +32,7 @@ base mixin DartToolingDaemonSupport
   /// [VmService] objects are automatically removed from the Map when the
   /// [VmService] shuts down.
   @visibleForTesting
-  final activeVmServices = <String, VmService>{};
+  final activeVmServices = <String, Future<VmService>>{};
 
   /// Whether to await the disposal of all [VmService] objects in
   /// [activeVmServices] upon server shutdown or loss of DTD connection.
@@ -61,7 +61,9 @@ base mixin DartToolingDaemonSupport
     // the Flutter Widget Inspector for each VM service instance.
 
     final future = Future.wait(
-      activeVmServices.values.map((vmService) => vmService.dispose()),
+      activeVmServices.values.map(
+        (vmService) => vmService.then((service) => service.dispose()),
+      ),
     );
     debugAwaitVmServiceDisposal ? await future : unawaited(future);
 
@@ -88,8 +90,10 @@ base mixin DartToolingDaemonSupport
         continue;
       }
       if (debugSession.vmServiceUri case final vmServiceUri?) {
-        final vmService = await vmServiceConnectUri(vmServiceUri);
-        activeVmServices[debugSession.id] = vmService;
+        final vmService =
+            await (activeVmServices[debugSession.id] = vmServiceConnectUri(
+              vmServiceUri,
+            ));
         // Start listening for and collecting errors immediately.
         final errorService = await _AppErrorsListener.forVmService(vmService);
         final resource = Resource(
@@ -217,7 +221,7 @@ base mixin DartToolingDaemonSupport
         case 'debugSessionStopped':
           await activeVmServices
               .remove((e.data['debugSession'] as DebugSession).id)
-              ?.dispose();
+              ?.then((service) => service.dispose());
         default:
       }
     });
@@ -507,7 +511,7 @@ base mixin DartToolingDaemonSupport
 
     // TODO: support selecting a VM Service if more than one are available.
     final vmService = activeVmServices.values.first;
-    return await callback(vmService);
+    return await callback(await vmService);
   }
 
   @visibleForTesting
@@ -661,20 +665,31 @@ base mixin DartToolingDaemonSupport
 
 /// Listens on a VM service for errors.
 class _AppErrorsListener {
-  final List<String> errors = [];
+  /// All the errors recorded so far (may be cleared explicitly).
+  final List<String> errors;
+
+  /// A broadcast stream of all errors that come in after you start listening.
   Stream<String> get errorsStream => _errorsController.stream;
+
+  /// Controller for the [errorsStream].
   final StreamController<String> _errorsController;
+
+  /// The listener for Flutter.Error vm service extension events.
   final StreamSubscription<Event> _extensionEventsListener;
+
+  /// The stderr listener on the flutter process.
   final StreamSubscription<Event> _stderrEventsListener;
+
+  /// The vm service instance connected to the flutter app.
   final VmService _vmService;
 
   _AppErrorsListener._(
+    this.errors,
     this._errorsController,
     this._extensionEventsListener,
     this._stderrEventsListener,
     this._vmService,
   ) {
-    errorsStream.listen(errors.add);
     _vmService.onDone.then((_) => shutdown());
   }
 
@@ -686,7 +701,12 @@ class _AppErrorsListener {
   /// which may be an already existing instance.
   static Future<_AppErrorsListener> forVmService(VmService vmService) async {
     return _errorListeners[vmService] ??= await () async {
-      final errorsController = StreamController<String>();
+      // Needs to be a broadcast stream because we use it to add errors to the
+      // list but also expose it to clients so they can know when new errors
+      // are added.
+      final errorsController = StreamController<String>.broadcast();
+      final errors = <String>[];
+      errorsController.stream.listen(errors.add);
       // We need to listen to streams with history so that we can get errors
       // that occurred before this tool call.
       // TODO(https://github.com/dart-lang/ai/issues/57): this can result in
@@ -712,6 +732,7 @@ class _AppErrorsListener {
       await vmService.streamListen(EventStreams.kExtension);
       await vmService.streamListen(EventStreams.kStderr);
       return _AppErrorsListener._(
+        errors,
         errorsController,
         extensionEvents,
         stderrEvents,
@@ -725,8 +746,12 @@ class _AppErrorsListener {
     await _errorsController.close();
     await _extensionEventsListener.cancel();
     await _stderrEventsListener.cancel();
-    await _vmService.streamCancel(EventStreams.kExtension);
-    await _vmService.streamCancel(EventStreams.kStderr);
+    try {
+      await _vmService.streamCancel(EventStreams.kExtension);
+      await _vmService.streamCancel(EventStreams.kStderr);
+    } on RPCError catch (_) {
+      // The vm service might already be disposed in which causes these to fail.
+    }
   }
 }
 
