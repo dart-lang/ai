@@ -87,16 +87,16 @@ class TestHarness {
       isFlutter: isFlutter,
       args: args,
     );
-    fakeEditorExtension.addDebugSession(session);
+    await fakeEditorExtension.addDebugSession(session);
     final root = rootForPath(projectRoot);
     final roots = (await mcpClient.handleListRoots(ListRootsRequest())).roots;
     if (!roots.any((r) => r.uri == root.uri)) {
       mcpClient.addRoot(root);
     }
     unawaited(
-      session.appProcess.exitCode.then((_) {
-        fakeEditorExtension.removeDebugSession(session);
-      }),
+      session.appProcess.exitCode.then(
+        (_) => fakeEditorExtension.removeDebugSession(session),
+      ),
     );
     return session;
   }
@@ -281,7 +281,7 @@ class FakeEditorExtension {
     return extension;
   }
 
-  void addDebugSession(AppDebugSession session) async {
+  Future<void> addDebugSession(AppDebugSession session) async {
     _debugSessions.add(session);
     await dtd.postEvent(
       'Editor',
@@ -298,7 +298,7 @@ class FakeEditorExtension {
     );
   }
 
-  void removeDebugSession(AppDebugSession session) async {
+  Future<void> removeDebugSession(AppDebugSession session) async {
     _debugSessions.remove(session);
     await dtd.postEvent('Editor', 'debugSessionStopped', {
       'debugSession': session.asEditorDebugSession(includeVmServiceUri: false),
@@ -317,6 +317,7 @@ class FakeEditorExtension {
   }
 
   Future<void> shutdown() async {
+    await _debugSessions.toList().map(removeDebugSession).wait;
     await dtdProcess.kill();
     await dtd.close();
   }
