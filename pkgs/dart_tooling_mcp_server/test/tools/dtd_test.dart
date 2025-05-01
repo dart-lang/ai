@@ -234,7 +234,7 @@ void main() {
           );
         });
 
-        test('can be read and cleared using the tools', () async {
+        test('can be read and cleared using the tool', () async {
           final tools =
               (await testHarness.mcpServerConnection.listTools()).tools;
           final runtimeErrorsTool = tools.singleWhere(
@@ -246,7 +246,10 @@ void main() {
           var count = 0;
           while (true) {
             runtimeErrorsResult = await testHarness.callToolWithRetry(
-              CallToolRequest(name: runtimeErrorsTool.name),
+              CallToolRequest(
+                name: runtimeErrorsTool.name,
+                arguments: {'clearRuntimeErrors': true},
+              ),
             );
             expect(runtimeErrorsResult.isError, isNot(true));
             final firstText =
@@ -263,15 +266,6 @@ void main() {
             (runtimeErrorsResult.content[1] as TextContent).text,
             contains('A RenderFlex overflowed by'),
           );
-
-          final clearRuntimeErrorsTool = tools.singleWhere(
-            (t) =>
-                t.name == DartToolingDaemonSupport.clearRuntimeErrorsTool.name,
-          );
-          final clearRuntimeErrorsResult = await testHarness.callToolWithRetry(
-            CallToolRequest(name: clearRuntimeErrorsTool.name),
-          );
-          expect(clearRuntimeErrorsResult.isError, isNot(true));
 
           final nextResult = await testHarness.callToolWithRetry(
             CallToolRequest(name: runtimeErrorsTool.name),

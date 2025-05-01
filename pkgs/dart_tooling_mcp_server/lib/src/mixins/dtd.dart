@@ -125,7 +125,6 @@ base mixin DartToolingDaemonSupport
   FutureOr<InitializeResult> initialize(InitializeRequest request) async {
     registerTool(connectTool, _connect);
     registerTool(getRuntimeErrorsTool, runtimeErrors);
-    registerTool(clearRuntimeErrorsTool, clearRuntimeErrors);
 
     // TODO: these tools should only be registered for Flutter applications, or
     // they should return an error when used against a pure Dart app (or a
@@ -346,29 +345,6 @@ base mixin DartToolingDaemonSupport
     );
   }
 
-  /// Clears runtime errors from the currently running app.
-  ///
-  // TODO: support passing a debug session id when there is more than one debug
-  // session.
-  Future<CallToolResult> clearRuntimeErrors(CallToolRequest request) async {
-    return _callOnVmService(
-      callback: (vmService) async {
-        try {
-          final errorService = await _AppErrorsListener.forVmService(vmService);
-          errorService.errors.clear();
-          return CallToolResult(
-            content: [TextContent(text: 'Runtime errors cleared.')],
-          );
-        } catch (e) {
-          return CallToolResult(
-            isError: true,
-            content: [TextContent(text: 'Failed to clear runtime errors: $e')],
-          );
-        }
-      },
-    );
-  }
-
   /// Retrieves runtime errors from the currently running app.
   ///
   /// If more than one debug session is active, then it just uses the first one.
@@ -387,7 +363,7 @@ base mixin DartToolingDaemonSupport
               content: [TextContent(text: 'No runtime errors found.')],
             );
           }
-          return CallToolResult(
+          final result = CallToolResult(
             content: [
               TextContent(
                 text:
@@ -397,6 +373,10 @@ base mixin DartToolingDaemonSupport
               ...errors.map((e) => TextContent(text: e.toString())),
             ],
           );
+          if (request.arguments?['clearRuntimeErrors'] == true) {
+            errorService.errors.clear();
+          }
+          return result;
         } catch (e) {
           return CallToolResult(
             isError: true,
@@ -529,20 +509,6 @@ base mixin DartToolingDaemonSupport
   );
 
   @visibleForTesting
-  static final clearRuntimeErrorsTool = Tool(
-    name: 'clear_runtime_errors',
-    description:
-        'Clears the list of runtime errors that have occurred in the active '
-        'Dart or Flutter application. Requires "${connectTool.name}" to be '
-        'successfully called first.',
-    annotations: ToolAnnotations(
-      title: 'Clear runtime errors',
-      destructiveHint: true,
-    ),
-    inputSchema: Schema.object(),
-  );
-
-  @visibleForTesting
   static final getRuntimeErrorsTool = Tool(
     name: 'get_runtime_errors',
     description:
@@ -555,11 +521,11 @@ base mixin DartToolingDaemonSupport
     ),
     inputSchema: Schema.object(
       properties: {
-        'since': Schema.int(
+        'clearRuntimeErrors': Schema.bool(
+          title: 'Whether to clear the runtime errors after retrieving them.',
           description:
-              'Only return errors that occurred after this timestamp (in '
-              'milliseconds since epoch). If not provided then all errors will '
-              'be returned.',
+              'This is useful to clear out old errors that may no longer be '
+              'relevant before reading them again.',
         ),
       },
     ),
