@@ -4,6 +4,7 @@
 
 import 'package:dart_mcp/server.dart';
 import 'package:dart_tooling_mcp_server/src/mixins/dart_cli.dart';
+import 'package:dart_tooling_mcp_server/src/utils/constants.dart';
 import 'package:test/test.dart';
 
 import '../test_harness.dart';
@@ -47,8 +48,8 @@ void main() {
       final request = CallToolRequest(
         name: dartFixTool.name,
         arguments: {
-          'roots': [
-            {'root': testRoot.uri},
+          ParameterNames.roots: [
+            {ParameterNames.root: testRoot.uri},
           ],
         },
       );
@@ -65,8 +66,8 @@ void main() {
       final request = CallToolRequest(
         name: dartFormatTool.name,
         arguments: {
-          'roots': [
-            {'root': testRoot.uri},
+          ParameterNames.roots: [
+            {ParameterNames.root: testRoot.uri},
           ],
         },
       );
@@ -83,10 +84,10 @@ void main() {
       final request = CallToolRequest(
         name: dartFormatTool.name,
         arguments: {
-          'roots': [
+          ParameterNames.roots: [
             {
-              'root': testRoot.uri,
-              'paths': ['foo.dart', 'bar.dart'],
+              ParameterNames.root: testRoot.uri,
+              ParameterNames.paths: ['foo.dart', 'bar.dart'],
             },
           ],
         },

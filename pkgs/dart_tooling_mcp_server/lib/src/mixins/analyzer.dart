@@ -271,7 +271,7 @@ base mixin DartAnalyzerSupport
     return CallToolResult(content: [TextContent(text: jsonEncode(result))]);
   }
 
-  /// Ensures that all prerequites for any analysis task are met.
+  /// Ensures that all prerequisites for any analysis task are met.
   ///
   /// Returns an error response if any prerequisite is not met, otherwise
   /// returns `null`.
