@@ -30,6 +30,8 @@
   which has all supported versions and whether or not they are supported.
 - **Breaking**: Change `InitializeRequest` and `InitializeResult` to take a
   `ProtocolVersion` instead of a string.
+- **Breaking**: Change the `InitializeResult`'s `instructions` to `String?` to reflect
+  that not all servers return instructions.
 - **Breaking**: Change `MCPBase` to accept a `StreamChannel<String>` instead of
   a `Peer`, and construct its own `Peer`.
 - **Breaking**: Add `protocolLogSink` optional parameter to connect methods on
