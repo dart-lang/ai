@@ -62,7 +62,6 @@ base mixin DartCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
     annotations: ToolAnnotations(title: 'Dart fix', destructiveHint: true),
     inputSchema: Schema.object(
       properties: {ParameterNames.roots: rootsSchema()},
-      required: [ParameterNames.roots],
     ),
   );
 
@@ -72,7 +71,6 @@ base mixin DartCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
     annotations: ToolAnnotations(title: 'Dart format', destructiveHint: true),
     inputSchema: Schema.object(
       properties: {ParameterNames.roots: rootsSchema(supportsPaths: true)},
-      required: [ParameterNames.roots],
     ),
   );
 }

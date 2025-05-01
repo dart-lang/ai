@@ -101,7 +101,7 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
         ),
         ParameterNames.roots: rootsSchema(),
       },
-      required: [ParameterNames.command, ParameterNames.roots],
+      required: [ParameterNames.command],
     ),
   );
 }
