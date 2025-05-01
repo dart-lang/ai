@@ -45,7 +45,7 @@ extension type InitializeResult.fromMap(Map<String, Object?> _value)
     required ProtocolVersion protocolVersion,
     required ServerCapabilities serverCapabilities,
     required ServerImplementation serverInfo,
-    required String instructions,
+    String? instructions,
   }) => InitializeResult.fromMap({
     'protocolVersion': protocolVersion.versionString,
     'capabilities': serverCapabilities,
