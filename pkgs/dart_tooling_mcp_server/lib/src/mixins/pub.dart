@@ -21,8 +21,13 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
     implements ProcessManagerSupport {
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
-    registerTool(pubTool, _runDartPubTool);
-    return super.initialize(request);
+    try {
+      return super.initialize(request);
+    } finally {
+      if (supportsRoots) {
+        registerTool(pubTool, _runDartPubTool);
+      }
+    }
   }
 
   /// Implementation of the [pubTool].
