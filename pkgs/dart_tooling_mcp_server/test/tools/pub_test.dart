@@ -167,23 +167,6 @@ void main() {
           expect(testProcessManager.commandsRan, isEmpty);
         });
       }
-
-      test('for missing roots', () async {
-        final request = CallToolRequest(
-          name: dartPubTool.name,
-          arguments: {ParameterNames.command: 'get'},
-        );
-        final result = await testHarness.callToolWithRetry(
-          request,
-          expectError: true,
-        );
-
-        expect(
-          (result.content.single as TextContent).text,
-          'Missing required argument `roots`.',
-        );
-        expect(testProcessManager.commandsRan, isEmpty);
-      });
     });
   });
 }

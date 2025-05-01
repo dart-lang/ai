@@ -93,13 +93,13 @@ Future<CallToolResult> runCommandInRoots(
 
     final commandWithPaths = List.of(command);
     final paths =
-        (rootConfig[ParameterNames.paths] as List?)?.cast<String>().map(
-          (path) => rootUri.resolve(path).toString(),
-        ) ??
+        (rootConfig[ParameterNames.paths] as List?)?.cast<String>() ??
         defaultPaths;
-    final invalidPaths = paths.where(
-      (path) => !p.isWithin(rootUri.toString(), path),
-    );
+    final invalidPaths = paths.where((path) {
+      final resolvedPath = rootUri.resolve(path).toString();
+      return rootUriString != resolvedPath &&
+          !p.isWithin(rootUriString, resolvedPath);
+    });
     if (invalidPaths.isNotEmpty) {
       return CallToolResult(
         content: [
