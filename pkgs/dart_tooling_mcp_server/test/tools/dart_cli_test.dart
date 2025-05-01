@@ -55,7 +55,7 @@ void main() {
       );
       final result = await testHarness.callToolWithRetry(request);
 
-      // Verify the command was sent to the process maanger without error.
+      // Verify the command was sent to the process manager without error.
       expect(result.isError, isNot(true));
       expect(testProcessManager.commandsRan, [
         ['dart', 'fix', '--apply'],
@@ -73,7 +73,7 @@ void main() {
       );
       final result = await testHarness.callToolWithRetry(request);
 
-      // Verify the command was sent to the process maanger without error.
+      // Verify the command was sent to the process manager without error.
       expect(result.isError, isNot(true));
       expect(testProcessManager.commandsRan, [
         ['dart', 'format', '.'],
@@ -94,7 +94,7 @@ void main() {
       );
       final result = await testHarness.callToolWithRetry(request);
 
-      // Verify the command was sent to the process maanger without error.
+      // Verify the command was sent to the process manager without error.
       expect(result.isError, isNot(true));
       expect(testProcessManager.commandsRan, [
         ['dart', 'format', 'foo.dart', 'bar.dart'],

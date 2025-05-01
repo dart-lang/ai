@@ -72,6 +72,7 @@ Future<CallToolResult> runCommandInRoots(
                 'registered project roots:\n\n${knownRoots.join('\n')}',
           ),
         ],
+        isError: true,
       );
     }
 
@@ -92,9 +93,13 @@ Future<CallToolResult> runCommandInRoots(
 
     final commandWithPaths = List.of(command);
     final paths =
-        (rootConfig[ParameterNames.paths] as List?)?.cast<String>() ??
+        (rootConfig[ParameterNames.paths] as List?)?.cast<String>().map(
+          (path) => rootUri.resolve(path).toString(),
+        ) ??
         defaultPaths;
-    final invalidPaths = paths.where((path) => !p.isWithin(rootUri.path, path));
+    final invalidPaths = paths.where(
+      (path) => !p.isWithin(rootUri.toString(), path),
+    );
     if (invalidPaths.isNotEmpty) {
       return CallToolResult(
         content: [
