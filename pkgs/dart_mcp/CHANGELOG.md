@@ -27,6 +27,8 @@
   which has all supported versions and whether or not they are supported.
 - **Breaking**: Change `InitializeRequest` and `InitializeResult` to take a
   `ProtocolVersion` instead of a string.
+- **Breaking**: Change the `InitializaeResult`'s `instructions` to `String?` to reflect
+  that not all servers return instructions.
 
 ## 0.1.0
 

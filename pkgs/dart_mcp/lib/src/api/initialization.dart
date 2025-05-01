@@ -45,7 +45,7 @@ extension type InitializeResult.fromMap(Map<String, Object?> _value)
     required ProtocolVersion protocolVersion,
     required ServerCapabilities serverCapabilities,
     required ServerImplementation serverInfo,
-    required String instructions,
+    String? instructions,
   }) => InitializeResult.fromMap({
     'protocolVersion': protocolVersion.versionString,
     'capabilities': serverCapabilities,
@@ -82,7 +82,7 @@ extension type InitializeResult.fromMap(Map<String, Object?> _value)
   /// This can be used by clients to improve the LLM's understanding of
   /// available tools, resources, etc. It can be thought of like a "hint" to the
   /// model. For example, this information MAY be added to the system prompt.
-  String get instructions => _value['instructions'] as String;
+  String? get instructions => _value['instructions'] as String?;
 }
 
 /// This notification is sent from the client to the server after initialization
