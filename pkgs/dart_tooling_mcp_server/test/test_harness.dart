@@ -356,7 +356,7 @@ Future<ServerConnectionPair> _initializeMCPServer(
       serverController.sink,
     );
     server = DartToolingMCPServer(
-      channel: serverChannel,
+      serverChannel,
       processManager: TestProcessManager(),
     );
     addTearDown(server.shutdown);

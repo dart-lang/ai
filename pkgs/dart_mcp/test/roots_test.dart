@@ -12,7 +12,7 @@ void main() {
   test('server can list and subscribe to changes to roots', () async {
     final environment = TestEnvironment(
       TestMCPClientWithRoots(),
-      (c) => TestMCPServer(channel: c),
+      TestMCPServer.new,
     );
     await environment.initializeServer();
 

@@ -4,9 +4,7 @@
 
 import 'dart:async';
 
-import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:meta/meta.dart';
-import 'package:stream_channel/stream_channel.dart';
 import 'package:stream_transform/stream_transform.dart';
 
 import '../api/api.dart';
@@ -61,11 +59,12 @@ abstract base class MCPServer extends MCPBase {
       _rootsListChangedController?.stream;
   StreamController<RootsListChangedNotification>? _rootsListChangedController;
 
-  MCPServer.fromStreamChannel({
+  MCPServer.fromStreamChannel(
+    super.channel, {
     required this.implementation,
     required this.instructions,
-    required StreamChannel<String> channel,
-  }) : super(Peer(channel)) {
+    super.protocolLogSink,
+  }) {
     registerRequestHandler(InitializeRequest.methodName, initialize);
 
     registerNotificationHandler(

@@ -26,8 +26,8 @@ final class DartToolingMCPServer extends MCPServer
         PubSupport,
         DartToolingDaemonSupport
     implements ProcessManagerSupport {
-  DartToolingMCPServer({
-    required super.channel,
+  DartToolingMCPServer(
+    super.channel, {
     @visibleForTesting this.processManager = const LocalProcessManager(),
   }) : super.fromStreamChannel(
          implementation: ServerImplementation(
@@ -42,7 +42,7 @@ final class DartToolingMCPServer extends MCPServer
   static Future<DartToolingMCPServer> connect(
     StreamChannel<String> mcpChannel,
   ) async {
-    return DartToolingMCPServer(channel: mcpChannel);
+    return DartToolingMCPServer(mcpChannel);
   }
 
   @override

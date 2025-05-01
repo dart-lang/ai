@@ -18,6 +18,9 @@
   `ResourceListChangedNotification`s and `ResourceUpdatedNotification`s. The
   delay can be modified by overriding
   `ResourcesSupport.resourceUpdateThrottleDelay`.
+- Add `Sink<String> protocolLogSink` parameters to server constructor and client
+  connection methods, which can be used to capture protocol messages for
+  debugging purposes.
 - **Breaking**: Fixed paginated result subtypes to use `nextCursor` instead of
   `cursor` as the key for the next cursor.
 - **Breaking**: Change the `ProgressNotification.progress` and
@@ -27,6 +30,12 @@
   which has all supported versions and whether or not they are supported.
 - **Breaking**: Change `InitializeRequest` and `InitializeResult` to take a
   `ProtocolVersion` instead of a string.
+- **Breaking**: Change `MCPBase` to accept a `StreamChannel<String>` instead of
+  a `Peer`, and construct its own `Peer`.
+- **Breaking**: Add `protocolLogSink` optional parameter to connect methods on
+  `MCPClient`.
+- **Breaking**: Move `channel` parameter on `MCPServer.new` to a positional
+  parameter for consistency.
 
 ## 0.1.0
 
