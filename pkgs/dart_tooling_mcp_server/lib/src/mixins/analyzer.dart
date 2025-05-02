@@ -13,6 +13,7 @@ import 'package:language_server_protocol/protocol_generated.dart' as lsp;
 import 'package:meta/meta.dart';
 
 import '../lsp/wire_format.dart';
+import '../utils/constants.dart';
 
 /// Mix this in to any MCPServer to add support for analyzing Dart projects.
 ///
@@ -245,7 +246,7 @@ base mixin DartAnalyzerSupport
     for (var entry in diagnostics.entries) {
       for (var diagnostic in entry.value) {
         final diagnosticJson = diagnostic.toJson();
-        diagnosticJson['uri'] = entry.key.toString();
+        diagnosticJson[ParameterNames.uri] = entry.key.toString();
         messages.add(TextContent(text: jsonEncode(diagnosticJson)));
       }
     }
@@ -263,7 +264,7 @@ base mixin DartAnalyzerSupport
     final errorResult = await _ensurePrerequisites(request);
     if (errorResult != null) return errorResult;
 
-    final query = request.arguments!['query'] as String;
+    final query = request.arguments![ParameterNames.query] as String;
     final result = await _lspConnection.sendRequest(
       lsp.Method.workspace_symbol.toString(),
       lsp.WorkspaceSymbolParams(query: query).toJson(),
@@ -306,7 +307,7 @@ base mixin DartAnalyzerSupport
     );
     diagnostics[diagnosticParams.uri] = diagnosticParams.diagnostics;
     log(LoggingLevel.debug, {
-      'uri': diagnosticParams.uri,
+      ParameterNames.uri: diagnosticParams.uri,
       'diagnostics':
           diagnosticParams.diagnostics.map((d) => d.toJson()).toList(),
     });
@@ -369,14 +370,14 @@ base mixin DartAnalyzerSupport
     description: 'Look up a symbol or symbols in all workspaces by name.',
     inputSchema: Schema.object(
       properties: {
-        'query': Schema.string(
+        ParameterNames.query: Schema.string(
           description:
               'Queries are matched based on a case-insensitive partial name '
               'match, and do not support complex pattern matching, regexes, '
               'or scoped lookups.',
         ),
       },
-      required: ['query'],
+      required: [ParameterNames.query],
     ),
     annotations: ToolAnnotations(title: 'Project search', readOnlyHint: true),
   );

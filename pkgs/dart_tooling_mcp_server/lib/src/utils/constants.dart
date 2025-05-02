@@ -7,6 +7,8 @@ extension ParameterNames on Never {
   static const command = 'command';
   static const packageName = 'packageName';
   static const paths = 'paths';
+  static const query = 'query';
   static const root = 'root';
   static const roots = 'roots';
+  static const uri = 'uri';
 }
