@@ -9,6 +9,7 @@ import 'package:dart_mcp/client.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:json_rpc_2/error_code.dart';
 import 'package:json_rpc_2/json_rpc_2.dart';
+import 'package:stream_channel/stream_channel.dart';
 import 'package:test/test.dart';
 
 import 'test_utils.dart';
@@ -286,6 +287,48 @@ void main() {
         emitsThrough(allOf(startsWith('<<<'), contains('Invalid JSON'))),
       );
       expect(environment.initializeServer(), completes);
+    });
+
+    test('server exits before initialization', () {
+      final client = TestMCPClient();
+      final clientController = StreamController<String>();
+      final serverController = StreamController<String>();
+      final clientChannel = StreamChannel<String>.withGuarantees(
+        clientController.stream,
+        serverController.sink,
+      );
+      final serverChannel = StreamChannel<String>.withGuarantees(
+        serverController.stream,
+        clientController.sink,
+      );
+      final connection = client.connectServer(clientChannel);
+
+      expect(
+        connection.initialize(
+          InitializeRequest(
+            protocolVersion: ProtocolVersion.latestSupported,
+            capabilities: ClientCapabilities(),
+            clientInfo: ClientImplementation(name: '', version: ''),
+          ),
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            'The client closed with pending request "initialize".',
+          ),
+        ),
+      );
+
+      // This shuts down the channel between the client and server, so it
+      // happens during the initialization request (which the server never)
+      // responds to.
+      serverChannel.sink.close();
+
+      addTearDown(() {
+        expect(connection.isActive, false);
+        expect(client.connections, isEmpty);
+      });
     });
   });
 }
