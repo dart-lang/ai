@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'package:async/async.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:dart_tooling_mcp_server/src/mixins/dtd.dart';
+import 'package:dart_tooling_mcp_server/src/utils/constants.dart';
 import 'package:test/test.dart';
 import 'package:vm_service/vm_service.dart';
 
@@ -347,7 +348,7 @@ void main() {
             await resourceUpdatedQueue.next,
             isA<ResourceUpdatedNotification>().having(
               (n) => n.uri,
-              'uri',
+              ParameterNames.uri,
               resource.uri,
             ),
           );
@@ -371,7 +372,7 @@ void main() {
             await resourceUpdatedQueue.next,
             isA<ResourceUpdatedNotification>().having(
               (n) => n.uri,
-              'uri',
+              ParameterNames.uri,
               resource.uri,
             ),
           );

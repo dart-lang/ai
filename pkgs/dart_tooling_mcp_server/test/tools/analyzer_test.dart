@@ -6,6 +6,7 @@ import 'dart:io';
 
 import 'package:dart_mcp/server.dart';
 import 'package:dart_tooling_mcp_server/src/mixins/analyzer.dart';
+import 'package:dart_tooling_mcp_server/src/utils/constants.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
 
@@ -96,7 +97,7 @@ void main() {
       final result = await testHarness.callToolWithRetry(
         CallToolRequest(
           name: DartAnalyzerSupport.resolveWorkspaceSymbolTool.name,
-          arguments: {'query': 'DartAnalyzerSupport'},
+          arguments: {ParameterNames.query: 'DartAnalyzerSupport'},
         ),
       );
       expect(result.isError, isNot(true));
@@ -130,7 +131,7 @@ void main() {
       final result = await testHarness.callToolWithRetry(
         CallToolRequest(
           name: DartAnalyzerSupport.resolveWorkspaceSymbolTool.name,
-          arguments: {'query': 'DartAnalyzerSupport'},
+          arguments: {ParameterNames.query: 'DartAnalyzerSupport'},
         ),
         expectError: true,
       );

@@ -13,6 +13,8 @@ import 'package:meta/meta.dart';
 import 'package:vm_service/vm_service.dart';
 import 'package:vm_service/vm_service_io.dart';
 
+import '../utils/constants.dart';
+
 /// Mix this in to any MCPServer to add support for connecting to the Dart
 /// Tooling Daemon and all of its associated functionality (see
 /// https://pub.dev/packages/dtd).
@@ -149,7 +151,7 @@ base mixin DartToolingDaemonSupport
       return _dtdAlreadyConnected;
     }
 
-    if (request.arguments?['uri'] == null) {
+    if (request.arguments?[ParameterNames.uri] == null) {
       return CallToolResult(
         isError: true,
         content: [
@@ -160,7 +162,7 @@ base mixin DartToolingDaemonSupport
 
     try {
       _dtd = await DartToolingDaemon.connect(
-        Uri.parse(request.arguments!['uri'] as String),
+        Uri.parse(request.arguments![ParameterNames.uri] as String),
       );
       unawaited(_dtd!.done.then((_) async => await _resetDtd()));
 
@@ -502,8 +504,8 @@ base mixin DartToolingDaemonSupport
         'command. Do not just make up a random URI to pass.',
     annotations: ToolAnnotations(title: 'Connect to DTD', readOnlyHint: true),
     inputSchema: Schema.object(
-      properties: {'uri': Schema.string()},
-      required: const ['uri'],
+      properties: {ParameterNames.uri: Schema.string()},
+      required: const [ParameterNames.uri],
     ),
   );
 

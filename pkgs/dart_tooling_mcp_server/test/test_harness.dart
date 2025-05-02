@@ -10,6 +10,7 @@ import 'package:async/async.dart';
 import 'package:dart_mcp/client.dart';
 import 'package:dart_tooling_mcp_server/src/mixins/dtd.dart';
 import 'package:dart_tooling_mcp_server/src/server.dart';
+import 'package:dart_tooling_mcp_server/src/utils/constants.dart';
 import 'package:dtd/dtd.dart';
 import 'package:path/path.dart' as p;
 import 'package:process/process.dart';
@@ -116,7 +117,7 @@ class TestHarness {
     final result = await callToolWithRetry(
       CallToolRequest(
         name: connectTool.name,
-        arguments: {'uri': fakeEditorExtension.dtdUri},
+        arguments: {ParameterNames.uri: fakeEditorExtension.dtdUri},
       ),
     );
 
