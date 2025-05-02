@@ -1,0 +1,265 @@
+// Copyright (c) 2025, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:dart_mcp/server.dart';
+import 'package:http/http.dart';
+
+import '../utils/process_manager.dart';
+
+/// Mix this in to any MCPServer to add support for doing searched on pub.dev.
+base mixin PubDevSupport on ToolsSupport, LoggingSupport
+    implements ProcessManagerSupport {
+  @override
+  FutureOr<InitializeResult> initialize(InitializeRequest request) {
+    registerTool(pubDevTool, _runPubDevSearch);
+    return super.initialize(request);
+  }
+
+  /// Implementation of the [pubDevTool].
+  Future<CallToolResult> _runPubDevSearch(CallToolRequest request) async {
+    final query = request.arguments?['search-query'] as String?;
+    if (query == null) {
+      return CallToolResult(
+        content: [
+          TextContent(text: 'Missing required argument `search-query`.'),
+        ],
+        isError: true,
+      );
+    }
+    final client = Client();
+    final searchUrl = Uri(
+      scheme: 'https',
+      host: 'pub.dev',
+      path: 'api/search',
+      queryParameters: {'q': query},
+    );
+    final Object? result;
+    try {
+      result = jsonDecode(await client.read(searchUrl));
+
+      final packages = dig<List>(result, ['packages']);
+
+      final results = <TextContent>[];
+      for (final i in (packages as Iterable).take(10)) {
+        final packageName = dig<String>(i, ['package']);
+        final packageListing = jsonDecode(
+          await client.read(
+            Uri(
+              scheme: 'https',
+              host: 'pub.dev',
+              path: 'api/packages/$packageName',
+              queryParameters: {'q': query},
+            ),
+          ),
+        );
+
+        final latestVersion = dig<String>(packageListing, [
+          'latest',
+          'version',
+        ]);
+        final description = dig<String>(packageListing, [
+          'latest',
+          'pubspec',
+          'description',
+        ]);
+        final scoreResult = jsonDecode(
+          await client.read(
+            Uri(
+              scheme: 'https',
+              host: 'pub.dev',
+              path: 'api/packages/$packageName/score',
+              queryParameters: {'q': query},
+            ),
+          ),
+        );
+        final scores = {
+          'pubPoints': dig<int>(scoreResult, ['grantedPoints']),
+          'maxPubPoints': dig<int>(scoreResult, ['maxPoints']),
+          'likes': dig<int>(scoreResult, ['likeCount']),
+          'downloadCount': dig<int>(scoreResult, ['downloadCount30Days']),
+        };
+        final topics =
+            dig<List>(scoreResult, [
+              'tags',
+            ]).where((t) => (t as String).startsWith('topic:')).toList();
+        final licenses =
+            dig<List>(scoreResult, [
+              'tags',
+            ]).where((t) => (t as String).startsWith('license')).toList();
+        final index = jsonDecode(
+          await client.read(
+            Uri(
+              scheme: 'https',
+              host: 'pub.dev',
+              path: 'documentation/$packageName/latest/index.json',
+            ),
+          ),
+        );
+        final items = dig<List>(index, []);
+        final identifiers = <Map<String, Object?>>[];
+        for (final item in items) {
+          identifiers.add({
+            'qualifiedName': dig(item, ['qualifiedName']),
+            'desc': 'Object holding options for retrying a function.',
+          });
+        }
+        results.add(
+          TextContent(
+            text: jsonEncode({
+              'packageName': packageName,
+              'latestVersion': latestVersion,
+              'description': description,
+              'scores': scores,
+              'topics': topics,
+              'licenses': licenses,
+              'api': identifiers,
+            }),
+          ),
+        );
+      }
+
+      return CallToolResult(content: results);
+    } on Exception catch (e) {
+      return CallToolResult(
+        content: [TextContent(text: 'Failed searching pub.dev: $e')],
+        isError: true,
+      );
+    } finally {
+      client.close();
+    }
+  }
+
+  static final pubDevTool = Tool(
+    name: 'pub-dev-search',
+    description:
+        'Searches pub.dev for packages relevant to a given search query. '
+        'The response will describe each result with its download count,'
+        ' package description, topics, license, and a list of identifiers '
+        'in the public api',
+    annotations: ToolAnnotations(title: 'pub.dev search', readOnlyHint: false),
+    inputSchema: Schema.object(
+      properties: {
+        'search-query': Schema.string(
+          title: 'Search query',
+          description: 'The query to run against pub.dev package search',
+        ),
+      },
+      required: ['search-query'],
+    ),
+  );
+}
+
+/// The set of supported `dart pub` subcommands.
+enum SupportedPubCommand {
+  // This is supported in a simplified form: `dart pub add <package-name>`.
+  // TODO(https://github.com/dart-lang/ai/issues/77): add support for adding
+  //  dev dependencies.
+  add(requiresPackageName: true),
+
+  get,
+
+  // This is supported in a simplified form: `dart pub remove <package-name>`.
+  remove(requiresPackageName: true),
+
+  upgrade;
+
+  const SupportedPubCommand({this.requiresPackageName = false});
+
+  final bool requiresPackageName;
+
+  static SupportedPubCommand? fromName(String name) {
+    for (final command in SupportedPubCommand.values) {
+      if (command.name == name) {
+        return command;
+      }
+    }
+    return null;
+  }
+
+  static String get listAll {
+    return _writeCommandsAsList(SupportedPubCommand.values);
+  }
+
+  static String get listAllThatRequirePackageName {
+    return _writeCommandsAsList(
+      SupportedPubCommand.values.where((c) => c.requiresPackageName).toList(),
+    );
+  }
+
+  static String _writeCommandsAsList(List<SupportedPubCommand> commands) {
+    final buffer = StringBuffer();
+    for (var i = 0; i < commands.length; i++) {
+      final commandName = commands[i].name;
+      buffer.write('`$commandName`');
+      if (i < commands.length - 2) {
+        buffer.write(', ');
+      } else if (i == commands.length - 2) {
+        buffer.write(' and ');
+      }
+    }
+    return buffer.toString();
+  }
+}
+
+/// Utility for indexing json data structures.
+///
+/// Each element of [path] should be a `String`, `int` or `(String, String)`.
+///
+/// For each element `key` of [path], recurse into [json].
+///
+/// If the `key` is a String, the next json structure should be a Map, and have
+/// `key` as a property. Recurse into that property.
+///
+/// If `key` is an `int`, the next json structure must be a List, with that
+/// index. Recurse into that index.
+///
+/// If `key` in a `(String k, String v)` the next json structure must be a List
+/// of maps, one of them having the property `k` with value `v`, recurse into
+/// that map.
+///
+/// If at some point the types don't match throw a [FormatException].
+///
+/// Returns the result as a [T].
+T dig<T>(dynamic json, List<dynamic> path) {
+  var i = 0;
+  String currentPath() => path.take(i).map((i) => '[$i]').join('');
+  for (; i < path.length; i++) {
+    outer:
+    switch (path[i]) {
+      case final String key:
+        if (json is! Map) {
+          throw FormatException('Expected a map at ${currentPath()}');
+        }
+        json = json[key];
+      case final int key:
+        if (json is! List) {
+          throw FormatException('Expected a map at ${currentPath()}');
+        }
+        json = json[key];
+      case (final String key, final String value):
+        if (json is! List) {
+          throw FormatException('Expected a map at ${currentPath()}');
+        }
+        final t = json;
+        for (var j = 0; j < t.length; j++) {
+          final element = t[j];
+          if (element is! Map) {
+            throw FormatException('Expected a map at ${currentPath()}[$j]');
+          }
+          if (element[key] == value) {
+            json = element;
+            break outer;
+          }
+        }
+      case final key:
+        throw ArgumentError('Bad key $key in', 'path');
+    }
+  }
+
+  if (json is! T) throw FormatException('Unexpected value at $currentPath()');
+  return json;
+}
