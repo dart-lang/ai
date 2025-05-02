@@ -52,7 +52,6 @@ base class MCPClient {
   /// Connect to a new MCP server by invoking [command] with [arguments] and
   /// talking to that process over stdin/stdout.
   ///
-  ///
   /// If [protocolLogSink] is provided, all messages sent between the client and
   /// server will be forwarded to that [Sink] as well, with `<<<` preceding
   /// incoming messages and `>>>` preceding outgoing messages.
