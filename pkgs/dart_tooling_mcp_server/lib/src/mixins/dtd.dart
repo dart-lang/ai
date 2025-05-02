@@ -13,25 +13,28 @@ import 'package:meta/meta.dart';
 import 'package:vm_service/vm_service.dart';
 import 'package:vm_service/vm_service_io.dart';
 
+import '../utils/constants.dart';
+
 /// Mix this in to any MCPServer to add support for connecting to the Dart
 /// Tooling Daemon and all of its associated functionality (see
 /// https://pub.dev/packages/dtd).
 ///
 /// The MCPServer must already have the [ToolsSupport] mixin applied.
-base mixin DartToolingDaemonSupport on LoggingSupport, ToolsSupport {
+base mixin DartToolingDaemonSupport
+    on ToolsSupport, LoggingSupport, ResourcesSupport {
   DartToolingDaemon? _dtd;
 
   /// Whether or not the DTD extension to get the active debug sessions is
   /// ready to be invoked.
   bool _getDebugSessionsReady = false;
 
-  /// A Map of [VmService] objects by their associated VM Service URI
-  /// (represented as a String).
+  /// A Map of [VmService] object [Future]s by their associated
+  /// [DebugSession.id].
   ///
   /// [VmService] objects are automatically removed from the Map when the
-  /// [VmService] shuts down.
+  /// [DebugSession] shuts down.
   @visibleForTesting
-  final activeVmServices = <String, VmService>{};
+  final activeVmServices = <String, Future<VmService>>{};
 
   /// Whether to await the disposal of all [VmService] objects in
   /// [activeVmServices] upon server shutdown or loss of DTD connection.
@@ -60,7 +63,9 @@ base mixin DartToolingDaemonSupport on LoggingSupport, ToolsSupport {
     // the Flutter Widget Inspector for each VM service instance.
 
     final future = Future.wait(
-      activeVmServices.values.map((vmService) => vmService.dispose()),
+      activeVmServices.values.map(
+        (vmService) => vmService.then((service) => service.dispose()),
+      ),
     );
     debugAwaitVmServiceDisposal ? await future : unawaited(future);
 
@@ -83,17 +88,37 @@ base mixin DartToolingDaemonSupport on LoggingSupport, ToolsSupport {
     final response = await dtd.getDebugSessions();
     final debugSessions = response.debugSessions;
     for (final debugSession in debugSessions) {
-      if (activeVmServices.containsKey(debugSession.vmServiceUri)) {
+      if (activeVmServices.containsKey(debugSession.id)) {
         continue;
       }
-      final vmService = await vmServiceConnectUri(debugSession.vmServiceUri);
-      activeVmServices[debugSession.vmServiceUri] = vmService;
-      unawaited(
-        vmService.onDone.then((_) {
-          activeVmServices.remove(debugSession.vmServiceUri);
-          vmService.dispose();
-        }),
-      );
+      if (debugSession.vmServiceUri case final vmServiceUri?) {
+        final vmService =
+            await (activeVmServices[debugSession.id] = vmServiceConnectUri(
+              vmServiceUri,
+            ));
+        // Start listening for and collecting errors immediately.
+        final errorService = await _AppErrorsListener.forVmService(vmService);
+        final resource = Resource(
+          uri: '$runtimeErrorsScheme://${debugSession.id}',
+          name: debugSession.name,
+        );
+        addResource(resource, (request) async {
+          final errors = errorService.errors;
+          return ReadResourceResult(
+            contents: [
+              for (var error in errors)
+                TextResourceContents(uri: resource.uri, text: error),
+            ],
+          );
+        });
+        errorService.errorsStream.listen((_) => updateResource(resource));
+        unawaited(
+          vmService.onDone.then((_) {
+            removeResource(resource.uri);
+            activeVmServices.remove(debugSession.id);
+          }),
+        );
+      }
     }
   }
 
@@ -126,7 +151,7 @@ base mixin DartToolingDaemonSupport on LoggingSupport, ToolsSupport {
       return _dtdAlreadyConnected;
     }
 
-    if (request.arguments?['uri'] == null) {
+    if (request.arguments?[ParameterNames.uri] == null) {
       return CallToolResult(
         isError: true,
         content: [
@@ -137,7 +162,7 @@ base mixin DartToolingDaemonSupport on LoggingSupport, ToolsSupport {
 
     try {
       _dtd = await DartToolingDaemon.connect(
-        Uri.parse(request.arguments!['uri'] as String),
+        Uri.parse(request.arguments![ParameterNames.uri] as String),
       );
       unawaited(_dtd!.done.then((_) async => await _resetDtd()));
 
@@ -186,6 +211,21 @@ base mixin DartToolingDaemonSupport on LoggingSupport, ToolsSupport {
       }
     });
     dtd.streamListen('Service');
+
+    dtd.onEvent('Editor').listen((e) async {
+      log(LoggingLevel.debug, e.toString());
+      switch (e.kind) {
+        case 'debugSessionStarted':
+        case 'debugSessionChanged':
+          await updateActiveVmServices();
+        case 'debugSessionStopped':
+          await activeVmServices
+              .remove((e.data['debugSession'] as DebugSession).id)
+              ?.then((service) => service.dispose());
+        default:
+      }
+    });
+    dtd.streamListen('Editor');
   }
 
   /// Takes a screenshot of the currently running app.
@@ -237,6 +277,10 @@ base mixin DartToolingDaemonSupport on LoggingSupport, ToolsSupport {
   Future<CallToolResult> hotReload(CallToolRequest request) async {
     return _callOnVmService(
       callback: (vmService) async {
+        if (request.arguments?['clearRuntimeErrors'] == true) {
+          (await _AppErrorsListener.forVmService(vmService)).errors.clear();
+        }
+
         StreamSubscription<Event>? serviceStreamSubscription;
         try {
           final hotReloadMethodNameCompleter = Completer<String?>();
@@ -311,49 +355,16 @@ base mixin DartToolingDaemonSupport on LoggingSupport, ToolsSupport {
   Future<CallToolResult> runtimeErrors(CallToolRequest request) async {
     return _callOnVmService(
       callback: (vmService) async {
-        final since = request.arguments?['since'] as int?;
-
-        final errors = <String>[];
-        StreamSubscription<Event>? extensionEvents;
-        StreamSubscription<Event>? stderrEvents;
         try {
-          // We need to listen to streams with history so that we can get errors
-          // that occurred before this tool call.
-          // TODO(https://github.com/dart-lang/ai/issues/57): this can result in
-          // duplicate errors that we need to de-duplicate somehow.
-          extensionEvents = vmService.onExtensionEventWithHistory.listen((
-            Event e,
-          ) {
-            if (e.extensionKind == 'Flutter.Error' && e.wasSince(since)) {
-              // TODO(https://github.com/dart-lang/ai/issues/57): consider
-              // pruning this content down to only what is useful for the LLM to
-              // understand the error and its source.
-              errors.add(e.json.toString());
-            }
-          });
-          stderrEvents = vmService.onStderrEventWithHistory.listen((Event e) {
-            if (!e.wasSince(since)) return;
-
-            final message = decodeBase64(e.bytes!);
-            // TODO(https://github.com/dart-lang/ai/issues/57): consider
-            // pruning this content down to only what is useful for the LLM to
-            // understand the error and its source.
-            errors.add(message);
-          });
-
-          await vmService.streamListen(EventStreams.kExtension);
-          await vmService.streamListen(EventStreams.kStderr);
-
-          // Await a short delay to allow the error events to come over the open
-          // Streams.
-          await Future<void>.delayed(const Duration(seconds: 1));
+          final errorService = await _AppErrorsListener.forVmService(vmService);
+          final errors = errorService.errors;
 
           if (errors.isEmpty) {
             return CallToolResult(
               content: [TextContent(text: 'No runtime errors found.')],
             );
           }
-          return CallToolResult(
+          final result = CallToolResult(
             content: [
               TextContent(
                 text:
@@ -363,16 +374,15 @@ base mixin DartToolingDaemonSupport on LoggingSupport, ToolsSupport {
               ...errors.map((e) => TextContent(text: e.toString())),
             ],
           );
+          if (request.arguments?['clearRuntimeErrors'] == true) {
+            errorService.errors.clear();
+          }
+          return result;
         } catch (e) {
           return CallToolResult(
             isError: true,
             content: [TextContent(text: 'Failed to get runtime errors: $e')],
           );
-        } finally {
-          await extensionEvents?.cancel();
-          await stderrEvents?.cancel();
-          await vmService.streamCancel(EventStreams.kExtension);
-          await vmService.streamCancel(EventStreams.kStderr);
         }
       },
     );
@@ -482,7 +492,7 @@ base mixin DartToolingDaemonSupport on LoggingSupport, ToolsSupport {
 
     // TODO: support selecting a VM Service if more than one are available.
     final vmService = activeVmServices.values.first;
-    return await callback(vmService);
+    return await callback(await vmService);
   }
 
   @visibleForTesting
@@ -494,8 +504,8 @@ base mixin DartToolingDaemonSupport on LoggingSupport, ToolsSupport {
         'command. Do not just make up a random URI to pass.',
     annotations: ToolAnnotations(title: 'Connect to DTD', readOnlyHint: true),
     inputSchema: Schema.object(
-      properties: {'uri': Schema.string()},
-      required: const ['uri'],
+      properties: {ParameterNames.uri: Schema.string()},
+      required: const [ParameterNames.uri],
     ),
   );
 
@@ -512,11 +522,11 @@ base mixin DartToolingDaemonSupport on LoggingSupport, ToolsSupport {
     ),
     inputSchema: Schema.object(
       properties: {
-        'since': Schema.int(
+        'clearRuntimeErrors': Schema.bool(
+          title: 'Whether to clear the runtime errors after retrieving them.',
           description:
-              'Only return errors that occurred after this timestamp (in '
-              'milliseconds since epoch). If not provided then all errors will '
-              'be returned.',
+              'This is useful to clear out old errors that may no longer be '
+              'relevant before reading them again.',
         ),
       },
     ),
@@ -541,7 +551,17 @@ base mixin DartToolingDaemonSupport on LoggingSupport, ToolsSupport {
         'This is to apply the latest code changes to the running application. '
         'Requires "${connectTool.name}" to be successfully called first.',
     annotations: ToolAnnotations(title: 'Hot reload', destructiveHint: true),
-    inputSchema: Schema.object(),
+    inputSchema: Schema.object(
+      properties: {
+        'clearRuntimeErrors': Schema.bool(
+          title: 'Whether to clear runtime errors before hot reloading.',
+          description:
+              'This is useful to clear out old errors that may no longer be '
+              'relevant.',
+        ),
+      },
+      required: [],
+    ),
   );
 
   @visibleForTesting
@@ -606,6 +626,100 @@ base mixin DartToolingDaemonSupport on LoggingSupport, ToolsSupport {
       ),
     ],
   );
+
+  static final runtimeErrorsScheme = 'runtime-errors';
+}
+
+/// Listens on a VM service for errors.
+class _AppErrorsListener {
+  /// All the errors recorded so far (may be cleared explicitly).
+  final List<String> errors;
+
+  /// A broadcast stream of all errors that come in after you start listening.
+  Stream<String> get errorsStream => _errorsController.stream;
+
+  /// Controller for the [errorsStream].
+  final StreamController<String> _errorsController;
+
+  /// The listener for Flutter.Error vm service extension events.
+  final StreamSubscription<Event> _extensionEventsListener;
+
+  /// The stderr listener on the flutter process.
+  final StreamSubscription<Event> _stderrEventsListener;
+
+  /// The vm service instance connected to the flutter app.
+  final VmService _vmService;
+
+  _AppErrorsListener._(
+    this.errors,
+    this._errorsController,
+    this._extensionEventsListener,
+    this._stderrEventsListener,
+    this._vmService,
+  ) {
+    _vmService.onDone.then((_) => shutdown());
+  }
+
+  /// Maintain a cache of error listeners by [VmService] instance as an
+  /// [Expando] so we don't have to worry about explicit cleanup.
+  static final _errorListeners = Expando<_AppErrorsListener>();
+
+  /// Returns the canonical [_AppErrorsListener] for the [vmService] instance,
+  /// which may be an already existing instance.
+  static Future<_AppErrorsListener> forVmService(VmService vmService) async {
+    return _errorListeners[vmService] ??= await () async {
+      // Needs to be a broadcast stream because we use it to add errors to the
+      // list but also expose it to clients so they can know when new errors
+      // are added.
+      final errorsController = StreamController<String>.broadcast();
+      final errors = <String>[];
+      errorsController.stream.listen(errors.add);
+      // We need to listen to streams with history so that we can get errors
+      // that occurred before this tool call.
+      // TODO(https://github.com/dart-lang/ai/issues/57): this can result in
+      // duplicate errors that we need to de-duplicate somehow.
+      final extensionEvents = vmService.onExtensionEventWithHistory.listen((
+        Event e,
+      ) {
+        if (e.extensionKind == 'Flutter.Error') {
+          // TODO(https://github.com/dart-lang/ai/issues/57): consider
+          // pruning this content down to only what is useful for the LLM to
+          // understand the error and its source.
+          errorsController.add(e.json.toString());
+        }
+      });
+      final stderrEvents = vmService.onStderrEventWithHistory.listen((Event e) {
+        final message = decodeBase64(e.bytes!);
+        // TODO(https://github.com/dart-lang/ai/issues/57): consider
+        // pruning this content down to only what is useful for the LLM to
+        // understand the error and its source.
+        errorsController.add(message);
+      });
+
+      await vmService.streamListen(EventStreams.kExtension);
+      await vmService.streamListen(EventStreams.kStderr);
+      return _AppErrorsListener._(
+        errors,
+        errorsController,
+        extensionEvents,
+        stderrEvents,
+        vmService,
+      );
+    }();
+  }
+
+  Future<void> shutdown() async {
+    errors.clear();
+    await _errorsController.close();
+    await _extensionEventsListener.cancel();
+    await _stderrEventsListener.cancel();
+    try {
+      await _vmService.streamCancel(EventStreams.kExtension);
+      await _vmService.streamCancel(EventStreams.kStderr);
+    } on RPCError catch (_) {
+      // The vm service might already be disposed in which causes these to fail.
+    }
+  }
 }
 
 /// Adds the [getDebugSessions] method to [DartToolingDaemon], so that calling
@@ -678,28 +792,19 @@ extension type DebugSession.fromJson(Map<String, Object?> _value)
   String get id => _value['id'] as String;
   String get name => _value['name'] as String;
   String get projectRootPath => _value['projectRootPath'] as String;
-  String get vmServiceUri => _value['vmServiceUri'] as String;
+  String? get vmServiceUri => _value['vmServiceUri'] as String?;
 
   factory DebugSession({
     required String debuggerType,
     required String id,
     required String name,
     required String projectRootPath,
-    required String vmServiceUri,
+    required String? vmServiceUri,
   }) => DebugSession.fromJson({
     'debuggerType': debuggerType,
     'id': id,
     'name': name,
     'projectRootPath': projectRootPath,
-    'vmServiceUri': vmServiceUri,
+    if (vmServiceUri != null) 'vmServiceUri': vmServiceUri,
   });
-}
-
-extension on Event {
-  /// Returns `true` if [timestamp] is >= [since].
-  ///
-  /// If we cannot determine this due to either [timestamp] or [since] being
-  /// null, then we also return `true`.
-  bool wasSince(int? since) =>
-      since == null || timestamp == null ? true : timestamp! >= since;
 }

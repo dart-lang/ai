@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:dart_mcp/server.dart';
 
 import '../utils/cli_utils.dart';
+import '../utils/constants.dart';
 import '../utils/process_manager.dart';
 
 /// Mix this in to any MCPServer to add support for running Pub commands like
@@ -16,17 +17,22 @@ import '../utils/process_manager.dart';
 ///
 /// The MCPServer must already have the [ToolsSupport] and [LoggingSupport]
 /// mixins applied.
-base mixin PubSupport on ToolsSupport, LoggingSupport
+base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
     implements ProcessManagerSupport {
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
-    registerTool(pubTool, _runDartPubTool);
-    return super.initialize(request);
+    try {
+      return super.initialize(request);
+    } finally {
+      if (supportsRoots) {
+        registerTool(pubTool, _runDartPubTool);
+      }
+    }
   }
 
   /// Implementation of the [pubTool].
   Future<CallToolResult> _runDartPubTool(CallToolRequest request) async {
-    final command = request.arguments?['command'] as String?;
+    final command = request.arguments?[ParameterNames.command] as String?;
     if (command == null) {
       return CallToolResult(
         content: [TextContent(text: 'Missing required argument `command`.')],
@@ -48,7 +54,8 @@ base mixin PubSupport on ToolsSupport, LoggingSupport
       );
     }
 
-    final packageName = request.arguments?['packageName'] as String?;
+    final packageName =
+        request.arguments?[ParameterNames.packageName] as String?;
     if (matchingCommand.requiresPackageName && packageName == null) {
       return CallToolResult(
         content: [
@@ -69,6 +76,7 @@ base mixin PubSupport on ToolsSupport, LoggingSupport
       command: ['dart', 'pub', command, if (packageName != null) packageName],
       commandDescription: 'dart pub $command',
       processManager: processManager,
+      knownRoots: await roots,
     );
   }
 
@@ -80,34 +88,20 @@ base mixin PubSupport on ToolsSupport, LoggingSupport
     annotations: ToolAnnotations(title: 'pub', readOnlyHint: false),
     inputSchema: Schema.object(
       properties: {
-        'command': Schema.string(
+        ParameterNames.command: Schema.string(
           title: 'The dart pub command to run.',
           description:
               'Currently only ${SupportedPubCommand.listAll} are supported.',
         ),
-        'packageName': Schema.string(
+        ParameterNames.packageName: Schema.string(
           title: 'The package name to run the command for.',
           description:
               'This is required for the '
               '${SupportedPubCommand.listAllThatRequirePackageName} commands.',
         ),
-        'roots': Schema.list(
-          title: 'All projects roots to run the dart pub command in.',
-          description:
-              'These must match a root returned by a call to "listRoots".',
-          items: Schema.object(
-            properties: {
-              'root': Schema.string(
-                title:
-                    'The URI of the project root to run the dart pub command '
-                    'in.',
-              ),
-            },
-            required: ['root'],
-          ),
-        ),
+        ParameterNames.roots: rootsSchema(),
       },
-      required: ['command', 'roots'],
+      required: [ParameterNames.command],
     ),
   );
 }

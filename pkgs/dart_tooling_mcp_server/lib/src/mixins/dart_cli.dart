@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:dart_mcp/server.dart';
 
 import '../utils/cli_utils.dart';
+import '../utils/constants.dart';
 import '../utils/process_manager.dart';
 
 // TODO: migrate the analyze files tool to use this mixin and run the
@@ -17,13 +18,19 @@ import '../utils/process_manager.dart';
 ///
 /// The MCPServer must already have the [ToolsSupport] and [LoggingSupport]
 /// mixins applied.
-base mixin DartCliSupport on ToolsSupport, LoggingSupport
+base mixin DartCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
     implements ProcessManagerSupport {
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
-    registerTool(dartFixTool, _runDartFixTool);
-    registerTool(dartFormatTool, _runDartFormatTool);
-    return super.initialize(request);
+    try {
+      return super.initialize(request);
+    } finally {
+      // Can't call this until after `super.initialize`.
+      if (supportsRoots) {
+        registerTool(dartFixTool, _runDartFixTool);
+        registerTool(dartFormatTool, _runDartFormatTool);
+      }
+    }
   }
 
   /// Implementation of the [dartFixTool].
@@ -33,6 +40,7 @@ base mixin DartCliSupport on ToolsSupport, LoggingSupport
       command: ['dart', 'fix', '--apply'],
       commandDescription: 'dart fix',
       processManager: processManager,
+      knownRoots: await roots,
     );
   }
 
@@ -44,6 +52,7 @@ base mixin DartCliSupport on ToolsSupport, LoggingSupport
       commandDescription: 'dart format',
       processManager: processManager,
       defaultPaths: ['.'],
+      knownRoots: await roots,
     );
   }
 
@@ -52,22 +61,7 @@ base mixin DartCliSupport on ToolsSupport, LoggingSupport
     description: 'Runs `dart fix --apply` for the given project roots.',
     annotations: ToolAnnotations(title: 'Dart fix', destructiveHint: true),
     inputSchema: Schema.object(
-      properties: {
-        'roots': Schema.list(
-          title: 'All projects roots to run dart fix in.',
-          description:
-              'These must match a root returned by a call to "listRoots".',
-          items: Schema.object(
-            properties: {
-              'root': Schema.string(
-                title: 'The URI of the project root to run `dart fix` in.',
-              ),
-            },
-            required: ['root'],
-          ),
-        ),
-      },
-      required: ['roots'],
+      properties: {ParameterNames.roots: rootsSchema()},
     ),
   );
 
@@ -76,29 +70,7 @@ base mixin DartCliSupport on ToolsSupport, LoggingSupport
     description: 'Runs `dart format .` for the given project roots.',
     annotations: ToolAnnotations(title: 'Dart format', destructiveHint: true),
     inputSchema: Schema.object(
-      properties: {
-        'roots': Schema.list(
-          title: 'All projects roots to run dart format in.',
-          description:
-              'These must match a root returned by a call to "listRoots".',
-          items: Schema.object(
-            properties: {
-              'root': Schema.string(
-                title: 'The URI of the project root to run `dart format` in.',
-              ),
-              'paths': Schema.list(
-                title:
-                    'Relative or absolute paths to analyze under the '
-                    '"root". Paths must correspond to files and not '
-                    'directories.',
-                items: Schema.string(),
-              ),
-            },
-            required: ['root'],
-          ),
-        ),
-      },
-      required: ['roots'],
+      properties: {ParameterNames.roots: rootsSchema(supportsPaths: true)},
     ),
   );
 }
