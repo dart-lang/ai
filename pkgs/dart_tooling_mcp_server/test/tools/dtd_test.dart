@@ -319,7 +319,7 @@ void main() {
             SubscribeRequest(uri: resource.uri),
           );
           await pumpEventQueue();
-          var contents =
+          var originalContents =
               (await serverConnection.readResource(
                 ReadResourceRequest(uri: resource.uri),
               )).contents;
@@ -330,14 +330,15 @@ void main() {
           );
           // If we haven't seen errors initially, then listen for updates and
           // re-read the resource.
-          if (contents.isEmpty) {
+          if (originalContents.isEmpty) {
             await resourceUpdatedQueue.next;
-            contents =
+            originalContents =
                 (await serverConnection.readResource(
                   ReadResourceRequest(uri: resource.uri),
                 )).contents;
           }
-          expect(contents.single, overflowMatcher);
+          // Sometimes we get this error logged multiple times
+          expect(originalContents.first, overflowMatcher);
           await pumpEventQueue();
 
           await testHarness.callToolWithRetry(
@@ -353,14 +354,16 @@ void main() {
             ),
           );
 
+          // We should see additional errors (but the exact number is variable).
           final newContents =
               (await serverConnection.readResource(
                 ReadResourceRequest(uri: resource.uri),
               )).contents;
-          expect(newContents, [overflowMatcher, overflowMatcher]);
+          expect(newContents.length, greaterThan(originalContents.length));
+          expect(newContents.last, overflowMatcher);
 
-          // Now hot reload but clear previous errors, should see exactly one
-          // error only (the new one).
+          // Now hot reload but clear previous errors, should see fewer errors
+          // than before after this.
           await testHarness.callToolWithRetry(
             CallToolRequest(
               name: DartToolingDaemonSupport.hotReloadTool.name,
@@ -381,7 +384,8 @@ void main() {
               (await serverConnection.readResource(
                 ReadResourceRequest(uri: resource.uri),
               )).contents;
-          expect(finalContents.single, overflowMatcher);
+          expect(finalContents.length, lessThan(newContents.length));
+          expect(finalContents.last, overflowMatcher);
         });
       });
     });
