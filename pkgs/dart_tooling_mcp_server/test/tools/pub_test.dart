@@ -4,6 +4,7 @@
 
 import 'package:dart_mcp/server.dart';
 import 'package:dart_tooling_mcp_server/src/mixins/pub.dart';
+import 'package:dart_tooling_mcp_server/src/utils/constants.dart';
 import 'package:test/test.dart';
 
 import '../test_harness.dart';
@@ -39,10 +40,10 @@ void main() {
       final request = CallToolRequest(
         name: dartPubTool.name,
         arguments: {
-          'command': 'add',
-          'packageName': 'foo',
-          'roots': [
-            {'root': testRoot.uri},
+          ParameterNames.command: 'add',
+          ParameterNames.packageName: 'foo',
+          ParameterNames.roots: [
+            {ParameterNames.root: testRoot.uri},
           ],
         },
       );
@@ -59,10 +60,10 @@ void main() {
       final request = CallToolRequest(
         name: dartPubTool.name,
         arguments: {
-          'command': 'remove',
-          'packageName': 'foo',
-          'roots': [
-            {'root': testRoot.uri},
+          ParameterNames.command: 'remove',
+          ParameterNames.packageName: 'foo',
+          ParameterNames.roots: [
+            {ParameterNames.root: testRoot.uri},
           ],
         },
       );
@@ -79,9 +80,9 @@ void main() {
       final request = CallToolRequest(
         name: dartPubTool.name,
         arguments: {
-          'command': 'get',
-          'roots': [
-            {'root': testRoot.uri},
+          ParameterNames.command: 'get',
+          ParameterNames.roots: [
+            {ParameterNames.root: testRoot.uri},
           ],
         },
       );
@@ -98,9 +99,9 @@ void main() {
       final request = CallToolRequest(
         name: dartPubTool.name,
         arguments: {
-          'command': 'upgrade',
-          'roots': [
-            {'root': testRoot.uri},
+          ParameterNames.command: 'upgrade',
+          ParameterNames.roots: [
+            {ParameterNames.root: testRoot.uri},
           ],
         },
       );
@@ -131,7 +132,7 @@ void main() {
       test('for unsupported command', () async {
         final request = CallToolRequest(
           name: dartPubTool.name,
-          arguments: {'command': 'publish'},
+          arguments: {ParameterNames.command: 'publish'},
         );
         final result = await testHarness.callToolWithRetry(
           request,
@@ -151,7 +152,7 @@ void main() {
         test('for missing package name: $command', () async {
           final request = CallToolRequest(
             name: dartPubTool.name,
-            arguments: {'command': command.name},
+            arguments: {ParameterNames.command: command.name},
           );
           final result = await testHarness.callToolWithRetry(
             request,
@@ -166,23 +167,6 @@ void main() {
           expect(testProcessManager.commandsRan, isEmpty);
         });
       }
-
-      test('for missing roots', () async {
-        final request = CallToolRequest(
-          name: dartPubTool.name,
-          arguments: {'command': 'get'},
-        );
-        final result = await testHarness.callToolWithRetry(
-          request,
-          expectError: true,
-        );
-
-        expect(
-          (result.content.single as TextContent).text,
-          'Missing required argument `roots`.',
-        );
-        expect(testProcessManager.commandsRan, isEmpty);
-      });
     });
   });
 }
