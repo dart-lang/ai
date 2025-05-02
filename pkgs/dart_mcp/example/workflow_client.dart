@@ -94,7 +94,8 @@ final class WorkflowClient extends MCPClient with RootsSupport {
     if (dtdUri != null) {
       chatHistory.add(
         gemini.Content.text(
-          'Connect to the Dart Tooling Daemon (DTD) at $dtdUri.',
+          'If you need to establish a Dart Tooling Daemon (DTD) connection, '
+          'use this URI: $dtdUri.',
         ),
       );
     }
