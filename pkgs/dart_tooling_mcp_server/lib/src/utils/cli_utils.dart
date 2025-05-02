@@ -148,7 +148,12 @@ Future<CallToolResult> runCommandInRoots(
 /// Returns whether or not [rootUri] is an allowed root, either exactly matching
 /// or under on of the [knownRoots].
 bool _isAllowedRoot(String rootUri, List<Root> knownRoots) =>
-    knownRoots.any((knownRoot) => knownRoot.uri.startsWith(rootUri));
+    knownRoots.any((knownRoot) {
+      final knownRootUri = Uri.parse(knownRoot.uri);
+      final resolvedRoot = knownRootUri.resolve(rootUri).toString();
+      return knownRoot.uri == resolvedRoot ||
+          p.isWithin(knownRoot.uri, resolvedRoot);
+    });
 
 /// The schema for the `roots` parameter for any tool that accepts it.
 ListSchema rootsSchema({bool supportsPaths = false}) => Schema.list(
