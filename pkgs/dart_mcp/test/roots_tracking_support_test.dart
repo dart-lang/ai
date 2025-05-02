@@ -13,7 +13,7 @@ void main() {
   test('server can track the workspace roots if enabled', () async {
     final environment = TestEnvironment(
       TestMCPClientWithRoots(),
-      (c) => TestMCPServerWithRootsTracking(channel: c),
+      TestMCPServerWithRootsTracking.new,
     );
     await environment.initializeServer();
 
@@ -72,5 +72,5 @@ final class TestMCPClientWithRoots extends TestMCPClient with RootsSupport {
 
 final class TestMCPServerWithRootsTracking extends TestMCPServer
     with LoggingSupport, RootsTrackingSupport {
-  TestMCPServerWithRootsTracking({required super.channel});
+  TestMCPServerWithRootsTracking(super.channel);
 }

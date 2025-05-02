@@ -11,7 +11,7 @@ void main() {
   test('client can set the logging level', () async {
     final environment = TestEnvironment(
       TestMCPClient(),
-      (c) => TestMCPServerWithLogging(channel: c),
+      TestMCPServerWithLogging.new,
     );
     final initializeResult = await environment.initializeServer();
 
@@ -40,7 +40,7 @@ void main() {
   test('client can receive log messages', () async {
     final environment = TestEnvironment(
       TestMCPClient(),
-      (c) => TestMCPServerWithLogging(channel: c),
+      TestMCPServerWithLogging.new,
     );
     await environment.initializeServer();
 
@@ -95,7 +95,7 @@ void main() {
   test('server can log functions for lazy evaluation', () async {
     final environment = TestEnvironment(
       TestMCPClient(),
-      (c) => TestMCPServerWithLogging(channel: c),
+      TestMCPServerWithLogging.new,
     );
     await environment.initializeServer();
 
@@ -148,5 +148,5 @@ void main() {
 }
 
 final class TestMCPServerWithLogging extends TestMCPServer with LoggingSupport {
-  TestMCPServerWithLogging({required super.channel});
+  TestMCPServerWithLogging(super.channel);
 }

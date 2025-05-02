@@ -16,7 +16,7 @@ void main() {
   test('client can read resources from the server', () async {
     final environment = TestEnvironment(
       TestMCPClient(),
-      (c) => TestMCPServerWithResources(channel: c),
+      TestMCPServerWithResources.new,
     );
     final initializeResult = await environment.initializeServer();
 
@@ -52,7 +52,7 @@ void main() {
   test('client can subscribe to resource updates from the server', () async {
     final environment = TestEnvironment(
       TestMCPClient(),
-      (c) => TestMCPServerWithResources(channel: c),
+      TestMCPServerWithResources.new,
     );
     await environment.initializeServer();
 
@@ -139,7 +139,7 @@ void main() {
   test('resource change notifications are throttled', () async {
     final environment = TestEnvironment(
       TestMCPClient(),
-      (c) => TestMCPServerWithResources(channel: c),
+      TestMCPServerWithResources.new,
     );
     await environment.initializeServer();
 
@@ -204,7 +204,7 @@ void main() {
   test('Resource templates can be listed and queried', () async {
     final environment = TestEnvironment(
       TestMCPClient(),
-      (c) => TestMCPServerWithResources(channel: c),
+      TestMCPServerWithResources.new,
     );
     await environment.initializeServer();
 
@@ -237,7 +237,7 @@ final class TestMCPServerWithResources extends TestMCPServer
   /// Shorten this delay for the test so they run quickly.
   Duration get resourceUpdateThrottleDelay => Duration.zero;
 
-  TestMCPServerWithResources({required super.channel});
+  TestMCPServerWithResources(super.channel);
 
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {

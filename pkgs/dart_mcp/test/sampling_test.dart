@@ -14,7 +14,7 @@ void main() {
   test('server can request LLM messages from the client', () async {
     final environment = TestEnvironment(
       SamplingTestMCPClient(),
-      (c) => TestMCPServer(channel: c),
+      TestMCPServer.new,
     );
     await environment.initializeServer();
     final server = environment.server;

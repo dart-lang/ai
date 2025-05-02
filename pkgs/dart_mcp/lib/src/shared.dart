@@ -4,8 +4,10 @@
 
 import 'dart:async';
 
+import 'package:async/async.dart' show StreamSinkTransformer;
 import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:meta/meta.dart';
+import 'package:stream_channel/stream_channel.dart';
 
 import 'api/api.dart';
 
@@ -25,7 +27,8 @@ base class MCPBase {
   /// Whether the connection with the peer is active.
   bool get isActive => !_peer.isClosed;
 
-  MCPBase(this._peer) {
+  MCPBase(StreamChannel<String> channel, {Sink<String>? protocolLogSink})
+    : _peer = Peer(_maybeForwardMessages(channel, protocolLogSink)) {
     registerNotificationHandler(
       ProgressNotification.methodName,
       _handleProgress,
@@ -145,4 +148,34 @@ base class MCPBase {
         PingRequest.methodName,
         null,
       ).then((_) => true).timeout(timeout, onTimeout: () => false);
+}
+
+/// If [protocolLogSink] is non-null, emits messages to it for all messages
+/// sent over [channel].
+///
+/// This is intended to be written to a file or emitted to a user to aid in
+/// debugging protocol messages between the client and server.
+StreamChannel<String> _maybeForwardMessages(
+  StreamChannel<String> channel,
+  Sink<String>? protocolLogSink,
+) {
+  if (protocolLogSink == null) return channel;
+
+  return channel
+      .transformStream(
+        StreamTransformer.fromHandlers(
+          handleData: (data, sink) {
+            protocolLogSink.add('<<< $data');
+            sink.add(data);
+          },
+        ),
+      )
+      .transformSink(
+        StreamSinkTransformer.fromHandlers(
+          handleData: (data, sink) {
+            protocolLogSink.add('>>> $data');
+            sink.add(data);
+          },
+        ),
+      );
 }

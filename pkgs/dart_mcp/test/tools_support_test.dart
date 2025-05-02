@@ -13,7 +13,7 @@ void main() {
   test('client can list and invoke tools from the server', () async {
     final environment = TestEnvironment(
       TestMCPClient(),
-      (c) => TestMCPServerWithTools(channel: c),
+      TestMCPServerWithTools.new,
     );
     final initializeResult = await environment.initializeServer();
     expect(
@@ -44,7 +44,7 @@ void main() {
   test('client can subscribe to tool list updates from the server', () async {
     final environment = TestEnvironment(
       TestMCPClient(),
-      (c) => TestMCPServerWithTools(channel: c),
+      TestMCPServerWithTools.new,
     );
     await environment.initializeServer();
 
@@ -241,7 +241,7 @@ void main() {
 }
 
 final class TestMCPServerWithTools extends TestMCPServer with ToolsSupport {
-  TestMCPServerWithTools({required super.channel});
+  TestMCPServerWithTools(super.channel);
 
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {

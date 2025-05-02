@@ -13,7 +13,7 @@ void main() {
   test('client can request prompt completions', () async {
     final environment = TestEnvironment(
       TestMCPClient(),
-      (c) => TestMCPServerWithCompletions(channel: c),
+      TestMCPServerWithCompletions.new,
     );
     final initializeResult = await environment.initializeServer();
     expect(initializeResult.capabilities.completions, Completions());
@@ -41,7 +41,7 @@ void main() {
   test('client can request resource completions', () async {
     final environment = TestEnvironment(
       TestMCPClient(),
-      (c) => TestMCPServerWithCompletions(channel: c),
+      TestMCPServerWithCompletions.new,
     );
     final initializeResult = await environment.initializeServer();
     expect(initializeResult.capabilities.completions, Completions());
@@ -70,7 +70,7 @@ void main() {
 
 final class TestMCPServerWithCompletions extends TestMCPServer
     with CompletionsSupport {
-  TestMCPServerWithCompletions({required super.channel});
+  TestMCPServerWithCompletions(super.channel);
 
   @override
   FutureOr<CompleteResult> handleComplete(CompleteRequest request) {
