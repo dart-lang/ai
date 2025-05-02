@@ -320,6 +320,9 @@ void main() {
         ),
       );
 
+      // This shuts down the channel between the client and server, so it
+      // happens during the initialization request (which the server never)
+      // responds to.
       serverChannel.sink.close();
 
       addTearDown(() {

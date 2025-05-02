@@ -268,7 +268,7 @@ base class ServerConnection extends MCPBase {
   /// Throws a [StateError] if initialization fails for unknown reasons (usually
   /// the server connection closes prematurely due to misconfiguration). To
   /// debug these errors you should pass a `protocolLogSink` when creating these
-  /// connection
+  /// connections.
   Future<InitializeResult> initialize(InitializeRequest request) async {
     final response = await sendRequest<InitializeResult>(
       InitializeRequest.methodName,
