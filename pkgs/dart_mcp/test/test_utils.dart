@@ -37,10 +37,14 @@ class TestEnvironment<Client extends MCPClient, Server extends MCPServer> {
   /// You may manually shut down the environment by calling [shutdown].
   TestEnvironment(
     this.client,
-    Server Function(StreamChannel<String>) createServer,
-  ) {
+    Server Function(StreamChannel<String>) createServer, {
+    Sink<String>? protocolLogSink,
+  }) {
     server = createServer(serverChannel);
-    serverConnection = client.connectServer(clientChannel);
+    serverConnection = client.connectServer(
+      clientChannel,
+      protocolLogSink: protocolLogSink,
+    );
     addTearDown(shutdown);
   }
 
@@ -78,7 +82,7 @@ base class TestMCPClient extends MCPClient {
 }
 
 base class TestMCPServer extends MCPServer {
-  TestMCPServer({required super.channel})
+  TestMCPServer(super.channel, {super.protocolLogSink})
     : super.fromStreamChannel(
         implementation: ServerImplementation(
           name: 'test server',
@@ -86,4 +90,16 @@ base class TestMCPServer extends MCPServer {
         ),
         instructions: 'A test server',
       );
+}
+
+/// Can be passed to the [TestEnvironment] as the `protocolLogSink`, to log
+/// all protocol messages for debugging.
+class PrintOnErrorSink implements Sink<String> {
+  @override
+  void add(String data) {
+    printOnFailure(data);
+  }
+
+  @override
+  void close() {}
 }

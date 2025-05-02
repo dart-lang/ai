@@ -16,7 +16,7 @@ void main() {
   test('client can read resources from the server', () async {
     final environment = TestEnvironment(
       TestMCPClient(),
-      (c) => TestMCPServerWithResources(channel: c),
+      TestMCPServerWithResources.new,
     );
     final initializeResult = await environment.initializeServer();
 
@@ -52,7 +52,7 @@ void main() {
   test('client can subscribe to resource updates from the server', () async {
     final environment = TestEnvironment(
       TestMCPClient(),
-      (c) => TestMCPServerWithResources(channel: c),
+      TestMCPServerWithResources.new,
     );
     await environment.initializeServer();
 
@@ -136,10 +136,75 @@ void main() {
     await environment.shutdown();
   });
 
+  test('resource change notifications are throttled', () async {
+    final environment = TestEnvironment(
+      TestMCPClient(),
+      TestMCPServerWithResources.new,
+    );
+    await environment.initializeServer();
+
+    final serverConnection = environment.serverConnection;
+    final server = environment.server;
+
+    final resourceListChangedQueue = StreamQueue(
+      serverConnection.resourceListChanged,
+    );
+
+    final resources = [
+      for (var i = 0; i < 5; i++) Resource(name: '$i', uri: 'foo://$i'),
+    ];
+    for (var resource in resources) {
+      server.addResource(
+        resource,
+        (_) => ReadResourceResult(
+          contents: [
+            TextResourceContents(uri: resource.uri, text: resource.name),
+          ],
+        ),
+      );
+    }
+
+    // Should get exactly two notifications even though we have more resources,
+    // one initial notification and one after the throttle delay.
+    await resourceListChangedQueue.take(2);
+    expect(resourceListChangedQueue.hasNext, completion(false));
+    await pumpEventQueue();
+
+    final resourceChangedQueue = StreamQueue(serverConnection.resourceUpdated);
+    final resource = resources.first;
+    await serverConnection.subscribeResource(
+      SubscribeRequest(uri: resource.uri),
+    );
+    // Allow the subscription to propagate.
+    await pumpEventQueue();
+
+    // Send 5 notifications back to back.
+    for (var i = 0; i < 5; i++) {
+      server.updateResource(resource);
+    }
+
+    // Only two should make it through, one at the start and one after the
+    // timeout.
+    for (var i = 0; i < 2; i++) {
+      expect(
+        await resourceChangedQueue.next,
+        isA<ResourceUpdatedNotification>().having(
+          (n) => n.uri,
+          'uri',
+          resource.uri,
+        ),
+      );
+    }
+    expect(resourceChangedQueue.hasNext, completion(false));
+    await pumpEventQueue();
+
+    await environment.shutdown();
+  });
+
   test('Resource templates can be listed and queried', () async {
     final environment = TestEnvironment(
       TestMCPClient(),
-      (c) => TestMCPServerWithResources(channel: c),
+      TestMCPServerWithResources.new,
     );
     await environment.initializeServer();
 
@@ -168,7 +233,11 @@ void main() {
 
 final class TestMCPServerWithResources extends TestMCPServer
     with ResourcesSupport {
-  TestMCPServerWithResources({required super.channel});
+  @override
+  /// Shorten this delay for the test so they run quickly.
+  Duration get resourceUpdateThrottleDelay => Duration.zero;
+
+  TestMCPServerWithResources(super.channel);
 
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {

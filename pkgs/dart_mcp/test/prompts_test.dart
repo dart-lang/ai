@@ -13,7 +13,7 @@ void main() {
   test('client can list and get prompts from the server', () async {
     final environment = TestEnvironment(
       TestMCPClient(),
-      (c) => TestMCPServerWithPrompts(channel: c),
+      TestMCPServerWithPrompts.new,
     );
     final initializeResult = await environment.initializeServer();
 
@@ -48,7 +48,7 @@ void main() {
   test('client is notified of changes to prompts from the server', () async {
     final environment = TestEnvironment(
       TestMCPClient(),
-      (c) => TestMCPServerWithPrompts(channel: c),
+      TestMCPServerWithPrompts.new,
     );
     await environment.initializeServer();
 
@@ -78,7 +78,7 @@ void main() {
 }
 
 final class TestMCPServerWithPrompts extends TestMCPServer with PromptsSupport {
-  TestMCPServerWithPrompts({required super.channel});
+  TestMCPServerWithPrompts(super.channel);
 
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {

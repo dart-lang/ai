@@ -9,7 +9,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:async/async.dart' hide Result;
-import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_channel/stream_channel.dart';
 
@@ -52,10 +51,15 @@ base class MCPClient {
 
   /// Connect to a new MCP server by invoking [command] with [arguments] and
   /// talking to that process over stdin/stdout.
+  ///
+  /// If [protocolLogSink] is provided, all messages sent between the client and
+  /// server will be forwarded to that [Sink] as well, with `<<<` preceding
+  /// incoming messages and `>>>` preceding outgoing messages.
   Future<ServerConnection> connectStdioServer(
     String command,
-    List<String> arguments,
-  ) async {
+    List<String> arguments, {
+    Sink<String>? protocolLogSink,
+  }) async {
     final process = await Process.start(command, arguments);
     process.stderr
         .transform(utf8.decoder)
@@ -83,12 +87,19 @@ base class MCPClient {
 
   /// Returns a connection for an MCP server using a [channel], which is already
   /// established.
-  ServerConnection connectServer(StreamChannel<String> channel) {
+  ///
+  /// If [protocolLogSink] is provided, all messages sent on [channel] will be
+  /// forwarded to that [Sink] as well, with `<<<` preceding incoming messages
+  /// and `>>>` preceding outgoing messages.
+  ServerConnection connectServer(
+    StreamChannel<String> channel, {
+    Sink<String>? protocolLogSink,
+  }) {
     // For type promotion in this function.
     final self = this;
-
     final connection = ServerConnection.fromStreamChannel(
       channel,
+      protocolLogSink: protocolLogSink,
       rootsSupport: self is RootsSupport ? self : null,
       samplingSupport: self is SamplingSupport ? self : null,
     );
@@ -185,10 +196,11 @@ base class ServerConnection extends MCPBase {
   /// If the client supports "sampling", then it should provide an
   /// implementation through [samplingSupport].
   ServerConnection.fromStreamChannel(
-    StreamChannel<String> channel, {
+    super.channel, {
+    super.protocolLogSink,
     RootsSupport? rootsSupport,
     SamplingSupport? samplingSupport,
-  }) : super(Peer(channel)) {
+  }) {
     if (rootsSupport != null) {
       registerRequestHandler(
         ListRootsRequest.methodName,

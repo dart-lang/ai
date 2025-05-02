@@ -37,8 +37,19 @@ base mixin ResourcesSupport on MCPServer {
   final List<({ResourceTemplate template, ReadResourceHandler handler})>
   _resourceTemplates = [];
 
-  /// The list of currently subscribed resources by URI.
-  final Set<String> _subscribedResources = {};
+  /// The currently subscribed resource [StreamController]s by URI.
+  final Map<String, StreamController<ResourceUpdatedNotification>>
+  _subscribedResources = {};
+
+  /// The [StreamController] which controls [ResourceListChangedNotification]s.
+  final StreamController<void> _resourceListChangedController =
+      StreamController<void>();
+
+  /// At most, updates for the same resource or list of resources will only be
+  /// sent once per this [Duration].
+  ///
+  /// Override this getter in subtypes in order to configure the delay.
+  Duration get resourceUpdateThrottleDelay => const Duration(milliseconds: 500);
 
   /// Invoked by the client as a part of initialization.
   ///
@@ -65,7 +76,24 @@ base mixin ResourcesSupport on MCPServer {
     (result.capabilities.resources ??= Resources())
       ..listChanged = true
       ..subscribe = true;
+    _resourceListChangedController.stream
+        .throttle(resourceUpdateThrottleDelay, trailing: true)
+        .listen(
+          (_) => sendNotification(
+            ResourceListChangedNotification.methodName,
+            ResourceListChangedNotification(),
+          ),
+        );
     return result;
+  }
+
+  @override
+  Future<void> shutdown() async {
+    await super.shutdown();
+    await _resourceListChangedController.close();
+    final subscribed = _subscribedResources.values.toList();
+    _subscribedResources.clear();
+    await subscribed.map((c) => c.close()).wait;
   }
 
   /// Register [resource] to call [impl] when invoked.
@@ -148,12 +176,9 @@ base mixin ResourcesSupport on MCPServer {
     }
     if (impl != null) _resourceImpls[resource.uri] = impl;
 
-    if (_subscribedResources.contains(resource.uri)) {
-      sendNotification(
-        ResourceUpdatedNotification.methodName,
-        ResourceUpdatedNotification(uri: resource.uri),
-      );
-    }
+    _subscribedResources[resource.uri]?.add(
+      ResourceUpdatedNotification(uri: resource.uri),
+    );
   }
 
   /// Removes a [Resource] by [uri].
@@ -199,22 +224,30 @@ base mixin ResourcesSupport on MCPServer {
       throw ArgumentError.value(request.uri, 'uri', 'Resource not found');
     }
 
-    _subscribedResources.add(request.uri);
+    _subscribedResources.putIfAbsent(
+      request.uri,
+      () =>
+          StreamController<ResourceUpdatedNotification>()
+            ..stream
+                .throttle(resourceUpdateThrottleDelay, trailing: true)
+                .listen((notification) {
+                  sendNotification(
+                    ResourceUpdatedNotification.methodName,
+                    notification,
+                  );
+                }),
+    );
 
     return EmptyResult();
   }
 
   /// Unsubscribes the client to the resource at `request.uri`.
-  FutureOr<EmptyResult> _unsubscribeResource(UnsubscribeRequest request) {
-    _subscribedResources.remove(request.uri);
-
+  Future<EmptyResult> _unsubscribeResource(UnsubscribeRequest request) async {
+    await _subscribedResources.remove(request.uri)?.close();
     return EmptyResult();
   }
 
   /// Called whenever the list of resources changes, it is the job of the client
   /// to then ask again for the list of tools.
-  void _notifyResourceListChanged() => sendNotification(
-    ResourceListChangedNotification.methodName,
-    ResourceListChangedNotification(),
-  );
+  void _notifyResourceListChanged() => _resourceListChangedController.add(null);
 }

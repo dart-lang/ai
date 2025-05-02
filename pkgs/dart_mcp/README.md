@@ -45,8 +45,8 @@ implementations of methods, while others may just expose new methods that you
 can call.
 
 See the [client example](example/client.dart) for some basic example code, or
-the [dash client](example/dash_client.dart) for a more full featured client
-using Gemini.
+the [workflow client](example/workflow_client.dart) for a more full featured
+client using Gemini to execute automated workflows.
 
 ### Connecting to Servers
 

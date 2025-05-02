@@ -15,10 +15,7 @@ import 'test_utils.dart';
 
 void main() {
   test('client and server can communicate', () async {
-    final environment = TestEnvironment(
-      TestMCPClient(),
-      (c) => TestMCPServer(channel: c),
-    );
+    final environment = TestEnvironment(TestMCPClient(), TestMCPServer.new);
     final initializeResult = await environment.initializeServer();
 
     expect(initializeResult.capabilities, isEmpty);
@@ -44,11 +41,35 @@ void main() {
     );
   });
 
-  test('client and server can ping each other', () async {
+  test('client and server can capture protocol messages', () async {
+    final clientLog = StreamController<String>();
+    final serverLog = StreamController<String>();
     final environment = TestEnvironment(
       TestMCPClient(),
-      (c) => TestMCPServer(channel: c),
+      (c) => TestMCPServer(c, protocolLogSink: serverLog.sink),
+      protocolLogSink: clientLog.sink,
     );
+    await environment.initializeServer();
+    expect(
+      clientLog.stream,
+      emitsInOrder([
+        allOf(startsWith('>>>'), contains('initialize')),
+        allOf(startsWith('<<<'), contains('serverInfo')),
+        allOf(startsWith('>>>'), contains('notifications/initialized')),
+      ]),
+    );
+    expect(
+      serverLog.stream,
+      emitsInOrder([
+        allOf(startsWith('<<<'), contains('initialize')),
+        allOf(startsWith('>>>'), contains('serverInfo')),
+        allOf(startsWith('<<<'), contains('notifications/initialized')),
+      ]),
+    );
+  });
+
+  test('client and server can ping each other', () async {
+    final environment = TestEnvironment(TestMCPClient(), TestMCPServer.new);
     await environment.initializeServer();
 
     expect(await environment.serverConnection.ping(), true);
@@ -66,7 +87,7 @@ void main() {
           },
         ),
       );
-      return TestMCPServer(channel: channel);
+      return TestMCPServer(channel);
     });
     await environment.initializeServer();
 
@@ -89,7 +110,7 @@ void main() {
           },
         ),
       );
-      return TestMCPServer(channel: channel);
+      return TestMCPServer(channel);
     });
     await environment.initializeServer();
 
@@ -102,7 +123,7 @@ void main() {
   test('clients can handle progress notifications', () async {
     final environment = TestEnvironment(
       TestMCPClient(),
-      (c) => InitializeProgressTestMCPServer(channel: c),
+      InitializeProgressTestMCPServer.new,
     );
     await environment.initializeServer();
     final serverConnection = environment.serverConnection;
@@ -148,7 +169,7 @@ void main() {
     final environment = TestEnvironment(
       ListRootsProgressTestMCPClient(),
       (channel) => TestMCPServer(
-        channel: channel.transformSink(
+        channel.transformSink(
           StreamSinkTransformer<String, String>.fromHandlers(
             handleData: (data, sink) async {
               // Add a short delay when sending out a list roots request so
@@ -198,10 +219,7 @@ void main() {
   });
 
   test('closing a server removes the connection', () async {
-    final environment = TestEnvironment(
-      TestMCPClient(),
-      (c) => TestMCPServer(channel: c),
-    );
+    final environment = TestEnvironment(TestMCPClient(), TestMCPServer.new);
     await environment.serverConnection.shutdown();
     expect(environment.client.connections, isEmpty);
   });
@@ -210,7 +228,7 @@ void main() {
     test('server can downgrade the version', () async {
       final environment = TestEnvironment(
         TestMCPClient(),
-        (c) => TestOldMcpServer(channel: c),
+        TestOldMcpServer.new,
       );
 
       final initializeResult = await environment.initializeServer();
@@ -218,10 +236,7 @@ void main() {
     });
 
     test('server can accept a lower version', () async {
-      final environment = TestEnvironment(
-        TestMCPClient(),
-        (c) => TestMCPServer(channel: c),
-      );
+      final environment = TestEnvironment(TestMCPClient(), TestMCPServer.new);
       final initializeResult = await environment.initializeServer(
         protocolVersion: ProtocolVersion.oldestSupported,
       );
@@ -233,7 +248,7 @@ void main() {
       () async {
         final environment = TestEnvironment(
           TestMCPClient(),
-          (c) => TestUnrecognizedVersionMcpServer(channel: c),
+          TestUnrecognizedVersionMcpServer.new,
         );
         await environment.initializeServer();
         expect(environment.client.connections, isEmpty);
@@ -241,11 +256,43 @@ void main() {
       },
     );
   });
+
+  group('error handling', () {
+    test('client can handle invalid protocol messages', () async {
+      final protocolController = StreamController<String>();
+      final environment = TestEnvironment(
+        TestMCPClient(),
+        TestMCPServer.new,
+        protocolLogSink: protocolController.sink,
+      );
+      environment.serverChannel.sink.add('Just some random text');
+      expect(
+        protocolController.stream,
+        emitsThrough(allOf(startsWith('>>>'), contains('Invalid JSON'))),
+      );
+      expect(environment.initializeServer(), completes);
+    });
+
+    test('server can handle invalid protocol messages', () async {
+      final protocolController = StreamController<String>();
+      final environment = TestEnvironment(
+        TestMCPClient(),
+        TestMCPServer.new,
+        protocolLogSink: protocolController.sink,
+      );
+      environment.clientChannel.sink.add('Just some random text');
+      expect(
+        protocolController.stream,
+        emitsThrough(allOf(startsWith('<<<'), contains('Invalid JSON'))),
+      );
+      expect(environment.initializeServer(), completes);
+    });
+  });
 }
 
 final class InitializeProgressTestMCPServer extends TestMCPServer
     with ToolsSupport {
-  InitializeProgressTestMCPServer({required super.channel});
+  InitializeProgressTestMCPServer(super.channel);
 
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
@@ -281,7 +328,7 @@ final class ListRootsProgressTestMCPClient extends TestMCPClient
     with RootsSupport {}
 
 final class TestOldMcpServer extends TestMCPServer {
-  TestOldMcpServer({required super.channel});
+  TestOldMcpServer(super.channel);
 
   @override
   Future<InitializeResult> initialize(InitializeRequest request) async {
@@ -291,7 +338,7 @@ final class TestOldMcpServer extends TestMCPServer {
 }
 
 final class TestUnrecognizedVersionMcpServer extends TestMCPServer {
-  TestUnrecognizedVersionMcpServer({required super.channel});
+  TestUnrecognizedVersionMcpServer(super.channel);
 
   @override
   Future<InitializeResult> initialize(InitializeRequest request) async {
