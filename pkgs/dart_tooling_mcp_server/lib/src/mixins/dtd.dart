@@ -26,11 +26,11 @@ base mixin DartToolingDaemonSupport
   /// ready to be invoked.
   bool _getDebugSessionsReady = false;
 
-  /// A Map of [VmService] objects by their associated VM Service URI
-  /// (represented as a String).
+  /// A Map of [VmService] object [Future]s by their associated
+  /// [DebugSession.id].
   ///
   /// [VmService] objects are automatically removed from the Map when the
-  /// [VmService] shuts down.
+  /// [DebugSession] shuts down.
   @visibleForTesting
   final activeVmServices = <String, Future<VmService>>{};
 
@@ -114,7 +114,6 @@ base mixin DartToolingDaemonSupport
           vmService.onDone.then((_) {
             removeResource(resource.uri);
             activeVmServices.remove(debugSession.id);
-            vmService.dispose(); // This will also shut down the `errorService`.
           }),
         );
       }

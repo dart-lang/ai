@@ -267,6 +267,7 @@ void main() {
             contains('A RenderFlex overflowed by'),
           );
 
+          // We cleared the errors in the previous call, shouldn't see any here.
           final nextResult = await testHarness.callToolWithRetry(
             CallToolRequest(name: runtimeErrorsTool.name),
           );
