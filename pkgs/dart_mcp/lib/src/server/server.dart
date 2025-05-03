@@ -36,7 +36,7 @@ abstract base class MCPServer extends MCPBase {
   /// Instructions for how to use this server, which are given to the client.
   ///
   /// These may be used in system prompts.
-  final String instructions;
+  final String? instructions;
 
   /// The negotiated protocol version.
   ///
@@ -62,7 +62,7 @@ abstract base class MCPServer extends MCPBase {
   MCPServer.fromStreamChannel(
     super.channel, {
     required this.implementation,
-    required this.instructions,
+    this.instructions,
     super.protocolLogSink,
   }) {
     registerRequestHandler(InitializeRequest.methodName, initialize);
