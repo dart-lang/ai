@@ -7,6 +7,7 @@ import 'dart:io';
 import 'package:dart_mcp/server.dart';
 import 'package:dart_tooling_mcp_server/src/mixins/analyzer.dart';
 import 'package:dart_tooling_mcp_server/src/utils/constants.dart';
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
 
@@ -108,6 +109,37 @@ void main() {
           (t) => t.text,
           'text',
           contains('analyzer.dart'),
+        ),
+      );
+    });
+
+    test('can get signature help', () async {
+      final counterAppRoot = rootForPath(counterAppPath);
+      testHarness.mcpClient.addRoot(counterAppRoot);
+      await pumpEventQueue();
+
+      final result = await testHarness.callToolWithRetry(
+        CallToolRequest(
+          name: DartAnalyzerSupport.signatureHelpTool.name,
+          arguments: {
+            ParameterNames.uri: p.join(counterAppRoot.uri, 'lib', 'main.dart'),
+            ParameterNames.line: 16,
+            ParameterNames.column: 15,
+          },
+        ),
+      );
+      expect(result.isError, isNot(true));
+
+      expect(
+        result.content.single,
+        isA<TextContent>().having(
+          (t) => t.text,
+          'text',
+          allOf(
+            contains('Creates a MaterialApp'), // From the doc comment
+            contains('MaterialApp({Key? key,'), // The actual signature
+            contains('"label":"Key? key'), // Specific label for the key param
+          ),
         ),
       );
     });

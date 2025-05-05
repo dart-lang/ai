@@ -4,9 +4,12 @@
 
 /// A namespace for all the parameter names.
 extension ParameterNames on Never {
+  static const column = 'column';
   static const command = 'command';
+  static const line = 'line';
   static const packageName = 'packageName';
   static const paths = 'paths';
+  static const position = 'position';
   static const query = 'query';
   static const root = 'root';
   static const roots = 'roots';
