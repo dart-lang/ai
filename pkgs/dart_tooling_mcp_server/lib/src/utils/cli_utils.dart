@@ -171,6 +171,7 @@ ListSchema rootsSchema({bool supportsPaths = false}) => Schema.list(
           title:
               'Paths to run this tool on. Must resolve to a path that is '
               'within the "root".',
+          items: Schema.string(),
         ),
     },
     required: [ParameterNames.root],

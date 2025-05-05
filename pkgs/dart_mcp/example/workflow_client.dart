@@ -8,6 +8,7 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:async/async.dart';
+import 'package:cli_util/cli_logging.dart';
 import 'package:dart_mcp/client.dart';
 import 'package:google_generative_ai/google_generative_ai.dart' as gemini;
 
@@ -23,6 +24,7 @@ void main(List<String> args) {
 
   final parsedArgs = argParser.parse(args);
   final serverCommands = parsedArgs['server'] as List<String>;
+  final logger = Logger.standard();
   runZonedGuarded(
     () {
       WorkflowClient(
@@ -31,10 +33,11 @@ void main(List<String> args) {
         verbose: parsedArgs.flag('verbose'),
         dtdUri: parsedArgs.option('dtd'),
         persona: parsedArgs.flag('dash') ? _dashPersona : null,
+        logger: logger,
       );
     },
     (e, s) {
-      stderr.writeln('$e\n$s');
+      logger.stderr('$e\n$s');
     },
   );
 }
@@ -58,11 +61,16 @@ final argParser =
       );
 
 final class WorkflowClient extends MCPClient with RootsSupport {
+  final Logger logger;
+  int totalInputTokens = 0;
+  int totalOutputTokens = 0;
+
   WorkflowClient(
     this.serverCommands, {
     required String geminiApiKey,
     String? dtdUri,
     this.verbose = false,
+    required this.logger,
     String? persona,
   }) : model = gemini.GenerativeModel(
          model: 'gemini-2.5-pro-preview-03-25',
@@ -120,11 +128,10 @@ final class WorkflowClient extends MCPClient with RootsSupport {
 
     // Introduce yourself.
     _addToHistory('Please introduce yourself and explain how you can help.');
-    final introResponse =
-        (await model.generateContent(
-          chatHistory,
-          tools: serverTools,
-        )).candidates.single.content;
+    final introResponse = await _generateContent(
+      context: chatHistory,
+      tools: serverTools,
+    );
     _handleModelResponse(introResponse);
 
     while (true) {
@@ -139,7 +146,7 @@ final class WorkflowClient extends MCPClient with RootsSupport {
         case gemini.TextPart():
           _chatToUser(part.text);
         default:
-          print('Unrecognized response type from the model $response');
+          logger.stderr('Unrecognized response type from the model $response');
       }
     }
   }
@@ -159,11 +166,10 @@ final class WorkflowClient extends MCPClient with RootsSupport {
         'plan.';
     _addToHistory(planPrompt);
 
-    final planResponse =
-        (await model.generateContent(
-          chatHistory,
-          tools: serverTools,
-        )).candidates.single.content;
+    final planResponse = await _generateContent(
+      context: chatHistory,
+      tools: serverTools,
+    );
     _handleModelResponse(planResponse);
 
     final userResponse = await _waitForInputAndAddToHistory();
@@ -189,11 +195,10 @@ final class WorkflowClient extends MCPClient with RootsSupport {
       final nextMessage = continuation ?? await stdinQueue.next;
       continuation = null;
       _addToHistory(nextMessage);
-      final modelResponse =
-          (await model.generateContent(
-            chatHistory,
-            tools: serverTools,
-          )).candidates.single.content;
+      final modelResponse = await _generateContent(
+        context: chatHistory,
+        tools: serverTools,
+      );
 
       for (var part in modelResponse.parts) {
         switch (part) {
@@ -212,7 +217,9 @@ final class WorkflowClient extends MCPClient with RootsSupport {
                 '$result\n. Please proceed to the next step of the plan.';
 
           default:
-            print('Unrecognized response type from the model: $modelResponse.');
+            logger.stderr(
+              'Unrecognized response type from the model: $modelResponse.',
+            );
         }
       }
     }
@@ -232,21 +239,49 @@ final class WorkflowClient extends MCPClient with RootsSupport {
   /// previous action.
   Future<bool> _analyzeSentiment(String message) async {
     if (message == 'y' || message == 'yes') return true;
-    final sentimentResult =
-        (await model.generateContent([
-          gemini.Content.text(
-            'Analyze the sentiment of the following response. If the response '
-            'indicates a need for any changes, then this is not an approval. '
-            'If you are highly confident that the user approves of running the '
-            'previous action then respond with a single character "y".',
-          ),
-          gemini.Content.text(message),
-        ])).candidates.single.content;
+    final sentimentResult = await _generateContent(
+      context: [
+        gemini.Content.text(
+          'Analyze the sentiment of the following response. If the response '
+          'indicates a need for any changes, then this is not an approval. '
+          'If you are highly confident that the user approves of running the '
+          'previous action then respond with a single character "y".',
+        ),
+        gemini.Content.text(message),
+      ],
+    );
     final response = StringBuffer();
     for (var part in sentimentResult.parts.whereType<gemini.TextPart>()) {
       response.write(part.text.trim());
     }
     return response.toString() == 'y';
+  }
+
+  Future<gemini.Content> _generateContent({
+    required Iterable<gemini.Content> context,
+    List<gemini.Tool>? tools,
+  }) async {
+    final progress = logger.progress('thinking');
+    gemini.GenerateContentResponse? response;
+    try {
+      response = await model.generateContent(context, tools: tools);
+      return response.candidates.single.content;
+    } finally {
+      if (response != null) {
+        final inputTokens = response.usageMetadata?.promptTokenCount;
+        final outputTokens = response.usageMetadata?.candidatesTokenCount;
+        totalInputTokens += inputTokens ?? 0;
+        totalOutputTokens += outputTokens ?? 0;
+        progress.finish(
+          message:
+              '(input token usage: $totalInputTokens (+$inputTokens), output '
+              'token usage: $totalOutputTokens (+$outputTokens))',
+          showTiming: true,
+        );
+      } else {
+        progress.finish(message: 'failed', showTiming: true);
+      }
+    }
   }
 
   /// Prints `text` and adds it to the chat history
@@ -256,10 +291,10 @@ final class WorkflowClient extends MCPClient with RootsSupport {
     for (var part in content.parts.whereType<gemini.TextPart>()) {
       dashText.write(part.text);
     }
-    print('\n$dashText\n');
-    chatHistory.add(
-      gemini.Content.model([gemini.TextPart(dashText.toString())]),
-    );
+    logger.stdout('\n$dashText');
+    // Add the non-personalized text to the context as it might lose some
+    // useful info.
+    chatHistory.add(gemini.Content.model([gemini.TextPart(text)]));
   }
 
   /// Handles a function call response from the model.
@@ -310,7 +345,7 @@ final class WorkflowClient extends MCPClient with RootsSupport {
         ),
       );
       if (result.protocolVersion != ProtocolVersion.latestSupported) {
-        print(
+        logger.stderr(
           'Protocol version mismatch, expected '
           '${ProtocolVersion.latestSupported}, got ${result.protocolVersion}, '
           'disconnecting from server',
@@ -336,7 +371,7 @@ final class WorkflowClient extends MCPClient with RootsSupport {
         ),
       );
       connection.onLog.listen((event) {
-        print(
+        logger.stdout(
           'Server Log(${event.level.name}): '
           '${event.logger != null ? '[${event.logger}] ' : ''}${event.data}',
         );

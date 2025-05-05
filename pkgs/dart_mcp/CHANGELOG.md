@@ -1,3 +1,8 @@
+## 0.2.1-wip
+
+- Update workflow example to show thinking spinner and input and output token
+  usage.
+
 ## 0.2.0
 
 - Support protocol version 2025-03-26.
