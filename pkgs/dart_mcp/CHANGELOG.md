@@ -1,4 +1,4 @@
-## 0.2.0-wip
+## 0.2.0
 
 - Support protocol version 2025-03-26.
   - Adds support for `AudioContent`.
