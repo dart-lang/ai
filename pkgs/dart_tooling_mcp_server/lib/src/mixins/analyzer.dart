@@ -67,6 +67,7 @@ base mixin DartAnalyzerSupport
     if (unsupportedReasons.isEmpty) {
       registerTool(analyzeFilesTool, _analyzeFiles);
       registerTool(resolveWorkspaceSymbolTool, _resolveWorkspaceSymbol);
+      registerTool(signatureHelpTool, _signatureHelp);
     }
 
     // Don't call any methods on the client until we are fully initialized
@@ -173,6 +174,7 @@ base mixin DartAnalyzerSupport
                   textDocument: lsp.TextDocumentClientCapabilities(
                     publishDiagnostics:
                         lsp.PublishDiagnosticsClientCapabilities(),
+                    signatureHelp: lsp.SignatureHelpClientCapabilities(),
                   ),
                 ),
               ).toJson(),
@@ -268,6 +270,27 @@ base mixin DartAnalyzerSupport
     final result = await _lspConnection.sendRequest(
       lsp.Method.workspace_symbol.toString(),
       lsp.WorkspaceSymbolParams(query: query).toJson(),
+    );
+    return CallToolResult(content: [TextContent(text: jsonEncode(result))]);
+  }
+
+  /// Implementation of the [signatureHelpTool], get signature help for a given
+  /// position in a file.
+  Future<CallToolResult> _signatureHelp(CallToolRequest request) async {
+    final errorResult = await _ensurePrerequisites(request);
+    if (errorResult != null) return errorResult;
+
+    final uri = Uri.parse(request.arguments![ParameterNames.uri] as String);
+    final position = lsp.Position(
+      line: request.arguments![ParameterNames.line] as int,
+      character: request.arguments![ParameterNames.column] as int,
+    );
+    final result = await _lspConnection.sendRequest(
+      lsp.Method.textDocument_signatureHelp.toString(),
+      lsp.SignatureHelpParams(
+        textDocument: lsp.TextDocumentIdentifier(uri: uri),
+        position: position,
+      ).toJson(),
     );
     return CallToolResult(content: [TextContent(text: jsonEncode(result))]);
   }
@@ -380,6 +403,33 @@ base mixin DartAnalyzerSupport
       required: [ParameterNames.query],
     ),
     annotations: ToolAnnotations(title: 'Project search', readOnlyHint: true),
+  );
+
+  @visibleForTesting
+  static final signatureHelpTool = Tool(
+    name: 'signature_help',
+    description:
+        'Get signature help for an API being used at a given cursor '
+        'position in a file.',
+    inputSchema: Schema.object(
+      properties: {
+        ParameterNames.uri: Schema.string(
+          description: 'The URI of the file to get signature help for.',
+        ),
+        ParameterNames.line: Schema.int(
+          description: 'The line number of the cursor position.',
+        ),
+        ParameterNames.column: Schema.int(
+          description: 'The column number of the cursor position.',
+        ),
+      },
+      required: [
+        ParameterNames.uri,
+        ParameterNames.line,
+        ParameterNames.column,
+      ],
+    ),
+    annotations: ToolAnnotations(title: 'Signature help', readOnlyHint: true),
   );
 
   @visibleForTesting
