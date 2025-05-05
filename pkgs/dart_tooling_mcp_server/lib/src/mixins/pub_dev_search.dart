@@ -139,15 +139,45 @@ base mixin PubDevSupport on ToolsSupport {
         'The response will describe each result with its download count,'
         ' package description, topics, license, and a list of identifiers '
         'in the public api',
+
     annotations: ToolAnnotations(title: 'pub.dev search', readOnlyHint: false),
     inputSchema: Schema.object(
       properties: {
         'search-query': Schema.string(
           title: 'Search query',
-          description: 'The query to run against pub.dev package search',
+          description: '''
+The query to run against pub.dev package search.
+
+Besides freeform keyword search `pub.dev` supports the following search query
+expressions:
+
+  - `"exact phrase"`: By default, when you perform a search, the results include
+    packages with similar phrases. When a phrase is inside quotes, you'll see
+    only those packages that contain exactly the specified phrase.
+
+  - `dependency:<package_name>`: Searches for packages that reference
+    `package_name` in their `pubspec.yaml`.
+
+  - `dependency*:<package_name>`: Searches for packages that depend on
+    `package_name` (as direct, dev, or transitive dependencies).
+
+  - `topic:<topic-name>`: Searches for packages that have specified the
+    `topic-name` [topic](/topics).
+
+  - `publisher:<publisher-name.com>`: Searches for packages published by `publisher-name.com`
+
+  - `sdk:<sdk>`: Searches for packages that support the given SDK. `sdk` can be either `flutter` or `dart`
+
+  - `runtime:<runtime>`: Searches for packages that support the given runtime. `runtime` can be one of `web`, `native-jit` and `native-aot`.
+
+  - `updated:<duration>`: Searches for packages updated in the given past days,
+    with the following recognized formats: `3d` (3 days), `2w` (two weeks), `6m` (6 months), `2y` 2 years.
+
+  - `has:executable`: Search for packages with Dart files in their `bin/` directory.
+  ''',
         ),
       },
-      required: ['search-query'],
+      required: ['query'],
     ),
   );
 }
