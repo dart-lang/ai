@@ -129,7 +129,8 @@ Future<String> _goldenResponse(Uri url) async {
       return goldenFile.readAsStringSync();
     } on IOException catch (e) {
       fail(
-        'Could not read golden response file $url: $e. Consider recreating by calling with \$RECREATE_GOLDEN_RESPONSES=missing',
+        'Could not read golden response file ${goldenFile.path} for $url: $e. '
+        'Consider recreating by calling with \$RECREATE_GOLDEN_RESPONSES=missing',
       );
     }
   }
