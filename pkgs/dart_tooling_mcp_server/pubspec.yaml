@@ -28,6 +28,7 @@ dependencies:
         third_party/pkg/language_server_protocol
   meta: ^1.16.0
   path: ^1.9.1
+  pool: ^1.5.1
   process: ^5.0.3
   stream_channel: ^2.1.4
   test_descriptor: ^2.0.2

@@ -7,6 +7,7 @@ import 'dart:convert';
 
 import 'package:dart_mcp/server.dart';
 import 'package:http/http.dart';
+import 'package:pool/pool.dart';
 
 import '../utils/json.dart';
 
@@ -43,21 +44,52 @@ base mixin PubDevSupport on ToolsSupport {
     try {
       result = jsonDecode(await client.read(searchUrl));
 
-      final packages = dig<List>(result, ['packages']);
+      final packageNames =
+          dig<List>(result, [
+            'packages',
+          ]).take(10).map((p) => dig<String>(p, ['package'])).toList();
 
+      final pool = Pool(10);
+
+      Future<Object?> retrieve(Uri url) async {
+        return pool.withResource(() async {
+          return jsonDecode(await client.read(url));
+        });
+      }
+
+      // Retrieve information about all the packages in parallel
+      final subQueryFutures = packageNames
+          .expand(
+            (packageName) => [
+              Uri(
+                scheme: 'https',
+                host: 'pub.dev',
+                path: 'api/packages/$packageName',
+              ),
+              Uri(
+                scheme: 'https',
+                host: 'pub.dev',
+                path: 'api/packages/$packageName/score',
+              ),
+              Uri(
+                scheme: 'https',
+                host: 'pub.dev',
+                path: 'documentation/$packageName/latest/index.json',
+              ),
+            ],
+          )
+          .map(retrieve);
+
+      final subqueryResults = await Future.wait(subQueryFutures);
+
+      // Aggregate the retrieved information about each package into a
+      // TextContent.
       final results = <TextContent>[];
-      for (final i in (packages as Iterable).take(10)) {
-        final packageName = dig<String>(i, ['package']);
-        final packageListing = jsonDecode(
-          await client.read(
-            Uri(
-              scheme: 'https',
-              host: 'pub.dev',
-              path: 'api/packages/$packageName',
-            ),
-          ),
-        );
-
+      for (var i = 0; i < packageNames.length; i++) {
+        final packageName = packageNames[i];
+        final packageListing = subqueryResults[i * 3];
+        final scoreResult = subqueryResults[i * 3 + 1];
+        final index = subqueryResults[i * 3 + 2];
         final latestVersion = dig<String>(packageListing, [
           'latest',
           'version',
@@ -67,15 +99,7 @@ base mixin PubDevSupport on ToolsSupport {
           'pubspec',
           'description',
         ]);
-        final scoreResult = jsonDecode(
-          await client.read(
-            Uri(
-              scheme: 'https',
-              host: 'pub.dev',
-              path: 'api/packages/$packageName/score',
-            ),
-          ),
-        );
+
         final scores = {
           'pubPoints': dig<int>(scoreResult, ['grantedPoints']),
           'maxPubPoints': dig<int>(scoreResult, ['maxPoints']),
@@ -90,15 +114,6 @@ base mixin PubDevSupport on ToolsSupport {
             dig<List>(scoreResult, [
               'tags',
             ]).where((t) => (t as String).startsWith('license')).toList();
-        final index = jsonDecode(
-          await client.read(
-            Uri(
-              scheme: 'https',
-              host: 'pub.dev',
-              path: 'documentation/$packageName/latest/index.json',
-            ),
-          ),
-        );
         final items = dig<List>(index, []);
         final identifiers = <Map<String, Object?>>[];
         for (final item in items) {
