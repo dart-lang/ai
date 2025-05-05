@@ -180,58 +180,6 @@ expressions:
   );
 }
 
-/// The set of supported `dart pub` subcommands.
-enum SupportedPubCommand {
-  // This is supported in a simplified form: `dart pub add <package-name>`.
-  // TODO(https://github.com/dart-lang/ai/issues/77): add support for adding
-  //  dev dependencies.
-  add(requiresPackageName: true),
-
-  get,
-
-  // This is supported in a simplified form: `dart pub remove <package-name>`.
-  remove(requiresPackageName: true),
-
-  upgrade;
-
-  const SupportedPubCommand({this.requiresPackageName = false});
-
-  final bool requiresPackageName;
-
-  static SupportedPubCommand? fromName(String name) {
-    for (final command in SupportedPubCommand.values) {
-      if (command.name == name) {
-        return command;
-      }
-    }
-    return null;
-  }
-
-  static String get listAll {
-    return _writeCommandsAsList(SupportedPubCommand.values);
-  }
-
-  static String get listAllThatRequirePackageName {
-    return _writeCommandsAsList(
-      SupportedPubCommand.values.where((c) => c.requiresPackageName).toList(),
-    );
-  }
-
-  static String _writeCommandsAsList(List<SupportedPubCommand> commands) {
-    final buffer = StringBuffer();
-    for (var i = 0; i < commands.length; i++) {
-      final commandName = commands[i].name;
-      buffer.write('`$commandName`');
-      if (i < commands.length - 2) {
-        buffer.write(', ');
-      } else if (i == commands.length - 2) {
-        buffer.write(' and ');
-      }
-    }
-    return buffer.toString();
-  }
-}
-
 /// Utility for indexing json data structures.
 ///
 /// Each element of [path] should be a `String`, `int` or `(String, String)`.
