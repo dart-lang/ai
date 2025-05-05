@@ -51,7 +51,6 @@ base mixin PubDevSupport on ToolsSupport {
               scheme: 'https',
               host: 'pub.dev',
               path: 'api/packages/$packageName',
-              queryParameters: {'q': query},
             ),
           ),
         );
@@ -71,7 +70,6 @@ base mixin PubDevSupport on ToolsSupport {
               scheme: 'https',
               host: 'pub.dev',
               path: 'api/packages/$packageName/score',
-              queryParameters: {'q': query},
             ),
           ),
         );
