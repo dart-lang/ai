@@ -10,7 +10,7 @@ import 'package:http/http.dart';
 
 import '../utils/process_manager.dart';
 
-/// Mix this in to any MCPServer to add support for doing searched on pub.dev.
+/// Mix this in to any MCPServer to add support for doing searches on pub.dev.
 base mixin PubDevSupport on ToolsSupport, LoggingSupport
     implements ProcessManagerSupport {
   @override
