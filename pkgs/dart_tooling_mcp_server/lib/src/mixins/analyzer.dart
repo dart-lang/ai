@@ -408,7 +408,7 @@ base mixin DartAnalyzerSupport
   static final signatureHelpTool = Tool(
     name: 'signature_help',
     description:
-        'Get signature help for a an API being used at a given '
+        'Get signature help for an API being used at a given cursor '
         'position in a file.',
     inputSchema: Schema.object(
       properties: {
