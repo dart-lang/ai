@@ -131,7 +131,7 @@ base mixin PubDevSupport on ToolsSupport {
   }
 
   static final pubDevTool = Tool(
-    name: 'pub-dev-search',
+    name: 'pub_dev_search',
     description:
         'Searches pub.dev for packages relevant to a given search query. '
         'The response will describe each result with its download count,'
