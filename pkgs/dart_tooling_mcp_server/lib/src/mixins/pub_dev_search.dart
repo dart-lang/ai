@@ -14,6 +14,9 @@ import '../utils/json.dart';
 // Override this to stub responses for testing.
 Client Function() createClient = Client.new;
 
+/// Limit the number of concurrent requests.
+final _pool = Pool(10);
+
 /// Mix this in to any MCPServer to add support for doing searches on pub.dev.
 base mixin PubDevSupport on ToolsSupport {
   @override
@@ -49,10 +52,8 @@ base mixin PubDevSupport on ToolsSupport {
             'packages',
           ]).take(10).map((p) => dig<String>(p, ['package'])).toList();
 
-      final pool = Pool(10);
-
       Future<Object?> retrieve(Uri url) async {
-        return pool.withResource(() async {
+        return _pool.withResource(() async {
           return jsonDecode(await client.read(url));
         });
       }
