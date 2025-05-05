@@ -174,6 +174,7 @@ base mixin DartAnalyzerSupport
                   textDocument: lsp.TextDocumentClientCapabilities(
                     publishDiagnostics:
                         lsp.PublishDiagnosticsClientCapabilities(),
+                    signatureHelp: lsp.SignatureHelpClientCapabilities(),
                   ),
                 ),
               ).toJson(),
