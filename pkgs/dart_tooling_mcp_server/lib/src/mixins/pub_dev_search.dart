@@ -138,7 +138,7 @@ base mixin PubDevSupport on ToolsSupport {
         ' package description, topics, license, and a list of identifiers '
         'in the public api',
 
-    annotations: ToolAnnotations(title: 'pub.dev search', readOnlyHint: false),
+    annotations: ToolAnnotations(title: 'pub.dev search', readOnlyHint: true),
     inputSchema: Schema.object(
       properties: {
         'query': Schema.string(
