@@ -8,6 +8,5 @@ _search_test.dart
 For regenerating a single response, delete the relevant file and run
 
 ```
-> RECREATE_GOLDEN_RESPONSES=missing dart test/tools/pub_dev
-_search_test.dart
+> RECREATE_GOLDEN_RESPONSES=missing dart test/tools/pub_dev_search_test.dart
 ```
