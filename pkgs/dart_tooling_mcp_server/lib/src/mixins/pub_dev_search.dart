@@ -10,6 +10,9 @@ import 'package:http/http.dart';
 
 import '../utils/json.dart';
 
+// Override this to stub responses for testing.
+Client Function() createClient = Client.new;
+
 /// Mix this in to any MCPServer to add support for doing searches on pub.dev.
 base mixin PubDevSupport on ToolsSupport {
   @override
@@ -29,7 +32,7 @@ base mixin PubDevSupport on ToolsSupport {
         isError: true,
       );
     }
-    final client = Client();
+    final client = createClient();
     final searchUrl = Uri(
       scheme: 'https',
       host: 'pub.dev',
