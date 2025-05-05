@@ -1,10 +1,28 @@
-Experimental MCP server which exposes Dart development tool actions to clients.
+The Dart Tooling MCP Server exposes Dart and Flutter development tool actions to compatible AI-assistant clients.
 
 ## Status
 
-WIP
+WIP. This package is still experimental and is likely to evolve quickly.
 
-## Using this package
+## Tools
+
+| Tool Name | Feature Group | Description |
+| --- | --- | --- |
+| `analyze_files` | `static analysis` | Analyzes the entire project for errors. |
+| `resolve_workspace_symbol` | `static analysis` | Look up a symbol or symbols in all workspaces by name. |
+| `dart_fix` | `static tool` | Runs `dart fix --apply` for the given project roots. |
+| `dart_format` | `static tool` | Runs `dart format .` for the given project roots. |
+| `pub` | `static tool` | Runs a `dart pub` command for the given project roots. |
+| `get_runtime_errors` | `runtime analysis` | Retrieves the list of runtime errors that have occurred in the active Dart or Flutter application. |
+| `take_screenshot` | `runtime analysis` | Takes a screenshot of the active Flutter application in its current state. |
+| `get_widget_tree` | `runtime analysis` | Retrieves the widget tree from the active Flutter application. |
+| `get_selected_widget` | `runtime analysis` | Retrieves the selected widget from the active Flutter application. |
+| `hot_reload` | `runtime tool` | Performs a hot reload of the active Flutter application. |
+| `connect_dart_tooling_daemon`* | `configuration` | Connects to the locally running Dart Tooling Daemon. |
+
+> *Experimental: may be removed.
+
+## Usage
 
 To use this package, you will need to compile the `bin/main.dart` script to exe
 and use the compiled path as the command in your MCP server config.
@@ -51,7 +69,7 @@ Each time you make changes to the server, you'll need to re-run
 `dart compile exe bin/main.dart` and reload the Cursor window
 (Developer: Reload Window from the Command Pallete) to see the changes.
 
-## Debugging MCP Servers
+## Development
 
 For local development, use the [MCP Inspector](https://modelcontextprotocol.io/docs/tools/inspector).
 
