@@ -30,10 +30,11 @@ void main() {
     pubDevSearchTool = tools.singleWhere(
       (t) => t.name == PubDevSupport.pubDevTool.name,
     );
-    createClient = _GoldenResponseClient.new;
   });
 
   test('searches pub dev, and gathers information about packages', () async {
+    createClient = _GoldenResponseClient.new;
+
     final request = CallToolRequest(
       name: pubDevSearchTool.name,
       arguments: {'query': 'retry', 'latestVersion': '3.1.2'},
@@ -89,6 +90,43 @@ void main() {
       ]),
     });
   });
+
+  test('Reports failure on missing response', () async {
+    createClient = _NoResponseClient.new;
+
+    final request = CallToolRequest(
+      name: pubDevSearchTool.name,
+      arguments: {'query': 'retry', 'latestVersion': '3.1.2'},
+    );
+
+    final result = await testHarness.callToolWithRetry(
+      request,
+      maxTries: 1,
+      expectError: true,
+    );
+    expect(result.isError, isTrue);
+    expect(
+      (result.content[0] as TextContent).text,
+      contains('Failed searching pub.dev: ClientException: No internet'),
+    );
+  });
+}
+
+class _NoResponseClient implements Client {
+  _NoResponseClient();
+
+  @override
+  Future<String> read(Uri url, {Map<String, String>? headers}) async {
+    throw ClientException('No internet');
+  }
+
+  @override
+  void close() {}
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) {
+    throw StateError('Unexpected call $invocation');
+  }
 }
 
 class _GoldenResponseClient implements Client {
