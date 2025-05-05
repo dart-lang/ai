@@ -1,0 +1,169 @@
+{
+  "name": "futuristic",
+  "latest": {
+    "version": "0.2.0",
+    "pubspec": {
+      "name": "futuristic",
+      "description": "Makes it possible to safely execute and retry a Future inside a StatelessWidget.",
+      "version": "0.2.0",
+      "homepage": "https://github.com/martinrybak/futuristic",
+      "environment": {
+        "sdk": ">=2.12.0 <4.0.0"
+      },
+      "dependencies": {
+        "flutter": {
+          "sdk": "flutter"
+        }
+      },
+      "dev_dependencies": {
+        "flutter_test": {
+          "sdk": "flutter"
+        },
+        "flutter_lints": "^4.0.0"
+      },
+      "flutter": null
+    },
+    "archive_url": "https://pub.dev/api/archives/futuristic-0.2.0.tar.gz",
+    "archive_sha256": "8e2f16d51e26ea39a3c667fc5bb5a31ebf7cd0cad704125878ec464d349db905",
+    "published": "2024-05-16T00:02:07.260769Z"
+  },
+  "versions": [
+    {
+      "version": "0.1.0",
+      "pubspec": {
+        "name": "futuristic",
+        "description": "Makes it possible to safely execute and retry a Future inside a StatelessWidget.",
+        "version": "0.1.0",
+        "author": "Martin Rybak <martin.rybak@gmail.com>",
+        "homepage": "https://github.com/vgventures/futuristic",
+        "environment": {
+          "sdk": ">=2.7.0 <3.0.0"
+        },
+        "dependencies": {
+          "flutter": {
+            "sdk": "flutter"
+          }
+        },
+        "dev_dependencies": {
+          "flutter_test": {
+            "sdk": "flutter"
+          }
+        },
+        "flutter": null
+      },
+      "archive_url": "https://pub.dev/api/archives/futuristic-0.1.0.tar.gz",
+      "archive_sha256": "ba967e4029952a8c4a8aad9b3864c136d5c975b4d9fc072e9bba9e1266719a14",
+      "published": "2020-05-01T08:38:40.543549Z"
+    },
+    {
+      "version": "0.1.1",
+      "pubspec": {
+        "name": "futuristic",
+        "description": "Makes it possible to safely execute and retry a Future inside a StatelessWidget.",
+        "version": "0.1.1",
+        "author": "Martin Rybak <martin.rybak@gmail.com>",
+        "homepage": "https://github.com/vgventures/futuristic",
+        "environment": {
+          "sdk": ">=2.7.0 <3.0.0"
+        },
+        "dependencies": {
+          "flutter": {
+            "sdk": "flutter"
+          }
+        },
+        "dev_dependencies": {
+          "flutter_test": {
+            "sdk": "flutter"
+          }
+        },
+        "flutter": null
+      },
+      "archive_url": "https://pub.dev/api/archives/futuristic-0.1.1.tar.gz",
+      "archive_sha256": "bcfc19c1a66c6724a7fce037622e71c59276cc71e01950eed830d40f3720f213",
+      "published": "2020-05-01T16:38:54.883843Z"
+    },
+    {
+      "version": "0.1.2",
+      "pubspec": {
+        "name": "futuristic",
+        "description": "Makes it possible to safely execute and retry a Future inside a StatelessWidget.",
+        "version": "0.1.2",
+        "author": "Martin Rybak <martin.rybak@gmail.com>",
+        "homepage": "https://github.com/vgventures/futuristic",
+        "environment": {
+          "sdk": ">=2.7.0 <3.0.0"
+        },
+        "dependencies": {
+          "flutter": {
+            "sdk": "flutter"
+          }
+        },
+        "dev_dependencies": {
+          "flutter_test": {
+            "sdk": "flutter"
+          },
+          "pedantic": "^1.9.0"
+        },
+        "flutter": null
+      },
+      "archive_url": "https://pub.dev/api/archives/futuristic-0.1.2.tar.gz",
+      "archive_sha256": "b48ba72e516b81d649807a011c7e65bd88c1d11cf94a9705a981788b743cfa95",
+      "published": "2020-05-03T16:24:54.788773Z"
+    },
+    {
+      "version": "0.1.3",
+      "pubspec": {
+        "name": "futuristic",
+        "description": "Makes it possible to safely execute and retry a Future inside a StatelessWidget.",
+        "version": "0.1.3",
+        "author": "Martin Rybak <martin.rybak@gmail.com>",
+        "homepage": "https://github.com/vgventures/futuristic",
+        "environment": {
+          "sdk": ">=2.7.0 <3.0.0"
+        },
+        "dependencies": {
+          "flutter": {
+            "sdk": "flutter"
+          }
+        },
+        "dev_dependencies": {
+          "flutter_test": {
+            "sdk": "flutter"
+          },
+          "pedantic": "^1.9.0"
+        },
+        "flutter": null
+      },
+      "archive_url": "https://pub.dev/api/archives/futuristic-0.1.3.tar.gz",
+      "archive_sha256": "498e9b08d17c2cf7f80ede96c5f0b801a64a038b462359f9a5656bba79547b11",
+      "published": "2020-05-03T18:44:59.978063Z"
+    },
+    {
+      "version": "0.2.0",
+      "pubspec": {
+        "name": "futuristic",
+        "description": "Makes it possible to safely execute and retry a Future inside a StatelessWidget.",
+        "version": "0.2.0",
+        "homepage": "https://github.com/martinrybak/futuristic",
+        "environment": {
+          "sdk": ">=2.12.0 <4.0.0"
+        },
+        "dependencies": {
+          "flutter": {
+            "sdk": "flutter"
+          }
+        },
+        "dev_dependencies": {
+          "flutter_test": {
+            "sdk": "flutter"
+          },
+          "flutter_lints": "^4.0.0"
+        },
+        "flutter": null
+      },
+      "archive_url": "https://pub.dev/api/archives/futuristic-0.2.0.tar.gz",
+      "archive_sha256": "8e2f16d51e26ea39a3c667fc5bb5a31ebf7cd0cad704125878ec464d349db905",
+      "published": "2024-05-16T00:02:07.260769Z"
+    }
+  ]
+}

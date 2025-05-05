@@ -1,0 +1,110 @@
+{
+  "name": "dio_file_uploader",
+  "latest": {
+    "version": "0.1.1",
+    "pubspec": {
+      "name": "dio_file_uploader",
+      "description": "A en_file_uploader plugin to handle the file upload using dio package. Provides the capability to upload a file in chunks with built-in retry handling.",
+      "version": "0.1.1",
+      "homepage": "https://mattiapispisa.github.io/",
+      "repository": "https://github.com/MattiaPispisa/file_uploader/tree/main/plugins/dio_file_uploader",
+      "topics": [
+        "dio",
+        "file",
+        "upload",
+        "chunks",
+        "retry"
+      ],
+      "environment": {
+        "sdk": ">=2.18.0 <4.0.0"
+      },
+      "dependencies": {
+        "dio": ">=4.0.0 <6.0.0",
+        "en_file_uploader": "^2.0.0",
+        "file_uploader_socket_interfaces": "^1.2.2"
+      },
+      "dev_dependencies": {
+        "file_uploader_utils": {
+          "path": "../../tools/file_uploader_utils"
+        },
+        "test": "^1.25.2",
+        "very_good_analysis": "^5.1.0"
+      }
+    },
+    "archive_url": "https://pub.dev/api/archives/dio_file_uploader-0.1.1.tar.gz",
+    "archive_sha256": "24a2d7b7db78f7f31bfadbd24507d1cadcec70268a11c2fc88e0132f8782071f",
+    "published": "2024-06-23T10:10:02.559896Z"
+  },
+  "versions": [
+    {
+      "version": "0.1.0",
+      "pubspec": {
+        "name": "dio_file_uploader",
+        "description": "A en_file_uploader plugin to handle the file upload using dio package. Provides the capability to upload a file in chunks with built-in retry handling.",
+        "version": "0.1.0",
+        "homepage": "https://mattiapispisa.github.io/",
+        "repository": "https://github.com/MattiaPispisa/file_uploader",
+        "topics": [
+          "dio",
+          "file",
+          "upload",
+          "chunks",
+          "retry"
+        ],
+        "environment": {
+          "sdk": ">=2.18.0 <4.0.0"
+        },
+        "dependencies": {
+          "dio": ">=4.0.0 <6.0.0",
+          "en_file_uploader": "^2.0.0",
+          "file_uploader_socket_interfaces": "^1.2.2"
+        },
+        "dev_dependencies": {
+          "file_uploader_utils": {
+            "path": "../../tools/file_uploader_utils"
+          },
+          "test": "^1.25.2",
+          "very_good_analysis": "^5.1.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_file_uploader-0.1.0.tar.gz",
+      "archive_sha256": "f5e146f43b15bd2c9b77223288a5965cd672fa39939660a500cb38ab4548da69",
+      "published": "2024-06-22T20:15:43.180191Z"
+    },
+    {
+      "version": "0.1.1",
+      "pubspec": {
+        "name": "dio_file_uploader",
+        "description": "A en_file_uploader plugin to handle the file upload using dio package. Provides the capability to upload a file in chunks with built-in retry handling.",
+        "version": "0.1.1",
+        "homepage": "https://mattiapispisa.github.io/",
+        "repository": "https://github.com/MattiaPispisa/file_uploader/tree/main/plugins/dio_file_uploader",
+        "topics": [
+          "dio",
+          "file",
+          "upload",
+          "chunks",
+          "retry"
+        ],
+        "environment": {
+          "sdk": ">=2.18.0 <4.0.0"
+        },
+        "dependencies": {
+          "dio": ">=4.0.0 <6.0.0",
+          "en_file_uploader": "^2.0.0",
+          "file_uploader_socket_interfaces": "^1.2.2"
+        },
+        "dev_dependencies": {
+          "file_uploader_utils": {
+            "path": "../../tools/file_uploader_utils"
+          },
+          "test": "^1.25.2",
+          "very_good_analysis": "^5.1.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_file_uploader-0.1.1.tar.gz",
+      "archive_sha256": "24a2d7b7db78f7f31bfadbd24507d1cadcec70268a11c2fc88e0132f8782071f",
+      "published": "2024-06-23T10:10:02.559896Z"
+    }
+  ]
+}

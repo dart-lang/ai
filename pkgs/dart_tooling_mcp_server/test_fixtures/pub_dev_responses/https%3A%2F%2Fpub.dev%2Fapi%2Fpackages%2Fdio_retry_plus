@@ -1,0 +1,680 @@
+{
+  "name": "dio_retry_plus",
+  "latest": {
+    "version": "2.0.8",
+    "pubspec": {
+      "name": "dio_retry_plus",
+      "version": "2.0.8",
+      "description": "A plugin for dio that retries failed requests.",
+      "homepage": "https://github.com/SunnatilloShavkatov/dio_retry_plus",
+      "environment": {
+        "sdk": ">=3.5.0 <4.0.0",
+        "flutter": ">=3.24.0"
+      },
+      "dependencies": {
+        "flutter": {
+          "sdk": "flutter"
+        },
+        "dio": "^5.8.0+1"
+      },
+      "dev_dependencies": {
+        "flutter_test": {
+          "sdk": "flutter"
+        },
+        "flutter_lints": "^5.0.0"
+      },
+      "flutter": {
+        "uses-material-design": true
+      }
+    },
+    "archive_url": "https://pub.dev/api/archives/dio_retry_plus-2.0.8.tar.gz",
+    "archive_sha256": "1e94acc930e3fb58d81e2002f60bb0eed3c6a9844f5fce83a870ecf6229ebe97",
+    "published": "2025-04-02T04:41:40.854588Z"
+  },
+  "versions": [
+    {
+      "version": "0.0.1",
+      "pubspec": {
+        "name": "dio_retry_plus",
+        "description": "A new Flutter project.",
+        "version": "0.0.1",
+        "homepage": "https://github.com/SunnatilloShavkatov/dio_retry_plus",
+        "environment": {
+          "sdk": ">=2.12.0 <3.0.0",
+          "flutter": ">=1.17.0"
+        },
+        "dependencies": {
+          "flutter": {
+            "sdk": "flutter"
+          },
+          "connectivity_plus": "^2.0.2",
+          "dio": "^4.0.0"
+        },
+        "dev_dependencies": {
+          "flutter_test": {
+            "sdk": "flutter"
+          },
+          "flutter_lints": "any"
+        },
+        "flutter": null
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_retry_plus-0.0.1.tar.gz",
+      "archive_sha256": "113734061103932280e1d101f81f08a052fa4fc259e46c1920af272e9a511621",
+      "published": "2021-10-22T04:16:54.360759Z"
+    },
+    {
+      "version": "0.0.2",
+      "pubspec": {
+        "name": "dio_retry_plus",
+        "description": "A plugin for dio that retries failed requests.",
+        "version": "0.0.2",
+        "homepage": "https://github.com/SunnatilloShavkatov/dio_retry_plus",
+        "environment": {
+          "sdk": ">=2.12.0 <3.0.0",
+          "flutter": ">=1.17.0"
+        },
+        "dependencies": {
+          "flutter": {
+            "sdk": "flutter"
+          },
+          "connectivity_plus": "^2.0.2",
+          "dio": "^4.0.0"
+        },
+        "dev_dependencies": {
+          "flutter_test": {
+            "sdk": "flutter"
+          },
+          "flutter_lints": "any"
+        },
+        "flutter": null
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_retry_plus-0.0.2.tar.gz",
+      "archive_sha256": "649bd6a7337750879a51751a716283561fcba4e204683493e6334bb8ff366f09",
+      "published": "2021-10-22T04:43:32.505072Z"
+    },
+    {
+      "version": "0.0.3",
+      "pubspec": {
+        "name": "dio_retry_plus",
+        "description": "A plugin for dio that retries failed requests.",
+        "version": "0.0.3",
+        "homepage": "https://github.com/SunnatilloShavkatov/dio_retry_plus",
+        "environment": {
+          "sdk": ">=2.12.0 <3.0.0",
+          "flutter": ">=1.17.0"
+        },
+        "dependencies": {
+          "flutter": {
+            "sdk": "flutter"
+          },
+          "connectivity_plus": "^2.0.2",
+          "dio": "^4.0.1"
+        },
+        "dev_dependencies": {
+          "flutter_test": {
+            "sdk": "flutter"
+          },
+          "flutter_lints": "any"
+        },
+        "flutter": null
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_retry_plus-0.0.3.tar.gz",
+      "archive_sha256": "dc86eb6fb43a24bd5c393cb69fb25dc32525b021796121f624f92325c9784721",
+      "published": "2021-10-25T16:59:36.034758Z"
+    },
+    {
+      "version": "0.0.4",
+      "pubspec": {
+        "name": "dio_retry_plus",
+        "description": "A plugin for dio that retries failed requests.",
+        "version": "0.0.4",
+        "homepage": "https://github.com/SunnatilloShavkatov/dio_retry_plus",
+        "environment": {
+          "sdk": ">=2.12.0 <3.0.0",
+          "flutter": ">=1.17.0"
+        },
+        "dependencies": {
+          "flutter": {
+            "sdk": "flutter"
+          },
+          "connectivity_plus": "^2.0.3",
+          "dio": "^4.0.3"
+        },
+        "dev_dependencies": {
+          "flutter_test": {
+            "sdk": "flutter"
+          },
+          "flutter_lints": "any"
+        },
+        "flutter": null
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_retry_plus-0.0.4.tar.gz",
+      "archive_sha256": "d7d2965139c3b10a290227dd0cc22a1f986aca733beed05e8ef5e9c93981c4e9",
+      "published": "2021-11-17T16:08:43.484861Z"
+    },
+    {
+      "version": "0.0.5",
+      "pubspec": {
+        "name": "dio_retry_plus",
+        "description": "A plugin for dio that retries failed requests.",
+        "version": "0.0.5",
+        "homepage": "https://github.com/SunnatilloShavkatov/dio_retry_plus",
+        "environment": {
+          "sdk": ">=2.12.0 <3.0.0",
+          "flutter": ">=1.17.0"
+        },
+        "dependencies": {
+          "flutter": {
+            "sdk": "flutter"
+          },
+          "connectivity_plus": "^2.0.3",
+          "dio": "^4.0.4"
+        },
+        "dev_dependencies": {
+          "flutter_test": {
+            "sdk": "flutter"
+          },
+          "flutter_lints": "any"
+        },
+        "flutter": null
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_retry_plus-0.0.5.tar.gz",
+      "archive_sha256": "73c89e05d7f8b00a75bc729bba2afc72dae6c32fc0c28fb54161801363d9d83d",
+      "published": "2021-11-28T15:00:02.290331Z"
+    },
+    {
+      "version": "0.0.6",
+      "pubspec": {
+        "name": "dio_retry_plus",
+        "description": "A plugin for dio that retries failed requests.",
+        "version": "0.0.6",
+        "homepage": "https://github.com/SunnatilloShavkatov/dio_retry_plus",
+        "environment": {
+          "sdk": ">=2.12.0 <3.0.0",
+          "flutter": ">=1.17.0"
+        },
+        "dependencies": {
+          "flutter": {
+            "sdk": "flutter"
+          },
+          "connectivity_plus": "^2.1.0",
+          "dio": "^4.0.4"
+        },
+        "dev_dependencies": {
+          "flutter_test": {
+            "sdk": "flutter"
+          },
+          "flutter_lints": "any"
+        },
+        "flutter": null
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_retry_plus-0.0.6.tar.gz",
+      "archive_sha256": "c9d01120a268b389b82629a8e84018a4e84db63a6abac7f3734d14530f66c246",
+      "published": "2021-11-30T16:46:49.440503Z"
+    },
+    {
+      "version": "0.0.7",
+      "pubspec": {
+        "name": "dio_retry_plus",
+        "description": "A plugin for dio that retries failed requests.",
+        "version": "0.0.7",
+        "homepage": "https://github.com/SunnatilloShavkatov/dio_retry_plus",
+        "environment": {
+          "sdk": ">=2.12.0 <3.0.0",
+          "flutter": ">=1.17.0"
+        },
+        "dependencies": {
+          "flutter": {
+            "sdk": "flutter"
+          },
+          "connectivity_plus": "^2.1.0",
+          "dio": "^4.0.4"
+        },
+        "dev_dependencies": {
+          "flutter_test": {
+            "sdk": "flutter"
+          },
+          "flutter_lints": "any"
+        },
+        "flutter": null
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_retry_plus-0.0.7.tar.gz",
+      "archive_sha256": "c2c2e868b48bfcd8d1306e0ab2513972b7f1484d8420ffa3df701a4ad3696c2b",
+      "published": "2021-12-17T06:25:25.588309Z"
+    },
+    {
+      "version": "0.0.8",
+      "pubspec": {
+        "name": "dio_retry_plus",
+        "description": "A plugin for dio that retries failed requests.",
+        "version": "0.0.8",
+        "homepage": "https://github.com/SunnatilloShavkatov/dio_retry_plus",
+        "environment": {
+          "sdk": ">=2.12.0 <3.0.0",
+          "flutter": ">=1.17.0"
+        },
+        "dependencies": {
+          "flutter": {
+            "sdk": "flutter"
+          },
+          "dio": "^4.0.4"
+        },
+        "dev_dependencies": {
+          "flutter_test": {
+            "sdk": "flutter"
+          },
+          "flutter_lints": "any"
+        },
+        "flutter": null
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_retry_plus-0.0.8.tar.gz",
+      "archive_sha256": "061a4a51470cd4750e800fa9a3fdb1647d795dc1e0c7aecc22091d56b0b04a68",
+      "published": "2021-12-29T13:08:30.479320Z"
+    },
+    {
+      "version": "0.0.9",
+      "pubspec": {
+        "name": "dio_retry_plus",
+        "description": "A plugin for dio that retries failed requests.",
+        "version": "0.0.9",
+        "homepage": "https://github.com/SunnatilloShavkatov/dio_retry_plus",
+        "environment": {
+          "sdk": ">=2.12.0 <3.0.0",
+          "flutter": ">=1.17.0"
+        },
+        "dependencies": {
+          "flutter": {
+            "sdk": "flutter"
+          },
+          "dio": "^4.0.4"
+        },
+        "dev_dependencies": {
+          "flutter_test": {
+            "sdk": "flutter"
+          },
+          "flutter_lints": "any"
+        },
+        "flutter": null
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_retry_plus-0.0.9.tar.gz",
+      "archive_sha256": "9df208250e1ec57c19319fc527f7d53fb890177149989bd3b1b12cc677e19c0d",
+      "published": "2021-12-29T15:12:14.594341Z"
+    },
+    {
+      "version": "1.0.0",
+      "pubspec": {
+        "name": "dio_retry_plus",
+        "description": "A plugin for dio that retries failed requests.",
+        "version": "1.0.0",
+        "homepage": "https://github.com/SunnatilloShavkatov/dio_retry_plus",
+        "environment": {
+          "sdk": ">=2.12.0 <3.0.0",
+          "flutter": ">=1.17.0"
+        },
+        "dependencies": {
+          "flutter": {
+            "sdk": "flutter"
+          },
+          "dio": "^4.0.4"
+        },
+        "dev_dependencies": {
+          "flutter_test": {
+            "sdk": "flutter"
+          },
+          "flutter_lints": "any"
+        },
+        "flutter": null
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_retry_plus-1.0.0.tar.gz",
+      "archive_sha256": "80dba7b9410bb93bc3ce6f542d7f7fb1578bb3fae5342e162cb5b51a86267350",
+      "published": "2022-02-22T08:10:08.821216Z"
+    },
+    {
+      "version": "1.0.1",
+      "pubspec": {
+        "name": "dio_retry_plus",
+        "description": "A plugin for dio that retries failed requests.",
+        "version": "1.0.1",
+        "homepage": "https://github.com/SunnatilloShavkatov/dio_retry_plus",
+        "environment": {
+          "sdk": ">=2.12.0 <3.0.0",
+          "flutter": ">=1.17.0"
+        },
+        "dependencies": {
+          "flutter": {
+            "sdk": "flutter"
+          },
+          "dio": "^4.0.4"
+        },
+        "dev_dependencies": {
+          "flutter_test": {
+            "sdk": "flutter"
+          },
+          "flutter_lints": "any"
+        },
+        "flutter": null
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_retry_plus-1.0.1.tar.gz",
+      "archive_sha256": "4e4754568a512acae7737d01741431491de0891bba4fe42a2a370aa0ae71d072",
+      "published": "2022-03-10T07:31:04.904136Z"
+    },
+    {
+      "version": "1.0.2",
+      "pubspec": {
+        "name": "dio_retry_plus",
+        "description": "A plugin for dio that retries failed requests.",
+        "version": "1.0.2",
+        "homepage": "https://github.com/SunnatilloShavkatov/dio_retry_plus",
+        "environment": {
+          "sdk": ">=2.12.0 <3.0.0",
+          "flutter": ">=1.17.0"
+        },
+        "dependencies": {
+          "flutter": {
+            "sdk": "flutter"
+          },
+          "dio": "^4.0.4"
+        },
+        "dev_dependencies": {
+          "flutter_test": {
+            "sdk": "flutter"
+          },
+          "flutter_lints": "any"
+        },
+        "flutter": null
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_retry_plus-1.0.2.tar.gz",
+      "archive_sha256": "d6f514369cf774b01ae62d0fdf85c852ba137230349f21ab4593ce123b750a06",
+      "published": "2022-03-23T13:51:25.188131Z"
+    },
+    {
+      "version": "1.0.3",
+      "pubspec": {
+        "name": "dio_retry_plus",
+        "description": "A plugin for dio that retries failed requests.",
+        "version": "1.0.3",
+        "homepage": "https://github.com/SunnatilloShavkatov/dio_retry_plus",
+        "environment": {
+          "sdk": ">=2.15.0 <3.0.0",
+          "flutter": ">=1.17.0"
+        },
+        "dependencies": {
+          "flutter": {
+            "sdk": "flutter"
+          },
+          "dio": "^5.0.0"
+        },
+        "dev_dependencies": {
+          "flutter_test": {
+            "sdk": "flutter"
+          },
+          "flutter_lints": "any"
+        },
+        "flutter": null
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_retry_plus-1.0.3.tar.gz",
+      "archive_sha256": "cdd71692afdb373f0aff4e1977b45416cda0cd5c93f34abe4c0da3013afc55f5",
+      "published": "2023-02-13T08:26:43.589528Z"
+    },
+    {
+      "version": "2.0.0",
+      "pubspec": {
+        "name": "dio_retry_plus",
+        "description": "A plugin for dio that retries failed requests.",
+        "version": "2.0.0",
+        "homepage": "https://github.com/SunnatilloShavkatov/dio_retry_plus",
+        "environment": {
+          "sdk": ">=3.0.0 <4.0.0",
+          "flutter": ">=3.10.0"
+        },
+        "dependencies": {
+          "flutter": {
+            "sdk": "flutter"
+          },
+          "dio": "^5.2.1+1"
+        },
+        "dev_dependencies": {
+          "flutter_test": {
+            "sdk": "flutter"
+          },
+          "flutter_lints": "^2.0.2"
+        },
+        "flutter": null
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_retry_plus-2.0.0.tar.gz",
+      "archive_sha256": "ce7272ee37fcbf9a78b66cc9935897f6dbfb3f85a4d7e6bfb64134580f435d6c",
+      "published": "2023-06-29T07:16:02.437146Z"
+    },
+    {
+      "version": "2.0.1",
+      "pubspec": {
+        "name": "dio_retry_plus",
+        "description": "A plugin for dio that retries failed requests.",
+        "version": "2.0.1",
+        "homepage": "https://github.com/SunnatilloShavkatov/dio_retry_plus",
+        "environment": {
+          "sdk": ">=3.1.0 <4.0.0",
+          "flutter": ">=3.13.0"
+        },
+        "dependencies": {
+          "flutter": {
+            "sdk": "flutter"
+          },
+          "dio": "^5.3.3"
+        },
+        "dev_dependencies": {
+          "flutter_test": {
+            "sdk": "flutter"
+          },
+          "flutter_lints": "^2.0.3"
+        },
+        "flutter": null
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_retry_plus-2.0.1.tar.gz",
+      "archive_sha256": "02c0bfb7ccc367f30c457d762e96449396037ff91fc0c4fe7ab5362593c1213e",
+      "published": "2023-09-27T09:17:28.227452Z"
+    },
+    {
+      "version": "2.0.2",
+      "pubspec": {
+        "name": "dio_retry_plus",
+        "description": "A plugin for dio that retries failed requests.",
+        "version": "2.0.2",
+        "homepage": "https://github.com/SunnatilloShavkatov/dio_retry_plus",
+        "environment": {
+          "sdk": ">=3.1.0 <4.0.0",
+          "flutter": ">=3.13.0"
+        },
+        "dependencies": {
+          "flutter": {
+            "sdk": "flutter"
+          },
+          "dio": "^5.3.3"
+        },
+        "dev_dependencies": {
+          "flutter_test": {
+            "sdk": "flutter"
+          },
+          "flutter_lints": "^2.0.3"
+        },
+        "flutter": null
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_retry_plus-2.0.2.tar.gz",
+      "archive_sha256": "2273ed408e429bf0889e18993107656e845b454d6c4261d1ed5184d1aa604c68",
+      "published": "2023-09-27T10:14:24.501284Z"
+    },
+    {
+      "version": "2.0.3",
+      "pubspec": {
+        "name": "dio_retry_plus",
+        "description": "A plugin for dio that retries failed requests.",
+        "version": "2.0.3",
+        "homepage": "https://github.com/SunnatilloShavkatov/dio_retry_plus",
+        "environment": {
+          "sdk": ">=3.1.0 <4.0.0",
+          "flutter": ">=3.13.0"
+        },
+        "dependencies": {
+          "flutter": {
+            "sdk": "flutter"
+          },
+          "dio": "^5.3.3"
+        },
+        "dev_dependencies": {
+          "flutter_test": {
+            "sdk": "flutter"
+          },
+          "flutter_lints": "^2.0.3"
+        },
+        "flutter": null
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_retry_plus-2.0.3.tar.gz",
+      "archive_sha256": "d24b4b125949c613fe8ca2bf50622573d100e9113534dddfdb5618e60ec881f9",
+      "published": "2023-09-27T15:41:19.900721Z"
+    },
+    {
+      "version": "2.0.4",
+      "pubspec": {
+        "name": "dio_retry_plus",
+        "description": "A plugin for dio that retries failed requests.",
+        "version": "2.0.4",
+        "homepage": "https://github.com/SunnatilloShavkatov/dio_retry_plus",
+        "environment": {
+          "sdk": ">=3.1.0 <4.0.0",
+          "flutter": ">=3.13.0"
+        },
+        "dependencies": {
+          "flutter": {
+            "sdk": "flutter"
+          },
+          "dio": "^5.3.3"
+        },
+        "dev_dependencies": {
+          "flutter_test": {
+            "sdk": "flutter"
+          },
+          "flutter_lints": "^3.0.0"
+        },
+        "flutter": null
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_retry_plus-2.0.4.tar.gz",
+      "archive_sha256": "07dd45d659316d894ee62f83af74315620fcc1f01582d57c4b298ee925f2e528",
+      "published": "2023-11-01T03:50:38.819947Z"
+    },
+    {
+      "version": "2.0.5",
+      "pubspec": {
+        "name": "dio_retry_plus",
+        "description": "A plugin for dio that retries failed requests.",
+        "version": "2.0.5",
+        "homepage": "https://github.com/SunnatilloShavkatov/dio_retry_plus",
+        "environment": {
+          "sdk": ">=3.2.0 <4.0.0",
+          "flutter": ">=3.16.0"
+        },
+        "dependencies": {
+          "flutter": {
+            "sdk": "flutter"
+          },
+          "dio": "^5.3.4"
+        },
+        "dev_dependencies": {
+          "flutter_test": {
+            "sdk": "flutter"
+          },
+          "flutter_lints": "^3.0.1"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_retry_plus-2.0.5.tar.gz",
+      "archive_sha256": "9d4bdcf6723d577ffe6d1651b54d870824c3176468ea1098302e9c05f416726a",
+      "published": "2023-11-22T02:58:33.564572Z"
+    },
+    {
+      "version": "2.0.6",
+      "pubspec": {
+        "name": "dio_retry_plus",
+        "description": "A plugin for dio that retries failed requests.",
+        "version": "2.0.6",
+        "homepage": "https://github.com/SunnatilloShavkatov/dio_retry_plus",
+        "environment": {
+          "sdk": ">=3.3.0 <4.0.0",
+          "flutter": ">=3.19.0"
+        },
+        "dependencies": {
+          "flutter": {
+            "sdk": "flutter"
+          },
+          "dio": "^5.4.1"
+        },
+        "dev_dependencies": {
+          "flutter_test": {
+            "sdk": "flutter"
+          },
+          "flutter_lints": "^3.0.1"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_retry_plus-2.0.6.tar.gz",
+      "archive_sha256": "8eadb7b626bf9803b9c75200a4f5982e818f7ddbee88dd6496771023532108be",
+      "published": "2024-02-20T15:56:57.758086Z"
+    },
+    {
+      "version": "2.0.7",
+      "pubspec": {
+        "name": "dio_retry_plus",
+        "description": "A plugin for dio that retries failed requests.",
+        "version": "2.0.7",
+        "homepage": "https://github.com/SunnatilloShavkatov/dio_retry_plus",
+        "environment": {
+          "sdk": ">=3.3.0 <4.0.0",
+          "flutter": ">=3.19.0"
+        },
+        "dependencies": {
+          "dio": "^5.4.3+1",
+          "flutter": {
+            "sdk": "flutter"
+          }
+        },
+        "dev_dependencies": {
+          "flutter_lints": "^3.0.2",
+          "flutter_test": {
+            "sdk": "flutter"
+          }
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_retry_plus-2.0.7.tar.gz",
+      "archive_sha256": "670682ef81c0ab1d413932b29066be9212b71bd0db06ca42fda145c9c36d6028",
+      "published": "2024-04-18T04:23:32.516633Z"
+    },
+    {
+      "version": "2.0.8",
+      "pubspec": {
+        "name": "dio_retry_plus",
+        "version": "2.0.8",
+        "description": "A plugin for dio that retries failed requests.",
+        "homepage": "https://github.com/SunnatilloShavkatov/dio_retry_plus",
+        "environment": {
+          "sdk": ">=3.5.0 <4.0.0",
+          "flutter": ">=3.24.0"
+        },
+        "dependencies": {
+          "flutter": {
+            "sdk": "flutter"
+          },
+          "dio": "^5.8.0+1"
+        },
+        "dev_dependencies": {
+          "flutter_test": {
+            "sdk": "flutter"
+          },
+          "flutter_lints": "^5.0.0"
+        },
+        "flutter": {
+          "uses-material-design": true
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_retry_plus-2.0.8.tar.gz",
+      "archive_sha256": "1e94acc930e3fb58d81e2002f60bb0eed3c6a9844f5fce83a870ecf6229ebe97",
+      "published": "2025-04-02T04:41:40.854588Z"
+    }
+  ]
+}

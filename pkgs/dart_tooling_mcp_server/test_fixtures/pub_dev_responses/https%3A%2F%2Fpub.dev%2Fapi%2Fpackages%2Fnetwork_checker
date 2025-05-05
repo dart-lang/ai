@@ -1,0 +1,95 @@
+{
+  "name": "network_checker",
+  "latest": {
+    "version": "0.0.2",
+    "pubspec": {
+      "name": "network_checker",
+      "description": "A new Flutter projecA Flutter package to seamlessly monitor network connectivity and display a customizable retry button",
+      "version": "0.0.2",
+      "homepage": "https://github.com/Abhi2622/network_checker",
+      "environment": {
+        "sdk": "^3.5.2",
+        "flutter": ">=1.17.0"
+      },
+      "dependencies": {
+        "flutter": {
+          "sdk": "flutter"
+        },
+        "internet_connection_checker_plus": "^2.5.2",
+        "mockito": "^5.4.4"
+      },
+      "dev_dependencies": {
+        "flutter_test": {
+          "sdk": "flutter"
+        },
+        "flutter_lints": "^4.0.0"
+      },
+      "flutter": null
+    },
+    "archive_url": "https://pub.dev/api/archives/network_checker-0.0.2.tar.gz",
+    "archive_sha256": "2b8cf59692eec23c510fd61611437be055004693fddf621ed9dcacff5446a3bd",
+    "published": "2024-12-16T11:22:57.465489Z"
+  },
+  "versions": [
+    {
+      "version": "0.0.1",
+      "pubspec": {
+        "name": "network_checker",
+        "description": "A new Flutter projecA Flutter package to seamlessly monitor network connectivity and display a customizable retry button when the network is offline or weak. Enhance user experience by providing intuitive network handling in your apps.",
+        "version": "0.0.1",
+        "homepage": "https://github.com/Abhi2622/network_checker",
+        "environment": {
+          "sdk": "^3.5.2",
+          "flutter": ">=1.17.0"
+        },
+        "dependencies": {
+          "flutter": {
+            "sdk": "flutter"
+          },
+          "internet_connection_checker_plus": "^2.5.2",
+          "mockito": "^5.4.4"
+        },
+        "dev_dependencies": {
+          "flutter_test": {
+            "sdk": "flutter"
+          },
+          "flutter_lints": "^4.0.0"
+        },
+        "flutter": null
+      },
+      "archive_url": "https://pub.dev/api/archives/network_checker-0.0.1.tar.gz",
+      "archive_sha256": "0473cdbfd93a6ce63383226bffa66a7718808bc6f5b009a31fb57ee2391065ce",
+      "published": "2024-12-16T11:12:10.493684Z"
+    },
+    {
+      "version": "0.0.2",
+      "pubspec": {
+        "name": "network_checker",
+        "description": "A new Flutter projecA Flutter package to seamlessly monitor network connectivity and display a customizable retry button",
+        "version": "0.0.2",
+        "homepage": "https://github.com/Abhi2622/network_checker",
+        "environment": {
+          "sdk": "^3.5.2",
+          "flutter": ">=1.17.0"
+        },
+        "dependencies": {
+          "flutter": {
+            "sdk": "flutter"
+          },
+          "internet_connection_checker_plus": "^2.5.2",
+          "mockito": "^5.4.4"
+        },
+        "dev_dependencies": {
+          "flutter_test": {
+            "sdk": "flutter"
+          },
+          "flutter_lints": "^4.0.0"
+        },
+        "flutter": null
+      },
+      "archive_url": "https://pub.dev/api/archives/network_checker-0.0.2.tar.gz",
+      "archive_sha256": "2b8cf59692eec23c510fd61611437be055004693fddf621ed9dcacff5446a3bd",
+      "published": "2024-12-16T11:22:57.465489Z"
+    }
+  ]
+}

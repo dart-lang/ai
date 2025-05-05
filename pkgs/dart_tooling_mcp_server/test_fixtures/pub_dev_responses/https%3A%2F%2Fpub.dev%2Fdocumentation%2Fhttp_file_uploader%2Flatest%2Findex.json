@@ -1,0 +1,872 @@
+[
+  {
+    "name": "http_file_uploader",
+    "qualifiedName": "http_file_uploader",
+    "href": "http_file_uploader/",
+    "kind": 9,
+    "packageRank": 0,
+    "desc": "A en_file_uploader plugin to handle via http the file upload."
+  },
+  {
+    "name": "ChunkHeadersCallback",
+    "qualifiedName": "http_file_uploader.ChunkHeadersCallback",
+    "href": "http_file_uploader/ChunkHeadersCallback.html",
+    "kind": 21,
+    "packageRank": 0,
+    "desc": "compose request headers from FileChunk",
+    "enclosedBy": {
+      "name": "http_file_uploader",
+      "kind": 9,
+      "href": "http_file_uploader/"
+    }
+  },
+  {
+    "name": "ChunkParser",
+    "qualifiedName": "http_file_uploader.ChunkParser",
+    "href": "http_file_uploader/ChunkParser.html",
+    "kind": 21,
+    "packageRank": 0,
+    "desc": "callback to validate chunk upload",
+    "enclosedBy": {
+      "name": "http_file_uploader",
+      "kind": 9,
+      "href": "http_file_uploader/"
+    }
+  },
+  {
+    "name": "ChunkPathCallback",
+    "qualifiedName": "http_file_uploader.ChunkPathCallback",
+    "href": "http_file_uploader/ChunkPathCallback.html",
+    "kind": 21,
+    "packageRank": 0,
+    "desc": "compose request upload chunks path\nfrom on FileUploadPresentationResponse and FileChunk",
+    "enclosedBy": {
+      "name": "http_file_uploader",
+      "kind": 9,
+      "href": "http_file_uploader/"
+    }
+  },
+  {
+    "name": "HttpChunkedFileHandler",
+    "qualifiedName": "http_file_uploader.HttpChunkedFileHandler",
+    "href": "http_file_uploader/HttpChunkedFileHandler-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "HttpChunkedFileHandler handle the file upload in chunks",
+    "enclosedBy": {
+      "name": "http_file_uploader",
+      "kind": 9,
+      "href": "http_file_uploader/"
+    }
+  },
+  {
+    "name": "HttpChunkedFileHandler.new",
+    "qualifiedName": "http_file_uploader.HttpChunkedFileHandler.HttpChunkedFileHandler.new",
+    "href": "http_file_uploader/HttpChunkedFileHandler/HttpChunkedFileHandler.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "client used to upload the file",
+    "enclosedBy": {
+      "name": "HttpChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/HttpChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "uploadChunk",
+    "qualifiedName": "http_file_uploader.HttpChunkedFileHandler.uploadChunk",
+    "href": "http_file_uploader/HttpChunkedFileHandler/uploadChunk.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "method to handle the upload of a FileChunk",
+    "enclosedBy": {
+      "name": "HttpChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/HttpChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "HttpFileHandler",
+    "qualifiedName": "http_file_uploader.HttpFileHandler",
+    "href": "http_file_uploader/HttpFileHandler-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "HttpFileHandler handle the file upload using the http.Client",
+    "enclosedBy": {
+      "name": "http_file_uploader",
+      "kind": 9,
+      "href": "http_file_uploader/"
+    }
+  },
+  {
+    "name": "HttpFileHandler.new",
+    "qualifiedName": "http_file_uploader.HttpFileHandler.HttpFileHandler.new",
+    "href": "http_file_uploader/HttpFileHandler/HttpFileHandler.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "client used to upload the file",
+    "enclosedBy": {
+      "name": "HttpFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/HttpFileHandler-class.html"
+    }
+  },
+  {
+    "name": "upload",
+    "qualifiedName": "http_file_uploader.HttpFileHandler.upload",
+    "href": "http_file_uploader/HttpFileHandler/upload.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "Method for uploading the entire file.",
+    "enclosedBy": {
+      "name": "HttpFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/HttpFileHandler-class.html"
+    }
+  },
+  {
+    "name": "HttpRestorableChunkedFileHandler",
+    "qualifiedName": "http_file_uploader.HttpRestorableChunkedFileHandler",
+    "href": "http_file_uploader/HttpRestorableChunkedFileHandler-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "HttpRestorableChunkedFileHandler handle the file upload in chunk with\nthe capability to retry the upload from the last chunk sent.",
+    "enclosedBy": {
+      "name": "http_file_uploader",
+      "kind": 9,
+      "href": "http_file_uploader/"
+    }
+  },
+  {
+    "name": "HttpRestorableChunkedFileHandler.new",
+    "qualifiedName": "http_file_uploader.HttpRestorableChunkedFileHandler.HttpRestorableChunkedFileHandler.new",
+    "href": "http_file_uploader/HttpRestorableChunkedFileHandler/HttpRestorableChunkedFileHandler.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "client used to upload the file",
+    "enclosedBy": {
+      "name": "HttpRestorableChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/HttpRestorableChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "present",
+    "qualifiedName": "http_file_uploader.HttpRestorableChunkedFileHandler.present",
+    "href": "http_file_uploader/HttpRestorableChunkedFileHandler/present.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "the method to present the file; before uploading the chunks, the file\nis presented and needs FileUploadPresentationResponse.",
+    "enclosedBy": {
+      "name": "HttpRestorableChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/HttpRestorableChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "status",
+    "qualifiedName": "http_file_uploader.HttpRestorableChunkedFileHandler.status",
+    "href": "http_file_uploader/HttpRestorableChunkedFileHandler/status.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "the method that, given the presentation id,\nallows requesting the file's state.",
+    "enclosedBy": {
+      "name": "HttpRestorableChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/HttpRestorableChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "uploadChunk",
+    "qualifiedName": "http_file_uploader.HttpRestorableChunkedFileHandler.uploadChunk",
+    "href": "http_file_uploader/HttpRestorableChunkedFileHandler/uploadChunk.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "method to handle the upload of a FileChunk",
+    "enclosedBy": {
+      "name": "HttpRestorableChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/HttpRestorableChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "PresentParser",
+    "qualifiedName": "http_file_uploader.PresentParser",
+    "href": "http_file_uploader/PresentParser.html",
+    "kind": 21,
+    "packageRank": 0,
+    "desc": "callback to convert http.Response into FileUploadPresentationResponse",
+    "enclosedBy": {
+      "name": "http_file_uploader",
+      "kind": 9,
+      "href": "http_file_uploader/"
+    }
+  },
+  {
+    "name": "RestorableChunkHeadersCallback",
+    "qualifiedName": "http_file_uploader.RestorableChunkHeadersCallback",
+    "href": "http_file_uploader/RestorableChunkHeadersCallback.html",
+    "kind": 21,
+    "packageRank": 0,
+    "desc": "compose request upload chunks headers from\nFileUploadPresentationResponse and FileChunk",
+    "enclosedBy": {
+      "name": "http_file_uploader",
+      "kind": 9,
+      "href": "http_file_uploader/"
+    }
+  },
+  {
+    "name": "SocketChunkedFileHandler",
+    "qualifiedName": "http_file_uploader.SocketChunkedFileHandler",
+    "href": "http_file_uploader/SocketChunkedFileHandler-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "A common interface for any plugin that wants to handle\nfile uploads using a socket client.",
+    "enclosedBy": {
+      "name": "http_file_uploader",
+      "kind": 9,
+      "href": "http_file_uploader/"
+    }
+  },
+  {
+    "name": "SocketChunkedFileHandler.new",
+    "qualifiedName": "http_file_uploader.SocketChunkedFileHandler.SocketChunkedFileHandler.new",
+    "href": "http_file_uploader/SocketChunkedFileHandler/SocketChunkedFileHandler.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "path, method, headers, body are request parameters",
+    "enclosedBy": {
+      "name": "SocketChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "body",
+    "qualifiedName": "http_file_uploader.SocketChunkedFileHandler.body",
+    "href": "http_file_uploader/SocketChunkedFileHandler/body.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "request body",
+    "enclosedBy": {
+      "name": "SocketChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "chunkParser",
+    "qualifiedName": "http_file_uploader.SocketChunkedFileHandler.chunkParser",
+    "href": "http_file_uploader/SocketChunkedFileHandler/chunkParser.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "callback to validate chunk upload",
+    "enclosedBy": {
+      "name": "SocketChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "chunkSize",
+    "qualifiedName": "http_file_uploader.SocketChunkedFileHandler.chunkSize",
+    "href": "http_file_uploader/SocketChunkedFileHandler/chunkSize.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "chunk size, if null defaultChunkSize is used",
+    "enclosedBy": {
+      "name": "SocketChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "file",
+    "qualifiedName": "http_file_uploader.SocketChunkedFileHandler.file",
+    "href": "http_file_uploader/SocketChunkedFileHandler/file.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "file to handle",
+    "enclosedBy": {
+      "name": "SocketChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "fileKey",
+    "qualifiedName": "http_file_uploader.SocketChunkedFileHandler.fileKey",
+    "href": "http_file_uploader/SocketChunkedFileHandler/fileKey.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "request key for file",
+    "enclosedBy": {
+      "name": "SocketChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "headers",
+    "qualifiedName": "http_file_uploader.SocketChunkedFileHandler.headers",
+    "href": "http_file_uploader/SocketChunkedFileHandler/headers.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "request headers",
+    "enclosedBy": {
+      "name": "SocketChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "method",
+    "qualifiedName": "http_file_uploader.SocketChunkedFileHandler.method",
+    "href": "http_file_uploader/SocketChunkedFileHandler/method.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "request method, default to POST",
+    "enclosedBy": {
+      "name": "SocketChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "path",
+    "qualifiedName": "http_file_uploader.SocketChunkedFileHandler.path",
+    "href": "http_file_uploader/SocketChunkedFileHandler/path.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "request path",
+    "enclosedBy": {
+      "name": "SocketChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "uploadChunk",
+    "qualifiedName": "http_file_uploader.SocketChunkedFileHandler.uploadChunk",
+    "href": "http_file_uploader/SocketChunkedFileHandler/uploadChunk.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "method to handle the upload of a FileChunk",
+    "enclosedBy": {
+      "name": "SocketChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "SocketFileHandler",
+    "qualifiedName": "http_file_uploader.SocketFileHandler",
+    "href": "http_file_uploader/SocketFileHandler-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "A common interface for any plugin that wants to handle\nfile uploads using a socket client.",
+    "enclosedBy": {
+      "name": "http_file_uploader",
+      "kind": 9,
+      "href": "http_file_uploader/"
+    }
+  },
+  {
+    "name": "SocketFileHandler.new",
+    "qualifiedName": "http_file_uploader.SocketFileHandler.SocketFileHandler.new",
+    "href": "http_file_uploader/SocketFileHandler/SocketFileHandler.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "path, method, headers, body are request parameters",
+    "enclosedBy": {
+      "name": "SocketFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketFileHandler-class.html"
+    }
+  },
+  {
+    "name": "body",
+    "qualifiedName": "http_file_uploader.SocketFileHandler.body",
+    "href": "http_file_uploader/SocketFileHandler/body.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "request body",
+    "enclosedBy": {
+      "name": "SocketFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketFileHandler-class.html"
+    }
+  },
+  {
+    "name": "file",
+    "qualifiedName": "http_file_uploader.SocketFileHandler.file",
+    "href": "http_file_uploader/SocketFileHandler/file.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "file to handle",
+    "enclosedBy": {
+      "name": "SocketFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketFileHandler-class.html"
+    }
+  },
+  {
+    "name": "fileKey",
+    "qualifiedName": "http_file_uploader.SocketFileHandler.fileKey",
+    "href": "http_file_uploader/SocketFileHandler/fileKey.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "request key for file",
+    "enclosedBy": {
+      "name": "SocketFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketFileHandler-class.html"
+    }
+  },
+  {
+    "name": "fileParser",
+    "qualifiedName": "http_file_uploader.SocketFileHandler.fileParser",
+    "href": "http_file_uploader/SocketFileHandler/fileParser.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "callback to validate chunk upload",
+    "enclosedBy": {
+      "name": "SocketFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketFileHandler-class.html"
+    }
+  },
+  {
+    "name": "headers",
+    "qualifiedName": "http_file_uploader.SocketFileHandler.headers",
+    "href": "http_file_uploader/SocketFileHandler/headers.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "request headers",
+    "enclosedBy": {
+      "name": "SocketFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketFileHandler-class.html"
+    }
+  },
+  {
+    "name": "method",
+    "qualifiedName": "http_file_uploader.SocketFileHandler.method",
+    "href": "http_file_uploader/SocketFileHandler/method.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "request method, default to POST",
+    "enclosedBy": {
+      "name": "SocketFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketFileHandler-class.html"
+    }
+  },
+  {
+    "name": "path",
+    "qualifiedName": "http_file_uploader.SocketFileHandler.path",
+    "href": "http_file_uploader/SocketFileHandler/path.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "request path",
+    "enclosedBy": {
+      "name": "SocketFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketFileHandler-class.html"
+    }
+  },
+  {
+    "name": "upload",
+    "qualifiedName": "http_file_uploader.SocketFileHandler.upload",
+    "href": "http_file_uploader/SocketFileHandler/upload.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Method for uploading the entire file.",
+    "enclosedBy": {
+      "name": "SocketFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketFileHandler-class.html"
+    }
+  },
+  {
+    "name": "SocketRestorableChunkedFileHandler",
+    "qualifiedName": "http_file_uploader.SocketRestorableChunkedFileHandler",
+    "href": "http_file_uploader/SocketRestorableChunkedFileHandler-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "A common interface for any plugin that wants to handle\nfile uploads using a socket client.",
+    "enclosedBy": {
+      "name": "http_file_uploader",
+      "kind": 9,
+      "href": "http_file_uploader/"
+    }
+  },
+  {
+    "name": "SocketRestorableChunkedFileHandler.new",
+    "qualifiedName": "http_file_uploader.SocketRestorableChunkedFileHandler.SocketRestorableChunkedFileHandler.new",
+    "href": "http_file_uploader/SocketRestorableChunkedFileHandler/SocketRestorableChunkedFileHandler.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "set chunkSize to choose the size of the chunks else\ndefaultChunkSize is used",
+    "enclosedBy": {
+      "name": "SocketRestorableChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketRestorableChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "chunkBody",
+    "qualifiedName": "http_file_uploader.SocketRestorableChunkedFileHandler.chunkBody",
+    "href": "http_file_uploader/SocketRestorableChunkedFileHandler/chunkBody.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "http.Client.send body used on chunk upload",
+    "enclosedBy": {
+      "name": "SocketRestorableChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketRestorableChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "chunkHeaders",
+    "qualifiedName": "http_file_uploader.SocketRestorableChunkedFileHandler.chunkHeaders",
+    "href": "http_file_uploader/SocketRestorableChunkedFileHandler/chunkHeaders.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "http.Client.send headers used on chunk upload",
+    "enclosedBy": {
+      "name": "SocketRestorableChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketRestorableChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "chunkMethod",
+    "qualifiedName": "http_file_uploader.SocketRestorableChunkedFileHandler.chunkMethod",
+    "href": "http_file_uploader/SocketRestorableChunkedFileHandler/chunkMethod.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "http.Client.send method used on chunk upload",
+    "enclosedBy": {
+      "name": "SocketRestorableChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketRestorableChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "chunkParser",
+    "qualifiedName": "http_file_uploader.SocketRestorableChunkedFileHandler.chunkParser",
+    "href": "http_file_uploader/SocketRestorableChunkedFileHandler/chunkParser.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "callback to validate chunk upload",
+    "enclosedBy": {
+      "name": "SocketRestorableChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketRestorableChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "chunkPath",
+    "qualifiedName": "http_file_uploader.SocketRestorableChunkedFileHandler.chunkPath",
+    "href": "http_file_uploader/SocketRestorableChunkedFileHandler/chunkPath.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "http.Client.send path used on chunk upload",
+    "enclosedBy": {
+      "name": "SocketRestorableChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketRestorableChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "chunkSize",
+    "qualifiedName": "http_file_uploader.SocketRestorableChunkedFileHandler.chunkSize",
+    "href": "http_file_uploader/SocketRestorableChunkedFileHandler/chunkSize.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "chunk size, if null defaultChunkSize is used",
+    "enclosedBy": {
+      "name": "SocketRestorableChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketRestorableChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "file",
+    "qualifiedName": "http_file_uploader.SocketRestorableChunkedFileHandler.file",
+    "href": "http_file_uploader/SocketRestorableChunkedFileHandler/file.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "file to handle",
+    "enclosedBy": {
+      "name": "SocketRestorableChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketRestorableChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "fileKey",
+    "qualifiedName": "http_file_uploader.SocketRestorableChunkedFileHandler.fileKey",
+    "href": "http_file_uploader/SocketRestorableChunkedFileHandler/fileKey.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "request key for file",
+    "enclosedBy": {
+      "name": "SocketRestorableChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketRestorableChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "present",
+    "qualifiedName": "http_file_uploader.SocketRestorableChunkedFileHandler.present",
+    "href": "http_file_uploader/SocketRestorableChunkedFileHandler/present.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "the method to present the file; before uploading the chunks, the file\nis presented and needs FileUploadPresentationResponse.",
+    "enclosedBy": {
+      "name": "SocketRestorableChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketRestorableChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "presentBody",
+    "qualifiedName": "http_file_uploader.SocketRestorableChunkedFileHandler.presentBody",
+    "href": "http_file_uploader/SocketRestorableChunkedFileHandler/presentBody.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "http.Client.send body used on presentation",
+    "enclosedBy": {
+      "name": "SocketRestorableChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketRestorableChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "presentHeaders",
+    "qualifiedName": "http_file_uploader.SocketRestorableChunkedFileHandler.presentHeaders",
+    "href": "http_file_uploader/SocketRestorableChunkedFileHandler/presentHeaders.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "http.Client.send headers used on presentation",
+    "enclosedBy": {
+      "name": "SocketRestorableChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketRestorableChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "presentMethod",
+    "qualifiedName": "http_file_uploader.SocketRestorableChunkedFileHandler.presentMethod",
+    "href": "http_file_uploader/SocketRestorableChunkedFileHandler/presentMethod.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "http.Client.send method used on presentation",
+    "enclosedBy": {
+      "name": "SocketRestorableChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketRestorableChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "presentParser",
+    "qualifiedName": "http_file_uploader.SocketRestorableChunkedFileHandler.presentParser",
+    "href": "http_file_uploader/SocketRestorableChunkedFileHandler/presentParser.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "callback to convert ResponseType into FileUploadPresentationResponse",
+    "enclosedBy": {
+      "name": "SocketRestorableChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketRestorableChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "presentPath",
+    "qualifiedName": "http_file_uploader.SocketRestorableChunkedFileHandler.presentPath",
+    "href": "http_file_uploader/SocketRestorableChunkedFileHandler/presentPath.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "http.Client.send path used on presentation",
+    "enclosedBy": {
+      "name": "SocketRestorableChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketRestorableChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "status",
+    "qualifiedName": "http_file_uploader.SocketRestorableChunkedFileHandler.status",
+    "href": "http_file_uploader/SocketRestorableChunkedFileHandler/status.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "the method that, given the presentation id,\nallows requesting the file's state.",
+    "enclosedBy": {
+      "name": "SocketRestorableChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketRestorableChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "statusBody",
+    "qualifiedName": "http_file_uploader.SocketRestorableChunkedFileHandler.statusBody",
+    "href": "http_file_uploader/SocketRestorableChunkedFileHandler/statusBody.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "http.Client.send body used on status",
+    "enclosedBy": {
+      "name": "SocketRestorableChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketRestorableChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "statusHeaders",
+    "qualifiedName": "http_file_uploader.SocketRestorableChunkedFileHandler.statusHeaders",
+    "href": "http_file_uploader/SocketRestorableChunkedFileHandler/statusHeaders.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "http.Client.send headers used on status",
+    "enclosedBy": {
+      "name": "SocketRestorableChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketRestorableChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "statusMethod",
+    "qualifiedName": "http_file_uploader.SocketRestorableChunkedFileHandler.statusMethod",
+    "href": "http_file_uploader/SocketRestorableChunkedFileHandler/statusMethod.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "http.Client.send method used on status",
+    "enclosedBy": {
+      "name": "SocketRestorableChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketRestorableChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "statusParser",
+    "qualifiedName": "http_file_uploader.SocketRestorableChunkedFileHandler.statusParser",
+    "href": "http_file_uploader/SocketRestorableChunkedFileHandler/statusParser.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "callback to convert ResponseType into FileUploadStatusResponse",
+    "enclosedBy": {
+      "name": "SocketRestorableChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketRestorableChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "statusPath",
+    "qualifiedName": "http_file_uploader.SocketRestorableChunkedFileHandler.statusPath",
+    "href": "http_file_uploader/SocketRestorableChunkedFileHandler/statusPath.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "http.Client.send path used on status",
+    "enclosedBy": {
+      "name": "SocketRestorableChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketRestorableChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "uploadChunk",
+    "qualifiedName": "http_file_uploader.SocketRestorableChunkedFileHandler.uploadChunk",
+    "href": "http_file_uploader/SocketRestorableChunkedFileHandler/uploadChunk.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "method to handle the upload of a FileChunk",
+    "enclosedBy": {
+      "name": "SocketRestorableChunkedFileHandler",
+      "kind": 3,
+      "href": "http_file_uploader/SocketRestorableChunkedFileHandler-class.html"
+    }
+  },
+  {
+    "name": "StatusHeadersCallback",
+    "qualifiedName": "http_file_uploader.StatusHeadersCallback",
+    "href": "http_file_uploader/StatusHeadersCallback.html",
+    "kind": 21,
+    "packageRank": 0,
+    "desc": "compose request status headers from\nFileUploadPresentationResponse",
+    "enclosedBy": {
+      "name": "http_file_uploader",
+      "kind": 9,
+      "href": "http_file_uploader/"
+    }
+  },
+  {
+    "name": "StatusParser",
+    "qualifiedName": "http_file_uploader.StatusParser",
+    "href": "http_file_uploader/StatusParser.html",
+    "kind": 21,
+    "packageRank": 0,
+    "desc": "callback to convert http.Response into FileUploadStatusResponse",
+    "enclosedBy": {
+      "name": "http_file_uploader",
+      "kind": 9,
+      "href": "http_file_uploader/"
+    }
+  },
+  {
+    "name": "StatusPathCallback",
+    "qualifiedName": "http_file_uploader.StatusPathCallback",
+    "href": "http_file_uploader/StatusPathCallback.html",
+    "kind": 21,
+    "packageRank": 0,
+    "desc": "compose request status path\nfrom on FileUploadPresentationResponse",
+    "enclosedBy": {
+      "name": "http_file_uploader",
+      "kind": 9,
+      "href": "http_file_uploader/"
+    }
+  }
+]

@@ -1,0 +1,888 @@
+[
+  {
+    "name": "en_file_uploader",
+    "qualifiedName": "en_file_uploader",
+    "href": "en_file_uploader/",
+    "kind": 9,
+    "packageRank": 0,
+    "desc": "file uploader package used to handle file upload."
+  },
+  {
+    "name": "ChunkedFileUploadHandler",
+    "qualifiedName": "en_file_uploader.ChunkedFileUploadHandler",
+    "href": "en_file_uploader/ChunkedFileUploadHandler-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "ChunkedFileUploadHandler handle the file upload split in chunks",
+    "enclosedBy": {
+      "name": "en_file_uploader",
+      "kind": 9,
+      "href": "en_file_uploader/"
+    }
+  },
+  {
+    "name": "ChunkedFileUploadHandler.new",
+    "qualifiedName": "en_file_uploader.ChunkedFileUploadHandler.ChunkedFileUploadHandler.new",
+    "href": "en_file_uploader/ChunkedFileUploadHandler/ChunkedFileUploadHandler.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "constructor",
+    "enclosedBy": {
+      "name": "ChunkedFileUploadHandler",
+      "kind": 3,
+      "href": "en_file_uploader/ChunkedFileUploadHandler-class.html"
+    }
+  },
+  {
+    "name": "chunkSize",
+    "qualifiedName": "en_file_uploader.ChunkedFileUploadHandler.chunkSize",
+    "href": "en_file_uploader/ChunkedFileUploadHandler/chunkSize.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "chunk size, if null defaultChunkSize is used",
+    "enclosedBy": {
+      "name": "ChunkedFileUploadHandler",
+      "kind": 3,
+      "href": "en_file_uploader/ChunkedFileUploadHandler-class.html"
+    }
+  },
+  {
+    "name": "uploadChunk",
+    "qualifiedName": "en_file_uploader.ChunkedFileUploadHandler.uploadChunk",
+    "href": "en_file_uploader/ChunkedFileUploadHandler/uploadChunk.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "method to handle the upload of a FileChunk",
+    "enclosedBy": {
+      "name": "ChunkedFileUploadHandler",
+      "kind": 3,
+      "href": "en_file_uploader/ChunkedFileUploadHandler-class.html"
+    }
+  },
+  {
+    "name": "FileAlreadyUploadedException",
+    "qualifiedName": "en_file_uploader.FileAlreadyUploadedException",
+    "href": "en_file_uploader/FileAlreadyUploadedException-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "file already uploaded exception",
+    "enclosedBy": {
+      "name": "en_file_uploader",
+      "kind": 9,
+      "href": "en_file_uploader/"
+    }
+  },
+  {
+    "name": "FileAlreadyUploadedException.new",
+    "qualifiedName": "en_file_uploader.FileAlreadyUploadedException.FileAlreadyUploadedException.new",
+    "href": "en_file_uploader/FileAlreadyUploadedException/FileAlreadyUploadedException.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "file already uploaded exception",
+    "enclosedBy": {
+      "name": "FileAlreadyUploadedException",
+      "kind": 3,
+      "href": "en_file_uploader/FileAlreadyUploadedException-class.html"
+    }
+  },
+  {
+    "name": "toString",
+    "qualifiedName": "en_file_uploader.FileAlreadyUploadedException.toString",
+    "href": "en_file_uploader/FileAlreadyUploadedException/toString.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "A string representation of this object.",
+    "enclosedBy": {
+      "name": "FileAlreadyUploadedException",
+      "kind": 3,
+      "href": "en_file_uploader/FileAlreadyUploadedException-class.html"
+    }
+  },
+  {
+    "name": "FileChunk",
+    "qualifiedName": "en_file_uploader.FileChunk",
+    "href": "en_file_uploader/FileChunk-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "Represents a chunk of the file.",
+    "enclosedBy": {
+      "name": "en_file_uploader",
+      "kind": 9,
+      "href": "en_file_uploader/"
+    }
+  },
+  {
+    "name": "FileChunk.new",
+    "qualifiedName": "en_file_uploader.FileChunk.FileChunk.new",
+    "href": "en_file_uploader/FileChunk/FileChunk.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "constructor",
+    "enclosedBy": {
+      "name": "FileChunk",
+      "kind": 3,
+      "href": "en_file_uploader/FileChunk-class.html"
+    }
+  },
+  {
+    "name": "end",
+    "qualifiedName": "en_file_uploader.FileChunk.end",
+    "href": "en_file_uploader/FileChunk/end.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The byte at which the chunk ends.",
+    "enclosedBy": {
+      "name": "FileChunk",
+      "kind": 3,
+      "href": "en_file_uploader/FileChunk-class.html"
+    }
+  },
+  {
+    "name": "file",
+    "qualifiedName": "en_file_uploader.FileChunk.file",
+    "href": "en_file_uploader/FileChunk/file.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The file from which the chunk was taken.",
+    "enclosedBy": {
+      "name": "FileChunk",
+      "kind": 3,
+      "href": "en_file_uploader/FileChunk-class.html"
+    }
+  },
+  {
+    "name": "start",
+    "qualifiedName": "en_file_uploader.FileChunk.start",
+    "href": "en_file_uploader/FileChunk/start.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The byte from which the chunk starts.",
+    "enclosedBy": {
+      "name": "FileChunk",
+      "kind": 3,
+      "href": "en_file_uploader/FileChunk-class.html"
+    }
+  },
+  {
+    "name": "FileUploadController",
+    "qualifiedName": "en_file_uploader.FileUploadController",
+    "href": "en_file_uploader/FileUploadController-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "How to use",
+    "enclosedBy": {
+      "name": "en_file_uploader",
+      "kind": 9,
+      "href": "en_file_uploader/"
+    }
+  },
+  {
+    "name": "FileUploadController.new",
+    "qualifiedName": "en_file_uploader.FileUploadController.FileUploadController.new",
+    "href": "en_file_uploader/FileUploadController/FileUploadController.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "handler",
+    "enclosedBy": {
+      "name": "FileUploadController",
+      "kind": 3,
+      "href": "en_file_uploader/FileUploadController-class.html"
+    }
+  },
+  {
+    "name": "retry",
+    "qualifiedName": "en_file_uploader.FileUploadController.retry",
+    "href": "en_file_uploader/FileUploadController/retry.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "retry the file upload",
+    "enclosedBy": {
+      "name": "FileUploadController",
+      "kind": 3,
+      "href": "en_file_uploader/FileUploadController-class.html"
+    }
+  },
+  {
+    "name": "upload",
+    "qualifiedName": "en_file_uploader.FileUploadController.upload",
+    "href": "en_file_uploader/FileUploadController/upload.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "upload the file",
+    "enclosedBy": {
+      "name": "FileUploadController",
+      "kind": 3,
+      "href": "en_file_uploader/FileUploadController-class.html"
+    }
+  },
+  {
+    "name": "uploaded",
+    "qualifiedName": "en_file_uploader.FileUploadController.uploaded",
+    "href": "en_file_uploader/FileUploadController/uploaded.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "return true if the file has already been uploaded.\nA file that has been uploaded cannot be uploaded again.",
+    "enclosedBy": {
+      "name": "FileUploadController",
+      "kind": 3,
+      "href": "en_file_uploader/FileUploadController-class.html"
+    }
+  },
+  {
+    "name": "FileUploadHandler",
+    "qualifiedName": "en_file_uploader.FileUploadHandler",
+    "href": "en_file_uploader/FileUploadHandler-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "FileUploadHandler handle the upload of an entire file",
+    "enclosedBy": {
+      "name": "en_file_uploader",
+      "kind": 9,
+      "href": "en_file_uploader/"
+    }
+  },
+  {
+    "name": "FileUploadHandler.new",
+    "qualifiedName": "en_file_uploader.FileUploadHandler.FileUploadHandler.new",
+    "href": "en_file_uploader/FileUploadHandler/FileUploadHandler.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "controller",
+    "enclosedBy": {
+      "name": "FileUploadHandler",
+      "kind": 3,
+      "href": "en_file_uploader/FileUploadHandler-class.html"
+    }
+  },
+  {
+    "name": "upload",
+    "qualifiedName": "en_file_uploader.FileUploadHandler.upload",
+    "href": "en_file_uploader/FileUploadHandler/upload.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Method for uploading the entire file.",
+    "enclosedBy": {
+      "name": "FileUploadHandler",
+      "kind": 3,
+      "href": "en_file_uploader/FileUploadHandler-class.html"
+    }
+  },
+  {
+    "name": "FileUploadPresentationResponse",
+    "qualifiedName": "en_file_uploader.FileUploadPresentationResponse",
+    "href": "en_file_uploader/FileUploadPresentationResponse-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "The response of the file presentation.",
+    "enclosedBy": {
+      "name": "en_file_uploader",
+      "kind": 9,
+      "href": "en_file_uploader/"
+    }
+  },
+  {
+    "name": "FileUploadPresentationResponse.new",
+    "qualifiedName": "en_file_uploader.FileUploadPresentationResponse.FileUploadPresentationResponse.new",
+    "href": "en_file_uploader/FileUploadPresentationResponse/FileUploadPresentationResponse.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "constructor",
+    "enclosedBy": {
+      "name": "FileUploadPresentationResponse",
+      "kind": 3,
+      "href": "en_file_uploader/FileUploadPresentationResponse-class.html"
+    }
+  },
+  {
+    "name": "id",
+    "qualifiedName": "en_file_uploader.FileUploadPresentationResponse.id",
+    "href": "en_file_uploader/FileUploadPresentationResponse/id.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The id referenced by the file for chunk upload.",
+    "enclosedBy": {
+      "name": "FileUploadPresentationResponse",
+      "kind": 3,
+      "href": "en_file_uploader/FileUploadPresentationResponse-class.html"
+    }
+  },
+  {
+    "name": "FileUploadResult",
+    "qualifiedName": "en_file_uploader.FileUploadResult",
+    "href": "en_file_uploader/FileUploadResult-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "the response of a file uploaded",
+    "enclosedBy": {
+      "name": "en_file_uploader",
+      "kind": 9,
+      "href": "en_file_uploader/"
+    }
+  },
+  {
+    "name": "FileUploadResult.new",
+    "qualifiedName": "en_file_uploader.FileUploadResult.FileUploadResult.new",
+    "href": "en_file_uploader/FileUploadResult/FileUploadResult.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "the response of a file uploaded",
+    "enclosedBy": {
+      "name": "FileUploadResult",
+      "kind": 3,
+      "href": "en_file_uploader/FileUploadResult-class.html"
+    }
+  },
+  {
+    "name": "file",
+    "qualifiedName": "en_file_uploader.FileUploadResult.file",
+    "href": "en_file_uploader/FileUploadResult/file.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "file uploaded",
+    "enclosedBy": {
+      "name": "FileUploadResult",
+      "kind": 3,
+      "href": "en_file_uploader/FileUploadResult-class.html"
+    }
+  },
+  {
+    "name": "id",
+    "qualifiedName": "en_file_uploader.FileUploadResult.id",
+    "href": "en_file_uploader/FileUploadResult/id.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "In the case of a RestorableChunkedFileUploadHandler handler,\nthe id is the one from the presentation call.",
+    "enclosedBy": {
+      "name": "FileUploadResult",
+      "kind": 3,
+      "href": "en_file_uploader/FileUploadResult-class.html"
+    }
+  },
+  {
+    "name": "FileUploadStatusResponse",
+    "qualifiedName": "en_file_uploader.FileUploadStatusResponse",
+    "href": "en_file_uploader/FileUploadStatusResponse-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "The response of the file presentation.",
+    "enclosedBy": {
+      "name": "en_file_uploader",
+      "kind": 9,
+      "href": "en_file_uploader/"
+    }
+  },
+  {
+    "name": "FileUploadStatusResponse.new",
+    "qualifiedName": "en_file_uploader.FileUploadStatusResponse.FileUploadStatusResponse.new",
+    "href": "en_file_uploader/FileUploadStatusResponse/FileUploadStatusResponse.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "constructor",
+    "enclosedBy": {
+      "name": "FileUploadStatusResponse",
+      "kind": 3,
+      "href": "en_file_uploader/FileUploadStatusResponse-class.html"
+    }
+  },
+  {
+    "name": "nextChunkOffset",
+    "qualifiedName": "en_file_uploader.FileUploadStatusResponse.nextChunkOffset",
+    "href": "en_file_uploader/FileUploadStatusResponse/nextChunkOffset.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "offset of the next chunk to be sent",
+    "enclosedBy": {
+      "name": "FileUploadStatusResponse",
+      "kind": 3,
+      "href": "en_file_uploader/FileUploadStatusResponse-class.html"
+    }
+  },
+  {
+    "name": "FileUploaderException",
+    "qualifiedName": "en_file_uploader.FileUploaderException",
+    "href": "en_file_uploader/FileUploaderException-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "base class for file uploader exceptions",
+    "enclosedBy": {
+      "name": "en_file_uploader",
+      "kind": 9,
+      "href": "en_file_uploader/"
+    }
+  },
+  {
+    "name": "FileUploaderException.new",
+    "qualifiedName": "en_file_uploader.FileUploaderException.FileUploaderException.new",
+    "href": "en_file_uploader/FileUploaderException/FileUploaderException.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "FileUploaderException",
+      "kind": 3,
+      "href": "en_file_uploader/FileUploaderException-class.html"
+    }
+  },
+  {
+    "name": "FileUploaderLogger",
+    "qualifiedName": "en_file_uploader.FileUploaderLogger",
+    "href": "en_file_uploader/FileUploaderLogger-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "an abstract logger used inside the library to report\ninfo, warning and errors",
+    "enclosedBy": {
+      "name": "en_file_uploader",
+      "kind": 9,
+      "href": "en_file_uploader/"
+    }
+  },
+  {
+    "name": "FileUploaderLogger.new",
+    "qualifiedName": "en_file_uploader.FileUploaderLogger.FileUploaderLogger.new",
+    "href": "en_file_uploader/FileUploaderLogger/FileUploaderLogger.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "FileUploaderLogger",
+      "kind": 3,
+      "href": "en_file_uploader/FileUploaderLogger-class.html"
+    }
+  },
+  {
+    "name": "error",
+    "qualifiedName": "en_file_uploader.FileUploaderLogger.error",
+    "href": "en_file_uploader/FileUploaderLogger/error.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "error message.",
+    "enclosedBy": {
+      "name": "FileUploaderLogger",
+      "kind": 3,
+      "href": "en_file_uploader/FileUploaderLogger-class.html"
+    }
+  },
+  {
+    "name": "info",
+    "qualifiedName": "en_file_uploader.FileUploaderLogger.info",
+    "href": "en_file_uploader/FileUploaderLogger/info.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "info message",
+    "enclosedBy": {
+      "name": "FileUploaderLogger",
+      "kind": 3,
+      "href": "en_file_uploader/FileUploaderLogger-class.html"
+    }
+  },
+  {
+    "name": "warning",
+    "qualifiedName": "en_file_uploader.FileUploaderLogger.warning",
+    "href": "en_file_uploader/FileUploaderLogger/warning.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "warning message",
+    "enclosedBy": {
+      "name": "FileUploaderLogger",
+      "kind": 3,
+      "href": "en_file_uploader/FileUploaderLogger-class.html"
+    }
+  },
+  {
+    "name": "IFileUploadHandler",
+    "qualifiedName": "en_file_uploader.IFileUploadHandler",
+    "href": "en_file_uploader/IFileUploadHandler-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "The base class from which FileUploadHandler, ChunkedFileUploadHandler\nand RestorableChunkedFileUploadHandler were extended.",
+    "enclosedBy": {
+      "name": "en_file_uploader",
+      "kind": 9,
+      "href": "en_file_uploader/"
+    }
+  },
+  {
+    "name": "IFileUploadHandler.new",
+    "qualifiedName": "en_file_uploader.IFileUploadHandler.IFileUploadHandler.new",
+    "href": "en_file_uploader/IFileUploadHandler/IFileUploadHandler.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "constructor",
+    "enclosedBy": {
+      "name": "IFileUploadHandler",
+      "kind": 3,
+      "href": "en_file_uploader/IFileUploadHandler-class.html"
+    }
+  },
+  {
+    "name": "file",
+    "qualifiedName": "en_file_uploader.IFileUploadHandler.file",
+    "href": "en_file_uploader/IFileUploadHandler/file.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "file to handle",
+    "enclosedBy": {
+      "name": "IFileUploadHandler",
+      "kind": 3,
+      "href": "en_file_uploader/IFileUploadHandler-class.html"
+    }
+  },
+  {
+    "name": "ProgressCallback",
+    "qualifiedName": "en_file_uploader.ProgressCallback",
+    "href": "en_file_uploader/ProgressCallback.html",
+    "kind": 21,
+    "packageRank": 0,
+    "desc": "progress callback",
+    "enclosedBy": {
+      "name": "en_file_uploader",
+      "kind": 9,
+      "href": "en_file_uploader/"
+    }
+  },
+  {
+    "name": "RestorableChunkedFileUploadHandler",
+    "qualifiedName": "en_file_uploader.RestorableChunkedFileUploadHandler",
+    "href": "en_file_uploader/RestorableChunkedFileUploadHandler-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "RestorableChunkedFileUploadHandler handle the file upload in chunk with\nthe capability to retry the upload from the last chunk sent.\nFollow the README.md to understand how this can be made server side",
+    "enclosedBy": {
+      "name": "en_file_uploader",
+      "kind": 9,
+      "href": "en_file_uploader/"
+    }
+  },
+  {
+    "name": "RestorableChunkedFileUploadHandler.new",
+    "qualifiedName": "en_file_uploader.RestorableChunkedFileUploadHandler.RestorableChunkedFileUploadHandler.new",
+    "href": "en_file_uploader/RestorableChunkedFileUploadHandler/RestorableChunkedFileUploadHandler.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "constructor",
+    "enclosedBy": {
+      "name": "RestorableChunkedFileUploadHandler",
+      "kind": 3,
+      "href": "en_file_uploader/RestorableChunkedFileUploadHandler-class.html"
+    }
+  },
+  {
+    "name": "chunkSize",
+    "qualifiedName": "en_file_uploader.RestorableChunkedFileUploadHandler.chunkSize",
+    "href": "en_file_uploader/RestorableChunkedFileUploadHandler/chunkSize.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "chunk size, if null defaultChunkSize is used",
+    "enclosedBy": {
+      "name": "RestorableChunkedFileUploadHandler",
+      "kind": 3,
+      "href": "en_file_uploader/RestorableChunkedFileUploadHandler-class.html"
+    }
+  },
+  {
+    "name": "present",
+    "qualifiedName": "en_file_uploader.RestorableChunkedFileUploadHandler.present",
+    "href": "en_file_uploader/RestorableChunkedFileUploadHandler/present.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "the method to present the file; before uploading the chunks, the file\nis presented and needs FileUploadPresentationResponse.",
+    "enclosedBy": {
+      "name": "RestorableChunkedFileUploadHandler",
+      "kind": 3,
+      "href": "en_file_uploader/RestorableChunkedFileUploadHandler-class.html"
+    }
+  },
+  {
+    "name": "status",
+    "qualifiedName": "en_file_uploader.RestorableChunkedFileUploadHandler.status",
+    "href": "en_file_uploader/RestorableChunkedFileUploadHandler/status.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "the method that, given the presentation id,\nallows requesting the file's state.",
+    "enclosedBy": {
+      "name": "RestorableChunkedFileUploadHandler",
+      "kind": 3,
+      "href": "en_file_uploader/RestorableChunkedFileUploadHandler-class.html"
+    }
+  },
+  {
+    "name": "uploadChunk",
+    "qualifiedName": "en_file_uploader.RestorableChunkedFileUploadHandler.uploadChunk",
+    "href": "en_file_uploader/RestorableChunkedFileUploadHandler/uploadChunk.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "method to handle the upload of a FileChunk",
+    "enclosedBy": {
+      "name": "RestorableChunkedFileUploadHandler",
+      "kind": 3,
+      "href": "en_file_uploader/RestorableChunkedFileUploadHandler-class.html"
+    }
+  },
+  {
+    "name": "UnexpectedHandlerException",
+    "qualifiedName": "en_file_uploader.UnexpectedHandlerException",
+    "href": "en_file_uploader/UnexpectedHandlerException-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "unexpected handler exception",
+    "enclosedBy": {
+      "name": "en_file_uploader",
+      "kind": 9,
+      "href": "en_file_uploader/"
+    }
+  },
+  {
+    "name": "UnexpectedHandlerException.new",
+    "qualifiedName": "en_file_uploader.UnexpectedHandlerException.UnexpectedHandlerException.new",
+    "href": "en_file_uploader/UnexpectedHandlerException/UnexpectedHandlerException.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "unexpected handler exception",
+    "enclosedBy": {
+      "name": "UnexpectedHandlerException",
+      "kind": 3,
+      "href": "en_file_uploader/UnexpectedHandlerException-class.html"
+    }
+  },
+  {
+    "name": "handler",
+    "qualifiedName": "en_file_uploader.UnexpectedHandlerException.handler",
+    "href": "en_file_uploader/UnexpectedHandlerException/handler.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "unrecognized file upload handler",
+    "enclosedBy": {
+      "name": "UnexpectedHandlerException",
+      "kind": 3,
+      "href": "en_file_uploader/UnexpectedHandlerException-class.html"
+    }
+  },
+  {
+    "name": "toString",
+    "qualifiedName": "en_file_uploader.UnexpectedHandlerException.toString",
+    "href": "en_file_uploader/UnexpectedHandlerException/toString.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "A string representation of this object.",
+    "enclosedBy": {
+      "name": "UnexpectedHandlerException",
+      "kind": 3,
+      "href": "en_file_uploader/UnexpectedHandlerException-class.html"
+    }
+  },
+  {
+    "name": "XFile",
+    "qualifiedName": "en_file_uploader.XFile",
+    "href": "en_file_uploader/XFile-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "A CrossFile is a cross-platform, simplified File abstraction.",
+    "enclosedBy": {
+      "name": "en_file_uploader",
+      "kind": 9,
+      "href": "en_file_uploader/"
+    }
+  },
+  {
+    "name": "XFile.fromData",
+    "qualifiedName": "en_file_uploader.XFile.XFile.fromData",
+    "href": "en_file_uploader/XFile/XFile.fromData.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "Construct a CrossFile object from its data",
+    "enclosedBy": {
+      "name": "XFile",
+      "kind": 3,
+      "href": "en_file_uploader/XFile-class.html"
+    }
+  },
+  {
+    "name": "XFile.new",
+    "qualifiedName": "en_file_uploader.XFile.XFile.new",
+    "href": "en_file_uploader/XFile/XFile.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "Construct a CrossFile object from its path.",
+    "enclosedBy": {
+      "name": "XFile",
+      "kind": 3,
+      "href": "en_file_uploader/XFile-class.html"
+    }
+  },
+  {
+    "name": "lastModified",
+    "qualifiedName": "en_file_uploader.XFile.lastModified",
+    "href": "en_file_uploader/XFile/lastModified.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Get the last-modified time for the CrossFile",
+    "enclosedBy": {
+      "name": "XFile",
+      "kind": 3,
+      "href": "en_file_uploader/XFile-class.html"
+    }
+  },
+  {
+    "name": "length",
+    "qualifiedName": "en_file_uploader.XFile.length",
+    "href": "en_file_uploader/XFile/length.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Get the length of the file. Returns a Future&lt;int&gt; that completes with the length in bytes.",
+    "enclosedBy": {
+      "name": "XFile",
+      "kind": 3,
+      "href": "en_file_uploader/XFile-class.html"
+    }
+  },
+  {
+    "name": "mimeType",
+    "qualifiedName": "en_file_uploader.XFile.mimeType",
+    "href": "en_file_uploader/XFile/mimeType.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "For web, it may be necessary for a file to know its MIME type.",
+    "enclosedBy": {
+      "name": "XFile",
+      "kind": 3,
+      "href": "en_file_uploader/XFile-class.html"
+    }
+  },
+  {
+    "name": "name",
+    "qualifiedName": "en_file_uploader.XFile.name",
+    "href": "en_file_uploader/XFile/name.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The name of the file as it was selected by the user in their device.",
+    "enclosedBy": {
+      "name": "XFile",
+      "kind": 3,
+      "href": "en_file_uploader/XFile-class.html"
+    }
+  },
+  {
+    "name": "openRead",
+    "qualifiedName": "en_file_uploader.XFile.openRead",
+    "href": "en_file_uploader/XFile/openRead.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Create a new independent Stream for the contents of this file.",
+    "enclosedBy": {
+      "name": "XFile",
+      "kind": 3,
+      "href": "en_file_uploader/XFile-class.html"
+    }
+  },
+  {
+    "name": "path",
+    "qualifiedName": "en_file_uploader.XFile.path",
+    "href": "en_file_uploader/XFile/path.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Get the path of the picked file.",
+    "enclosedBy": {
+      "name": "XFile",
+      "kind": 3,
+      "href": "en_file_uploader/XFile-class.html"
+    }
+  },
+  {
+    "name": "readAsBytes",
+    "qualifiedName": "en_file_uploader.XFile.readAsBytes",
+    "href": "en_file_uploader/XFile/readAsBytes.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Asynchronously read the entire file contents as a list of bytes.",
+    "enclosedBy": {
+      "name": "XFile",
+      "kind": 3,
+      "href": "en_file_uploader/XFile-class.html"
+    }
+  },
+  {
+    "name": "readAsString",
+    "qualifiedName": "en_file_uploader.XFile.readAsString",
+    "href": "en_file_uploader/XFile/readAsString.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Asynchronously read the entire file contents as a string using the given Encoding.",
+    "enclosedBy": {
+      "name": "XFile",
+      "kind": 3,
+      "href": "en_file_uploader/XFile-class.html"
+    }
+  },
+  {
+    "name": "saveTo",
+    "qualifiedName": "en_file_uploader.XFile.saveTo",
+    "href": "en_file_uploader/XFile/saveTo.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Save the CrossFile at the indicated file path.",
+    "enclosedBy": {
+      "name": "XFile",
+      "kind": 3,
+      "href": "en_file_uploader/XFile-class.html"
+    }
+  },
+  {
+    "name": "defaultChunkSize",
+    "qualifiedName": "en_file_uploader.defaultChunkSize",
+    "href": "en_file_uploader/defaultChunkSize.html",
+    "kind": 20,
+    "packageRank": 0,
+    "desc": "get the default chunk size. Can be set with setDefaultChunkSize",
+    "enclosedBy": {
+      "name": "en_file_uploader",
+      "kind": 9,
+      "href": "en_file_uploader/"
+    }
+  },
+  {
+    "name": "setDefaultChunkSize",
+    "qualifiedName": "en_file_uploader.setDefaultChunkSize",
+    "href": "en_file_uploader/setDefaultChunkSize.html",
+    "kind": 8,
+    "packageRank": 0,
+    "desc": "to set the default chunk size used by\nChunkedFileUploadHandler and RestorableChunkedFileUploadHandler",
+    "enclosedBy": {
+      "name": "en_file_uploader",
+      "kind": 9,
+      "href": "en_file_uploader/"
+    }
+  }
+]

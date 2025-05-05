@@ -1,0 +1,279 @@
+{
+  "name": "buxing",
+  "latest": {
+    "version": "0.3.0",
+    "pubspec": {
+      "name": "buxing",
+      "description": "An HTTP file downloader packed with many features -> resumable downloads, multiple connections, buffering, auto-retry, etc.",
+      "version": "0.3.0",
+      "homepage": "https://github.com/mgenware/buxing",
+      "environment": {
+        "sdk": ">=2.13.0 <3.0.0"
+      },
+      "dev_dependencies": {
+        "test": "^1.16.0",
+        "uuid": "^3.0.5",
+        "convert": "^3.0.1",
+        "lints": "^2.0.0",
+        "path": "^1.8.0",
+        "crypto": "^3.0.1",
+        "mgenware_dart_lints": "^2.1.0"
+      },
+      "dependencies": {
+        "http": "^0.13.4",
+        "meta": "^1.7.0",
+        "async": "^2.8.2",
+        "ansicolor": "^2.0.1",
+        "buffered_list_stream": "^1.3.0"
+      }
+    },
+    "archive_url": "https://pub.dev/api/archives/buxing-0.3.0.tar.gz",
+    "archive_sha256": "49aa036a0b2f542075db8ac02a17716a8f2cdb53b85fe631006d8f8a550f15c4",
+    "published": "2023-01-24T03:58:47.577965Z"
+  },
+  "versions": [
+    {
+      "version": "0.1.0",
+      "pubspec": {
+        "name": "buxing",
+        "description": "A file downloader. Supports resumable downloads, multiple connections, buffering, auto-retry, etc.",
+        "version": "0.1.0",
+        "homepage": "https://github.com/mgenware/buxing",
+        "environment": {
+          "sdk": ">=2.13.0 <3.0.0"
+        },
+        "dev_dependencies": {
+          "test": "^1.16.0",
+          "uuid": "^3.0.5",
+          "convert": "^3.0.1",
+          "mgenware_dart_lints": "^1.0.0",
+          "path": "^1.8.0",
+          "crypto": "^3.0.1"
+        },
+        "dependencies": {
+          "http": "^0.13.4",
+          "meta": "^1.7.0",
+          "async": "^2.8.2",
+          "ansicolor": "^2.0.1",
+          "buffered_list_stream": "^1.0.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/buxing-0.1.0.tar.gz",
+      "archive_sha256": "3e075cbaaee21479aad371d36fa101a579583b3f900109063d5d5ab0bff0534b",
+      "published": "2021-11-20T20:00:44.856147Z"
+    },
+    {
+      "version": "0.1.1",
+      "pubspec": {
+        "name": "buxing",
+        "description": "A file downloader. Supports resumable downloads, multiple connections, buffering, auto-retry, etc.",
+        "version": "0.1.1",
+        "homepage": "https://github.com/mgenware/buxing",
+        "environment": {
+          "sdk": ">=2.13.0 <3.0.0"
+        },
+        "dev_dependencies": {
+          "test": "^1.16.0",
+          "uuid": "^3.0.5",
+          "convert": "^3.0.1",
+          "mgenware_dart_lints": "^1.0.0",
+          "path": "^1.8.0",
+          "crypto": "^3.0.1"
+        },
+        "dependencies": {
+          "http": "^0.13.4",
+          "meta": "^1.7.0",
+          "async": "^2.8.2",
+          "ansicolor": "^2.0.1",
+          "buffered_list_stream": "^1.0.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/buxing-0.1.1.tar.gz",
+      "archive_sha256": "acea34a71d94960330ecac9e656344d0ff298c0e07cba64b3c07fdb623661dec",
+      "published": "2021-11-21T07:01:49.966053Z"
+    },
+    {
+      "version": "0.1.2",
+      "pubspec": {
+        "name": "buxing",
+        "description": "An HTTP file downloader packed with many features -> resumable downloads, multiple connections, buffering, auto-retry, etc.",
+        "version": "0.1.2",
+        "homepage": "https://github.com/mgenware/buxing",
+        "environment": {
+          "sdk": ">=2.13.0 <3.0.0"
+        },
+        "dev_dependencies": {
+          "test": "^1.16.0",
+          "uuid": "^3.0.5",
+          "convert": "^3.0.1",
+          "mgenware_dart_lints": "^1.0.0",
+          "path": "^1.8.0",
+          "crypto": "^3.0.1"
+        },
+        "dependencies": {
+          "http": "^0.13.4",
+          "meta": "^1.7.0",
+          "async": "^2.8.2",
+          "ansicolor": "^2.0.1",
+          "buffered_list_stream": "^1.0.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/buxing-0.1.2.tar.gz",
+      "archive_sha256": "761ec5f0853b21a2c9091038640652e293273c2df2de6bebabe505e8bc54e644",
+      "published": "2021-11-21T16:03:44.521816Z"
+    },
+    {
+      "version": "0.1.3",
+      "pubspec": {
+        "name": "buxing",
+        "description": "An HTTP file downloader packed with many features -> resumable downloads, multiple connections, buffering, auto-retry, etc.",
+        "version": "0.1.3",
+        "homepage": "https://github.com/mgenware/buxing",
+        "environment": {
+          "sdk": ">=2.13.0 <3.0.0"
+        },
+        "dev_dependencies": {
+          "test": "^1.16.0",
+          "uuid": "^3.0.5",
+          "convert": "^3.0.1",
+          "mgenware_dart_lints": "^1.0.0",
+          "path": "^1.8.0",
+          "crypto": "^3.0.1"
+        },
+        "dependencies": {
+          "http": "^0.13.4",
+          "meta": "^1.7.0",
+          "async": "^2.8.2",
+          "ansicolor": "^2.0.1",
+          "buffered_list_stream": "^1.0.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/buxing-0.1.3.tar.gz",
+      "archive_sha256": "3214472baf64dd044221301378660479ca7f0fea07709e6b2aa85ee721a9dac6",
+      "published": "2021-11-25T15:45:11.900400Z"
+    },
+    {
+      "version": "0.1.4",
+      "pubspec": {
+        "name": "buxing",
+        "description": "An HTTP file downloader packed with many features -> resumable downloads, multiple connections, buffering, auto-retry, etc.",
+        "version": "0.1.4",
+        "homepage": "https://github.com/mgenware/buxing",
+        "environment": {
+          "sdk": ">=2.13.0 <3.0.0"
+        },
+        "dev_dependencies": {
+          "test": "^1.16.0",
+          "uuid": "^3.0.5",
+          "convert": "^3.0.1",
+          "lints": "^2.0.0",
+          "path": "^1.8.0",
+          "crypto": "^3.0.1"
+        },
+        "dependencies": {
+          "http": "^0.13.4",
+          "meta": "^1.7.0",
+          "async": "^2.8.2",
+          "ansicolor": "^2.0.1",
+          "buffered_list_stream": "^1.0.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/buxing-0.1.4.tar.gz",
+      "archive_sha256": "512f353280c7edab7349d6830b7d0505659f6f6989c8f2eb63c41a8e6ef14dd7",
+      "published": "2022-05-17T11:28:08.420406Z"
+    },
+    {
+      "version": "0.2.0",
+      "pubspec": {
+        "name": "buxing",
+        "description": "An HTTP file downloader packed with many features -> resumable downloads, multiple connections, buffering, auto-retry, etc.",
+        "version": "0.2.0",
+        "homepage": "https://github.com/mgenware/buxing",
+        "environment": {
+          "sdk": ">=2.13.0 <3.0.0"
+        },
+        "dev_dependencies": {
+          "test": "^1.16.0",
+          "uuid": "^3.0.5",
+          "convert": "^3.0.1",
+          "lints": "^2.0.0",
+          "path": "^1.8.0",
+          "crypto": "^3.0.1",
+          "mgenware_dart_lints": "^2.1.0"
+        },
+        "dependencies": {
+          "http": "^0.13.4",
+          "meta": "^1.7.0",
+          "async": "^2.8.2",
+          "ansicolor": "^2.0.1",
+          "buffered_list_stream": "^1.3.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/buxing-0.2.0.tar.gz",
+      "archive_sha256": "f792f4abea92eddf8780a03b7427fe77e2e54085670de8892fbd6eb5c9d48715",
+      "published": "2022-12-12T09:31:02.584689Z"
+    },
+    {
+      "version": "0.2.1",
+      "pubspec": {
+        "name": "buxing",
+        "description": "An HTTP file downloader packed with many features -> resumable downloads, multiple connections, buffering, auto-retry, etc.",
+        "version": "0.2.1",
+        "homepage": "https://github.com/mgenware/buxing",
+        "environment": {
+          "sdk": ">=2.13.0 <3.0.0"
+        },
+        "dev_dependencies": {
+          "test": "^1.16.0",
+          "uuid": "^3.0.5",
+          "convert": "^3.0.1",
+          "lints": "^2.0.0",
+          "path": "^1.8.0",
+          "crypto": "^3.0.1",
+          "mgenware_dart_lints": "^2.1.0"
+        },
+        "dependencies": {
+          "http": "^0.13.4",
+          "meta": "^1.7.0",
+          "async": "^2.8.2",
+          "ansicolor": "^2.0.1",
+          "buffered_list_stream": "^1.3.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/buxing-0.2.1.tar.gz",
+      "archive_sha256": "ba4c4cd3e36d266d3d3fa6dbe254b1befee0270d5653ba8d2d1819b93868d88d",
+      "published": "2022-12-12T09:57:05.472850Z"
+    },
+    {
+      "version": "0.3.0",
+      "pubspec": {
+        "name": "buxing",
+        "description": "An HTTP file downloader packed with many features -> resumable downloads, multiple connections, buffering, auto-retry, etc.",
+        "version": "0.3.0",
+        "homepage": "https://github.com/mgenware/buxing",
+        "environment": {
+          "sdk": ">=2.13.0 <3.0.0"
+        },
+        "dev_dependencies": {
+          "test": "^1.16.0",
+          "uuid": "^3.0.5",
+          "convert": "^3.0.1",
+          "lints": "^2.0.0",
+          "path": "^1.8.0",
+          "crypto": "^3.0.1",
+          "mgenware_dart_lints": "^2.1.0"
+        },
+        "dependencies": {
+          "http": "^0.13.4",
+          "meta": "^1.7.0",
+          "async": "^2.8.2",
+          "ansicolor": "^2.0.1",
+          "buffered_list_stream": "^1.3.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/buxing-0.3.0.tar.gz",
+      "archive_sha256": "49aa036a0b2f542075db8ac02a17716a8f2cdb53b85fe631006d8f8a550f15c4",
+      "published": "2023-01-24T03:58:47.577965Z"
+    }
+  ]
+}

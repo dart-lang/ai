@@ -1,0 +1,27 @@
+{
+  "grantedPoints": 150,
+  "maxPoints": 160,
+  "likeCount": 273,
+  "downloadCount30Days": 160361,
+  "tags": [
+    "publisher:rodion-m.ru",
+    "sdk:dart",
+    "sdk:flutter",
+    "platform:android",
+    "platform:ios",
+    "platform:windows",
+    "platform:linux",
+    "platform:macos",
+    "platform:web",
+    "runtime:native-aot",
+    "runtime:native-jit",
+    "runtime:web",
+    "is:null-safe",
+    "is:wasm-ready",
+    "is:dart3-compatible",
+    "license:mit",
+    "license:fsf-libre",
+    "license:osi-approved"
+  ],
+  "lastUpdated": "2025-04-24T14:22:17.468715"
+}
