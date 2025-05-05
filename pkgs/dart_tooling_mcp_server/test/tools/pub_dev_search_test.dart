@@ -30,7 +30,7 @@ void main() {
     pubDevSearchTool = tools.singleWhere(
       (t) => t.name == PubDevSupport.pubDevTool.name,
     );
-    createClient = GoldenResponseClient.new;
+    createClient = _GoldenResponseClient.new;
   });
 
   test('searches pub dev, and gathers information about packages', () async {
@@ -91,8 +91,8 @@ void main() {
   });
 }
 
-class GoldenResponseClient implements Client {
-  GoldenResponseClient();
+class _GoldenResponseClient implements Client {
+  _GoldenResponseClient();
   @override
   Future<String> read(Uri url, {Map<String, String>? headers}) async {
     return await _goldenResponse(url);
