@@ -20,7 +20,7 @@ base mixin PubDevSupport on ToolsSupport {
 
   /// Implementation of the [pubDevTool].
   Future<CallToolResult> _runPubDevSearch(CallToolRequest request) async {
-    final query = request.arguments?['search-query'] as String?;
+    final query = request.arguments?['query'] as String?;
     if (query == null) {
       return CallToolResult(
         content: [
@@ -143,7 +143,7 @@ base mixin PubDevSupport on ToolsSupport {
     annotations: ToolAnnotations(title: 'pub.dev search', readOnlyHint: false),
     inputSchema: Schema.object(
       properties: {
-        'search-query': Schema.string(
+        'query': Schema.string(
           title: 'Search query',
           description: '''
 The query to run against pub.dev package search.
