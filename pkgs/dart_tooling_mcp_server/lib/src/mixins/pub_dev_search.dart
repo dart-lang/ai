@@ -8,8 +8,6 @@ import 'dart:convert';
 import 'package:dart_mcp/server.dart';
 import 'package:http/http.dart';
 
-import '../utils/process_manager.dart';
-
 /// Mix this in to any MCPServer to add support for doing searches on pub.dev.
 base mixin PubDevSupport on ToolsSupport {
   @override
