@@ -1,5 +1,8 @@
 ## 0.2.1-wip
 
+- Adds a check in the pub tool that checks to see if a project is a Flutter
+  project before it calls the pub tool. If it is, then it automatically runs
+  'flutter pub' instead of 'dart pub'.
 - Update workflow example to show thinking spinner and input and output token
   usage.
 
