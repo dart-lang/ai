@@ -152,9 +152,7 @@ void main() {
         // about it.
         () => _FixedResponseClient((url) {
           if (url.toString() == 'https://pub.dev/api/search?q=retry') {
-            return jsonEncode({'packages': <Object?>[
-              ],
-            });
+            return jsonEncode({'packages': <Object?>[]});
           } else {
             throw ClientException('No internet');
           }
