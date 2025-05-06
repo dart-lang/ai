@@ -20,4 +20,5 @@ dev_dependencies:
   cli_util: ^0.4.2
   dart_flutter_team_lints: ^3.2.1
   google_generative_ai: ^0.4.6
+  path: ^1.9.1
   test: ^1.25.15

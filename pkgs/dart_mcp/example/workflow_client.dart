@@ -330,7 +330,10 @@ final class WorkflowClient extends MCPClient with RootsSupport {
   /// Connects to all servers using [serverCommands].
   Future<void> _connectToServers() async {
     for (var server in serverCommands) {
-      serverConnections.add(await connectStdioServer(server, []));
+      final parts = server.split(' ');
+      serverConnections.add(
+        await connectStdioServer(parts.first, parts.skip(1).toList()),
+      );
     }
   }
 
