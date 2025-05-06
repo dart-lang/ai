@@ -91,6 +91,7 @@ final class SimpleFileSystemServer extends MCPServer
     if (!await file.exists()) {
       return CallToolResult(
         content: [TextContent(text: 'File does not exist')],
+        isError: true,
       );
     }
     return CallToolResult(
@@ -107,6 +108,7 @@ final class SimpleFileSystemServer extends MCPServer
     if (!await file.exists()) {
       return CallToolResult(
         content: [TextContent(text: 'File does not exist')],
+        isError: true,
       );
     }
     await file.delete();
