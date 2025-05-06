@@ -92,11 +92,14 @@ void main() {
   });
 
   test('Reports failure on missing response', () async {
-    createClient = _NoResponseClient.new;
+    createClient =
+        () => _FixedResponseClient((_) {
+          throw ClientException('No internet');
+        });
 
     final request = CallToolRequest(
       name: pubDevSearchTool.name,
-      arguments: {'query': 'retry', 'latestVersion': '3.1.2'},
+      arguments: {'query': 'retry'},
     );
 
     final result = await testHarness.callToolWithRetry(
@@ -110,14 +113,48 @@ void main() {
       contains('Failed searching pub.dev: ClientException: No internet'),
     );
   });
+
+  test('Tolerates missing sub-responses', () async {
+    createClient =
+        // Serve a single package as search result, but provide no further information
+        // about it.
+        () => _FixedResponseClient((url) {
+          if (url.toString() == 'https://pub.dev/api/search?q=retry') {
+            return jsonEncode({
+              'packages': [
+                {'package': 'retry'},
+              ],
+            });
+          } else {
+            throw ClientException('No internet');
+          }
+        });
+
+    final request = CallToolRequest(
+      name: pubDevSearchTool.name,
+      arguments: {'query': 'retry'},
+    );
+
+    final result = await testHarness.callToolWithRetry(
+      request,
+      maxTries: 1,
+      expectError: true,
+    );
+    expect(result.content.length, 1);
+    expect(json.decode((result.content[0] as TextContent).text), {
+      'packageName': 'retry',
+    });
+  });
 }
 
-class _NoResponseClient implements Client {
-  _NoResponseClient();
+class _FixedResponseClient implements Client {
+  final String Function(Uri url) handler;
+
+  _FixedResponseClient(this.handler);
 
   @override
   Future<String> read(Uri url, {Map<String, String>? headers}) async {
-    throw ClientException('No internet');
+    return handler(url);
   }
 
   @override

@@ -52,34 +52,29 @@ base mixin PubDevSupport on ToolsSupport {
             'packages',
           ]).take(10).map((p) => dig<String>(p, ['package'])).toList();
 
-      Future<Object?> retrieve(Uri url) async {
+      Future<Object?> retrieve(String path) async {
         return _pool.withResource(() async {
-          return jsonDecode(await client.read(url));
+          try {
+            return jsonDecode(
+              await client.read(
+                Uri(scheme: 'https', host: 'pub.dev', path: path),
+              ),
+            );
+          } on ClientException {
+            return null;
+          }
         });
       }
 
-      // Retrieve information about all the packages in parallel
-      final subQueryFutures = packageNames
-          .expand(
-            (packageName) => [
-              Uri(
-                scheme: 'https',
-                host: 'pub.dev',
-                path: 'api/packages/$packageName',
-              ),
-              Uri(
-                scheme: 'https',
-                host: 'pub.dev',
-                path: 'api/packages/$packageName/score',
-              ),
-              Uri(
-                scheme: 'https',
-                host: 'pub.dev',
-                path: 'documentation/$packageName/latest/index.json',
-              ),
-            ],
-          )
-          .map(retrieve);
+      // Retrieve information about all the packages in parallel.
+      final subQueryFutures = packageNames.map(
+        (packageName) =>
+            (
+              retrieve('api/packages/$packageName'),
+              retrieve('api/packages/$packageName/score'),
+              retrieve('documentation/$packageName/latest/index.json'),
+            ).wait,
+      );
 
       final subqueryResults = await Future.wait(subQueryFutures);
 
@@ -88,51 +83,57 @@ base mixin PubDevSupport on ToolsSupport {
       final results = <TextContent>[];
       for (var i = 0; i < packageNames.length; i++) {
         final packageName = packageNames[i];
-        final packageListing = subqueryResults[i * 3];
-        final scoreResult = subqueryResults[i * 3 + 1];
-        final index = subqueryResults[i * 3 + 2];
-        final latestVersion = dig<String>(packageListing, [
-          'latest',
-          'version',
-        ]);
-        final description = dig<String>(packageListing, [
-          'latest',
-          'pubspec',
-          'description',
-        ]);
+        final versionListing = subqueryResults[i].$1;
+        final scoreResult = subqueryResults[i].$2;
+        final index = subqueryResults[i].$3;
 
-        final scores = {
-          'pubPoints': dig<int>(scoreResult, ['grantedPoints']),
-          'maxPubPoints': dig<int>(scoreResult, ['maxPoints']),
-          'likes': dig<int>(scoreResult, ['likeCount']),
-          'downloadCount': dig<int>(scoreResult, ['downloadCount30Days']),
-        };
-        final topics =
-            dig<List>(scoreResult, [
-              'tags',
-            ]).where((t) => (t as String).startsWith('topic:')).toList();
-        final licenses =
-            dig<List>(scoreResult, [
-              'tags',
-            ]).where((t) => (t as String).startsWith('license')).toList();
-        final items = dig<List>(index, []);
-        final identifiers = <Map<String, Object?>>[];
-        for (final item in items) {
-          identifiers.add({
-            'qualifiedName': dig(item, ['qualifiedName']),
-            'desc': 'Object holding options for retrying a function.',
-          });
+        List<Object?> identifiers(Object index) {
+          final items = dig<List>(index, []);
+          final identifiers = <Map<String, Object?>>[];
+          for (final item in items) {
+            identifiers.add({
+              'qualifiedName': dig(item, ['qualifiedName']),
+              'desc': 'Object holding options for retrying a function.',
+            });
+          }
+          return identifiers;
         }
+
         results.add(
           TextContent(
             text: jsonEncode({
               'packageName': packageName,
-              'latestVersion': latestVersion,
-              'description': description,
-              'scores': scores,
-              'topics': topics,
-              'licenses': licenses,
-              'api': identifiers,
+              if (versionListing != null) ...{
+                'latestVersion': dig<String>(versionListing, [
+                  'latest',
+                  'version',
+                ]),
+                'description': dig<String>(versionListing, [
+                  'latest',
+                  'pubspec',
+                  'description',
+                ]),
+              },
+              if (scoreResult != null) ...{
+                'scores': {
+                  'pubPoints': dig<int>(scoreResult, ['grantedPoints']),
+                  'maxPubPoints': dig<int>(scoreResult, ['maxPoints']),
+                  'likes': dig<int>(scoreResult, ['likeCount']),
+                  'downloadCount': dig<int>(scoreResult, [
+                    'downloadCount30Days',
+                  ]),
+                },
+                'topics':
+                    dig<List>(
+                      scoreResult,
+                      ['tags'],
+                    ).where((t) => (t as String).startsWith('topic:')).toList(),
+                'licenses':
+                    dig<List>(scoreResult, ['tags'])
+                        .where((t) => (t as String).startsWith('license'))
+                        .toList(),
+              },
+              if (index != null) ...{'api': identifiers(index)},
             }),
           ),
         );
