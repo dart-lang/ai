@@ -52,7 +52,7 @@ void main() {
       // Verify the command was sent to the process maanger without error.
       expect(result.isError, isNot(true));
       expect(testProcessManager.commandsRan, [
-        ['dart', 'pub', 'add', 'foo'],
+        ['flutter', 'pub', 'add', 'foo'],
       ]);
     });
 
@@ -72,7 +72,7 @@ void main() {
       // Verify the command was sent to the process maanger without error.
       expect(result.isError, isNot(true));
       expect(testProcessManager.commandsRan, [
-        ['dart', 'pub', 'remove', 'foo'],
+        ['flutter', 'pub', 'remove', 'foo'],
       ]);
     });
 
@@ -91,7 +91,7 @@ void main() {
       // Verify the command was sent to the process maanger without error.
       expect(result.isError, isNot(true));
       expect(testProcessManager.commandsRan, [
-        ['dart', 'pub', 'get'],
+        ['flutter', 'pub', 'get'],
       ]);
     });
 
@@ -110,7 +110,7 @@ void main() {
       // Verify the command was sent to the process maanger without error.
       expect(result.isError, isNot(true));
       expect(testProcessManager.commandsRan, [
-        ['dart', 'pub', 'upgrade'],
+        ['flutter', 'pub', 'upgrade'],
       ]);
     });
 
