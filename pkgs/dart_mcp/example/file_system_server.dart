@@ -44,6 +44,7 @@ final class SimpleFileSystemServer extends MCPServer
     registerTool(readFileTool, _readFile);
     registerTool(writeFileTool, _writeFile);
     registerTool(deleteFileTool, _deleteFile);
+    registerTool(listFilesTool, _listFiles);
     return super.initialize(request);
   }
 
@@ -54,17 +55,17 @@ final class SimpleFileSystemServer extends MCPServer
   Future<CallToolResult?> _checkAllowedPath(String path) async {
     for (var root in await roots) {
       if (root.uri == path || p.isWithin(root.uri, path)) {
-        return CallToolResult(
-          content: [
-            TextContent(
-              text: 'Path not allowed $path, must be under a known root.',
-            ),
-          ],
-          isError: true,
-        );
+        return null;
       }
     }
-    return null;
+    return CallToolResult(
+      content: [
+        TextContent(
+          text: 'Path not allowed $path, must be under a known root.',
+        ),
+      ],
+      isError: true,
+    );
   }
 
   Future<CallToolResult> _writeFile(CallToolRequest request) async {
@@ -73,7 +74,7 @@ final class SimpleFileSystemServer extends MCPServer
     if (errorResult != null) return errorResult;
 
     final contents = request.arguments!['contents'] as String;
-    final file = io.File(path);
+    final file = io.File.fromUri(Uri.parse(path));
     if (!await file.exists()) {
       await file.create(recursive: true);
     }
@@ -86,7 +87,7 @@ final class SimpleFileSystemServer extends MCPServer
     final errorResult = await _checkAllowedPath(path);
     if (errorResult != null) return errorResult;
 
-    final file = io.File(path);
+    final file = io.File.fromUri(Uri.parse(path));
     if (!await file.exists()) {
       return CallToolResult(
         content: [TextContent(text: 'File does not exist')],
@@ -102,7 +103,7 @@ final class SimpleFileSystemServer extends MCPServer
     final errorResult = await _checkAllowedPath(path);
     if (errorResult != null) return errorResult;
 
-    final file = io.File(path);
+    final file = io.File.fromUri(Uri.parse(path));
     if (!await file.exists()) {
       return CallToolResult(
         content: [TextContent(text: 'File does not exist')],
@@ -110,6 +111,33 @@ final class SimpleFileSystemServer extends MCPServer
     }
     await file.delete();
     return CallToolResult(content: [TextContent(text: 'Success')]);
+  }
+
+  Future<CallToolResult> _listFiles(CallToolRequest request) async {
+    final path = request.arguments!['path'] as String;
+    final errorResult = await _checkAllowedPath(path);
+    if (errorResult != null) return errorResult;
+
+    final directory = io.Directory.fromUri(Uri.parse(path));
+    if (!await directory.exists()) {
+      return CallToolResult(
+        content: [TextContent(text: 'Directory does not exist')],
+      );
+    }
+    final entities = await directory.list().toList();
+    return CallToolResult(
+      content: [
+        TextContent(
+          text: jsonEncode([
+            for (var entity in entities)
+              {
+                'uri': entity.uri.toString(),
+                'kind': entity is io.Directory ? 'directory' : 'file',
+              },
+          ]),
+        ),
+      ],
+    );
   }
 
   final writeFileTool = Tool(
@@ -146,5 +174,18 @@ final class SimpleFileSystemServer extends MCPServer
       },
     ),
     annotations: ToolAnnotations(destructiveHint: true),
+  );
+
+  final listFilesTool = Tool(
+    name: 'listFiles',
+    description: 'Lists files in a directory.',
+    inputSchema: Schema.object(
+      properties: {
+        'path': Schema.string(
+          description: 'The path to the directory to list.',
+        ),
+      },
+    ),
+    annotations: ToolAnnotations(readOnlyHint: true),
   );
 }
