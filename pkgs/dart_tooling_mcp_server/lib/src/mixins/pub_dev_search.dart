@@ -140,7 +140,6 @@ base mixin PubDevSupport on ToolsSupport {
 
       return CallToolResult(content: results);
     } on Exception catch (e) {
-      print('returning error');
       return CallToolResult(
         content: [TextContent(text: 'Failed searching pub.dev: $e')],
         isError: true,
