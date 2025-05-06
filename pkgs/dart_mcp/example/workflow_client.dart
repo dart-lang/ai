@@ -134,7 +134,7 @@ final class WorkflowClient extends MCPClient with RootsSupport {
       context: chatHistory,
       tools: serverTools,
     );
-    _handleModelResponse(introResponse);
+    await _handleModelResponse(introResponse);
 
     while (true) {
       final next =
@@ -163,15 +163,36 @@ final class WorkflowClient extends MCPClient with RootsSupport {
     }
   }
 
-  void _handleModelResponse(gemini.Content response) {
+  /// Handles a response from the [model].
+  ///
+  /// If this function returns a [String], then it should be fed back into the
+  /// model as a user message in order to continue the conversation.
+  Future<String?> _handleModelResponse(gemini.Content response) async {
+    String? continuation;
     for (var part in response.parts) {
       switch (part) {
         case gemini.TextPart():
           _chatToUser(part.text);
+        case gemini.FunctionCall():
+          final result = await _handleFunctionCall(part);
+          if (result == null || result.contains('unsupported response type')) {
+            _chatToUser(
+              'Something went wrong when trying to call the ${part.name} '
+              'function. Proceeding to next step of the plan.',
+            );
+          }
+          // Fixed: Use triple quotes for multi-line string
+          continuation = '''
+Function result: $result
+
+Please proceed to the next step of the plan.''';
         default:
-          logger.stderr('Unrecognized response type from the model $response');
+          logger.stderr(
+            'Unrecognized response type from the model: $response.',
+          );
       }
     }
+    return continuation;
   }
 
   /// Executes a plan and returns a summary of it.
@@ -193,7 +214,7 @@ $userPrompt. After you have made a plan, ask the user if they wish to proceed or
       context: chatHistory,
       tools: serverTools,
     );
-    _handleModelResponse(planResponse);
+    await _handleModelResponse(planResponse);
 
     final userResponse = await _waitForInputAndAddToHistory();
     final wasApproval = await _analyzeSentiment(userResponse);
@@ -224,35 +245,13 @@ $userPrompt. After you have made a plan, ask the user if they wish to proceed or
         context: chatHistory,
         tools: serverTools,
       );
-      if (modelResponse.parts.first case gemini.TextPart text) {
+      if (modelResponse.parts.first case final gemini.TextPart text) {
         if (text.text.toLowerCase().contains('workflow complete')) {
           return modelResponse;
         }
       }
 
-      for (var part in modelResponse.parts) {
-        switch (part) {
-          case gemini.TextPart():
-            _chatToUser(part.text);
-          case gemini.FunctionCall():
-            final result = await _handleFunctionCall(part);
-            if (result == null ||
-                result.contains('unsupported response type')) {
-              _chatToUser(
-                'Something went wrong when trying to call the ${part.name} '
-                'function. Proceeding to next step of the plan.',
-              );
-            }
-            // Fixed: Use triple quotes for multi-line string
-            continuation = '''$result
-. Please proceed to the next step of the plan.''';
-
-          default:
-            logger.stderr(
-              'Unrecognized response type from the model: $modelResponse.',
-            );
-        }
-      }
+      continuation = await _handleModelResponse(modelResponse);
     }
   }
 
@@ -305,6 +304,8 @@ $userPrompt. After you have made a plan, ask the user if they wish to proceed or
         throw Exception('Model returned no candidates.');
       }
       return response.candidates.single.content;
+    } on gemini.GenerativeAIException catch (e) {
+      return gemini.Content.model([gemini.TextPart('Error: $e')]);
     } finally {
       if (response != null) {
         final inputTokens = response.usageMetadata?.promptTokenCount;
