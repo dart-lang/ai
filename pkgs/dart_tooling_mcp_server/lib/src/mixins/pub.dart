@@ -73,8 +73,8 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
       request,
       // TODO(https://github.com/dart-lang/ai/issues/81): conditionally use
       //  flutter when appropriate.
-      command: ['dart', 'pub', command, if (packageName != null) packageName],
-      commandDescription: 'dart pub $command',
+      arguments: ['pub', command, if (packageName != null) packageName],
+      commandDescription: 'dart|flutter pub $command',
       processManager: processManager,
       knownRoots: await roots,
     );

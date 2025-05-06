@@ -10,7 +10,7 @@ import 'package:process/process.dart';
 import 'package:stream_channel/stream_channel.dart';
 
 import 'mixins/analyzer.dart';
-import 'mixins/dart_cli.dart';
+import 'mixins/dash_cli.dart';
 import 'mixins/dtd.dart';
 import 'mixins/pub.dart';
 import 'utils/process_manager.dart';
@@ -23,7 +23,7 @@ final class DartToolingMCPServer extends MCPServer
         ResourcesSupport,
         RootsTrackingSupport,
         DartAnalyzerSupport,
-        DartCliSupport,
+        DashCliSupport,
         PubSupport,
         DartToolingDaemonSupport
     implements ProcessManagerSupport {

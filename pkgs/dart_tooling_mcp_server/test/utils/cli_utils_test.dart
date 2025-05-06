@@ -28,14 +28,15 @@ void main() {
             ],
           },
         ),
-        command: ['testCommand'],
+        commandForRoot: (_) => 'testCommand',
+        arguments: ['a', 'b'],
         commandDescription: '',
         processManager: processManager,
         knownRoots: [Root(uri: 'file:///bar/')],
       );
       expect(result.isError, isNot(true));
       expect(processManager.commandsRan, [
-        ['testCommand'],
+        ['testCommand', 'a', 'b'],
       ]);
     });
 
@@ -51,7 +52,7 @@ void main() {
               ],
             },
           ),
-          command: ['testCommand'],
+          commandForRoot: (_) => 'testCommand',
           commandDescription: '',
           processManager: processManager,
           knownRoots: [Root(uri: 'file:///bar/')],
@@ -78,7 +79,7 @@ void main() {
               ],
             },
           ),
-          command: ['fake'],
+          commandForRoot: (_) => 'fake',
           commandDescription: '',
           processManager: processManager,
           knownRoots: [Root(uri: 'file:///foo/')],
@@ -113,7 +114,7 @@ void main() {
             ],
           },
         ),
-        command: ['fake'],
+        commandForRoot: (_) => 'fake',
         commandDescription: '',
         processManager: processManager,
         knownRoots: [Root(uri: 'file:///foo/')],

@@ -1,0 +1,3 @@
+name: exampl_dart_cli_app
+environment:
+  sdk: ^3.7.0

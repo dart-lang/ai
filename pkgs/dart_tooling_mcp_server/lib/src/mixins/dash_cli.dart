@@ -10,15 +10,12 @@ import '../utils/cli_utils.dart';
 import '../utils/constants.dart';
 import '../utils/process_manager.dart';
 
-// TODO: migrate the analyze files tool to use this mixin and run the
-// `dart analyze` command instead of the analyzer package.
-
-/// Mix this in to any MCPServer to add support for running Dart CLI commands
-/// like `dart fix` and `dart format`.
+/// Mix this in to any MCPServer to add support for running Dart or Flutter CLI
+/// commands like `dart fix`, `dart format`, and `flutter test`.
 ///
 /// The MCPServer must already have the [ToolsSupport] and [LoggingSupport]
 /// mixins applied.
-base mixin DartCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
+base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
     implements ProcessManagerSupport {
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
@@ -29,6 +26,7 @@ base mixin DartCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
       if (supportsRoots) {
         registerTool(dartFixTool, _runDartFixTool);
         registerTool(dartFormatTool, _runDartFormatTool);
+        registerTool(runTestsTool, _runTests);
       }
     }
   }
@@ -37,7 +35,8 @@ base mixin DartCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
   Future<CallToolResult> _runDartFixTool(CallToolRequest request) async {
     return runCommandInRoots(
       request,
-      command: ['dart', 'fix', '--apply'],
+      commandForRoot: (_) => 'dart',
+      arguments: ['dart', 'fix', '--apply'],
       commandDescription: 'dart fix',
       processManager: processManager,
       knownRoots: await roots,
@@ -48,10 +47,22 @@ base mixin DartCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
   Future<CallToolResult> _runDartFormatTool(CallToolRequest request) async {
     return runCommandInRoots(
       request,
-      command: ['dart', 'format'],
+      commandForRoot: (_) => 'dart',
+      arguments: ['format'],
       commandDescription: 'dart format',
       processManager: processManager,
       defaultPaths: ['.'],
+      knownRoots: await roots,
+    );
+  }
+
+  /// Implementation of the [runTestsTool].
+  Future<CallToolResult> _runTests(CallToolRequest request) async {
+    return runCommandInRoots(
+      request,
+      arguments: ['test'],
+      commandDescription: 'dart|flutter test',
+      processManager: processManager,
       knownRoots: await roots,
     );
   }
@@ -69,6 +80,15 @@ base mixin DartCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
     name: 'dart_format',
     description: 'Runs `dart format .` for the given project roots.',
     annotations: ToolAnnotations(title: 'Dart format', destructiveHint: true),
+    inputSchema: Schema.object(
+      properties: {ParameterNames.roots: rootsSchema(supportsPaths: true)},
+    ),
+  );
+
+  static final runTestsTool = Tool(
+    name: 'run_tests',
+    description: 'Runs Dart or Flutter tests for the given project roots.',
+    annotations: ToolAnnotations(title: 'Run tests', readOnlyHint: true),
     inputSchema: Schema.object(
       properties: {ParameterNames.roots: rootsSchema(supportsPaths: true)},
     ),
