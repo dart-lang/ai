@@ -142,30 +142,22 @@ final class WorkflowClient extends MCPClient with RootsSupport {
 
       // Remember where the history starts for this workflow
       final historyStartIndex = chatHistory.length;
-      await _makeAndExecutePlan(next, serverTools);
+      final summary = await _makeAndExecutePlan(next, serverTools);
 
       // Workflow/Plan execution finished, now summarize.
       if (historyStartIndex < chatHistory.length) {
-        // Create a summary message. Using the initial user prompt 'next' for
-        // context.
-        final summaryText = await _generateContent(
-          context: chatHistory.sublist(historyStartIndex)..add(
-            gemini.Content.text(
-              'Create a concise summary of this conversation for future '
-              'reference.',
-            ),
-          ),
-        );
-        final summaryContent = gemini.Content.model(summaryText.parts);
-
         // Replace the messages related to the completed workflow with the
         // summary.
         chatHistory.replaceRange(historyStartIndex, chatHistory.length, [
-          summaryContent,
+          summary,
         ]);
 
         // Let the user know the summarization happened, but don't add that
         // message to the history.
+        final summaryText = summary.parts
+            .whereType<gemini.TextPart>()
+            .map((p) => p.text)
+            .join('');
         logger.stdout('Workflow summarized: $summaryText');
       }
     }
@@ -182,7 +174,8 @@ final class WorkflowClient extends MCPClient with RootsSupport {
     }
   }
 
-  Future<void> _makeAndExecutePlan(
+  /// Executes a plan and returns a summary of it.
+  Future<gemini.Content> _makeAndExecutePlan(
     String userPrompt,
     List<gemini.Tool> serverTools, {
     bool editPreviousPlan = false,
@@ -204,22 +197,24 @@ $userPrompt. After you have made a plan, ask the user if they wish to proceed or
 
     final userResponse = await _waitForInputAndAddToHistory();
     final wasApproval = await _analyzeSentiment(userResponse);
-    if (!wasApproval) {
-      await _makeAndExecutePlan(
-        userResponse,
-        serverTools,
-        editPreviousPlan: true,
-      );
-    } else {
-      await _executePlan(serverTools);
-    }
+    return wasApproval
+        ? await _executePlan(serverTools)
+        : await _makeAndExecutePlan(
+          userResponse,
+          serverTools,
+          editPreviousPlan: true,
+        );
   }
 
-  Future<void> _executePlan(List<gemini.Tool> serverTools) async {
+  /// Executes a plan and returns a summary of it.
+  Future<gemini.Content> _executePlan(List<gemini.Tool> serverTools) async {
     // If assigned then it is used as the next input from the user
     // instead of reading from stdin.
     String? continuation =
-        'Execute the plan. After each step of the plan, report your progress.';
+        'Execute the plan. After each step of the plan, report your progress. '
+        'When you are executing the plan, say exactly "Workflow complete" '
+        'followed by a summary of everything that was done so you can remember '
+        'it for future tasks.';
 
     while (true) {
       final nextMessage = continuation ?? await stdinQueue.next;
@@ -229,18 +224,16 @@ $userPrompt. After you have made a plan, ask the user if they wish to proceed or
         context: chatHistory,
         tools: serverTools,
       );
+      if (modelResponse.parts.first case gemini.TextPart text) {
+        if (text.text.toLowerCase().contains('workflow complete')) {
+          return modelResponse;
+        }
+      }
 
-      // Fixed: Use var instead of explicit type
-      var processedResponse = false;
       for (var part in modelResponse.parts) {
-        processedResponse = true; // Mark that we got at least one part
         switch (part) {
           case gemini.TextPart():
             _chatToUser(part.text);
-            // If the model only sends text, it might be asking a question or
-            // finishing. We break the loop here to wait for the next user
-            // input or continuation.
-            return;
           case gemini.FunctionCall():
             final result = await _handleFunctionCall(part);
             if (result == null ||
@@ -249,33 +242,16 @@ $userPrompt. After you have made a plan, ask the user if they wish to proceed or
                 'Something went wrong when trying to call the ${part.name} '
                 'function. Proceeding to next step of the plan.',
               );
-              // Even if the call failed, we might need to continue the plan.
-              continuation = 'Please proceed to the next step of the plan.';
-            } else {
-              // Fixed: Use triple quotes for multi-line string
-              continuation = '''$result
-. Please proceed to the next step of the plan.''';
             }
-            // After handling a function call, break the inner loop and continue
-            // the outer `while(true)` with the 'continuation' message.
-            break; // Break from the inner `for (var part ...)` loop.
+            // Fixed: Use triple quotes for multi-line string
+            continuation = '''$result
+. Please proceed to the next step of the plan.''';
+
           default:
             logger.stderr(
               'Unrecognized response type from the model: $modelResponse.',
             );
-            // Unrecognized part, break the loop to wait for next user input.
-            return;
         }
-        // Fixed: Removed unnecessary type check that was here previously.
-        // The break in the FunctionCall case handles the logic.
-      }
-
-      // If the model response had no parts or only text parts handled above
-      // which caused a return, this point might not be reached often.
-      // If it *is* reached (e.g., empty response?), break outer loop to wait
-      // for input.
-      if (!processedResponse || continuation == null) {
-        break; // Break the outer `while (true)` loop.
       }
     }
   }
