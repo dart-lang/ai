@@ -8,6 +8,7 @@ import 'package:dart_mcp/server.dart';
 
 import '../utils/cli_utils.dart';
 import '../utils/constants.dart';
+import '../utils/file_system.dart';
 import '../utils/process_manager.dart';
 
 /// Mix this in to any MCPServer to add support for running Dart or Flutter CLI
@@ -16,7 +17,7 @@ import '../utils/process_manager.dart';
 /// The MCPServer must already have the [ToolsSupport] and [LoggingSupport]
 /// mixins applied.
 base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
-    implements ProcessManagerSupport {
+    implements ProcessManagerSupport, FileSystemSupport {
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
     try {
@@ -35,11 +36,12 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
   Future<CallToolResult> _runDartFixTool(CallToolRequest request) async {
     return runCommandInRoots(
       request,
-      commandForRoot: (_) => 'dart',
+      commandForRoot: (_, _) => 'dart',
       arguments: ['fix', '--apply'],
       commandDescription: 'dart fix',
       processManager: processManager,
       knownRoots: await roots,
+      fileSystem: fileSystem,
     );
   }
 
@@ -47,12 +49,13 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
   Future<CallToolResult> _runDartFormatTool(CallToolRequest request) async {
     return runCommandInRoots(
       request,
-      commandForRoot: (_) => 'dart',
+      commandForRoot: (_, _) => 'dart',
       arguments: ['format'],
       commandDescription: 'dart format',
       processManager: processManager,
       defaultPaths: ['.'],
       knownRoots: await roots,
+      fileSystem: fileSystem,
     );
   }
 
@@ -64,6 +67,7 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
       commandDescription: 'dart|flutter test',
       processManager: processManager,
       knownRoots: await roots,
+      fileSystem: fileSystem,
     );
   }
 

@@ -3,9 +3,9 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:async';
-import 'dart:io';
 
 import 'package:dart_mcp/server.dart';
+import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
 import 'package:process/process.dart';
 import 'package:pubspec_parse/pubspec_parse.dart';
@@ -28,8 +28,10 @@ enum ProjectKind {
 ///
 /// Currently, this is done by checking for the existence of a `pubspec.yaml`
 /// file and whether it contains a Flutter SDK dependency.
-Future<ProjectKind> inferProjectKind(Root root) async {
-  final pubspecFile = File.fromUri(Uri.parse(root.uri).resolve('pubspec.yaml'));
+Future<ProjectKind> inferProjectKind(Root root, FileSystem fileSystem) async {
+  final pubspecFile = fileSystem
+      .directory(Uri.parse(root.uri))
+      .childFile('pubspec.yaml');
   if (!await pubspecFile.exists()) {
     return ProjectKind.unknown;
   }
@@ -69,9 +71,11 @@ Future<ProjectKind> inferProjectKind(Root root) async {
 /// root's 'paths'.
 Future<CallToolResult> runCommandInRoots(
   CallToolRequest request, {
-  FutureOr<String> Function(Root) commandForRoot = defaultCommandForRoot,
+  FutureOr<String> Function(Root, FileSystem) commandForRoot =
+      defaultCommandForRoot,
   List<String> arguments = const [],
   required String commandDescription,
+  required FileSystem fileSystem,
   required ProcessManager processManager,
   required List<Root> knownRoots,
   List<String> defaultPaths = const <String>[],
@@ -127,9 +131,12 @@ Future<CallToolResult> runCommandInRoots(
         isError: true,
       );
     }
-    final projectRoot = Directory(rootUri.toFilePath());
+    final projectRoot = fileSystem.directory(rootUri);
 
-    final commandWithPaths = <String>[await commandForRoot(root), ...arguments];
+    final commandWithPaths = <String>[
+      await commandForRoot(root, fileSystem),
+      ...arguments,
+    ];
     final paths =
         (rootConfig[ParameterNames.paths] as List?)?.cast<String>() ??
         defaultPaths;
@@ -186,8 +193,8 @@ Future<CallToolResult> runCommandInRoots(
 /// Returns 'dart' or 'flutter' based on the pubspec contents.
 ///
 /// Throws an [ArgumentError] if there is no pubspec.
-Future<String> defaultCommandForRoot(Root root) async =>
-    switch (await inferProjectKind(root)) {
+Future<String> defaultCommandForRoot(Root root, FileSystem fileSystem) async =>
+    switch (await inferProjectKind(root, fileSystem)) {
       ProjectKind.dart => 'dart',
       ProjectKind.flutter => 'flutter',
       ProjectKind.unknown =>

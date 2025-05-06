@@ -33,7 +33,7 @@ void main() {
     });
 
     test('can analyze a project', () async {
-      final counterAppRoot = rootForPath(counterAppPath);
+      final counterAppRoot = testHarness.rootForPath(counterAppPath);
       testHarness.mcpClient.addRoot(counterAppRoot);
       // Allow the notification to propagate, and the server to ask for the new
       // list of roots.
@@ -53,7 +53,7 @@ void main() {
         d.file('main.dart', 'void main() => 1 + "2";'),
       ]);
       await example.create();
-      final exampleRoot = rootForPath(example.io.path);
+      final exampleRoot = testHarness.rootForPath(example.io.path);
       testHarness.mcpClient.addRoot(exampleRoot);
 
       // Allow the notification to propagate, and the server to ask for the new
@@ -91,7 +91,7 @@ void main() {
     });
 
     test('can look up symbols in a workspace', () async {
-      final currentRoot = rootForPath(Directory.current.path);
+      final currentRoot = testHarness.rootForPath(Directory.current.path);
       testHarness.mcpClient.addRoot(currentRoot);
       await pumpEventQueue();
 
@@ -114,7 +114,7 @@ void main() {
     });
 
     test('can get signature help', () async {
-      final counterAppRoot = rootForPath(counterAppPath);
+      final counterAppRoot = testHarness.rootForPath(counterAppPath);
       testHarness.mcpClient.addRoot(counterAppRoot);
       await pumpEventQueue();
 

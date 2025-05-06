@@ -12,12 +12,8 @@ import '../test_harness.dart';
 void main() {
   late TestHarness testHarness;
   late TestProcessManager testProcessManager;
-
-  // This root is arbitrary for these tests since we are not actually running
-  // the CLI commands, but rather sending them through the
-  // [TestProcessManager] wrapper.
-  final counterAppRoot = rootForPath(counterAppPath);
-  final dartCliAppRoot = rootForPath(dartCliAppsPath);
+  late Root counterAppRoot;
+  late Root dartCliAppRoot;
 
   // TODO: Use setUpAll, currently this fails due to an apparent TestProcess
   // issue.
@@ -26,6 +22,8 @@ void main() {
     testProcessManager =
         testHarness.serverConnectionPair.server!.processManager
             as TestProcessManager;
+    counterAppRoot = testHarness.rootForPath(counterAppPath);
+    dartCliAppRoot = testHarness.rootForPath(dartCliAppsPath);
 
     testHarness.mcpClient.addRoot(counterAppRoot);
     await pumpEventQueue();
