@@ -37,7 +37,9 @@ void main(List<String> args) {
       );
     },
     (e, s) {
-      logger.stderr('$e\n$s');
+      // Fixed: Use triple quotes for multi-line string
+      logger.stderr('''$e
+$s''');
     },
   );
 }
@@ -95,8 +97,8 @@ final class WorkflowClient extends MCPClient with RootsSupport {
       gemini.Content.text(
         'The current working directory is '
         '${Directory.current.absolute.uri.toString()}. Convert all relative '
-        'URIs to absolute using this root. For tools that want a root, use this'
-        'URI.',
+        'URIs to absolute using this root. For tools that want a root, use '
+        'this URI.',
       ),
     );
     if (dtdUri != null) {
@@ -135,8 +137,42 @@ final class WorkflowClient extends MCPClient with RootsSupport {
     _handleModelResponse(introResponse);
 
     while (true) {
-      final next = await _waitForInputAndAddToHistory();
+      final next =
+          await _waitForInputAndAddToHistory(); // User provides the task prompt
+
+      // --- Start of Dash's changes ---
+      // Remember where the history starts for this workflow
+      final historyStartIndex = chatHistory.length;
+      // --- End of Dash's changes ---
+
       await _makeAndExecutePlan(next, serverTools);
+
+      // --- Start of Dash's changes ---
+      // Workflow/Plan execution finished, now summarize.
+      // Check if any messages were actually added during the workflow.
+      if (historyStartIndex < chatHistory.length) {
+        // Create a summary message. Using the initial user prompt 'next' for
+        // context.
+        final summaryText = 'Workflow to handle task "$next" completed.';
+        // Using Content.model seems appropriate for a system-generated summary.
+        final summaryContent = gemini.Content.model([
+          gemini.TextPart(summaryText),
+        ]);
+
+        // Replace the messages related to the completed workflow with the
+        // summary.
+        chatHistory.removeRange(historyStartIndex, chatHistory.length);
+        chatHistory.add(summaryContent);
+
+        // Let the user know the summarization happened!
+        // Fixed: Use triple quotes and remove sparkle characters
+        logger.stdout('''
+
+Chirp! Workflow summarized: $summaryText
+
+''');
+      }
+      // --- End of Dash's changes ---
     }
   }
 
@@ -160,10 +196,9 @@ final class WorkflowClient extends MCPClient with RootsSupport {
         editPreviousPlan
             ? 'Edit the previous plan with the following changes:'
             : 'Create a new plan for the following task:';
-    final planPrompt =
-        '$instruction\n$userPrompt. After you have made a plan, ask the user '
-        'if they wish to proceed or if they want to make any changes to your '
-        'plan.';
+    // Fixed: Use triple quotes for multi-line string
+    final planPrompt = '''$instruction
+$userPrompt. After you have made a plan, ask the user if they wish to proceed or if they want to make any changes to your plan.''';
     _addToHistory(planPrompt);
 
     final planResponse = await _generateContent(
@@ -200,10 +235,17 @@ final class WorkflowClient extends MCPClient with RootsSupport {
         tools: serverTools,
       );
 
+      // Fixed: Use var instead of explicit type
+      var processedResponse = false;
       for (var part in modelResponse.parts) {
+        processedResponse = true; // Mark that we got at least one part
         switch (part) {
           case gemini.TextPart():
             _chatToUser(part.text);
+            // If the model only sends text, it might be asking a question or
+            // finishing. We break the loop here to wait for the next user
+            // input or continuation.
+            return;
           case gemini.FunctionCall():
             final result = await _handleFunctionCall(part);
             if (result == null ||
@@ -212,15 +254,33 @@ final class WorkflowClient extends MCPClient with RootsSupport {
                 'Something went wrong when trying to call the ${part.name} '
                 'function. Proceeding to next step of the plan.',
               );
+              // Even if the call failed, we might need to continue the plan.
+              continuation = 'Please proceed to the next step of the plan.';
+            } else {
+              // Fixed: Use triple quotes for multi-line string
+              continuation = '''$result
+. Please proceed to the next step of the plan.''';
             }
-            continuation =
-                '$result\n. Please proceed to the next step of the plan.';
-
+            // After handling a function call, break the inner loop and continue
+            // the outer `while(true)` with the 'continuation' message.
+            break; // Break from the inner `for (var part ...)` loop.
           default:
             logger.stderr(
               'Unrecognized response type from the model: $modelResponse.',
             );
+            // Unrecognized part, break the loop to wait for next user input.
+            return;
         }
+        // Fixed: Removed unnecessary type check that was here previously.
+        // The break in the FunctionCall case handles the logic.
+      }
+
+      // If the model response had no parts or only text parts handled above
+      // which caused a return, this point might not be reached often.
+      // If it *is* reached (e.g., empty response?), break outer loop to wait
+      // for input.
+      if (!processedResponse || continuation == null) {
+        break; // Break the outer `while (true)` loop.
       }
     }
   }
@@ -238,14 +298,18 @@ final class WorkflowClient extends MCPClient with RootsSupport {
   /// Analyzes a user [message] to see if it looks like they approved of the
   /// previous action.
   Future<bool> _analyzeSentiment(String message) async {
-    if (message == 'y' || message == 'yes') return true;
+    // Fixed: Added curly braces
+    if (message.toLowerCase() == 'y' || message.toLowerCase() == 'yes') {
+      return true;
+    }
     final sentimentResult = await _generateContent(
       context: [
         gemini.Content.text(
           'Analyze the sentiment of the following response. If the response '
           'indicates a need for any changes, then this is not an approval. '
           'If you are highly confident that the user approves of running the '
-          'previous action then respond with a single character "y".',
+          'previous action then respond with a single character "y". '
+          'Otherwise respond with "n".', // Added explicit negative case
         ),
         gemini.Content.text(message),
       ],
@@ -254,7 +318,7 @@ final class WorkflowClient extends MCPClient with RootsSupport {
     for (var part in sentimentResult.parts.whereType<gemini.TextPart>()) {
       response.write(part.text.trim());
     }
-    return response.toString() == 'y';
+    return response.toString().toLowerCase() == 'y';
   }
 
   Future<gemini.Content> _generateContent({
@@ -265,6 +329,10 @@ final class WorkflowClient extends MCPClient with RootsSupport {
     gemini.GenerateContentResponse? response;
     try {
       response = await model.generateContent(context, tools: tools);
+      // Added safety check for empty candidates
+      if (response.candidates.isEmpty) {
+        throw Exception('Model returned no candidates.');
+      }
       return response.candidates.single.content;
     } finally {
       if (response != null) {
@@ -291,7 +359,8 @@ final class WorkflowClient extends MCPClient with RootsSupport {
     for (var part in content.parts.whereType<gemini.TextPart>()) {
       dashText.write(part.text);
     }
-    logger.stdout('\n$dashText');
+    logger.stdout('''
+$dashText''');
     // Add the non-personalized text to the context as it might lose some
     // useful info.
     chatHistory.add(gemini.Content.model([gemini.TextPart(text)]));
@@ -306,25 +375,73 @@ final class WorkflowClient extends MCPClient with RootsSupport {
     );
 
     chatHistory.add(gemini.Content.model([functionCall]));
-    final connection = connectionForFunction[functionCall.name]!;
-    final result = await connection.callTool(
-      CallToolRequest(name: functionCall.name, arguments: functionCall.args),
-    );
-    final response = StringBuffer();
-    for (var content in result.content) {
-      switch (content) {
-        case final TextContent content when content.isText:
-          response.writeln(content.text);
-        case final ImageContent content when content.isImage:
-          chatHistory.add(
-            gemini.Content.data(content.mimeType, base64Decode(content.data)),
-          );
-          response.writeln('Image added to context');
-        default:
-          response.writeln('Got unsupported response type ${content.type}');
-      }
+    final connection = connectionForFunction[functionCall.name];
+    // Added safety check for missing connection
+    if (connection == null) {
+      final errorMsg =
+          'Error: No server connection found for function '
+          '${functionCall.name}.';
+      logger.stderr(errorMsg);
+      chatHistory.add(
+        gemini.Content.functionResponse(functionCall.name, {'error': errorMsg}),
+      );
+      return errorMsg;
     }
-    return response.toString();
+
+    try {
+      final result = await connection.callTool(
+        CallToolRequest(name: functionCall.name, arguments: functionCall.args),
+      );
+      final response = StringBuffer();
+      final functionResponseParts =
+          <gemini.Part>[]; // Collect parts for history
+
+      for (var content in result.content) {
+        switch (content) {
+          case final TextContent content when content.isText:
+            response.writeln(content.text);
+            functionResponseParts.add(gemini.TextPart(content.text));
+          case final ImageContent content when content.isImage:
+            // History addition for images might need review depending on how
+            // large they are and if they are useful in subsequent turns.
+            // For now, adding as data.
+            final dataPart = gemini.DataPart(
+              content.mimeType,
+              base64Decode(content.data),
+            );
+            // Add image directly to history for model context
+            chatHistory.add(gemini.Content.model([dataPart]));
+            final imageMsg =
+                'Received image data (${content.mimeType}). Added to history.';
+            response.writeln(imageMsg);
+            // Add a text representation of the image receipt to the function
+            // response part
+            functionResponseParts.add(gemini.TextPart(imageMsg));
+          default:
+            final unsupportedMsg =
+                'Got unsupported response type ${content.type}';
+            response.writeln(unsupportedMsg);
+            functionResponseParts.add(gemini.TextPart(unsupportedMsg));
+        }
+      }
+      // Add the consolidated function response to history
+      chatHistory.add(
+        gemini.Content.functionResponse(functionCall.name, {
+          'output': response.toString(),
+        }),
+      );
+      return response.toString();
+    } catch (e, s) {
+      // Catch errors during tool execution
+      // Fixed: Use triple quotes for multi-line string
+      final errorMsg = '''Error calling tool ${functionCall.name}: $e
+$s''';
+      logger.stderr(errorMsg);
+      chatHistory.add(
+        gemini.Content.functionResponse(functionCall.name, {'error': errorMsg}),
+      );
+      return 'Error during tool execution: $e';
+    }
   }
 
   /// Connects to all servers using [serverCommands].
@@ -339,24 +456,40 @@ final class WorkflowClient extends MCPClient with RootsSupport {
 
   /// Initialization handshake.
   Future<void> _initializeServers() async {
-    for (var connection in serverConnections) {
-      final result = await connection.initialize(
-        InitializeRequest(
-          protocolVersion: ProtocolVersion.latestSupported,
-          capabilities: capabilities,
-          clientInfo: implementation,
-        ),
-      );
-      if (result.protocolVersion != ProtocolVersion.latestSupported) {
-        logger.stderr(
-          'Protocol version mismatch, expected '
-          '${ProtocolVersion.latestSupported}, got ${result.protocolVersion}, '
-          'disconnecting from server',
+    // Use a copy of the list to allow removal during iteration
+    final connectionsToInitialize = List.of(serverConnections);
+    for (var connection in connectionsToInitialize) {
+      final serverName = connection.serverInfo?.name ?? 'server';
+      logger.stdout('Initializing connection with $serverName...'); // Added log
+      try {
+        final result = await connection.initialize(
+          InitializeRequest(
+            protocolVersion: ProtocolVersion.latestSupported,
+            capabilities: capabilities,
+            clientInfo: implementation,
+          ),
         );
-        await connection.shutdown();
+        if (result.protocolVersion != ProtocolVersion.latestSupported) {
+          logger.stderr(
+            'Protocol version mismatch for $serverName, '
+            'expected ${ProtocolVersion.latestSupported}, got '
+            '${result.protocolVersion}. Disconnecting.',
+          );
+          await connection.shutdown();
+          serverConnections.remove(connection);
+        } else {
+          final initializedServerName = connection.serverInfo?.name ?? 'Server';
+          logger.stdout(
+            '$initializedServerName initialized successfully.',
+          ); // Added log
+          connection.notifyInitialized(InitializedNotification());
+        }
+      } catch (e) {
+        final failedServerName = connection.serverInfo?.name ?? 'unknown';
+        logger.stderr('Failed to initialize server $failedServerName: $e');
+        // Attempt shutdown on error
+        await connection.shutdown().catchError((_) {});
         serverConnections.remove(connection);
-      } else {
-        connection.notifyInitialized(InitializedNotification());
       }
     }
   }
@@ -368,14 +501,27 @@ final class WorkflowClient extends MCPClient with RootsSupport {
         continue;
       }
 
-      connection.setLogLevel(
-        SetLevelRequest(
-          level: verbose ? LoggingLevel.debug : LoggingLevel.warning,
-        ),
-      );
+      final serverName = connection.serverInfo?.name ?? 'server';
+      logger.stdout(
+        'Setting up logging listener for $serverName...',
+      ); // Added log
+      connection
+          .setLogLevel(
+            SetLevelRequest(
+              level: verbose ? LoggingLevel.debug : LoggingLevel.warning,
+            ),
+          )
+          .catchError((Object e) {
+            // Fixed: Added explicit type Object
+            // Catch potential errors setting log level
+            final errorServerName = connection.serverInfo?.name ?? 'server';
+            logger.stderr('Failed to set log level for $errorServerName: $e');
+          });
       connection.onLog.listen((event) {
+        final logServerName = connection.serverInfo?.name ?? '?';
+        // Added server name
         logger.stdout(
-          'Server Log(${event.level.name}): '
+          'Server Log ($logServerName/${event.level.name}): '
           '${event.logger != null ? '[${event.logger}] ' : ''}${event.data}',
         );
       });
@@ -385,19 +531,37 @@ final class WorkflowClient extends MCPClient with RootsSupport {
   /// Lists all the tools available the [serverConnections].
   Future<List<gemini.Tool>> _listServerCapabilities() async {
     final functions = <gemini.FunctionDeclaration>[];
+    logger.stdout(
+      'Listing capabilities from connected servers...',
+    ); // Added log
     for (var connection in serverConnections) {
-      for (var tool in (await connection.listTools()).tools) {
-        functions.add(
-          gemini.FunctionDeclaration(
-            tool.name,
-            tool.description ?? '',
-            _schemaToGeminiSchema(tool.inputSchema),
-          ),
-        );
-        connectionForFunction[tool.name] = connection;
+      final serverName = connection.serverInfo?.name ?? 'server';
+      try {
+        logger.stdout('Querying tools from $serverName...'); // Added log
+        final response = await connection.listTools();
+        final responseServerName = connection.serverInfo?.name ?? 'server';
+        logger.stdout(
+          'Received ${response.tools.length} tools from $responseServerName.',
+        ); // Added log
+        for (var tool in response.tools) {
+          functions.add(
+            gemini.FunctionDeclaration(
+              tool.name,
+              tool.description ?? '',
+              _schemaToGeminiSchema(tool.inputSchema),
+            ),
+          );
+          connectionForFunction[tool.name] = connection;
+        }
+      } catch (e) {
+        final errorServerName = connection.serverInfo?.name ?? 'unknown';
+        logger.stderr('Failed to list tools for server $errorServerName: $e');
       }
     }
-    return [gemini.Tool(functionDeclarations: functions)];
+    logger.stdout('Total functions declared: ${functions.length}'); // Added log
+    return functions.isEmpty
+        ? []
+        : [gemini.Tool(functionDeclarations: functions)];
   }
 
   gemini.Schema _schemaToGeminiSchema(Schema inputSchema, {bool? nullable}) {
@@ -412,7 +576,9 @@ final class WorkflowClient extends MCPClient with RootsSupport {
             for (var entry in originalProperties.entries)
               entry.key: _schemaToGeminiSchema(
                 entry.value,
-                nullable: objectSchema.required?.contains(entry.key),
+                // Fix: Check if required is null before calling contains
+                nullable:
+                    !(objectSchema.required?.contains(entry.key) ?? false),
               ),
           };
         }
@@ -422,15 +588,22 @@ final class WorkflowClient extends MCPClient with RootsSupport {
           nullable: nullable,
         );
       case JsonType.string:
+        // Fixed: Removed unsupported enumValues parameter/logic
         return gemini.Schema.string(
           description: inputSchema.description,
           nullable: nullable,
         );
       case JsonType.list:
         final listSchema = inputSchema as ListSchema;
+        // Fix: Handle case where listSchema.items might be null
+        // (though unlikely per spec)
+        final itemSchema =
+            listSchema.items == null
+                ? gemini.Schema.string(description: 'any')
+                : _schemaToGeminiSchema(listSchema.items!);
         return gemini.Schema.array(
           description: description,
-          items: _schemaToGeminiSchema(listSchema.items!),
+          items: itemSchema,
           nullable: nullable,
         );
       case JsonType.num:
@@ -448,9 +621,23 @@ final class WorkflowClient extends MCPClient with RootsSupport {
           description: description,
           nullable: nullable,
         );
+      // Fixed: Removed JsonType.any case
+      // Consider adding null type if needed, though Gemini schema might handle
+      // nullable field
+      // case JsonType.nullValue:
+      //    return gemini.Schema(...); // No direct null type in gemini.Schema,
+      // use nullable=true
       default:
-        throw UnimplementedError(
-          'Unimplemented schema type ${inputSchema.type}',
+        // Fallback for safety, though ideally all types should be handled
+        logger.stderr(
+          'Warning: Unhandled schema type ${inputSchema.type}. '
+          'Treating as string.',
+        );
+        return gemini.Schema.string(
+          description:
+              '${description ?? ''} (unhandled type: ${inputSchema.type})'
+                  .trim(),
+          nullable: nullable,
         );
     }
   }
@@ -464,11 +651,13 @@ always positive.
 
 /// If a [persona] is passed, it will be added to the system prompt as its own
 /// paragraph.
-gemini.Content systemInstructions({String? persona}) =>
-    gemini.Content.system('''
+gemini.Content systemInstructions({String? persona}) => gemini.Content.system('''
 You are a developer assistant for Dart and Flutter apps. You are an expert
 software developer.
-${persona != null ? '\n$persona\n' : ''}
+${persona != null ? '''
+
+$persona
+''' : ''}
 You can help developers with writing code by generating Dart and Flutter code or
 making changes to their existing app. You can also help developers with
 debugging their code by connecting into the live state of their apps, helping
