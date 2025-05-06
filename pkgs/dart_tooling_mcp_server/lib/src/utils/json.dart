@@ -14,7 +14,7 @@
 /// If `key` is an `int`, the next json structure must be a List, with that
 /// index. Recurse into that index.
 ///
-/// If `key` in a `(String k, String v)` the next json structure must be a List
+/// If `key` is a `(String k, String v)` the next json structure must be a List
 /// of maps, one of them having the property `k` with value `v`, recurse into
 /// that map.
 ///
