@@ -140,39 +140,34 @@ final class WorkflowClient extends MCPClient with RootsSupport {
       final next =
           await _waitForInputAndAddToHistory(); // User provides the task prompt
 
-      // --- Start of Dash's changes ---
       // Remember where the history starts for this workflow
       final historyStartIndex = chatHistory.length;
-      // --- End of Dash's changes ---
-
       await _makeAndExecutePlan(next, serverTools);
 
-      // --- Start of Dash's changes ---
       // Workflow/Plan execution finished, now summarize.
-      // Check if any messages were actually added during the workflow.
       if (historyStartIndex < chatHistory.length) {
         // Create a summary message. Using the initial user prompt 'next' for
         // context.
-        final summaryText = 'Workflow to handle task "$next" completed.';
-        // Using Content.model seems appropriate for a system-generated summary.
-        final summaryContent = gemini.Content.model([
-          gemini.TextPart(summaryText),
-        ]);
+        final summaryText = await _generateContent(
+          context: chatHistory.sublist(historyStartIndex)..add(
+            gemini.Content.text(
+              'Create a concise summary of this conversation for future '
+              'reference.',
+            ),
+          ),
+        );
+        final summaryContent = gemini.Content.model(summaryText.parts);
 
         // Replace the messages related to the completed workflow with the
         // summary.
-        chatHistory.removeRange(historyStartIndex, chatHistory.length);
-        chatHistory.add(summaryContent);
+        chatHistory.replaceRange(historyStartIndex, chatHistory.length, [
+          summaryContent,
+        ]);
 
-        // Let the user know the summarization happened!
-        // Fixed: Use triple quotes and remove sparkle characters
-        logger.stdout('''
-
-Chirp! Workflow summarized: $summaryText
-
-''');
+        // Let the user know the summarization happened, but don't add that
+        // message to the history.
+        logger.stdout('Workflow summarized: $summaryText');
       }
-      // --- End of Dash's changes ---
     }
   }
 
@@ -448,9 +443,13 @@ $s''';
   Future<void> _connectToServers() async {
     for (var server in serverCommands) {
       final parts = server.split(' ');
-      serverConnections.add(
-        await connectStdioServer(parts.first, parts.skip(1).toList()),
-      );
+      try {
+        serverConnections.add(
+          await connectStdioServer(parts.first, parts.skip(1).toList()),
+        );
+      } catch (e) {
+        logger.stderr('Failed to connect to server $server: $e');
+      }
     }
   }
 
@@ -459,8 +458,6 @@ $s''';
     // Use a copy of the list to allow removal during iteration
     final connectionsToInitialize = List.of(serverConnections);
     for (var connection in connectionsToInitialize) {
-      final serverName = connection.serverInfo?.name ?? 'server';
-      logger.stdout('Initializing connection with $serverName...'); // Added log
       try {
         final result = await connection.initialize(
           InitializeRequest(
@@ -469,6 +466,7 @@ $s''';
             clientInfo: implementation,
           ),
         );
+        final serverName = connection.serverInfo?.name ?? 'server';
         if (result.protocolVersion != ProtocolVersion.latestSupported) {
           logger.stderr(
             'Protocol version mismatch for $serverName, '
@@ -478,10 +476,6 @@ $s''';
           await connection.shutdown();
           serverConnections.remove(connection);
         } else {
-          final initializedServerName = connection.serverInfo?.name ?? 'Server';
-          logger.stdout(
-            '$initializedServerName initialized successfully.',
-          ); // Added log
           connection.notifyInitialized(InitializedNotification());
         }
       } catch (e) {
@@ -501,10 +495,6 @@ $s''';
         continue;
       }
 
-      final serverName = connection.serverInfo?.name ?? 'server';
-      logger.stdout(
-        'Setting up logging listener for $serverName...',
-      ); // Added log
       connection
           .setLogLevel(
             SetLevelRequest(
@@ -519,7 +509,6 @@ $s''';
           });
       connection.onLog.listen((event) {
         final logServerName = connection.serverInfo?.name ?? '?';
-        // Added server name
         logger.stdout(
           'Server Log ($logServerName/${event.level.name}): '
           '${event.logger != null ? '[${event.logger}] ' : ''}${event.data}',
@@ -531,18 +520,9 @@ $s''';
   /// Lists all the tools available the [serverConnections].
   Future<List<gemini.Tool>> _listServerCapabilities() async {
     final functions = <gemini.FunctionDeclaration>[];
-    logger.stdout(
-      'Listing capabilities from connected servers...',
-    ); // Added log
     for (var connection in serverConnections) {
-      final serverName = connection.serverInfo?.name ?? 'server';
       try {
-        logger.stdout('Querying tools from $serverName...'); // Added log
         final response = await connection.listTools();
-        final responseServerName = connection.serverInfo?.name ?? 'server';
-        logger.stdout(
-          'Received ${response.tools.length} tools from $responseServerName.',
-        ); // Added log
         for (var tool in response.tools) {
           functions.add(
             gemini.FunctionDeclaration(
@@ -558,7 +538,6 @@ $s''';
         logger.stderr('Failed to list tools for server $errorServerName: $e');
       }
     }
-    logger.stdout('Total functions declared: ${functions.length}'); // Added log
     return functions.isEmpty
         ? []
         : [gemini.Tool(functionDeclarations: functions)];
