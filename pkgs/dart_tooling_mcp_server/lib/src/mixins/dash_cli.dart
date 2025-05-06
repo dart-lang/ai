@@ -36,7 +36,7 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
     return runCommandInRoots(
       request,
       commandForRoot: (_) => 'dart',
-      arguments: ['dart', 'fix', '--apply'],
+      arguments: ['fix', '--apply'],
       commandDescription: 'dart fix',
       processManager: processManager,
       knownRoots: await roots,
