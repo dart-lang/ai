@@ -5,9 +5,12 @@
 import 'dart:async';
 
 import 'package:dart_mcp/server.dart';
+import 'package:file/file.dart';
+import 'package:yaml/yaml.dart';
 
 import '../utils/cli_utils.dart';
 import '../utils/constants.dart';
+import '../utils/filesystem.dart';
 import '../utils/process_manager.dart';
 
 /// Mix this in to any MCPServer to add support for running Pub commands like
@@ -18,7 +21,7 @@ import '../utils/process_manager.dart';
 /// The MCPServer must already have the [ToolsSupport] and [LoggingSupport]
 /// mixins applied.
 base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
-    implements ProcessManagerSupport {
+    implements ProcessManagerSupport, FileSystemSupport {
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
     try {
@@ -69,15 +72,42 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
       );
     }
 
+    List<String> builder(Uri rootUri) {
+      return <String>[
+        _isFlutterPackage(rootUri) ? 'flutter' : 'dart',
+        'pub',
+        command,
+        if (packageName != null) packageName,
+      ];
+    }
+
     return runCommandInRoots(
       request,
-      // TODO(https://github.com/dart-lang/ai/issues/81): conditionally use
-      //  flutter when appropriate.
-      command: ['dart', 'pub', command, if (packageName != null) packageName],
+      commandBuilder: builder,
       commandDescription: 'dart pub $command',
       processManager: processManager,
       knownRoots: await roots,
+      fileSystem: fs,
     );
+  }
+
+  bool _isFlutterPackage(Uri rootUri) {
+    final projectRoot = fs.directory(rootUri.toFilePath());
+    final pubspec = fs.file(projectRoot.childFile('pubspec.yaml'));
+    if (pubspec.existsSync() &&
+        pubspec.statSync().type == FileSystemEntityType.file) {
+      try {
+        final pubspecYaml = loadYaml(pubspec.readAsStringSync())! as YamlMap;
+        if (pubspecYaml['dependencies'] != null &&
+            (pubspecYaml['dependencies']! as YamlMap)['flutter'] != null) {
+          return true;
+        }
+      } catch (e) {
+        // If the file is malformed, just assume it's not a flutter package.
+        return false;
+      }
+    }
+    return false;
   }
 
   static final pubTool = Tool(
@@ -151,7 +181,7 @@ enum SupportedPubCommand {
       if (i < commands.length - 2) {
         buffer.write(', ');
       } else if (i == commands.length - 2) {
-        buffer.write(' and ');
+        buffer.write(', and ');
       }
     }
     return buffer.toString();

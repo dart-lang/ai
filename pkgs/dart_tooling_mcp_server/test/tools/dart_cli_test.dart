@@ -16,7 +16,7 @@ void main() {
   // This root is arbitrary for these tests since we are not actually running
   // the CLI commands, but rather sending them through the
   // [TestProcessManager] wrapper.
-  final testRoot = rootForPath(counterAppPath);
+  Root getTestRoot() => testHarness.rootForPath(counterAppPath);
 
   // TODO: Use setUpAll, currently this fails due to an apparent TestProcess
   // issue.
@@ -26,7 +26,7 @@ void main() {
         testHarness.serverConnectionPair.server!.processManager
             as TestProcessManager;
 
-    testHarness.mcpClient.addRoot(testRoot);
+    testHarness.mcpClient.addRoot(getTestRoot());
     await pumpEventQueue();
   });
 
@@ -49,7 +49,7 @@ void main() {
         name: dartFixTool.name,
         arguments: {
           ParameterNames.roots: [
-            {ParameterNames.root: testRoot.uri},
+            {ParameterNames.root: getTestRoot().uri},
           ],
         },
       );
@@ -67,7 +67,7 @@ void main() {
         name: dartFormatTool.name,
         arguments: {
           ParameterNames.roots: [
-            {ParameterNames.root: testRoot.uri},
+            {ParameterNames.root: getTestRoot().uri},
           ],
         },
       );
@@ -86,7 +86,7 @@ void main() {
         arguments: {
           ParameterNames.roots: [
             {
-              ParameterNames.root: testRoot.uri,
+              ParameterNames.root: getTestRoot().uri,
               ParameterNames.paths: ['foo.dart', 'bar.dart'],
             },
           ],

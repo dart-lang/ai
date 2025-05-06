@@ -8,6 +8,7 @@ import 'package:dart_mcp/server.dart';
 
 import '../utils/cli_utils.dart';
 import '../utils/constants.dart';
+import '../utils/filesystem.dart';
 import '../utils/process_manager.dart';
 
 // TODO: migrate the analyze files tool to use this mixin and run the
@@ -19,7 +20,7 @@ import '../utils/process_manager.dart';
 /// The MCPServer must already have the [ToolsSupport] and [LoggingSupport]
 /// mixins applied.
 base mixin DartCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
-    implements ProcessManagerSupport {
+    implements ProcessManagerSupport, FileSystemSupport {
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
     try {
@@ -41,6 +42,7 @@ base mixin DartCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
       commandDescription: 'dart fix',
       processManager: processManager,
       knownRoots: await roots,
+      fileSystem: fs,
     );
   }
 
@@ -53,6 +55,7 @@ base mixin DartCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
       processManager: processManager,
       defaultPaths: ['.'],
       knownRoots: await roots,
+      fileSystem: fs,
     );
   }
 

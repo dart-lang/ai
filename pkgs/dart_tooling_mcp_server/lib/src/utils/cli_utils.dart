@@ -2,13 +2,14 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'dart:io';
-
 import 'package:dart_mcp/server.dart';
+import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
 import 'package:process/process.dart';
 
 import 'constants.dart';
+
+typedef CommandBuilder = List<String> Function(Uri rootUri);
 
 /// Runs [command] in each of the project roots specified in the [request].
 ///
@@ -33,12 +34,18 @@ import 'constants.dart';
 /// root's 'paths'.
 Future<CallToolResult> runCommandInRoots(
   CallToolRequest request, {
-  required List<String> command,
+  List<String>? command,
+  CommandBuilder? commandBuilder,
   required String commandDescription,
   required ProcessManager processManager,
   required List<Root> knownRoots,
   List<String> defaultPaths = const <String>[],
+  required FileSystem fileSystem,
 }) async {
+  assert(
+    command != null || commandBuilder != null,
+    'One of command or commandBuilder must be specified.',
+  );
   var rootConfigs =
       (request.arguments?[ParameterNames.roots] as List?)
           ?.cast<Map<String, Object?>>();
@@ -89,9 +96,10 @@ Future<CallToolResult> runCommandInRoots(
         isError: true,
       );
     }
-    final projectRoot = Directory(rootUri.toFilePath());
+    final projectRoot = fileSystem.directory(rootUri.toFilePath());
 
-    final commandWithPaths = List.of(command);
+    final commandWithPaths =
+        command != null ? List.of(command) : commandBuilder!(rootUri);
     final paths =
         (rootConfig[ParameterNames.paths] as List?)?.cast<String>() ??
         defaultPaths;

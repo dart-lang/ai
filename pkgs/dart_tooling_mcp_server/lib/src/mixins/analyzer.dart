@@ -5,7 +5,7 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
-import 'dart:io';
+import 'dart:io' show Platform, Process;
 
 import 'package:dart_mcp/server.dart';
 import 'package:json_rpc_2/json_rpc_2.dart';

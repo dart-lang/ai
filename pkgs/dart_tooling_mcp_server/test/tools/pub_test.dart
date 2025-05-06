@@ -5,6 +5,7 @@
 import 'package:dart_mcp/server.dart';
 import 'package:dart_tooling_mcp_server/src/mixins/pub.dart';
 import 'package:dart_tooling_mcp_server/src/utils/constants.dart';
+import 'package:file/memory.dart';
 import 'package:test/test.dart';
 
 import '../test_harness.dart';
@@ -16,19 +17,21 @@ void main() {
   // This root is arbitrary for these tests since we are not actually running
   // the CLI commands, but rather sending them through the
   // [TestProcessManager] wrapper.
-  final testRoot = rootForPath(counterAppPath);
+  Root getTestRoot() => testHarness.rootForPath(counterAppPath);
 
   late Tool dartPubTool;
+  late MemoryFileSystem fileSystem;
 
   // TODO: Use setUpAll, currently this fails due to an apparent TestProcess
   // issue.
   setUp(() async {
-    testHarness = await TestHarness.start(inProcess: true);
+    fileSystem = MemoryFileSystem();
+    testHarness = await TestHarness.start(inProcess: true, fs: fileSystem);
     testProcessManager =
         testHarness.serverConnectionPair.server!.processManager
             as TestProcessManager;
 
-    testHarness.mcpClient.addRoot(testRoot);
+    testHarness.mcpClient.addRoot(getTestRoot());
     await pumpEventQueue();
 
     final tools = (await testHarness.mcpServerConnection.listTools()).tools;
@@ -43,13 +46,13 @@ void main() {
           ParameterNames.command: 'add',
           ParameterNames.packageName: 'foo',
           ParameterNames.roots: [
-            {ParameterNames.root: testRoot.uri},
+            {ParameterNames.root: getTestRoot().uri},
           ],
         },
       );
       final result = await testHarness.callToolWithRetry(request);
 
-      // Verify the command was sent to the process maanger without error.
+      // Verify the command was sent to the process manager without error.
       expect(result.isError, isNot(true));
       expect(testProcessManager.commandsRan, [
         ['dart', 'pub', 'add', 'foo'],
@@ -63,13 +66,13 @@ void main() {
           ParameterNames.command: 'remove',
           ParameterNames.packageName: 'foo',
           ParameterNames.roots: [
-            {ParameterNames.root: testRoot.uri},
+            {ParameterNames.root: getTestRoot().uri},
           ],
         },
       );
       final result = await testHarness.callToolWithRetry(request);
 
-      // Verify the command was sent to the process maanger without error.
+      // Verify the command was sent to the process manager without error.
       expect(result.isError, isNot(true));
       expect(testProcessManager.commandsRan, [
         ['dart', 'pub', 'remove', 'foo'],
@@ -82,13 +85,13 @@ void main() {
         arguments: {
           ParameterNames.command: 'get',
           ParameterNames.roots: [
-            {ParameterNames.root: testRoot.uri},
+            {ParameterNames.root: getTestRoot().uri},
           ],
         },
       );
       final result = await testHarness.callToolWithRetry(request);
 
-      // Verify the command was sent to the process maanger without error.
+      // Verify the command was sent to the process manager without error.
       expect(result.isError, isNot(true));
       expect(testProcessManager.commandsRan, [
         ['dart', 'pub', 'get'],
@@ -101,16 +104,55 @@ void main() {
         arguments: {
           ParameterNames.command: 'upgrade',
           ParameterNames.roots: [
-            {ParameterNames.root: testRoot.uri},
+            {ParameterNames.root: getTestRoot().uri},
           ],
         },
       );
       final result = await testHarness.callToolWithRetry(request);
 
-      // Verify the command was sent to the process maanger without error.
+      // Verify the command was sent to the process manager without error.
       expect(result.isError, isNot(true));
       expect(testProcessManager.commandsRan, [
         ['dart', 'pub', 'upgrade'],
+      ]);
+    });
+
+    test('conditionally runs flutter', () async {
+      final request = CallToolRequest(
+        name: dartPubTool.name,
+        arguments: {
+          ParameterNames.command: 'get',
+          ParameterNames.roots: [
+            {ParameterNames.root: getTestRoot().uri},
+          ],
+        },
+      );
+      var result = await testHarness.callToolWithRetry(request);
+
+      // Verify the command was sent to the process manager and runs dart.
+      expect(result.isError, isNot(true));
+      expect(testProcessManager.commandsRan, [
+        ['dart', 'pub', 'get'],
+      ]);
+
+      // Write a pubspec that the command can look at to see if the project is
+      // a flutter project or not.
+      final flutterPubspec = fileSystem
+          .directory(Uri.parse(getTestRoot().uri).toFilePath())
+          .childFile('pubspec.yaml');
+
+      flutterPubspec.createSync(recursive: true);
+      flutterPubspec.writeAsStringSync(
+        'dependencies:\n  flutter:\n    sdk: '
+        'flutter',
+      );
+      testProcessManager.commandsRan.clear();
+      result = await testHarness.callToolWithRetry(request);
+
+      // Verify the command was sent to the process manager and runs flutter.
+      expect(result.isError, isNot(true));
+      expect(testProcessManager.commandsRan, [
+        ['flutter', 'pub', 'get'],
       ]);
     });
 

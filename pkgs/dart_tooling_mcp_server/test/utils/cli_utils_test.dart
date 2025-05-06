@@ -5,6 +5,7 @@
 import 'package:dart_mcp/server.dart';
 import 'package:dart_tooling_mcp_server/src/utils/cli_utils.dart';
 import 'package:dart_tooling_mcp_server/src/utils/constants.dart';
+import 'package:file/memory.dart';
 import 'package:process/process.dart';
 import 'package:test/fake.dart';
 import 'package:test/test.dart';
@@ -12,8 +13,15 @@ import 'package:test/test.dart';
 import '../test_harness.dart';
 
 void main() {
+  late MemoryFileSystem fileSystem;
+
+  setUp(() async {
+    fileSystem = MemoryFileSystem();
+  });
+
   group('can run commands', () {
     late TestProcessManager processManager;
+
     setUp(() async {
       processManager = TestProcessManager();
     });
@@ -32,6 +40,7 @@ void main() {
         commandDescription: '',
         processManager: processManager,
         knownRoots: [Root(uri: 'file:///bar/')],
+        fileSystem: fileSystem,
       );
       expect(result.isError, isNot(true));
       expect(processManager.commandsRan, [
@@ -55,6 +64,7 @@ void main() {
           commandDescription: '',
           processManager: processManager,
           knownRoots: [Root(uri: 'file:///bar/')],
+          fileSystem: fileSystem,
         );
         expect(result.isError, isNot(true));
         expect(processManager.commandsRan, [
@@ -82,6 +92,7 @@ void main() {
           commandDescription: '',
           processManager: processManager,
           knownRoots: [Root(uri: 'file:///foo/')],
+          fileSystem: fileSystem,
         );
         expect(result.isError, isTrue);
         expect(
@@ -117,6 +128,7 @@ void main() {
         commandDescription: '',
         processManager: processManager,
         knownRoots: [Root(uri: 'file:///foo/')],
+        fileSystem: fileSystem,
       );
       expect(result.isError, isTrue);
       expect(
