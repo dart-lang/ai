@@ -73,7 +73,7 @@ class TestHarness {
     final serverConnectionPair = await _initializeMCPServer(
       mcpClient,
       inProcess,
-      fileSystem
+      fileSystem,
     );
     final connection = serverConnectionPair.serverConnection;
     connection.onLog.listen((log) {
