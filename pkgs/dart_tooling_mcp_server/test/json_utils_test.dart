@@ -20,7 +20,7 @@ void main() {
       ),
     );
     expect(
-      () => dig<Map<String, Object?>>(<String>[], []),
+      () => dig<Map<String, Object?>>(<Object?>[], []),
       throwsA(
         isA<FormatException>().having(
           (d) => d.message,
