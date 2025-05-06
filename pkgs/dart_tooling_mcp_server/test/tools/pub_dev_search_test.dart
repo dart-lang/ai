@@ -145,6 +145,37 @@ void main() {
       'packageName': 'retry',
     });
   });
+
+  test('No matching packages gets reported as an error', () async {
+    createClient =
+        // Serve no packages, but provide no further information
+        // about it.
+        () => _FixedResponseClient((url) {
+          if (url.toString() == 'https://pub.dev/api/search?q=retry') {
+            return jsonEncode({'packages': <Object?>[
+              ],
+            });
+          } else {
+            throw ClientException('No internet');
+          }
+        });
+
+    final request = CallToolRequest(
+      name: pubDevSearchTool.name,
+      arguments: {'query': 'retry'},
+    );
+
+    final result = await testHarness.callToolWithRetry(
+      request,
+      maxTries: 1,
+      expectError: true,
+    );
+    expect(result.isError, isTrue);
+    expect(
+      (result.content[0] as TextContent).text,
+      contains('No packages mached the query, consider simplifying it'),
+    );
+  });
 }
 
 class _FixedResponseClient implements Client {

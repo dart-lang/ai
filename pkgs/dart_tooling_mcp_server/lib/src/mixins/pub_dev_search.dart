@@ -52,6 +52,17 @@ base mixin PubDevSupport on ToolsSupport {
             'packages',
           ]).take(10).map((p) => dig<String>(p, ['package'])).toList();
 
+      if (packageNames.isEmpty) {
+        return CallToolResult(
+          content: [
+            TextContent(
+              text: 'No packages mached the query, consider simplifying it',
+            ),
+          ],
+          isError: true,
+        );
+      }
+
       Future<Object?> retrieve(String path) async {
         return _pool.withResource(() async {
           try {
