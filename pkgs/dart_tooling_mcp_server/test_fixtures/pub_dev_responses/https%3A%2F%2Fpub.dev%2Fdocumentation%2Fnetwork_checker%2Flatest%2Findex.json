@@ -1,0 +1,106 @@
+[
+  {
+    "name": "network_checker",
+    "qualifiedName": "network_checker",
+    "href": "network_checker/",
+    "kind": 9,
+    "packageRank": 0,
+    "desc": ""
+  },
+  {
+    "name": "NetworkChecker",
+    "qualifiedName": "network_checker.NetworkChecker",
+    "href": "network_checker/NetworkChecker-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "network_checker",
+      "kind": 9,
+      "href": "network_checker/"
+    }
+  },
+  {
+    "name": "NetworkChecker.new",
+    "qualifiedName": "network_checker.NetworkChecker.NetworkChecker.new",
+    "href": "network_checker/NetworkChecker/NetworkChecker.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "retryUI allows users to define their own UI for the retry screen.\nIf null, a default retry screen with a message and button is shown.",
+    "enclosedBy": {
+      "name": "NetworkChecker",
+      "kind": 3,
+      "href": "network_checker/NetworkChecker-class.html"
+    }
+  },
+  {
+    "name": "child",
+    "qualifiedName": "network_checker.NetworkChecker.child",
+    "href": "network_checker/NetworkChecker/child.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "NetworkChecker",
+      "kind": 3,
+      "href": "network_checker/NetworkChecker-class.html"
+    }
+  },
+  {
+    "name": "createState",
+    "qualifiedName": "network_checker.NetworkChecker.createState",
+    "href": "network_checker/NetworkChecker/createState.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "Creates the mutable state for this widget at a given location in the tree.",
+    "enclosedBy": {
+      "name": "NetworkChecker",
+      "kind": 3,
+      "href": "network_checker/NetworkChecker-class.html"
+    }
+  },
+  {
+    "name": "onRetry",
+    "qualifiedName": "network_checker.NetworkChecker.onRetry",
+    "href": "network_checker/NetworkChecker/onRetry.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "NetworkChecker",
+      "kind": 3,
+      "href": "network_checker/NetworkChecker-class.html"
+    }
+  },
+  {
+    "name": "retryButton",
+    "qualifiedName": "network_checker.NetworkChecker.retryButton",
+    "href": "network_checker/NetworkChecker/retryButton.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "NetworkChecker",
+      "kind": 3,
+      "href": "network_checker/NetworkChecker-class.html"
+    }
+  },
+  {
+    "name": "retryUI",
+    "qualifiedName": "network_checker.NetworkChecker.retryUI",
+    "href": "network_checker/NetworkChecker/retryUI.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "NetworkChecker",
+      "kind": 3,
+      "href": "network_checker/NetworkChecker-class.html"
+    }
+  }
+]

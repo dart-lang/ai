@@ -1,0 +1,33 @@
+{
+  "grantedPoints": 150,
+  "maxPoints": 160,
+  "likeCount": 5,
+  "downloadCount30Days": 65,
+  "tags": [
+    "publisher:mattiapispisa.it",
+    "has:topic",
+    "sdk:dart",
+    "sdk:flutter",
+    "platform:android",
+    "platform:ios",
+    "platform:windows",
+    "platform:linux",
+    "platform:macos",
+    "platform:web",
+    "runtime:native-aot",
+    "runtime:native-jit",
+    "runtime:web",
+    "is:null-safe",
+    "is:wasm-ready",
+    "is:dart3-compatible",
+    "license:mit",
+    "license:fsf-libre",
+    "license:osi-approved",
+    "topic:dio",
+    "topic:file",
+    "topic:upload",
+    "topic:chunks",
+    "topic:retry"
+  ],
+  "lastUpdated": "2025-04-24T14:21:03.982988"
+}

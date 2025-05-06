@@ -1,0 +1,268 @@
+{
+  "name": "en_file_uploader",
+  "latest": {
+    "version": "2.0.3",
+    "pubspec": {
+      "name": "en_file_uploader",
+      "description": "This Dart package provides a file upload functionality that is implementation-agnostic. Provides the capability to upload a file in chunks with built-in retry handling.",
+      "version": "2.0.3",
+      "homepage": "https://mattiapispisa.github.io/",
+      "repository": "https://github.com/MattiaPispisa/file_uploader/tree/main/en_file_uploader",
+      "topics": [
+        "file",
+        "upload",
+        "chunks",
+        "retry"
+      ],
+      "environment": {
+        "sdk": ">=2.18.0 <4.0.0"
+      },
+      "dependencies": {
+        "cross_file": "^0.3.0"
+      },
+      "dev_dependencies": {
+        "file_uploader_utils": {
+          "path": "../tools/file_uploader_utils"
+        },
+        "mocktail": "^1.0.4",
+        "test": "^1.25.2",
+        "very_good_analysis": "^5.1.0"
+      }
+    },
+    "archive_url": "https://pub.dev/api/archives/en_file_uploader-2.0.3.tar.gz",
+    "archive_sha256": "5e34ac4c322b69d1283c59778a34b101646deddd0dcdf5f2842415eace03eb38",
+    "published": "2024-08-11T08:55:54.603237Z"
+  },
+  "versions": [
+    {
+      "version": "1.0.0",
+      "pubspec": {
+        "name": "en_file_uploader",
+        "description": "This Dart package provides a file upload functionality that is implementation-agnostic. Provides the capability to upload a file in chunks with built-in retry handling.",
+        "version": "1.0.0",
+        "homepage": "https://mattiapispisa.github.io/",
+        "repository": "https://github.com/MattiaPispisa/file_uploader",
+        "topics": [
+          "file",
+          "upload",
+          "chunks",
+          "retry"
+        ],
+        "environment": {
+          "sdk": ">=2.18.0 <4.0.0"
+        },
+        "dev_dependencies": {
+          "test": "^1.25.2",
+          "very_good_analysis": "^5.1.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/en_file_uploader-1.0.0.tar.gz",
+      "archive_sha256": "66be16721426645c5f3ebc29ddff119d9736da2c884693e34744a79d87d4441b",
+      "published": "2024-06-04T06:20:43.534896Z"
+    },
+    {
+      "version": "1.0.1",
+      "pubspec": {
+        "name": "en_file_uploader",
+        "description": "This Dart package provides a file upload functionality that is implementation-agnostic. Provides the capability to upload a file in chunks with built-in retry handling.",
+        "version": "1.0.1",
+        "homepage": "https://mattiapispisa.github.io/",
+        "repository": "https://github.com/MattiaPispisa/file_uploader",
+        "topics": [
+          "file",
+          "upload",
+          "chunks",
+          "retry"
+        ],
+        "environment": {
+          "sdk": ">=2.18.0 <4.0.0"
+        },
+        "dev_dependencies": {
+          "test": "^1.25.2",
+          "very_good_analysis": "^5.1.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/en_file_uploader-1.0.1.tar.gz",
+      "archive_sha256": "74cec4862cb26e94595ff332902081f940cf4bef8b8a3d5f8e3bf8262136ff60",
+      "published": "2024-06-04T06:43:25.154905Z"
+    },
+    {
+      "version": "1.1.0",
+      "pubspec": {
+        "name": "en_file_uploader",
+        "description": "This Dart package provides a file upload functionality that is implementation-agnostic. Provides the capability to upload a file in chunks with built-in retry handling.",
+        "version": "1.1.0",
+        "homepage": "https://mattiapispisa.github.io/",
+        "repository": "https://github.com/MattiaPispisa/file_uploader",
+        "topics": [
+          "file",
+          "upload",
+          "chunks",
+          "retry"
+        ],
+        "environment": {
+          "sdk": ">=2.18.0 <4.0.0"
+        },
+        "dev_dependencies": {
+          "test": "^1.25.2",
+          "very_good_analysis": "^5.1.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/en_file_uploader-1.1.0.tar.gz",
+      "archive_sha256": "25685cada369c4f199b9cbc7b2229e797a2dc5050bc5d35e080b177dd97937e7",
+      "published": "2024-06-17T05:43:12.942357Z"
+    },
+    {
+      "version": "1.1.1",
+      "pubspec": {
+        "name": "en_file_uploader",
+        "description": "This Dart package provides a file upload functionality that is implementation-agnostic. Provides the capability to upload a file in chunks with built-in retry handling.",
+        "version": "1.1.1",
+        "homepage": "https://mattiapispisa.github.io/",
+        "repository": "https://github.com/MattiaPispisa/file_uploader",
+        "topics": [
+          "file",
+          "upload",
+          "chunks",
+          "retry"
+        ],
+        "environment": {
+          "sdk": ">=2.18.0 <4.0.0"
+        },
+        "dev_dependencies": {
+          "test": "^1.25.2",
+          "very_good_analysis": "^5.1.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/en_file_uploader-1.1.1.tar.gz",
+      "archive_sha256": "7b9e8b1618f8ffaff23825aafc7792ac965afc92e14ee387d6508b0b8f4d3742",
+      "published": "2024-06-18T05:39:22.465654Z"
+    },
+    {
+      "version": "2.0.0",
+      "pubspec": {
+        "name": "en_file_uploader",
+        "description": "This Dart package provides a file upload functionality that is implementation-agnostic. Provides the capability to upload a file in chunks with built-in retry handling.",
+        "version": "2.0.0",
+        "homepage": "https://mattiapispisa.github.io/",
+        "repository": "https://github.com/MattiaPispisa/file_uploader",
+        "topics": [
+          "file",
+          "upload",
+          "chunks",
+          "retry"
+        ],
+        "environment": {
+          "sdk": ">=2.18.0 <4.0.0"
+        },
+        "dependencies": {
+          "cross_file": "^0.3.0"
+        },
+        "dev_dependencies": {
+          "test": "^1.25.2",
+          "very_good_analysis": "^5.1.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/en_file_uploader-2.0.0.tar.gz",
+      "archive_sha256": "d461c1fa7015bf812590cb96d7baac54f3e567c0b28cbd7ab3f21a9d18dcad9e",
+      "published": "2024-06-19T06:24:30.154945Z"
+    },
+    {
+      "version": "2.0.1",
+      "pubspec": {
+        "name": "en_file_uploader",
+        "description": "This Dart package provides a file upload functionality that is implementation-agnostic. Provides the capability to upload a file in chunks with built-in retry handling.",
+        "version": "2.0.1",
+        "homepage": "https://mattiapispisa.github.io/",
+        "repository": "https://github.com/MattiaPispisa/file_uploader",
+        "topics": [
+          "file",
+          "upload",
+          "chunks",
+          "retry"
+        ],
+        "environment": {
+          "sdk": ">=2.18.0 <4.0.0"
+        },
+        "dependencies": {
+          "cross_file": "^0.3.0"
+        },
+        "dev_dependencies": {
+          "file_uploader_utils": {
+            "path": "../tools/file_uploader_utils"
+          },
+          "test": "^1.25.2",
+          "very_good_analysis": "^5.1.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/en_file_uploader-2.0.1.tar.gz",
+      "archive_sha256": "e2a6c4226c3009564bc974a44c40aa11d30eda963f0fe701c36b2d064d8ce926",
+      "published": "2024-06-22T20:15:37.370743Z"
+    },
+    {
+      "version": "2.0.2",
+      "pubspec": {
+        "name": "en_file_uploader",
+        "description": "This Dart package provides a file upload functionality that is implementation-agnostic. Provides the capability to upload a file in chunks with built-in retry handling.",
+        "version": "2.0.2",
+        "homepage": "https://mattiapispisa.github.io/",
+        "repository": "https://github.com/MattiaPispisa/file_uploader/tree/main/en_file_uploader",
+        "topics": [
+          "file",
+          "upload",
+          "chunks",
+          "retry"
+        ],
+        "environment": {
+          "sdk": ">=2.18.0 <4.0.0"
+        },
+        "dependencies": {
+          "cross_file": "^0.3.0"
+        },
+        "dev_dependencies": {
+          "file_uploader_utils": {
+            "path": "../tools/file_uploader_utils"
+          },
+          "test": "^1.25.2",
+          "very_good_analysis": "^5.1.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/en_file_uploader-2.0.2.tar.gz",
+      "archive_sha256": "3bd44322e128f80f03ec6a1db17f6eb6b914e1beb05739436a2172168723520b",
+      "published": "2024-06-23T10:09:52.912253Z"
+    },
+    {
+      "version": "2.0.3",
+      "pubspec": {
+        "name": "en_file_uploader",
+        "description": "This Dart package provides a file upload functionality that is implementation-agnostic. Provides the capability to upload a file in chunks with built-in retry handling.",
+        "version": "2.0.3",
+        "homepage": "https://mattiapispisa.github.io/",
+        "repository": "https://github.com/MattiaPispisa/file_uploader/tree/main/en_file_uploader",
+        "topics": [
+          "file",
+          "upload",
+          "chunks",
+          "retry"
+        ],
+        "environment": {
+          "sdk": ">=2.18.0 <4.0.0"
+        },
+        "dependencies": {
+          "cross_file": "^0.3.0"
+        },
+        "dev_dependencies": {
+          "file_uploader_utils": {
+            "path": "../tools/file_uploader_utils"
+          },
+          "mocktail": "^1.0.4",
+          "test": "^1.25.2",
+          "very_good_analysis": "^5.1.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/en_file_uploader-2.0.3.tar.gz",
+      "archive_sha256": "5e34ac4c322b69d1283c59778a34b101646deddd0dcdf5f2842415eace03eb38",
+      "published": "2024-08-11T08:55:54.603237Z"
+    }
+  ]
+}

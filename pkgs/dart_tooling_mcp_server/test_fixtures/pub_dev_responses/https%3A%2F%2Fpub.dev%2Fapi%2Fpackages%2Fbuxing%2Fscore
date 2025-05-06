@@ -1,0 +1,24 @@
+{
+  "grantedPoints": 150,
+  "maxPoints": 160,
+  "likeCount": 14,
+  "downloadCount30Days": 33,
+  "tags": [
+    "publisher:mgenware.com",
+    "sdk:dart",
+    "sdk:flutter",
+    "platform:android",
+    "platform:ios",
+    "platform:windows",
+    "platform:linux",
+    "platform:macos",
+    "runtime:native-aot",
+    "runtime:native-jit",
+    "is:null-safe",
+    "is:dart3-compatible",
+    "license:bsd-3-clause",
+    "license:fsf-libre",
+    "license:osi-approved"
+  ],
+  "lastUpdated": "2025-04-24T13:17:47.981180"
+}

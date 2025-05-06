@@ -1,0 +1,304 @@
+{
+  "name": "http_file_uploader",
+  "latest": {
+    "version": "2.1.3",
+    "pubspec": {
+      "name": "http_file_uploader",
+      "description": "A en_file_uploader plugin to handle the file upload using http package. Provides the capability to upload a file in chunks with built-in retry handling.",
+      "version": "2.1.3",
+      "homepage": "https://mattiapispisa.github.io/",
+      "repository": "https://github.com/MattiaPispisa/file_uploader/tree/main/plugins/http_file_uploader",
+      "topics": [
+        "http",
+        "file",
+        "upload",
+        "chunks",
+        "retry"
+      ],
+      "environment": {
+        "sdk": ">=2.18.0 <4.0.0"
+      },
+      "dependencies": {
+        "en_file_uploader": "^2.0.0",
+        "file_uploader_socket_interfaces": "^1.2.2",
+        "http": "^1.0.0"
+      },
+      "dev_dependencies": {
+        "file_uploader_utils": {
+          "path": "../../tools/file_uploader_utils"
+        },
+        "test": "^1.25.2",
+        "very_good_analysis": "^5.1.0"
+      }
+    },
+    "archive_url": "https://pub.dev/api/archives/http_file_uploader-2.1.3.tar.gz",
+    "archive_sha256": "1e4ea32f5a83be64d3205e0f2787837bdbde9a4d7d05017a074c6f8ef69532b2",
+    "published": "2024-08-19T09:39:50.978429Z"
+  },
+  "versions": [
+    {
+      "version": "1.0.0",
+      "pubspec": {
+        "name": "http_file_uploader",
+        "description": "A File_Uploader plugin to handle the file upload using http package. Provides the capability to upload a file in chunks with built-in retry handling.",
+        "version": "1.0.0",
+        "homepage": "https://mattiapispisa.github.io/",
+        "repository": "https://github.com/MattiaPispisa/file_uploader",
+        "topics": [
+          "http",
+          "file",
+          "upload",
+          "chunks",
+          "retry"
+        ],
+        "environment": {
+          "sdk": ">=2.18.0 <4.0.0"
+        },
+        "dependencies": {
+          "en_file_uploader": "^1.0.0",
+          "http": "^1.0.0"
+        },
+        "dev_dependencies": {
+          "test": "^1.25.2",
+          "very_good_analysis": "^5.1.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/http_file_uploader-1.0.0.tar.gz",
+      "archive_sha256": "b0a046364142b3298c7d5a76d0b4bfe27be4791bb5cf4437cda523e25973bb7e",
+      "published": "2024-06-04T06:32:44.514404Z"
+    },
+    {
+      "version": "1.0.1",
+      "pubspec": {
+        "name": "http_file_uploader",
+        "description": "A File_Uploader plugin to handle the file upload using http package. Provides the capability to upload a file in chunks with built-in retry handling.",
+        "version": "1.0.1",
+        "homepage": "https://mattiapispisa.github.io/",
+        "repository": "https://github.com/MattiaPispisa/file_uploader",
+        "topics": [
+          "http",
+          "file",
+          "upload",
+          "chunks",
+          "retry"
+        ],
+        "environment": {
+          "sdk": ">=2.18.0 <4.0.0"
+        },
+        "dependencies": {
+          "en_file_uploader": "^1.0.0",
+          "http": "^1.0.0"
+        },
+        "dev_dependencies": {
+          "test": "^1.25.2",
+          "very_good_analysis": "^5.1.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/http_file_uploader-1.0.1.tar.gz",
+      "archive_sha256": "0c23dc90930884b04def58ccb0d42b851ba83cadcb18598d30d00758ef19dc80",
+      "published": "2024-06-04T06:43:30.598497Z"
+    },
+    {
+      "version": "2.0.0",
+      "pubspec": {
+        "name": "http_file_uploader",
+        "description": "A File_Uploader plugin to handle the file upload using http package. Provides the capability to upload a file in chunks with built-in retry handling.",
+        "version": "2.0.0",
+        "homepage": "https://mattiapispisa.github.io/",
+        "repository": "https://github.com/MattiaPispisa/file_uploader",
+        "topics": [
+          "http",
+          "file",
+          "upload",
+          "chunks",
+          "retry"
+        ],
+        "environment": {
+          "sdk": ">=2.18.0 <4.0.0"
+        },
+        "dependencies": {
+          "en_file_uploader": "^2.0.0",
+          "http": "^1.0.0"
+        },
+        "dev_dependencies": {
+          "test": "^1.25.2",
+          "very_good_analysis": "^5.1.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/http_file_uploader-2.0.0.tar.gz",
+      "archive_sha256": "c6056bec87ce06d5433c8ca4a6ebda23ebc367cc5c35f945d7333764f6fe85db",
+      "published": "2024-06-19T06:29:49.439656Z"
+    },
+    {
+      "version": "2.0.1",
+      "pubspec": {
+        "name": "http_file_uploader",
+        "description": "A File_Uploader plugin to handle the file upload using http package. Provides the capability to upload a file in chunks with built-in retry handling.",
+        "version": "2.0.1",
+        "homepage": "https://mattiapispisa.github.io/",
+        "repository": "https://github.com/MattiaPispisa/file_uploader",
+        "topics": [
+          "http",
+          "file",
+          "upload",
+          "chunks",
+          "retry"
+        ],
+        "environment": {
+          "sdk": ">=2.18.0 <4.0.0"
+        },
+        "dependencies": {
+          "en_file_uploader": "^2.0.0",
+          "http": "^1.0.0"
+        },
+        "dev_dependencies": {
+          "test": "^1.25.2",
+          "very_good_analysis": "^5.1.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/http_file_uploader-2.0.1.tar.gz",
+      "archive_sha256": "82a8e3147ae67550dbf7654a89e88e818a8e0e0ffa9ec0474c339c8b716d3ce0",
+      "published": "2024-06-20T17:03:44.201884Z"
+    },
+    {
+      "version": "2.1.0",
+      "pubspec": {
+        "name": "http_file_uploader",
+        "description": "A en_file_uploader plugin to handle the file upload using http package. Provides the capability to upload a file in chunks with built-in retry handling.",
+        "version": "2.1.0",
+        "homepage": "https://mattiapispisa.github.io/",
+        "repository": "https://github.com/MattiaPispisa/file_uploader",
+        "topics": [
+          "http",
+          "file",
+          "upload",
+          "chunks",
+          "retry"
+        ],
+        "environment": {
+          "sdk": ">=2.18.0 <4.0.0"
+        },
+        "dependencies": {
+          "en_file_uploader": "^2.0.0",
+          "file_uploader_socket_interfaces": "^1.2.2",
+          "http": "^1.0.0"
+        },
+        "dev_dependencies": {
+          "file_uploader_utils": {
+            "path": "../../tools/file_uploader_utils"
+          },
+          "test": "^1.25.2",
+          "very_good_analysis": "^5.1.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/http_file_uploader-2.1.0.tar.gz",
+      "archive_sha256": "64b08b3183b0cf247988976b06a49eb0efe7960d11c4edf150265ce46a399769",
+      "published": "2024-06-22T20:15:49.197619Z"
+    },
+    {
+      "version": "2.1.1",
+      "pubspec": {
+        "name": "http_file_uploader",
+        "description": "A en_file_uploader plugin to handle the file upload using http package. Provides the capability to upload a file in chunks with built-in retry handling.",
+        "version": "2.1.1",
+        "homepage": "https://mattiapispisa.github.io/",
+        "repository": "https://github.com/MattiaPispisa/file_uploader/tree/main/plugins/http_file_uploader",
+        "topics": [
+          "http",
+          "file",
+          "upload",
+          "chunks",
+          "retry"
+        ],
+        "environment": {
+          "sdk": ">=2.18.0 <4.0.0"
+        },
+        "dependencies": {
+          "en_file_uploader": "^2.0.0",
+          "file_uploader_socket_interfaces": "^1.2.2",
+          "http": "^1.0.0"
+        },
+        "dev_dependencies": {
+          "file_uploader_utils": {
+            "path": "../../tools/file_uploader_utils"
+          },
+          "test": "^1.25.2",
+          "very_good_analysis": "^5.1.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/http_file_uploader-2.1.1.tar.gz",
+      "archive_sha256": "bec91ac74bfae96764b808e24f83dce8fc0c8777f5168e041d0a4bfda5acd6d8",
+      "published": "2024-06-23T10:10:15.894419Z"
+    },
+    {
+      "version": "2.1.2",
+      "pubspec": {
+        "name": "http_file_uploader",
+        "description": "A en_file_uploader plugin to handle the file upload using http package. Provides the capability to upload a file in chunks with built-in retry handling.",
+        "version": "2.1.2",
+        "homepage": "https://mattiapispisa.github.io/",
+        "repository": "https://github.com/MattiaPispisa/file_uploader/tree/main/plugins/http_file_uploader",
+        "topics": [
+          "http",
+          "file",
+          "upload",
+          "chunks",
+          "retry"
+        ],
+        "environment": {
+          "sdk": ">=2.18.0 <4.0.0"
+        },
+        "dependencies": {
+          "en_file_uploader": "^2.0.0",
+          "file_uploader_socket_interfaces": "^1.2.2",
+          "http": "^1.0.0"
+        },
+        "dev_dependencies": {
+          "file_uploader_utils": {
+            "path": "../../tools/file_uploader_utils"
+          },
+          "test": "^1.25.2",
+          "very_good_analysis": "^5.1.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/http_file_uploader-2.1.2.tar.gz",
+      "archive_sha256": "bb29de930bd105d35543b6e60d23b84f9e425287e741a4d1094e0cc1b0d366f6",
+      "published": "2024-08-19T09:37:23.021919Z"
+    },
+    {
+      "version": "2.1.3",
+      "pubspec": {
+        "name": "http_file_uploader",
+        "description": "A en_file_uploader plugin to handle the file upload using http package. Provides the capability to upload a file in chunks with built-in retry handling.",
+        "version": "2.1.3",
+        "homepage": "https://mattiapispisa.github.io/",
+        "repository": "https://github.com/MattiaPispisa/file_uploader/tree/main/plugins/http_file_uploader",
+        "topics": [
+          "http",
+          "file",
+          "upload",
+          "chunks",
+          "retry"
+        ],
+        "environment": {
+          "sdk": ">=2.18.0 <4.0.0"
+        },
+        "dependencies": {
+          "en_file_uploader": "^2.0.0",
+          "file_uploader_socket_interfaces": "^1.2.2",
+          "http": "^1.0.0"
+        },
+        "dev_dependencies": {
+          "file_uploader_utils": {
+            "path": "../../tools/file_uploader_utils"
+          },
+          "test": "^1.25.2",
+          "very_good_analysis": "^5.1.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/http_file_uploader-2.1.3.tar.gz",
+      "archive_sha256": "1e4ea32f5a83be64d3205e0f2787837bdbde9a4d7d05017a074c6f8ef69532b2",
+      "published": "2024-08-19T09:39:50.978429Z"
+    }
+  ]
+}

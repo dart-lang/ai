@@ -1,0 +1,23 @@
+{
+  "grantedPoints": 150,
+  "maxPoints": 160,
+  "likeCount": 32,
+  "downloadCount30Days": 40,
+  "tags": [
+    "publisher:martinrybak.com",
+    "sdk:flutter",
+    "platform:android",
+    "platform:ios",
+    "platform:windows",
+    "platform:linux",
+    "platform:macos",
+    "platform:web",
+    "is:null-safe",
+    "is:wasm-ready",
+    "is:dart3-compatible",
+    "license:mit",
+    "license:fsf-libre",
+    "license:osi-approved"
+  ],
+  "lastUpdated": "2025-04-24T16:28:17.723452"
+}

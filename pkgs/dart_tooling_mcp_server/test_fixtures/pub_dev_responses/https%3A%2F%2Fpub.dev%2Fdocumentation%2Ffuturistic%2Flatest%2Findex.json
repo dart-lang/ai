@@ -1,0 +1,162 @@
+[
+  {
+    "name": "futuristic",
+    "qualifiedName": "futuristic",
+    "href": "futuristic/",
+    "kind": 9,
+    "packageRank": 0,
+    "desc": ""
+  },
+  {
+    "name": "Futuristic",
+    "qualifiedName": "futuristic.Futuristic",
+    "href": "futuristic/Futuristic-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "A widget that makes it easy to execute a Future from a StatelessWidget.",
+    "enclosedBy": {
+      "name": "futuristic",
+      "kind": 9,
+      "href": "futuristic/"
+    }
+  },
+  {
+    "name": "Futuristic.new",
+    "qualifiedName": "futuristic.Futuristic.Futuristic.new",
+    "href": "futuristic/Futuristic/Futuristic.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "Futuristic",
+      "kind": 3,
+      "href": "futuristic/Futuristic-class.html"
+    }
+  },
+  {
+    "name": "autoStart",
+    "qualifiedName": "futuristic.Futuristic.autoStart",
+    "href": "futuristic/Futuristic/autoStart.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Whether to immediately begin executing the Future. If true, initialBuilder must be null.",
+    "enclosedBy": {
+      "name": "Futuristic",
+      "kind": 3,
+      "href": "futuristic/Futuristic-class.html"
+    }
+  },
+  {
+    "name": "busyBuilder",
+    "qualifiedName": "futuristic.Futuristic.busyBuilder",
+    "href": "futuristic/Futuristic/busyBuilder.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Widget to display while the Future is executing.\nIf null, a CircularProgressIndicator will be displayed.",
+    "enclosedBy": {
+      "name": "Futuristic",
+      "kind": 3,
+      "href": "futuristic/Futuristic-class.html"
+    }
+  },
+  {
+    "name": "createState",
+    "qualifiedName": "futuristic.Futuristic.createState",
+    "href": "futuristic/Futuristic/createState.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "Creates the mutable state for this widget at a given location in the tree.",
+    "enclosedBy": {
+      "name": "Futuristic",
+      "kind": 3,
+      "href": "futuristic/Futuristic-class.html"
+    }
+  },
+  {
+    "name": "dataBuilder",
+    "qualifiedName": "futuristic.Futuristic.dataBuilder",
+    "href": "futuristic/Futuristic/dataBuilder.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Widget to display when the Future has completed successfully.\nIf null, initialBuilder will be displayed again.",
+    "enclosedBy": {
+      "name": "Futuristic",
+      "kind": 3,
+      "href": "futuristic/Futuristic-class.html"
+    }
+  },
+  {
+    "name": "errorBuilder",
+    "qualifiedName": "futuristic.Futuristic.errorBuilder",
+    "href": "futuristic/Futuristic/errorBuilder.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Widget to display when the Future has completed with an error.\nIf null, initialBuilder will be displayed again.\nThe Object is the Error or Exception returned by the Future.\nCall VoidCallback to start executing the Future again.",
+    "enclosedBy": {
+      "name": "Futuristic",
+      "kind": 3,
+      "href": "futuristic/Futuristic-class.html"
+    }
+  },
+  {
+    "name": "futureBuilder",
+    "qualifiedName": "futuristic.Futuristic.futureBuilder",
+    "href": "futuristic/Futuristic/futureBuilder.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Function that returns the Future to execute. Not the Future itself.",
+    "enclosedBy": {
+      "name": "Futuristic",
+      "kind": 3,
+      "href": "futuristic/Futuristic-class.html"
+    }
+  },
+  {
+    "name": "initialBuilder",
+    "qualifiedName": "futuristic.Futuristic.initialBuilder",
+    "href": "futuristic/Futuristic/initialBuilder.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Widget to display before the Future starts executing.\nCall VoidCallback to start executing the Future.\nIf not null, autoStart should be false.",
+    "enclosedBy": {
+      "name": "Futuristic",
+      "kind": 3,
+      "href": "futuristic/Futuristic-class.html"
+    }
+  },
+  {
+    "name": "onData",
+    "qualifiedName": "futuristic.Futuristic.onData",
+    "href": "futuristic/Futuristic/onData.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Callback to invoke when the Future has completed successfully.\nWill only be invoked once per Future execution.",
+    "enclosedBy": {
+      "name": "Futuristic",
+      "kind": 3,
+      "href": "futuristic/Futuristic-class.html"
+    }
+  },
+  {
+    "name": "onError",
+    "qualifiedName": "futuristic.Futuristic.onError",
+    "href": "futuristic/Futuristic/onError.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Callback to invoke when the Future has completed with an error.\nWill only be invoked once per Future execution.\nCall VoidCallback to start executing the Future again.",
+    "enclosedBy": {
+      "name": "Futuristic",
+      "kind": 3,
+      "href": "futuristic/Futuristic-class.html"
+    }
+  }
+]

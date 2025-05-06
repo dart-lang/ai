@@ -1,0 +1,1378 @@
+[
+  {
+    "name": "dio_smart_retry",
+    "qualifiedName": "dio_smart_retry",
+    "href": "dio_smart_retry/",
+    "kind": 9,
+    "packageRank": 0,
+    "desc": "Retry library for Dio package made with love"
+  },
+  {
+    "name": "DefaultRetryEvaluator",
+    "qualifiedName": "dio_smart_retry.DefaultRetryEvaluator",
+    "href": "dio_smart_retry/DefaultRetryEvaluator-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "DefaultRetryEvaluator.new",
+    "qualifiedName": "dio_smart_retry.DefaultRetryEvaluator.DefaultRetryEvaluator.new",
+    "href": "dio_smart_retry/DefaultRetryEvaluator/DefaultRetryEvaluator.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "DefaultRetryEvaluator",
+      "kind": 3,
+      "href": "dio_smart_retry/DefaultRetryEvaluator-class.html"
+    }
+  },
+  {
+    "name": "currentAttempt",
+    "qualifiedName": "dio_smart_retry.DefaultRetryEvaluator.currentAttempt",
+    "href": "dio_smart_retry/DefaultRetryEvaluator/currentAttempt.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "DefaultRetryEvaluator",
+      "kind": 3,
+      "href": "dio_smart_retry/DefaultRetryEvaluator-class.html"
+    }
+  },
+  {
+    "name": "evaluate",
+    "qualifiedName": "dio_smart_retry.DefaultRetryEvaluator.evaluate",
+    "href": "dio_smart_retry/DefaultRetryEvaluator/evaluate.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Returns true only if the response hasn't been cancelled\nor got a bad status code.",
+    "enclosedBy": {
+      "name": "DefaultRetryEvaluator",
+      "kind": 3,
+      "href": "dio_smart_retry/DefaultRetryEvaluator-class.html"
+    }
+  },
+  {
+    "name": "isRetryable",
+    "qualifiedName": "dio_smart_retry.DefaultRetryEvaluator.isRetryable",
+    "href": "dio_smart_retry/DefaultRetryEvaluator/isRetryable.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "DefaultRetryEvaluator",
+      "kind": 3,
+      "href": "dio_smart_retry/DefaultRetryEvaluator-class.html"
+    }
+  },
+  {
+    "name": "OptionsX",
+    "qualifiedName": "dio_smart_retry.OptionsX",
+    "href": "dio_smart_retry/OptionsX.html",
+    "kind": 6,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "disableRetry",
+    "qualifiedName": "dio_smart_retry.OptionsX.disableRetry",
+    "href": "dio_smart_retry/OptionsX/disableRetry.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "OptionsX",
+      "kind": 6,
+      "href": "dio_smart_retry/OptionsX.html"
+    }
+  },
+  {
+    "name": "RequestOptionsX",
+    "qualifiedName": "dio_smart_retry.RequestOptionsX",
+    "href": "dio_smart_retry/RequestOptionsX.html",
+    "kind": 6,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "attempt",
+    "qualifiedName": "dio_smart_retry.RequestOptionsX.attempt",
+    "href": "dio_smart_retry/RequestOptionsX/attempt.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "RequestOptionsX",
+      "kind": 6,
+      "href": "dio_smart_retry/RequestOptionsX.html"
+    }
+  },
+  {
+    "name": "disableRetry",
+    "qualifiedName": "dio_smart_retry.RequestOptionsX.disableRetry",
+    "href": "dio_smart_retry/RequestOptionsX/disableRetry.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "RequestOptionsX",
+      "kind": 6,
+      "href": "dio_smart_retry/RequestOptionsX.html"
+    }
+  },
+  {
+    "name": "RetryEvaluator",
+    "qualifiedName": "dio_smart_retry.RetryEvaluator",
+    "href": "dio_smart_retry/RetryEvaluator.html",
+    "kind": 21,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "RetryInterceptor",
+    "qualifiedName": "dio_smart_retry.RetryInterceptor",
+    "href": "dio_smart_retry/RetryInterceptor-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "An interceptor that will try to send failed request again",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "RetryInterceptor.new",
+    "qualifiedName": "dio_smart_retry.RetryInterceptor.RetryInterceptor.new",
+    "href": "dio_smart_retry/RetryInterceptor/RetryInterceptor.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "RetryInterceptor",
+      "kind": 3,
+      "href": "dio_smart_retry/RetryInterceptor-class.html"
+    }
+  },
+  {
+    "name": "defaultRetryEvaluator",
+    "qualifiedName": "dio_smart_retry.RetryInterceptor.defaultRetryEvaluator",
+    "href": "dio_smart_retry/RetryInterceptor/defaultRetryEvaluator.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Redirects to DefaultRetryEvaluator.evaluate\n  with defaultRetryableStatuses",
+    "enclosedBy": {
+      "name": "RetryInterceptor",
+      "kind": 3,
+      "href": "dio_smart_retry/RetryInterceptor-class.html"
+    }
+  },
+  {
+    "name": "dio",
+    "qualifiedName": "dio_smart_retry.RetryInterceptor.dio",
+    "href": "dio_smart_retry/RetryInterceptor/dio.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The original dio",
+    "enclosedBy": {
+      "name": "RetryInterceptor",
+      "kind": 3,
+      "href": "dio_smart_retry/RetryInterceptor-class.html"
+    }
+  },
+  {
+    "name": "ignoreRetryEvaluatorExceptions",
+    "qualifiedName": "dio_smart_retry.RetryInterceptor.ignoreRetryEvaluatorExceptions",
+    "href": "dio_smart_retry/RetryInterceptor/ignoreRetryEvaluatorExceptions.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Ignore exception if _retryEvaluator throws it (not recommend)",
+    "enclosedBy": {
+      "name": "RetryInterceptor",
+      "kind": 3,
+      "href": "dio_smart_retry/RetryInterceptor-class.html"
+    }
+  },
+  {
+    "name": "logPrint",
+    "qualifiedName": "dio_smart_retry.RetryInterceptor.logPrint",
+    "href": "dio_smart_retry/RetryInterceptor/logPrint.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "For logging purpose",
+    "enclosedBy": {
+      "name": "RetryInterceptor",
+      "kind": 3,
+      "href": "dio_smart_retry/RetryInterceptor-class.html"
+    }
+  },
+  {
+    "name": "onError",
+    "qualifiedName": "dio_smart_retry.RetryInterceptor.onError",
+    "href": "dio_smart_retry/RetryInterceptor/onError.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "Called when an exception was occurred during the request.",
+    "enclosedBy": {
+      "name": "RetryInterceptor",
+      "kind": 3,
+      "href": "dio_smart_retry/RetryInterceptor-class.html"
+    }
+  },
+  {
+    "name": "onRequest",
+    "qualifiedName": "dio_smart_retry.RetryInterceptor.onRequest",
+    "href": "dio_smart_retry/RetryInterceptor/onRequest.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Called when the request is about to be sent.",
+    "enclosedBy": {
+      "name": "RetryInterceptor",
+      "kind": 3,
+      "href": "dio_smart_retry/RetryInterceptor-class.html"
+    }
+  },
+  {
+    "name": "onResponse",
+    "qualifiedName": "dio_smart_retry.RetryInterceptor.onResponse",
+    "href": "dio_smart_retry/RetryInterceptor/onResponse.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Called when the response is about to be resolved.",
+    "enclosedBy": {
+      "name": "RetryInterceptor",
+      "kind": 3,
+      "href": "dio_smart_retry/RetryInterceptor-class.html"
+    }
+  },
+  {
+    "name": "retries",
+    "qualifiedName": "dio_smart_retry.RetryInterceptor.retries",
+    "href": "dio_smart_retry/RetryInterceptor/retries.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The number of retry in case of an error",
+    "enclosedBy": {
+      "name": "RetryInterceptor",
+      "kind": 3,
+      "href": "dio_smart_retry/RetryInterceptor-class.html"
+    }
+  },
+  {
+    "name": "retryDelays",
+    "qualifiedName": "dio_smart_retry.RetryInterceptor.retryDelays",
+    "href": "dio_smart_retry/RetryInterceptor/retryDelays.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The delays between attempts.\nEmpty retryDelays means no delay.",
+    "enclosedBy": {
+      "name": "RetryInterceptor",
+      "kind": 3,
+      "href": "dio_smart_retry/RetryInterceptor-class.html"
+    }
+  },
+  {
+    "name": "retryableExtraStatuses",
+    "qualifiedName": "dio_smart_retry.RetryInterceptor.retryableExtraStatuses",
+    "href": "dio_smart_retry/RetryInterceptor/retryableExtraStatuses.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Specifies an extra retryable statuses,\nwhich will be taken into account with defaultRetryableStatuses\nIMPORTANT: THIS SETTING WORKS ONLY IF _retryEvaluator is null",
+    "enclosedBy": {
+      "name": "RetryInterceptor",
+      "kind": 3,
+      "href": "dio_smart_retry/RetryInterceptor-class.html"
+    }
+  },
+  {
+    "name": "defaultRetryableStatuses",
+    "qualifiedName": "dio_smart_retry.defaultRetryableStatuses",
+    "href": "dio_smart_retry/defaultRetryableStatuses-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "isRetryable",
+    "qualifiedName": "dio_smart_retry.isRetryable",
+    "href": "dio_smart_retry/isRetryable.html",
+    "kind": 8,
+    "packageRank": 0,
+    "desc": "Be careful: this method do not\ntake into account RetryInterceptor.retryableExtraStatuses",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "retryableStatuses",
+    "qualifiedName": "dio_smart_retry.retryableStatuses",
+    "href": "dio_smart_retry/retryableStatuses-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status100Continue",
+    "qualifiedName": "dio_smart_retry.status100Continue",
+    "href": "dio_smart_retry/status100Continue-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status101SwitchingProtocols",
+    "qualifiedName": "dio_smart_retry.status101SwitchingProtocols",
+    "href": "dio_smart_retry/status101SwitchingProtocols-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status102Processing",
+    "qualifiedName": "dio_smart_retry.status102Processing",
+    "href": "dio_smart_retry/status102Processing-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status200OK",
+    "qualifiedName": "dio_smart_retry.status200OK",
+    "href": "dio_smart_retry/status200OK-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status201Created",
+    "qualifiedName": "dio_smart_retry.status201Created",
+    "href": "dio_smart_retry/status201Created-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status202Accepted",
+    "qualifiedName": "dio_smart_retry.status202Accepted",
+    "href": "dio_smart_retry/status202Accepted-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status203NonAuthoritative",
+    "qualifiedName": "dio_smart_retry.status203NonAuthoritative",
+    "href": "dio_smart_retry/status203NonAuthoritative-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status204NoContent",
+    "qualifiedName": "dio_smart_retry.status204NoContent",
+    "href": "dio_smart_retry/status204NoContent-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status205ResetContent",
+    "qualifiedName": "dio_smart_retry.status205ResetContent",
+    "href": "dio_smart_retry/status205ResetContent-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status206PartialContent",
+    "qualifiedName": "dio_smart_retry.status206PartialContent",
+    "href": "dio_smart_retry/status206PartialContent-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status207Multistatus",
+    "qualifiedName": "dio_smart_retry.status207Multistatus",
+    "href": "dio_smart_retry/status207Multistatus-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status208AlreadyReported",
+    "qualifiedName": "dio_smart_retry.status208AlreadyReported",
+    "href": "dio_smart_retry/status208AlreadyReported-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status226IMUsed",
+    "qualifiedName": "dio_smart_retry.status226IMUsed",
+    "href": "dio_smart_retry/status226IMUsed-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status300MultipleChoices",
+    "qualifiedName": "dio_smart_retry.status300MultipleChoices",
+    "href": "dio_smart_retry/status300MultipleChoices-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status301MovedPermanently",
+    "qualifiedName": "dio_smart_retry.status301MovedPermanently",
+    "href": "dio_smart_retry/status301MovedPermanently-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status302Found",
+    "qualifiedName": "dio_smart_retry.status302Found",
+    "href": "dio_smart_retry/status302Found-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status303SeeOther",
+    "qualifiedName": "dio_smart_retry.status303SeeOther",
+    "href": "dio_smart_retry/status303SeeOther-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status304NotModified",
+    "qualifiedName": "dio_smart_retry.status304NotModified",
+    "href": "dio_smart_retry/status304NotModified-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status305UseProxy",
+    "qualifiedName": "dio_smart_retry.status305UseProxy",
+    "href": "dio_smart_retry/status305UseProxy-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status306SwitchProxy",
+    "qualifiedName": "dio_smart_retry.status306SwitchProxy",
+    "href": "dio_smart_retry/status306SwitchProxy-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status307TemporaryRedirect",
+    "qualifiedName": "dio_smart_retry.status307TemporaryRedirect",
+    "href": "dio_smart_retry/status307TemporaryRedirect-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status308PermanentRedirect",
+    "qualifiedName": "dio_smart_retry.status308PermanentRedirect",
+    "href": "dio_smart_retry/status308PermanentRedirect-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status400BadRequest",
+    "qualifiedName": "dio_smart_retry.status400BadRequest",
+    "href": "dio_smart_retry/status400BadRequest-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status401Unauthorized",
+    "qualifiedName": "dio_smart_retry.status401Unauthorized",
+    "href": "dio_smart_retry/status401Unauthorized-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status402PaymentRequired",
+    "qualifiedName": "dio_smart_retry.status402PaymentRequired",
+    "href": "dio_smart_retry/status402PaymentRequired-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status403Forbidden",
+    "qualifiedName": "dio_smart_retry.status403Forbidden",
+    "href": "dio_smart_retry/status403Forbidden-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status404NotFound",
+    "qualifiedName": "dio_smart_retry.status404NotFound",
+    "href": "dio_smart_retry/status404NotFound-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status405MethodNotAllowed",
+    "qualifiedName": "dio_smart_retry.status405MethodNotAllowed",
+    "href": "dio_smart_retry/status405MethodNotAllowed-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status406NotAcceptable",
+    "qualifiedName": "dio_smart_retry.status406NotAcceptable",
+    "href": "dio_smart_retry/status406NotAcceptable-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status407ProxyAuthenticationRequired",
+    "qualifiedName": "dio_smart_retry.status407ProxyAuthenticationRequired",
+    "href": "dio_smart_retry/status407ProxyAuthenticationRequired-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status408RequestTimeout",
+    "qualifiedName": "dio_smart_retry.status408RequestTimeout",
+    "href": "dio_smart_retry/status408RequestTimeout-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status409Conflict",
+    "qualifiedName": "dio_smart_retry.status409Conflict",
+    "href": "dio_smart_retry/status409Conflict-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status410Gone",
+    "qualifiedName": "dio_smart_retry.status410Gone",
+    "href": "dio_smart_retry/status410Gone-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status411LengthRequired",
+    "qualifiedName": "dio_smart_retry.status411LengthRequired",
+    "href": "dio_smart_retry/status411LengthRequired-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status412PreconditionFailed",
+    "qualifiedName": "dio_smart_retry.status412PreconditionFailed",
+    "href": "dio_smart_retry/status412PreconditionFailed-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status413PayloadTooLarge",
+    "qualifiedName": "dio_smart_retry.status413PayloadTooLarge",
+    "href": "dio_smart_retry/status413PayloadTooLarge-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status413RequestEntityTooLarge",
+    "qualifiedName": "dio_smart_retry.status413RequestEntityTooLarge",
+    "href": "dio_smart_retry/status413RequestEntityTooLarge-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status414RequestUriTooLong",
+    "qualifiedName": "dio_smart_retry.status414RequestUriTooLong",
+    "href": "dio_smart_retry/status414RequestUriTooLong-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status414UriTooLong",
+    "qualifiedName": "dio_smart_retry.status414UriTooLong",
+    "href": "dio_smart_retry/status414UriTooLong-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status415UnsupportedMediaType",
+    "qualifiedName": "dio_smart_retry.status415UnsupportedMediaType",
+    "href": "dio_smart_retry/status415UnsupportedMediaType-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status416RangeNotSatisfiable",
+    "qualifiedName": "dio_smart_retry.status416RangeNotSatisfiable",
+    "href": "dio_smart_retry/status416RangeNotSatisfiable-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status416RequestedRangeNotSatisfiable",
+    "qualifiedName": "dio_smart_retry.status416RequestedRangeNotSatisfiable",
+    "href": "dio_smart_retry/status416RequestedRangeNotSatisfiable-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status417ExpectationFailed",
+    "qualifiedName": "dio_smart_retry.status417ExpectationFailed",
+    "href": "dio_smart_retry/status417ExpectationFailed-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status418ImATeapot",
+    "qualifiedName": "dio_smart_retry.status418ImATeapot",
+    "href": "dio_smart_retry/status418ImATeapot-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status419AuthenticationTimeout",
+    "qualifiedName": "dio_smart_retry.status419AuthenticationTimeout",
+    "href": "dio_smart_retry/status419AuthenticationTimeout-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status421MisdirectedRequest",
+    "qualifiedName": "dio_smart_retry.status421MisdirectedRequest",
+    "href": "dio_smart_retry/status421MisdirectedRequest-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status422UnprocessableEntity",
+    "qualifiedName": "dio_smart_retry.status422UnprocessableEntity",
+    "href": "dio_smart_retry/status422UnprocessableEntity-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status423Locked",
+    "qualifiedName": "dio_smart_retry.status423Locked",
+    "href": "dio_smart_retry/status423Locked-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status424FailedDependency",
+    "qualifiedName": "dio_smart_retry.status424FailedDependency",
+    "href": "dio_smart_retry/status424FailedDependency-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status426UpgradeRequired",
+    "qualifiedName": "dio_smart_retry.status426UpgradeRequired",
+    "href": "dio_smart_retry/status426UpgradeRequired-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status428PreconditionRequired",
+    "qualifiedName": "dio_smart_retry.status428PreconditionRequired",
+    "href": "dio_smart_retry/status428PreconditionRequired-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status429TooManyRequests",
+    "qualifiedName": "dio_smart_retry.status429TooManyRequests",
+    "href": "dio_smart_retry/status429TooManyRequests-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status431RequestHeaderFieldsTooLarge",
+    "qualifiedName": "dio_smart_retry.status431RequestHeaderFieldsTooLarge",
+    "href": "dio_smart_retry/status431RequestHeaderFieldsTooLarge-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status440LoginTimeout",
+    "qualifiedName": "dio_smart_retry.status440LoginTimeout",
+    "href": "dio_smart_retry/status440LoginTimeout-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "From IIS",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status451UnavailableForLegalReasons",
+    "qualifiedName": "dio_smart_retry.status451UnavailableForLegalReasons",
+    "href": "dio_smart_retry/status451UnavailableForLegalReasons-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status460ClientClosedRequest",
+    "qualifiedName": "dio_smart_retry.status460ClientClosedRequest",
+    "href": "dio_smart_retry/status460ClientClosedRequest-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "From AWS Elastic Load Balancer",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status499ClientClosedRequest",
+    "qualifiedName": "dio_smart_retry.status499ClientClosedRequest",
+    "href": "dio_smart_retry/status499ClientClosedRequest-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "From ngnix",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status500InternalServerError",
+    "qualifiedName": "dio_smart_retry.status500InternalServerError",
+    "href": "dio_smart_retry/status500InternalServerError-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status501NotImplemented",
+    "qualifiedName": "dio_smart_retry.status501NotImplemented",
+    "href": "dio_smart_retry/status501NotImplemented-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status502BadGateway",
+    "qualifiedName": "dio_smart_retry.status502BadGateway",
+    "href": "dio_smart_retry/status502BadGateway-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status503ServiceUnavailable",
+    "qualifiedName": "dio_smart_retry.status503ServiceUnavailable",
+    "href": "dio_smart_retry/status503ServiceUnavailable-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status504GatewayTimeout",
+    "qualifiedName": "dio_smart_retry.status504GatewayTimeout",
+    "href": "dio_smart_retry/status504GatewayTimeout-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status505HttpVersionNotSupported",
+    "qualifiedName": "dio_smart_retry.status505HttpVersionNotSupported",
+    "href": "dio_smart_retry/status505HttpVersionNotSupported-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status506VariantAlsoNegotiates",
+    "qualifiedName": "dio_smart_retry.status506VariantAlsoNegotiates",
+    "href": "dio_smart_retry/status506VariantAlsoNegotiates-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status507InsufficientStorage",
+    "qualifiedName": "dio_smart_retry.status507InsufficientStorage",
+    "href": "dio_smart_retry/status507InsufficientStorage-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status508LoopDetected",
+    "qualifiedName": "dio_smart_retry.status508LoopDetected",
+    "href": "dio_smart_retry/status508LoopDetected-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status510NotExtended",
+    "qualifiedName": "dio_smart_retry.status510NotExtended",
+    "href": "dio_smart_retry/status510NotExtended-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status511NetworkAuthenticationRequired",
+    "qualifiedName": "dio_smart_retry.status511NetworkAuthenticationRequired",
+    "href": "dio_smart_retry/status511NetworkAuthenticationRequired-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status520WebServerReturnedUnknownError",
+    "qualifiedName": "dio_smart_retry.status520WebServerReturnedUnknownError",
+    "href": "dio_smart_retry/status520WebServerReturnedUnknownError-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status521WebServerIsDown",
+    "qualifiedName": "dio_smart_retry.status521WebServerIsDown",
+    "href": "dio_smart_retry/status521WebServerIsDown-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status522ConnectionTimedOut",
+    "qualifiedName": "dio_smart_retry.status522ConnectionTimedOut",
+    "href": "dio_smart_retry/status522ConnectionTimedOut-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status523OriginIsUnreachable",
+    "qualifiedName": "dio_smart_retry.status523OriginIsUnreachable",
+    "href": "dio_smart_retry/status523OriginIsUnreachable-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status524TimeoutOccurred",
+    "qualifiedName": "dio_smart_retry.status524TimeoutOccurred",
+    "href": "dio_smart_retry/status524TimeoutOccurred-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status525SSLHandshakeFailed",
+    "qualifiedName": "dio_smart_retry.status525SSLHandshakeFailed",
+    "href": "dio_smart_retry/status525SSLHandshakeFailed-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status526InvalidSSLCertificate",
+    "qualifiedName": "dio_smart_retry.status526InvalidSSLCertificate",
+    "href": "dio_smart_retry/status526InvalidSSLCertificate-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status527RailgunError",
+    "qualifiedName": "dio_smart_retry.status527RailgunError",
+    "href": "dio_smart_retry/status527RailgunError-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status598NetworkReadTimeoutError",
+    "qualifiedName": "dio_smart_retry.status598NetworkReadTimeoutError",
+    "href": "dio_smart_retry/status598NetworkReadTimeoutError-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  },
+  {
+    "name": "status599NetworkConnectTimeoutError",
+    "qualifiedName": "dio_smart_retry.status599NetworkConnectTimeoutError",
+    "href": "dio_smart_retry/status599NetworkConnectTimeoutError-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "dio_smart_retry",
+      "kind": 9,
+      "href": "dio_smart_retry/"
+    }
+  }
+]

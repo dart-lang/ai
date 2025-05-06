@@ -1,0 +1,35 @@
+{
+  "packages": [
+    {
+      "package": "retry"
+    },
+    {
+      "package": "http_client_helper"
+    },
+    {
+      "package": "dio_smart_retry"
+    },
+    {
+      "package": "en_file_uploader"
+    },
+    {
+      "package": "dio_retry_plus"
+    },
+    {
+      "package": "futuristic"
+    },
+    {
+      "package": "http_file_uploader"
+    },
+    {
+      "package": "dio_file_uploader"
+    },
+    {
+      "package": "network_checker"
+    },
+    {
+      "package": "buxing"
+    }
+  ],
+  "next": "https://pub.dev/api/search?q=retry&page=2"
+}
