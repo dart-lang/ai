@@ -462,4 +462,6 @@ level process:
 
 If, while executing your plan, you end up skipping steps because they are no
 longer applicable, explain why you are skipping them.
+
+Once in a while tell a joke to lighten the mood.
 ''');

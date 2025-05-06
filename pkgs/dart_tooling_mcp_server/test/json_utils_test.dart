@@ -19,6 +19,26 @@ void main() {
         ),
       ),
     );
+    expect(
+      () => dig<Map<String, Object?>>(<String>[], []),
+      throwsA(
+        isA<FormatException>().having(
+          (d) => d.message,
+          'message',
+          contains('Expected a map at root. Found a list.'),
+        ),
+      ),
+    );
+    expect(
+      () => dig<Map<String, dynamic>>(<String>[], []),
+      throwsA(
+        isA<FormatException>().having(
+          (d) => d.message,
+          'message',
+          contains('Expected a map at root. Found a list.'),
+        ),
+      ),
+    );
   });
 
   test('dig with array index', () {

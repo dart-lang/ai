@@ -96,6 +96,9 @@ T dig<T>(dynamic json, List<dynamic> path) {
       const (String) => 'a string',
       const (List) => 'a list',
       const (Map) => 'a map',
+      const (List<Object?>) => 'a list',
+      const (Map<String, Object?>) => 'a map',
+      const (Map<String, dynamic>) => 'a map',
       const (Null) => 'null',
       _ => throw ArgumentError('$T is not a json type'),
     };
