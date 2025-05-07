@@ -441,24 +441,7 @@ base mixin DartAnalyzerSupport
     description:
         'Get signature help for an API being used at a given cursor '
         'position in a file.',
-    inputSchema: Schema.object(
-      properties: {
-        ParameterNames.uri: Schema.string(
-          description: 'The URI of the file to get signature help for.',
-        ),
-        ParameterNames.line: Schema.int(
-          description: 'The line number of the cursor position.',
-        ),
-        ParameterNames.column: Schema.int(
-          description: 'The column number of the cursor position.',
-        ),
-      },
-      required: [
-        ParameterNames.uri,
-        ParameterNames.line,
-        ParameterNames.column,
-      ],
-    ),
+    inputSchema: _locationSchema,
     annotations: ToolAnnotations(title: 'Signature help', readOnlyHint: true),
   );
 
@@ -467,26 +450,9 @@ base mixin DartAnalyzerSupport
     name: 'hover',
     description:
         'Get hover information at a given cursor position in a file. This can '
-        'include documentation, type information, etc for the text at the '
+        'include documentation, type information, etc for the text at that '
         'position.',
-    inputSchema: Schema.object(
-      properties: {
-        ParameterNames.uri: Schema.string(
-          description: 'The URI of the file to get hover information for.',
-        ),
-        ParameterNames.line: Schema.int(
-          description: 'The line number of the cursor position.',
-        ),
-        ParameterNames.column: Schema.int(
-          description: 'The column number of the cursor position.',
-        ),
-      },
-      required: [
-        ParameterNames.uri,
-        ParameterNames.line,
-        ParameterNames.column,
-      ],
-    ),
+    inputSchema: _locationSchema,
     annotations: ToolAnnotations(
       title: 'Hover information',
       readOnlyHint: true,
@@ -505,6 +471,20 @@ base mixin DartAnalyzerSupport
     ],
   );
 }
+
+/// Common schema for tools that require a file URI, line, and column.
+final _locationSchema = Schema.object(
+  properties: {
+    ParameterNames.uri: Schema.string(description: 'The URI of the file.'),
+    ParameterNames.line: Schema.int(
+      description: 'The zero-based line number of the cursor position.',
+    ),
+    ParameterNames.column: Schema.int(
+      description: 'The zero-based column number of the cursor position.',
+    ),
+  },
+  required: [ParameterNames.uri, ParameterNames.line, ParameterNames.column],
+);
 
 extension on Root {
   /// Converts a [Root] to an [lsp.WorkspaceFolder].
