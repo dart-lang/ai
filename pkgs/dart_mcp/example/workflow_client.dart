@@ -163,13 +163,7 @@ final class WorkflowClient extends MCPClient with RootsSupport {
         case gemini.TextPart():
           _chatToUser(part.text);
         case gemini.FunctionCall():
-          final result = await _handleFunctionCall(part);
-          if (result == null || result.contains('unsupported response type')) {
-            _chatToUser(
-              'Something went wrong when trying to call the ${part.name} '
-              'function. Proceeding to next step of the plan.',
-            );
-          }
+          await _handleFunctionCall(part);
           continuation = 'Please proceed to the next step of the plan.';
         default:
           logger.stderr(
@@ -190,11 +184,10 @@ final class WorkflowClient extends MCPClient with RootsSupport {
         editPreviousPlan
             ? 'Edit the previous plan with the following changes:'
             : 'Create a new plan for the following task:';
-    // Fixed: Use triple quotes for multi-line string
-    final planPrompt = '''$instruction
-$userPrompt
-
-After you have made a plan, ask the user if they wish to proceed or if they want to make any changes to your plan.''';
+    final planPrompt =
+        '$instruction\n$userPrompt\n\n After you have made a '
+        'plan, ask the user if they wish to proceed or if they want to make '
+        'any changes to your plan.';
     _addToHistory(planPrompt);
 
     final planResponse = await _generateContent(
@@ -255,7 +248,6 @@ After you have made a plan, ask the user if they wish to proceed or if they want
   /// Analyzes a user [message] to see if it looks like they approved of the
   /// previous action.
   Future<bool> _analyzeSentiment(String message) async {
-    // Fixed: Added curly braces
     if (message.toLowerCase() == 'y' || message.toLowerCase() == 'yes') {
       return true;
     }
@@ -266,7 +258,7 @@ After you have made a plan, ask the user if they wish to proceed or if they want
           'indicates a need for any changes, then this is not an approval. '
           'If you are highly confident that the user approves of running the '
           'previous action then respond with a single character "y". '
-          'Otherwise respond with "n".', // Added explicit negative case
+          'Otherwise respond with "n".',
         ),
         gemini.Content.text(message),
       ],
@@ -321,7 +313,9 @@ After you have made a plan, ask the user if they wish to proceed or if they want
   }
 
   /// Handles a function call response from the model.
-  Future<String?> _handleFunctionCall(gemini.FunctionCall functionCall) async {
+  ///
+  /// Invokes a function and adds the result as context to the chat history.
+  Future<void> _handleFunctionCall(gemini.FunctionCall functionCall) async {
     chatHistory.add(gemini.Content.model([functionCall]));
     final connection = connectionForFunction[functionCall.name]!;
     final result = await connection.callTool(
@@ -342,13 +336,11 @@ After you have made a plan, ask the user if they wish to proceed or if they want
           response.writeln('Got unsupported response type ${content.type}');
       }
     }
-    // Add the consolidated function response to history
     chatHistory.add(
       gemini.Content.functionResponse(functionCall.name, {
         'output': response.toString(),
       }),
     );
-    return response.toString();
   }
 
   /// Connects to all servers using [serverCommands].
