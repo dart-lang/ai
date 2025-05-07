@@ -37,9 +37,7 @@ void main(List<String> args) {
       );
     },
     (e, s) {
-      // Fixed: Use triple quotes for multi-line string
-      logger.stderr('''$e
-$s''');
+      logger.stderr('$e\n$s\n');
     },
   );
 }
@@ -137,29 +135,20 @@ final class WorkflowClient extends MCPClient with RootsSupport {
     await _handleModelResponse(introResponse);
 
     while (true) {
-      final next =
-          await _waitForInputAndAddToHistory(); // User provides the task prompt
+      final next = await _waitForInputAndAddToHistory();
 
       // Remember where the history starts for this workflow
       final historyStartIndex = chatHistory.length;
       final summary = await _makeAndExecutePlan(next, serverTools);
 
-      // Workflow/Plan execution finished, now summarize.
+      // Workflow/Plan execution finished, now summarize and clean up context.
       if (historyStartIndex < chatHistory.length) {
-        // Replace the messages related to the completed workflow with the
-        // summary.
-        chatHistory.replaceRange(historyStartIndex, chatHistory.length, [
-          summary,
-        ]);
-
-        // Let the user know the summarization happened, but don't add that
-        // message to the history.
-        final summaryText = summary.parts
-            .whereType<gemini.TextPart>()
-            .map((p) => p.text)
-            .join('');
-        logger.stdout('Workflow summarized: $summaryText');
+        // Remove the entire history.
+        chatHistory.removeRange(historyStartIndex, chatHistory.length);
       }
+
+      // Add the summary to the chat history.
+      chatHistory.add(summary);
     }
   }
 
@@ -181,11 +170,7 @@ final class WorkflowClient extends MCPClient with RootsSupport {
               'function. Proceeding to next step of the plan.',
             );
           }
-          // Fixed: Use triple quotes for multi-line string
-          continuation = '''
-Function result: $result
-
-Please proceed to the next step of the plan.''';
+          continuation = 'Please proceed to the next step of the plan.';
         default:
           logger.stderr(
             'Unrecognized response type from the model: $response.',
@@ -207,7 +192,9 @@ Please proceed to the next step of the plan.''';
             : 'Create a new plan for the following task:';
     // Fixed: Use triple quotes for multi-line string
     final planPrompt = '''$instruction
-$userPrompt. After you have made a plan, ask the user if they wish to proceed or if they want to make any changes to your plan.''';
+$userPrompt
+
+After you have made a plan, ask the user if they wish to proceed or if they want to make any changes to your plan.''';
     _addToHistory(planPrompt);
 
     final planResponse = await _generateContent(
@@ -233,9 +220,9 @@ $userPrompt. After you have made a plan, ask the user if they wish to proceed or
     // instead of reading from stdin.
     String? continuation =
         'Execute the plan. After each step of the plan, report your progress. '
-        'When you are executing the plan, say exactly "Workflow complete" '
-        'followed by a summary of everything that was done so you can remember '
-        'it for future tasks.';
+        'When you are completely done executing the plan, say exactly '
+        '"Workflow complete" followed by a summary of everything that was done '
+        'so you can remember it for future tasks.';
 
     while (true) {
       final nextMessage = continuation ?? await stdinQueue.next;
@@ -299,10 +286,6 @@ $userPrompt. After you have made a plan, ask the user if they wish to proceed or
     gemini.GenerateContentResponse? response;
     try {
       response = await model.generateContent(context, tools: tools);
-      // Added safety check for empty candidates
-      if (response.candidates.isEmpty) {
-        throw Exception('Model returned no candidates.');
-      }
       return response.candidates.single.content;
     } on gemini.GenerativeAIException catch (e) {
       return gemini.Content.model([gemini.TextPart('Error: $e')]);
@@ -331,8 +314,7 @@ $userPrompt. After you have made a plan, ask the user if they wish to proceed or
     for (var part in content.parts.whereType<gemini.TextPart>()) {
       dashText.write(part.text);
     }
-    logger.stdout('''
-$dashText''');
+    logger.stdout('\n$dashText');
     // Add the non-personalized text to the context as it might lose some
     // useful info.
     chatHistory.add(gemini.Content.model([gemini.TextPart(text)]));
@@ -341,73 +323,32 @@ $dashText''');
   /// Handles a function call response from the model.
   Future<String?> _handleFunctionCall(gemini.FunctionCall functionCall) async {
     chatHistory.add(gemini.Content.model([functionCall]));
-    final connection = connectionForFunction[functionCall.name];
-    // Added safety check for missing connection
-    if (connection == null) {
-      final errorMsg =
-          'Error: No server connection found for function '
-          '${functionCall.name}.';
-      logger.stderr(errorMsg);
-      chatHistory.add(
-        gemini.Content.functionResponse(functionCall.name, {'error': errorMsg}),
-      );
-      return errorMsg;
-    }
+    final connection = connectionForFunction[functionCall.name]!;
+    final result = await connection.callTool(
+      CallToolRequest(name: functionCall.name, arguments: functionCall.args),
+    );
+    final response = StringBuffer();
 
-    try {
-      final result = await connection.callTool(
-        CallToolRequest(name: functionCall.name, arguments: functionCall.args),
-      );
-      final response = StringBuffer();
-      final functionResponseParts =
-          <gemini.Part>[]; // Collect parts for history
-
-      for (var content in result.content) {
-        switch (content) {
-          case final TextContent content when content.isText:
-            response.writeln(content.text);
-            functionResponseParts.add(gemini.TextPart(content.text));
-          case final ImageContent content when content.isImage:
-            // History addition for images might need review depending on how
-            // large they are and if they are useful in subsequent turns.
-            // For now, adding as data.
-            final dataPart = gemini.DataPart(
-              content.mimeType,
-              base64Decode(content.data),
-            );
-            // Add image directly to history for model context
-            chatHistory.add(gemini.Content.model([dataPart]));
-            final imageMsg =
-                'Received image data (${content.mimeType}). Added to history.';
-            response.writeln(imageMsg);
-            // Add a text representation of the image receipt to the function
-            // response part
-            functionResponseParts.add(gemini.TextPart(imageMsg));
-          default:
-            final unsupportedMsg =
-                'Got unsupported response type ${content.type}';
-            response.writeln(unsupportedMsg);
-            functionResponseParts.add(gemini.TextPart(unsupportedMsg));
-        }
+    for (var content in result.content) {
+      switch (content) {
+        case final TextContent content when content.isText:
+          response.writeln(content.text);
+        case final ImageContent content when content.isImage:
+          chatHistory.add(
+            gemini.Content.data(content.mimeType, base64Decode(content.data)),
+          );
+          response.writeln('Image added to context');
+        default:
+          response.writeln('Got unsupported response type ${content.type}');
       }
-      // Add the consolidated function response to history
-      chatHistory.add(
-        gemini.Content.functionResponse(functionCall.name, {
-          'output': response.toString(),
-        }),
-      );
-      return response.toString();
-    } catch (e, s) {
-      // Catch errors during tool execution
-      // Fixed: Use triple quotes for multi-line string
-      final errorMsg = '''Error calling tool ${functionCall.name}: $e
-$s''';
-      logger.stderr(errorMsg);
-      chatHistory.add(
-        gemini.Content.functionResponse(functionCall.name, {'error': errorMsg}),
-      );
-      return 'Error during tool execution: $e';
     }
+    // Add the consolidated function response to history
+    chatHistory.add(
+      gemini.Content.functionResponse(functionCall.name, {
+        'output': response.toString(),
+      }),
+    );
+    return response.toString();
   }
 
   /// Connects to all servers using [serverCommands].
@@ -429,32 +370,24 @@ $s''';
     // Use a copy of the list to allow removal during iteration
     final connectionsToInitialize = List.of(serverConnections);
     for (var connection in connectionsToInitialize) {
-      try {
-        final result = await connection.initialize(
-          InitializeRequest(
-            protocolVersion: ProtocolVersion.latestSupported,
-            capabilities: capabilities,
-            clientInfo: implementation,
-          ),
+      final result = await connection.initialize(
+        InitializeRequest(
+          protocolVersion: ProtocolVersion.latestSupported,
+          capabilities: capabilities,
+          clientInfo: implementation,
+        ),
+      );
+      final serverName = connection.serverInfo?.name ?? 'server';
+      if (result.protocolVersion != ProtocolVersion.latestSupported) {
+        logger.stderr(
+          'Protocol version mismatch for $serverName, '
+          'expected ${ProtocolVersion.latestSupported}, got '
+          '${result.protocolVersion}. Disconnecting.',
         );
-        final serverName = connection.serverInfo?.name ?? 'server';
-        if (result.protocolVersion != ProtocolVersion.latestSupported) {
-          logger.stderr(
-            'Protocol version mismatch for $serverName, '
-            'expected ${ProtocolVersion.latestSupported}, got '
-            '${result.protocolVersion}. Disconnecting.',
-          );
-          await connection.shutdown();
-          serverConnections.remove(connection);
-        } else {
-          connection.notifyInitialized(InitializedNotification());
-        }
-      } catch (e) {
-        final failedServerName = connection.serverInfo?.name ?? 'unknown';
-        logger.stderr('Failed to initialize server $failedServerName: $e');
-        // Attempt shutdown on error
-        await connection.shutdown().catchError((_) {});
+        await connection.shutdown();
         serverConnections.remove(connection);
+      } else {
+        connection.notifyInitialized(InitializedNotification());
       }
     }
   }
@@ -466,18 +399,11 @@ $s''';
         continue;
       }
 
-      connection
-          .setLogLevel(
-            SetLevelRequest(
-              level: verbose ? LoggingLevel.debug : LoggingLevel.warning,
-            ),
-          )
-          .catchError((Object e) {
-            // Fixed: Added explicit type Object
-            // Catch potential errors setting log level
-            final errorServerName = connection.serverInfo?.name ?? 'server';
-            logger.stderr('Failed to set log level for $errorServerName: $e');
-          });
+      connection.setLogLevel(
+        SetLevelRequest(
+          level: verbose ? LoggingLevel.debug : LoggingLevel.warning,
+        ),
+      );
       connection.onLog.listen((event) {
         final logServerName = connection.serverInfo?.name ?? '?';
         logger.stdout(
@@ -492,21 +418,16 @@ $s''';
   Future<List<gemini.Tool>> _listServerCapabilities() async {
     final functions = <gemini.FunctionDeclaration>[];
     for (var connection in serverConnections) {
-      try {
-        final response = await connection.listTools();
-        for (var tool in response.tools) {
-          functions.add(
-            gemini.FunctionDeclaration(
-              tool.name,
-              tool.description ?? '',
-              _schemaToGeminiSchema(tool.inputSchema),
-            ),
-          );
-          connectionForFunction[tool.name] = connection;
-        }
-      } catch (e) {
-        final errorServerName = connection.serverInfo?.name ?? 'unknown';
-        logger.stderr('Failed to list tools for server $errorServerName: $e');
+      final response = await connection.listTools();
+      for (var tool in response.tools) {
+        functions.add(
+          gemini.FunctionDeclaration(
+            tool.name,
+            tool.description ?? '',
+            _schemaToGeminiSchema(tool.inputSchema),
+          ),
+        );
+        connectionForFunction[tool.name] = connection;
       }
     }
     return functions.isEmpty
@@ -526,9 +447,7 @@ $s''';
             for (var entry in originalProperties.entries)
               entry.key: _schemaToGeminiSchema(
                 entry.value,
-                // Fix: Check if required is null before calling contains
-                nullable:
-                    !(objectSchema.required?.contains(entry.key) ?? false),
+                nullable: objectSchema.required?.contains(entry.key) ?? false,
               ),
           };
         }
@@ -538,18 +457,18 @@ $s''';
           nullable: nullable,
         );
       case JsonType.string:
-        // Fixed: Removed unsupported enumValues parameter/logic
         return gemini.Schema.string(
           description: inputSchema.description,
           nullable: nullable,
         );
       case JsonType.list:
         final listSchema = inputSchema as ListSchema;
-        // Fix: Handle case where listSchema.items might be null
-        // (though unlikely per spec)
         final itemSchema =
             listSchema.items == null
-                ? gemini.Schema.string(description: 'any')
+                ?
+                // A bit of a hack here, gemini requires item schemas, just fall
+                // back on string.
+                gemini.Schema.string()
                 : _schemaToGeminiSchema(listSchema.items!);
         return gemini.Schema.array(
           description: description,
@@ -571,23 +490,9 @@ $s''';
           description: description,
           nullable: nullable,
         );
-      // Fixed: Removed JsonType.any case
-      // Consider adding null type if needed, though Gemini schema might handle
-      // nullable field
-      // case JsonType.nullValue:
-      //    return gemini.Schema(...); // No direct null type in gemini.Schema,
-      // use nullable=true
       default:
-        // Fallback for safety, though ideally all types should be handled
-        logger.stderr(
-          'Warning: Unhandled schema type ${inputSchema.type}. '
-          'Treating as string.',
-        );
-        return gemini.Schema.string(
-          description:
-              '${description ?? ''} (unhandled type: ${inputSchema.type})'
-                  .trim(),
-          nullable: nullable,
+        throw UnimplementedError(
+          'Unimplemented schema type ${inputSchema.type}',
         );
     }
   }
@@ -601,13 +506,11 @@ always positive.
 
 /// If a [persona] is passed, it will be added to the system prompt as its own
 /// paragraph.
-gemini.Content systemInstructions({String? persona}) => gemini.Content.system('''
+gemini.Content systemInstructions({String? persona}) =>
+    gemini.Content.system('''
 You are a developer assistant for Dart and Flutter apps. You are an expert
 software developer.
-${persona != null ? '''
-
-$persona
-''' : ''}
+${persona != null ? '\n$persona\n' : ''}
 You can help developers with writing code by generating Dart and Flutter code or
 making changes to their existing app. You can also help developers with
 debugging their code by connecting into the live state of their apps, helping
