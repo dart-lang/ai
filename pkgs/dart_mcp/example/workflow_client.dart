@@ -340,12 +340,6 @@ $dashText''');
 
   /// Handles a function call response from the model.
   Future<String?> _handleFunctionCall(gemini.FunctionCall functionCall) async {
-    _chatToUser(
-      'I am going to run the ${functionCall.name} tool'
-      '${verbose ? ' with args ${jsonEncode(functionCall.args)}' : ''} to '
-      'perform this task.',
-    );
-
     chatHistory.add(gemini.Content.model([functionCall]));
     final connection = connectionForFunction[functionCall.name];
     // Added safety check for missing connection
