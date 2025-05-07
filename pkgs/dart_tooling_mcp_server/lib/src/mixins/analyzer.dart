@@ -173,6 +173,7 @@ base mixin DartAnalyzerSupport
                     ),
                   ),
                   textDocument: lsp.TextDocumentClientCapabilities(
+                    hover: lsp.HoverClientCapabilities(),
                     publishDiagnostics:
                         lsp.PublishDiagnosticsClientCapabilities(),
                     signatureHelp: lsp.SignatureHelpClientCapabilities(),
