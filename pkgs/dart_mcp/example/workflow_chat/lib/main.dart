@@ -1,12 +1,14 @@
+// ignore_for_file: avoid_print
+
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_generative_ai/google_generative_ai.dart' as gemini;
-// import 'package:dart_mcp/client.dart'; // MCP client not used in this version
+// Assuming all necessary classes are exported by client.dart or available via ServerConnection
+import 'package:dart_mcp/client.dart';
 
-// TODO: Replace with your actual API key from flutter run --dart-define=GEMINI_API_KEY=YOUR_API_KEY
 const String _apiKey = String.fromEnvironment('GEMINI_API_KEY');
 
-// System instruction similar to the one in workflow_client.dart
-// It's simplified here as we are not using the full tool/planning capabilities.
 gemini.Content systemInstructions() => gemini.Content.system('''
 You are a developer assistant for Dart and Flutter apps. You are an expert
 software developer.
@@ -15,13 +17,16 @@ You can help developers with writing code by generating Dart and Flutter code or
 making changes to their existing app.
 ''');
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
   if (_apiKey.isEmpty) {
     throw ArgumentError(
       'To run this app, you need to pass in your Gemini API key using '
       '--dart-define=GEMINI_API_KEY=YOUR_API_KEY',
     );
   }
+
   runApp(const ChatApp());
 }
 
@@ -43,8 +48,7 @@ class ChatApp extends StatelessWidget {
 
 class ChatMessage {
   final String text;
-  final bool
-  isUser; // true if the message is from the user, false for the model
+  final bool isUser;
 
   ChatMessage({required this.text, required this.isUser});
 }
@@ -57,19 +61,25 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
+  final List<ServerConnection> serverConnections = [];
+
+  // Define capabilities for the client
+  final clientCapabilities = ClientCapabilities(roots: RootsCapabilities());
+
+  final client = MyMCPClient(
+    ClientImplementation(name: 'Flutter Chat App', version: '1.0.0'),
+  );
   final TextEditingController _textController = TextEditingController();
   final List<ChatMessage> _messages = [];
   gemini.GenerativeModel? _model;
   gemini.ChatSession? _chat;
   bool _isLoading = false;
 
-  // Store initial history content, similar to workflow_client.dart
   final List<gemini.Content> _initialHistory = [
     gemini.Content.text(
       'The current working directory is file:///Users/jakemac/ai/pkgs/dart_mcp/example/workflow_chat/ '
       'Convert all relative URIs to absolute using this root. For tools that want a root, use this URI.',
     ),
-    // Note: DTD URI is not included here as it was for tool usage in the original client.
   ];
 
   @override
@@ -81,13 +91,10 @@ class _ChatScreenState extends State<ChatScreen> {
         apiKey: _apiKey,
         systemInstruction: systemInstructions(),
       );
-      // Start chat with the initial history
-      _chat = _model?.startChat(
-        history: _initialHistory.toList(),
-      ); // Use a copy
+      _chat = _model?.startChat(history: _initialHistory.toList());
       _initialGreeting();
+      _startMcpServers();
     } else {
-      // Display an error message in the chat if API key is missing
       setState(() {
         _messages.add(
           ChatMessage(
@@ -122,7 +129,7 @@ class _ChatScreenState extends State<ChatScreen> {
       } catch (e) {
         _messages.add(
           ChatMessage(
-            text: "Error with initial greeting: \${e.toString()}",
+            text: "Error with initial greeting: ${e.toString()}",
             isUser: false,
           ),
         );
@@ -130,6 +137,62 @@ class _ChatScreenState extends State<ChatScreen> {
         setState(() {
           _isLoading = false;
         });
+      }
+    }
+  }
+
+  Future<void> _startMcpServers() async {
+    final serversToStart = [
+      [
+        'dart',
+        '/Users/jakemac/ai/pkgs/dart_mcp/example/file_system_server.dart',
+      ],
+      ['dart', '/Users/jakemac/ai/pkgs/dart_tooling_mcp_server/bin/main.dart'],
+    ];
+
+    for (var serverConfig in serversToStart) {
+      try {
+        // Assuming connectStdioServer is correctly imported from dart_mcp/client.dart
+        final connection = await client.connectStdioServer(
+          serverConfig.first,
+          serverConfig.skip(1).toList(),
+        );
+        serverConnections.add(connection);
+
+        // Assuming InitializeRequest, ProtocolVersion, InitializedNotification,
+        // LoggingLevel, SetLevelRequest are available via dart_mcp/client.dart
+        final initResult = await connection.initialize(
+          InitializeRequest(
+            protocolVersion: ProtocolVersion.latestSupported,
+            capabilities: clientCapabilities,
+            clientInfo: client.implementation,
+          ),
+        );
+
+        final serverName = connection.serverInfo?.name ?? 'unknown';
+        if (initResult.protocolVersion != ProtocolVersion.latestSupported) {
+          print(
+            'Protocol version mismatch for $serverName, expected ${ProtocolVersion.latestSupported}, got ${initResult.protocolVersion}. Disconnecting.',
+          );
+          await connection.shutdown();
+          serverConnections.remove(connection);
+        } else {
+          connection.notifyInitialized(InitializedNotification());
+          print('MCP Server $serverName initialized.');
+
+          if (connection.serverCapabilities.logging != null) {
+            final logLevel = LoggingLevel.debug;
+            print('Setting log level to ${logLevel.name} for $serverName');
+            connection.setLogLevel(SetLevelRequest(level: logLevel));
+            connection.onLog.listen((event) {
+              print(
+                '[$serverName-log/${event.level.name}] ${event.logger != null ? '[${event.logger}] ' : ''}${event.data}',
+              );
+            });
+          }
+        }
+      } catch (e, s) {
+        print('Failed to start or initialize MCP server $e\n$s');
       }
     }
   }
@@ -159,14 +222,13 @@ class _ChatScreenState extends State<ChatScreen> {
 
     try {
       final response = await _chat!.sendMessage(gemini.Content.text(text));
-      final modelResponseText = response.text; // response.text is nullable
+      final modelResponseText = response.text;
 
       if (modelResponseText != null && modelResponseText.isNotEmpty) {
         setState(() {
           _messages.add(ChatMessage(text: modelResponseText, isUser: false));
         });
       } else {
-        // Handle cases where the response might be empty or only contain function calls (not applicable here)
         setState(() {
           _messages.add(
             ChatMessage(
@@ -178,7 +240,6 @@ class _ChatScreenState extends State<ChatScreen> {
         });
       }
     } catch (e) {
-      // ignore: avoid_print
       print('Error sending message: $e');
       setState(() {
         _messages.add(
@@ -197,8 +258,6 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Moved API key check to initState for cleaner build method
-    // and to allow showing an error message within the chat UI.
     return Scaffold(
       appBar: AppBar(title: const Text('Flutter Chat Client')),
       body: Column(
@@ -287,3 +346,5 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 }
+
+final class MyMCPClient = MCPClient with RootsSupport;

@@ -39,6 +39,7 @@ dependencies:
   dart_mcp: ^0.2.0
   cli_util: ^0.4.2
   async: ^2.13.0
+  args: ^2.7.0
 
 dev_dependencies:
   flutter_test:
