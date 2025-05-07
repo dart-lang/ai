@@ -70,7 +70,7 @@ class ChatApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Chat Client',
+      title: 'Dash Chat',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
@@ -509,7 +509,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Flutter Chat Client (MCP Enabled)')),
+      appBar: AppBar(title: const Text('Dash Chat')), // MODIFIED
       body: Column(
         children: <Widget>[
           Expanded(
