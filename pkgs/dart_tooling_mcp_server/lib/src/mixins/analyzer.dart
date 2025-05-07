@@ -68,6 +68,7 @@ base mixin DartAnalyzerSupport
       registerTool(analyzeFilesTool, _analyzeFiles);
       registerTool(resolveWorkspaceSymbolTool, _resolveWorkspaceSymbol);
       registerTool(signatureHelpTool, _signatureHelp);
+      registerTool(hoverTool, _hover);
     }
 
     // Don't call any methods on the client until we are fully initialized
@@ -295,6 +296,27 @@ base mixin DartAnalyzerSupport
     return CallToolResult(content: [TextContent(text: jsonEncode(result))]);
   }
 
+  /// Implementation of the [hoverTool], get hover information for a given
+  /// position in a file.
+  Future<CallToolResult> _hover(CallToolRequest request) async {
+    final errorResult = await _ensurePrerequisites(request);
+    if (errorResult != null) return errorResult;
+
+    final uri = Uri.parse(request.arguments![ParameterNames.uri] as String);
+    final position = lsp.Position(
+      line: request.arguments![ParameterNames.line] as int,
+      character: request.arguments![ParameterNames.column] as int,
+    );
+    final result = await _lspConnection.sendRequest(
+      lsp.Method.textDocument_hover.toString(),
+      lsp.HoverParams(
+        textDocument: lsp.TextDocumentIdentifier(uri: uri),
+        position: position,
+      ).toJson(),
+    );
+    return CallToolResult(content: [TextContent(text: jsonEncode(result))]);
+  }
+
   /// Ensures that all prerequisites for any analysis task are met.
   ///
   /// Returns an error response if any prerequisite is not met, otherwise
@@ -390,7 +412,10 @@ base mixin DartAnalyzerSupport
   @visibleForTesting
   static final resolveWorkspaceSymbolTool = Tool(
     name: 'resolve_workspace_symbol',
-    description: 'Look up a symbol or symbols in all workspaces by name.',
+    description:
+        'Look up a symbol or symbols in all workspaces by name. Can be used '
+        'to validate that a symbol exists or discover small spelling '
+        'mistakes, since the search is fuzzy.',
     inputSchema: Schema.object(
       properties: {
         ParameterNames.query: Schema.string(
@@ -400,6 +425,10 @@ base mixin DartAnalyzerSupport
               'or scoped lookups.',
         ),
       },
+      description:
+          'Returns all close matches to the query, with their names '
+          'and locations. Be sure to check the name of the responses to ensure '
+          'it looks like the thing you were searching for.',
       required: [ParameterNames.query],
     ),
     annotations: ToolAnnotations(title: 'Project search', readOnlyHint: true),
@@ -430,6 +459,37 @@ base mixin DartAnalyzerSupport
       ],
     ),
     annotations: ToolAnnotations(title: 'Signature help', readOnlyHint: true),
+  );
+
+  @visibleForTesting
+  static final hoverTool = Tool(
+    name: 'hover',
+    description:
+        'Get hover information at a given cursor position in a file. This can '
+        'include documentation, type information, etc for the text at the '
+        'position.',
+    inputSchema: Schema.object(
+      properties: {
+        ParameterNames.uri: Schema.string(
+          description: 'The URI of the file to get hover information for.',
+        ),
+        ParameterNames.line: Schema.int(
+          description: 'The line number of the cursor position.',
+        ),
+        ParameterNames.column: Schema.int(
+          description: 'The column number of the cursor position.',
+        ),
+      },
+      required: [
+        ParameterNames.uri,
+        ParameterNames.line,
+        ParameterNames.column,
+      ],
+    ),
+    annotations: ToolAnnotations(
+      title: 'Hover information',
+      readOnlyHint: true,
+    ),
   );
 
   @visibleForTesting

@@ -144,6 +144,37 @@ void main() {
       );
     });
 
+    test('can get hover information', () async {
+      final counterAppRoot = testHarness.rootForPath(counterAppPath);
+      testHarness.mcpClient.addRoot(counterAppRoot);
+      await pumpEventQueue();
+
+      final result = await testHarness.callToolWithRetry(
+        CallToolRequest(
+          name: DartAnalyzerSupport.hoverTool.name,
+          arguments: {
+            ParameterNames.uri: p.join(counterAppRoot.uri, 'lib', 'main.dart'),
+            ParameterNames.line: 15,
+            ParameterNames.column: 15,
+          },
+        ),
+      );
+      expect(result.isError, isNot(true));
+
+      expect(
+        result.content.single,
+        isA<TextContent>().having(
+          (t) => t.text,
+          'text',
+          allOf(
+            /// The signature of the material app constructor.
+            contains('MaterialApp({'),
+            contains('Key? key,'),
+          ),
+        ),
+      );
+    });
+
     test('cannot analyze without roots set', () async {
       final result = await testHarness.callToolWithRetry(
         CallToolRequest(name: DartAnalyzerSupport.analyzeFilesTool.name),
@@ -164,6 +195,28 @@ void main() {
         CallToolRequest(
           name: DartAnalyzerSupport.resolveWorkspaceSymbolTool.name,
           arguments: {ParameterNames.query: 'DartAnalyzerSupport'},
+        ),
+        expectError: true,
+      );
+      expect(
+        result.content.single,
+        isA<TextContent>().having(
+          (t) => t.text,
+          'text',
+          contains('No roots set'),
+        ),
+      );
+    });
+
+    test('cannot get hover information without roots set', () async {
+      final result = await testHarness.callToolWithRetry(
+        CallToolRequest(
+          name: DartAnalyzerSupport.hoverTool.name,
+          arguments: {
+            ParameterNames.uri: 'file:///any/file.dart',
+            ParameterNames.line: 0,
+            ParameterNames.column: 0,
+          },
         ),
         expectError: true,
       );
