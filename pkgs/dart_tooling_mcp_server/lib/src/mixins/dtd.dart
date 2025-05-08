@@ -171,7 +171,7 @@ base mixin DartToolingDaemonSupport
       );
       unawaited(_dtd!.done.then((_) async => await _resetDtd()));
 
-      _listenForServices();
+      await _listenForServices();
       return CallToolResult(
         content: [TextContent(text: 'Connection succeeded')],
       );
@@ -183,11 +183,12 @@ base mixin DartToolingDaemonSupport
     }
   }
 
-  /// Listens to the `Service` stream so we know when the
-  /// `Editor.getDebugSessions` extension method is registered.
+  /// Listens to the `Service` and `Editor` streams so we know when the
+  /// `Editor.getDebugSessions` extension method is registered and when debug
+  /// sessions are started and stopped.
   ///
   /// The dart tooling daemon must be connected prior to calling this function.
-  void _listenForServices() {
+  Future<void> _listenForServices() async {
     final dtd = _dtd!;
     dtd.onEvent('Service').listen((e) async {
       log(
@@ -215,7 +216,7 @@ base mixin DartToolingDaemonSupport
           }
       }
     });
-    dtd.streamListen('Service');
+    await dtd.streamListen('Service');
 
     dtd.onEvent('Editor').listen((e) async {
       log(LoggingLevel.debug, e.toString());
@@ -232,7 +233,7 @@ base mixin DartToolingDaemonSupport
         default:
       }
     });
-    dtd.streamListen('Editor');
+    await dtd.streamListen('Editor');
   }
 
   /// Takes a screenshot of the currently running app.
