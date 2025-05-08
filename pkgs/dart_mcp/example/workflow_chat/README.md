@@ -1,16 +1,29 @@
-# workflow_chat
+# Dash Chat
 
-A new Flutter project.
+An example MCP client flutter chat app. 
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
+To run this app you will need a gemini API key, which should be provided using
+the `--dart-define=GEMINI_API_KEY=<your_api_key>` flag to `flutter run`.
 
-A few resources to get you started if this is your first Flutter project:
+This can be done using a vscode launch config, reading from system environment
+variables, something like this:
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```json
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "workflow_chat",
+            "cwd": "pkgs/dart_mcp/example/workflow_chat",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/main.dart",
+            "args": [
+                "--dart-define=GEMINI_API_KEY=${env:GEMINI_API_KEY}"
+            ]
+        }
+    ]
+}
+```
