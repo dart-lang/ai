@@ -292,7 +292,9 @@ class _ChatScreenState extends State<ChatScreen> {
         final serverName = connection.serverInfo?.name ?? 'unknown';
         if (initResult.protocolVersion != ProtocolVersion.latestSupported) {
           print(
-            'Protocol version mismatch for $serverName, expected ${ProtocolVersion.latestSupported}, got ${initResult.protocolVersion}. Disconnecting.',
+            'Protocol version mismatch for $serverName, expected '
+            '${ProtocolVersion.latestSupported}, got '
+            '${initResult.protocolVersion}. Disconnecting.',
           );
           await connection.shutdown();
           serverConnections.remove(connection);
@@ -422,7 +424,6 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Dash Chat')),
       body: Column(
         children: <Widget>[
           Expanded(

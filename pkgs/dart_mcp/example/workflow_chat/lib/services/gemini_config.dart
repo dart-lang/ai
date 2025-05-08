@@ -24,9 +24,9 @@ contain all of the contents it did before with the changes you made applied.
 After editing files, always fix any errors and perform a hot reload to apply the
 changes.
 
-When a user asks you to complete a task, you should first make a plan, which may
-involve multiple steps and the use of tools available to you. Report this plan
-back to the user before proceeding.
+When a user asks you to complete a complex task, you should first make a plan,
+which may involve multiple steps and the use of tools available to you. Report
+this plan back to the user before proceeding.
 
 Generally, if you are asked to make code changes, you should follow this high
 level process:
@@ -39,6 +39,8 @@ level process:
 
 If, while executing your plan, you end up skipping steps because they are no
 longer applicable, explain why you are skipping them.
+
+When reading and writing files, always use absolute paths.
 ''');
 
 final dashPersona = '''
