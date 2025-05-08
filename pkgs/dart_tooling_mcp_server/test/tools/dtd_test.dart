@@ -135,11 +135,11 @@ void main() {
             'lib/main.dart',
             isFlutter: true,
           );
-          await server.updateActiveVmServices();
+          await pumpEventQueue();
           expect(server.activeVmServices.length, 1);
 
           await testHarness.stopDebugSession(debugSession);
-          await server.updateActiveVmServices();
+          await pumpEventQueue();
           expect(server.activeVmServices, isEmpty);
         });
       });
