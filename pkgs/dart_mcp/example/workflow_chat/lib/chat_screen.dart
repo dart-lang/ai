@@ -21,7 +21,12 @@ import 'widgets/text_composer.dart'; // New import
 const String _apiKey = String.fromEnvironment('GEMINI_API_KEY');
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+  final VoidCallback onToggleTheme; // Added callback for theme toggle
+
+  const ChatScreen({
+    super.key,
+    required this.onToggleTheme,
+  }); // Updated constructor
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -333,6 +338,15 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Dash Chat'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.brightness_6),
+            onPressed: widget.onToggleTheme, // Use the passed callback
+          ),
+        ],
+      ),
       body: Column(
         children: <Widget>[
           Expanded(

@@ -22,8 +22,22 @@ Future<void> main() async {
   runApp(const ChatApp());
 }
 
-class ChatApp extends StatelessWidget {
+class ChatApp extends StatefulWidget {
   const ChatApp({super.key});
+
+  @override
+  State<ChatApp> createState() => _ChatAppState();
+}
+
+class _ChatAppState extends State<ChatApp> {
+  ThemeMode _themeMode = ThemeMode.system;
+
+  void _toggleTheme() {
+    setState(() {
+      _themeMode =
+          _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +47,15 @@ class ChatApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      home: const ChatScreen(), // ChatScreen is now imported
+      darkTheme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.blue,
+          brightness: Brightness.dark,
+        ),
+        useMaterial3: true,
+      ),
+      themeMode: _themeMode,
+      home: ChatScreen(onToggleTheme: _toggleTheme), // Pass the callback
     );
   }
 }
