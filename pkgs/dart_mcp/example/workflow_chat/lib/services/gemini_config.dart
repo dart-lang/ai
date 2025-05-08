@@ -62,7 +62,7 @@ class _FileSink implements Sink<String> {
 
   @override
   void add(String data) {
-    file.writeAsString('$data\n', mode: FileMode.append);
+    file.writeAsStringSync('$data\n', mode: FileMode.append);
   }
 
   @override

@@ -24,15 +24,7 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  final List<ServerConnection> serverConnections = [];
-  final Map<String, ServerConnection> _connectionForFunction = {}; // Added
-
-  // Define capabilities for the client
-  final clientCapabilities = ClientCapabilities(roots: RootsCapabilities());
-
-  final client = MyMCPClient(
-    ClientImplementation(name: 'Flutter Chat App', version: '1.0.0'),
-  );
+  final client = MyMCPClient();
   final TextEditingController _textController = TextEditingController();
   final List<ChatMessage> _messages = [];
   gemini.GenerativeModel? _model;
@@ -69,99 +61,10 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  gemini.Schema _schemaToGeminiSchema(Schema inputSchema, {bool? nullable}) {
-    final description = inputSchema.description;
-
-    switch (inputSchema.type) {
-      case JsonType.object:
-        final objectSchema = inputSchema as ObjectSchema;
-        Map<String, gemini.Schema>? properties;
-        if (objectSchema.properties case final originalProperties?) {
-          properties = {
-            for (var entry in originalProperties.entries)
-              entry.key: _schemaToGeminiSchema(
-                entry.value,
-                nullable: objectSchema.required?.contains(entry.key) ?? false,
-              ),
-          };
-        }
-        return gemini.Schema.object(
-          description: description,
-          properties: properties ?? {},
-          nullable: nullable,
-        );
-      case JsonType.string:
-        return gemini.Schema.string(
-          description: inputSchema.description,
-          nullable: nullable,
-        );
-      case JsonType.list:
-        final listSchema = inputSchema as ListSchema;
-        final itemSchema =
-            listSchema.items == null
-                ? gemini.Schema.string() // Fallback for missing item schema
-                : _schemaToGeminiSchema(listSchema.items!);
-        return gemini.Schema.array(
-          description: description,
-          items: itemSchema,
-          nullable: nullable,
-        );
-      case JsonType.num:
-        return gemini.Schema.number(
-          description: description,
-          nullable: nullable,
-        );
-      case JsonType.int:
-        return gemini.Schema.integer(
-          description: description,
-          nullable: nullable,
-        );
-      case JsonType.bool:
-        return gemini.Schema.boolean(
-          description: description,
-          nullable: nullable,
-        );
-      default:
-        throw UnimplementedError(
-          'Unimplemented schema type ${inputSchema.type}',
-        );
-    }
-  }
-
-  Future<List<gemini.Tool>> _getServerTools() async {
-    final functions = <gemini.FunctionDeclaration>[];
-    _connectionForFunction.clear(); // Clear previous mappings
-    for (var connection in serverConnections) {
-      try {
-        final response = await connection.listTools();
-        for (var tool in response.tools) {
-          functions.add(
-            gemini.FunctionDeclaration(
-              tool.name,
-              tool.description ?? '',
-              _schemaToGeminiSchema(tool.inputSchema),
-            ),
-          );
-          _connectionForFunction[tool.name] = connection;
-          print(
-            'Registered tool: ${tool.name} from ${connection.serverInfo?.name}',
-          );
-        }
-      } catch (e) {
-        print(
-          'Error listing tools for ${connection.serverInfo?.name ?? 'a server'}: $e',
-        );
-      }
-    }
-    return functions.isEmpty
-        ? []
-        : [gemini.Tool(functionDeclarations: functions)];
-  }
-
   Future<void> _handleFunctionCall(gemini.FunctionCall functionCall) async {
     print('Handling function call: ${functionCall.name}');
     _modelChatHistory.add(gemini.Content.model([functionCall]));
-    final connection = _connectionForFunction[functionCall.name];
+    final connection = client.connectionForFunction[functionCall.name];
 
     if (connection == null) {
       print('Error: No connection found for function ${functionCall.name}');
@@ -228,10 +131,9 @@ class _ChatScreenState extends State<ChatScreen> {
     );
 
     try {
-      final serverTools = await _getServerTools();
       final response = await _model!.generateContent(
         _modelChatHistory,
-        tools: serverTools,
+        tools: client.tools,
       );
       final modelResponseText = response.text;
 
@@ -287,45 +189,11 @@ class _ChatScreenState extends State<ChatScreen> {
           serverConfig.skip(1).toList(),
           protocolLogSink: file.asStringSink,
         );
-        serverConnections.add(connection);
-
-        final initResult = await connection.initialize(
-          InitializeRequest(
-            protocolVersion: ProtocolVersion.latestSupported,
-            capabilities: clientCapabilities,
-            clientInfo: client.implementation,
-          ),
-        );
-
-        final serverName = connection.serverInfo?.name ?? 'unknown';
-        if (initResult.protocolVersion != ProtocolVersion.latestSupported) {
-          print(
-            'Protocol version mismatch for $serverName, expected '
-            '${ProtocolVersion.latestSupported}, got '
-            '${initResult.protocolVersion}. Disconnecting.',
-          );
-          await connection.shutdown();
-          serverConnections.remove(connection);
-        } else {
-          connection.notifyInitialized(InitializedNotification());
-          print('MCP Server $serverName initialized.');
-
-          if (connection.serverCapabilities.logging != null) {
-            final logLevel = LoggingLevel.info;
-            print('Setting log level to ${logLevel.name} for $serverName');
-            connection.setLogLevel(SetLevelRequest(level: logLevel));
-            connection.onLog.listen((event) {
-              print(
-                '[$serverName-log/${event.level.name}] ${event.logger != null ? '[${event.logger}] ' : ''}${event.data}',
-              );
-            });
-          }
-        }
+        await client.initializeServer(connection);
       } catch (e, s) {
         print('Failed to start or initialize MCP server $e\n$s');
       }
     }
-    await _getServerTools();
   }
 
   Future<void> _processModelResponse(
@@ -369,10 +237,9 @@ class _ChatScreenState extends State<ChatScreen> {
           _isLoading = true;
         });
         try {
-          final serverTools = await _getServerTools();
           final followUpResponse = await _model!.generateContent(
             _modelChatHistory,
-            tools: serverTools,
+            tools: client.tools,
           );
           await _processModelResponse(followUpResponse);
         } catch (e) {
@@ -406,13 +273,9 @@ class _ChatScreenState extends State<ChatScreen> {
     });
 
     try {
-      final serverTools = await _getServerTools();
-      print(
-        'Sending message to model with ${serverTools.isNotEmpty ? serverTools.first.functionDeclarations?.length ?? 0 : 0} tools.',
-      );
       final response = await _model!.generateContent(
         _modelChatHistory,
-        tools: serverTools,
+        tools: client.tools,
       );
       await _processModelResponse(response);
     } catch (e) {

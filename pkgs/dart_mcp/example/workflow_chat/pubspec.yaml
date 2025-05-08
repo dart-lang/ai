@@ -40,6 +40,7 @@ dependencies:
   cli_util: ^0.4.2
   async: ^2.13.0
   args: ^2.7.0
+  stream_channel: ^2.1.4
 
 dev_dependencies:
   flutter_test:
