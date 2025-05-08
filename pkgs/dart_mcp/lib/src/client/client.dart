@@ -80,7 +80,7 @@ base class MCPClient {
             },
           ),
         );
-    final connection = connectServer(channel);
+    final connection = connectServer(channel, protocolLogSink: protocolLogSink);
     unawaited(connection.done.then((_) => process.kill()));
     return connection;
   }

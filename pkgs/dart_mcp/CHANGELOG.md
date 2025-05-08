@@ -1,5 +1,6 @@
 ## 0.2.1-wip
 
+- Fix the `protocolLogSink` support when using `MCPClient.connectStdioServer`.
 - Update workflow example to show thinking spinner and input and output token
   usage.
 
