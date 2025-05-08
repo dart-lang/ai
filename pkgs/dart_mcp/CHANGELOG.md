@@ -2,6 +2,7 @@
 
 - Update workflow example to show thinking spinner and input and output token
   usage.
+- Update file system example to support relative paths.
 
 ## 0.2.0
 
