@@ -10,10 +10,11 @@ import 'package:google_generative_ai/google_generative_ai.dart' as gemini;
 final class MyMCPClient extends MCPClient with RootsSupport {
   final Map<String, ServerConnection> connectionForFunction = {};
   final List<gemini.Tool> tools = [gemini.Tool(functionDeclarations: [])];
+  final String projectUri;
 
-  MyMCPClient()
+  MyMCPClient({required this.projectUri})
     : super(ClientImplementation(name: 'Flutter Chat App', version: '1.0.0')) {
-    addRoot(Root(uri: Uri.base.toString(), name: 'The current working dir'));
+    addRoot(Root(uri: projectUri, name: 'Selected Project Directory'));
   }
 
   // Define capabilities for this client

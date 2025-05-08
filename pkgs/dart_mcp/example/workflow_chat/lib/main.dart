@@ -3,14 +3,13 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // Added import
+import 'package:shared_preferences/shared_preferences.dart';
 
-// Updated imports to point to new locations
-import 'chat_screen.dart'; // ChatScreen is now in its own file
+import 'chat_screen.dart';
+import 'directory_input_screen.dart'; // Import the new screen
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   runApp(const ChatApp());
 }
 
@@ -22,25 +21,25 @@ class ChatApp extends StatefulWidget {
 }
 
 class _ChatAppState extends State<ChatApp> {
-  ThemeMode _themeMode = ThemeMode.dark; // Default theme
+  ThemeMode _themeMode = ThemeMode.dark;
+  String? _projectPath; // Variable to hold the project path
 
   @override
   void initState() {
     super.initState();
     _loadThemePreference();
+    // We don't load a project path from prefs, it's selected each time
   }
 
   Future<void> _loadThemePreference() async {
     final prefs = await SharedPreferences.getInstance();
-    // Load the saved theme preference. Default to 'dark' if nothing is saved.
     final savedTheme = prefs.getString('themeMode');
-
     if (mounted) {
       setState(() {
         if (savedTheme == 'light') {
           _themeMode = ThemeMode.light;
         } else {
-          _themeMode = ThemeMode.dark;
+          _themeMode = ThemeMode.dark; // Default to dark
         }
       });
     }
@@ -48,23 +47,24 @@ class _ChatAppState extends State<ChatApp> {
 
   Future<void> _saveThemePreference(ThemeMode themeMode) async {
     final prefs = await SharedPreferences.getInstance();
-    String themeToSave;
-    if (themeMode == ThemeMode.light) {
-      themeToSave = 'light';
-    } else {
-      themeToSave = 'dark';
-    }
-    await prefs.setString('themeMode', themeToSave);
+    await prefs.setString(
+      'themeMode',
+      themeMode == ThemeMode.light ? 'light' : 'dark',
+    );
   }
 
   void _toggleTheme() {
     setState(() {
-      if (_themeMode == ThemeMode.light) {
-        _themeMode = ThemeMode.dark;
-      } else if (_themeMode == ThemeMode.dark) {
-        _themeMode = ThemeMode.light;
-      }
-      _saveThemePreference(_themeMode); // Save the new preference
+      _themeMode =
+          _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
+      _saveThemePreference(_themeMode);
+    });
+  }
+
+  // Callback for when the directory is submitted
+  void _onDirectorySubmitted(String path) {
+    setState(() {
+      _projectPath = path;
     });
   }
 
@@ -84,7 +84,15 @@ class _ChatAppState extends State<ChatApp> {
         useMaterial3: true,
       ),
       themeMode: _themeMode,
-      home: ChatScreen(onToggleTheme: _toggleTheme), // Pass the callback
+      home:
+          _projectPath == null
+              ? DirectoryInputScreen(
+                onDirectorySubmitted: _onDirectorySubmitted,
+              )
+              : ChatScreen(
+                projectPath: _projectPath!,
+                onToggleTheme: _toggleTheme,
+              ),
     );
   }
 }

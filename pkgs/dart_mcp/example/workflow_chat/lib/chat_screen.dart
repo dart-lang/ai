@@ -5,7 +5,7 @@
 // ignore_for_file: avoid_print
 
 import 'dart:async';
-import 'dart:convert'; // Added for base64Decode
+import 'dart:convert'; // Added for base64Decode and utf8
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -22,15 +22,20 @@ import 'widgets/text_composer.dart';
 
 class ChatScreen extends StatefulWidget {
   final VoidCallback onToggleTheme;
+  final String projectPath; // Added projectPath
 
-  const ChatScreen({super.key, required this.onToggleTheme});
+  const ChatScreen({
+    super.key,
+    required this.onToggleTheme,
+    required this.projectPath, // Made projectPath required
+  });
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  final client = MyMCPClient();
+  late final MyMCPClient client; // Initialize in initState
   final TextEditingController _textController = TextEditingController();
   final List<ChatMessage> _messages = [];
   gemini.GenerativeModel? _model;
@@ -38,24 +43,28 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isDashMode = true; // Default value, will be overridden by preferences
   String? _currentApiKey; // New state variable for API key
 
-  List<gemini.Content> _modelChatHistory = [
-    gemini.Content.text('The current working directory is ${Uri.base}'),
-  ];
+  List<gemini.Content> _modelChatHistory = []; // Initialized in initState
 
   @override
   void initState() {
     super.initState();
-    _initializeScreen(); // Changed to call the new initialization method
+    // Initialize client with the projectUri from the widget
+    client = MyMCPClient(projectUri: widget.projectPath);
+    _modelChatHistory = [
+      gemini.Content.text(
+        'The current working directory is ${widget.projectPath}',
+      ),
+    ];
+    _initializeScreen();
   }
 
   Future<void> _initializeScreen() async {
-    await _loadDashModePreference(); // Load mode preference first
-    await _loadApiKeyAndInitializeChat(); // Then proceed with API key and chat setup
+    await _loadDashModePreference();
+    await _loadApiKeyAndInitializeChat();
   }
 
   Future<void> _loadDashModePreference() async {
     final prefs = await SharedPreferences.getInstance();
-    // Default to true (Dash mode) if no preference is stored yet
     final bool savedIsDashMode = prefs.getBool('isDashMode') ?? true;
     if (mounted) {
       setState(() {
@@ -203,13 +212,15 @@ class _ChatScreenState extends State<ChatScreen> {
     if (mounted) {
       setState(() {
         _isLoading = true;
-        _isDashMode = !_isDashMode; // Toggle the mode
+        _isDashMode = !_isDashMode;
         _messages.clear();
         _modelChatHistory = [
-          gemini.Content.text('The current working directory is ${Uri.base}'),
+          gemini.Content.text(
+            'The current working directory is ${widget.projectPath}',
+          ),
         ];
       });
-      await _saveDashModePreference(_isDashMode); // Save the new preference
+      await _saveDashModePreference(_isDashMode);
     }
 
     _reInitializeModel();
@@ -240,7 +251,9 @@ class _ChatScreenState extends State<ChatScreen> {
       setState(() {
         _messages.clear();
         _modelChatHistory = [
-          gemini.Content.text('The current working directory is ${Uri.base}'),
+          gemini.Content.text(
+            'The current working directory is ${widget.projectPath}',
+          ),
         ];
         _messages.add(
           ChatMessage(text: 'Chat history cleared.', isUser: false),
@@ -378,6 +391,18 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     if (_modelChatHistory.isEmpty ||
+        !(_modelChatHistory.first.parts.first is gemini.TextPart &&
+            (_modelChatHistory.first.parts.first as gemini.TextPart).text ==
+                'The current working directory is ${widget.projectPath}')) {
+      _modelChatHistory.insert(
+        0,
+        gemini.Content.text(
+          'The current working directory is ${widget.projectPath}',
+        ),
+      );
+    }
+
+    if (_modelChatHistory.length == 1 ||
         _modelChatHistory.last.role != 'user' ||
         (_modelChatHistory.last.parts.first as gemini.TextPart).text !=
             'Please introduce yourself and explain how you can help based on your current setup.') {
@@ -431,11 +456,14 @@ class _ChatScreenState extends State<ChatScreen> {
     for (int i = 0; i < serversToStart.length; i++) {
       var serverConfig = serversToStart[i];
       try {
-        final file = File('transcripts/server_$i.log');
-        if (!await file.exists()) {
-          await file.create(recursive: true);
+        final Directory transcriptsDir = Directory('transcripts');
+        if (!await transcriptsDir.exists()) {
+          await transcriptsDir.create(recursive: true);
         }
+        final file = File('${transcriptsDir.path}/server_$i.log');
+
         await file.writeAsString('');
+
         final connection = await client.connectStdioServer(
           serverConfig.first,
           serverConfig.skip(1).toList(),
@@ -444,6 +472,12 @@ class _ChatScreenState extends State<ChatScreen> {
         await client.initializeServer(connection);
       } catch (e) {
         print('Failed to start or initialize MCP server $e');
+        if (mounted) {
+          _addMessageToUI(
+            'Failed to start MCP server: ${e.toString()}',
+            isUser: false,
+          );
+        }
       }
     }
   }
@@ -475,15 +509,6 @@ class _ChatScreenState extends State<ChatScreen> {
         _addMessageToUI(modelResponseText, isUser: false);
         _modelChatHistory.add(
           gemini.Content.model([gemini.TextPart(modelResponseText)]),
-        );
-      } else if (!functionCalled &&
-          (modelResponseText == null || modelResponseText.isEmpty)) {
-        _addMessageToUI(
-          "Sorry, I couldn't get a response or the response was empty.",
-          isUser: false,
-        );
-        _modelChatHistory.add(
-          gemini.Content.model([gemini.TextPart("No response text.")]),
         );
       }
     }
