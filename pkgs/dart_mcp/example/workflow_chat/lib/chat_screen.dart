@@ -1,3 +1,7 @@
+// Copyright (c) 2025, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
 // ignore_for_file: avoid_print
 
 import 'dart:async';
@@ -242,8 +246,8 @@ class _ChatScreenState extends State<ChatScreen> {
             tools: client.tools,
           );
           await _processModelResponse(followUpResponse);
-        } catch (e) {
-          final errorMessage = "Error after function call: ${e.toString()}";
+        } catch (e, s) {
+          final errorMessage = "Error after function call: $e\n$s";
           _addMessageToUI(errorMessage, isUser: false);
           _modelChatHistory.add(
             gemini.Content.model([gemini.TextPart(errorMessage)]),
