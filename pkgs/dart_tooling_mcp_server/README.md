@@ -10,6 +10,7 @@ WIP. This package is still experimental and is likely to evolve quickly.
 | --- | --- | --- |
 | `analyze_files` | `static analysis` | Analyzes the entire project for errors. |
 | `signature_help` | `static_analysis` | Gets signature information for usage at a given cursor position. |
+| `hover` | `static_analysis` | Gets the hover information for a given cursor position. |
 | `resolve_workspace_symbol` | `static analysis` | Look up a symbol or symbols in all workspaces by name. |
 | `dart_fix` | `static tool` | Runs `dart fix --apply` for the given project roots. |
 | `dart_format` | `static tool` | Runs `dart format .` for the given project roots. |
