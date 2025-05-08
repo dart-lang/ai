@@ -38,8 +38,9 @@ class _ChatScreenState extends State<ChatScreen> {
   final List<ChatMessage> _messages = [];
   gemini.GenerativeModel? _model;
   bool _isLoading = false;
+  bool _isDashMode = true; // Added for mode toggle
 
-  final List<gemini.Content> _modelChatHistory = [
+  List<gemini.Content> _modelChatHistory = [
     gemini.Content.text('The current working directory is ${Uri.base}'),
   ];
 
@@ -47,11 +48,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     if (_apiKey.isNotEmpty) {
-      _model = gemini.GenerativeModel(
-        model: 'gemini-2.5-pro-preview-03-25',
-        apiKey: _apiKey,
-        systemInstruction: systemInstructions(persona: dashPersona),
-      );
+      _reInitializeModel();
       _initialGreeting();
       _startMcpServers();
       client.addRoot(
@@ -68,6 +65,35 @@ class _ChatScreenState extends State<ChatScreen> {
         );
       });
     }
+  }
+
+  void _reInitializeModel() {
+    if (_apiKey.isEmpty) return;
+    // _isLoading state will be managed by the calling function (initState or _toggleMode)
+    _model = gemini.GenerativeModel(
+      model: 'gemini-2.5-pro-preview-03-25',
+      apiKey: _apiKey,
+      systemInstruction:
+          _isDashMode
+              ? systemInstructions(persona: dashPersona)
+              : systemInstructions(), // No persona for Gemini mode
+    );
+  }
+
+  // Changed to void as _initialGreeting is void
+  void _toggleMode() {
+    setState(() {
+      _isLoading = true;
+      _isDashMode = !_isDashMode;
+      _messages.clear();
+      _modelChatHistory = [
+        // Reset history with initial context
+        gemini.Content.text('The current working directory is ${Uri.base}'),
+      ];
+    });
+
+    _reInitializeModel();
+    _initialGreeting(); // Removed await, as _initialGreeting is void
   }
 
   Future<gemini.GenerateContentResponse> _generateContentWithRetry(
@@ -95,7 +121,6 @@ class _ChatScreenState extends State<ChatScreen> {
         await Future.delayed(delay);
       }
     }
-    // This line should theoretically be unreachable due to rethrow in the loop
     throw Exception("Exited retry loop without success or rethrow.");
   }
 
@@ -126,13 +151,19 @@ class _ChatScreenState extends State<ChatScreen> {
           case final TextContent textContent when textContent.isText:
             responseBuffer.writeln(textContent.text);
           case final ImageContent imageContent when imageContent.isImage:
-            _modelChatHistory.add(
-              gemini.Content.data(
-                imageContent.mimeType,
-                base64Decode(imageContent.data),
-              ),
-            );
-            responseBuffer.writeln('Image added to context');
+            try {
+              _modelChatHistory.add(
+                gemini.Content.data(
+                  imageContent.mimeType,
+                  base64Decode(imageContent.data),
+                ),
+              );
+              responseBuffer.writeln('Image added to context');
+            } catch (e) {
+              print("Error decoding base64 image: $e");
+              responseBuffer.writeln('Failed to process image data.');
+            }
+            break;
           default:
             responseBuffer.writeln(
               'Got unsupported response type ${content.type}',
@@ -156,17 +187,32 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _initialGreeting() async {
-    if (_model == null) return;
+    if (_model == null) {
+      if (mounted && _isLoading) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+      return;
+    }
 
-    setState(() {
-      _isLoading = true;
-    });
+    if (mounted && !_isLoading) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
 
-    _modelChatHistory.add(
-      gemini.Content.text(
-        'Please introduce yourself and explain how you can help based on your current setup.',
-      ),
-    );
+    // Add the standard greeting prompt, ensuring it's not duplicated if already there
+    if (_modelChatHistory.isEmpty ||
+        _modelChatHistory.last.role != 'user' ||
+        (_modelChatHistory.last.parts.first as gemini.TextPart).text !=
+            'Please introduce yourself and explain how you can help based on your current setup.') {
+      _modelChatHistory.add(
+        gemini.Content.text(
+          'Please introduce yourself and explain how you can help based on your current setup.',
+        ),
+      );
+    }
 
     try {
       final response = await _generateContentWithRetry(
@@ -175,33 +221,33 @@ class _ChatScreenState extends State<ChatScreen> {
       );
       final modelResponseText = response.text;
 
-      if (modelResponseText != null) {
-        setState(() {
-          _messages.add(ChatMessage(text: modelResponseText, isUser: false));
-        });
-        _modelChatHistory.add(
-          gemini.Content.model([gemini.TextPart(modelResponseText)]),
-        );
-      } else {
-        setState(() {
-          _messages.add(ChatMessage(text: "Ready.", isUser: false));
-        });
-        _modelChatHistory.add(
-          gemini.Content.model([gemini.TextPart("Ready.")]),
-        );
+      if (mounted) {
+        if (modelResponseText != null && modelResponseText.isNotEmpty) {
+          _addMessageToUI(modelResponseText, isUser: false);
+          _modelChatHistory.add(
+            gemini.Content.model([gemini.TextPart(modelResponseText)]),
+          );
+        } else {
+          _addMessageToUI("Ready.", isUser: false);
+          _modelChatHistory.add(
+            gemini.Content.model([gemini.TextPart("Ready.")]),
+          );
+        }
       }
     } catch (e) {
-      final errorMessage = "Error with initial greeting: ${e.toString()}";
-      setState(() {
-        _messages.add(ChatMessage(text: errorMessage, isUser: false));
-      });
-      _modelChatHistory.add(
-        gemini.Content.model([gemini.TextPart(errorMessage)]),
-      );
+      if (mounted) {
+        final errorMessage = "Error with initial greeting: ${e.toString()}";
+        _addMessageToUI(errorMessage, isUser: false);
+        _modelChatHistory.add(
+          gemini.Content.model([gemini.TextPart(errorMessage)]),
+        );
+      }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted && _isLoading) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -214,10 +260,11 @@ class _ChatScreenState extends State<ChatScreen> {
       ['dart', '/Users/jakemac/ai/pkgs/dart_tooling_mcp_server/bin/main.dart'],
     ];
 
-    var i = 0;
-    for (var serverConfig in serversToStart) {
+    for (int i = 0; i < serversToStart.length; i++) {
+      // Corrected loop to use i
+      var serverConfig = serversToStart[i];
       try {
-        final file = File('transcripts/server_${i++}.log');
+        final file = File('transcripts/server_$i.log');
         if (!await file.exists()) {
           await file.create(recursive: true);
         }
@@ -228,8 +275,9 @@ class _ChatScreenState extends State<ChatScreen> {
           protocolLogSink: file.asStringSink,
         );
         await client.initializeServer(connection);
-      } catch (e, s) {
-        print('Failed to start or initialize MCP server $e\n$s');
+      } catch (e) {
+        // Removed unused stack trace s
+        print('Failed to start or initialize MCP server $e');
       }
     }
   }
@@ -240,8 +288,7 @@ class _ChatScreenState extends State<ChatScreen> {
     String? modelResponseText;
     bool functionCalled = false;
 
-    // defensive check
-    if (response.candidates.length == 1) {
+    if (response.candidates.isNotEmpty) {
       for (var part in response.candidates.single.content.parts) {
         switch (part) {
           case gemini.TextPart():
@@ -257,26 +304,32 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     }
 
-    if (modelResponseText != null && modelResponseText.isNotEmpty) {
-      _addMessageToUI(modelResponseText, isUser: false);
-      _modelChatHistory.add(
-        gemini.Content.model([gemini.TextPart(modelResponseText)]),
-      );
-    } else if (!functionCalled && modelResponseText == null) {
-      _addMessageToUI(
-        "Sorry, I couldn't get a response or the response was empty.",
-        isUser: false,
-      );
-      _modelChatHistory.add(
-        gemini.Content.model([gemini.TextPart("No response text.")]),
-      );
+    if (mounted) {
+      if (modelResponseText != null && modelResponseText.isNotEmpty) {
+        _addMessageToUI(modelResponseText, isUser: false);
+        _modelChatHistory.add(
+          gemini.Content.model([gemini.TextPart(modelResponseText)]),
+        );
+      } else if (!functionCalled &&
+          (modelResponseText == null || modelResponseText.isEmpty)) {
+        _addMessageToUI(
+          "Sorry, I couldn't get a response or the response was empty.",
+          isUser: false,
+        );
+        _modelChatHistory.add(
+          // Corrected typo: _modelChatHSICKtory to _modelChatHistory
+          gemini.Content.model([gemini.TextPart("No response text.")]),
+        );
+      }
     }
 
     if (functionCalled) {
       if (_model != null) {
-        setState(() {
-          _isLoading = true;
-        });
+        if (mounted) {
+          setState(() {
+            _isLoading = true;
+          });
+        }
         try {
           final followUpResponse = await _generateContentWithRetry(
             _modelChatHistory,
@@ -284,24 +337,30 @@ class _ChatScreenState extends State<ChatScreen> {
           );
           await _processModelResponse(followUpResponse);
         } catch (e, s) {
-          final errorMessage = "Error after function call: $e\n$s";
-          _addMessageToUI(errorMessage, isUser: false);
-          _modelChatHistory.add(
-            gemini.Content.model([gemini.TextPart(errorMessage)]),
-          );
+          if (mounted) {
+            final errorMessage = "Error after function call: $e\n$s";
+            _addMessageToUI(errorMessage, isUser: false);
+            _modelChatHistory.add(
+              gemini.Content.model([gemini.TextPart(errorMessage)]),
+            );
+          }
         } finally {
-          setState(() {
-            _isLoading = false;
-          });
+          if (mounted && _isLoading) {
+            setState(() {
+              _isLoading = false;
+            });
+          }
         }
       }
     }
   }
 
   void _addMessageToUI(String text, {required bool isUser}) {
-    setState(() {
-      _messages.add(ChatMessage(text: text, isUser: isUser));
-    });
+    if (mounted) {
+      setState(() {
+        _messages.add(ChatMessage(text: text, isUser: isUser));
+      });
+    }
   }
 
   Future<void> _sendMessage(String text) async {
@@ -311,9 +370,11 @@ class _ChatScreenState extends State<ChatScreen> {
     _modelChatHistory.add(gemini.Content.text(text));
     _textController.clear();
 
-    setState(() {
-      _isLoading = true;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
 
     try {
       final response = await _generateContentWithRetry(
@@ -322,16 +383,20 @@ class _ChatScreenState extends State<ChatScreen> {
       );
       await _processModelResponse(response);
     } catch (e) {
-      print('Error sending message or processing response: $e');
-      final errorMessage = "An error occurred: ${e.toString()}";
-      _addMessageToUI(errorMessage, isUser: false);
-      _modelChatHistory.add(
-        gemini.Content.model([gemini.TextPart(errorMessage)]),
-      );
+      if (mounted) {
+        print('Error sending message or processing response: $e');
+        final errorMessage = "An error occurred: ${e.toString()}";
+        _addMessageToUI(errorMessage, isUser: false);
+        _modelChatHistory.add(
+          gemini.Content.model([gemini.TextPart(errorMessage)]),
+        );
+      }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted && _isLoading) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -339,13 +404,43 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Dash Chat'),
+        title: Text(_isDashMode ? 'Dash Chat' : 'Gemini Chat'), // Dynamic title
         actions: [
           IconButton(
             icon: const Icon(Icons.brightness_6),
-            onPressed: widget.onToggleTheme, // Use the passed callback
+            onPressed: widget.onToggleTheme,
           ),
         ],
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: <Widget>[
+            DrawerHeader(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primaryContainer,
+              ),
+              child: Text(
+                'Settings',
+                style: TextStyle(
+                  fontSize: 24,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                ),
+              ),
+            ),
+            SwitchListTile(
+              title: Text(_isDashMode ? 'Dash Mode' : 'Gemini Mode'),
+              subtitle: Text(
+                _isDashMode ? 'Chat with Dash!' : 'General AI Assistant',
+              ),
+              value: _isDashMode,
+              onChanged: (bool value) {
+                Navigator.pop(context); // Close the drawer
+                _toggleMode();
+              },
+            ),
+          ],
+        ),
       ),
       body: Column(
         children: <Widget>[
@@ -356,7 +451,6 @@ class _ChatScreenState extends State<ChatScreen> {
               itemCount: _messages.length,
               itemBuilder: (_, int index) {
                 final message = _messages[_messages.length - 1 - index];
-                // Use the new MessageBubble widget
                 return MessageBubble(message: message);
               },
             ),
@@ -369,7 +463,6 @@ class _ChatScreenState extends State<ChatScreen> {
           const Divider(height: 1.0),
           Container(
             decoration: BoxDecoration(color: Theme.of(context).cardColor),
-            // Use the new TextComposer widget
             child: TextComposer(
               textController: _textController,
               isLoading: _isLoading,
