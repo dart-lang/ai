@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // Added import
 
 // Updated imports to point to new locations
 import 'chat_screen.dart'; // ChatScreen is now in its own file
@@ -21,12 +22,49 @@ class ChatApp extends StatefulWidget {
 }
 
 class _ChatAppState extends State<ChatApp> {
-  ThemeMode _themeMode = ThemeMode.system;
+  ThemeMode _themeMode = ThemeMode.dark; // Default theme
+
+  @override
+  void initState() {
+    super.initState();
+    _loadThemePreference();
+  }
+
+  Future<void> _loadThemePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    // Load the saved theme preference. Default to 'dark' if nothing is saved.
+    final savedTheme = prefs.getString('themeMode');
+
+    if (mounted) {
+      setState(() {
+        if (savedTheme == 'light') {
+          _themeMode = ThemeMode.light;
+        } else {
+          _themeMode = ThemeMode.dark;
+        }
+      });
+    }
+  }
+
+  Future<void> _saveThemePreference(ThemeMode themeMode) async {
+    final prefs = await SharedPreferences.getInstance();
+    String themeToSave;
+    if (themeMode == ThemeMode.light) {
+      themeToSave = 'light';
+    } else {
+      themeToSave = 'dark';
+    }
+    await prefs.setString('themeMode', themeToSave);
+  }
 
   void _toggleTheme() {
     setState(() {
-      _themeMode =
-          _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
+      if (_themeMode == ThemeMode.light) {
+        _themeMode = ThemeMode.dark;
+      } else if (_themeMode == ThemeMode.dark) {
+        _themeMode = ThemeMode.light;
+      }
+      _saveThemePreference(_themeMode); // Save the new preference
     });
   }
 
