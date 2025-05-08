@@ -158,9 +158,6 @@ class _ChatScreenState extends State<ChatScreen> {
     _reInitializeModel();
     await _initialGreeting(); // Make sure this is awaited if it has async operations
     await _startMcpServers(); // Make sure this is awaited
-    client.addRoot(
-      Root(uri: Uri.base.toString(), name: 'The current working dir'),
-    );
 
     if (mounted) {
       setState(() {
@@ -372,13 +369,6 @@ class _ChatScreenState extends State<ChatScreen> {
       }
       return;
     }
-
-    // isLoading is managed by _initializeChatFeatures or _toggleMode
-    // if (mounted && !_isLoading) {
-    //   setState(() {
-    //     _isLoading = true;
-    //   });
-    // }
 
     if (_modelChatHistory.isEmpty ||
         _modelChatHistory.last.role != 'user' ||

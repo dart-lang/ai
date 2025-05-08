@@ -12,7 +12,9 @@ final class MyMCPClient extends MCPClient with RootsSupport {
   final List<gemini.Tool> tools = [gemini.Tool(functionDeclarations: [])];
 
   MyMCPClient()
-    : super(ClientImplementation(name: 'Flutter Chat App', version: '1.0.0'));
+    : super(ClientImplementation(name: 'Flutter Chat App', version: '1.0.0')) {
+    addRoot(Root(uri: Uri.base.toString(), name: 'The current working dir'));
+  }
 
   // Define capabilities for this client
   static final clientCapabilities = ClientCapabilities(

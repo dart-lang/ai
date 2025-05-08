@@ -28,7 +28,7 @@ class MessageBubble extends StatelessWidget {
                 : Theme.of(context).colorScheme.secondaryContainer,
         borderRadius: BorderRadius.circular(16.0),
       ),
-      child: Text(
+      child: SelectableText(
         message.text,
         style: TextStyle(
           color:
