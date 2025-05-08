@@ -20,6 +20,7 @@ WIP. This package is still experimental and is likely to evolve quickly.
 | `get_selected_widget` | `runtime analysis` | Retrieves the selected widget from the active Flutter application. |
 | `hot_reload` | `runtime tool` | Performs a hot reload of the active Flutter application. |
 | `connect_dart_tooling_daemon`* | `configuration` | Connects to the locally running Dart Tooling Daemon. |
+| `get_active_location` | `editor` | Gets the active cursor position in the connected editor (if available). |
 
 > *Experimental: may be removed.
 

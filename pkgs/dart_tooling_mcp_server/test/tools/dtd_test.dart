@@ -388,6 +388,7 @@ void main() {
           expect(finalContents.last, overflowMatcher);
         });
       });
+
       group('getActiveLocationTool', () {
         test(
           'returns "no location" if DTD connected but no event received',
