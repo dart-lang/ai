@@ -10,7 +10,7 @@ class MessageBubble extends StatelessWidget {
   final ChatMessage message;
   final bool isDashMode; // Added isDashMode field
 
-  MessageBubble({
+  const MessageBubble({
     super.key,
     required this.message,
     required this.isDashMode,

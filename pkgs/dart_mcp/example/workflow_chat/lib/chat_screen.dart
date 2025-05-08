@@ -96,6 +96,22 @@ class _ChatScreenState extends State<ChatScreen> {
     _initialGreeting(); // Removed await, as _initialGreeting is void
   }
 
+  void _clearChatHistory() {
+    setState(() {
+      _messages.clear();
+      _modelChatHistory = [
+        gemini.Content.text('The current working directory is ${Uri.base}'),
+      ];
+      // Add a message to indicate the chat has been cleared.
+      _messages.add(
+        ChatMessage(
+          text: 'Chat history cleared.',
+          isUser: false, // Or a neutral/system type if you have one
+        ),
+      );
+    });
+  }
+
   Future<gemini.GenerateContentResponse> _generateContentWithRetry(
     List<gemini.Content> history, {
     List<gemini.Tool>? tools,
@@ -202,7 +218,7 @@ class _ChatScreenState extends State<ChatScreen> {
       });
     }
 
-    // Add the standard greeting prompt, ensuring it's not duplicated if already there
+    // Add the standard greeting prompt, ensuring it\\\'s not duplicated if already there
     if (_modelChatHistory.isEmpty ||
         _modelChatHistory.last.role != 'user' ||
         (_modelChatHistory.last.parts.first as gemini.TextPart).text !=
@@ -356,18 +372,23 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _addMessageToUI(String text, {required bool isUser}) {
+    final trimmedText = text.trim(); // Trim the text
+    if (trimmedText.isEmpty) return; // Don't add empty messages
+
     if (mounted) {
       setState(() {
-        _messages.add(ChatMessage(text: text, isUser: isUser));
+        // Use the trimmed text to create ChatMessage
+        _messages.add(ChatMessage(text: trimmedText, isUser: isUser));
       });
     }
   }
 
   Future<void> _sendMessage(String text) async {
-    if (text.trim().isEmpty || _model == null) return;
+    final trimmedText = text.trim(); // Trim the text early
+    if (trimmedText.isEmpty || _model == null) return;
 
-    _addMessageToUI(text, isUser: true);
-    _modelChatHistory.add(gemini.Content.text(text));
+    _addMessageToUI(trimmedText, isUser: true); // Use trimmedText
+    _modelChatHistory.add(gemini.Content.text(trimmedText)); // Use trimmedText
     _textController.clear();
 
     if (mounted) {
@@ -439,6 +460,14 @@ class _ChatScreenState extends State<ChatScreen> {
                 _toggleMode();
               },
             ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline),
+              title: const Text('Clear Chat History'),
+              onTap: () {
+                Navigator.pop(context); // Close the drawer
+                _clearChatHistory();
+              },
+            ),
           ],
         ),
       ),
@@ -475,4 +504,3 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 }
-

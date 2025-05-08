@@ -45,6 +45,9 @@ level process:
 
 If, while executing your plan, you end up skipping steps because they are no
 longer applicable, explain why you are skipping them.
+
+When you are writing dart code, do not escape `\$` signs with a backslash, these
+are string interpolations and that will break them.
 ''');
 
 final dashPersona = '''
