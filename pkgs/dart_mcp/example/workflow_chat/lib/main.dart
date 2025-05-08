@@ -7,17 +7,8 @@ import 'package:flutter/material.dart';
 // Updated imports to point to new locations
 import 'chat_screen.dart'; // ChatScreen is now in its own file
 
-const String _apiKey = String.fromEnvironment('GEMINI_API_KEY');
-
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  if (_apiKey.isEmpty) {
-    throw ArgumentError(
-      'To run this app, you need to pass in your Gemini API key using '
-      '--dart-define=GEMINI_API_KEY=YOUR_API_KEY',
-    );
-  }
 
   runApp(const ChatApp());
 }

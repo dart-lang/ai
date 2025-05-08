@@ -40,7 +40,7 @@ class _ChatScreenState extends State<ChatScreen> {
   String? _currentApiKey; // New state variable for API key
 
   List<gemini.Content> _modelChatHistory = [
-    gemini.Content.text('The current working directory is \${Uri.base}'),
+    gemini.Content.text('The current working directory is ${Uri.base}'),
   ];
 
   @override
@@ -199,7 +199,7 @@ class _ChatScreenState extends State<ChatScreen> {
         _isDashMode = !_isDashMode;
         _messages.clear();
         _modelChatHistory = [
-          gemini.Content.text('The current working directory is \${Uri.base}'),
+          gemini.Content.text('The current working directory is ${Uri.base}'),
         ];
       });
     }
@@ -239,7 +239,7 @@ class _ChatScreenState extends State<ChatScreen> {
       setState(() {
         _messages.clear();
         _modelChatHistory = [
-          gemini.Content.text('The current working directory is \${Uri.base}'),
+          gemini.Content.text('The current working directory is ${Uri.base}'),
         ];
         _messages.add(
           ChatMessage(text: 'Chat history cleared.', isUser: false),
@@ -284,7 +284,7 @@ class _ChatScreenState extends State<ChatScreen> {
           rethrow;
         }
         print(
-          "Attempt \$attempt failed for generateContent. Retrying in \$delay. Error: \$e",
+          "Attempt $attempt failed for generateContent. Retrying in $delay. Error: $e",
         );
         await Future.delayed(delay);
       }
@@ -293,16 +293,16 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _handleFunctionCall(gemini.FunctionCall functionCall) async {
-    print('Handling function call: \${functionCall.name}');
+    print('Handling function call: ${functionCall.name}');
     _modelChatHistory.add(gemini.Content.model([functionCall]));
     final connection = client.connectionForFunction[functionCall.name];
 
     if (connection == null) {
-      print('Error: No connection found for function \${functionCall.name}');
+      print('Error: No connection found for function ${functionCall.name}');
       _modelChatHistory.add(
         gemini.Content.functionResponse(functionCall.name, {
           'output':
-              'Error: No connection found for function \${functionCall.name}',
+              'Error: No connection found for function ${functionCall.name}',
         }),
       );
       return;
@@ -328,13 +328,13 @@ class _ChatScreenState extends State<ChatScreen> {
               );
               responseBuffer.writeln('Image added to context');
             } catch (e) {
-              print("Error decoding base64 image: \$e");
+              print("Error decoding base64 image: $e");
               responseBuffer.writeln('Failed to process image data.');
             }
             break;
           default:
             responseBuffer.writeln(
-              'Got unsupported response type \${content.type}',
+              'Got unsupported response type ${content.type}',
             );
         }
       }
@@ -344,11 +344,11 @@ class _ChatScreenState extends State<ChatScreen> {
         }),
       );
     } catch (e) {
-      print('Error calling tool \${functionCall.name}: \$e');
+      print('Error calling tool ${functionCall.name}: $e');
       _modelChatHistory.add(
         gemini.Content.functionResponse(functionCall.name, {
           'output':
-              'Error executing tool \${functionCall.name}: \${e.toString()}',
+              'Error executing tool ${functionCall.name}: ${e.toString()}',
         }),
       );
     }
@@ -413,7 +413,7 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     } catch (e) {
       if (mounted) {
-        final errorMessage = "Error with initial greeting: \${e.toString()}";
+        final errorMessage = "Error with initial greeting: ${e.toString()}";
         _addMessageToUI(errorMessage, isUser: false);
         _modelChatHistory.add(
           gemini.Content.model([gemini.TextPart(errorMessage)]),
@@ -442,7 +442,7 @@ class _ChatScreenState extends State<ChatScreen> {
     for (int i = 0; i < serversToStart.length; i++) {
       var serverConfig = serversToStart[i];
       try {
-        final file = File('transcripts/server_\$i.log');
+        final file = File('transcripts/server_$i.log');
         if (!await file.exists()) {
           await file.create(recursive: true);
         }
@@ -454,7 +454,7 @@ class _ChatScreenState extends State<ChatScreen> {
         );
         await client.initializeServer(connection);
       } catch (e) {
-        print('Failed to start or initialize MCP server \$e');
+        print('Failed to start or initialize MCP server $e');
       }
     }
   }
@@ -476,7 +476,7 @@ class _ChatScreenState extends State<ChatScreen> {
             functionCalled = true;
             break;
           default:
-            print('Unrecognized response part type from the model: \$part');
+            print('Unrecognized response part type from the model: $part');
         }
       }
     }
@@ -512,9 +512,9 @@ class _ChatScreenState extends State<ChatScreen> {
             tools: client.tools,
           );
           await _processModelResponse(followUpResponse);
-        } catch (e) {
+        } catch (e, s) {
           if (mounted) {
-            final errorMessage = "Error after function call: \$e\\n\$s";
+            final errorMessage = "Error after function call: $e\n$s";
             _addMessageToUI(errorMessage, isUser: false);
             _modelChatHistory.add(
               gemini.Content.model([gemini.TextPart(errorMessage)]),
@@ -583,8 +583,8 @@ class _ChatScreenState extends State<ChatScreen> {
       await _processModelResponse(response);
     } catch (e) {
       if (mounted) {
-        print('Error sending message or processing response: \$e');
-        final errorMessage = "An error occurred: \${e.toString()}";
+        print('Error sending message or processing response: $e');
+        final errorMessage = "An error occurred: ${e.toString()}";
         _addMessageToUI(errorMessage, isUser: false);
         _modelChatHistory.add(
           gemini.Content.model([gemini.TextPart(errorMessage)]),
@@ -691,14 +691,16 @@ class _ChatScreenState extends State<ChatScreen> {
           Container(
             decoration: BoxDecoration(color: Theme.of(context).cardColor),
             child: TextComposer(
-                textController: _textController,
-                isLoading: _isLoading,
-                // Disable text input if API key is missing
-                onSubmitted: (_currentApiKey != null && _currentApiKey!.isNotEmpty)
-                    ? _sendMessage
-                    : (String text) {
+              textController: _textController,
+              isLoading: _isLoading,
+              // Disable text input if API key is missing
+              onSubmitted:
+                  (_currentApiKey != null && _currentApiKey!.isNotEmpty)
+                      ? _sendMessage
+                      : (String text) {
                         /* Do nothing, input is disabled */
-                      }),
+                      },
+            ),
           ),
         ],
       ),
