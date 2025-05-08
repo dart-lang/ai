@@ -11,6 +11,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_generative_ai/google_generative_ai.dart' as gemini;
 import 'package:dart_mcp/client.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // Added import
 
 import 'api_key_service.dart' as api_key_service; // New import
 import 'models/chat_message.dart';
@@ -18,8 +19,6 @@ import 'services/gemini_config.dart';
 import 'services/mcp_client.dart';
 import 'widgets/message_bubble.dart';
 import 'widgets/text_composer.dart';
-
-// const String _apiKey = String.fromEnvironment('GEMINI_API_KEY'); // Removed
 
 class ChatScreen extends StatefulWidget {
   final VoidCallback onToggleTheme;
@@ -36,7 +35,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final List<ChatMessage> _messages = [];
   gemini.GenerativeModel? _model;
   bool _isLoading = false;
-  bool _isDashMode = true;
+  bool _isDashMode = true; // Default value, will be overridden by preferences
   String? _currentApiKey; // New state variable for API key
 
   List<gemini.Content> _modelChatHistory = [
@@ -46,7 +45,28 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    _loadApiKeyAndInitializeChat();
+    _initializeScreen(); // Changed to call the new initialization method
+  }
+
+  Future<void> _initializeScreen() async {
+    await _loadDashModePreference(); // Load mode preference first
+    await _loadApiKeyAndInitializeChat(); // Then proceed with API key and chat setup
+  }
+
+  Future<void> _loadDashModePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    // Default to true (Dash mode) if no preference is stored yet
+    final bool savedIsDashMode = prefs.getBool('isDashMode') ?? true;
+    if (mounted) {
+      setState(() {
+        _isDashMode = savedIsDashMode;
+      });
+    }
+  }
+
+  Future<void> _saveDashModePreference(bool isDashMode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isDashMode', isDashMode);
   }
 
   Future<void> _loadApiKeyAndInitializeChat() async {
@@ -65,12 +85,11 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _promptForApiKey() async {
     final apiKeyController = TextEditingController();
-    // Ensure context is available and mounted before showing dialog
     if (!mounted) return;
 
     final newApiKey = await showDialog<String>(
       context: context,
-      barrierDismissible: false, // User must interact with the dialog
+      barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Enter Gemini API Key'),
@@ -83,20 +102,14 @@ class _ChatScreenState extends State<ChatScreen> {
             TextButton(
               child: const Text('Cancel'),
               onPressed: () {
-                Navigator.of(context).pop(); // Close dialog, returning null
+                Navigator.of(context).pop();
               },
             ),
             TextButton(
               child: const Text('Save'),
               onPressed: () {
                 if (apiKeyController.text.isNotEmpty) {
-                  Navigator.of(
-                    context,
-                  ).pop(apiKeyController.text); // Close dialog, returning key
-                } else {
-                  // Optionally, show an error message or disable save button
-                  // For now, we just don't close the dialog if key is empty.
-                  // Or, you could pop with a special value indicating an error.
+                  Navigator.of(context).pop(apiKeyController.text);
                 }
               },
             ),
@@ -123,7 +136,7 @@ class _ChatScreenState extends State<ChatScreen> {
               isUser: false,
             ),
           );
-          _isLoading = false; // Ensure loading indicator is off
+          _isLoading = false;
         });
       }
     }
@@ -151,17 +164,17 @@ class _ChatScreenState extends State<ChatScreen> {
 
     if (mounted) {
       setState(() {
-        _isLoading = true; // Start loading now that we have a key
+        _isLoading = true;
       });
     }
 
     _reInitializeModel();
-    await _initialGreeting(); // Make sure this is awaited if it has async operations
-    await _startMcpServers(); // Make sure this is awaited
+    await _initialGreeting();
+    await _startMcpServers();
 
     if (mounted) {
       setState(() {
-        _isLoading = false; // Stop loading after initialization
+        _isLoading = false;
       });
     }
   }
@@ -171,15 +184,14 @@ class _ChatScreenState extends State<ChatScreen> {
       print("Error: API Key is not available. Model cannot be initialized.");
       if (mounted) {
         setState(() {
-          _model = null; // Ensure model is null if API key is missing
+          _model = null;
         });
       }
       return;
     }
-    // _isLoading state will be managed by the calling function
     _model = gemini.GenerativeModel(
       model: 'gemini-2.5-pro-preview-03-25',
-      apiKey: _currentApiKey!, // Use the state variable
+      apiKey: _currentApiKey!,
       systemInstruction:
           _isDashMode
               ? systemInstructions(persona: dashPersona)
@@ -187,30 +199,22 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  // Changed to void as _initialGreeting is void
   void _toggleMode() async {
-    // Made async to await _initializeChatFeatures
     if (mounted) {
       setState(() {
         _isLoading = true;
-        _isDashMode = !_isDashMode;
+        _isDashMode = !_isDashMode; // Toggle the mode
         _messages.clear();
         _modelChatHistory = [
           gemini.Content.text('The current working directory is ${Uri.base}'),
         ];
       });
+      await _saveDashModePreference(_isDashMode); // Save the new preference
     }
-    // Instead of direct re-init, go through the full initialization
-    // which includes API key check and model re-initialization.
-    // This also ensures that if the API key was removed or became invalid,
-    // the app would prompt for it again or handle it gracefully.
-    // However, _initializeChatFeatures also calls _initialGreeting and _startMcpServers,
-    // which might be undesired on just a mode toggle.
-    // For now, let's stick to a more direct re-initialization of the model + greeting.
 
-    _reInitializeModel(); // Re-initialize model with new system instructions
+    _reInitializeModel();
     if (_model != null) {
-      await _initialGreeting(); // Re-fetch initial greeting
+      await _initialGreeting();
     } else {
       if (mounted) {
         setState(() {
@@ -335,10 +339,14 @@ class _ChatScreenState extends State<ChatScreen> {
             );
         }
       }
+      dynamic decoded = responseBuffer.toString();
+      try {
+        decoded = jsonDecode(decoded);
+      } catch (_) {
+        // Just continue;
+      }
       _modelChatHistory.add(
-        gemini.Content.functionResponse(functionCall.name, {
-          'output': responseBuffer.toString(),
-        }),
+        gemini.Content.functionResponse(functionCall.name, {'output': decoded}),
       );
     } catch (e) {
       print('Error calling tool ${functionCall.name}: $e');
@@ -352,7 +360,6 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _initialGreeting() async {
-    // Made async
     if (_model == null) {
       if (mounted) {
         setState(() {
@@ -410,14 +417,6 @@ class _ChatScreenState extends State<ChatScreen> {
         );
       }
     }
-    // isLoading is managed by the calling function
-    // finally {
-    //   if (mounted && _isLoading) {
-    //     setState(() {
-    //       _isLoading = false;
-    //     });
-    //   }
-    // }
   }
 
   Future<void> _startMcpServers() async {
@@ -480,7 +479,7 @@ class _ChatScreenState extends State<ChatScreen> {
       } else if (!functionCalled &&
           (modelResponseText == null || modelResponseText.isEmpty)) {
         _addMessageToUI(
-          "Sorry, I couldn\\'t get a response or the response was empty.",
+          "Sorry, I couldn't get a response or the response was empty.",
           isUser: false,
         );
         _modelChatHistory.add(
@@ -540,7 +539,6 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  // Changed from Future<void> to void for onSubmitted compatibility
   void _sendMessage(String text) async {
     final trimmedText = text.trim();
     if (trimmedText.isEmpty) return;
@@ -599,8 +597,6 @@ class _ChatScreenState extends State<ChatScreen> {
             icon: const Icon(Icons.brightness_6),
             onPressed: widget.onToggleTheme,
           ),
-          // Potentially add a button to re-trigger API key prompt if needed
-          // For example, if _currentApiKey is null.
           if (_currentApiKey == null || _currentApiKey!.isEmpty)
             IconButton(
               icon: const Icon(Icons.vpn_key_off_outlined),
@@ -634,9 +630,8 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
               value: _isDashMode,
               onChanged: (bool value) async {
-                // Made onChanged async
                 Navigator.pop(context);
-                _toggleMode(); // Await the toggle mode
+                _toggleMode();
               },
             ),
             ListTile(
@@ -648,12 +643,11 @@ class _ChatScreenState extends State<ChatScreen> {
               },
             ),
             ListTile(
-              // New option to change/update API Key
               leading: const Icon(Icons.vpn_key),
               title: const Text('Update API Key'),
               onTap: () async {
-                Navigator.pop(context); // Close the drawer
-                await _promptForApiKey(); // Call the prompt
+                Navigator.pop(context);
+                await _promptForApiKey();
               },
             ),
           ],
@@ -683,7 +677,6 @@ class _ChatScreenState extends State<ChatScreen> {
             child: TextComposer(
               textController: _textController,
               isLoading: _isLoading,
-              // Disable text input if API key is missing
               onSubmitted:
                   (_currentApiKey != null && _currentApiKey!.isNotEmpty)
                       ? _sendMessage
