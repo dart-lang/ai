@@ -65,6 +65,35 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  Future<gemini.GenerateContentResponse> _generateContentWithRetry(
+    List<gemini.Content> history, {
+    List<gemini.Tool>? tools,
+    int maxRetries = 3,
+    Duration delay = const Duration(seconds: 1),
+  }) async {
+    if (_model == null) {
+      throw Exception("Model is not initialized.");
+    }
+    int attempt = 0;
+    while (attempt < maxRetries) {
+      try {
+        return await _model!.generateContent(history, tools: tools);
+      } catch (e) {
+        attempt++;
+        if (attempt >= maxRetries) {
+          print("Max retries reached for generateContent. Error: $e");
+          rethrow;
+        }
+        print(
+          "Attempt $attempt failed for generateContent. Retrying in $delay. Error: $e",
+        );
+        await Future.delayed(delay);
+      }
+    }
+    // This line should theoretically be unreachable due to rethrow in the loop
+    throw Exception("Exited retry loop without success or rethrow.");
+  }
+
   Future<void> _handleFunctionCall(gemini.FunctionCall functionCall) async {
     print('Handling function call: ${functionCall.name}');
     _modelChatHistory.add(gemini.Content.model([functionCall]));
@@ -135,7 +164,7 @@ class _ChatScreenState extends State<ChatScreen> {
     );
 
     try {
-      final response = await _model!.generateContent(
+      final response = await _generateContentWithRetry(
         _modelChatHistory,
         tools: client.tools,
       );
@@ -244,7 +273,7 @@ class _ChatScreenState extends State<ChatScreen> {
           _isLoading = true;
         });
         try {
-          final followUpResponse = await _model!.generateContent(
+          final followUpResponse = await _generateContentWithRetry(
             _modelChatHistory,
             tools: client.tools,
           );
@@ -256,7 +285,9 @@ class _ChatScreenState extends State<ChatScreen> {
             gemini.Content.model([gemini.TextPart(errorMessage)]),
           );
         } finally {
-          //isLoading is handled by the recursive call or final state
+          setState(() {
+            _isLoading = false;
+          });
         }
       }
     }
@@ -280,7 +311,7 @@ class _ChatScreenState extends State<ChatScreen> {
     });
 
     try {
-      final response = await _model!.generateContent(
+      final response = await _generateContentWithRetry(
         _modelChatHistory,
         tools: client.tools,
       );
