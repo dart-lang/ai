@@ -8,8 +8,13 @@ import '../models/chat_message.dart'; // Adjusted import
 
 class MessageBubble extends StatelessWidget {
   final ChatMessage message;
+  final bool isDashMode; // Added isDashMode field
 
-  const MessageBubble({super.key, required this.message});
+  MessageBubble({
+    super.key,
+    required this.message,
+    required this.isDashMode,
+  }); // Updated constructor
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +57,10 @@ class MessageBubble extends StatelessWidget {
         height: 40.0,
         child: Padding(
           padding: const EdgeInsets.all(4.0),
-          child: Image.asset('assets/dash.png'),
+          // Conditionally select the asset based on isDashMode
+          child: Image.asset(
+            isDashMode ? 'assets/dash.png' : 'assets/gemini.png',
+          ),
         ),
       );
     }

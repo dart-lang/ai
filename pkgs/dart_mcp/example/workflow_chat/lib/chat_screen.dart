@@ -451,7 +451,8 @@ class _ChatScreenState extends State<ChatScreen> {
               itemCount: _messages.length,
               itemBuilder: (_, int index) {
                 final message = _messages[_messages.length - 1 - index];
-                return MessageBubble(message: message);
+                // Pass _isDashMode to MessageBubble
+                return MessageBubble(message: message, isDashMode: _isDashMode);
               },
             ),
           ),
@@ -474,3 +475,4 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 }
+

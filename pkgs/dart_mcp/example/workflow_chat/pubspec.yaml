@@ -26,6 +26,7 @@ flutter:
 
   assets:
     - assets/dash.png
+    - assets/gemini.png
 
 dependency_overrides:
   dart_mcp:
