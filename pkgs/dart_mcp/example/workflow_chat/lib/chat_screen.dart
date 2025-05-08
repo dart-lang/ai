@@ -48,7 +48,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _model = gemini.GenerativeModel(
         model: 'gemini-2.5-pro-preview-03-25',
         apiKey: _apiKey,
-        systemInstruction: systemInstructions(), // Now imported
+        systemInstruction: systemInstructions(persona: dashPersona),
       );
       _initialGreeting();
       _startMcpServers();

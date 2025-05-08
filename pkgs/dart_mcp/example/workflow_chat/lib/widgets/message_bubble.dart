@@ -30,38 +30,48 @@ class MessageBubble extends StatelessWidget {
       ),
     );
 
-    final iconBubble = CircleAvatar(
-      backgroundColor:
-          message.isUser
-              ? Theme.of(context).colorScheme.secondary
-              : Theme.of(context).colorScheme.primary,
-      child: Text(
-        message.isUser ? 'you' : 'dash',
-        style: TextStyle(
-          color:
-              message.isUser
-                  ? Theme.of(context).colorScheme.onSecondary
-                  : Theme.of(context).colorScheme.onPrimary,
-          fontSize: 12.0,
+    final Widget iconBubble;
+    if (message.isUser) {
+      iconBubble = CircleAvatar(
+        backgroundColor: Theme.of(context).colorScheme.secondary,
+        child: Text(
+          'you',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSecondary,
+            fontSize: 12.0,
+          ),
         ),
-      ),
+      );
+    } else {
+      iconBubble = SizedBox(
+        width: 40.0,
+        height: 40.0,
+        child: Padding(
+          padding: const EdgeInsets.all(4.0),
+          child: Image.asset('assets/dash.png'),
+        ),
+      );
+    }
+
+    final transformedIcon = Transform.translate(
+      offset: const Offset(0, -4.0),
+      child: iconBubble,
     );
 
     return Align(
       alignment: message.isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment:
-            CrossAxisAlignment.end, // To align bubble and avatar nicely
+        crossAxisAlignment: CrossAxisAlignment.end, // Set back to end
         children:
             message.isUser
                 ? <Widget>[
                   Expanded(child: messageBubble),
                   const SizedBox(width: 8.0),
-                  iconBubble,
+                  transformedIcon, // Use the transformed icon
                 ]
                 : <Widget>[
-                  iconBubble,
+                  transformedIcon, // Use the transformed icon
                   const SizedBox(width: 8.0),
                   Expanded(child: messageBubble),
                 ],
