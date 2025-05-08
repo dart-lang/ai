@@ -54,7 +54,8 @@ final class SimpleFileSystemServer extends MCPServer
   /// Returns `null` if [path] is valid.
   Future<CallToolResult?> _checkAllowedPath(String path) async {
     for (var root in await roots) {
-      if (root.uri == path || p.isWithin(root.uri, path)) {
+      if (root.uri == path ||
+          p.isWithin(root.uri, Uri.parse(root.uri).resolve(path).toString())) {
         return null;
       }
     }
