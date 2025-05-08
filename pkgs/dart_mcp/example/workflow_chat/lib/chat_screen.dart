@@ -206,17 +206,20 @@ class _ChatScreenState extends State<ChatScreen> {
     String? modelResponseText;
     bool functionCalled = false;
 
-    for (var part in response.candidates.single.content.parts) {
-      switch (part) {
-        case gemini.TextPart():
-          modelResponseText = (modelResponseText ?? "") + part.text;
-          break;
-        case gemini.FunctionCall():
-          await _handleFunctionCall(part);
-          functionCalled = true;
-          break;
-        default:
-          print('Unrecognized response part type from the model: $part');
+    // defensive check
+    if (response.candidates.length == 1) {
+      for (var part in response.candidates.single.content.parts) {
+        switch (part) {
+          case gemini.TextPart():
+            modelResponseText = (modelResponseText ?? "") + part.text;
+            break;
+          case gemini.FunctionCall():
+            await _handleFunctionCall(part);
+            functionCalled = true;
+            break;
+          default:
+            print('Unrecognized response part type from the model: $part');
+        }
       }
     }
 
