@@ -2,6 +2,7 @@
 
 import 'dart:async';
 import 'dart:convert'; // Added for base64Decode
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:google_generative_ai/google_generative_ai.dart' as gemini;
@@ -273,11 +274,18 @@ class _ChatScreenState extends State<ChatScreen> {
       ['dart', '/Users/jakemac/ai/pkgs/dart_tooling_mcp_server/bin/main.dart'],
     ];
 
+    var i = 0;
     for (var serverConfig in serversToStart) {
       try {
+        final file = File('transcripts/server_${i++}.log');
+        if (!await file.exists()) {
+          await file.create(recursive: true);
+        }
+        await file.writeAsString('');
         final connection = await client.connectStdioServer(
           serverConfig.first,
           serverConfig.skip(1).toList(),
+          protocolLogSink: file.asStringSink,
         );
         serverConnections.add(connection);
 

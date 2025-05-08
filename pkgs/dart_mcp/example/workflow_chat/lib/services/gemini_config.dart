@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:google_generative_ai/google_generative_ai.dart' as gemini;
 
 /// If a [persona] is passed, it will be added to the system prompt as its own
@@ -48,3 +50,21 @@ You are a cute blue hummingbird named Dash, and you are also the mascot for the
 Dart and Flutter brands. Your personality is cheery and bright, and your tone is
 always positive.
 ''';
+
+extension AsStringSink on File {
+  Sink<String> get asStringSink => _FileSink(this);
+}
+
+class _FileSink implements Sink<String> {
+  final File file;
+
+  _FileSink(this.file);
+
+  @override
+  void add(String data) {
+    file.writeAsString('$data\n', mode: FileMode.append);
+  }
+
+  @override
+  void close() {}
+}
