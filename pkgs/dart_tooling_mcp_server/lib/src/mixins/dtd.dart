@@ -28,6 +28,9 @@ base mixin DartToolingDaemonSupport
   /// ready to be invoked.
   bool _getDebugSessionsReady = false;
 
+  /// The last reported active location from the editor.
+  Map<String, Object?>? _activeLocation;
+
   /// A Map of [VmService] object [Future]s by their associated
   /// [DebugSession.id].
   ///
@@ -58,6 +61,7 @@ base mixin DartToolingDaemonSupport
   Future<void> _resetDtd() async {
     _dtd = null;
     _getDebugSessionsReady = false;
+    _activeLocation = null;
 
     // TODO: determine whether we need to dispose the [inspectorObjectGroup] on
     // the Flutter Widget Inspector for each VM service instance.
@@ -135,6 +139,7 @@ base mixin DartToolingDaemonSupport
     registerTool(hotReloadTool, hotReload);
     registerTool(getWidgetTreeTool, widgetTree);
     registerTool(getSelectedWidgetTool, selectedWidget);
+    registerTool(getActiveLocationTool, _getActiveLocation);
 
     return super.initialize(request);
   }
@@ -166,7 +171,7 @@ base mixin DartToolingDaemonSupport
       );
       unawaited(_dtd!.done.then((_) async => await _resetDtd()));
 
-      _listenForServices();
+      await _listenForServices();
       return CallToolResult(
         content: [TextContent(text: 'Connection succeeded')],
       );
@@ -178,11 +183,12 @@ base mixin DartToolingDaemonSupport
     }
   }
 
-  /// Listens to the `Service` stream so we know when the
-  /// `Editor.getDebugSessions` extension method is registered.
+  /// Listens to the `Service` and `Editor` streams so we know when the
+  /// `Editor.getDebugSessions` extension method is registered and when debug
+  /// sessions are started and stopped.
   ///
   /// The dart tooling daemon must be connected prior to calling this function.
-  void _listenForServices() {
+  Future<void> _listenForServices() async {
     final dtd = _dtd!;
     dtd.onEvent('Service').listen((e) async {
       log(
@@ -210,7 +216,7 @@ base mixin DartToolingDaemonSupport
           }
       }
     });
-    dtd.streamListen('Service');
+    await dtd.streamListen('Service');
 
     dtd.onEvent('Editor').listen((e) async {
       log(LoggingLevel.debug, e.toString());
@@ -220,12 +226,14 @@ base mixin DartToolingDaemonSupport
           await updateActiveVmServices();
         case 'debugSessionStopped':
           await activeVmServices
-              .remove((e.data['debugSession'] as DebugSession).id)
+              .remove(e.data['debugSessionId'] as String)
               ?.then((service) => service.dispose());
+        case 'activeLocationChanged':
+          _activeLocation = e.data;
         default:
       }
     });
-    dtd.streamListen('Editor');
+    await dtd.streamListen('Editor');
   }
 
   /// Takes a screenshot of the currently running app.
@@ -495,6 +503,24 @@ base mixin DartToolingDaemonSupport
     return await callback(await vmService);
   }
 
+  /// Retrieves the active location from the editor.
+  Future<CallToolResult> _getActiveLocation(CallToolRequest request) async {
+    if (_dtd == null) return _dtdNotConnected;
+
+    final activeLocation = _activeLocation;
+    if (activeLocation == null) {
+      return CallToolResult(
+        content: [
+          TextContent(text: 'No active location reported by the editor yet.'),
+        ],
+      );
+    }
+
+    return CallToolResult(
+      content: [TextContent(text: jsonEncode(_activeLocation))],
+    );
+  }
+
   @visibleForTesting
   static final connectTool = Tool(
     name: 'connect_dart_tooling_daemon',
@@ -582,6 +608,20 @@ base mixin DartToolingDaemonSupport
         'Requires "${connectTool.name}" to be successfully called first.',
     annotations: ToolAnnotations(
       title: 'Get selected widget',
+      readOnlyHint: true,
+    ),
+    inputSchema: Schema.object(),
+  );
+
+  @visibleForTesting
+  static final getActiveLocationTool = Tool(
+    name: 'get_active_location',
+    description:
+        'Retrieves the current active location (e.g., cursor position) in the '
+        'connected editor. Requires "${connectTool.name}" to be successfully '
+        'called first.',
+    annotations: ToolAnnotations(
+      title: 'Get Active Editor Location',
       readOnlyHint: true,
     ),
     inputSchema: Schema.object(),

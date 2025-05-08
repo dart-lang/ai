@@ -148,7 +148,7 @@ final class WorkflowClient extends MCPClient with RootsSupport {
       }
 
       // Add the summary to the chat history.
-      chatHistory.add(summary);
+      await _handleModelResponse(summary);
     }
   }
 

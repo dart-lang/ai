@@ -318,9 +318,7 @@ class FakeEditorExtension {
   Future<void> removeDebugSession(AppDebugSession session) async {
     if (_debugSessions.remove(session)) {
       await dtd.postEvent('Editor', 'debugSessionStopped', {
-        'debugSession': session.asEditorDebugSession(
-          includeVmServiceUri: false,
-        ),
+        'debugSessionId': session.id,
       });
     }
   }

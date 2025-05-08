@@ -10,6 +10,7 @@ WIP. This package is still experimental and is likely to evolve quickly.
 | --- | --- | --- |
 | `analyze_files` | `static analysis` | Analyzes the entire project for errors. |
 | `signature_help` | `static_analysis` | Gets signature information for usage at a given cursor position. |
+| `hover` | `static_analysis` | Gets the hover information for a given cursor position. |
 | `resolve_workspace_symbol` | `static analysis` | Look up a symbol or symbols in all workspaces by name. |
 | `dart_fix` | `static tool` | Runs `dart fix --apply` for the given project roots. |
 | `dart_format` | `static tool` | Runs `dart format .` for the given project roots. |
@@ -20,6 +21,7 @@ WIP. This package is still experimental and is likely to evolve quickly.
 | `get_selected_widget` | `runtime analysis` | Retrieves the selected widget from the active Flutter application. |
 | `hot_reload` | `runtime tool` | Performs a hot reload of the active Flutter application. |
 | `connect_dart_tooling_daemon`* | `configuration` | Connects to the locally running Dart Tooling Daemon. |
+| `get_active_location` | `editor` | Gets the active cursor position in the connected editor (if available). |
 
 > *Experimental: may be removed.
 

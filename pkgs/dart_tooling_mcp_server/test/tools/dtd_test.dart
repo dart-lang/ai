@@ -135,11 +135,11 @@ void main() {
             'lib/main.dart',
             isFlutter: true,
           );
-          await server.updateActiveVmServices();
+          await pumpEventQueue();
           expect(server.activeVmServices.length, 1);
 
           await testHarness.stopDebugSession(debugSession);
-          await server.updateActiveVmServices();
+          await pumpEventQueue();
           expect(server.activeVmServices, isEmpty);
         });
       });
@@ -386,6 +386,46 @@ void main() {
               )).contents;
           expect(finalContents.length, lessThan(newContents.length));
           expect(finalContents.last, overflowMatcher);
+        });
+      });
+
+      group('getActiveLocationTool', () {
+        test(
+          'returns "no location" if DTD connected but no event received',
+          () async {
+            final result = await testHarness.callToolWithRetry(
+              CallToolRequest(
+                name: DartToolingDaemonSupport.getActiveLocationTool.name,
+              ),
+            );
+            expect(
+              (result.content.first as TextContent).text,
+              'No active location reported by the editor yet.',
+            );
+          },
+        );
+
+        test('returns active location after event', () async {
+          final fakeEditor = testHarness.fakeEditorExtension;
+
+          // Simulate activeLocationChanged event
+          final fakeEvent = {'someData': 'isHere'};
+          await fakeEditor.dtd.postEvent(
+            'Editor',
+            'activeLocationChanged',
+            fakeEvent,
+          );
+          await pumpEventQueue();
+
+          final result = await testHarness.callToolWithRetry(
+            CallToolRequest(
+              name: DartToolingDaemonSupport.getActiveLocationTool.name,
+            ),
+          );
+          expect(
+            (result.content.first as TextContent).text,
+            jsonEncode(fakeEvent),
+          );
         });
       });
     });
