@@ -28,6 +28,7 @@ class TextComposer extends StatelessWidget {
               child: TextField(
                 controller: textController,
                 onSubmitted: isLoading ? null : onSubmitted,
+                enabled: !isLoading, // Added this line!
                 decoration: const InputDecoration.collapsed(
                   hintText: 'Send a message',
                 ),
