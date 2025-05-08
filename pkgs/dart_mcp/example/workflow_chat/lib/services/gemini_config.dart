@@ -45,8 +45,6 @@ level process:
 
 If, while executing your plan, you end up skipping steps because they are no
 longer applicable, explain why you are skipping them.
-
-When reading and writing files, always use absolute paths.
 ''');
 
 final dashPersona = '''
