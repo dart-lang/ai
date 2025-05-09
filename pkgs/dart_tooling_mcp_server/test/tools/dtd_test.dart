@@ -428,6 +428,60 @@ void main() {
           );
         });
       });
+
+      test('can enable and disable widget selection mode', () async {
+        final debugSession = await testHarness.startDebugSession(
+          counterAppPath,
+          'lib/main.dart',
+          isFlutter: true,
+        );
+        final tools = (await testHarness.mcpServerConnection.listTools()).tools;
+        final setSelectionModeTool = tools.singleWhere(
+          (t) =>
+              t.name ==
+              DartToolingDaemonSupport.setWidgetSelectionModeTool.name,
+        );
+
+        // Enable selection mode
+        final enableResult = await testHarness.callToolWithRetry(
+          CallToolRequest(
+            name: setSelectionModeTool.name,
+            arguments: {'enabled': true},
+          ),
+        );
+
+        expect(enableResult.isError, isNot(true));
+        expect(enableResult.content, [
+          TextContent(text: 'Widget selection mode enabled.'),
+        ]);
+
+        // Disable selection mode
+        final disableResult = await testHarness.callToolWithRetry(
+          CallToolRequest(
+            name: setSelectionModeTool.name,
+            arguments: {'enabled': false},
+          ),
+        );
+
+        expect(disableResult.isError, isNot(true));
+        expect(disableResult.content, [
+          TextContent(text: 'Widget selection mode disabled.'),
+        ]);
+
+        // Test missing 'enabled' argument
+        final missingArgResult = await testHarness.callToolWithRetry(
+          CallToolRequest(name: setSelectionModeTool.name),
+          expectError: true,
+        );
+        expect(missingArgResult.isError, isTrue);
+        expect(
+          (missingArgResult.content.first as TextContent).text,
+          'Required parameter "enabled" was not provided or is not a boolean.',
+        );
+
+        // Clean up
+        await testHarness.stopDebugSession(debugSession);
+      });
     });
   });
 }

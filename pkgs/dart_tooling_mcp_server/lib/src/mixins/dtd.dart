@@ -139,6 +139,7 @@ base mixin DartToolingDaemonSupport
     registerTool(hotReloadTool, hotReload);
     registerTool(getWidgetTreeTool, widgetTree);
     registerTool(getSelectedWidgetTool, selectedWidget);
+    registerTool(setWidgetSelectionModeTool, _setWidgetSelectionMode);
     registerTool(getActiveLocationTool, _getActiveLocation);
 
     return super.initialize(request);
@@ -483,6 +484,74 @@ base mixin DartToolingDaemonSupport
     );
   }
 
+  /// Enables or disables widget selection mode in the currently running app.
+  ///
+  /// If more than one debug session is active, then it just uses the first one.
+  //
+  // TODO: support passing a debug session id when there is more than one debug
+  // session.
+  Future<CallToolResult> _setWidgetSelectionMode(
+    CallToolRequest request,
+  ) async {
+    final enabled = request.arguments?['enabled'] as bool?;
+    if (enabled == null) {
+      return CallToolResult(
+        isError: true,
+        content: [
+          TextContent(
+            text:
+                'Required parameter "enabled" was not provided or is not a '
+                'boolean.',
+          ),
+        ],
+      );
+    }
+
+    return _callOnVmService(
+      callback: (vmService) async {
+        final vm = await vmService.getVM();
+        final isolateId = vm.isolates!.first.id;
+        try {
+          final result = await vmService.callServiceExtension(
+            '$_inspectorServiceExtensionPrefix.show',
+            isolateId: isolateId,
+            args: {'enabled': enabled.toString()},
+          );
+
+          if (result.json?['enabled'] == enabled ||
+              result.json?['enabled'] == enabled.toString()) {
+            return CallToolResult(
+              content: [
+                TextContent(
+                  text:
+                      'Widget selection mode '
+                      '${enabled ? 'enabled' : 'disabled'}.',
+                ),
+              ],
+            );
+          }
+          return CallToolResult(
+            isError: true,
+            content: [
+              TextContent(
+                text:
+                    'Failed to set widget selection mode. Unexpected response: '
+                    '${result.json}',
+              ),
+            ],
+          );
+        } catch (e) {
+          return CallToolResult(
+            isError: true,
+            content: [
+              TextContent(text: 'Failed to set widget selection mode: $e'),
+            ],
+          );
+        }
+      },
+    );
+  }
+
   /// Calls [callback] on the first active debug session, if available.
   Future<CallToolResult> _callOnVmService({
     required Future<CallToolResult> Function(VmService) callback,
@@ -611,6 +680,25 @@ base mixin DartToolingDaemonSupport
       readOnlyHint: true,
     ),
     inputSchema: Schema.object(),
+  );
+
+  @visibleForTesting
+  static final setWidgetSelectionModeTool = Tool(
+    name: 'set_widget_selection_mode',
+    description:
+        'Enables or disables widget selection mode in the active Flutter '
+        'application. Requires "${connectTool.name}" to be successfully called '
+        'first.',
+    annotations: ToolAnnotations(
+      title: 'Set Widget Selection Mode',
+      readOnlyHint: true,
+    ),
+    inputSchema: Schema.object(
+      properties: {
+        'enabled': Schema.bool(title: 'Enable widget selection mode'),
+      },
+      required: const ['enabled'],
+    ),
   );
 
   @visibleForTesting
