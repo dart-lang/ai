@@ -421,9 +421,14 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     try {
-      final result = await connection.callTool(
-        CallToolRequest(name: functionCall.name, arguments: functionCall.args),
-      );
+      final result = await connection
+          .callTool(
+            CallToolRequest(
+              name: functionCall.name,
+              arguments: functionCall.args,
+            ),
+          )
+          .timeout(const Duration(seconds: 2));
       final responseBuffer = StringBuffer();
 
       for (var content in result.content) {
@@ -456,7 +461,6 @@ class _ChatScreenState extends State<ChatScreen> {
       } catch (_) {
         // It's not JSON, use as plain text
       }
-
       _modelChatHistory.add(
         gemini.Content.functionResponse(functionCall.name, {
           'output': decodedOutput,
@@ -530,11 +534,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _startMcpServers() async {
     final serversToStart = [
-      [
-        'dart',
-        '/Users/jakemac/ai/pkgs/dart_mcp/example/file_system_server.dart',
-      ],
-      ['dart', '/Users/jakemac/ai/pkgs/dart_tooling_mcp_server/bin/main.dart'],
+      ['dart', 'run', '../file_system_server.dart'],
+      ['dart', 'run', '../../../dart_tooling_mcp_server/bin/main.dart'],
     ];
 
     for (int i = 0; i < serversToStart.length; i++) {
