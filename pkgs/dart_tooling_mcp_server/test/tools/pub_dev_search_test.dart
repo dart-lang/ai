@@ -2,8 +2,6 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-// ignore_for_file: lines_longer_than_80_chars
-
 import 'dart:convert';
 import 'dart:io';
 
@@ -65,7 +63,9 @@ void main() {
       'packageName': 'retry',
       'latestVersion': '3.1.2',
       'description':
-          'Utility for wrapping an asynchronous function in automatic retry logic with exponential back-off, useful when making requests over network.',
+          'Utility for wrapping an asynchronous function in automatic '
+          'retry logic with exponential back-off, useful when making '
+          'requests over network.',
       'scores': {
         'pubPoints': isA<int>(),
         'maxPubPoints': isA<int>(),
@@ -116,8 +116,8 @@ void main() {
 
   test('Tolerates missing sub-responses', () async {
     createClient =
-        // Serve a single package as search result, but provide no further information
-        // about it.
+        // Serve a single package as search result, but provide no further
+        // information about it.
         () => _FixedResponseClient((url) {
           if (url.toString() == 'https://pub.dev/api/search?q=retry') {
             return jsonEncode({
@@ -234,7 +234,8 @@ Future<String> _goldenResponse(Uri url) async {
     } on IOException catch (e) {
       fail(
         'Could not read golden response file ${goldenFile.path} for $url: $e. '
-        'Consider recreating by calling with \$RECREATE_GOLDEN_RESPONSES=missing',
+        'Consider recreating by calling with '
+        '\$RECREATE_GOLDEN_RESPONSES=missing',
       );
     }
   }
