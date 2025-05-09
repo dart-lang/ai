@@ -121,6 +121,35 @@ void main() {
     );
   });
 
+  test(
+    'server can handle initialized notification with null parameters',
+    () async {
+      final serverLog = StreamController<String>();
+      final environment = TestEnvironment(
+        TestMCPClient(),
+        (c) => TestMCPServer(c, protocolLogSink: serverLog.sink),
+      );
+      await environment.serverConnection.initialize(
+        InitializeRequest(
+          protocolVersion: ProtocolVersion.latestSupported,
+          capabilities: environment.client.capabilities,
+          clientInfo: environment.client.implementation,
+        ),
+      );
+      // Send a notification that doesn't have any parameters.
+      environment.serverConnection.notifyInitialized();
+      await environment.server.initialized;
+      expect(
+        serverLog.stream,
+        emitsInOrder([
+          allOf(startsWith('<<<'), contains('initialize')),
+          allOf(startsWith('>>>'), contains('serverInfo')),
+          allOf(startsWith('<<<'), contains('notifications/initialized')),
+        ]),
+      );
+    },
+  );
+
   test('clients can handle progress notifications', () async {
     final environment = TestEnvironment(
       TestMCPClient(),

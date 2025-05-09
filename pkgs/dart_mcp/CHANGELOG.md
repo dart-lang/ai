@@ -4,6 +4,8 @@
 - Update workflow example to show thinking spinner and input and output token
   usage.
 - Update file system example to support relative paths.
+- Fix a bug in notification handling where leaving off the parameters caused a
+  type exception.
 
 ## 0.2.0
 
