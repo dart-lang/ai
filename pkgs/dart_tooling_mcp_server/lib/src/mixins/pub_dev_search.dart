@@ -84,25 +84,31 @@ base mixin PubDevSupport on ToolsSupport {
       }
 
       // Retrieve information about all the packages in parallel.
-      final subQueryFutures = packageNames.map(
-        (packageName) =>
-            (
-              retrieve('api/packages/$packageName'),
-              retrieve('api/packages/$packageName/score'),
-              retrieve('documentation/$packageName/latest/index.json'),
-            ).wait,
-      );
+      final subQueryFutures =
+          packageNames
+              .map(
+                (packageName) => (
+                  versionListing: retrieve('api/packages/$packageName'),
+                  score: retrieve('api/packages/$packageName/score'),
+                  docIndex: retrieve(
+                    'documentation/$packageName/latest/index.json',
+                  ),
+                ),
+              )
+              .toList();
 
-      final subqueryResults = await Future.wait(subQueryFutures);
+      await Future.wait(
+        subQueryFutures.expand((f) => [f.versionListing, f.score, f.docIndex]),
+      );
 
       // Aggregate the retrieved information about each package into a
       // TextContent.
       final results = <TextContent>[];
       for (var i = 0; i < packageNames.length; i++) {
         final packageName = packageNames[i];
-        final versionListing = subqueryResults[i].$1;
-        final scoreResult = subqueryResults[i].$2;
-        final index = subqueryResults[i].$3;
+        final versionListing = await subQueryFutures[i].versionListing;
+        final scoreResult = await subQueryFutures[i].score;
+        final docIndex = await subQueryFutures[i].docIndex;
 
         List<Object?> identifiers(Object index) {
           final items = dig<List>(index, []);
@@ -150,7 +156,7 @@ base mixin PubDevSupport on ToolsSupport {
                         .where((t) => (t as String).startsWith('license'))
                         .toList(),
               },
-              if (index != null) ...{'api': identifiers(index)},
+              if (docIndex != null) ...{'api': identifiers(docIndex)},
             }),
           ),
         );
