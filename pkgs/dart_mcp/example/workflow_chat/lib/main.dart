@@ -28,7 +28,17 @@ class _ChatAppState extends State<ChatApp> {
   void initState() {
     super.initState();
     _loadThemePreference();
-    // We don't load a project path from prefs, it's selected each time
+    _loadLastProjectDirectory();
+  }
+
+  Future<void> _loadLastProjectDirectory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? lastProjectDir = prefs.getString('last_project_dir');
+    if (lastProjectDir != null && mounted) {
+      setState(() {
+        _projectPath = lastProjectDir;
+      });
+    }
   }
 
   Future<void> _loadThemePreference() async {
@@ -62,10 +72,23 @@ class _ChatAppState extends State<ChatApp> {
   }
 
   // Callback for when the directory is submitted
-  void _onDirectorySubmitted(String path) {
-    setState(() {
-      _projectPath = path;
-    });
+  void _onDirectorySubmitted(String path) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('last_project_dir', path);
+    if (mounted) {
+      setState(() {
+        _projectPath = path;
+      });
+    }
+  }
+
+  // New method to request a directory change
+  void _requestNewDirectory() {
+    if (mounted) {
+      setState(() {
+        _projectPath = null;
+      });
+    }
   }
 
   @override
@@ -92,6 +115,8 @@ class _ChatAppState extends State<ChatApp> {
               : ChatScreen(
                 projectPath: _projectPath!,
                 onToggleTheme: _toggleTheme,
+                onRequestNewDirectory:
+                    _requestNewDirectory, // Pass the new callback
               ),
     );
   }

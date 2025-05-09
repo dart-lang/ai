@@ -23,11 +23,13 @@ import 'widgets/text_composer.dart';
 class ChatScreen extends StatefulWidget {
   final VoidCallback onToggleTheme;
   final String projectPath; // Added projectPath
+  final VoidCallback onRequestNewDirectory; // Callback to request new directory
 
   const ChatScreen({
     super.key,
     required this.onToggleTheme,
-    required this.projectPath, // Made projectPath required
+    required this.projectPath,
+    required this.onRequestNewDirectory,
   });
 
   @override
@@ -647,6 +649,14 @@ class _ChatScreenState extends State<ChatScreen> {
                   color: Theme.of(context).colorScheme.onPrimaryContainer,
                 ),
               ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.folder_open),
+              title: const Text('Change Project Directory'),
+              onTap: () {
+                Navigator.pop(context); // Close the drawer
+                widget.onRequestNewDirectory(); // Call the callback
+              },
             ),
             SwitchListTile(
               title: Text(_isDashMode ? 'Dash Mode' : 'Gemini Mode'),

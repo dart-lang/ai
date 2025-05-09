@@ -2,7 +2,9 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class DirectoryInputScreen extends StatefulWidget {
   final Function(String) onDirectorySubmitted;
@@ -14,11 +16,17 @@ class DirectoryInputScreen extends StatefulWidget {
 }
 
 class _DirectoryInputScreenState extends State<DirectoryInputScreen> {
-  final TextEditingController _textController = TextEditingController();
+  Future<void> _pickDirectory() async {
+    String? path = await FilePicker.platform.getDirectoryPath(
+      dialogTitle: 'Please select your project directory',
+    );
 
-  void _submitDirectory() {
-    if (_textController.text.isNotEmpty) {
-      widget.onDirectorySubmitted(_textController.text);
+    if (path != null) {
+      // Path is not null means a directory was selected.
+      widget.onDirectorySubmitted(Uri.file(path).toString());
+      // Save the selected path
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('last_project_dir', path);
     }
   }
 
@@ -28,31 +36,18 @@ class _DirectoryInputScreenState extends State<DirectoryInputScreen> {
       appBar: AppBar(title: const Text('Select Project Directory')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            TextField(
-              controller: _textController,
-              decoration: const InputDecoration(
-                labelText: 'Project Directory Path',
-                hintText: 'file:///path/to/your/project',
-                border: OutlineInputBorder(),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              ElevatedButton(
+                onPressed: _pickDirectory,
+                child: const Text('Choose Project Directory'),
               ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _submitDirectory,
-              child: const Text('Load Project'),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _textController.dispose();
-    super.dispose();
   }
 }
