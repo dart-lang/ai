@@ -29,10 +29,7 @@
             "cwd": "pkgs/dart_mcp/example/workflow_chat",
             "request": "launch",
             "type": "dart",
-            "program": "lib/main.dart",
-            "args": [
-                "--dart-define=GEMINI_API_KEY=${env:GEMINI_API_KEY}"
-            ]
+            "program": "lib/main.dart"
         },
     ]
 }
