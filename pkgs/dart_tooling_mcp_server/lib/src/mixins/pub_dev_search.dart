@@ -17,6 +17,11 @@ Client Function() createClient = Client.new;
 /// Limit the number of concurrent requests.
 final _pool = Pool(10);
 
+/// The number of reults to return for a query.
+// If this should be set higher than 10 we need to implement paging of the
+// http://pub.dev/api/search endpoint.
+final _resultsLimit = 10;
+
 /// Mix this in to any MCPServer to add support for doing searches on pub.dev.
 base mixin PubDevSupport on ToolsSupport {
   @override
@@ -48,9 +53,10 @@ base mixin PubDevSupport on ToolsSupport {
       result = jsonDecode(await client.read(searchUrl));
 
       final packageNames =
-          dig<List>(result, [
-            'packages',
-          ]).take(10).map((p) => dig<String>(p, ['package'])).toList();
+          dig<List>(result, ['packages'])
+              .take(_resultsLimit)
+              .map((p) => dig<String>(p, ['package']))
+              .toList();
 
       if (packageNames.isEmpty) {
         return CallToolResult(
