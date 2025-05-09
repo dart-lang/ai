@@ -179,8 +179,7 @@ base mixin PubDevSupport on ToolsSupport {
         'Searches pub.dev for packages relevant to a given search query. '
         'The response will describe each result with its download count,'
         ' package description, topics, license, and a list of identifiers '
-        'in the public api',
-
+        'in the public api.',
     annotations: ToolAnnotations(title: 'pub.dev search', readOnlyHint: true),
     inputSchema: Schema.object(
       properties: {
