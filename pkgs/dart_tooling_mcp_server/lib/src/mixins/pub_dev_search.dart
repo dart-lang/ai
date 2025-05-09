@@ -62,7 +62,7 @@ base mixin PubDevSupport on ToolsSupport {
         return CallToolResult(
           content: [
             TextContent(
-              text: 'No packages mached the query, consider simplifying it',
+              text: 'No packages mached the query, consider simplifying it.',
             ),
           ],
           isError: true,
