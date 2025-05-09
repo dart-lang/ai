@@ -518,7 +518,8 @@ base mixin DartToolingDaemonSupport
             args: {'enabled': enabled.toString()},
           );
 
-          if (result.json?['enabled'] == enabled) {
+          if (result.json?['enabled'] == enabled ||
+              result.json?['enabled'] == enabled.toString()) {
             return CallToolResult(
               content: [
                 TextContent(
