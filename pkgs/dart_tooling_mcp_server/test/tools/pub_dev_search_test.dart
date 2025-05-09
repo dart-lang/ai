@@ -92,10 +92,7 @@ void main() {
   });
 
   test('Reports failure on missing response', () async {
-    createClient =
-        () => _FixedResponseClient((_) {
-          throw ClientException('No internet');
-        });
+    createClient = () => _FixedResponseClient.withMappedResponses({});
 
     final request = CallToolRequest(
       name: pubDevSearchTool.name,
@@ -118,16 +115,12 @@ void main() {
     createClient =
         // Serve a single package as search result, but provide no further
         // information about it.
-        () => _FixedResponseClient((url) {
-          if (url.toString() == 'https://pub.dev/api/search?q=retry') {
-            return jsonEncode({
-              'packages': [
-                {'package': 'retry'},
-              ],
-            });
-          } else {
-            throw ClientException('No internet');
-          }
+        () => _FixedResponseClient.withMappedResponses({
+          'https://pub.dev/api/search?q=retry': jsonEncode({
+            'packages': [
+              {'package': 'retry'},
+            ],
+          }),
         });
 
     final request = CallToolRequest(
@@ -150,14 +143,11 @@ void main() {
     createClient =
         // Serve no packages, but provide no further information
         // about it.
-        () => _FixedResponseClient((url) {
-          if (url.toString() == 'https://pub.dev/api/search?q=retry') {
-            return jsonEncode({'packages': <Object?>[]});
-          } else {
-            throw ClientException('No internet');
-          }
+        () => _FixedResponseClient.withMappedResponses({
+          'https://pub.dev/api/search?q=retry': jsonEncode({
+            'packages': <Object?>[],
+          }),
         });
-
     final request = CallToolRequest(
       name: pubDevSearchTool.name,
       arguments: {'query': 'retry'},
@@ -180,6 +170,12 @@ class _FixedResponseClient implements Client {
   final String Function(Uri url) handler;
 
   _FixedResponseClient(this.handler);
+
+  _FixedResponseClient.withMappedResponses(Map<String, String> responses)
+    : handler =
+          ((url) =>
+              responses[url.toString()] ??
+              (throw ClientException('No internet')));
 
   @override
   Future<String> read(Uri url, {Map<String, String>? headers}) async {
