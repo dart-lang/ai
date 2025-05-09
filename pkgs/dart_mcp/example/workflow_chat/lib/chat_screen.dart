@@ -47,6 +47,7 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isDashMode = true; // Default value, will be overridden by preferences
   String? _currentApiKey; // New state variable for API key
   String? _dtdUri; // Added DTD URI state variable
+  String _selectedModel = availableModels.first; // Default model
 
   List<gemini.Content> _modelChatHistory = []; // Initialized in initState
 
@@ -67,6 +68,9 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _initializeScreen() async {
     await _loadDashModePreference();
     await _loadDtdUri();
+    // BEGIN MODIFICATION: Load selected model preference
+    await _loadSelectedModelPreference();
+    // END MODIFICATION
     await _loadApiKeyAndInitializeChat();
   }
 
@@ -108,6 +112,23 @@ class _ChatScreenState extends State<ChatScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('isDashMode', isDashMode);
   }
+
+  // BEGIN MODIFICATION: Load and Save Preference for selected model
+  Future<void> _loadSelectedModelPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? savedModel = prefs.getString('selectedModel');
+    if (mounted) {
+      setState(() {
+        _selectedModel = savedModel ?? availableModels.first;
+      });
+    }
+  }
+
+  Future<void> _saveSelectedModelPreference(String modelName) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('selectedModel', modelName);
+  }
+  // END MODIFICATION
 
   Future<void> _loadDtdUri() async {
     final prefs = await SharedPreferences.getInstance();
@@ -303,14 +324,16 @@ class _ChatScreenState extends State<ChatScreen> {
       }
       return;
     }
-    _model = gemini.GenerativeModel(
-      model: 'gemini-2.5-pro-preview-03-25',
-      apiKey: _currentApiKey!,
-      systemInstruction:
-          _isDashMode
-              ? systemInstructions(persona: dashPersona)
-              : systemInstructions(),
-    );
+    setState(() {
+      _model = gemini.GenerativeModel(
+        model: _selectedModel, // Use the new state variable
+        apiKey: _currentApiKey!,
+        systemInstruction:
+            _isDashMode
+                ? systemInstructions(persona: dashPersona)
+                : systemInstructions(),
+      );
+    });
   }
 
   void _toggleMode() async {
@@ -340,6 +363,32 @@ class _ChatScreenState extends State<ChatScreen> {
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _promptForModelSelection() async {
+    final newSelectedModel = await showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        return SimpleDialog(
+          title: const Text('Select Model'),
+          children:
+              availableModels.map((modelName) {
+                return SimpleDialogOption(
+                  onPressed: () {
+                    Navigator.pop(context, modelName);
+                  },
+                  child: Text(modelName),
+                );
+              }).toList(),
+        );
+      },
+    );
+
+    if (newSelectedModel != null && newSelectedModel != _selectedModel) {
+      _selectedModel = newSelectedModel;
+      _reInitializeModel();
+      await _saveSelectedModelPreference(newSelectedModel);
     }
   }
 
@@ -767,6 +816,19 @@ class _ChatScreenState extends State<ChatScreen> {
                 await _promptForDtdUri();
               },
             ),
+            // BEGIN MODIFICATION: Add ListTile for Model Selection
+            ListTile(
+              leading: const Icon(
+                Icons.model_training,
+              ), // Or a more suitable icon
+              title: const Text('Select Model'),
+              subtitle: Text(_selectedModel),
+              onTap: () async {
+                Navigator.pop(context); // Close the drawer
+                await _promptForModelSelection();
+              },
+            ),
+            // END MODIFICATION
             SwitchListTile(
               title: Text(_isDashMode ? 'Dash Mode' : 'Gemini Mode'),
               subtitle: Text(

@@ -6,6 +6,12 @@ import 'dart:io';
 
 import 'package:google_generative_ai/google_generative_ai.dart' as gemini;
 
+const List<String> availableModels = [
+  "gemini-2.5-pro-preview-05-06",
+  "gemini-2.5-flash-preview-04-17",
+  "gemini-2.0-flash",
+];
+
 /// If a [persona] is passed, it will be added to the system prompt as its own
 /// paragraph.
 gemini.Content systemInstructions({String? persona}) =>
