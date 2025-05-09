@@ -2,6 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -77,7 +79,8 @@ class _ChatAppState extends State<ChatApp> {
     await prefs.setString('last_project_dir', path);
     if (mounted) {
       setState(() {
-        _projectPath = path;
+        _projectPath =
+            Directory.fromUri(Uri.parse(path)).absolute.uri.toString();
       });
     }
   }
