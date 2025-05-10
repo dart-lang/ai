@@ -16,7 +16,11 @@ void main() {
         import 'package:mcp_annotations/mcp_annotations.dart';
 
         @MCPServerApp()
-        void myServer() {}
+        class MyServer {
+          const MyServer();
+          @MCPTool()
+          int add(int a, int b) => a + b;
+        }
       ''';
 
       await resolveSources({'test_pkg|lib/test_lib.dart': src}, (
@@ -27,7 +31,7 @@ void main() {
         final scanner = AnnotationScanner();
         final result = scanner.findFirst(library);
         expect(result, isNotNull);
-        expect(result!.key.name, 'myServer');
+        expect(result!.key.name, 'MyServer');
       });
     });
   });
