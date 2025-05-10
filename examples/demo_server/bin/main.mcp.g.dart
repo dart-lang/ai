@@ -11,7 +11,7 @@ part of 'main.dart';
 
 final Tool _tool_add = Tool(
   name: 'add',
-  description: 'Adds two numbers.',
+  description: 'add two numbers',
   inputSchema: ObjectSchema(
     properties: {'a': NumberSchema(), 'b': NumberSchema()},
     required: ['a', 'b'],
@@ -28,26 +28,6 @@ FutureOr<CallToolResult> _handler_add(
   return CallToolResult(content: [TextContent(text: _result.toString())]);
 }
 
-final Tool _tool_strlen = Tool(
-  name: 'strlen',
-  description: 'Returns the length of a string.',
-  inputSchema: ObjectSchema(
-    properties: {
-      'text': StringSchema(description: 'The string to get the length of.')
-    },
-    required: ['text'],
-  ),
-  annotations: null,
-);
-
-FutureOr<CallToolResult> _handler_strlen(
-    MCPDemoServer _impl, CallToolRequest _request) async {
-  final _args = _request.arguments ?? const <String, Object?>{};
-  final String text = _args['text'] as String;
-  final _result = await Future.sync(() => _impl.strlen(text));
-  return CallToolResult(content: [TextContent(text: _result.toString())]);
-}
-
 final class _GeneratedServer extends MCPServer
     with LoggingSupport, ToolsSupport, ResourcesSupport, RootsTrackingSupport {
   final MCPDemoServer _impl;
@@ -61,7 +41,6 @@ final class _GeneratedServer extends MCPServer
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
     registerTool(_tool_add, (r) => _handler_add(_impl, r));
-    registerTool(_tool_strlen, (r) => _handler_strlen(_impl, r));
     return super.initialize(request);
   }
 }

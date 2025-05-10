@@ -1,6 +1,4 @@
-// Copyright (c) 2023, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
+// ignore_for_file: unused_import
 
 import 'package:mcp_annotations/mcp_annotations.dart';
 import 'dart:convert';
@@ -16,20 +14,9 @@ part 'main.mcp.g.dart';
 class MCPDemoServer {
   const MCPDemoServer();
 
-  @MCPTool(description: 'Adds two numbers.')
-  num add(num a, num b) => a + b;
-
-  @MCPTool(
-    description: 'Returns the length of a string.',
-    parameters: [
-      MCPParameter(
-        name: 'text',
-        description: 'The string to get the length of.',
-      ),
-    ],
-  )
-  int strlen(String text) {
-    return text.length;
+  @MCPTool(description: "add two numbers")
+  num add(num a, num b) {
+    return a + b;
   }
 }
 

@@ -1,7 +1,6 @@
 name: mcp_annotations
-version: 0.1.0-wip
+version: 0.1.0
 description: Annotations for generating MCP server boilerplate and tools.
-publish_to: none
 
 environment:
   sdk: ^3.7.0
