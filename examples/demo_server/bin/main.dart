@@ -14,16 +14,10 @@ part 'main.mcp.g.dart';
 
 @MCPServerApp(name: 'demo_server', version: '0.1.0')
 class MCPDemoServer {
-  @MCPTool(
-    description: 'Adds two numbers.',
-    parameters: [
-      MCPParameter(name: 'a', description: 'The first number to add.'),
-      MCPParameter(name: 'b', description: 'The second number to add.'),
-    ],
-  )
-  num add(num a, num b) {
-    return a + b;
-  }
+  const MCPDemoServer();
+
+  @MCPTool(description: 'Adds two numbers.')
+  num add(num a, num b) => a + b;
 
   @MCPTool(
     description: 'Returns the length of a string.',
