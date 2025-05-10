@@ -1,0 +1,7 @@
+targets:
+  $default:
+    builders:
+      mcp_codegen|mcp_builder:
+        generate_for:
+          - lib/**.dart
+          - bin/**.dart 

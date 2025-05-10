@@ -8,10 +8,14 @@ A general repository for AI / GenAI packages and explorations.
 | --- | --- | --- | --- |
 | [dart_mcp](pkgs/dart_mcp/) | A package for making MCP servers and clients. | ![issues][dart_mcp_issues] | [![pub package](https://img.shields.io/pub/v/dart_mcp.svg)](https://pub.dev/packages/dart_mcp) |
 | [dart_tooling_mcp_server](pkgs/dart_tooling_mcp_server/) | An MCP server for Dart projects, exposing various developer tools to AI models. | ![issues][dart_tooling_mcp_server_issues] | n/a |
+| [mcp_annotations](pkgs/mcp_annotations/) | A package containing annotations for declaring MCP tools and servers. | ![issues][mcp_annotations_issues] | n/a |
+| [mcp_codegen](pkgs/mcp_codegen/) | A Builder/code generator that produces MCP tool and server implementations from annotated Dart code. | ![issues][mcp_codegen_issues] | n/a |
 
 
 [dart_mcp_issues]: https://img.shields.io/github/issues-search?label=issues&query=is%3Aissue+is%3Aopen+label%3Apackage%3Adart_mcp+repo%3Adart-lang/ai
 [dart_tooling_mcp_server_issues]: https://img.shields.io/github/issues-search?label=issues&query=is%3Aissue+is%3Aopen+label%3Apackage%3Adart_tooling_mcp_server+repo%3Adart-lang/ai
+[mcp_annotations_issues]: https://img.shields.io/github/issues-search?label=issues&query=is%3Aissue+is%3Aopen+label%3Apackage%3Amcp_annotations+repo%3Adart-lang/ai
+[mcp_codegen_issues]: https://img.shields.io/github/issues-search?label=issues&query=is%3Aissue+is%3Aopen+label%3Apackage%3Amcp_codegen+repo%3Adart-lang/ai
 
 <!--
 ## Publishing automation

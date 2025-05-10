@@ -1,0 +1,41 @@
+import 'package:mcp_annotations/mcp_annotations.dart';
+import 'dart:convert';
+import 'package:stream_channel/stream_channel.dart';
+import 'package:async/async.dart';
+import 'package:dart_mcp/server.dart';
+import 'dart:io';
+import 'dart:async';
+
+part 'main.mcp.g.dart';
+
+@MCPServerApp(name: 'demo_server', version: '0.1.0')
+class MCPDemoServer {
+  @MCPTool(
+    description: 'Adds two numbers.',
+    parameters: [
+      MCPParameter(name: 'a', description: 'The first number to add.'),
+      MCPParameter(name: 'b', description: 'The second number to add.'),
+    ],
+  )
+  num add(num a, num b) {
+    return a + b;
+  }
+
+  @MCPTool(
+    description: 'Returns the length of a string.',
+    parameters: [
+      MCPParameter(
+        name: 'text',
+        description: 'The string to get the length of.',
+      ),
+    ],
+  )
+  int strlen(String text) {
+    return text.length;
+  }
+}
+
+void main(List<String> args) {
+  final server = MCPDemoServer();
+  server.run(args);
+}

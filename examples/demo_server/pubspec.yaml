@@ -1,0 +1,20 @@
+name: fast_mcp_demo
+version: 0.1.0
+publish_to: none
+description: Example package demonstrating MCP annotations and code generation.
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  dart_mcp:
+    path: ../../pkgs/dart_mcp
+  mcp_annotations:
+    path: ../../pkgs/mcp_annotations
+
+
+dev_dependencies:
+  build_runner: ^2.4.7
+  mcp_codegen:
+    path: ../../pkgs/mcp_codegen
+  
