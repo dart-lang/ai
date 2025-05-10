@@ -1,0 +1,9 @@
+name: mcp_annotations
+version: 0.1.0
+description: Annotations for generating MCP server boilerplate and tools.
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  meta: ^1.11.0
