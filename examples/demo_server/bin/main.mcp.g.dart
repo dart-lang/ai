@@ -7,16 +7,13 @@ part of 'main.dart';
 // **************************************************************************
 
 // GENERATED CODE - DO NOT MODIFY BY HAND
-// ignore_for_file: unused_element, unused_import, unnecessary_cast
+// ignore_for_file: unused_import, unnecessary_cast
 
 final Tool _tool_add = Tool(
   name: 'add',
   description: 'Adds two numbers.',
   inputSchema: ObjectSchema(
-    properties: {
-      'a': NumberSchema(description: 'The first number to add.'),
-      'b': NumberSchema(description: 'The second number to add.'),
-    },
+    properties: {'a': NumberSchema(), 'b': NumberSchema()},
     required: ['a', 'b'],
   ),
   annotations: null,
@@ -36,7 +33,7 @@ final Tool _tool_strlen = Tool(
   description: 'Returns the length of a string.',
   inputSchema: ObjectSchema(
     properties: {
-      'text': StringSchema(description: 'The string to get the length of.'),
+      'text': StringSchema(description: 'The string to get the length of.')
     },
     required: ['text'],
   ),
@@ -77,14 +74,8 @@ Future<void> _runGeneratedMcpServer(
       final channel = StreamChannel.withCloseGuarantee(stdin, stdout)
           .transform(StreamChannelTransformer.fromCodec(utf8))
           .transformStream(const LineSplitter())
-          .transformSink(
-        StreamSinkTransformer.fromHandlers(
-          handleData: (data, sink) {
-            sink.add('$data\n');
-          },
-        ),
-      );
-
+          .transformSink(StreamSinkTransformer.fromHandlers(
+              handleData: (data, sink) => sink.add('$data\n')));
       server = _GeneratedServer(channel, _impl);
     },
     (e, s) {
@@ -109,7 +100,6 @@ Future<void> _runGeneratedMcpServer(
     ),
   );
 }
-// Call `_runGeneratedMcpServer(args);` from your annotated main().
 
 extension _MCPDemoServerRunner on MCPDemoServer {
   Future<void> run(List<String> args) => _runGeneratedMcpServer(args, this);
