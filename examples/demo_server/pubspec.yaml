@@ -1,4 +1,4 @@
-name: fast_mcp_demo
+name: demo_server
 version: 0.1.0
 publish_to: none
 description: Example package demonstrating MCP annotations and code generation.
