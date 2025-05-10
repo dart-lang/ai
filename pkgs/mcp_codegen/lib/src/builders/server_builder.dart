@@ -53,7 +53,7 @@ class ServerBuilder {
       ..writeln('  }')
       ..writeln('}');
 
-    buffer.writeln(_bootstrap(isClass ? ', ${serverElement.name} _impl' : ''));
+    buffer.writeln(_bootstrap(isClass, serverElement.name!));
     if (isClass) {
       buffer
         ..writeln()
@@ -69,8 +69,11 @@ class ServerBuilder {
     return buffer.toString();
   }
 
-  String _bootstrap(String extraArg) => '''
-Future<void> _runGeneratedMcpServer(List<String> args$extraArg) async {
+  String _bootstrap(bool includeImpl, String implType) {
+    final paramSig = includeImpl ? ', $implType _impl' : '';
+    final argCall = includeImpl ? ', _impl' : '';
+    return '''
+Future<void> _runGeneratedMcpServer(List<String> args$paramSig) async {
   _GeneratedServer? server;
   await runZonedGuarded(
     () async {
@@ -78,7 +81,7 @@ Future<void> _runGeneratedMcpServer(List<String> args$extraArg) async {
         .transform(StreamChannelTransformer.fromCodec(utf8))
         .transformStream(const LineSplitter())
         .transformSink(StreamSinkTransformer.fromHandlers(handleData: (data, sink) => sink.add('\$data\\n')));
-      ${extraArg.isNotEmpty ? 'server = _GeneratedServer(channel$extraArg);' : 'server = _GeneratedServer(channel);'}
+      ${includeImpl ? 'server = _GeneratedServer(channel$argCall);' : 'server = _GeneratedServer(channel);'}
     },
     (e, s) {
       if (server != null) {
@@ -96,4 +99,5 @@ Future<void> _runGeneratedMcpServer(List<String> args$extraArg) async {
     ),
   );
 }''';
+  }
 }

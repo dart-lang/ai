@@ -16,7 +16,7 @@ class HandlerBuilder {
           (p) =>
               "final ${p.type.getDisplayString(withNullability: false)} ${p.name} = _args['${p.name}'] as ${p.type.getDisplayString(withNullability: false)};",
         )
-        .join('\\n    ');
+        .join('\n    ');
 
     final call =
         isClass
