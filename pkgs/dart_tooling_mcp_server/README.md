@@ -32,14 +32,25 @@ your machine. Many of the tools require that your MCP client has `roots`
 support, and usage of the tools is scoped to only these directories.
 
 The server entrypoint lives at `bin/main.dart`, and is can be ran however you
-choose, but the easiest way is to run it as a globally activated package:
+choose, but the easiest way is to run it as a globally activated package.
+
+You can globally activate it from path for local development:
 
 ```sh
 dart pub global activate -s path .
 ```
 
-And the, assuming the pub cache bin dir  is set up on your PATH, the
+Or from git:
+
+```sh
+dart pub global activate -s git https://github.com/dart-lang/ai.git \
+  --git-path pkgs/dart_tooling_mcp_server/
+```
+
+And then, assuming the pub cache bin dir is [on your PATH][set-up-path], the
 `dart_tooling_mcp_server` command will run it, and recompile as necessary.
+
+[set-up-path]: https://dart.dev/tools/pub/cmd/pub-global#running-a-script-from-your-path
 
 **Note:**: For some clients, depending on how they launch the MCP server and how
 tolerant they are, you may need to compile it to exe to avoid extra output on
