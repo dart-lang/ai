@@ -31,7 +31,7 @@ This server only supports the STDIO transport mechanism and runs locally on
 your machine. Many of the tools require that your MCP client has `roots`
 support, and usage of the tools is scoped to only these directories.
 
-The server entrypoint lives at `bin/main.dart`, and is can be ran however you
+The server entrypoint lives at `bin/main.dart`, and can be ran however you
 choose, but the easiest way is to run it as a globally activated package.
 
 You can globally activate it from path for local development:
