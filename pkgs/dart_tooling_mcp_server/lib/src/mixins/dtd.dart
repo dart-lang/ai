@@ -837,8 +837,10 @@ class _AppErrorsListener {
       });
 
       try {
-        await vmService.streamListen(EventStreams.kExtension);
-        await vmService.streamListen(EventStreams.kStderr);
+        await [
+          vmService.streamListen(EventStreams.kExtension),
+          vmService.streamListen(EventStreams.kStderr),
+        ].wait;
       } on RPCError catch (e) {
         logger.log(LoggingLevel.error, 'Error subscribing app errors: $e');
       }
