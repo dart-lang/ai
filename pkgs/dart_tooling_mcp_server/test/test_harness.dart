@@ -402,8 +402,8 @@ Future<ServerConnectionPair> _initializeMCPServer(
     connection = client.connectServer(clientChannel);
   } else {
     connection = await client.connectStdioServer('dart', [
+      'pub', // Using `pub` gives us incremental compilation
       'run',
-      '-r',
       'bin/main.dart',
     ]);
   }
