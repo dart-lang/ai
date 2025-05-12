@@ -16,11 +16,11 @@ void main() {
   late TestHarness testHarness;
 
   late Tool pubDevSearchTool;
-  final testRoot = rootForPath(counterAppPath);
+  late Root testRoot;
 
   setUp(() async {
     testHarness = await TestHarness.start(inProcess: true);
-
+    testRoot = testHarness.rootForPath(counterAppPath);
     testHarness.mcpClient.addRoot(testRoot);
     await pumpEventQueue();
 
