@@ -57,7 +57,21 @@ final class SimpleFileSystemServer extends MCPServer
   Future<({CallToolResult? error, String? resolvedUri})> _checkAllowedPath(
     String path,
   ) async {
-    for (var root in await roots) {
+    final roots = await this.roots;
+    if (p.isRelative(path) && roots.length > 1) {
+      return (
+        error: CallToolResult(
+          content: [
+            TextContent(
+              text: 'Path must be absolute when multiple roots are configured.',
+            ),
+          ],
+          isError: true,
+        ),
+        resolvedUri: null,
+      );
+    }
+    for (var root in roots) {
       final resolvedUri = Uri.parse(root.uri).resolve(path).toString();
       if (root.uri == resolvedUri || p.isWithin(root.uri, resolvedUri)) {
         return (error: null, resolvedUri: resolvedUri);
