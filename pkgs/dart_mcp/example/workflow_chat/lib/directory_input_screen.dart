@@ -22,8 +22,9 @@ class _DirectoryInputScreenState extends State<DirectoryInputScreen> {
     );
 
     if (path != null) {
+      path = Uri.file(path).toString();
       // Path is not null means a directory was selected.
-      widget.onDirectorySubmitted(Uri.file(path).toString());
+      widget.onDirectorySubmitted(path);
       // Save the selected path
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('last_project_dir', path);
