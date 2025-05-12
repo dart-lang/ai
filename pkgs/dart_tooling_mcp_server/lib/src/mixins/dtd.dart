@@ -28,6 +28,9 @@ base mixin DartToolingDaemonSupport
   /// ready to be invoked.
   bool _getDebugSessionsReady = false;
 
+  /// The last reported active location from the editor.
+  Map<String, Object?>? _activeLocation;
+
   /// A Map of [VmService] object [Future]s by their associated
   /// [DebugSession.id].
   ///
@@ -58,6 +61,7 @@ base mixin DartToolingDaemonSupport
   Future<void> _resetDtd() async {
     _dtd = null;
     _getDebugSessionsReady = false;
+    _activeLocation = null;
 
     // TODO: determine whether we need to dispose the [inspectorObjectGroup] on
     // the Flutter Widget Inspector for each VM service instance.
@@ -135,6 +139,8 @@ base mixin DartToolingDaemonSupport
     registerTool(hotReloadTool, hotReload);
     registerTool(getWidgetTreeTool, widgetTree);
     registerTool(getSelectedWidgetTool, selectedWidget);
+    registerTool(setWidgetSelectionModeTool, _setWidgetSelectionMode);
+    registerTool(getActiveLocationTool, _getActiveLocation);
 
     return super.initialize(request);
   }
@@ -166,7 +172,7 @@ base mixin DartToolingDaemonSupport
       );
       unawaited(_dtd!.done.then((_) async => await _resetDtd()));
 
-      _listenForServices();
+      await _listenForServices();
       return CallToolResult(
         content: [TextContent(text: 'Connection succeeded')],
       );
@@ -178,11 +184,12 @@ base mixin DartToolingDaemonSupport
     }
   }
 
-  /// Listens to the `Service` stream so we know when the
-  /// `Editor.getDebugSessions` extension method is registered.
+  /// Listens to the `Service` and `Editor` streams so we know when the
+  /// `Editor.getDebugSessions` extension method is registered and when debug
+  /// sessions are started and stopped.
   ///
   /// The dart tooling daemon must be connected prior to calling this function.
-  void _listenForServices() {
+  Future<void> _listenForServices() async {
     final dtd = _dtd!;
     dtd.onEvent('Service').listen((e) async {
       log(
@@ -210,7 +217,7 @@ base mixin DartToolingDaemonSupport
           }
       }
     });
-    dtd.streamListen('Service');
+    await dtd.streamListen('Service');
 
     dtd.onEvent('Editor').listen((e) async {
       log(LoggingLevel.debug, e.toString());
@@ -220,12 +227,14 @@ base mixin DartToolingDaemonSupport
           await updateActiveVmServices();
         case 'debugSessionStopped':
           await activeVmServices
-              .remove((e.data['debugSession'] as DebugSession).id)
+              .remove(e.data['debugSessionId'] as String)
               ?.then((service) => service.dispose());
+        case 'activeLocationChanged':
+          _activeLocation = e.data;
         default:
       }
     });
-    dtd.streamListen('Editor');
+    await dtd.streamListen('Editor');
   }
 
   /// Takes a screenshot of the currently running app.
@@ -475,6 +484,74 @@ base mixin DartToolingDaemonSupport
     );
   }
 
+  /// Enables or disables widget selection mode in the currently running app.
+  ///
+  /// If more than one debug session is active, then it just uses the first one.
+  //
+  // TODO: support passing a debug session id when there is more than one debug
+  // session.
+  Future<CallToolResult> _setWidgetSelectionMode(
+    CallToolRequest request,
+  ) async {
+    final enabled = request.arguments?['enabled'] as bool?;
+    if (enabled == null) {
+      return CallToolResult(
+        isError: true,
+        content: [
+          TextContent(
+            text:
+                'Required parameter "enabled" was not provided or is not a '
+                'boolean.',
+          ),
+        ],
+      );
+    }
+
+    return _callOnVmService(
+      callback: (vmService) async {
+        final vm = await vmService.getVM();
+        final isolateId = vm.isolates!.first.id;
+        try {
+          final result = await vmService.callServiceExtension(
+            '$_inspectorServiceExtensionPrefix.show',
+            isolateId: isolateId,
+            args: {'enabled': enabled.toString()},
+          );
+
+          if (result.json?['enabled'] == enabled ||
+              result.json?['enabled'] == enabled.toString()) {
+            return CallToolResult(
+              content: [
+                TextContent(
+                  text:
+                      'Widget selection mode '
+                      '${enabled ? 'enabled' : 'disabled'}.',
+                ),
+              ],
+            );
+          }
+          return CallToolResult(
+            isError: true,
+            content: [
+              TextContent(
+                text:
+                    'Failed to set widget selection mode. Unexpected response: '
+                    '${result.json}',
+              ),
+            ],
+          );
+        } catch (e) {
+          return CallToolResult(
+            isError: true,
+            content: [
+              TextContent(text: 'Failed to set widget selection mode: $e'),
+            ],
+          );
+        }
+      },
+    );
+  }
+
   /// Calls [callback] on the first active debug session, if available.
   Future<CallToolResult> _callOnVmService({
     required Future<CallToolResult> Function(VmService) callback,
@@ -493,6 +570,24 @@ base mixin DartToolingDaemonSupport
     // TODO: support selecting a VM Service if more than one are available.
     final vmService = activeVmServices.values.first;
     return await callback(await vmService);
+  }
+
+  /// Retrieves the active location from the editor.
+  Future<CallToolResult> _getActiveLocation(CallToolRequest request) async {
+    if (_dtd == null) return _dtdNotConnected;
+
+    final activeLocation = _activeLocation;
+    if (activeLocation == null) {
+      return CallToolResult(
+        content: [
+          TextContent(text: 'No active location reported by the editor yet.'),
+        ],
+      );
+    }
+
+    return CallToolResult(
+      content: [TextContent(text: jsonEncode(_activeLocation))],
+    );
   }
 
   @visibleForTesting
@@ -582,6 +677,39 @@ base mixin DartToolingDaemonSupport
         'Requires "${connectTool.name}" to be successfully called first.',
     annotations: ToolAnnotations(
       title: 'Get selected widget',
+      readOnlyHint: true,
+    ),
+    inputSchema: Schema.object(),
+  );
+
+  @visibleForTesting
+  static final setWidgetSelectionModeTool = Tool(
+    name: 'set_widget_selection_mode',
+    description:
+        'Enables or disables widget selection mode in the active Flutter '
+        'application. Requires "${connectTool.name}" to be successfully called '
+        'first.',
+    annotations: ToolAnnotations(
+      title: 'Set Widget Selection Mode',
+      readOnlyHint: true,
+    ),
+    inputSchema: Schema.object(
+      properties: {
+        'enabled': Schema.bool(title: 'Enable widget selection mode'),
+      },
+      required: const ['enabled'],
+    ),
+  );
+
+  @visibleForTesting
+  static final getActiveLocationTool = Tool(
+    name: 'get_active_location',
+    description:
+        'Retrieves the current active location (e.g., cursor position) in the '
+        'connected editor. Requires "${connectTool.name}" to be successfully '
+        'called first.',
+    annotations: ToolAnnotations(
+      title: 'Get Active Editor Location',
       readOnlyHint: true,
     ),
     inputSchema: Schema.object(),

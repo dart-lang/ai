@@ -135,11 +135,11 @@ void main() {
             'lib/main.dart',
             isFlutter: true,
           );
-          await server.updateActiveVmServices();
+          await pumpEventQueue();
           expect(server.activeVmServices.length, 1);
 
           await testHarness.stopDebugSession(debugSession);
-          await server.updateActiveVmServices();
+          await pumpEventQueue();
           expect(server.activeVmServices, isEmpty);
         });
       });
@@ -387,6 +387,100 @@ void main() {
           expect(finalContents.length, lessThan(newContents.length));
           expect(finalContents.last, overflowMatcher);
         });
+      });
+
+      group('getActiveLocationTool', () {
+        test(
+          'returns "no location" if DTD connected but no event received',
+          () async {
+            final result = await testHarness.callToolWithRetry(
+              CallToolRequest(
+                name: DartToolingDaemonSupport.getActiveLocationTool.name,
+              ),
+            );
+            expect(
+              (result.content.first as TextContent).text,
+              'No active location reported by the editor yet.',
+            );
+          },
+        );
+
+        test('returns active location after event', () async {
+          final fakeEditor = testHarness.fakeEditorExtension;
+
+          // Simulate activeLocationChanged event
+          final fakeEvent = {'someData': 'isHere'};
+          await fakeEditor.dtd.postEvent(
+            'Editor',
+            'activeLocationChanged',
+            fakeEvent,
+          );
+          await pumpEventQueue();
+
+          final result = await testHarness.callToolWithRetry(
+            CallToolRequest(
+              name: DartToolingDaemonSupport.getActiveLocationTool.name,
+            ),
+          );
+          expect(
+            (result.content.first as TextContent).text,
+            jsonEncode(fakeEvent),
+          );
+        });
+      });
+
+      test('can enable and disable widget selection mode', () async {
+        final debugSession = await testHarness.startDebugSession(
+          counterAppPath,
+          'lib/main.dart',
+          isFlutter: true,
+        );
+        final tools = (await testHarness.mcpServerConnection.listTools()).tools;
+        final setSelectionModeTool = tools.singleWhere(
+          (t) =>
+              t.name ==
+              DartToolingDaemonSupport.setWidgetSelectionModeTool.name,
+        );
+
+        // Enable selection mode
+        final enableResult = await testHarness.callToolWithRetry(
+          CallToolRequest(
+            name: setSelectionModeTool.name,
+            arguments: {'enabled': true},
+          ),
+        );
+
+        expect(enableResult.isError, isNot(true));
+        expect(enableResult.content, [
+          TextContent(text: 'Widget selection mode enabled.'),
+        ]);
+
+        // Disable selection mode
+        final disableResult = await testHarness.callToolWithRetry(
+          CallToolRequest(
+            name: setSelectionModeTool.name,
+            arguments: {'enabled': false},
+          ),
+        );
+
+        expect(disableResult.isError, isNot(true));
+        expect(disableResult.content, [
+          TextContent(text: 'Widget selection mode disabled.'),
+        ]);
+
+        // Test missing 'enabled' argument
+        final missingArgResult = await testHarness.callToolWithRetry(
+          CallToolRequest(name: setSelectionModeTool.name),
+          expectError: true,
+        );
+        expect(missingArgResult.isError, isTrue);
+        expect(
+          (missingArgResult.content.first as TextContent).text,
+          'Required parameter "enabled" was not provided or is not a boolean.',
+        );
+
+        // Clean up
+        await testHarness.stopDebugSession(debugSession);
       });
     });
   });

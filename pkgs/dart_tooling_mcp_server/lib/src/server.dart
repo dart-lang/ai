@@ -5,15 +5,18 @@
 import 'dart:async';
 
 import 'package:dart_mcp/server.dart';
+import 'package:file/file.dart';
+import 'package:file/local.dart';
 import 'package:meta/meta.dart';
 import 'package:process/process.dart';
 import 'package:stream_channel/stream_channel.dart';
 
 import 'mixins/analyzer.dart';
-import 'mixins/dart_cli.dart';
+import 'mixins/dash_cli.dart';
 import 'mixins/dtd.dart';
 import 'mixins/pub.dart';
 import 'mixins/pub_dev_search.dart';
+import 'utils/file_system.dart';
 import 'utils/process_manager.dart';
 
 /// An MCP server for Dart and Flutter tooling.
@@ -24,14 +27,15 @@ final class DartToolingMCPServer extends MCPServer
         ResourcesSupport,
         RootsTrackingSupport,
         DartAnalyzerSupport,
-        DartCliSupport,
+        DashCliSupport,
         PubSupport,
         PubDevSupport,
         DartToolingDaemonSupport
-    implements ProcessManagerSupport {
+    implements ProcessManagerSupport, FileSystemSupport {
   DartToolingMCPServer(
     super.channel, {
     @visibleForTesting this.processManager = const LocalProcessManager(),
+    @visibleForTesting this.fileSystem = const LocalFileSystem(),
   }) : super.fromStreamChannel(
          implementation: ServerImplementation(
            name: 'dart and flutter tooling',
@@ -50,4 +54,7 @@ final class DartToolingMCPServer extends MCPServer
 
   @override
   final LocalProcessManager processManager;
+
+  @override
+  final FileSystem fileSystem;
 }

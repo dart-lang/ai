@@ -80,7 +80,7 @@ base class MCPClient {
             },
           ),
         );
-    final connection = connectServer(channel);
+    final connection = connectServer(channel, protocolLogSink: protocolLogSink);
     unawaited(connection.done.then((_) => process.kill()));
     return connection;
   }
@@ -257,7 +257,7 @@ base class ServerConnection extends MCPBase {
   }
 
   /// Called after a successful call to [initialize].
-  void notifyInitialized(InitializedNotification notification) =>
+  void notifyInitialized([InitializedNotification? notification]) =>
       sendNotification(InitializedNotification.methodName, notification);
 
   /// Initializes the server, this should be done before anything else.

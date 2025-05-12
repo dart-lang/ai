@@ -33,7 +33,7 @@ void main() {
     });
 
     test('can analyze a project', () async {
-      final counterAppRoot = rootForPath(counterAppPath);
+      final counterAppRoot = testHarness.rootForPath(counterAppPath);
       testHarness.mcpClient.addRoot(counterAppRoot);
       // Allow the notification to propagate, and the server to ask for the new
       // list of roots.
@@ -53,7 +53,7 @@ void main() {
         d.file('main.dart', 'void main() => 1 + "2";'),
       ]);
       await example.create();
-      final exampleRoot = rootForPath(example.io.path);
+      final exampleRoot = testHarness.rootForPath(example.io.path);
       testHarness.mcpClient.addRoot(exampleRoot);
 
       // Allow the notification to propagate, and the server to ask for the new
@@ -91,7 +91,7 @@ void main() {
     });
 
     test('can look up symbols in a workspace', () async {
-      final currentRoot = rootForPath(Directory.current.path);
+      final currentRoot = testHarness.rootForPath(Directory.current.path);
       testHarness.mcpClient.addRoot(currentRoot);
       await pumpEventQueue();
 
@@ -114,7 +114,7 @@ void main() {
     });
 
     test('can get signature help', () async {
-      final counterAppRoot = rootForPath(counterAppPath);
+      final counterAppRoot = testHarness.rootForPath(counterAppPath);
       testHarness.mcpClient.addRoot(counterAppRoot);
       await pumpEventQueue();
 
@@ -144,6 +144,37 @@ void main() {
       );
     });
 
+    test('can get hover information', () async {
+      final counterAppRoot = testHarness.rootForPath(counterAppPath);
+      testHarness.mcpClient.addRoot(counterAppRoot);
+      await pumpEventQueue();
+
+      final result = await testHarness.callToolWithRetry(
+        CallToolRequest(
+          name: DartAnalyzerSupport.hoverTool.name,
+          arguments: {
+            ParameterNames.uri: p.join(counterAppRoot.uri, 'lib', 'main.dart'),
+            ParameterNames.line: 15,
+            ParameterNames.column: 15,
+          },
+        ),
+      );
+      expect(result.isError, isNot(true));
+
+      expect(
+        result.content.single,
+        isA<TextContent>().having(
+          (t) => t.text,
+          'text',
+          allOf(
+            /// The signature of the material app constructor.
+            contains('MaterialApp({'),
+            contains('Key? key,'),
+          ),
+        ),
+      );
+    });
+
     test('cannot analyze without roots set', () async {
       final result = await testHarness.callToolWithRetry(
         CallToolRequest(name: DartAnalyzerSupport.analyzeFilesTool.name),
@@ -164,6 +195,28 @@ void main() {
         CallToolRequest(
           name: DartAnalyzerSupport.resolveWorkspaceSymbolTool.name,
           arguments: {ParameterNames.query: 'DartAnalyzerSupport'},
+        ),
+        expectError: true,
+      );
+      expect(
+        result.content.single,
+        isA<TextContent>().having(
+          (t) => t.text,
+          'text',
+          contains('No roots set'),
+        ),
+      );
+    });
+
+    test('cannot get hover information without roots set', () async {
+      final result = await testHarness.callToolWithRetry(
+        CallToolRequest(
+          name: DartAnalyzerSupport.hoverTool.name,
+          arguments: {
+            ParameterNames.uri: 'file:///any/file.dart',
+            ParameterNames.line: 0,
+            ParameterNames.column: 0,
+          },
         ),
         expectError: true,
       );

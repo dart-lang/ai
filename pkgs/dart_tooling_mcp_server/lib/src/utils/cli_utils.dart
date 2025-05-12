@@ -2,17 +2,55 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'dart:io';
+import 'dart:async';
 
 import 'package:dart_mcp/server.dart';
+import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
 import 'package:process/process.dart';
+import 'package:pubspec_parse/pubspec_parse.dart';
 
 import 'constants.dart';
 
-/// Runs [command] in each of the project roots specified in the [request].
+/// The supported kinds of projects.
+enum ProjectKind {
+  /// A Flutter project
+  flutter,
+
+  /// A Dart project
+  dart,
+
+  /// An unknown project, this usually means there was no pubspec.yaml.
+  unknown,
+}
+
+/// Infers the [ProjectKind] of a given [Root].
 ///
-/// The [command] should be a list of strings that can be passed directly to
+/// Currently, this is done by checking for the existence of a `pubspec.yaml`
+/// file and whether it contains a Flutter SDK dependency.
+Future<ProjectKind> inferProjectKind(Root root, FileSystem fileSystem) async {
+  final pubspecFile = fileSystem
+      .directory(Uri.parse(root.uri))
+      .childFile('pubspec.yaml');
+  if (!await pubspecFile.exists()) {
+    return ProjectKind.unknown;
+  }
+  final pubspec = Pubspec.parse(await pubspecFile.readAsString());
+
+  if (pubspec.flutter != null ||
+      pubspec.environment.containsKey('flutter') ||
+      pubspec.dependencies.values
+          .followedBy(pubspec.devDependencies.values)
+          .any((dep) => dep is SdkDependency && dep.sdk == 'flutter')) {
+    return ProjectKind.flutter;
+  }
+  return ProjectKind.dart;
+}
+
+/// Runs [commandForRoot] in each of the project roots specified in the
+/// [request], with [arguments].
+///
+/// These [commandForRoot] plus [arguments] are passed directly to
 /// [ProcessManager.run].
 ///
 /// The [commandDescription] is used in the output to describe the command
@@ -33,8 +71,11 @@ import 'constants.dart';
 /// root's 'paths'.
 Future<CallToolResult> runCommandInRoots(
   CallToolRequest request, {
-  required List<String> command,
+  FutureOr<String> Function(Root, FileSystem) commandForRoot =
+      defaultCommandForRoot,
+  List<String> arguments = const [],
   required String commandDescription,
+  required FileSystem fileSystem,
   required ProcessManager processManager,
   required List<Root> knownRoots,
   List<String> defaultPaths = const <String>[],
@@ -63,7 +104,8 @@ Future<CallToolResult> runCommandInRoots(
       );
     }
 
-    if (!_isAllowedRoot(rootUriString, knownRoots)) {
+    final root = _findRoot(rootUriString, knownRoots);
+    if (root == null) {
       return CallToolResult(
         content: [
           TextContent(
@@ -89,9 +131,12 @@ Future<CallToolResult> runCommandInRoots(
         isError: true,
       );
     }
-    final projectRoot = Directory(rootUri.toFilePath());
+    final projectRoot = fileSystem.directory(rootUri);
 
-    final commandWithPaths = List.of(command);
+    final commandWithPaths = <String>[
+      await commandForRoot(root, fileSystem),
+      ...arguments,
+    ];
     final paths =
         (rootConfig[ParameterNames.paths] as List?)?.cast<String>() ??
         defaultPaths;
@@ -145,15 +190,34 @@ Future<CallToolResult> runCommandInRoots(
   return CallToolResult(content: outputs);
 }
 
+/// Returns 'dart' or 'flutter' based on the pubspec contents.
+///
+/// Throws an [ArgumentError] if there is no pubspec.
+Future<String> defaultCommandForRoot(Root root, FileSystem fileSystem) async =>
+    switch (await inferProjectKind(root, fileSystem)) {
+      ProjectKind.dart => 'dart',
+      ProjectKind.flutter => 'flutter',
+      ProjectKind.unknown =>
+        throw ArgumentError.value(
+          root.uri,
+          'root.uri',
+          'Unknown project kind at root ${root.uri}. All projects must have a '
+              'pubspec.',
+        ),
+    };
+
 /// Returns whether or not [rootUri] is an allowed root, either exactly matching
 /// or under on of the [knownRoots].
-bool _isAllowedRoot(String rootUri, List<Root> knownRoots) =>
-    knownRoots.any((knownRoot) {
-      final knownRootUri = Uri.parse(knownRoot.uri);
-      final resolvedRoot = knownRootUri.resolve(rootUri).toString();
-      return knownRoot.uri == resolvedRoot ||
-          p.isWithin(knownRoot.uri, resolvedRoot);
-    });
+Root? _findRoot(String rootUri, List<Root> knownRoots) {
+  for (final root in knownRoots) {
+    final knownRootUri = Uri.parse(root.uri);
+    final resolvedRoot = knownRootUri.resolve(rootUri).toString();
+    if (root.uri == resolvedRoot || p.isWithin(root.uri, resolvedRoot)) {
+      return root;
+    }
+  }
+  return null;
+}
 
 /// The schema for the `roots` parameter for any tool that accepts it.
 ListSchema rootsSchema({bool supportsPaths = false}) => Schema.list(

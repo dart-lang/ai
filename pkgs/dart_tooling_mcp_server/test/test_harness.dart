@@ -12,6 +12,8 @@ import 'package:dart_tooling_mcp_server/src/mixins/dtd.dart';
 import 'package:dart_tooling_mcp_server/src/server.dart';
 import 'package:dart_tooling_mcp_server/src/utils/constants.dart';
 import 'package:dtd/dtd.dart';
+import 'package:file/file.dart';
+import 'package:file/local.dart';
 import 'package:path/path.dart' as p;
 import 'package:process/process.dart';
 import 'package:stream_channel/stream_channel.dart';
@@ -32,6 +34,8 @@ class TestHarness {
   final FakeEditorExtension fakeEditorExtension;
   final DartToolingMCPClient mcpClient;
   final ServerConnectionPair serverConnectionPair;
+  final FileSystem fileSystem;
+
   ServerConnection get mcpServerConnection =>
       serverConnectionPair.serverConnection;
 
@@ -39,6 +43,7 @@ class TestHarness {
     this.mcpClient,
     this.serverConnectionPair,
     this.fakeEditorExtension,
+    this.fileSystem,
   );
 
   /// Starts a Dart Tooling Daemon as well as an MCP client and server, and
@@ -56,13 +61,19 @@ class TestHarness {
   /// MCP server is ran in process.
   ///
   /// Use [startDebugSession] to start up apps and connect to them.
-  static Future<TestHarness> start({bool inProcess = false}) async {
+  static Future<TestHarness> start({
+    bool inProcess = false,
+    FileSystem? fileSystem,
+  }) async {
+    fileSystem ??= const LocalFileSystem();
+
     final mcpClient = DartToolingMCPClient();
     addTearDown(mcpClient.shutdown);
 
     final serverConnectionPair = await _initializeMCPServer(
       mcpClient,
       inProcess,
+      fileSystem,
     );
     final connection = serverConnectionPair.serverConnection;
     connection.onLog.listen((log) {
@@ -72,7 +83,12 @@ class TestHarness {
     final fakeEditorExtension = await FakeEditorExtension.connect();
     addTearDown(fakeEditorExtension.shutdown);
 
-    return TestHarness._(mcpClient, serverConnectionPair, fakeEditorExtension);
+    return TestHarness._(
+      mcpClient,
+      serverConnectionPair,
+      fakeEditorExtension,
+      fileSystem,
+    );
   }
 
   /// Starts an app debug session.
@@ -96,6 +112,10 @@ class TestHarness {
     }
     return session;
   }
+
+  /// Creates a canonical [Root] object for a given [projectPath].
+  Root rootForPath(String projectPath) =>
+      Root(uri: fileSystem.directory(projectPath).absolute.uri.toString());
 
   /// Stops an app debug session.
   Future<void> stopDebugSession(AppDebugSession session) async {
@@ -298,9 +318,7 @@ class FakeEditorExtension {
   Future<void> removeDebugSession(AppDebugSession session) async {
     if (_debugSessions.remove(session)) {
       await dtd.postEvent('Editor', 'debugSessionStopped', {
-        'debugSession': session.asEditorDebugSession(
-          includeVmServiceUri: false,
-        ),
+        'debugSessionId': session.id,
       });
     }
   }
@@ -369,6 +387,7 @@ typedef ServerConnectionPair =
 Future<ServerConnectionPair> _initializeMCPServer(
   MCPClient client,
   bool inProcess,
+  FileSystem fileSystem,
 ) async {
   ServerConnection connection;
   DartToolingMCPServer? server;
@@ -392,6 +411,7 @@ Future<ServerConnectionPair> _initializeMCPServer(
     server = DartToolingMCPServer(
       serverChannel,
       processManager: TestProcessManager(),
+      fileSystem: fileSystem,
     );
     addTearDown(server.shutdown);
     connection = client.connectServer(clientChannel);
@@ -410,10 +430,6 @@ Future<ServerConnectionPair> _initializeMCPServer(
   connection.notifyInitialized(InitializedNotification());
   return (serverConnection: connection, server: server);
 }
-
-/// Creates a canonical [Root] object for a given [projectPath].
-Root rootForPath(String projectPath) =>
-    Root(uri: Directory(projectPath).absolute.uri.toString());
 
 final counterAppPath = p.join('test_fixtures', 'counter_app');
 

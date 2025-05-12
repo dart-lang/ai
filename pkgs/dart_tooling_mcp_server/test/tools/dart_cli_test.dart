@@ -3,7 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'package:dart_mcp/server.dart';
-import 'package:dart_tooling_mcp_server/src/mixins/dart_cli.dart';
+import 'package:dart_tooling_mcp_server/src/mixins/dash_cli.dart';
 import 'package:dart_tooling_mcp_server/src/utils/constants.dart';
 import 'package:test/test.dart';
 
@@ -12,11 +12,8 @@ import '../test_harness.dart';
 void main() {
   late TestHarness testHarness;
   late TestProcessManager testProcessManager;
-
-  // This root is arbitrary for these tests since we are not actually running
-  // the CLI commands, but rather sending them through the
-  // [TestProcessManager] wrapper.
-  final testRoot = rootForPath(counterAppPath);
+  late Root counterAppRoot;
+  late Root dartCliAppRoot;
 
   // TODO: Use setUpAll, currently this fails due to an apparent TestProcess
   // issue.
@@ -25,8 +22,10 @@ void main() {
     testProcessManager =
         testHarness.serverConnectionPair.server!.processManager
             as TestProcessManager;
+    counterAppRoot = testHarness.rootForPath(counterAppPath);
+    dartCliAppRoot = testHarness.rootForPath(dartCliAppsPath);
 
-    testHarness.mcpClient.addRoot(testRoot);
+    testHarness.mcpClient.addRoot(counterAppRoot);
     await pumpEventQueue();
   });
 
@@ -37,10 +36,10 @@ void main() {
     setUp(() async {
       final tools = (await testHarness.mcpServerConnection.listTools()).tools;
       dartFixTool = tools.singleWhere(
-        (t) => t.name == DartCliSupport.dartFixTool.name,
+        (t) => t.name == DashCliSupport.dartFixTool.name,
       );
       dartFormatTool = tools.singleWhere(
-        (t) => t.name == DartCliSupport.dartFormatTool.name,
+        (t) => t.name == DashCliSupport.dartFormatTool.name,
       );
     });
 
@@ -49,7 +48,7 @@ void main() {
         name: dartFixTool.name,
         arguments: {
           ParameterNames.roots: [
-            {ParameterNames.root: testRoot.uri},
+            {ParameterNames.root: counterAppRoot.uri},
           ],
         },
       );
@@ -67,7 +66,7 @@ void main() {
         name: dartFormatTool.name,
         arguments: {
           ParameterNames.roots: [
-            {ParameterNames.root: testRoot.uri},
+            {ParameterNames.root: counterAppRoot.uri},
           ],
         },
       );
@@ -86,7 +85,7 @@ void main() {
         arguments: {
           ParameterNames.roots: [
             {
-              ParameterNames.root: testRoot.uri,
+              ParameterNames.root: counterAppRoot.uri,
               ParameterNames.paths: ['foo.dart', 'bar.dart'],
             },
           ],
@@ -98,6 +97,34 @@ void main() {
       expect(result.isError, isNot(true));
       expect(testProcessManager.commandsRan, [
         ['dart', 'format', 'foo.dart', 'bar.dart'],
+      ]);
+    });
+
+    test('flutter and dart package tests with paths', () async {
+      testHarness.mcpClient.addRoot(dartCliAppRoot);
+      await pumpEventQueue();
+      final request = CallToolRequest(
+        name: DashCliSupport.runTestsTool.name,
+        arguments: {
+          ParameterNames.roots: [
+            {
+              ParameterNames.root: counterAppRoot.uri,
+              ParameterNames.paths: ['foo_test.dart', 'bar_test.dart'],
+            },
+            {
+              ParameterNames.root: dartCliAppRoot.uri,
+              ParameterNames.paths: ['zip_test.dart'],
+            },
+          ],
+        },
+      );
+      final result = await testHarness.callToolWithRetry(request);
+
+      // Verify the command was sent to the process manager without error.
+      expect(result.isError, isNot(true));
+      expect(testProcessManager.commandsRan, [
+        ['flutter', 'test', 'foo_test.dart', 'bar_test.dart'],
+        ['dart', 'test', 'zip_test.dart'],
       ]);
     });
   });

@@ -8,6 +8,7 @@ import 'package:dart_mcp/server.dart';
 
 import '../utils/cli_utils.dart';
 import '../utils/constants.dart';
+import '../utils/file_system.dart';
 import '../utils/process_manager.dart';
 
 /// Mix this in to any MCPServer to add support for running Pub commands like
@@ -18,7 +19,7 @@ import '../utils/process_manager.dart';
 /// The MCPServer must already have the [ToolsSupport] and [LoggingSupport]
 /// mixins applied.
 base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
-    implements ProcessManagerSupport {
+    implements ProcessManagerSupport, FileSystemSupport {
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
     try {
@@ -73,23 +74,24 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
       request,
       // TODO(https://github.com/dart-lang/ai/issues/81): conditionally use
       //  flutter when appropriate.
-      command: ['dart', 'pub', command, if (packageName != null) packageName],
-      commandDescription: 'dart pub $command',
+      arguments: ['pub', command, if (packageName != null) packageName],
+      commandDescription: 'dart|flutter pub $command',
       processManager: processManager,
       knownRoots: await roots,
+      fileSystem: fileSystem,
     );
   }
 
   static final pubTool = Tool(
     name: 'pub',
     description:
-        'Runs a dart pub command for the given project roots, like `dart pub '
-        'get` or `dart pub add`.',
+        'Runs a pub command for the given project roots, like `dart pub '
+        'get` or `flutter pub add`.',
     annotations: ToolAnnotations(title: 'pub', readOnlyHint: false),
     inputSchema: Schema.object(
       properties: {
         ParameterNames.command: Schema.string(
-          title: 'The dart pub command to run.',
+          title: 'The pub command to run.',
           description:
               'Currently only ${SupportedPubCommand.listAll} are supported.',
         ),
@@ -151,7 +153,7 @@ enum SupportedPubCommand {
       if (i < commands.length - 2) {
         buffer.write(', ');
       } else if (i == commands.length - 2) {
-        buffer.write(' and ');
+        buffer.write(', and ');
       }
     }
     return buffer.toString();
