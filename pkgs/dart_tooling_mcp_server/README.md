@@ -27,12 +27,30 @@ WIP. This package is still experimental and is likely to evolve quickly.
 
 ## Usage
 
-To use this package, you will need to compile the `bin/main.dart` script to exe
-and use the compiled path as the command in your MCP server config.
+This server only supports the STDIO transport mechanism and runs locally on
+your machine. Many of the tools require that your MCP client has `roots`
+support, and usage of the tools is scoped to only these directories.
 
-```shell
+The server entrypoint lives at `bin/main.dart`, and is can be ran however you
+choose, but the easiest way is to run it as a globally activated package:
+
+```sh
+dart pub global activate -s path .
+```
+
+And the, assuming the pub cache bin dir  is set up on your PATH, the
+`dart_tooling_mcp_server` command will run it, and recompile as necessary.
+
+**Note:**: For some clients, depending on how they launch the MCP server and how
+tolerant they are, you may need to compile it to exe to avoid extra output on
+stdout:
+
+```sh
 dart compile exe bin/main.dart
 ```
+
+And then provide the path to the executable instead of using the globally
+activated `dart_tooling_mcp_server` command.
 
 ### With the example WorkflowBot
 
@@ -45,15 +63,16 @@ the app you wish to test the server against.
 
 
 ```dart
-dart ../dart_mcp/example/workflow_client.dart --server bin/main.exe
+dart ../dart_mcp/example/workflow_client.dart --server dart_tooling_mcp_server
 ```
 
 ### With Cursor
 
 Go to Cursor -> Settings -> Cursor Settings and select "MCP".
 
-Then, click "Add new global MCP server". Put in the full path to the executable
-you created in the first step as the "command".
+Then, click "Add new global MCP server". Assuming you have already globally
+activated the package and it is on  your path, you can add
+`dart_tooling_mcp_server` as the command.
 
 If you are directly editing your mcp.json file, it should look like this:
 
@@ -61,16 +80,16 @@ If you are directly editing your mcp.json file, it should look like this:
 {
   "mcpServers": {
     "dart_mcp": {
-      "command": "<path-to-compiled-exe>",
+      "command": "dart_tooling_mcp_server",
       "args": []
     }
   }
 }
 ```
 
-Each time you make changes to the server, you'll need to re-run
-`dart compile exe bin/main.dart` and reload the Cursor window
-(Developer: Reload Window from the Command Pallete) to see the changes.
+Each time you make changes to the server, you'll need to restart the server on
+the MCP configuration page or reload the Cursor window (Developer: Reload Window
+from the Command Palette) to see the changes.
 
 ## Development
 
@@ -81,8 +100,7 @@ For local development, use the [MCP Inspector](https://modelcontextprotocol.io/d
     npx @modelcontextprotocol/inspector
     ```
 
-2. Open the MCP Inspector in the browser and enter the path to the server
-executable in the "Command" field
-(e.g. `/Users/me/path/to/ai/pkgs/dart_tooling_mcp_server/bin/main.exe`).
+2. Open the MCP Inspector in the browser and enter `dart_tooling_mcp_server` in
+the "Command" field.
 
 3. Click "Connect" to connect to the server and debug using the MCP Inspector.

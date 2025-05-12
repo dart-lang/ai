@@ -18,7 +18,6 @@ import 'package:path/path.dart' as p;
 import 'package:process/process.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'package:test/test.dart';
-import 'package:test_descriptor/test_descriptor.dart' as d;
 import 'package:test_process/test_process.dart';
 
 /// A full environment for integration testing the MCP server.
@@ -363,20 +362,6 @@ Future<String> _getDTDUri(TestProcess dtdProcess) async {
   return dtdUri;
 }
 
-/// Compiles the dart tooling mcp server to AOT and returns the location.
-Future<String> _compileMCPServer() async {
-  final filePath = d.path('main.exe');
-  final result = await TestProcess.start(Platform.executable, [
-    'compile',
-    'exe',
-    'bin/main.dart',
-    '-o',
-    filePath,
-  ]);
-  await result.shouldExit(0);
-  return filePath;
-}
-
 typedef ServerConnectionPair =
     ({ServerConnection serverConnection, DartToolingMCPServer? server});
 
@@ -416,7 +401,11 @@ Future<ServerConnectionPair> _initializeMCPServer(
     addTearDown(server.shutdown);
     connection = client.connectServer(clientChannel);
   } else {
-    connection = await client.connectStdioServer(await _compileMCPServer(), []);
+    connection = await client.connectStdioServer('dart', [
+      'run',
+      '-r',
+      'bin/main.dart',
+    ]);
   }
 
   final initializeResult = await connection.initialize(
