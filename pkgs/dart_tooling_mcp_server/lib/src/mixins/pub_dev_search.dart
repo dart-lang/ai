@@ -214,6 +214,8 @@ expressions:
     with the following recognized formats: `3d` (3 days), `2w` (two weeks), `6m` (6 months), `2y` 2 years.
 
   - `has:executable`: Search for packages with Dart files in their `bin/` directory.
+
+To search for alternatives do multiple searches. There is no "or" operator.
   ''',
         ),
       },
