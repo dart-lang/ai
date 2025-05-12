@@ -48,9 +48,15 @@ level process:
 3) Check for runtime errors and fix them
 4) Ensure that all code is formatted properly
 5) Hot reload the changes to the running app
+6) If you made a visual change, take a screenshot and analyze it to validate the
+   change was correct.
 
 If, while executing your plan, you end up skipping steps because they are no
 longer applicable, explain why you are skipping them.
+
+If the user asks you to do something with the selected widget, then always take
+a screenshot after altering the selected widget and validate that you changed
+the correct thing, you should see a selection box around the selected widget.
 
 When you are writing dart code, do not escape `\$` signs with a backslash, these
 are string interpolations and that will break them.
