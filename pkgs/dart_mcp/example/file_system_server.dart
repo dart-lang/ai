@@ -48,34 +48,56 @@ final class SimpleFileSystemServer extends MCPServer
     return super.initialize(request);
   }
 
-  /// Checks if [path] is under any of the known [roots], and if not returns
-  /// an error result.
+  /// Checks if [path] is under any of the known [roots].
   ///
-  /// Returns `null` if [path] is valid.
-  Future<CallToolResult?> _checkAllowedPath(String path) async {
-    for (var root in await roots) {
-      final resolvedPath = Uri.parse(root.uri).resolve(path).toString();
-      if (root.uri == resolvedPath || p.isWithin(root.uri, resolvedPath)) {
-        return null;
+  /// If the path is valid, then the returned record will have a `resolvedUri`
+  /// filled in, which should be used to read the file.
+  ///
+  /// Otherwise, the `error` will contain an appropriate error response.
+  Future<({CallToolResult? error, String? resolvedUri})> _checkAllowedPath(
+    String path,
+  ) async {
+    final roots = await this.roots;
+    if (p.isRelative(path) && roots.length > 1) {
+      return (
+        error: CallToolResult(
+          content: [
+            TextContent(
+              text: 'Path must be absolute when multiple roots are configured.',
+            ),
+          ],
+          isError: true,
+        ),
+        resolvedUri: null,
+      );
+    }
+    for (var root in roots) {
+      final resolvedUri = Uri.parse(root.uri).resolve(path).toString();
+      if (root.uri == resolvedUri || p.isWithin(root.uri, resolvedUri)) {
+        return (error: null, resolvedUri: resolvedUri);
       }
     }
-    return CallToolResult(
-      content: [
-        TextContent(
-          text: 'Path not allowed $path, must be under a known root.',
-        ),
-      ],
-      isError: true,
+    return (
+      error: CallToolResult(
+        content: [
+          TextContent(
+            text: 'Path not allowed $path, must be under a known root.',
+          ),
+        ],
+        isError: true,
+      ),
+      resolvedUri: null,
     );
   }
 
   Future<CallToolResult> _writeFile(CallToolRequest request) async {
-    final path = request.arguments!['path'] as String;
-    final errorResult = await _checkAllowedPath(path);
-    if (errorResult != null) return errorResult;
+    final (error: error, resolvedUri: resolvedUri) = await _checkAllowedPath(
+      request.arguments!['path'] as String,
+    );
+    if (error != null) return error;
 
     final contents = request.arguments!['contents'] as String;
-    final file = io.File.fromUri(Uri.parse(path));
+    final file = io.File.fromUri(Uri.parse(resolvedUri!));
     if (!await file.exists()) {
       await file.create(recursive: true);
     }
@@ -84,11 +106,12 @@ final class SimpleFileSystemServer extends MCPServer
   }
 
   Future<CallToolResult> _readFile(CallToolRequest request) async {
-    final path = request.arguments!['path'] as String;
-    final errorResult = await _checkAllowedPath(path);
-    if (errorResult != null) return errorResult;
+    final (error: error, resolvedUri: resolvedUri) = await _checkAllowedPath(
+      request.arguments!['path'] as String,
+    );
+    if (error != null) return error;
 
-    final file = io.File.fromUri(Uri.parse(path));
+    final file = io.File.fromUri(Uri.parse(resolvedUri!));
     if (!await file.exists()) {
       return CallToolResult(
         content: [TextContent(text: 'File does not exist')],
@@ -101,11 +124,12 @@ final class SimpleFileSystemServer extends MCPServer
   }
 
   Future<CallToolResult> _deleteFile(CallToolRequest request) async {
-    final path = request.arguments!['path'] as String;
-    final errorResult = await _checkAllowedPath(path);
-    if (errorResult != null) return errorResult;
+    final (error: error, resolvedUri: resolvedUri) = await _checkAllowedPath(
+      request.arguments!['path'] as String,
+    );
+    if (error != null) return error;
 
-    final file = io.File.fromUri(Uri.parse(path));
+    final file = io.File.fromUri(Uri.parse(resolvedUri!));
     if (!await file.exists()) {
       return CallToolResult(
         content: [TextContent(text: 'File does not exist')],
@@ -117,11 +141,12 @@ final class SimpleFileSystemServer extends MCPServer
   }
 
   Future<CallToolResult> _listFiles(CallToolRequest request) async {
-    final path = request.arguments!['path'] as String;
-    final errorResult = await _checkAllowedPath(path);
-    if (errorResult != null) return errorResult;
+    final (error: error, resolvedUri: resolvedUri) = await _checkAllowedPath(
+      request.arguments!['path'] as String,
+    );
+    if (error != null) return error;
 
-    final directory = io.Directory.fromUri(Uri.parse(path));
+    final directory = io.Directory.fromUri(Uri.parse(resolvedUri!));
     if (!await directory.exists()) {
       return CallToolResult(
         content: [TextContent(text: 'Directory does not exist')],

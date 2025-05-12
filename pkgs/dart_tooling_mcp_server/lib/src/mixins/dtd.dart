@@ -101,7 +101,10 @@ base mixin DartToolingDaemonSupport
               vmServiceUri,
             ));
         // Start listening for and collecting errors immediately.
-        final errorService = await _AppErrorsListener.forVmService(vmService);
+        final errorService = await _AppErrorsListener.forVmService(
+          vmService,
+          this,
+        );
         final resource = Resource(
           uri: '$runtimeErrorsScheme://${debugSession.id}',
           name: debugSession.name,
@@ -287,7 +290,10 @@ base mixin DartToolingDaemonSupport
     return _callOnVmService(
       callback: (vmService) async {
         if (request.arguments?['clearRuntimeErrors'] == true) {
-          (await _AppErrorsListener.forVmService(vmService)).errors.clear();
+          (await _AppErrorsListener.forVmService(
+            vmService,
+            this,
+          )).errors.clear();
         }
 
         StreamSubscription<Event>? serviceStreamSubscription;
@@ -365,7 +371,10 @@ base mixin DartToolingDaemonSupport
     return _callOnVmService(
       callback: (vmService) async {
         try {
-          final errorService = await _AppErrorsListener.forVmService(vmService);
+          final errorService = await _AppErrorsListener.forVmService(
+            vmService,
+            this,
+          );
           final errors = errorService.errors;
 
           if (errors.isEmpty) {
@@ -794,7 +803,10 @@ class _AppErrorsListener {
 
   /// Returns the canonical [_AppErrorsListener] for the [vmService] instance,
   /// which may be an already existing instance.
-  static Future<_AppErrorsListener> forVmService(VmService vmService) async {
+  static Future<_AppErrorsListener> forVmService(
+    VmService vmService,
+    LoggingSupport logger,
+  ) async {
     return _errorListeners[vmService] ??= await () async {
       // Needs to be a broadcast stream because we use it to add errors to the
       // list but also expose it to clients so they can know when new errors
@@ -824,8 +836,14 @@ class _AppErrorsListener {
         errorsController.add(message);
       });
 
-      await vmService.streamListen(EventStreams.kExtension);
-      await vmService.streamListen(EventStreams.kStderr);
+      try {
+        await [
+          vmService.streamListen(EventStreams.kExtension),
+          vmService.streamListen(EventStreams.kStderr),
+        ].wait;
+      } on RPCError catch (e) {
+        logger.log(LoggingLevel.error, 'Error subscribing app errors: $e');
+      }
       return _AppErrorsListener._(
         errors,
         errorsController,
