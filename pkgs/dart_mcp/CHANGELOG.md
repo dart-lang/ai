@@ -13,6 +13,8 @@
   gracefully. Previously this would leave the `roots` future hanging
   indefinitely, but now it will log an error and set the roots to empty.
 - Added validation for Schema extension.
+- Fixed an issue where getting the type of a Schema with a null type would
+  throw.
 
 ## 0.2.0
 

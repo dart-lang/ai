@@ -12,7 +12,7 @@ void main() {
   void expectFailures(
     Schema schema,
     Object? data,
-    List<ValidationFailureType> expected, {
+    List<ValidationError> expected, {
     String? reason,
   }) {
     final result = schema.validate(data);
@@ -194,47 +194,43 @@ void main() {
     group('Type Mismatch', () {
       test('object schema with non-map data', () {
         expectFailures(Schema.object(), 'not a map', [
-          ValidationFailureType.typeMismatch,
+          ValidationError.typeMismatch,
         ]);
       });
       test('list schema with non-list data', () {
         expectFailures(Schema.list(), 'not a list', [
-          ValidationFailureType.typeMismatch,
+          ValidationError.typeMismatch,
         ]);
       });
       test('string schema with non-string data', () {
-        expectFailures(Schema.string(), 123, [
-          ValidationFailureType.typeMismatch,
-        ]);
+        expectFailures(Schema.string(), 123, [ValidationError.typeMismatch]);
       });
       test('number schema with non-num data', () {
         expectFailures(Schema.num(), 'not a number', [
-          ValidationFailureType.typeMismatch,
+          ValidationError.typeMismatch,
         ]);
       });
       test('integer schema with non-int data', () {
         expectFailures(Schema.int(), 'not an int', [
-          ValidationFailureType.typeMismatch,
+          ValidationError.typeMismatch,
         ]);
       });
       test('integer schema with non-integer num data', () {
-        expectFailures(Schema.int(), 10.5, [
-          ValidationFailureType.typeMismatch,
-        ]);
+        expectFailures(Schema.int(), 10.5, [ValidationError.typeMismatch]);
       });
       test('boolean schema with non-bool data', () {
         expectFailures(Schema.bool(), 'not a bool', [
-          ValidationFailureType.typeMismatch,
+          ValidationError.typeMismatch,
         ]);
       });
       test('null schema with non-null data', () {
         expectFailures(Schema.nil(), 'not null', [
-          ValidationFailureType.typeMismatch,
+          ValidationError.typeMismatch,
         ]);
       });
       test('integer schema with integer-like num data (e.g. 10.0)', () {
         expectFailures(IntegerSchema(minimum: 11), 10.0, [
-          ValidationFailureType.minimumNotMet,
+          ValidationError.minimumNotMet,
         ]);
       });
     });
@@ -245,8 +241,8 @@ void main() {
           allOf: [StringSchema(minLength: 3), StringSchema(maxLength: 5)],
         );
         expectFailures(schema, 'hi', [
-          ValidationFailureType.allOfNotMet,
-          ValidationFailureType.minLengthNotMet,
+          ValidationError.allOfNotMet,
+          ValidationError.minLengthNotMet,
         ]);
       });
 
@@ -258,9 +254,9 @@ void main() {
           ],
         );
         expectFailures(schema, 'Short123', [
-          ValidationFailureType.allOfNotMet,
-          ValidationFailureType.minLengthNotMet,
-          ValidationFailureType.patternMismatch,
+          ValidationError.allOfNotMet,
+          ValidationError.minLengthNotMet,
+          ValidationError.patternMismatch,
         ]);
       });
 
@@ -273,7 +269,7 @@ void main() {
         // If data is `true`, StringSchema(minLength: 5).validate(true) -> [typeMismatch]
         // NumberSchema(minimum: 100).validate(true) -> [typeMismatch]
         // So anyOf fails.
-        expectFailures(schema, true, [ValidationFailureType.anyOfNotMet]);
+        expectFailures(schema, true, [ValidationError.anyOfNotMet]);
       });
 
       test('anyOfNotMet - specific failures', () {
@@ -287,7 +283,7 @@ void main() {
         // StringSchema(minLength: 5).validate("Hi1") -> [minLengthNotMet]
         // StringSchema(pattern: '^[a-z]+$').validate("Hi1") -> [patternMismatch]
         // Since both fail, anyOf fails.
-        expectFailures(schema, 'Hi1', [ValidationFailureType.anyOfNotMet]);
+        expectFailures(schema, 'Hi1', [ValidationError.anyOfNotMet]);
       });
 
       test('oneOfNotMet - matches none', () {
@@ -302,23 +298,21 @@ void main() {
             ),
           ],
         );
-        expectFailures(s, true, [ValidationFailureType.oneOfNotMet]);
+        expectFailures(s, true, [ValidationError.oneOfNotMet]);
       });
 
       test('oneOfNotMet - matches multiple', () {
         final schema = Schema.combined(
           oneOf: [StringSchema(maxLength: 10), StringSchema(pattern: 'test')],
         );
-        expectFailures(schema, 'test', [ValidationFailureType.oneOfNotMet]);
+        expectFailures(schema, 'test', [ValidationError.oneOfNotMet]);
       });
 
       test('notConditionViolated - matches 0 sub-schemas in "not" list', () {
         // Current `not` logic: fails if validCount != 1.
         // Data `true` matches 0 schemas in `[StringSchema(), NumberSchema()]`. validCount = 0. 0 != 1 is true.
         final schema = Schema.combined(not: [StringSchema(), NumberSchema()]);
-        expectFailures(schema, true, [
-          ValidationFailureType.notConditionViolated,
-        ]);
+        expectFailures(schema, true, [ValidationError.notConditionViolated]);
       });
 
       test('notConditionViolated - matches >1 sub-schemas in "not" list', () {
@@ -326,9 +320,7 @@ void main() {
         final schema = Schema.combined(
           not: [StringSchema(maxLength: 10), StringSchema(pattern: 'test')],
         );
-        expectFailures(schema, 'test', [
-          ValidationFailureType.notConditionViolated,
-        ]);
+        expectFailures(schema, 'test', [ValidationError.notConditionViolated]);
       });
 
       test(
@@ -354,7 +346,7 @@ void main() {
         expectFailures(
           schema,
           {'foo': 1},
-          [ValidationFailureType.requiredPropertyMissing],
+          [ValidationError.requiredPropertyMissing],
         );
       });
 
@@ -366,7 +358,7 @@ void main() {
         expectFailures(
           schema,
           {'name': 'test', 'age': 30},
-          [ValidationFailureType.additionalPropertyNotAllowed],
+          [ValidationError.additionalPropertyNotAllowed],
         );
       });
 
@@ -378,17 +370,13 @@ void main() {
         expectFailures(
           schema,
           {'name': 'test', 'extra': 'abc'},
-          [ValidationFailureType.additionalPropertyNotAllowed],
+          [ValidationError.additionalPropertyNotAllowed],
         );
       });
 
       test('minPropertiesNotMet', () {
         final schema = ObjectSchema(minProperties: 2);
-        expectFailures(
-          schema,
-          {'a': 1},
-          [ValidationFailureType.minPropertiesNotMet],
-        );
+        expectFailures(schema, {'a': 1}, [ValidationError.minPropertiesNotMet]);
       });
 
       test('maxPropertiesExceeded', () {
@@ -396,7 +384,7 @@ void main() {
         expectFailures(
           schema,
           {'a': 1, 'b': 2},
-          [ValidationFailureType.maxPropertiesExceeded],
+          [ValidationError.maxPropertiesExceeded],
         );
       });
 
@@ -405,7 +393,7 @@ void main() {
         expectFailures(
           schema,
           {'ab': 1, 'abc': 2},
-          [ValidationFailureType.propertyNamesInvalid],
+          [ValidationError.propertyNamesInvalid],
         );
       });
 
@@ -418,7 +406,7 @@ void main() {
         expectFailures(
           schema,
           {'age': 10},
-          [ValidationFailureType.propertyValueInvalid],
+          [ValidationError.propertyValueInvalid],
         );
       });
 
@@ -429,7 +417,7 @@ void main() {
         expectFailures(
           schema,
           {'x-custom': 5},
-          [ValidationFailureType.patternPropertyValueInvalid],
+          [ValidationError.patternPropertyValueInvalid],
         );
       });
 
@@ -442,7 +430,7 @@ void main() {
         expectFailures(
           schema,
           {'name': 'test', 'age': 30},
-          [ValidationFailureType.unevaluatedPropertyNotAllowed],
+          [ValidationError.unevaluatedPropertyNotAllowed],
         );
       });
     });
@@ -450,16 +438,12 @@ void main() {
     group('List Specific', () {
       test('minItemsNotMet', () {
         final schema = ListSchema(minItems: 2);
-        expectFailures(schema, [1], [ValidationFailureType.minItemsNotMet]);
+        expectFailures(schema, [1], [ValidationError.minItemsNotMet]);
       });
 
       test('maxItemsExceeded', () {
         final schema = ListSchema(maxItems: 1);
-        expectFailures(
-          schema,
-          [1, 2],
-          [ValidationFailureType.maxItemsExceeded],
-        );
+        expectFailures(schema, [1, 2], [ValidationError.maxItemsExceeded]);
       });
 
       test('uniqueItemsViolated', () {
@@ -467,7 +451,7 @@ void main() {
         expectFailures(
           schema,
           [1, 2, 1],
-          [ValidationFailureType.uniqueItemsViolated],
+          [ValidationError.uniqueItemsViolated],
         );
       });
 
@@ -475,23 +459,15 @@ void main() {
         final schema = ListSchema(items: IntegerSchema(minimum: 10));
         // _validate for IntegerSchema(minimum:10) on 5 returns [minimumNotMet]
         // The list validation adds itemInvalid if the item's validation is not empty.
-        expectFailures(
-          schema,
-          [10, 5, 12],
-          [ValidationFailureType.itemInvalid],
-        );
+        expectFailures(schema, [10, 5, 12], [ValidationError.itemInvalid]);
       });
 
       test('prefixItemInvalid', () {
         final schema = ListSchema(
           prefixItems: [IntegerSchema(minimum: 10), StringSchema(minLength: 3)],
         );
-        expectFailures(schema, [5], [ValidationFailureType.prefixItemInvalid]);
-        expectFailures(
-          schema,
-          [10, 'hi'],
-          [ValidationFailureType.prefixItemInvalid],
-        );
+        expectFailures(schema, [5], [ValidationError.prefixItemInvalid]);
+        expectFailures(schema, [10, 'hi'], [ValidationError.prefixItemInvalid]);
       });
 
       test(
@@ -504,7 +480,7 @@ void main() {
           expectFailures(
             schema,
             [10, 'extra'],
-            [ValidationFailureType.unevaluatedItemNotAllowed],
+            [ValidationError.unevaluatedItemNotAllowed],
           );
         },
       );
@@ -514,7 +490,7 @@ void main() {
         expectFailures(
           schema,
           ['extra'],
-          [ValidationFailureType.unevaluatedItemNotAllowed],
+          [ValidationError.unevaluatedItemNotAllowed],
         );
       });
 
@@ -536,7 +512,7 @@ void main() {
         expectFailures(
           schemaWithItems,
           [10, 'a'],
-          [ValidationFailureType.itemInvalid],
+          [ValidationError.itemInvalid],
         );
 
         // If items is null, then unevaluatedItems:false applies to items after prefixItems
@@ -548,7 +524,7 @@ void main() {
         expectFailures(
           schemaNoItems,
           [10, 'extra string'],
-          [ValidationFailureType.unevaluatedItemNotAllowed],
+          [ValidationError.unevaluatedItemNotAllowed],
         );
       });
     });
@@ -556,66 +532,56 @@ void main() {
     group('String Specific', () {
       test('minLengthNotMet', () {
         final schema = StringSchema(minLength: 3);
-        expectFailures(schema, 'hi', [ValidationFailureType.minLengthNotMet]);
+        expectFailures(schema, 'hi', [ValidationError.minLengthNotMet]);
       });
 
       test('maxLengthExceeded', () {
         final schema = StringSchema(maxLength: 3);
-        expectFailures(schema, 'hello', [
-          ValidationFailureType.maxLengthExceeded,
-        ]);
+        expectFailures(schema, 'hello', [ValidationError.maxLengthExceeded]);
       });
 
       test('patternMismatch', () {
         final schema = StringSchema(pattern: r'^\d+$');
-        expectFailures(schema, 'abc', [ValidationFailureType.patternMismatch]);
+        expectFailures(schema, 'abc', [ValidationError.patternMismatch]);
       });
     });
 
     group('Number Specific', () {
       test('minimumNotMet', () {
         final schema = NumberSchema(minimum: 10);
-        expectFailures(schema, 5, [ValidationFailureType.minimumNotMet]);
+        expectFailures(schema, 5, [ValidationError.minimumNotMet]);
       });
 
       test('maximumExceeded', () {
         final schema = NumberSchema(maximum: 10);
-        expectFailures(schema, 15, [ValidationFailureType.maximumExceeded]);
+        expectFailures(schema, 15, [ValidationError.maximumExceeded]);
       });
 
       test('exclusiveMinimumNotMet - equal value', () {
         final schema = NumberSchema(exclusiveMinimum: 10);
-        expectFailures(schema, 10, [
-          ValidationFailureType.exclusiveMinimumNotMet,
-        ]);
+        expectFailures(schema, 10, [ValidationError.exclusiveMinimumNotMet]);
       });
       test('exclusiveMinimumNotMet - smaller value', () {
         final schema = NumberSchema(exclusiveMinimum: 10);
-        expectFailures(schema, 9, [
-          ValidationFailureType.exclusiveMinimumNotMet,
-        ]);
+        expectFailures(schema, 9, [ValidationError.exclusiveMinimumNotMet]);
       });
 
       test('exclusiveMaximumExceeded - equal value', () {
         final schema = NumberSchema(exclusiveMaximum: 10);
-        expectFailures(schema, 10, [
-          ValidationFailureType.exclusiveMaximumExceeded,
-        ]);
+        expectFailures(schema, 10, [ValidationError.exclusiveMaximumExceeded]);
       });
       test('exclusiveMaximumExceeded - larger value', () {
         final schema = NumberSchema(exclusiveMaximum: 10);
-        expectFailures(schema, 11, [
-          ValidationFailureType.exclusiveMaximumExceeded,
-        ]);
+        expectFailures(schema, 11, [ValidationError.exclusiveMaximumExceeded]);
       });
 
       test('multipleOfInvalid', () {
         final schema = NumberSchema(multipleOf: 3);
-        expectFailures(schema, 10, [ValidationFailureType.multipleOfInvalid]);
+        expectFailures(schema, 10, [ValidationError.multipleOfInvalid]);
       });
       test('multipleOfInvalid - floating point', () {
         final schema = NumberSchema(multipleOf: 0.1);
-        expectFailures(schema, 0.25, [ValidationFailureType.multipleOfInvalid]);
+        expectFailures(schema, 0.25, [ValidationError.multipleOfInvalid]);
       });
       test('multipleOfInvalid - valid floating point', () {
         final schema = NumberSchema(multipleOf: 0.1);
@@ -626,43 +592,35 @@ void main() {
     group('Integer Specific', () {
       test('minimumNotMet', () {
         final schema = IntegerSchema(minimum: 10);
-        expectFailures(schema, 5, [ValidationFailureType.minimumNotMet]);
+        expectFailures(schema, 5, [ValidationError.minimumNotMet]);
       });
 
       test('maximumExceeded', () {
         final schema = IntegerSchema(maximum: 10);
-        expectFailures(schema, 15, [ValidationFailureType.maximumExceeded]);
+        expectFailures(schema, 15, [ValidationError.maximumExceeded]);
       });
 
       test('exclusiveMinimumNotMet - equal value', () {
         final schema = IntegerSchema(exclusiveMinimum: 10);
-        expectFailures(schema, 10, [
-          ValidationFailureType.exclusiveMinimumNotMet,
-        ]);
+        expectFailures(schema, 10, [ValidationError.exclusiveMinimumNotMet]);
       });
       test('exclusiveMinimumNotMet - smaller value', () {
         final schema = IntegerSchema(exclusiveMinimum: 10);
-        expectFailures(schema, 9, [
-          ValidationFailureType.exclusiveMinimumNotMet,
-        ]);
+        expectFailures(schema, 9, [ValidationError.exclusiveMinimumNotMet]);
       });
 
       test('exclusiveMaximumExceeded - equal value', () {
         final schema = IntegerSchema(exclusiveMaximum: 10);
-        expectFailures(schema, 10, [
-          ValidationFailureType.exclusiveMaximumExceeded,
-        ]);
+        expectFailures(schema, 10, [ValidationError.exclusiveMaximumExceeded]);
       });
       test('exclusiveMaximumExceeded - larger value', () {
         final schema = IntegerSchema(exclusiveMaximum: 10);
-        expectFailures(schema, 11, [
-          ValidationFailureType.exclusiveMaximumExceeded,
-        ]);
+        expectFailures(schema, 11, [ValidationError.exclusiveMaximumExceeded]);
       });
 
       test('multipleOfInvalid', () {
         final schema = IntegerSchema(multipleOf: 3);
-        expectFailures(schema, 10, [ValidationFailureType.multipleOfInvalid]);
+        expectFailures(schema, 10, [ValidationError.multipleOfInvalid]);
       });
     });
 
@@ -682,17 +640,16 @@ void main() {
 
         // Fails minLength (from parent StringSchema) and pattern (from allOf)
         expectFailures(schema, 'A', [
-          ValidationFailureType
-              .minLengthNotMet, // From StringSchema validation part
-          ValidationFailureType.allOfNotMet, // allOf combinator failed
-          ValidationFailureType
+          ValidationError.minLengthNotMet, // From StringSchema validation part
+          ValidationError.allOfNotMet, // allOf combinator failed
+          ValidationError
               .patternMismatch, // Specific reason from allOf sub-schema
         ]);
 
         // Fails maxLength (from allOf)
         expectFailures(schema, 'abcdef', [
-          ValidationFailureType.allOfNotMet, // allOf combinator failed
-          ValidationFailureType
+          ValidationError.allOfNotMet, // allOf combinator failed
+          ValidationError
               .maxLengthExceeded, // Specific reason from allOf sub-schema
         ]);
       });
@@ -714,7 +671,7 @@ void main() {
           {
             'user': {'name': 'hi'},
           },
-          [ValidationFailureType.propertyValueInvalid],
+          [ValidationError.propertyValueInvalid],
         );
       });
 
@@ -731,7 +688,7 @@ void main() {
             {'id': 101},
             {'id': 10}, // This item is invalid
           ],
-          [ValidationFailureType.itemInvalid],
+          [ValidationError.itemInvalid],
         );
       });
 
@@ -746,13 +703,13 @@ void main() {
         expectFailures(
           schema,
           {'known': 'yes', 'extraNum': -5},
-          [ValidationFailureType.additionalPropertyNotAllowed],
+          [ValidationError.additionalPropertyNotAllowed],
         );
         // Invalid: additional property is wrong type for its schema
         expectFailures(
           schema,
           {'known': 'yes', 'extraStr': 'text'},
-          [ValidationFailureType.additionalPropertyNotAllowed],
+          [ValidationError.additionalPropertyNotAllowed],
         );
       });
 
@@ -767,7 +724,7 @@ void main() {
         expectFailures(
           schema,
           {'y-foo': 'bar'},
-          [ValidationFailureType.unevaluatedPropertyNotAllowed],
+          [ValidationError.unevaluatedPropertyNotAllowed],
         );
       });
 
@@ -814,7 +771,7 @@ void main() {
           expectFailures(
             schema,
             {'name': 'test', 'age': 30},
-            [ValidationFailureType.additionalPropertyNotAllowed],
+            [ValidationError.additionalPropertyNotAllowed],
           );
         },
       );
@@ -828,11 +785,7 @@ void main() {
         expectFailures(schema, [1, 2, 3], []);
         // Invalid: one item does not match IntegerSchema, results in itemInvalid
         // unevaluatedItems:false should not trigger because items schema applies.
-        expectFailures(
-          schema,
-          [1, 'b', 3],
-          [ValidationFailureType.itemInvalid],
-        );
+        expectFailures(schema, [1, 'b', 3], [ValidationError.itemInvalid]);
       });
 
       test(
@@ -846,16 +799,12 @@ void main() {
           // Valid
           expectFailures(schema, ['a', 1, 2], []);
           // Invalid: item after prefixItems fails IntegerSchema
-          expectFailures(
-            schema,
-            ['a', 1, 'c'],
-            [ValidationFailureType.itemInvalid],
-          );
+          expectFailures(schema, ['a', 1, 'c'], [ValidationError.itemInvalid]);
           // Invalid: prefixItem fails StringSchema
           expectFailures(
             schema,
             [10, 1, 2],
-            [ValidationFailureType.prefixItemInvalid],
+            [ValidationError.prefixItemInvalid],
           );
         },
       );
@@ -907,7 +856,7 @@ void main() {
           // So the allOf sub-schema (which has no type) passes. The allOf combinator itself passes.
           // Then StringSchema part: minLength:5 fails "Hi".
           // Result: [minLengthNotMet]
-          expectFailures(s, 'Hi', [ValidationFailureType.minLengthNotMet]);
+          expectFailures(s, 'Hi', [ValidationError.minLengthNotMet]);
 
           // "Hiall" passes minLength.
           // allOf part passes.
@@ -926,8 +875,8 @@ void main() {
           // So allOf fails.
           // Result: [allOfNotMet, patternMismatch]
           expectFailures(s2, 'LongEnoughButCAPS', [
-            ValidationFailureType.allOfNotMet,
-            ValidationFailureType.patternMismatch,
+            ValidationError.allOfNotMet,
+            ValidationError.patternMismatch,
           ]);
         },
       );

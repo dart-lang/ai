@@ -199,7 +199,7 @@ enum JsonType {
 
 /// Enum representing the types of validation failures when checking data
 /// against a schema.
-enum ValidationFailureType {
+enum ValidationErrorType {
   // General
   typeMismatch,
 
@@ -238,6 +238,34 @@ enum ValidationFailureType {
   exclusiveMinimumNotMet,
   exclusiveMaximumExceeded,
   multipleOfInvalid,
+}
+
+/// A validation error with detailed information about the location of the
+/// error.
+extension type ValidationError.fromMap(Map<String, Object?> _value) {
+  factory ValidationError(
+    ValidationErrorType error, {
+    List<String>? path,
+    Object? object,
+    String? details,
+  }) => ValidationError.fromMap({
+    'error': error,
+    if (path != null) 'path': path,
+    if (object != null) 'object': object,
+    if (details != null) 'details': details,
+  });
+
+  /// The type of validation error that occurred.
+  ValidationErrorType? get error => _value['error'] as ValidationErrorType?;
+
+  /// The path to the object that had the error.
+  List<String>? get path => _value['path'] as List<String>?;
+
+  /// The object that failed validation located at [path].
+  Object? get object => _value['object'];
+
+  /// Additional details about the error (optional).
+  String? get details => _value['details'] as String?;
 }
 
 /// A JSON Schema object defining the any kind of property.
@@ -334,22 +362,22 @@ extension type Schema.fromMap(Map<String, Object?> _value) {
 
   /// Validates the given [data] against this schema.
   ///
-  /// Returns a list of [ValidationFailureType] if validation fails,
+  /// Returns a list of [ValidationError] if validation fails,
   /// or an empty list if validation succeeds.
-  List<ValidationFailureType> validate(Object? data) {
+  List<ValidationError> validate(Object? data) {
     return _validateSchema(this, data);
   }
 }
 
 // These have to be external to the Schema extension because of clashes with
 // type-named members like bool, int, and num.
-List<ValidationFailureType> _validateSchema(Schema schema, Object? data) {
-  final failures = <ValidationFailureType>[];
+List<ValidationError> _validateSchema(Schema schema, Object? data) {
+  final failures = <ValidationError>[];
 
   // 1. Handle schema combinators
   if (schema.allOf != null) {
     var currentAllOfValid = true;
-    final allOfDetailedFailures = <ValidationFailureType>[];
+    final allOfDetailedFailures = <ValidationError>[];
     for (final subSchema in schema.allOf!) {
       final subFailures = _validateSchema(subSchema, data);
       if (subFailures.isNotEmpty) {
@@ -358,7 +386,7 @@ List<ValidationFailureType> _validateSchema(Schema schema, Object? data) {
       }
     }
     if (!currentAllOfValid) {
-      failures.add(ValidationFailureType.allOfNotMet);
+      failures.add(ValidationError(ValidationErrorType.allOfNotMet));
       failures.addAll(allOfDetailedFailures);
     }
   }
@@ -371,7 +399,7 @@ List<ValidationFailureType> _validateSchema(Schema schema, Object? data) {
       }
     }
     if (!oneValid) {
-      failures.add(ValidationFailureType.anyOfNotMet);
+      failures.add(ValidationError(ValidationErrorType.anyOfNotMet));
     }
   }
   if (schema.oneOf != null) {
@@ -382,7 +410,7 @@ List<ValidationFailureType> _validateSchema(Schema schema, Object? data) {
       }
     }
     if (validCount != 1) {
-      failures.add(ValidationFailureType.oneOfNotMet);
+      failures.add(ValidationError(ValidationErrorType.oneOfNotMet));
     }
   }
   if (schema.not != null) {
@@ -392,8 +420,8 @@ List<ValidationFailureType> _validateSchema(Schema schema, Object? data) {
         validCount++;
       }
     }
-    if (validCount != 1) {
-      failures.add(ValidationFailureType.notConditionViolated);
+    if (validCount == 1) {
+      failures.add(ValidationError(ValidationErrorType.notConditionViolated));
     }
   }
 
@@ -404,31 +432,27 @@ List<ValidationFailureType> _validateSchema(Schema schema, Object? data) {
       case JsonType.object:
         if (data is Map<String, Object?>) {
           failures.addAll(_validateObject(schema as ObjectSchema, data));
-        } else {
-          failures.add(ValidationFailureType.typeMismatch);
+        } else if (data != null) {
+          failures.add(ValidationError(ValidationErrorType.typeMismatch));
         }
-        break;
       case JsonType.list:
         if (data is List) {
           failures.addAll(_validateList(schema as ListSchema, data));
         } else {
-          failures.add(ValidationFailureType.typeMismatch);
+          failures.add(ValidationError(ValidationErrorType.typeMismatch));
         }
-        break;
       case JsonType.string:
         if (data is String) {
           failures.addAll(_validateString(schema as StringSchema, data));
         } else {
-          failures.add(ValidationFailureType.typeMismatch);
+          failures.add(ValidationError(ValidationErrorType.typeMismatch));
         }
-        break;
       case JsonType.num:
         if (data is num) {
           failures.addAll(_validateNumber(schema as NumberSchema, data));
         } else {
-          failures.add(ValidationFailureType.typeMismatch);
+          failures.add(ValidationError(ValidationErrorType.typeMismatch));
         }
-        break;
       case JsonType.int:
         if (data is int) {
           failures.addAll(_validateInteger(schema as IntegerSchema, data));
@@ -437,43 +461,42 @@ List<ValidationFailureType> _validateSchema(Schema schema, Object? data) {
             _validateInteger(schema as IntegerSchema, data.toInt()),
           );
         } else {
-          failures.add(ValidationFailureType.typeMismatch);
+          failures.add(ValidationError(ValidationErrorType.typeMismatch));
         }
-        break;
       case JsonType.bool:
         if (data is! bool) {
-          failures.add(ValidationFailureType.typeMismatch);
+          failures.add(ValidationError(ValidationErrorType.typeMismatch));
         }
-        break;
       case JsonType.nil:
         if (data != null) {
-          failures.add(ValidationFailureType.typeMismatch);
+          failures.add(ValidationError(ValidationErrorType.typeMismatch));
         }
-        break;
     }
   }
 
   return failures.toSet().toList(); // Remove duplicates
 }
 
-List<ValidationFailureType> _validateObject(
+List<ValidationError> _validateObject(
   ObjectSchema schema,
   Map<String, Object?> data,
 ) {
-  final failures = <ValidationFailureType>[];
+  final failures = <ValidationError>[];
 
   if (schema.minProperties != null &&
       data.keys.length < schema.minProperties!) {
-    failures.add(ValidationFailureType.minPropertiesNotMet);
+    failures.add(ValidationError(ValidationErrorType.minPropertiesNotMet));
   }
   if (schema.maxProperties != null &&
       data.keys.length > schema.maxProperties!) {
-    failures.add(ValidationFailureType.maxPropertiesExceeded);
+    failures.add(ValidationError(ValidationErrorType.maxPropertiesExceeded));
   }
 
   for (final reqProp in schema.required ?? const []) {
     if (!data.containsKey(reqProp)) {
-      failures.add(ValidationFailureType.requiredPropertyMissing);
+      failures.add(
+        ValidationError(ValidationErrorType.requiredPropertyMissing),
+      );
     }
   }
 
@@ -483,10 +506,12 @@ List<ValidationFailureType> _validateObject(
       if (data.containsKey(entry.key)) {
         evaluatedKeys.add(entry.key);
         failures.addAll(
-          _validateSchema(
-            entry.value,
-            data[entry.key],
-          ).map((_) => ValidationFailureType.propertyValueInvalid),
+          _validateSchema(entry.value, data[entry.key]).map(
+            (e) => ValidationError(
+              ValidationErrorType.propertyValueInvalid,
+              details: e.details,
+            ),
+          ),
         );
       }
     }
@@ -498,10 +523,12 @@ List<ValidationFailureType> _validateObject(
         if (pattern.hasMatch(dataKey)) {
           evaluatedKeys.add(dataKey);
           failures.addAll(
-            _validateSchema(
-              entry.value,
-              data[dataKey],
-            ).map((_) => ValidationFailureType.patternPropertyValueInvalid),
+            _validateSchema(entry.value, data[dataKey]).map(
+              (e) => ValidationError(
+                ValidationErrorType.patternPropertyValueInvalid,
+                details: e.details,
+              ),
+            ),
           );
         }
       }
@@ -509,8 +536,10 @@ List<ValidationFailureType> _validateObject(
   }
   if (schema.propertyNames != null) {
     for (final key in data.keys) {
-      if (_validateSchema(schema.propertyNames!, key).isNotEmpty) {
-        failures.add(ValidationFailureType.propertyNamesInvalid);
+      final keyFailures = _validateSchema(schema.propertyNames!, key);
+      if (keyFailures.isNotEmpty) {
+        failures.addAll(keyFailures);
+        failures.add(ValidationError(ValidationErrorType.propertyNamesInvalid));
       }
     }
   }
@@ -528,30 +557,33 @@ List<ValidationFailureType> _validateObject(
         allowed = false;
       }
       if (!allowed) {
-        failures.add(ValidationFailureType.additionalPropertyNotAllowed);
+        failures.add(
+          ValidationError(ValidationErrorType.additionalPropertyNotAllowed),
+        );
       }
     } else if (schema.unevaluatedProperties == false) {
       // Only applies if additionalProperties is not defined
-      failures.add(ValidationFailureType.unevaluatedPropertyNotAllowed);
+      failures.add(
+        ValidationError(ValidationErrorType.unevaluatedPropertyNotAllowed),
+      );
     }
   }
   return failures;
 }
 
-List<ValidationFailureType> _validateList(
-  ListSchema schema,
-  List<dynamic> data,
-) {
-  final failures = <ValidationFailureType>[];
+List<ValidationError> _validateList(ListSchema schema, List<dynamic> data) {
+  final failures = <ValidationError>[];
 
   if (schema.minItems != null && data.length < schema.minItems!) {
-    failures.add(ValidationFailureType.minItemsNotMet);
+    failures.add(ValidationError(ValidationErrorType.minItemsNotMet));
   }
+
   if (schema.maxItems != null && data.length > schema.maxItems!) {
-    failures.add(ValidationFailureType.maxItemsExceeded);
+    failures.add(ValidationError(ValidationErrorType.maxItemsExceeded));
   }
+
   if (schema.uniqueItems == true && data.toSet().length != data.length) {
-    failures.add(ValidationFailureType.uniqueItemsViolated);
+    failures.add(ValidationError(ValidationErrorType.uniqueItemsViolated));
   }
 
   final evaluatedItems = List<bool>.filled(data.length, false);
@@ -559,7 +591,7 @@ List<ValidationFailureType> _validateList(
     for (var i = 0; i < schema.prefixItems!.length && i < data.length; i++) {
       evaluatedItems[i] = true;
       if (_validateSchema(schema.prefixItems![i], data[i]).isNotEmpty) {
-        failures.add(ValidationFailureType.prefixItemInvalid);
+        failures.add(ValidationError(ValidationErrorType.prefixItemInvalid));
       }
     }
   }
@@ -568,74 +600,77 @@ List<ValidationFailureType> _validateList(
     for (var i = startIndex; i < data.length; i++) {
       evaluatedItems[i] = true;
       if (_validateSchema(schema.items!, data[i]).isNotEmpty) {
-        failures.add(ValidationFailureType.itemInvalid);
+        failures.add(ValidationError(ValidationErrorType.itemInvalid));
       }
     }
   }
   if (schema.unevaluatedItems == false) {
     for (var i = 0; i < data.length; i++) {
       if (!evaluatedItems[i]) {
-        failures.add(ValidationFailureType.unevaluatedItemNotAllowed);
-        break;
+        failures.add(
+          ValidationError(ValidationErrorType.unevaluatedItemNotAllowed),
+        );
+        // Only report the first unevaluated item to avoid excessive errors.
+        return failures;
       }
     }
   }
   return failures;
 }
 
-List<ValidationFailureType> _validateString(StringSchema schema, String data) {
-  final failures = <ValidationFailureType>[];
+List<ValidationError> _validateString(StringSchema schema, String data) {
+  final failures = <ValidationError>[];
   if (schema.minLength != null && data.length < schema.minLength!) {
-    failures.add(ValidationFailureType.minLengthNotMet);
+    failures.add(ValidationError(ValidationErrorType.minLengthNotMet));
   }
   if (schema.maxLength != null && data.length > schema.maxLength!) {
-    failures.add(ValidationFailureType.maxLengthExceeded);
+    failures.add(ValidationError(ValidationErrorType.maxLengthExceeded));
   }
   if (schema.pattern != null && !RegExp(schema.pattern!).hasMatch(data)) {
-    failures.add(ValidationFailureType.patternMismatch);
+    failures.add(ValidationError(ValidationErrorType.patternMismatch));
   }
   return failures;
 }
 
-List<ValidationFailureType> _validateNumber(NumberSchema schema, num data) {
-  final failures = <ValidationFailureType>[];
+List<ValidationError> _validateNumber(NumberSchema schema, num data) {
+  final failures = <ValidationError>[];
   if (schema.minimum != null && data < schema.minimum!) {
-    failures.add(ValidationFailureType.minimumNotMet);
+    failures.add(ValidationError(ValidationErrorType.minimumNotMet));
   }
   if (schema.maximum != null && data > schema.maximum!) {
-    failures.add(ValidationFailureType.maximumExceeded);
+    failures.add(ValidationError(ValidationErrorType.maximumExceeded));
   }
   if (schema.exclusiveMinimum != null && data <= schema.exclusiveMinimum!) {
-    failures.add(ValidationFailureType.exclusiveMinimumNotMet);
+    failures.add(ValidationError(ValidationErrorType.exclusiveMinimumNotMet));
   }
   if (schema.exclusiveMaximum != null && data >= schema.exclusiveMaximum!) {
-    failures.add(ValidationFailureType.exclusiveMaximumExceeded);
+    failures.add(ValidationError(ValidationErrorType.exclusiveMaximumExceeded));
   }
   if (schema.multipleOf != null && schema.multipleOf! != 0) {
     final remainder = data / schema.multipleOf!;
     if ((remainder - remainder.round()).abs() > 1e-9) {
-      failures.add(ValidationFailureType.multipleOfInvalid);
+      failures.add(ValidationError(ValidationErrorType.multipleOfInvalid));
     }
   }
   return failures;
 }
 
-List<ValidationFailureType> _validateInteger(IntegerSchema schema, int data) {
-  final failures = <ValidationFailureType>[];
+List<ValidationError> _validateInteger(IntegerSchema schema, int data) {
+  final failures = <ValidationError>[];
   if (schema.minimum != null && data < schema.minimum!) {
-    failures.add(ValidationFailureType.minimumNotMet);
+    failures.add(ValidationError(ValidationErrorType.minimumNotMet));
   }
   if (schema.maximum != null && data > schema.maximum!) {
-    failures.add(ValidationFailureType.maximumExceeded);
+    failures.add(ValidationError(ValidationErrorType.maximumExceeded));
   }
   if (schema.exclusiveMinimum != null && data <= schema.exclusiveMinimum!) {
-    failures.add(ValidationFailureType.exclusiveMinimumNotMet);
+    failures.add(ValidationError(ValidationErrorType.exclusiveMinimumNotMet));
   }
   if (schema.exclusiveMaximum != null && data >= schema.exclusiveMaximum!) {
-    failures.add(ValidationFailureType.exclusiveMaximumExceeded);
+    failures.add(ValidationError(ValidationErrorType.exclusiveMaximumExceeded));
   }
   if (schema.multipleOf != null && (data % schema.multipleOf! != 0)) {
-    failures.add(ValidationFailureType.multipleOfInvalid);
+    failures.add(ValidationError(ValidationErrorType.multipleOfInvalid));
   }
   return failures;
 }
