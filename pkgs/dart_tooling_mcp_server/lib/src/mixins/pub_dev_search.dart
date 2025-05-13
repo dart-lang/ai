@@ -36,7 +36,7 @@ base mixin PubDevSupport on ToolsSupport {
     if (query == null) {
       return CallToolResult(
         content: [
-          TextContent(text: 'Missing required argument `search-query`.'),
+          TextContent(text: 'Missing required argument `query`.'),
         ],
         isError: true,
       );
