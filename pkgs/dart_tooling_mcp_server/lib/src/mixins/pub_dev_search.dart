@@ -11,9 +11,6 @@ import 'package:pool/pool.dart';
 
 import '../utils/json.dart';
 
-// Override this to stub responses for testing.
-Client Function() createClient = Client.new;
-
 /// Limit the number of concurrent requests.
 final _pool = Pool(10);
 
@@ -24,6 +21,8 @@ final _resultsLimit = 10;
 
 /// Mix this in to any MCPServer to add support for doing searches on pub.dev.
 base mixin PubDevSupport on ToolsSupport {
+  final _client = Client();
+
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
     registerTool(pubDevTool, _runPubDevSearch);
@@ -35,17 +34,14 @@ base mixin PubDevSupport on ToolsSupport {
     final query = request.arguments?['query'] as String?;
     if (query == null) {
       return CallToolResult(
-        content: [
-          TextContent(text: 'Missing required argument `query`.'),
-        ],
+        content: [TextContent(text: 'Missing required argument `query`.')],
         isError: true,
       );
     }
-    final client = createClient();
     final searchUrl = Uri.https('pub.dev', 'api/search', {'q': query});
     final Object? result;
     try {
-      result = jsonDecode(await client.read(searchUrl));
+      result = jsonDecode(await _client.read(searchUrl));
 
       final packageNames =
           dig<List>(result, ['packages'])
@@ -67,11 +63,7 @@ base mixin PubDevSupport on ToolsSupport {
       Future<Object?> retrieve(String path) {
         return _pool.withResource(() async {
           try {
-            return jsonDecode(
-              await client.read(
-                Uri.https('pub.dev', path),
-              ),
-            );
+            return jsonDecode(await _client.read(Uri.https('pub.dev', path)));
           } on ClientException {
             return null;
           }
@@ -104,11 +96,11 @@ base mixin PubDevSupport on ToolsSupport {
         List<Object?> identifiers(Object index) {
           final items = dig<List>(index, []);
           return [
-            for (final item in items) 
-            {
-              'qualifiedName': dig<String>(item, ['qualifiedName']),
-            }
-            ];
+            for (final item in items)
+              {
+                'qualifiedName': dig<String>(item, ['qualifiedName']),
+              },
+          ];
         }
 
         results.add(
@@ -157,8 +149,6 @@ base mixin PubDevSupport on ToolsSupport {
         content: [TextContent(text: 'Failed searching pub.dev: $e')],
         isError: true,
       );
-    } finally {
-      client.close();
     }
   }
 

@@ -13,153 +13,165 @@ import 'package:test/test.dart';
 import '../test_harness.dart';
 
 void main() {
-  late TestHarness testHarness;
-
-  late Tool pubDevSearchTool;
-  late Root testRoot;
-
-  setUp(() async {
-    testHarness = await TestHarness.start(inProcess: true);
-    testRoot = testHarness.rootForPath(counterAppPath);
+  Future<void> runWithHarness(
+    Future<void> Function(TestHarness harness, Tool pubDevSearchTool) fn,
+  ) async {
+    final testHarness = await TestHarness.start(inProcess: true);
+    final testRoot = testHarness.rootForPath(counterAppPath);
     testHarness.mcpClient.addRoot(testRoot);
     await pumpEventQueue();
 
     final tools = (await testHarness.mcpServerConnection.listTools()).tools;
-    pubDevSearchTool = tools.singleWhere(
-      (t) => t.name == PubDevSupport.pubDevTool.name,
+    await fn(
+      testHarness,
+      tools.singleWhere((t) => t.name == PubDevSupport.pubDevTool.name),
     );
-  });
+  }
 
   test('searches pub dev, and gathers information about packages', () async {
-    createClient = _GoldenResponseClient.new;
+    await runWithClient(() async {
+      await runWithHarness((testHarness, pubDevSearchTool) async {
+        final request = CallToolRequest(
+          name: pubDevSearchTool.name,
+          arguments: {'query': 'retry', 'latestVersion': '3.1.2'},
+        );
 
-    final request = CallToolRequest(
-      name: pubDevSearchTool.name,
-      arguments: {'query': 'retry', 'latestVersion': '3.1.2'},
-    );
-
-    final result = await testHarness.callToolWithRetry(request, maxTries: 1);
-    expect(result.content.length, 10);
-    expect(
-      result.content
-          .map(
-            (c) => (json.decode((c as TextContent).text) as Map)['packageName'],
-          )
-          .toList(),
-      [
-        'retry',
-        'http_client_helper',
-        'dio_smart_retry',
-        'en_file_uploader',
-        'dio_retry_plus',
-        'futuristic',
-        'http_file_uploader',
-        'dio_file_uploader',
-        'network_checker',
-        'buxing',
-      ],
-    );
-    expect(json.decode((result.content[0] as TextContent).text), {
-      'packageName': 'retry',
-      'latestVersion': '3.1.2',
-      'description':
-          'Utility for wrapping an asynchronous function in automatic '
-          'retry logic with exponential back-off, useful when making '
-          'requests over network.',
-      'scores': {
-        'pubPoints': isA<int>(),
-        'maxPubPoints': isA<int>(),
-        'likes': isA<int>(),
-        'downloadCount': isA<int>(),
-      },
-      'topics': ['topic:network', 'topic:http'],
-      'licenses': [
-        'license:apache-2.0',
-        'license:fsf-libre',
-        'license:osi-approved',
-      ],
-      'api': containsAll([
-        {
-          'qualifiedName': 'retry',
-        },
-        {
-          'qualifiedName': 'retry.RetryOptions',
-        },
-      ]),
-    });
+        final result = await testHarness.callToolWithRetry(
+          request,
+          maxTries: 1,
+        );
+        expect(result.content.length, 10);
+        expect(
+          result.content
+              .map(
+                (c) =>
+                    (json.decode((c as TextContent).text)
+                        as Map)['packageName'],
+              )
+              .toList(),
+          [
+            'retry',
+            'http_client_helper',
+            'dio_smart_retry',
+            'en_file_uploader',
+            'dio_retry_plus',
+            'futuristic',
+            'http_file_uploader',
+            'dio_file_uploader',
+            'network_checker',
+            'buxing',
+          ],
+        );
+        expect(json.decode((result.content[0] as TextContent).text), {
+          'packageName': 'retry',
+          'latestVersion': '3.1.2',
+          'description':
+              'Utility for wrapping an asynchronous function in automatic '
+              'retry logic with exponential back-off, useful when making '
+              'requests over network.',
+          'scores': {
+            'pubPoints': isA<int>(),
+            'maxPubPoints': isA<int>(),
+            'likes': isA<int>(),
+            'downloadCount': isA<int>(),
+          },
+          'topics': ['topic:network', 'topic:http'],
+          'licenses': [
+            'license:apache-2.0',
+            'license:fsf-libre',
+            'license:osi-approved',
+          ],
+          'api': containsAll([
+            {'qualifiedName': 'retry'},
+            {'qualifiedName': 'retry.RetryOptions'},
+          ]),
+        });
+      });
+    }, _GoldenResponseClient.new);
   });
 
   test('Reports failure on missing response', () async {
-    createClient = () => _FixedResponseClient.withMappedResponses({});
+    await runWithClient(() async {
+      await runWithHarness((testHarness, pubDevSearchTool) async {
+        final request = CallToolRequest(
+          name: pubDevSearchTool.name,
+          arguments: {'query': 'retry'},
+        );
 
-    final request = CallToolRequest(
-      name: pubDevSearchTool.name,
-      arguments: {'query': 'retry'},
-    );
-
-    final result = await testHarness.callToolWithRetry(
-      request,
-      maxTries: 1,
-      expectError: true,
-    );
-    expect(result.isError, isTrue);
-    expect(
-      (result.content[0] as TextContent).text,
-      contains('Failed searching pub.dev: ClientException: No internet'),
-    );
+        final result = await testHarness.callToolWithRetry(
+          request,
+          maxTries: 1,
+          expectError: true,
+        );
+        expect(result.isError, isTrue);
+        expect(
+          (result.content[0] as TextContent).text,
+          contains('Failed searching pub.dev: ClientException: No internet'),
+        );
+      });
+    }, () => _FixedResponseClient.withMappedResponses({}));
   });
 
   test('Tolerates missing sub-responses', () async {
-    createClient =
-        // Serve a single package as search result, but provide no further
-        // information about it.
-        () => _FixedResponseClient.withMappedResponses({
-          'https://pub.dev/api/search?q=retry': jsonEncode({
-            'packages': [
-              {'package': 'retry'},
-            ],
-          }),
+    await runWithClient(
+      () async {
+        await runWithHarness((testHarness, pubDevSearchTool) async {
+          final request = CallToolRequest(
+            name: pubDevSearchTool.name,
+            arguments: {'query': 'retry'},
+          );
+
+          final result = await testHarness.callToolWithRetry(
+            request,
+            maxTries: 1,
+            expectError: true,
+          );
+          expect(result.content.length, 1);
+          expect(json.decode((result.content[0] as TextContent).text), {
+            'packageName': 'retry',
+          });
         });
-
-    final request = CallToolRequest(
-      name: pubDevSearchTool.name,
-      arguments: {'query': 'retry'},
+      },
+      // Serve a single package as search result, but provide no further
+      // information about it.
+      () => _FixedResponseClient.withMappedResponses({
+        'https://pub.dev/api/search?q=retry': jsonEncode({
+          'packages': [
+            {'package': 'retry'},
+          ],
+        }),
+      }),
     );
-
-    final result = await testHarness.callToolWithRetry(
-      request,
-      maxTries: 1,
-      expectError: true,
-    );
-    expect(result.content.length, 1);
-    expect(json.decode((result.content[0] as TextContent).text), {
-      'packageName': 'retry',
-    });
   });
 
   test('No matching packages gets reported as an error', () async {
-    createClient =
-        // Serve no packages, but provide no further information
-        // about it.
-        () => _FixedResponseClient.withMappedResponses({
-          'https://pub.dev/api/search?q=retry': jsonEncode({
-            'packages': <Object?>[],
-          }),
-        });
-    final request = CallToolRequest(
-      name: pubDevSearchTool.name,
-      arguments: {'query': 'retry'},
-    );
+    await runWithClient(
+      () async {
+        await runWithHarness((testHarness, pubDevSearchTool) async {
+          final request = CallToolRequest(
+            name: pubDevSearchTool.name,
+            arguments: {'query': 'retry'},
+          );
 
-    final result = await testHarness.callToolWithRetry(
-      request,
-      maxTries: 1,
-      expectError: true,
-    );
-    expect(result.isError, isTrue);
-    expect(
-      (result.content[0] as TextContent).text,
-      contains('No packages mached the query, consider simplifying it'),
+          final result = await testHarness.callToolWithRetry(
+            request,
+            maxTries: 1,
+            expectError: true,
+          );
+          expect(result.isError, isTrue);
+          expect(
+            (result.content[0] as TextContent).text,
+            contains('No packages mached the query, consider simplifying it'),
+          );
+        });
+      },
+      // Serve no packages, but provide no further information
+      // about it.
+      () => _FixedResponseClient.withMappedResponses({
+        'https://pub.dev/api/search?q=retry': jsonEncode({
+          'packages': <Object?>[],
+        }),
+      }),
     );
   });
 }
