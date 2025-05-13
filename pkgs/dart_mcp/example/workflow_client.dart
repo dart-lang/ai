@@ -23,6 +23,10 @@ void main(List<String> args) {
   }
 
   final parsedArgs = argParser.parse(args);
+  if (parsedArgs.wasParsed('help')) {
+    print(argParser.usage);
+    exit(0);
+  }
   final serverCommands = parsedArgs['server'] as List<String>;
   final logger = Logger.standard();
   runZonedGuarded(
@@ -32,6 +36,7 @@ void main(List<String> args) {
         geminiApiKey: geminiApiKey,
         verbose: parsedArgs.flag('verbose'),
         dtdUri: parsedArgs.option('dtd'),
+        model: parsedArgs.option('model'),
         persona: parsedArgs.flag('dash') ? _dashPersona : null,
         logger: logger,
       );
@@ -58,7 +63,16 @@ final argParser =
       ..addOption(
         'dtd',
         help: 'Pass the DTD URI to use for this workflow session.',
-      );
+      )
+      ..addOption(
+        'model',
+        // defaultsTo: 'gemini-2.0-flash',
+        // defaultsTo: 'gemini-2.5-flash-preview-04-17',
+        defaultsTo: 'gemini-2.5-pro-exp-03-25',
+        // defaultsTo: 'gemini-2.5-flash-preview-04-17',
+        help: 'Pass the name of the model to use to run inferences.',
+      )
+      ..addFlag('help', abbr: 'h', help: 'Print the usage for this command.');
 
 final class WorkflowClient extends MCPClient with RootsSupport {
   final Logger logger;
@@ -69,13 +83,12 @@ final class WorkflowClient extends MCPClient with RootsSupport {
     this.serverCommands, {
     required String geminiApiKey,
     String? dtdUri,
+    String? model,
     this.verbose = false,
     required this.logger,
     String? persona,
   }) : model = gemini.GenerativeModel(
-         model: 'gemini-2.5-pro-preview-03-25',
-         // model: 'gemini-2.0-flash',
-         //  model: 'gemini-2.5-flash-preview-04-17',
+         model: model ?? 'gemini-2.0-flash',
          apiKey: geminiApiKey,
          systemInstruction: systemInstructions(persona: persona),
        ),
@@ -317,6 +330,10 @@ final class WorkflowClient extends MCPClient with RootsSupport {
   /// Invokes a function and adds the result as context to the chat history.
   Future<void> _handleFunctionCall(gemini.FunctionCall functionCall) async {
     chatHistory.add(gemini.Content.model([functionCall]));
+    logger.stderr(
+      'Calling function ${functionCall.name} with args: '
+      '${functionCall.args}',
+    );
     final connection = connectionForFunction[functionCall.name]!;
     final result = await connection.callTool(
       CallToolRequest(name: functionCall.name, arguments: functionCall.args),
@@ -370,10 +387,11 @@ final class WorkflowClient extends MCPClient with RootsSupport {
         ),
       );
       final serverName = connection.serverInfo?.name ?? 'server';
-      if (result.protocolVersion != ProtocolVersion.latestSupported) {
+      if (!result.protocolVersion!.isSupported) {
         logger.stderr(
           'Protocol version mismatch for $serverName, '
-          'expected ${ProtocolVersion.latestSupported}, got '
+          'expected a version between ${ProtocolVersion.oldestSupported} and '
+          '${ProtocolVersion.latestSupported}, but got '
           '${result.protocolVersion}. Disconnecting.',
         );
         await connection.shutdown();
