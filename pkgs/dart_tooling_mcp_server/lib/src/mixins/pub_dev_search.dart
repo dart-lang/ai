@@ -42,12 +42,7 @@ base mixin PubDevSupport on ToolsSupport {
       );
     }
     final client = createClient();
-    final searchUrl = Uri(
-      scheme: 'https',
-      host: 'pub.dev',
-      path: 'api/search',
-      queryParameters: {'q': query},
-    );
+    final searchUrl = Uri.https('pub.dev', 'api/search', {'q': query});
     final Object? result;
     try {
       result = jsonDecode(await client.read(searchUrl));
@@ -69,12 +64,12 @@ base mixin PubDevSupport on ToolsSupport {
         );
       }
 
-      Future<Object?> retrieve(String path) async {
+      Future<Object?> retrieve(String path) {
         return _pool.withResource(() async {
           try {
             return jsonDecode(
               await client.read(
-                Uri(scheme: 'https', host: 'pub.dev', path: path),
+                Uri.https('pub.dev', path),
               ),
             );
           } on ClientException {
@@ -97,10 +92,6 @@ base mixin PubDevSupport on ToolsSupport {
               )
               .toList();
 
-      await Future.wait(
-        subQueryFutures.expand((f) => [f.versionListing, f.score, f.docIndex]),
-      );
-
       // Aggregate the retrieved information about each package into a
       // TextContent.
       final results = <TextContent>[];
@@ -112,14 +103,12 @@ base mixin PubDevSupport on ToolsSupport {
 
         List<Object?> identifiers(Object index) {
           final items = dig<List>(index, []);
-          final identifiers = <Map<String, Object?>>[];
-          for (final item in items) {
-            identifiers.add({
-              'qualifiedName': dig(item, ['qualifiedName']),
-              'desc': 'Object holding options for retrying a function.',
-            });
-          }
-          return identifiers;
+          return [
+            for (final item in items) 
+            {
+              'qualifiedName': dig<String>(item, ['qualifiedName']),
+            }
+            ];
         }
 
         results.add(

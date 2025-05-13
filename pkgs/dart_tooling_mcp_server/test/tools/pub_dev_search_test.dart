@@ -81,11 +81,9 @@ void main() {
       'api': containsAll([
         {
           'qualifiedName': 'retry',
-          'desc': 'Object holding options for retrying a function.',
         },
         {
           'qualifiedName': 'retry.RetryOptions',
-          'desc': 'Object holding options for retrying a function.',
         },
       ]),
     });
