@@ -21,7 +21,7 @@
 /// If at some point the types don't match throw a [FormatException].
 ///
 /// Returns the result as a [T].
-T dig<T>(dynamic json, List<dynamic> path) {
+T dig<T>(dynamic json, List<Object> path) {
   var i = 0;
   String currentElementType() => switch (json) {
     Null _ => 'null',
