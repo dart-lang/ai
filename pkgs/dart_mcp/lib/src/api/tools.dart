@@ -197,6 +197,49 @@ enum JsonType {
   final String typeName;
 }
 
+/// Enum representing the types of validation failures when checking data
+/// against a schema.
+enum ValidationFailureType {
+  // General
+  typeMismatch,
+
+  // Schema combinators
+  allOfNotMet,
+  anyOfNotMet,
+  oneOfNotMet,
+  notConditionViolated,
+
+  // Object specific
+  requiredPropertyMissing,
+  additionalPropertyNotAllowed,
+  minPropertiesNotMet,
+  maxPropertiesExceeded,
+  propertyNamesInvalid,
+  propertyValueInvalid,
+  patternPropertyValueInvalid,
+  unevaluatedPropertyNotAllowed,
+
+  // Array/List specific
+  minItemsNotMet,
+  maxItemsExceeded,
+  uniqueItemsViolated,
+  itemInvalid,
+  prefixItemInvalid,
+  unevaluatedItemNotAllowed,
+
+  // String specific
+  minLengthNotMet,
+  maxLengthExceeded,
+  patternMismatch,
+
+  // Number/Integer specific
+  minimumNotMet,
+  maximumExceeded,
+  exclusiveMinimumNotMet,
+  exclusiveMaximumExceeded,
+  multipleOfInvalid,
+}
+
 /// A JSON Schema object defining the any kind of property.
 ///
 /// See the subtypes [ObjectSchema], [ListSchema], [StringSchema],
@@ -268,7 +311,7 @@ extension type Schema.fromMap(Map<String, Object?> _value) {
   /// This is not required, and commonly won't be present if one of the schema
   /// combinators ([allOf], [anyOf], [oneOf], or [not]) are used.
   JsonType? get type => JsonType.values.firstWhereOrNull(
-    (t) => _value['type'] as String == t.typeName,
+    (t) => (_value['type'] as String? ?? '') == t.typeName,
   );
 
   /// A title for this schema, should be short.
@@ -288,6 +331,313 @@ extension type Schema.fromMap(Map<String, Object?> _value) {
 
   /// Schema combinator that requires none of the sub-schemas to match.
   List<Schema>? get not => (_value['not'] as List?)?.cast<Schema>();
+
+  /// Validates the given [data] against this schema.
+  ///
+  /// Returns a list of [ValidationFailureType] if validation fails,
+  /// or an empty list if validation succeeds.
+  List<ValidationFailureType> validate(Object? data) {
+    return _validateSchema(this, data);
+  }
+}
+
+// These have to be external to the Schema extension because of clashes with
+// type-named members like bool, int, and num.
+List<ValidationFailureType> _validateSchema(Schema schema, Object? data) {
+  final failures = <ValidationFailureType>[];
+
+  // 1. Handle schema combinators
+  if (schema.allOf != null) {
+    var currentAllOfValid = true;
+    final allOfDetailedFailures = <ValidationFailureType>[];
+    for (final subSchema in schema.allOf!) {
+      final subFailures = _validateSchema(subSchema, data);
+      if (subFailures.isNotEmpty) {
+        currentAllOfValid = false;
+        allOfDetailedFailures.addAll(subFailures);
+      }
+    }
+    if (!currentAllOfValid) {
+      failures.add(ValidationFailureType.allOfNotMet);
+      failures.addAll(allOfDetailedFailures);
+    }
+  }
+  if (schema.anyOf != null) {
+    var oneValid = false;
+    for (final subSchema in schema.anyOf!) {
+      if (_validateSchema(subSchema, data).isEmpty) {
+        oneValid = true;
+        break;
+      }
+    }
+    if (!oneValid) {
+      failures.add(ValidationFailureType.anyOfNotMet);
+    }
+  }
+  if (schema.oneOf != null) {
+    var validCount = 0;
+    for (final subSchema in schema.oneOf!) {
+      if (_validateSchema(subSchema, data).isEmpty) {
+        validCount++;
+      }
+    }
+    if (validCount != 1) {
+      failures.add(ValidationFailureType.oneOfNotMet);
+    }
+  }
+  if (schema.not != null) {
+    var validCount = 0;
+    for (final subSchema in schema.not!) {
+      if (_validateSchema(subSchema, data).isEmpty) {
+        validCount++;
+      }
+    }
+    if (validCount != 1) {
+      failures.add(ValidationFailureType.notConditionViolated);
+    }
+  }
+
+  // 2. Handle explicit type validation if schema.type is present
+  final schemaType = schema.type;
+  if (schemaType != null) {
+    switch (schemaType) {
+      case JsonType.object:
+        if (data is Map<String, Object?>) {
+          failures.addAll(_validateObject(schema as ObjectSchema, data));
+        } else {
+          failures.add(ValidationFailureType.typeMismatch);
+        }
+        break;
+      case JsonType.list:
+        if (data is List) {
+          failures.addAll(_validateList(schema as ListSchema, data));
+        } else {
+          failures.add(ValidationFailureType.typeMismatch);
+        }
+        break;
+      case JsonType.string:
+        if (data is String) {
+          failures.addAll(_validateString(schema as StringSchema, data));
+        } else {
+          failures.add(ValidationFailureType.typeMismatch);
+        }
+        break;
+      case JsonType.num:
+        if (data is num) {
+          failures.addAll(_validateNumber(schema as NumberSchema, data));
+        } else {
+          failures.add(ValidationFailureType.typeMismatch);
+        }
+        break;
+      case JsonType.int:
+        if (data is int) {
+          failures.addAll(_validateInteger(schema as IntegerSchema, data));
+        } else if (data is num && data == data.toInt()) {
+          failures.addAll(
+            _validateInteger(schema as IntegerSchema, data.toInt()),
+          );
+        } else {
+          failures.add(ValidationFailureType.typeMismatch);
+        }
+        break;
+      case JsonType.bool:
+        if (data is! bool) {
+          failures.add(ValidationFailureType.typeMismatch);
+        }
+        break;
+      case JsonType.nil:
+        if (data != null) {
+          failures.add(ValidationFailureType.typeMismatch);
+        }
+        break;
+    }
+  }
+
+  return failures.toSet().toList(); // Remove duplicates
+}
+
+List<ValidationFailureType> _validateObject(
+  ObjectSchema schema,
+  Map<String, Object?> data,
+) {
+  final failures = <ValidationFailureType>[];
+
+  if (schema.minProperties != null &&
+      data.keys.length < schema.minProperties!) {
+    failures.add(ValidationFailureType.minPropertiesNotMet);
+  }
+  if (schema.maxProperties != null &&
+      data.keys.length > schema.maxProperties!) {
+    failures.add(ValidationFailureType.maxPropertiesExceeded);
+  }
+
+  for (final reqProp in schema.required ?? const []) {
+    if (!data.containsKey(reqProp)) {
+      failures.add(ValidationFailureType.requiredPropertyMissing);
+    }
+  }
+
+  final evaluatedKeys = <String>{};
+  if (schema.properties != null) {
+    for (final entry in schema.properties!.entries) {
+      if (data.containsKey(entry.key)) {
+        evaluatedKeys.add(entry.key);
+        failures.addAll(
+          _validateSchema(
+            entry.value,
+            data[entry.key],
+          ).map((_) => ValidationFailureType.propertyValueInvalid),
+        );
+      }
+    }
+  }
+  if (schema.patternProperties != null) {
+    for (final entry in schema.patternProperties!.entries) {
+      final pattern = RegExp(entry.key);
+      for (final dataKey in data.keys) {
+        if (pattern.hasMatch(dataKey)) {
+          evaluatedKeys.add(dataKey);
+          failures.addAll(
+            _validateSchema(
+              entry.value,
+              data[dataKey],
+            ).map((_) => ValidationFailureType.patternPropertyValueInvalid),
+          );
+        }
+      }
+    }
+  }
+  if (schema.propertyNames != null) {
+    for (final key in data.keys) {
+      if (_validateSchema(schema.propertyNames!, key).isNotEmpty) {
+        failures.add(ValidationFailureType.propertyNamesInvalid);
+      }
+    }
+  }
+
+  for (final dataKey in data.keys) {
+    if (evaluatedKeys.contains(dataKey)) continue;
+
+    var allowed = true;
+    if (schema.additionalProperties != null) {
+      final ap = schema.additionalProperties;
+      if (ap is bool && !ap) {
+        allowed = false;
+      } else if (ap is Schema &&
+          _validateSchema(ap, data[dataKey]).isNotEmpty) {
+        allowed = false;
+      }
+      if (!allowed) {
+        failures.add(ValidationFailureType.additionalPropertyNotAllowed);
+      }
+    } else if (schema.unevaluatedProperties == false) {
+      // Only applies if additionalProperties is not defined
+      failures.add(ValidationFailureType.unevaluatedPropertyNotAllowed);
+    }
+  }
+  return failures;
+}
+
+List<ValidationFailureType> _validateList(
+  ListSchema schema,
+  List<dynamic> data,
+) {
+  final failures = <ValidationFailureType>[];
+
+  if (schema.minItems != null && data.length < schema.minItems!) {
+    failures.add(ValidationFailureType.minItemsNotMet);
+  }
+  if (schema.maxItems != null && data.length > schema.maxItems!) {
+    failures.add(ValidationFailureType.maxItemsExceeded);
+  }
+  if (schema.uniqueItems == true && data.toSet().length != data.length) {
+    failures.add(ValidationFailureType.uniqueItemsViolated);
+  }
+
+  final evaluatedItems = List<bool>.filled(data.length, false);
+  if (schema.prefixItems != null) {
+    for (var i = 0; i < schema.prefixItems!.length && i < data.length; i++) {
+      evaluatedItems[i] = true;
+      if (_validateSchema(schema.prefixItems![i], data[i]).isNotEmpty) {
+        failures.add(ValidationFailureType.prefixItemInvalid);
+      }
+    }
+  }
+  if (schema.items != null) {
+    final startIndex = schema.prefixItems?.length ?? 0;
+    for (var i = startIndex; i < data.length; i++) {
+      evaluatedItems[i] = true;
+      if (_validateSchema(schema.items!, data[i]).isNotEmpty) {
+        failures.add(ValidationFailureType.itemInvalid);
+      }
+    }
+  }
+  if (schema.unevaluatedItems == false) {
+    for (var i = 0; i < data.length; i++) {
+      if (!evaluatedItems[i]) {
+        failures.add(ValidationFailureType.unevaluatedItemNotAllowed);
+        break;
+      }
+    }
+  }
+  return failures;
+}
+
+List<ValidationFailureType> _validateString(StringSchema schema, String data) {
+  final failures = <ValidationFailureType>[];
+  if (schema.minLength != null && data.length < schema.minLength!) {
+    failures.add(ValidationFailureType.minLengthNotMet);
+  }
+  if (schema.maxLength != null && data.length > schema.maxLength!) {
+    failures.add(ValidationFailureType.maxLengthExceeded);
+  }
+  if (schema.pattern != null && !RegExp(schema.pattern!).hasMatch(data)) {
+    failures.add(ValidationFailureType.patternMismatch);
+  }
+  return failures;
+}
+
+List<ValidationFailureType> _validateNumber(NumberSchema schema, num data) {
+  final failures = <ValidationFailureType>[];
+  if (schema.minimum != null && data < schema.minimum!) {
+    failures.add(ValidationFailureType.minimumNotMet);
+  }
+  if (schema.maximum != null && data > schema.maximum!) {
+    failures.add(ValidationFailureType.maximumExceeded);
+  }
+  if (schema.exclusiveMinimum != null && data <= schema.exclusiveMinimum!) {
+    failures.add(ValidationFailureType.exclusiveMinimumNotMet);
+  }
+  if (schema.exclusiveMaximum != null && data >= schema.exclusiveMaximum!) {
+    failures.add(ValidationFailureType.exclusiveMaximumExceeded);
+  }
+  if (schema.multipleOf != null && schema.multipleOf! != 0) {
+    final remainder = data / schema.multipleOf!;
+    if ((remainder - remainder.round()).abs() > 1e-9) {
+      failures.add(ValidationFailureType.multipleOfInvalid);
+    }
+  }
+  return failures;
+}
+
+List<ValidationFailureType> _validateInteger(IntegerSchema schema, int data) {
+  final failures = <ValidationFailureType>[];
+  if (schema.minimum != null && data < schema.minimum!) {
+    failures.add(ValidationFailureType.minimumNotMet);
+  }
+  if (schema.maximum != null && data > schema.maximum!) {
+    failures.add(ValidationFailureType.maximumExceeded);
+  }
+  if (schema.exclusiveMinimum != null && data <= schema.exclusiveMinimum!) {
+    failures.add(ValidationFailureType.exclusiveMinimumNotMet);
+  }
+  if (schema.exclusiveMaximum != null && data >= schema.exclusiveMaximum!) {
+    failures.add(ValidationFailureType.exclusiveMaximumExceeded);
+  }
+  if (schema.multipleOf != null && (data % schema.multipleOf! != 0)) {
+    failures.add(ValidationFailureType.multipleOfInvalid);
+  }
+  return failures;
 }
 
 /// A JSON Schema definition for an object with properties.

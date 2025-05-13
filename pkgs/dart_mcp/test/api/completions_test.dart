@@ -7,7 +7,7 @@ import 'dart:async';
 import 'package:dart_mcp/server.dart';
 import 'package:test/test.dart';
 
-import 'test_utils.dart';
+import '../test_utils.dart';
 
 void main() {
   test('client can request prompt completions', () async {
