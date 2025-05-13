@@ -167,7 +167,7 @@ StreamChannel<String> _maybeForwardMessages(
       .transformStream(
         StreamTransformer.fromHandlers(
           handleData: (data, sink) {
-            protocolLogSink.add('<<< $data');
+            protocolLogSink.add('<<< $data\n');
             sink.add(data);
           },
         ),
@@ -175,7 +175,7 @@ StreamChannel<String> _maybeForwardMessages(
       .transformSink(
         StreamSinkTransformer.fromHandlers(
           handleData: (data, sink) {
-            protocolLogSink.add('>>> $data');
+            protocolLogSink.add('>>> $data\n');
             sink.add(data);
           },
         ),

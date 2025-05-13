@@ -12,6 +12,14 @@ import 'package:cli_util/cli_logging.dart';
 import 'package:dart_mcp/client.dart';
 import 'package:google_generative_ai/google_generative_ai.dart' as gemini;
 
+/// The list of Gemini models that are accepted as a "--model" argument.
+/// Defaults to the first one in the list.
+const List<String> allowedGeminiModels = [
+  'gemini-2.5-pro-exp-03-25',
+  'gemini-2.0-flash',
+  'gemini-2.5-flash-preview-04-17',
+];
+
 void main(List<String> args) {
   final geminiApiKey = Platform.environment['GEMINI_API_KEY'];
   if (geminiApiKey == null) {
@@ -29,6 +37,7 @@ void main(List<String> args) {
   }
   final serverCommands = parsedArgs['server'] as List<String>;
   final logger = Logger.standard();
+  final logFilePath = parsedArgs.option('log');
   runZonedGuarded(
     () {
       WorkflowClient(
@@ -36,13 +45,14 @@ void main(List<String> args) {
         geminiApiKey: geminiApiKey,
         verbose: parsedArgs.flag('verbose'),
         dtdUri: parsedArgs.option('dtd'),
-        model: parsedArgs.option('model'),
+        model: parsedArgs.option('model')!,
         persona: parsedArgs.flag('dash') ? _dashPersona : null,
         logger: logger,
+        logFile: logFilePath != null ? File(logFilePath) : null,
       );
     },
-    (e, s) {
-      logger.stderr('$e\n$s\n');
+    (exception, stack) {
+      logger.stderr('$exception\n$stack\n');
     },
   );
 }
@@ -59,6 +69,13 @@ final argParser =
         abbr: 'v',
         help: 'Enables verbose logging for logs from servers.',
       )
+      ..addOption(
+        'log',
+        abbr: 'l',
+        help:
+            'If specified, will create the given log file and log server '
+            'traffic and diagnostic messages.',
+      )
       ..addFlag('dash', help: 'Use the Dash mascot persona.', defaultsTo: false)
       ..addOption(
         'dtd',
@@ -66,29 +83,24 @@ final argParser =
       )
       ..addOption(
         'model',
-        // defaultsTo: 'gemini-2.0-flash',
-        // defaultsTo: 'gemini-2.5-flash-preview-04-17',
-        defaultsTo: 'gemini-2.5-pro-exp-03-25',
-        // defaultsTo: 'gemini-2.5-flash-preview-04-17',
+        defaultsTo: allowedGeminiModels.first,
+        allowed: allowedGeminiModels,
         help: 'Pass the name of the model to use to run inferences.',
       )
       ..addFlag('help', abbr: 'h', help: 'Print the usage for this command.');
 
 final class WorkflowClient extends MCPClient with RootsSupport {
-  final Logger logger;
-  int totalInputTokens = 0;
-  int totalOutputTokens = 0;
-
   WorkflowClient(
     this.serverCommands, {
     required String geminiApiKey,
-    String? dtdUri,
-    String? model,
-    this.verbose = false,
+    required String model,
     required this.logger,
+    String? dtdUri,
+    this.verbose = false,
     String? persona,
+    File? logFile,
   }) : model = gemini.GenerativeModel(
-         model: model ?? 'gemini-2.0-flash',
+         model: model,
          apiKey: geminiApiKey,
          systemInstruction: systemInstructions(persona: persona),
        ),
@@ -98,6 +110,7 @@ final class WorkflowClient extends MCPClient with RootsSupport {
        super(
          ClientImplementation(name: 'Gemini workflow client', version: '0.1.0'),
        ) {
+    logSink = _createLogSink(logFile);
     addRoot(
       Root(
         uri: Directory.current.absolute.uri.toString(),
@@ -123,6 +136,10 @@ final class WorkflowClient extends MCPClient with RootsSupport {
     _startChat();
   }
 
+  final Logger logger;
+  Sink<String>? logSink;
+  int totalInputTokens = 0;
+  int totalOutputTokens = 0;
   final StreamQueue<String> stdinQueue;
   final List<String> serverCommands;
   final List<ServerConnection> serverConnections = [];
@@ -130,6 +147,36 @@ final class WorkflowClient extends MCPClient with RootsSupport {
   final List<gemini.Content> chatHistory = [];
   final gemini.GenerativeModel model;
   final bool verbose;
+
+  Sink<String>? _createLogSink(File? logFile) {
+    if (logFile == null) {
+      return null;
+    }
+    Sink<String>? logSink;
+    logFile.createSync(recursive: true);
+    final fileByteSink = logFile.openWrite(
+      mode: FileMode.write,
+      encoding: utf8,
+    );
+    logSink = fileByteSink.transform<String>(
+      StreamSinkTransformer.fromHandlers(
+        handleData: (String data, EventSink<List<int>> innerSink) {
+          innerSink.add(utf8.encode(data));
+        },
+        handleError: (
+          Object error,
+          StackTrace stackTrace,
+          EventSink<List<int>> innerSink,
+        ) {
+          innerSink.addError(error, stackTrace);
+        },
+        handleDone: (EventSink<List<int>> innerSink) {
+          innerSink.close();
+        },
+      ),
+    );
+    return logSink;
+  }
 
   void _startChat() async {
     if (serverCommands.isNotEmpty) {
@@ -330,9 +377,9 @@ final class WorkflowClient extends MCPClient with RootsSupport {
   /// Invokes a function and adds the result as context to the chat history.
   Future<void> _handleFunctionCall(gemini.FunctionCall functionCall) async {
     chatHistory.add(gemini.Content.model([functionCall]));
-    logger.stderr(
-      'Calling function ${functionCall.name} with args: '
-      '${functionCall.args}',
+    logSink?.add(
+      '+++ Calling function ${functionCall.name} with args: '
+      '${functionCall.args}\n',
     );
     final connection = connectionForFunction[functionCall.name]!;
     final result = await connection.callTool(
@@ -366,7 +413,11 @@ final class WorkflowClient extends MCPClient with RootsSupport {
       final parts = server.split(' ');
       try {
         serverConnections.add(
-          await connectStdioServer(parts.first, parts.skip(1).toList()),
+          await connectStdioServer(
+            parts.first,
+            parts.skip(1).toList(),
+            protocolLogSink: logSink,
+          ),
         );
       } catch (e) {
         logger.stderr('Failed to connect to server $server: $e');

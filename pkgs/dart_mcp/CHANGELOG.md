@@ -6,7 +6,7 @@
 - Update file system example to support relative paths.
 - Fix a bug in notification handling where leaving off the parameters caused a
   type exception.
-- Added a `--help` and `--model` flag to examples.
+- Added `--help`, `--log`, and `--model` flags to the workflow example.
 - Fixed a bug where the examples would only connect to a server with the latest
   protocol version.
 
