@@ -2,21 +2,33 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+/// @docImport 'client/client.dart';
+/// @docImport 'server/server.dart';
+library;
+
 import 'dart:async';
 
 import 'package:async/async.dart' show StreamSinkTransformer;
 import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_channel/stream_channel.dart';
-
 import 'api/api.dart';
 
-/// Base class for both client and server implementations.
+/// Base class for MCP server-related implementations.
 ///
 /// Handles registering method and notification handlers, sending requests and
 /// notifications, progress support, and any other shared functionality.
+///
+/// See also:
+/// - [MCPServer] A base class to extend when implementing an MCP server.
+/// - [ServerConnection] A class that represents an active server connection.
 base class MCPBase {
-  final Peer _peer;
+  late final Peer _peer;
+
+  /// The name of the associated server.
+  ///
+  /// Used to identify log messages.
+  String get name => 'unknown';
 
   /// Progress controllers by token.
   ///
@@ -27,8 +39,8 @@ base class MCPBase {
   /// Whether the connection with the peer is active.
   bool get isActive => !_peer.isClosed;
 
-  MCPBase(StreamChannel<String> channel, {Sink<String>? protocolLogSink})
-    : _peer = Peer(_maybeForwardMessages(channel, protocolLogSink)) {
+  MCPBase(StreamChannel<String> channel, {Sink<String>? protocolLogSink}) {
+    _peer = Peer(_maybeForwardMessages(channel, protocolLogSink));
     registerNotificationHandler(
       ProgressNotification.methodName,
       _handleProgress,
@@ -150,34 +162,34 @@ base class MCPBase {
         PingRequest.methodName,
         null,
       ).then((_) => true).timeout(timeout, onTimeout: () => false);
-}
 
-/// If [protocolLogSink] is non-null, emits messages to it for all messages
-/// sent over [channel].
-///
-/// This is intended to be written to a file or emitted to a user to aid in
-/// debugging protocol messages between the client and server.
-StreamChannel<String> _maybeForwardMessages(
-  StreamChannel<String> channel,
-  Sink<String>? protocolLogSink,
-) {
-  if (protocolLogSink == null) return channel;
+  /// If [protocolLogSink] is non-null, emits messages to it for all messages
+  /// sent over [channel].
+  ///
+  /// This is intended to be written to a file or emitted to a user to aid in
+  /// debugging protocol messages between the client and server.
+  StreamChannel<String> _maybeForwardMessages(
+    StreamChannel<String> channel,
+    Sink<String>? protocolLogSink,
+  ) {
+    if (protocolLogSink == null) return channel;
 
-  return channel
-      .transformStream(
-        StreamTransformer.fromHandlers(
-          handleData: (data, sink) {
-            protocolLogSink.add('<<< $data\n');
-            sink.add(data);
-          },
-        ),
-      )
-      .transformSink(
-        StreamSinkTransformer.fromHandlers(
-          handleData: (data, sink) {
-            protocolLogSink.add('>>> $data\n');
-            sink.add(data);
-          },
-        ),
-      );
+    return channel
+        .transformStream(
+          StreamTransformer.fromHandlers(
+            handleData: (data, sink) {
+              protocolLogSink.add('<<< ($name) $data\n');
+              sink.add(data);
+            },
+          ),
+        )
+        .transformSink(
+          StreamSinkTransformer.fromHandlers(
+            handleData: (data, sink) {
+              protocolLogSink.add('>>> ($name) $data\n');
+              sink.add(data);
+            },
+          ),
+        );
+  }
 }

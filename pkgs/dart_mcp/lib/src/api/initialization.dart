@@ -295,7 +295,7 @@ extension type Tools.fromMap(Map<String, Object?> _value) {
   }
 }
 
-/// Describes the name and version of an MCP implementation.
+/// Describes the name and version of an MCP client implementation.
 extension type ClientImplementation.fromMap(Map<String, Object?> _value) {
   factory ClientImplementation({
     required String name,
@@ -306,7 +306,7 @@ extension type ClientImplementation.fromMap(Map<String, Object?> _value) {
   String get version => _value['version'] as String;
 }
 
-/// Describes the name and version of an MCP implementation.
+/// Describes the name and version of an MCP server implementation.
 extension type ServerImplementation.fromMap(Map<String, Object?> _value) {
   factory ServerImplementation({
     required String name,

@@ -128,13 +128,16 @@ base class ServerConnection extends MCPBase {
 
   /// The [ServerImplementation] returned from the [initialize] request.
   ///
-  /// Only assigned after [initialize] has successfully completed.
-  late ServerImplementation serverInfo;
+  /// Only non-null after [initialize] has successfully completed.
+  ServerImplementation? serverInfo;
 
   /// The [ServerCapabilities] returned from the [initialize] request.
   ///
   /// Only assigned after [initialize] has successfully completed.
   late ServerCapabilities serverCapabilities;
+
+  @override
+  String get name => serverInfo?.name ?? super.name;
 
   /// Emits an event any time the server notifies us of a change to the list of
   /// prompts it supports.
@@ -212,7 +215,7 @@ base class ServerConnection extends MCPBase {
       registerRequestHandler(
         CreateMessageRequest.methodName,
         (CreateMessageRequest request) =>
-            samplingSupport.handleCreateMessage(request, serverInfo),
+            samplingSupport.handleCreateMessage(request, serverInfo!),
       );
     }
 

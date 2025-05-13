@@ -48,6 +48,9 @@ abstract base class MCPServer extends MCPBase {
   /// Only assigned after `initialize` has been called.
   late ClientCapabilities clientCapabilities;
 
+  @override
+  String get name => implementation.name;
+
   /// Emits an event any time the client notifies us of a change to the list of
   /// roots it supports.
   ///

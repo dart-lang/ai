@@ -162,6 +162,8 @@ final class WorkflowClient extends MCPClient with RootsSupport {
       StreamSinkTransformer.fromHandlers(
         handleData: (String data, EventSink<List<int>> innerSink) {
           innerSink.add(utf8.encode(data));
+          // It's a log, so we want to make sure it's always up-to-date.
+          fileByteSink.flush();
         },
         handleError: (
           Object error,
@@ -169,6 +171,7 @@ final class WorkflowClient extends MCPClient with RootsSupport {
           EventSink<List<int>> innerSink,
         ) {
           innerSink.addError(error, stackTrace);
+          fileByteSink.flush();
         },
         handleDone: (EventSink<List<int>> innerSink) {
           innerSink.close();
@@ -377,10 +380,6 @@ final class WorkflowClient extends MCPClient with RootsSupport {
   /// Invokes a function and adds the result as context to the chat history.
   Future<void> _handleFunctionCall(gemini.FunctionCall functionCall) async {
     chatHistory.add(gemini.Content.model([functionCall]));
-    logSink?.add(
-      '+++ Calling function ${functionCall.name} with args: '
-      '${functionCall.args}\n',
-    );
     final connection = connectionForFunction[functionCall.name]!;
     final result = await connection.callTool(
       CallToolRequest(name: functionCall.name, arguments: functionCall.args),
