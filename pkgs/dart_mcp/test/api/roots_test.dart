@@ -6,7 +6,7 @@ import 'package:async/async.dart';
 import 'package:dart_mcp/client.dart';
 import 'package:test/test.dart';
 
-import 'test_utils.dart';
+import '../test_utils.dart';
 
 void main() {
   test('server can list and subscribe to changes to roots', () async {

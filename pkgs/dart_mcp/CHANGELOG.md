@@ -9,6 +9,7 @@
 - Added `--help`, `--log`, and `--model` flags to the workflow example.
 - Fixed a bug where the examples would only connect to a server with the latest
   protocol version.
+- Added validation for Schema extension.
 
 ## 0.2.0
 
