@@ -8,7 +8,7 @@ import 'package:dart_mcp/server.dart';
 import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
 import 'package:process/process.dart';
-import 'package:pubspec_parse/pubspec_parse.dart';
+import 'package:yaml/yaml.dart';
 
 import 'constants.dart';
 
@@ -35,13 +35,13 @@ Future<ProjectKind> inferProjectKind(Root root, FileSystem fileSystem) async {
   if (!await pubspecFile.exists()) {
     return ProjectKind.unknown;
   }
-  final pubspec = Pubspec.parse(await pubspecFile.readAsString());
+  final pubspec = loadYaml(await pubspecFile.readAsString()) as Pubspec;
 
   if (pubspec.flutter != null ||
-      pubspec.environment.containsKey('flutter') ||
-      pubspec.dependencies.values
-          .followedBy(pubspec.devDependencies.values)
-          .any((dep) => dep is SdkDependency && dep.sdk == 'flutter')) {
+      pubspec.environment?.containsKey('flutter') == true ||
+      pubspec.dependencies
+          .followedBy(pubspec.devDependencies)
+          .any((dep) => dep.sdk == 'flutter')) {
     return ProjectKind.flutter;
   }
   return ProjectKind.dart;
@@ -241,3 +241,27 @@ ListSchema rootsSchema({bool supportsPaths = false}) => Schema.list(
     required: [ParameterNames.root],
   ),
 );
+
+/// Very thin extension type for a pubspec just containing what we need.
+///
+/// We assume a valid pubspec.
+extension type Pubspec(Map<dynamic, dynamic> _value) {
+  List<Dependency> get dependencies =>
+      (_value['dependencies'] as List<dynamic>?)?.cast<Dependency>() ?? [];
+  List<Dependency> get devDependencies =>
+      (_value['dev_dependencies'] as List<dynamic>?)?.cast<Dependency>() ?? [];
+
+  Map<dynamic, dynamic>? get environment =>
+      _value['environment'] as Map<dynamic, dynamic>?;
+
+  Map<dynamic, dynamic>? get flutter =>
+      _value['flutter'] as Map<dynamic, dynamic>?;
+}
+
+/// An entry in `dependencies`, `dev_dependencies`, etc.
+///
+/// These might be [String] or [Map] types.
+extension type Dependency(Object? _value) {
+  /// If this is an `sdk` dependency, return that sdk, otherwise `null`.
+  String? get sdk => _value is Map ? _value['sdk'] as String? : null;
+}
