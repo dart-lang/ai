@@ -19,7 +19,7 @@ void main() {
   late Tool dartPubTool;
   late FileSystem fileSystem;
 
-  final fakeAppPath = 'fake_app';
+  final fakeAppPath = '/fake_app/';
 
   for (final appKind in const ['dart', 'flutter']) {
     group('$appKind app', () {
@@ -67,7 +67,10 @@ void main() {
           // Verify the command was sent to the process manager without error.
           expect(result.isError, isNot(true));
           expect(testProcessManager.commandsRan, [
-            [appKind, 'pub', 'add', 'foo'],
+            equalsCommand((
+              command: [appKind, 'pub', 'add', 'foo'],
+              workingDirectory: fakeAppPath,
+            )),
           ]);
         });
 
@@ -87,7 +90,10 @@ void main() {
           // Verify the command was sent to the process manager without error.
           expect(result.isError, isNot(true));
           expect(testProcessManager.commandsRan, [
-            [appKind, 'pub', 'remove', 'foo'],
+            equalsCommand((
+              command: [appKind, 'pub', 'remove', 'foo'],
+              workingDirectory: fakeAppPath,
+            )),
           ]);
         });
 
@@ -106,7 +112,10 @@ void main() {
           // Verify the command was sent to the process manager without error.
           expect(result.isError, isNot(true));
           expect(testProcessManager.commandsRan, [
-            [appKind, 'pub', 'get'],
+            equalsCommand((
+              command: [appKind, 'pub', 'get'],
+              workingDirectory: fakeAppPath,
+            )),
           ]);
         });
 
@@ -125,7 +134,10 @@ void main() {
           // Verify the command was sent to the process manager without error.
           expect(result.isError, isNot(true));
           expect(testProcessManager.commandsRan, [
-            [appKind, 'pub', 'upgrade'],
+            equalsCommand((
+              command: [appKind, 'pub', 'upgrade'],
+              workingDirectory: fakeAppPath,
+            )),
           ]);
         });
 

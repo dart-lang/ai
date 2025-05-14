@@ -431,7 +431,7 @@ class TestProcessManager extends LocalProcessManager {
     addTearDown(reset);
   }
 
-  final commandsRan = <List<Object>>[];
+  final commandsRan = <({List<Object> command, String? workingDirectory})>[];
 
   int nextPid = 0;
 
@@ -445,11 +445,41 @@ class TestProcessManager extends LocalProcessManager {
     Encoding? stdoutEncoding = systemEncoding,
     Encoding? stderrEncoding = systemEncoding,
   }) async {
-    commandsRan.add(command);
+    commandsRan.add((command: command, workingDirectory: workingDirectory));
     return ProcessResult(nextPid++, 0, '', '');
   }
 
   void reset() {
     commandsRan.clear();
+  }
+}
+
+Matcher equalsCommand(
+  ({List<Object> command, String? workingDirectory}) command,
+) => _CommandMatcher(command);
+
+class _CommandMatcher extends Matcher {
+  final ({List<Object> command, String? workingDirectory}) value;
+
+  _CommandMatcher(this.value);
+
+  @override
+  Description describe(Description description) => description;
+
+  @override
+  bool matches(Object? item, Map matchState) {
+    if (item is! ({List<Object> command, String? workingDirectory})) {
+      return false;
+    }
+    if (item.workingDirectory != value.workingDirectory) {
+      return false;
+    }
+    if (item.command.length != value.command.length) {
+      return false;
+    }
+    for (var i = 0; i < item.command.length; i++) {
+      if (item.command[i] != value.command[i]) return false;
+    }
+    return true;
   }
 }

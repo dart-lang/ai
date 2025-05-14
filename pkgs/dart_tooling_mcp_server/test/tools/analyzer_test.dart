@@ -32,23 +32,7 @@ void main() {
       );
     });
 
-    test('can analyze a project', () async {
-      final counterAppRoot = testHarness.rootForPath(counterAppPath);
-      testHarness.mcpClient.addRoot(counterAppRoot);
-      // Allow the notification to propagate, and the server to ask for the new
-      // list of roots.
-      await pumpEventQueue();
-
-      final request = CallToolRequest(name: analyzeTool.name);
-      final result = await testHarness.callToolWithRetry(request);
-      expect(result.isError, isNot(true));
-      expect(
-        result.content.single,
-        isA<TextContent>().having((t) => t.text, 'text', 'No errors'),
-      );
-    });
-
-    test('can handle project changes', () async {
+    test('can analyze and re-analyze after changes', () async {
       final example = d.dir('example', [
         d.file('main.dart', 'void main() => 1 + "2";'),
       ]);
@@ -114,17 +98,31 @@ void main() {
     });
 
     test('can get signature help', () async {
-      final counterAppRoot = testHarness.rootForPath(counterAppPath);
-      testHarness.mcpClient.addRoot(counterAppRoot);
+      final example = d.dir('example', [
+        d.file('main.dart', '''
+void main() {
+  printIt(x: 1);
+}
+
+/// Just prints [x].
+void printIt({required int x}) {
+  print(x);
+}
+'''),
+      ]);
+      await example.create();
+      final exampleRoot = testHarness.rootForPath(example.io.path);
+      testHarness.mcpClient.addRoot(exampleRoot);
+
       await pumpEventQueue();
 
       final result = await testHarness.callToolWithRetry(
         CallToolRequest(
           name: DartAnalyzerSupport.signatureHelpTool.name,
           arguments: {
-            ParameterNames.uri: p.join(counterAppRoot.uri, 'lib', 'main.dart'),
-            ParameterNames.line: 16,
-            ParameterNames.column: 15,
+            ParameterNames.uri: p.join(exampleRoot.uri, 'main.dart'),
+            ParameterNames.line: 1,
+            ParameterNames.column: 12,
           },
         ),
       );
@@ -136,26 +134,38 @@ void main() {
           (t) => t.text,
           'text',
           allOf(
-            contains('Creates a MaterialApp'), // From the doc comment
-            contains('MaterialApp({Key? key,'), // The actual signature
-            contains('"label":"Key? key'), // Specific label for the key param
+            contains('Just prints [x].'), // From the doc comment
+            contains('printIt({required int x})'), // The actual signature
           ),
         ),
       );
     });
 
     test('can get hover information', () async {
-      final counterAppRoot = testHarness.rootForPath(counterAppPath);
-      testHarness.mcpClient.addRoot(counterAppRoot);
+      final example = d.dir('example', [
+        d.file('main.dart', '''
+void main() {
+  printIt(x: 1);
+}
+
+/// Just prints [x].
+void printIt({required int x}) {
+  print(x);
+}
+'''),
+      ]);
+      await example.create();
+      final exampleRoot = testHarness.rootForPath(example.io.path);
+      testHarness.mcpClient.addRoot(exampleRoot);
       await pumpEventQueue();
 
       final result = await testHarness.callToolWithRetry(
         CallToolRequest(
           name: DartAnalyzerSupport.hoverTool.name,
           arguments: {
-            ParameterNames.uri: p.join(counterAppRoot.uri, 'lib', 'main.dart'),
-            ParameterNames.line: 15,
-            ParameterNames.column: 15,
+            ParameterNames.uri: p.join(exampleRoot.uri, 'main.dart'),
+            ParameterNames.line: 1,
+            ParameterNames.column: 4,
           },
         ),
       );
@@ -167,9 +177,9 @@ void main() {
           (t) => t.text,
           'text',
           allOf(
-            /// The signature of the material app constructor.
-            contains('MaterialApp({'),
-            contains('Key? key,'),
+            contains('Just prints [x].'), // Doc comment
+            contains('void printIt({required int x})'), // Function signature
+            contains('void Function({required int x})'), // The type of it
           ),
         ),
       );

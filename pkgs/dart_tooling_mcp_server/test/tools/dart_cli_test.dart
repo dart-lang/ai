@@ -6,13 +6,14 @@ import 'package:dart_mcp/server.dart';
 import 'package:dart_tooling_mcp_server/src/mixins/dash_cli.dart';
 import 'package:dart_tooling_mcp_server/src/utils/constants.dart';
 import 'package:test/test.dart';
+import 'package:test_descriptor/test_descriptor.dart' as d;
 
 import '../test_harness.dart';
 
 void main() {
   late TestHarness testHarness;
   late TestProcessManager testProcessManager;
-  late Root counterAppRoot;
+  late Root exampleFlutterAppRoot;
   late Root dartCliAppRoot;
 
   // TODO: Use setUpAll, currently this fails due to an apparent TestProcess
@@ -22,14 +23,27 @@ void main() {
     testProcessManager =
         testHarness.serverConnectionPair.server!.processManager
             as TestProcessManager;
-    counterAppRoot = testHarness.rootForPath(counterAppPath);
+
+    final flutterExample = d.dir('flutter_example', [
+      d.file('pubspec.yaml', '''
+name: flutter_example
+environment:
+  sdk: ^3.0.0
+dependencies:
+  flutter:
+    sdk: flutter
+'''),
+    ]);
+    await flutterExample.create();
+
+    exampleFlutterAppRoot = testHarness.rootForPath(flutterExample.io.path);
     dartCliAppRoot = testHarness.rootForPath(dartCliAppsPath);
 
-    testHarness.mcpClient.addRoot(counterAppRoot);
+    testHarness.mcpClient.addRoot(exampleFlutterAppRoot);
     await pumpEventQueue();
   });
 
-  group('dart cli tools', () {
+  group('cli tools', () {
     late Tool dartFixTool;
     late Tool dartFormatTool;
 
@@ -48,7 +62,7 @@ void main() {
         name: dartFixTool.name,
         arguments: {
           ParameterNames.roots: [
-            {ParameterNames.root: counterAppRoot.uri},
+            {ParameterNames.root: exampleFlutterAppRoot.uri},
           ],
         },
       );
@@ -57,7 +71,10 @@ void main() {
       // Verify the command was sent to the process manager without error.
       expect(result.isError, isNot(true));
       expect(testProcessManager.commandsRan, [
-        ['dart', 'fix', '--apply'],
+        equalsCommand((
+          command: ['dart', 'fix', '--apply'],
+          workingDirectory: exampleFlutterAppRoot.path,
+        )),
       ]);
     });
 
@@ -66,7 +83,7 @@ void main() {
         name: dartFormatTool.name,
         arguments: {
           ParameterNames.roots: [
-            {ParameterNames.root: counterAppRoot.uri},
+            {ParameterNames.root: exampleFlutterAppRoot.uri},
           ],
         },
       );
@@ -75,7 +92,10 @@ void main() {
       // Verify the command was sent to the process manager without error.
       expect(result.isError, isNot(true));
       expect(testProcessManager.commandsRan, [
-        ['dart', 'format', '.'],
+        equalsCommand((
+          command: ['dart', 'format', '.'],
+          workingDirectory: exampleFlutterAppRoot.path,
+        )),
       ]);
     });
 
@@ -85,7 +105,7 @@ void main() {
         arguments: {
           ParameterNames.roots: [
             {
-              ParameterNames.root: counterAppRoot.uri,
+              ParameterNames.root: exampleFlutterAppRoot.uri,
               ParameterNames.paths: ['foo.dart', 'bar.dart'],
             },
           ],
@@ -96,7 +116,10 @@ void main() {
       // Verify the command was sent to the process manager without error.
       expect(result.isError, isNot(true));
       expect(testProcessManager.commandsRan, [
-        ['dart', 'format', 'foo.dart', 'bar.dart'],
+        equalsCommand((
+          command: ['dart', 'format', 'foo.dart', 'bar.dart'],
+          workingDirectory: exampleFlutterAppRoot.path,
+        )),
       ]);
     });
 
@@ -108,7 +131,7 @@ void main() {
         arguments: {
           ParameterNames.roots: [
             {
-              ParameterNames.root: counterAppRoot.uri,
+              ParameterNames.root: exampleFlutterAppRoot.uri,
               ParameterNames.paths: ['foo_test.dart', 'bar_test.dart'],
             },
             {
@@ -123,9 +146,19 @@ void main() {
       // Verify the command was sent to the process manager without error.
       expect(result.isError, isNot(true));
       expect(testProcessManager.commandsRan, [
-        ['flutter', 'test', 'foo_test.dart', 'bar_test.dart'],
-        ['dart', 'test', 'zip_test.dart'],
+        equalsCommand((
+          command: ['flutter', 'test', 'foo_test.dart', 'bar_test.dart'],
+          workingDirectory: exampleFlutterAppRoot.path,
+        )),
+        equalsCommand((
+          command: ['dart', 'test', 'zip_test.dart'],
+          workingDirectory: dartCliAppRoot.path,
+        )),
       ]);
     });
   });
+}
+
+extension on Root {
+  String get path => Uri.parse(uri).path;
 }
