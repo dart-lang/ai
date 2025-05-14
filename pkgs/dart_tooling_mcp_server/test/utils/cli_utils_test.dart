@@ -44,7 +44,10 @@ void main() {
       );
       expect(result.isError, isNot(true));
       expect(processManager.commandsRan, [
-        ['testCommand', 'a', 'b'],
+        equalsCommand((
+          command: ['testCommand', 'a', 'b'],
+          workingDirectory: '/bar/',
+        )),
       ]);
     });
 
@@ -68,7 +71,10 @@ void main() {
         );
         expect(result.isError, isNot(true));
         expect(processManager.commandsRan, [
-          ['testCommand'],
+          equalsCommand((
+            command: ['testCommand'],
+            workingDirectory: '/bar/baz/',
+          )),
         ]);
       },
     );
