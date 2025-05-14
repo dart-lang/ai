@@ -246,10 +246,14 @@ ListSchema rootsSchema({bool supportsPaths = false}) => Schema.list(
 ///
 /// We assume a valid pubspec.
 extension type Pubspec(Map<dynamic, dynamic> _value) {
-  List<Dependency> get dependencies =>
-      (_value['dependencies'] as List<dynamic>?)?.cast<Dependency>() ?? [];
-  List<Dependency> get devDependencies =>
-      (_value['dev_dependencies'] as List<dynamic>?)?.cast<Dependency>() ?? [];
+  Iterable<Dependency> get dependencies =>
+      (_value['dependencies'] as Map<dynamic, dynamic>?)?.values
+          .cast<Dependency>() ??
+      [];
+  Iterable<Dependency> get devDependencies =>
+      (_value['dev_dependencies'] as Map<dynamic, dynamic>?)?.values
+          .cast<Dependency>() ??
+      [];
 
   Map<dynamic, dynamic>? get environment =>
       _value['environment'] as Map<dynamic, dynamic>?;
