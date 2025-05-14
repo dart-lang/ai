@@ -158,7 +158,3 @@ dependencies:
     });
   });
 }
-
-extension on Root {
-  String get path => Uri.parse(uri).path;
-}

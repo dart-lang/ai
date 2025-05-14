@@ -483,3 +483,7 @@ class _CommandMatcher extends Matcher {
     return true;
   }
 }
+
+extension RootPath on Root {
+  String get path => Uri.parse(uri).path;
+}
