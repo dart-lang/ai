@@ -11,7 +11,7 @@ void main() async {
   print('connecting to server');
   final server = await client.connectStdioServer('dart', [
     'run',
-    'example/server.dart',
+    'example/simple_server.dart',
   ]);
   print('server started');
 
