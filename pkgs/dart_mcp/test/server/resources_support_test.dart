@@ -10,7 +10,7 @@ import 'package:async/async.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:test/test.dart';
 
-import 'test_utils.dart';
+import '../test_utils.dart';
 
 void main() {
   test('client can read resources from the server', () async {

@@ -8,7 +8,7 @@ import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp/src/client/client.dart';
 import 'package:test/test.dart';
 
-import 'test_utils.dart';
+import '../test_utils.dart';
 
 void main() {
   test('server can request LLM messages from the client', () async {
