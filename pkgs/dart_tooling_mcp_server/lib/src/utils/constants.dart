@@ -15,4 +15,5 @@ extension ParameterNames on Never {
   static const root = 'root';
   static const roots = 'roots';
   static const uri = 'uri';
+  static const uris = 'uris';
 }

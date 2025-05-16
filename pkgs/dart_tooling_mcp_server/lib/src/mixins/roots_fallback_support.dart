@@ -1,6 +1,7 @@
 // Copyright (c) 2025, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
+
 import 'dart:async';
 import 'dart:collection';
 
@@ -47,10 +48,10 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
     try {
       return super.initialize(request);
     } finally {
-      // Can't call `supportsRoots` until after `super.initialize`.
+      // Can't call `super.supportsRoots` until after `super.initialize`.
       if (!super.supportsRoots) {
-        registerTool(removeRootsTool, removeRoot);
-        registerTool(addRootsTool, addRoot);
+        registerTool(removeRootsTool, _removeRoots);
+        registerTool(addRootsTool, _addRoots);
         _rootsListChangedFallbackController =
             StreamController<RootsListChangedNotification>.broadcast();
       }
@@ -61,32 +62,24 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
   /// otherwise returns our own custom roots.
   @override
   Future<ListRootsResult> listRoots(ListRootsRequest request) async =>
-      supportsRoots
+      super.supportsRoots
           ? super.listRoots(request)
           : ListRootsResult(roots: _customRoots.toList());
 
   /// Adds the roots in [request] the custom roots and calls [updateRoots].
   ///
   /// Should only be called if [supportsRoots] is false.
-  Future<CallToolResult> addRoot(CallToolRequest request) async {
+  Future<CallToolResult> _addRoots(CallToolRequest request) async {
     if (super.supportsRoots) {
       throw StateError(
         'This tool should not be invoked if the client supports roots',
       );
     }
 
-    final rootsConfigs =
-        (request.arguments?[ParameterNames.roots] as List?)
-            ?.cast<Map<String, Object?>>() ??
-        [];
-
-    for (final config in rootsConfigs) {
-      _customRoots.add(
-        Root(
-          uri: config[ParameterNames.uri] as String,
-          name: config[ParameterNames.name] as String?,
-        ),
-      );
+    final roots =
+        (request.arguments![ParameterNames.roots] as List).cast<Root>();
+    for (final root in roots) {
+      _customRoots.add(root);
     }
     _rootsListChangedFallbackController?.add(RootsListChangedNotification());
     return CallToolResult(content: [Content.text(text: 'Success')]);
@@ -96,22 +89,26 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
   /// [updateRoots].
   ///
   /// Should only be called if [supportsRoots] is false.
-  Future<CallToolResult> removeRoot(CallToolRequest request) async {
+  Future<CallToolResult> _removeRoots(CallToolRequest request) async {
     if (super.supportsRoots) {
       throw StateError(
         'This tool should not be invoked if the client supports roots',
       );
     }
 
-    final roots =
-        (request.arguments?[ParameterNames.roots] as List?)
-            ?.cast<Map<String, Object?>>()
-            .map((config) => Root(uri: config[ParameterNames.uri] as String)) ??
-        [];
+    final roots = (request.arguments![ParameterNames.uris] as List)
+        .cast<String>()
+        .map((uri) => Root(uri: uri));
     _customRoots.removeAll(roots);
     _rootsListChangedFallbackController?.add(RootsListChangedNotification());
 
     return CallToolResult(content: [Content.text(text: 'Success')]);
+  }
+
+  @override
+  Future<void> shutdown() async {
+    await super.shutdown();
+    await _rootsListChangedFallbackController?.close();
   }
 
   @visibleForTesting
@@ -151,16 +148,9 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
     annotations: ToolAnnotations(title: 'Remove roots', readOnlyHint: false),
     inputSchema: Schema.object(
       properties: {
-        ParameterNames.roots: Schema.list(
+        ParameterNames.uris: Schema.list(
           description: 'All the project roots to remove from this server.',
-          items: Schema.object(
-            properties: {
-              ParameterNames.uri: Schema.string(
-                description: 'The URI of the root to remove.',
-              ),
-            },
-            required: [ParameterNames.uri],
-          ),
+          items: Schema.string(description: 'The URIs of the roots to remove.'),
         ),
       },
     ),
