@@ -65,16 +65,19 @@ activated `dart_tooling_mcp_server` command.
 
 ### With the example WorkflowBot
 
-After compiling the binary, you can run the example workflow chat bot to
-interact with the server. Note that the workflow bot sets the current directory
-as the root directory, so if your server expects a certain root directory you
-will want to run the command below from there (and alter the paths as
-necessary). For example, you may want to run this command from the directory of
-the app you wish to test the server against.
+After compiling the binary, you can run the example [workflow bot][workflow_bot]
+to interact with the server. Note that the workflow bot sets the current
+directory as the root directory, so if your server expects a certain root
+directory you will want to run the command below from there (and alter the
+paths as necessary). For example, you may want to run this command from the
+directory of the app you wish to test the server against.
+
+[workflow_bot]: https://github.com/dart-lang/ai/tree/main/mcp_examples/bin/workflow_bot
 
 
 ```dart
-dart ../dart_mcp/example/workflow_client.dart --server dart_tooling_mcp_server
+dart pub add "dart_mcp_examples:{git: {url: https://github.com/dart-lang/ai.git, path: mcp_examples}}" 
+dart run dart_mcp_examples:workflow_client --server dart_tooling_mcp_server
 ```
 
 ### With Cursor

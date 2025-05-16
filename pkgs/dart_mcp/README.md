@@ -44,10 +44,6 @@ doc comments explaining how to use it - some may require you to provide
 implementations of methods, while others may just expose new methods that you
 can call.
 
-See the [client example](example/client.dart) for some basic example code, or
-the [workflow client](example/workflow_client.dart) for a more full featured
-client using Gemini to execute automated workflows.
-
 ### Connecting to Servers
 
 You can connect this client with STDIO servers using the
