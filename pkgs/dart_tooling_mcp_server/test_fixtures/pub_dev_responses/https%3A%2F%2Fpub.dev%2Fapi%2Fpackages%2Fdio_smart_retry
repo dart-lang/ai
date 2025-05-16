@@ -1,0 +1,464 @@
+{
+  "name": "dio_smart_retry",
+  "latest": {
+    "version": "7.0.1",
+    "pubspec": {
+      "name": "dio_smart_retry",
+      "description": "Retry library for Dio and Dio package made with love. By default, the request will be retried only for appropriate retryable http statuses.",
+      "version": "7.0.1",
+      "repository": "https://github.com/rodion-m/dio_smart_retry",
+      "issue_tracker": "https://github.com/rodion-m/dio_smart_retry/issues",
+      "homepage": "https://github.com/rodion-m/dio_smart_retry",
+      "documentation": "https://github.com/rodion-m/dio_smart_retry#contents",
+      "environment": {
+        "sdk": ">=3.0.0 <4.0.0"
+      },
+      "dependencies": {
+        "dio": "^5.7.0",
+        "http_parser": "^4.1.0",
+        "path": "^1.9.0"
+      },
+      "dev_dependencies": {
+        "dart_code_metrics": "^5.7.6",
+        "test": "^1.25.8",
+        "very_good_analysis": "^6.0.0"
+      }
+    },
+    "archive_url": "https://pub.dev/api/archives/dio_smart_retry-7.0.1.tar.gz",
+    "archive_sha256": "c8e20da5f49289fa7dce5c9c6b5b120928e3661aefa0fa2d206ea6d93f580928",
+    "published": "2024-10-22T03:40:02.981424Z"
+  },
+  "versions": [
+    {
+      "version": "1.0.0",
+      "pubspec": {
+        "name": "dio_smart_retry",
+        "description": "Retry library for Dio package made with love. By default, the request will be retried only for appropriate retryable http statuses.",
+        "version": "1.0.0",
+        "repository": "https://github.com/rodion-m/dio_smart_retry",
+        "issue_tracker": "https://github.com/rodion-m/dio_smart_retry/issues",
+        "homepage": "https://github.com/rodion-m/dio_smart_retry",
+        "documentation": "https://github.com/rodion-m/dio_smart_retry",
+        "environment": {
+          "sdk": ">=2.12.0 <3.0.0"
+        },
+        "dependencies": {
+          "dio": "^4.0.0"
+        },
+        "dev_dependencies": {
+          "lints": "^1.0.1",
+          "test": "^1.17.10",
+          "very_good_analysis": "^2.2.0",
+          "dart_code_metrics": "^4.1.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_smart_retry-1.0.0.tar.gz",
+      "archive_sha256": "553bc4a993628a9451ecb330e37cf05e075707a78bd92d483257d87e00b00d39",
+      "published": "2021-07-30T23:51:43.181726Z"
+    },
+    {
+      "version": "1.0.1",
+      "pubspec": {
+        "name": "dio_smart_retry",
+        "description": "Retry library for Dio package made with love. By default, the request will be retried only for appropriate retryable http statuses.",
+        "version": "1.0.1",
+        "repository": "https://github.com/rodion-m/dio_smart_retry",
+        "issue_tracker": "https://github.com/rodion-m/dio_smart_retry/issues",
+        "homepage": "https://github.com/rodion-m/dio_smart_retry",
+        "documentation": "https://github.com/rodion-m/dio_smart_retry",
+        "environment": {
+          "sdk": ">=2.12.0 <3.0.0"
+        },
+        "dependencies": {
+          "dio": "^4.0.0"
+        },
+        "dev_dependencies": {
+          "test": "^1.17.10",
+          "very_good_analysis": "^2.2.0",
+          "dart_code_metrics": "^4.1.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_smart_retry-1.0.1.tar.gz",
+      "archive_sha256": "76b9f5bf1c97af06a086422a405b02282e97284ddba870b68528cefbf319dec1",
+      "published": "2021-07-31T00:25:03.268717Z"
+    },
+    {
+      "version": "1.0.2",
+      "pubspec": {
+        "name": "dio_smart_retry",
+        "description": "Retry library for Dio package made with love. By default, the request will be retried only for appropriate retryable http statuses.",
+        "version": "1.0.2",
+        "repository": "https://github.com/rodion-m/dio_smart_retry",
+        "issue_tracker": "https://github.com/rodion-m/dio_smart_retry/issues",
+        "homepage": "https://github.com/rodion-m/dio_smart_retry",
+        "documentation": "https://github.com/rodion-m/dio_smart_retry",
+        "environment": {
+          "sdk": ">=2.12.0 <3.0.0"
+        },
+        "dependencies": {
+          "dio": "^4.0.0"
+        },
+        "dev_dependencies": {
+          "test": "^1.17.10",
+          "very_good_analysis": "^2.2.0",
+          "dart_code_metrics": "^4.1.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_smart_retry-1.0.2.tar.gz",
+      "archive_sha256": "1bf3e793b95238996dd40791d53bb81134ada8051236e2a6db09db3f2f4c6e0b",
+      "published": "2021-07-31T00:51:48.601692Z"
+    },
+    {
+      "version": "1.0.3",
+      "pubspec": {
+        "name": "dio_smart_retry",
+        "description": "Retry library for Dio package made with love. By default, the request will be retried only for appropriate retryable http statuses.",
+        "version": "1.0.3",
+        "repository": "https://github.com/rodion-m/dio_smart_retry",
+        "issue_tracker": "https://github.com/rodion-m/dio_smart_retry/issues",
+        "homepage": "https://github.com/rodion-m/dio_smart_retry",
+        "documentation": "https://github.com/rodion-m/dio_smart_retry",
+        "environment": {
+          "sdk": ">=2.12.0 <3.0.0"
+        },
+        "dependencies": {
+          "dio": "^4.0.0"
+        },
+        "dev_dependencies": {
+          "test": "^1.17.10",
+          "very_good_analysis": "^2.2.0",
+          "dart_code_metrics": "^4.1.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_smart_retry-1.0.3.tar.gz",
+      "archive_sha256": "8cc8bd9119cbe78645ccc4d553222323d225f4882f2fe50d75e6671f89cb654c",
+      "published": "2021-08-01T20:08:29.458361Z"
+    },
+    {
+      "version": "1.1.0",
+      "pubspec": {
+        "name": "dio_smart_retry",
+        "description": "Retry library for Dio package made with love. By default, the request will be retried only for appropriate retryable http statuses.",
+        "version": "1.1.0",
+        "repository": "https://github.com/rodion-m/dio_smart_retry",
+        "issue_tracker": "https://github.com/rodion-m/dio_smart_retry/issues",
+        "homepage": "https://github.com/rodion-m/dio_smart_retry",
+        "documentation": "https://github.com/rodion-m/dio_smart_retry",
+        "environment": {
+          "sdk": ">=2.12.0 <3.0.0"
+        },
+        "dependencies": {
+          "dio": "^4.0.4"
+        },
+        "dev_dependencies": {
+          "test": "^1.19.5",
+          "very_good_analysis": "^2.4.0",
+          "dart_code_metrics": "^4.1.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_smart_retry-1.1.0.tar.gz",
+      "archive_sha256": "45cc9c333bcdbddff91c5ec84c1cac7550627a53da654c4d19acf88629956f11",
+      "published": "2021-12-07T23:24:42.690918Z"
+    },
+    {
+      "version": "1.2.0",
+      "pubspec": {
+        "name": "dio_smart_retry",
+        "description": "Retry library for Dio package made with love. By default, the request will be retried only for appropriate retryable http statuses.",
+        "version": "1.2.0",
+        "repository": "https://github.com/rodion-m/dio_smart_retry",
+        "issue_tracker": "https://github.com/rodion-m/dio_smart_retry/issues",
+        "homepage": "https://github.com/rodion-m/dio_smart_retry",
+        "documentation": "https://github.com/rodion-m/dio_smart_retry",
+        "environment": {
+          "sdk": ">=2.12.0 <3.0.0"
+        },
+        "dependencies": {
+          "dio": "^4.0.4"
+        },
+        "dev_dependencies": {
+          "test": "^1.20.1",
+          "very_good_analysis": "^2.4.0",
+          "dart_code_metrics": "^4.10.1"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_smart_retry-1.2.0.tar.gz",
+      "archive_sha256": "658d5f2733566b69e24a25c8b6bbd4e8f274e9ff6128c667f72ba6e45b4d476f",
+      "published": "2022-02-23T10:39:50.687397Z"
+    },
+    {
+      "version": "1.3.0",
+      "pubspec": {
+        "name": "dio_smart_retry",
+        "description": "Retry library for Dio package made with love. By default, the request will be retried only for appropriate retryable http statuses.",
+        "version": "1.3.0",
+        "repository": "https://github.com/rodion-m/dio_smart_retry",
+        "issue_tracker": "https://github.com/rodion-m/dio_smart_retry/issues",
+        "homepage": "https://github.com/rodion-m/dio_smart_retry",
+        "documentation": "https://github.com/rodion-m/dio_smart_retry",
+        "environment": {
+          "sdk": ">=2.12.0 <3.0.0"
+        },
+        "dependencies": {
+          "dio": "^4.0.6"
+        },
+        "dev_dependencies": {
+          "dart_code_metrics": "^4.16.0",
+          "test": "^1.21.4",
+          "very_good_analysis": "^3.0.1"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_smart_retry-1.3.0.tar.gz",
+      "archive_sha256": "0d9e355e1a94cad45cdec96ddc7c8590d7f45c254353aafe69cb2eb1c948c9c2",
+      "published": "2022-07-17T21:03:40.352655Z"
+    },
+    {
+      "version": "1.3.1",
+      "pubspec": {
+        "name": "dio_smart_retry",
+        "description": "Retry library for Dio package made with love. By default, the request will be retried only for appropriate retryable http statuses.",
+        "version": "1.3.1",
+        "repository": "https://github.com/rodion-m/dio_smart_retry",
+        "issue_tracker": "https://github.com/rodion-m/dio_smart_retry/issues",
+        "homepage": "https://github.com/rodion-m/dio_smart_retry",
+        "documentation": "https://github.com/rodion-m/dio_smart_retry",
+        "environment": {
+          "sdk": ">=2.12.0 <3.0.0"
+        },
+        "dependencies": {
+          "dio": "^4.0.6"
+        },
+        "dev_dependencies": {
+          "dart_code_metrics": "^4.16.0",
+          "test": "^1.21.4",
+          "very_good_analysis": "^3.0.1"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_smart_retry-1.3.1.tar.gz",
+      "archive_sha256": "18ab54d724b220067174de8d32efd8e632ad57e076f68fe1aaff269a70ccfa20",
+      "published": "2022-07-17T21:11:53.532826Z"
+    },
+    {
+      "version": "1.3.2",
+      "pubspec": {
+        "name": "dio_smart_retry",
+        "description": "Retry library for Dio package made with love. By default, the request will be retried only for appropriate retryable http statuses.",
+        "version": "1.3.2",
+        "repository": "https://github.com/rodion-m/dio_smart_retry",
+        "issue_tracker": "https://github.com/rodion-m/dio_smart_retry/issues",
+        "homepage": "https://github.com/rodion-m/dio_smart_retry",
+        "documentation": "https://github.com/rodion-m/dio_smart_retry",
+        "environment": {
+          "sdk": ">=2.12.0 <3.0.0"
+        },
+        "dependencies": {
+          "dio": "^4.0.6"
+        },
+        "dev_dependencies": {
+          "dart_code_metrics": "^4.16.0",
+          "test": "^1.21.4",
+          "very_good_analysis": "^3.0.1"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_smart_retry-1.3.2.tar.gz",
+      "archive_sha256": "99db54da2db29e93dcc88f5a893f53b9ee1f19befb865604d57ef308effdfebb",
+      "published": "2022-07-17T21:55:32.773569Z"
+    },
+    {
+      "version": "1.4.0",
+      "pubspec": {
+        "name": "dio_smart_retry",
+        "description": "Retry library for Dio package made with love. By default, the request will be retried only for appropriate retryable http statuses.",
+        "version": "1.4.0",
+        "repository": "https://github.com/rodion-m/dio_smart_retry",
+        "issue_tracker": "https://github.com/rodion-m/dio_smart_retry/issues",
+        "homepage": "https://github.com/rodion-m/dio_smart_retry",
+        "documentation": "https://github.com/rodion-m/dio_smart_retry#contents",
+        "environment": {
+          "sdk": ">=2.12.0 <3.0.0"
+        },
+        "dependencies": {
+          "dio": "^4.0.6",
+          "http_parser": "^4.0.2",
+          "path": "^1.8.2"
+        },
+        "dev_dependencies": {
+          "dart_code_metrics": "^5.1.0",
+          "test": "^1.22.0",
+          "very_good_analysis": "^3.1.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_smart_retry-1.4.0.tar.gz",
+      "archive_sha256": "7c008542f7a5c5552a0757c7cd0e8c7b3131617120ee3e48456425f673f8ff09",
+      "published": "2022-12-02T08:45:14.109168Z"
+    },
+    {
+      "version": "2.0.0-diox",
+      "pubspec": {
+        "name": "dio_smart_retry",
+        "description": "Retry library for Dio and DioX package made with love. By default, the request will be retried only for appropriate retryable http statuses.",
+        "version": "2.0.0-diox",
+        "repository": "https://github.com/rodion-m/dio_smart_retry",
+        "issue_tracker": "https://github.com/rodion-m/dio_smart_retry/issues",
+        "homepage": "https://github.com/rodion-m/dio_smart_retry",
+        "documentation": "https://github.com/rodion-m/dio_smart_retry#contents",
+        "environment": {
+          "sdk": ">=2.12.0 <3.0.0"
+        },
+        "dependencies": {
+          "diox": "^5.0.0",
+          "http_parser": "^4.0.2",
+          "path": "^1.8.3"
+        },
+        "dev_dependencies": {
+          "dart_code_metrics": "^5.5.1",
+          "test": "^1.23.1",
+          "very_good_analysis": "^4.0.0+1"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_smart_retry-2.0.0-diox.tar.gz",
+      "archive_sha256": "3a8a8e71b6875fa6f6a64eceaf4d2a1badf89129f0bb6696ea8b19238a86ac06",
+      "published": "2023-02-10T19:59:42.807439Z"
+    },
+    {
+      "version": "2.0.1-diox",
+      "pubspec": {
+        "name": "dio_smart_retry",
+        "description": "Retry library for Dio and DioX package made with love. By default, the request will be retried only for appropriate retryable http statuses.",
+        "version": "2.0.1-diox",
+        "repository": "https://github.com/rodion-m/dio_smart_retry",
+        "issue_tracker": "https://github.com/rodion-m/dio_smart_retry/issues",
+        "homepage": "https://github.com/rodion-m/dio_smart_retry",
+        "documentation": "https://github.com/rodion-m/dio_smart_retry#contents",
+        "environment": {
+          "sdk": ">=2.12.0 <3.0.0"
+        },
+        "dependencies": {
+          "diox": "^5.0.0",
+          "http_parser": "^4.0.2",
+          "path": "^1.8.2"
+        },
+        "dev_dependencies": {
+          "dart_code_metrics": "^5.5.1",
+          "test": "^1.23.1",
+          "very_good_analysis": "^4.0.0+1"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_smart_retry-2.0.1-diox.tar.gz",
+      "archive_sha256": "e4ccf5a850dd794dfa8d1a3aad71bc943ec445878ee4e4863b8654d2be8ed60c",
+      "published": "2023-02-10T22:05:13.955141Z"
+    },
+    {
+      "version": "5.0.0",
+      "pubspec": {
+        "name": "dio_smart_retry",
+        "description": "Retry library for Dio and Dio package made with love. By default, the request will be retried only for appropriate retryable http statuses.",
+        "version": "5.0.0",
+        "repository": "https://github.com/rodion-m/dio_smart_retry",
+        "issue_tracker": "https://github.com/rodion-m/dio_smart_retry/issues",
+        "homepage": "https://github.com/rodion-m/dio_smart_retry",
+        "documentation": "https://github.com/rodion-m/dio_smart_retry#contents",
+        "environment": {
+          "sdk": ">=2.12.0 <3.0.0"
+        },
+        "dependencies": {
+          "dio": "^5.0.0",
+          "http_parser": "^4.0.2",
+          "path": "^1.8.2"
+        },
+        "dev_dependencies": {
+          "dart_code_metrics": "^5.6.0",
+          "test": "^1.23.1",
+          "very_good_analysis": "^4.0.0+1"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_smart_retry-5.0.0.tar.gz",
+      "archive_sha256": "1a2d0cf73ab56bf5998b375cda2d51f45c77268e712e4073f232cdc7753a94b2",
+      "published": "2023-02-16T10:34:50.485734Z"
+    },
+    {
+      "version": "6.0.0",
+      "pubspec": {
+        "name": "dio_smart_retry",
+        "description": "Retry library for Dio and Dio package made with love. By default, the request will be retried only for appropriate retryable http statuses.",
+        "version": "6.0.0",
+        "repository": "https://github.com/rodion-m/dio_smart_retry",
+        "issue_tracker": "https://github.com/rodion-m/dio_smart_retry/issues",
+        "homepage": "https://github.com/rodion-m/dio_smart_retry",
+        "documentation": "https://github.com/rodion-m/dio_smart_retry#contents",
+        "environment": {
+          "sdk": ">=3.0.0 <4.0.0"
+        },
+        "dependencies": {
+          "dio": "^5.3.3",
+          "http_parser": "^4.0.2",
+          "path": "^1.8.3"
+        },
+        "dev_dependencies": {
+          "dart_code_metrics": "^5.7.6",
+          "test": "^1.24.9",
+          "very_good_analysis": "^5.1.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_smart_retry-6.0.0.tar.gz",
+      "archive_sha256": "3d71450c19b4d91ef4c7d726a55a284bfc11eb3634f1f25006cdfab3f8595653",
+      "published": "2023-10-26T16:35:53.915557Z"
+    },
+    {
+      "version": "7.0.0",
+      "pubspec": {
+        "name": "dio_smart_retry",
+        "description": "Retry library for Dio and Dio package made with love. By default, the request will be retried only for appropriate retryable http statuses.",
+        "version": "7.0.0",
+        "repository": "https://github.com/rodion-m/dio_smart_retry",
+        "issue_tracker": "https://github.com/rodion-m/dio_smart_retry/issues",
+        "homepage": "https://github.com/rodion-m/dio_smart_retry",
+        "documentation": "https://github.com/rodion-m/dio_smart_retry#contents",
+        "environment": {
+          "sdk": ">=3.0.0 <4.0.0"
+        },
+        "dependencies": {
+          "dio": "^5.7.0",
+          "http_parser": "^4.1.0",
+          "path": "^1.9.0"
+        },
+        "dev_dependencies": {
+          "dart_code_metrics": "^5.7.6",
+          "test": "^1.25.8",
+          "very_good_analysis": "^6.0.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_smart_retry-7.0.0.tar.gz",
+      "archive_sha256": "9a2ae175d0a6f09b9b20a65402d95345c1bf8dda38efcccfffb92aa022d2ac69",
+      "published": "2024-10-21T11:41:51.672665Z"
+    },
+    {
+      "version": "7.0.1",
+      "pubspec": {
+        "name": "dio_smart_retry",
+        "description": "Retry library for Dio and Dio package made with love. By default, the request will be retried only for appropriate retryable http statuses.",
+        "version": "7.0.1",
+        "repository": "https://github.com/rodion-m/dio_smart_retry",
+        "issue_tracker": "https://github.com/rodion-m/dio_smart_retry/issues",
+        "homepage": "https://github.com/rodion-m/dio_smart_retry",
+        "documentation": "https://github.com/rodion-m/dio_smart_retry#contents",
+        "environment": {
+          "sdk": ">=3.0.0 <4.0.0"
+        },
+        "dependencies": {
+          "dio": "^5.7.0",
+          "http_parser": "^4.1.0",
+          "path": "^1.9.0"
+        },
+        "dev_dependencies": {
+          "dart_code_metrics": "^5.7.6",
+          "test": "^1.25.8",
+          "very_good_analysis": "^6.0.0"
+        }
+      },
+      "archive_url": "https://pub.dev/api/archives/dio_smart_retry-7.0.1.tar.gz",
+      "archive_sha256": "c8e20da5f49289fa7dce5c9c6b5b120928e3661aefa0fa2d206ea6d93f580928",
+      "published": "2024-10-22T03:40:02.981424Z"
+    }
+  ]
+}

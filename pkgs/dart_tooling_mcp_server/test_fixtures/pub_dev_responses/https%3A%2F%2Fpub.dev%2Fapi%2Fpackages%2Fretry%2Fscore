@@ -1,0 +1,30 @@
+{
+  "grantedPoints": 160,
+  "maxPoints": 160,
+  "likeCount": 1032,
+  "downloadCount30Days": 1564763,
+  "tags": [
+    "publisher:google.dev",
+    "has:topic",
+    "sdk:dart",
+    "sdk:flutter",
+    "platform:android",
+    "platform:ios",
+    "platform:windows",
+    "platform:linux",
+    "platform:macos",
+    "platform:web",
+    "runtime:native-aot",
+    "runtime:native-jit",
+    "runtime:web",
+    "is:null-safe",
+    "is:wasm-ready",
+    "is:dart3-compatible",
+    "license:apache-2.0",
+    "license:fsf-libre",
+    "license:osi-approved",
+    "topic:network",
+    "topic:http"
+  ],
+  "lastUpdated": "2025-04-24T19:39:45.736783"
+}

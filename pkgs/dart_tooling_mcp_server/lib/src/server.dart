@@ -15,6 +15,7 @@ import 'mixins/analyzer.dart';
 import 'mixins/dash_cli.dart';
 import 'mixins/dtd.dart';
 import 'mixins/pub.dart';
+import 'mixins/pub_dev_search.dart';
 import 'utils/file_system.dart';
 import 'utils/process_manager.dart';
 
@@ -28,6 +29,7 @@ final class DartToolingMCPServer extends MCPServer
         DartAnalyzerSupport,
         DashCliSupport,
         PubSupport,
+        PubDevSupport,
         DartToolingDaemonSupport
     implements ProcessManagerSupport, FileSystemSupport {
   DartToolingMCPServer(
