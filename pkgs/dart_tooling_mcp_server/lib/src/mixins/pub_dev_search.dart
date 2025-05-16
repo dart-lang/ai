@@ -93,14 +93,13 @@ base mixin PubDevSupport on ToolsSupport {
         final scoreResult = await subQueryFutures[i].score;
         final docIndex = await subQueryFutures[i].docIndex;
 
-        List<Object?> identifiers(Object index) {
+        Map<String, Object?> identifiers(Object index) {
           final items = dig<List>(index, []);
-          return [
-            for (final item in items)
-              {
-                'qualifiedName': dig<String>(item, ['qualifiedName']),
-              },
-          ];
+          return {
+            'qualifiedNames': [
+              for (final item in items) dig<String>(item, ['qualifiedName']),
+            ],
+          };
         }
 
         results.add(

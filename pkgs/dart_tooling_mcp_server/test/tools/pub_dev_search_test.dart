@@ -81,10 +81,9 @@ void main() {
             'license:fsf-libre',
             'license:osi-approved',
           ],
-          'api': containsAll([
-            {'qualifiedName': 'retry'},
-            {'qualifiedName': 'retry.RetryOptions'},
-          ]),
+          'api': {
+            'qualifiedNames': containsAll(['retry', 'retry.RetryOptions']),
+          },
         });
       });
     }, _GoldenResponseClient.new);
