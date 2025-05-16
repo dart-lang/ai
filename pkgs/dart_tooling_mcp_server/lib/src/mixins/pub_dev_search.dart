@@ -139,6 +139,10 @@ base mixin PubDevSupport on ToolsSupport {
                     dig<List>(scoreResult, ['tags'])
                         .where((t) => (t as String).startsWith('license'))
                         .toList(),
+                'publisher':
+                    dig<List>(scoreResult, ['tags'])
+                        .where((t) => (t as String).startsWith('publisher:'))
+                        .firstOrNull,
               },
               if (docIndex != null) ...{'api': identifiers(docIndex)},
             }),
