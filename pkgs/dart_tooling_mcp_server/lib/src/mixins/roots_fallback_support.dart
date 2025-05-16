@@ -44,11 +44,13 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
 
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) async {
-    registerTool(addRootsTool, addRoot);
     try {
       return super.initialize(request);
     } finally {
+      // Can't call `supportsRoots` until after `super.initialize`.
       if (!super.supportsRoots) {
+        registerTool(removeRootsTool, removeRoot);
+        registerTool(addRootsTool, addRoot);
         _rootsListChangedFallbackController =
             StreamController<RootsListChangedNotification>.broadcast();
       }
@@ -90,6 +92,28 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
     return CallToolResult(content: [Content.text(text: 'Success')]);
   }
 
+  /// Removes the roots in [request] from the custom roots and calls
+  /// [updateRoots].
+  ///
+  /// Should only be called if [supportsRoots] is false.
+  Future<CallToolResult> removeRoot(CallToolRequest request) async {
+    if (super.supportsRoots) {
+      throw StateError(
+        'This tool should not be invoked if the client supports roots',
+      );
+    }
+
+    final roots =
+        (request.arguments?[ParameterNames.roots] as List?)
+            ?.cast<Map<String, Object?>>()
+            .map((config) => Root(uri: config[ParameterNames.uri] as String)) ??
+        [];
+    _customRoots.removeAll(roots);
+    _rootsListChangedFallbackController?.add(RootsListChangedNotification());
+
+    return CallToolResult(content: [Content.text(text: 'Success')]);
+  }
+
   @visibleForTesting
   static final addRootsTool = Tool(
     name: 'add_roots',
@@ -109,6 +133,30 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
               ),
               ParameterNames.name: Schema.string(
                 description: 'An optional name of the root.',
+              ),
+            },
+            required: [ParameterNames.uri],
+          ),
+        ),
+      },
+    ),
+  );
+
+  @visibleForTesting
+  static final removeRootsTool = Tool(
+    name: 'remove_roots',
+    description:
+        'Removes one or more project roots previously added via '
+        'the add_roots tool.',
+    annotations: ToolAnnotations(title: 'Remove roots', readOnlyHint: false),
+    inputSchema: Schema.object(
+      properties: {
+        ParameterNames.roots: Schema.list(
+          description: 'All the project roots to remove from this server.',
+          items: Schema.object(
+            properties: {
+              ParameterNames.uri: Schema.string(
+                description: 'The URI of the root to remove.',
               ),
             },
             required: [ParameterNames.uri],
