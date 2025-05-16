@@ -4,6 +4,7 @@
 
 import 'dart:async';
 
+import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_transform/stream_transform.dart';
 
