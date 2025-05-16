@@ -7,6 +7,7 @@ extension ParameterNames on Never {
   static const column = 'column';
   static const command = 'command';
   static const line = 'line';
+  static const name = 'name';
   static const packageName = 'packageName';
   static const paths = 'paths';
   static const position = 'position';

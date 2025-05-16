@@ -15,6 +15,7 @@ import 'mixins/analyzer.dart';
 import 'mixins/dash_cli.dart';
 import 'mixins/dtd.dart';
 import 'mixins/pub.dart';
+import 'mixins/roots_fallback_support.dart';
 import 'utils/file_system.dart';
 import 'utils/process_manager.dart';
 
@@ -25,6 +26,7 @@ final class DartToolingMCPServer extends MCPServer
         ToolsSupport,
         ResourcesSupport,
         RootsTrackingSupport,
+        RootsFallbackSupport,
         DartAnalyzerSupport,
         DashCliSupport,
         PubSupport,
