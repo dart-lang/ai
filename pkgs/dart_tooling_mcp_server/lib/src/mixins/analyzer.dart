@@ -323,16 +323,6 @@ base mixin DartAnalyzerSupport
   /// Returns an error response if any prerequisite is not met, otherwise
   /// returns `null`.
   Future<CallToolResult?> _ensurePrerequisites(CallToolRequest request) async {
-    if (!supportsRootsChanged) {
-      return CallToolResult(
-        content: [
-          Content.text(
-            text:
-                'roots changed support not provided, roots support $supportsRoots',
-          ),
-        ],
-      );
-    }
     final roots = await this.roots;
     if (roots.isEmpty) {
       return noRootsSetResponse;

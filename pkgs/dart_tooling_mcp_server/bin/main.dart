@@ -70,8 +70,9 @@ final argParser =
         negatable: true,
         defaultsTo: false,
         help:
-            'Forces a behavior for project roots which uses MCP tools instead of '
-            'the native MCP roots. This can be helpful for clients like cursor '
-            'which claim to have roots support but do not actually support it.',
+            'Forces a behavior for project roots which uses MCP tools instead '
+            'of the native MCP roots. This can be helpful for clients like '
+            'cursor which claim to have roots support but do not actually '
+            'support it.',
       )
       ..addFlag('help', abbr: 'h', help: 'Show usage text');
