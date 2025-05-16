@@ -85,15 +85,21 @@ base mixin RootsTrackingSupport on LoggingSupport {
       previousCompleter.complete(newCompleter.future);
     }
 
-    final result = await listRoots(ListRootsRequest());
-
-    // Only complete the completer if it's still the one we created. Otherwise
-    // we wait for the next result to come back and throw away this result.
-    if (_rootsCompleter == newCompleter) {
-      newCompleter.complete(result.roots);
-      _roots = result.roots;
-      _rootsCompleter = null;
-      _rootsState = _RootsState.upToDate;
+    ListRootsResult? result;
+    try {
+      result = await listRoots(ListRootsRequest());
+    } on RpcException catch (e) {
+      log(LoggingLevel.error, 'Error calling listRoots: $e');
+    } finally {
+      // Only complete the completer if it's still the one we created. Otherwise
+      // we wait for the next result to come back and throw away this result.
+      if (_rootsCompleter == newCompleter) {
+        final roots = result == null ? <Root>[] : result.roots;
+        newCompleter.complete(roots);
+        _roots = roots;
+        _rootsCompleter = null;
+        _rootsState = _RootsState.upToDate;
+      }
     }
   }
 }

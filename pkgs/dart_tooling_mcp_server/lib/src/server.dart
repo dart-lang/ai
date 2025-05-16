@@ -15,6 +15,7 @@ import 'mixins/analyzer.dart';
 import 'mixins/dash_cli.dart';
 import 'mixins/dtd.dart';
 import 'mixins/pub.dart';
+import 'mixins/roots_fallback_support.dart';
 import 'utils/file_system.dart';
 import 'utils/process_manager.dart';
 
@@ -25,6 +26,7 @@ final class DartToolingMCPServer extends MCPServer
         ToolsSupport,
         ResourcesSupport,
         RootsTrackingSupport,
+        RootsFallbackSupport,
         DartAnalyzerSupport,
         DashCliSupport,
         PubSupport,
@@ -34,6 +36,7 @@ final class DartToolingMCPServer extends MCPServer
     super.channel, {
     @visibleForTesting this.processManager = const LocalProcessManager(),
     @visibleForTesting this.fileSystem = const LocalFileSystem(),
+    this.forceRootsFallback = false,
   }) : super.fromStreamChannel(
          implementation: ServerImplementation(
            name: 'dart and flutter tooling',
@@ -45,9 +48,13 @@ final class DartToolingMCPServer extends MCPServer
        );
 
   static Future<DartToolingMCPServer> connect(
-    StreamChannel<String> mcpChannel,
-  ) async {
-    return DartToolingMCPServer(mcpChannel);
+    StreamChannel<String> mcpChannel, {
+    bool forceRootsFallback = false,
+  }) async {
+    return DartToolingMCPServer(
+      mcpChannel,
+      forceRootsFallback: forceRootsFallback,
+    );
   }
 
   @override
@@ -55,4 +62,7 @@ final class DartToolingMCPServer extends MCPServer
 
   @override
   final FileSystem fileSystem;
+
+  @override
+  final bool forceRootsFallback;
 }
