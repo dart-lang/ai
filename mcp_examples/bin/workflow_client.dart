@@ -15,7 +15,7 @@ import 'package:google_generative_ai/google_generative_ai.dart' as gemini;
 /// The list of Gemini models that are accepted as a "--model" argument.
 /// Defaults to the first one in the list.
 const List<String> allowedGeminiModels = [
-  'gemini-2.5-pro-exp-03-25',
+  'gemini-2.5-pro-preview-03-25',
   'gemini-2.0-flash',
   'gemini-2.5-flash-preview-04-17',
 ];
