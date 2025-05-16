@@ -215,12 +215,18 @@ final class TestServer extends MCPServer
         ToolsSupport,
         RootsTrackingSupport,
         RootsFallbackSupport {
-  TestServer(super.channel, {super.protocolLogSink})
-    : super.fromStreamChannel(
-        implementation: ServerImplementation(
-          name: 'test server',
-          version: '0.1.0',
-        ),
-        instructions: 'A test server with roots fallback support',
-      );
+  @override
+  final bool forceRootsFallback;
+
+  TestServer(
+    super.channel, {
+    super.protocolLogSink,
+    this.forceRootsFallback = false,
+  }) : super.fromStreamChannel(
+         implementation: ServerImplementation(
+           name: 'test server',
+           version: '0.1.0',
+         ),
+         instructions: 'A test server with roots fallback support',
+       );
 }

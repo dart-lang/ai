@@ -13,6 +13,7 @@ executables:
   dart_tooling_mcp_server: main
 
 dependencies:
+  args: ^2.7.0
   async: ^2.13.0
   dart_mcp: ^0.2.0
   dds_service_extensions: ^2.0.1

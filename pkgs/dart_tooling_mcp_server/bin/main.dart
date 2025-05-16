@@ -6,18 +6,17 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io' as io;
 
+import 'package:args/args.dart';
 import 'package:async/async.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:dart_tooling_mcp_server/dart_tooling_mcp_server.dart';
 import 'package:stream_channel/stream_channel.dart';
 
 void main(List<String> args) async {
-  if (args.isNotEmpty) {
-    io.stderr
-      ..writeln('Expected no arguments but got ${args.length}.')
-      ..writeln()
-      ..writeln('Usage: dart_tooling_mcp_server');
-    io.exit(1);
+  final parsedArgs = argParser.parse(args);
+  if (parsedArgs.flag('help')) {
+    print(argParser.usage);
+    io.exit(0);
   }
 
   DartToolingMCPServer? server;
@@ -34,6 +33,7 @@ void main(List<String> args) async {
                 },
               ),
             ),
+        forceRootsFallback: parsedArgs.flag('force-roots-fallback'),
       );
     },
     (e, s) {
@@ -62,3 +62,16 @@ void main(List<String> args) async {
     ),
   );
 }
+
+final argParser =
+    ArgParser(allowTrailingOptions: false)
+      ..addFlag(
+        'force-roots-fallback',
+        negatable: true,
+        defaultsTo: false,
+        help:
+            'Forces a behavior for project roots which uses MCP tools instead of '
+            'the native MCP roots. This can be helpful for clients like cursor '
+            'which claim to have roots support but do not actually support it.',
+      )
+      ..addFlag('help', abbr: 'h', help: 'Show usage text');

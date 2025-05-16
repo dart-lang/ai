@@ -24,6 +24,18 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
     hashCode: (root) => root.uri.hashCode,
   );
 
+  /// Whether or not to force the fallback mode for roots, regardless of the
+  /// clients reported support.
+  ///
+  /// Override this to enable it.
+  bool get forceRootsFallback => false;
+
+  /// Whether fallback mode is enabled.
+  ///
+  /// Unsafe to call until after the server is initialized.
+  bool get _fallbackEnabled => forceRootsFallback || !super.supportsRoots;
+
+  /// Always supported, either by the client or this mixin.
   @override
   bool get supportsRoots => true;
 
@@ -31,15 +43,16 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
   bool get supportsRootsChanged =>
       // If the client supports roots, then we only support root change events
       // if they do. If we are implementing the support, we always support it.
-      super.supportsRoots ? super.supportsRootsChanged : true;
+      _fallbackEnabled ? true : super.supportsRootsChanged;
 
   @override
   Stream<RootsListChangedNotification>? get rootsListChanged =>
       // If the client supports roots, just use their stream (or lack thereof).
       // If they don't, use our own stream.
-      super.supportsRoots
-          ? super.rootsListChanged
-          : _rootsListChangedFallbackController?.stream;
+      _fallbackEnabled
+          ? _rootsListChangedFallbackController?.stream
+          : super.rootsListChanged;
+
   StreamController<RootsListChangedNotification>?
   _rootsListChangedFallbackController;
 
@@ -49,7 +62,7 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
       return super.initialize(request);
     } finally {
       // Can't call `super.supportsRoots` until after `super.initialize`.
-      if (!super.supportsRoots) {
+      if (_fallbackEnabled) {
         registerTool(removeRootsTool, _removeRoots);
         registerTool(addRootsTool, _addRoots);
         _rootsListChangedFallbackController =
@@ -58,19 +71,19 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
     }
   }
 
-  /// Delegates to the inherited implementation if [supportsRoots] is true,
+  /// Delegates to the inherited implementation if fallback mode is not enabled,
   /// otherwise returns our own custom roots.
   @override
   Future<ListRootsResult> listRoots(ListRootsRequest request) async =>
-      super.supportsRoots
-          ? super.listRoots(request)
-          : ListRootsResult(roots: _customRoots.toList());
+      _fallbackEnabled
+          ? ListRootsResult(roots: _customRoots.toList())
+          : super.listRoots(request);
 
   /// Adds the roots in [request] the custom roots and calls [updateRoots].
   ///
   /// Should only be called if [supportsRoots] is false.
   Future<CallToolResult> _addRoots(CallToolRequest request) async {
-    if (super.supportsRoots) {
+    if (!_fallbackEnabled) {
       throw StateError(
         'This tool should not be invoked if the client supports roots',
       );
@@ -90,7 +103,7 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
   ///
   /// Should only be called if [supportsRoots] is false.
   Future<CallToolResult> _removeRoots(CallToolRequest request) async {
-    if (super.supportsRoots) {
+    if (!_fallbackEnabled) {
       throw StateError(
         'This tool should not be invoked if the client supports roots',
       );
