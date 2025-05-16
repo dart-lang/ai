@@ -19,6 +19,9 @@ final _pool = Pool(10);
 // http://pub.dev/api/search endpoint.
 final _resultsLimit = 10;
 
+/// The number of identifiers we list per packages.
+final _maxIdentifiersListed = 200;
+
 /// Mix this in to any MCPServer to add support for doing searches on pub.dev.
 base mixin PubDevSupport on ToolsSupport {
   final _client = Client();
@@ -97,7 +100,8 @@ base mixin PubDevSupport on ToolsSupport {
           final items = dig<List>(index, []);
           return {
             'qualifiedNames': [
-              for (final item in items) dig<String>(item, ['qualifiedName']),
+              for (final item in items.take(_maxIdentifiersListed))
+                dig<String>(item, ['qualifiedName']),
             ],
           };
         }
@@ -155,9 +159,9 @@ base mixin PubDevSupport on ToolsSupport {
     name: 'pub_dev_search',
     description:
         'Searches pub.dev for packages relevant to a given search query. '
-        'The response will describe each result with its download count,'
-        ' package description, topics, license, and a list of identifiers '
-        'in the public api.',
+        'The response will describe each result with its download count, '
+        'package description, topics, license, publisher, and a list of '
+        'identifiers in the public api.',
     annotations: ToolAnnotations(title: 'pub.dev search', readOnlyHint: true),
     inputSchema: Schema.object(
       properties: {

@@ -81,6 +81,7 @@ void main() {
             'license:fsf-libre',
             'license:osi-approved',
           ],
+          'publisher': 'publisher:google.dev',
           'api': {
             'qualifiedNames': containsAll(['retry', 'retry.RetryOptions']),
           },
