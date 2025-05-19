@@ -4,6 +4,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:dart_mcp/server.dart';
 import 'package:dds_service_extensions/dds_service_extensions.dart';
@@ -296,66 +297,20 @@ base mixin DartToolingDaemonSupport
           )).errors.clear();
         }
 
-        StreamSubscription<Event>? serviceStreamSubscription;
-        try {
-          final hotReloadMethodNameCompleter = Completer<String?>();
-          serviceStreamSubscription = vmService
-              .onEvent(EventStreams.kService)
-              .listen((Event e) {
-                if (e.kind == EventKind.kServiceRegistered) {
-                  final serviceName = e.service!;
-                  if (serviceName == 'reloadSources') {
-                    // This may look something like 's0.reloadSources'.
-                    hotReloadMethodNameCompleter.complete(e.method);
-                  }
-                }
-              });
-
-          await vmService.streamListen(EventStreams.kService);
-
-          final hotReloadMethodName = await hotReloadMethodNameCompleter.future
-              .timeout(
-                const Duration(milliseconds: 1000),
-                onTimeout: () async {
-                  return null;
-                },
-              );
-          if (hotReloadMethodName == null) {
-            return CallToolResult(
-              isError: true,
-              content: [
-                TextContent(
-                  text:
-                      'The hot reload service has not been registered yet. '
-                      'Please wait a few seconds and try again.',
-                ),
-              ],
-            );
-          }
-
-          final vm = await vmService.getVM();
-          final result = await vmService.callMethod(
-            hotReloadMethodName,
-            isolateId: vm.isolates!.first.id,
+        final vm = await vmService.getVM();
+        stderr.writeln('${vm.isolates!.length}');
+        final report = await vmService.reloadSources(vm.isolates!.first.id!);
+        if (report.success == true) {
+          return CallToolResult(
+            content: [
+              TextContent(text: 'Hot reload succeeded:\n${report.json}}'),
+            ],
           );
-          final resultType = result.json?['type'];
-          if (resultType == 'Success' ||
-              (resultType == 'ReloadReport' &&
-                  result.json?['success'] == true)) {
-            return CallToolResult(
-              content: [TextContent(text: 'Hot reload succeeded.')],
-            );
-          } else {
-            return CallToolResult(
-              isError: true,
-              content: [
-                TextContent(text: 'Hot reload failed:\n${result.json}'),
-              ],
-            );
-          }
-        } finally {
-          await serviceStreamSubscription?.cancel();
-          await vmService.streamCancel(EventStreams.kService);
+        } else {
+          return CallToolResult(
+            isError: true,
+            content: [TextContent(text: 'Hot reload failed:\n${report.json}')],
+          );
         }
       },
     );

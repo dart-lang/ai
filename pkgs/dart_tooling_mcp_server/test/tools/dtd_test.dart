@@ -2,7 +2,9 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:async/async.dart';
 import 'package:dart_mcp/server.dart';
@@ -25,65 +27,102 @@ void main() {
         await testHarness.connectToDtd();
       });
 
-      test('can take a screenshot', () async {
-        await testHarness.startDebugSession(
-          counterAppPath,
-          'lib/main.dart',
-          isFlutter: true,
-        );
-        final tools = (await testHarness.mcpServerConnection.listTools()).tools;
-        final screenshotTool = tools.singleWhere(
-          (t) => t.name == DartToolingDaemonSupport.screenshotTool.name,
-        );
-        final screenshotResult = await testHarness.callToolWithRetry(
-          CallToolRequest(name: screenshotTool.name),
-        );
-        expect(screenshotResult.content.single, {
-          'data': anything,
-          'mimeType': 'image/png',
-          'type': ImageContent.expectedType,
+      group('flutter tests', () {
+        test('can take a screenshot', () async {
+          await testHarness.startDebugSession(
+            counterAppPath,
+            'lib/main.dart',
+            isFlutter: true,
+          );
+          final tools =
+              (await testHarness.mcpServerConnection.listTools()).tools;
+          final screenshotTool = tools.singleWhere(
+            (t) => t.name == DartToolingDaemonSupport.screenshotTool.name,
+          );
+          final screenshotResult = await testHarness.callToolWithRetry(
+            CallToolRequest(name: screenshotTool.name),
+          );
+          expect(screenshotResult.content.single, {
+            'data': anything,
+            'mimeType': 'image/png',
+            'type': ImageContent.expectedType,
+          });
+        });
+
+        test('can get the widget tree', () async {
+          await testHarness.startDebugSession(
+            counterAppPath,
+            'lib/main.dart',
+            isFlutter: true,
+          );
+          final tools =
+              (await testHarness.mcpServerConnection.listTools()).tools;
+          final getWidgetTreeTool = tools.singleWhere(
+            (t) => t.name == DartToolingDaemonSupport.getWidgetTreeTool.name,
+          );
+          final getWidgetTreeResult = await testHarness.callToolWithRetry(
+            CallToolRequest(name: getWidgetTreeTool.name),
+          );
+
+          expect(getWidgetTreeResult.isError, isNot(true));
+          expect(
+            (getWidgetTreeResult.content.first as TextContent).text,
+            contains('MyHomePage'),
+          );
         });
       });
 
-      test('can perform a hot reload', () async {
-        await testHarness.startDebugSession(
-          counterAppPath,
-          'lib/main.dart',
-          isFlutter: true,
-        );
-        final tools = (await testHarness.mcpServerConnection.listTools()).tools;
-        final hotReloadTool = tools.singleWhere(
-          (t) => t.name == DartToolingDaemonSupport.hotReloadTool.name,
-        );
-        final hotReloadResult = await testHarness.callToolWithRetry(
-          CallToolRequest(name: hotReloadTool.name),
-        );
+      group('dart cli tests', () {
+        test('can perform a hot reload', () async {
+          final exampleApp = await Directory.systemTemp.createTemp('dart_app');
+          addTearDown(() async {
+            await exampleApp.delete(recursive: true);
+          });
+          final mainFile = File.fromUri(
+            exampleApp.uri.resolve('bin/main.dart'),
+          );
+          await mainFile.create(recursive: true);
+          await mainFile.writeAsString(exampleMain);
 
-        expect(hotReloadResult.isError, isNot(true));
-        expect(hotReloadResult.content, [
-          TextContent(text: 'Hot reload succeeded.'),
-        ]);
-      });
+          final debugSession = await testHarness.startDebugSession(
+            exampleApp.path,
+            'bin/main.dart',
+            isFlutter: false,
+          );
 
-      test('can get the widget tree', () async {
-        await testHarness.startDebugSession(
-          counterAppPath,
-          'lib/main.dart',
-          isFlutter: true,
-        );
-        final tools = (await testHarness.mcpServerConnection.listTools()).tools;
-        final getWidgetTreeTool = tools.singleWhere(
-          (t) => t.name == DartToolingDaemonSupport.getWidgetTreeTool.name,
-        );
-        final getWidgetTreeResult = await testHarness.callToolWithRetry(
-          CallToolRequest(name: getWidgetTreeTool.name),
-        );
+          final stdout = debugSession.appProcess.stdout;
+          final stdin = debugSession.appProcess.stdin;
+          await stdout.skip(1); // VM service line
+          stdin.writeln(' ');
+          expect(await stdout.next, 'hello');
+          await Future<void>.delayed(const Duration(seconds: 1));
 
-        expect(getWidgetTreeResult.isError, isNot(true));
-        expect(
-          (getWidgetTreeResult.content.first as TextContent).text,
-          contains('MyHomePage'),
-        );
+          final originalContents = await mainFile.readAsString();
+          expect(originalContents, contains('hello'));
+          await mainFile.writeAsString(
+            originalContents.replaceFirst('hello', 'world'),
+          );
+
+          final tools =
+              (await testHarness.mcpServerConnection.listTools()).tools;
+          final hotReloadTool = tools.singleWhere(
+            (t) => t.name == DartToolingDaemonSupport.hotReloadTool.name,
+          );
+          final hotReloadResult = await testHarness.callToolWithRetry(
+            CallToolRequest(name: hotReloadTool.name),
+          );
+          expect(hotReloadResult.isError, isNot(true));
+          expect(
+            (hotReloadResult.content.single as TextContent).text,
+            startsWith('Hot reload succeeded'),
+          );
+
+          stdin.writeln(' ');
+          expect(await stdout.next, 'world');
+
+          stdin.writeln('q');
+          await testHarness.stopDebugSession(debugSession);
+        });
       });
     });
 
@@ -99,14 +138,27 @@ void main() {
       });
 
       group('$VmService management', () {
+        late Directory appDir;
+        final appPath = 'bin/main.dart';
+
+        setUp(() async {
+          appDir = await Directory.systemTemp.createTemp('dart_app');
+          addTearDown(() async {
+            await appDir.delete(recursive: true);
+          });
+          final mainFile = File.fromUri(appDir.uri.resolve(appPath));
+          await mainFile.create(recursive: true);
+          await mainFile.writeAsString(exampleMain);
+        });
+
         test('persists vm services', () async {
           final server = testHarness.serverConnectionPair.server!;
           expect(server.activeVmServices, isEmpty);
 
           await testHarness.startDebugSession(
-            counterAppPath,
-            'lib/main.dart',
-            isFlutter: true,
+            appDir.path,
+            appPath,
+            isFlutter: false,
           );
           await server.updateActiveVmServices();
           expect(server.activeVmServices.length, 1);
@@ -118,9 +170,9 @@ void main() {
           expect(originalVmService, server.activeVmServices.values.single);
 
           await testHarness.startDebugSession(
-            counterAppPath,
-            'lib/main.dart',
-            isFlutter: true,
+            appDir.path,
+            appPath,
+            isFlutter: false,
           );
           await server.updateActiveVmServices();
           expect(server.activeVmServices.length, 2);
@@ -131,9 +183,9 @@ void main() {
           expect(server.activeVmServices, isEmpty);
 
           final debugSession = await testHarness.startDebugSession(
-            counterAppPath,
-            'lib/main.dart',
-            isFlutter: true,
+            appDir.path,
+            appPath,
+            isFlutter: false,
           );
           await pumpEventQueue();
           expect(server.activeVmServices.length, 1);
@@ -226,12 +278,28 @@ void main() {
       group('runtime errors', () {
         final errorCountRegex = RegExp(r'Found \d+ errors?:');
 
+        late Directory appDir;
+        final appPath = 'bin/main.dart';
+        late AppDebugSession debugSession;
+
         setUp(() async {
-          await testHarness.startDebugSession(
-            counterAppPath,
-            'lib/main.dart',
-            isFlutter: true,
-            args: ['--dart-define=include_layout_error=true'],
+          appDir = await Directory.systemTemp.createTemp('dart_app');
+          addTearDown(() async {
+            await appDir.delete(recursive: true);
+          });
+          final mainFile = File.fromUri(appDir.uri.resolve(appPath));
+          await mainFile.create(recursive: true);
+          await mainFile.writeAsString(
+            exampleMain.replaceFirst(
+              "print('hello')",
+              "stderr.writeln('error!');",
+            ),
+          );
+
+          debugSession = await testHarness.startDebugSession(
+            appDir.path,
+            appPath,
+            isFlutter: false,
           );
         });
 
@@ -243,8 +311,11 @@ void main() {
           );
           late CallToolResult runtimeErrorsResult;
 
+          final stdin = debugSession.appProcess.stdin;
+
           // Give the errors at most a second to come through.
           var count = 0;
+          stdin.writeln(' ');
           while (true) {
             runtimeErrorsResult = await testHarness.callToolWithRetry(
               CallToolRequest(
@@ -265,7 +336,7 @@ void main() {
           }
           expect(
             (runtimeErrorsResult.content[1] as TextContent).text,
-            contains('A RenderFlex overflowed by'),
+            contains('error!'),
           );
 
           // We cleared the errors in the previous call, shouldn't see any here.
@@ -277,11 +348,8 @@ void main() {
             contains('No runtime errors found'),
           );
 
-          // Trigger a hot reload, should see the error again.
-          await testHarness.callToolWithRetry(
-            CallToolRequest(name: DartToolingDaemonSupport.hotReloadTool.name),
-          );
-
+          // Trigger another error.
+          stdin.writeln(' ');
           final finalRuntimeErrorsResult = await testHarness.callToolWithRetry(
             CallToolRequest(name: runtimeErrorsTool.name),
           );
@@ -291,7 +359,7 @@ void main() {
           );
           expect(
             (finalRuntimeErrorsResult.content[1] as TextContent).text,
-            contains('A RenderFlex overflowed by'),
+            contains('error!'),
           );
         });
 
@@ -299,6 +367,9 @@ void main() {
           final serverConnection = testHarness.mcpServerConnection;
           final onResourceListChanged =
               serverConnection.resourceListChanged.first;
+
+          final stdin = debugSession.appProcess.stdin;
+          stdin.writeln(' ');
           var resources =
               (await serverConnection.listResources(
                 ListResourcesRequest(),
@@ -323,10 +394,10 @@ void main() {
               (await serverConnection.readResource(
                 ReadResourceRequest(uri: resource.uri),
               )).contents;
-          final overflowMatcher = isA<TextResourceContents>().having(
+          final errorMatcher = isA<TextResourceContents>().having(
             (c) => c.text,
             'text',
-            contains('A RenderFlex overflowed by'),
+            contains('error!'),
           );
           // If we haven't seen errors initially, then listen for updates and
           // re-read the resource.
@@ -337,14 +408,9 @@ void main() {
                   ReadResourceRequest(uri: resource.uri),
                 )).contents;
           }
-          // Sometimes we get this error logged multiple times
-          expect(originalContents.first, overflowMatcher);
-          await pumpEventQueue();
+          expect(originalContents.single, errorMatcher);
 
-          await testHarness.callToolWithRetry(
-            CallToolRequest(name: DartToolingDaemonSupport.hotReloadTool.name),
-          );
-
+          stdin.writeln(' ');
           expect(
             await resourceUpdatedQueue.next,
             isA<ResourceUpdatedNotification>().having(
@@ -353,30 +419,21 @@ void main() {
               resource.uri,
             ),
           );
+          await pumpEventQueue();
 
-          // We should see additional errors (but the exact number is variable).
+          // Should now have another error.
           final newContents =
               (await serverConnection.readResource(
                 ReadResourceRequest(uri: resource.uri),
               )).contents;
-          expect(newContents.length, greaterThan(originalContents.length));
-          expect(newContents.last, overflowMatcher);
+          expect(newContents.length, 2);
+          expect(newContents.last, errorMatcher);
 
-          // Now hot reload but clear previous errors, should see fewer errors
-          // than before after this.
+          // Clear previous errors.
           await testHarness.callToolWithRetry(
             CallToolRequest(
-              name: DartToolingDaemonSupport.hotReloadTool.name,
+              name: DartToolingDaemonSupport.getRuntimeErrorsTool.name,
               arguments: {'clearRuntimeErrors': true},
-            ),
-          );
-
-          expect(
-            await resourceUpdatedQueue.next,
-            isA<ResourceUpdatedNotification>().having(
-              (n) => n.uri,
-              ParameterNames.uri,
-              resource.uri,
             ),
           );
 
@@ -384,8 +441,7 @@ void main() {
               (await serverConnection.readResource(
                 ReadResourceRequest(uri: resource.uri),
               )).contents;
-          expect(finalContents.length, lessThan(newContents.length));
-          expect(finalContents.last, overflowMatcher);
+          expect(finalContents, isEmpty);
         });
       });
 
@@ -491,3 +547,20 @@ extension on Iterable<Resource> {
     (r) => r.uri.startsWith(DartToolingDaemonSupport.runtimeErrorsScheme),
   );
 }
+
+/// A dart app which exits when it receives a `q` on stdin.
+final exampleMain = '''
+import 'dart:convert';
+import 'dart:io';
+
+void main() async {
+  stdin.listen((bytes) {
+    if (utf8.decode(bytes).contains('q')) exit(0);
+    action();
+  });
+}
+
+void action() {
+  print('hello');
+}
+''';
