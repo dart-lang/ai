@@ -249,7 +249,7 @@ extension type ValidationError.fromMap(Map<String, Object?> _value) {
     String? details,
   }) => ValidationError.fromMap({
     'error': error.name,
-    if (path != null) 'path': path,
+    if (path != null) 'path': path.toList(),
     if (details != null) 'details': details,
   });
 
@@ -869,23 +869,24 @@ extension type ObjectSchema.fromMap(Map<String, Object?> _value)
     if (properties case final props?) {
       for (final entry in props.entries) {
         if (data.containsKey(entry.key)) {
+          currentPath.add(entry.key);
           evaluatedKeys.add(entry.key);
-          final propertyPath = [...currentPath, entry.key];
           final propertySpecificFailures = _createHashSet();
           if (!entry.value._validateSchema(
             data[entry.key],
-            propertyPath,
+            currentPath,
             propertySpecificFailures,
           )) {
             isValid = false;
             accumulatedFailures.add(
               ValidationError(
                 ValidationErrorType.propertyValueInvalid,
-                path: propertyPath,
+                path: currentPath,
               ),
             );
             accumulatedFailures.addAll(propertySpecificFailures);
           }
+          currentPath.removeLast();
         }
       }
     }
@@ -899,23 +900,24 @@ extension type ObjectSchema.fromMap(Map<String, Object?> _value)
         final pattern = RegExp(entry.key);
         for (final dataKey in data.keys) {
           if (pattern.hasMatch(dataKey)) {
+            currentPath.add(dataKey);
             evaluatedKeys.add(dataKey);
-            final propertyPath = [...currentPath, dataKey];
             final patternPropertySpecificFailures = _createHashSet();
             if (!entry.value._validateSchema(
               data[dataKey],
-              propertyPath,
+              currentPath,
               patternPropertySpecificFailures,
             )) {
               isValid = false;
               accumulatedFailures.add(
                 ValidationError(
                   ValidationErrorType.patternPropertyValueInvalid,
-                  path: propertyPath,
+                  path: currentPath,
                 ),
               );
               accumulatedFailures.addAll(patternPropertySpecificFailures);
             }
+            currentPath.removeLast();
           }
         }
       }
@@ -927,11 +929,11 @@ extension type ObjectSchema.fromMap(Map<String, Object?> _value)
     // and record the specific errors.
     if (propertyNames case final propNamesSchema?) {
       for (final key in data.keys) {
-        final propertyNamePath = [...currentPath, key];
+        currentPath.add(key);
         final propertyNameSpecificFailures = _createHashSet();
         if (!propNamesSchema._validateSchema(
           key,
-          propertyNamePath,
+          currentPath,
           propertyNameSpecificFailures,
         )) {
           isValid = false;
@@ -939,10 +941,11 @@ extension type ObjectSchema.fromMap(Map<String, Object?> _value)
           accumulatedFailures.add(
             ValidationError(
               ValidationErrorType.propertyNamesInvalid,
-              path: propertyNamePath,
+              path: currentPath,
             ),
           );
         }
+        currentPath.removeLast();
       }
     }
 
@@ -956,14 +959,14 @@ extension type ObjectSchema.fromMap(Map<String, Object?> _value)
       var isAdditionalPropertyAllowed = true;
       if (additionalProperties != null) {
         final ap = additionalProperties;
-        final additionalPropertyPath = [...currentPath, dataKey];
+        currentPath.add(dataKey);
         if (ap is bool && !ap) {
           isAdditionalPropertyAllowed = false;
         } else if (ap is Schema) {
           final additionalPropSchemaFailures = _createHashSet();
           if (!ap._validateSchema(
             data[dataKey],
-            additionalPropertyPath,
+            currentPath,
             additionalPropSchemaFailures,
           )) {
             isAdditionalPropertyAllowed = false;
@@ -976,20 +979,22 @@ extension type ObjectSchema.fromMap(Map<String, Object?> _value)
           accumulatedFailures.add(
             ValidationError(
               ValidationErrorType.additionalPropertyNotAllowed,
-              path: additionalPropertyPath,
+              path: currentPath,
             ),
           );
         }
+        currentPath.removeLast();
       } else if (unevaluatedProperties == false) {
         isValid = false;
         // Only applies if additionalProperties is not defined
-        final unevaluatedPropertyPath = [...currentPath, dataKey];
+        currentPath.add(dataKey);
         accumulatedFailures.add(
           ValidationError(
             ValidationErrorType.unevaluatedPropertyNotAllowed,
-            path: unevaluatedPropertyPath,
+            path: currentPath,
           ),
         );
+        currentPath.removeLast();
       }
     }
     return isValid;
@@ -1581,12 +1586,11 @@ extension type ListSchema.fromMap(Map<String, Object?> _value)
 
 HashSet<ValidationError> _createHashSet() {
   return HashSet<ValidationError>(
-    equals:
-        (ValidationError a, ValidationError b) {
-          return const ListEquality<String>().equals(a.path, b.path) &&
-            a.details == b.details &&
-            a.error == b.error;
-        },
+    equals: (ValidationError a, ValidationError b) {
+      return const ListEquality<String>().equals(a.path, b.path) &&
+          a.details == b.details &&
+          a.error == b.error;
+    },
     hashCode: (ValidationError error) {
       return Object.hashAll([...error.path ?? [], error.details, error.error]);
     },
