@@ -1592,7 +1592,11 @@ HashSet<ValidationError> _createHashSet() {
           a.error == b.error;
     },
     hashCode: (ValidationError error) {
-      return Object.hashAll([...error.path ?? [], error.details, error.error]);
+      return Object.hashAll([
+        ...error.path ?? const [],
+        error.details,
+        error.error,
+      ]);
     },
   );
 }
