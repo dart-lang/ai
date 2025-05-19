@@ -1524,55 +1524,59 @@ extension type ListSchema.fromMap(Map<String, Object?> _value)
     if (prefixItems case final pItems?) {
       for (var i = 0; i < pItems.length && i < data.length; i++) {
         evaluatedItems[i] = true;
-        final itemPath = [...currentPath, i.toString()];
+        currentPath.add(i.toString());
         final prefixItemSpecificFailures = _createHashSet();
         if (!pItems[i]._validateSchema(
           data[i],
-          itemPath,
+          currentPath,
           prefixItemSpecificFailures,
         )) {
           isValid = false;
           accumulatedFailures.add(
             ValidationError(
               ValidationErrorType.prefixItemInvalid,
-              path: itemPath,
+              path: currentPath,
             ),
           );
           accumulatedFailures.addAll(prefixItemSpecificFailures);
         }
+        currentPath.removeLast();
       }
     }
     if (items case final itemSchema?) {
       final startIndex = prefixItems?.length ?? 0;
       for (var i = startIndex; i < data.length; i++) {
         evaluatedItems[i] = true;
-        final itemPath = [...currentPath, i.toString()];
+        currentPath.add(i.toString());
         final itemSpecificFailures = _createHashSet();
         if (!itemSchema._validateSchema(
           data[i],
-          itemPath,
+          currentPath,
           itemSpecificFailures,
         )) {
           isValid = false;
           accumulatedFailures.add(
-            ValidationError(ValidationErrorType.itemInvalid, path: itemPath),
+            ValidationError(ValidationErrorType.itemInvalid, path: currentPath),
           );
           accumulatedFailures.addAll(itemSpecificFailures);
         }
+        currentPath.removeLast();
       }
     }
     if (unevaluatedItems == false) {
       for (var i = 0; i < data.length; i++) {
         if (!evaluatedItems[i]) {
-          final itemPath = [...currentPath, i.toString()];
+          currentPath.add(i.toString());
+
           isValid = false;
           accumulatedFailures.add(
             ValidationError(
               ValidationErrorType.unevaluatedItemNotAllowed,
-              path: itemPath,
+              path: currentPath,
               details: 'Unevaluated item in list at index $i',
             ),
           );
+          currentPath.removeLast();
           // Only report the first unevaluated item to avoid excessive errors.
           // If we want all, remove the break. For now, keeping existing
           // behavior of early exit.

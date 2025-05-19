@@ -1037,6 +1037,29 @@ void main() {
           [ValidationError(ValidationErrorType.unevaluatedPropertyNotAllowed)],
         );
       });
+
+      test('additionalPropertyAllowed - boolean true', () {
+        final schema = ObjectSchema(
+          properties: {'name': StringSchema()},
+          additionalProperties: true,
+        );
+        expectFailuresMatch(
+          schema,
+          {'name': 'test', 'age': 30},
+          [], // No errors expected
+        );
+      });
+
+      test('unevaluatedPropertyAllowed - default behavior', () {
+        // When additionalProperties is not set and unevaluatedProperties is not false,
+        // extra properties should be allowed.
+        final schema = ObjectSchema(properties: {'name': StringSchema()});
+        expectFailuresMatch(
+          schema,
+          {'name': 'test', 'age': 30},
+          [], // No errors expected
+        );
+      });
     });
 
     group('List Specific', () {
@@ -1163,6 +1186,27 @@ void main() {
           [ValidationError(ValidationErrorType.unevaluatedItemNotAllowed)],
         );
       });
+
+      test('unevaluatedItemAllowed - default behavior', () {
+        // When unevaluatedItems is not false, extra items should be allowed.
+        final schema = ListSchema(
+          prefixItems: [IntegerSchema()],
+          items: StringSchema(),
+          // unevaluatedItems is null (default), equivalent to true.
+        );
+        expectFailuresMatch(
+          schema,
+          [10, 'hello', true], // `true` is unevaluated but allowed
+          [
+            ValidationError(ValidationErrorType.itemInvalid),
+            ValidationError(ValidationErrorType.typeMismatch),
+          ],
+          reason:
+              'Item `true` at index 2 is evaluated by `items: StringSchema()` '
+              'and fails. `unevaluatedItems` (defaulting to true) does not apply '
+              'to items already evaluated by `items` or `prefixItems`.',
+        );
+      });
     });
 
     group('String Specific', () {
@@ -1245,6 +1289,19 @@ void main() {
         final schema = NumberSchema(multipleOf: 0.1);
         expectFailuresMatch(schema, 0.3, []);
       });
+
+      test('multipleOf zero is ignored (NumberSchema)', () {
+        // JSON Schema spec says multipleOf MUST be > 0.
+        // Current implementation ignores multipleOf if it's 0.
+        final schema = NumberSchema(multipleOf: 0);
+        expectFailuresMatch(
+          schema,
+          10.5,
+          [],
+          reason:
+              'multipleOf: 0 is currently ignored, data should pass regardless',
+        );
+      });
     });
 
     group('Integer Specific', () {
@@ -1293,6 +1350,56 @@ void main() {
         expectFailuresMatch(schema, 10, [
           ValidationError(ValidationErrorType.multipleOfInvalid),
         ]);
+      });
+
+      test('multipleOf zero is ignored (IntegerSchema)', () {
+        // JSON Schema spec says multipleOf MUST be > 0.
+        // Current implementation ignores multipleOf if it's 0.
+        final schema = IntegerSchema(multipleOf: 0);
+        expectFailuresMatch(
+          schema,
+          7,
+          [],
+          reason:
+              'multipleOf: 0 is currently ignored, data should pass regardless',
+        );
+      });
+    });
+
+    group('Schema Combinators - Advanced', () {
+      test('empty combinator lists', () {
+        // Per JSON Schema spec, allOf, anyOf, oneOf arrays must be non-empty.
+        // 'not' takes a single schema. Assuming dart_mcp's List<Schema> for 'not'
+        // means data must not match any in the list.
+
+        final schemaAllOfEmpty = Schema.combined(allOf: []);
+        expectFailuresMatch(
+          schemaAllOfEmpty,
+          'any data',
+          [],
+          reason: 'allOf:[] is vacuously true',
+        );
+
+        final schemaAnyOfEmpty = Schema.combined(anyOf: []);
+        expectFailuresMatch(schemaAnyOfEmpty, 'any data', [
+          ValidationError(ValidationErrorType.anyOfNotMet),
+        ]);
+
+        final schemaOneOfEmpty = Schema.combined(oneOf: []);
+        expectFailuresMatch(schemaOneOfEmpty, 'any data', [
+          ValidationError(ValidationErrorType.oneOfNotMet),
+        ]);
+
+        // If 'not' is a list of schemas, and the list is empty,
+        // then the data doesn't match any schema in the 'not' list.
+        // So, the 'not' condition is satisfied.
+        final schemaNotEmpty = Schema.combined(not: []);
+        expectFailuresMatch(
+          schemaNotEmpty,
+          'any data',
+          [],
+          reason: 'not:[] means no forbidden schemas, so it passes validation',
+        );
       });
     });
 
