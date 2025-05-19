@@ -9,6 +9,9 @@
 - Added `--help`, `--log`, and `--model` flags to the workflow example.
 - Fixed a bug where the examples would only connect to a server with the latest
   protocol version.
+- Handle failed calls to `listRoots` in the `RootsTrackingSupport` mixin more
+  gracefully. Previously this would leave the `roots` future hanging
+  indefinitely, but now it will log an error and set the roots to empty.
 
 ## 0.2.0
 
