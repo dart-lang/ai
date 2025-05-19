@@ -1,0 +1,133 @@
+[
+  {
+    "name": "retry",
+    "qualifiedName": "retry",
+    "href": "retry/",
+    "kind": 9,
+    "packageRank": 0,
+    "desc": "Retry asynchronous functions with exponential backoff."
+  },
+  {
+    "name": "RetryOptions",
+    "qualifiedName": "retry.RetryOptions",
+    "href": "retry/RetryOptions-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "Object holding options for retrying a function.",
+    "enclosedBy": {
+      "name": "retry",
+      "kind": 9,
+      "href": "retry/"
+    }
+  },
+  {
+    "name": "RetryOptions.new",
+    "qualifiedName": "retry.RetryOptions.RetryOptions.new",
+    "href": "retry/RetryOptions/RetryOptions.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "Create a set of RetryOptions.",
+    "enclosedBy": {
+      "name": "RetryOptions",
+      "kind": 3,
+      "href": "retry/RetryOptions-class.html"
+    }
+  },
+  {
+    "name": "delay",
+    "qualifiedName": "retry.RetryOptions.delay",
+    "href": "retry/RetryOptions/delay.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Delay after attempt number of attempts.",
+    "enclosedBy": {
+      "name": "RetryOptions",
+      "kind": 3,
+      "href": "retry/RetryOptions-class.html"
+    }
+  },
+  {
+    "name": "delayFactor",
+    "qualifiedName": "retry.RetryOptions.delayFactor",
+    "href": "retry/RetryOptions/delayFactor.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Delay factor to double after every attempt.",
+    "enclosedBy": {
+      "name": "RetryOptions",
+      "kind": 3,
+      "href": "retry/RetryOptions-class.html"
+    }
+  },
+  {
+    "name": "maxAttempts",
+    "qualifiedName": "retry.RetryOptions.maxAttempts",
+    "href": "retry/RetryOptions/maxAttempts.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Maximum number of attempts before giving up, defaults to 8.",
+    "enclosedBy": {
+      "name": "RetryOptions",
+      "kind": 3,
+      "href": "retry/RetryOptions-class.html"
+    }
+  },
+  {
+    "name": "maxDelay",
+    "qualifiedName": "retry.RetryOptions.maxDelay",
+    "href": "retry/RetryOptions/maxDelay.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Maximum delay between retries, defaults to 30 seconds.",
+    "enclosedBy": {
+      "name": "RetryOptions",
+      "kind": 3,
+      "href": "retry/RetryOptions-class.html"
+    }
+  },
+  {
+    "name": "randomizationFactor",
+    "qualifiedName": "retry.RetryOptions.randomizationFactor",
+    "href": "retry/RetryOptions/randomizationFactor.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Percentage the delay should be randomized, given as fraction between\n0 and 1.",
+    "enclosedBy": {
+      "name": "RetryOptions",
+      "kind": 3,
+      "href": "retry/RetryOptions-class.html"
+    }
+  },
+  {
+    "name": "retry",
+    "qualifiedName": "retry.RetryOptions.retry",
+    "href": "retry/RetryOptions/retry.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Call fn retrying so long as retryIf return true for the exception\nthrown.",
+    "enclosedBy": {
+      "name": "RetryOptions",
+      "kind": 3,
+      "href": "retry/RetryOptions-class.html"
+    }
+  },
+  {
+    "name": "retry",
+    "qualifiedName": "retry.retry",
+    "href": "retry/retry.html",
+    "kind": 8,
+    "packageRank": 0,
+    "desc": "Call fn retrying so long as retryIf return true for the exception\nthrown, up-to maxAttempts times.",
+    "enclosedBy": {
+      "name": "retry",
+      "kind": 9,
+      "href": "retry/"
+    }
+  }
+]

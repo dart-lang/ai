@@ -1,0 +1,1854 @@
+[
+  {
+    "name": "http_client_helper",
+    "qualifiedName": "http_client_helper",
+    "href": "http_client_helper/",
+    "kind": 9,
+    "packageRank": 0,
+    "desc": ""
+  },
+  {
+    "name": "BaseClient",
+    "qualifiedName": "http_client_helper.BaseClient",
+    "href": "http_client_helper/BaseClient-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "The abstract base class for an HTTP client.",
+    "enclosedBy": {
+      "name": "http_client_helper",
+      "kind": 9,
+      "href": "http_client_helper/"
+    }
+  },
+  {
+    "name": "BaseClient.new",
+    "qualifiedName": "http_client_helper.BaseClient.BaseClient.new",
+    "href": "http_client_helper/BaseClient/BaseClient.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "BaseClient",
+      "kind": 3,
+      "href": "http_client_helper/BaseClient-class.html"
+    }
+  },
+  {
+    "name": "close",
+    "qualifiedName": "http_client_helper.BaseClient.close",
+    "href": "http_client_helper/BaseClient/close.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "Closes the client and cleans up any resources associated with it.",
+    "enclosedBy": {
+      "name": "BaseClient",
+      "kind": 3,
+      "href": "http_client_helper/BaseClient-class.html"
+    }
+  },
+  {
+    "name": "delete",
+    "qualifiedName": "http_client_helper.BaseClient.delete",
+    "href": "http_client_helper/BaseClient/delete.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "Sends an HTTP DELETE request with the given headers to the given URL.",
+    "enclosedBy": {
+      "name": "BaseClient",
+      "kind": 3,
+      "href": "http_client_helper/BaseClient-class.html"
+    }
+  },
+  {
+    "name": "get",
+    "qualifiedName": "http_client_helper.BaseClient.get",
+    "href": "http_client_helper/BaseClient/get.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "Sends an HTTP GET request with the given headers to the given URL.",
+    "enclosedBy": {
+      "name": "BaseClient",
+      "kind": 3,
+      "href": "http_client_helper/BaseClient-class.html"
+    }
+  },
+  {
+    "name": "head",
+    "qualifiedName": "http_client_helper.BaseClient.head",
+    "href": "http_client_helper/BaseClient/head.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "Sends an HTTP HEAD request with the given headers to the given URL.",
+    "enclosedBy": {
+      "name": "BaseClient",
+      "kind": 3,
+      "href": "http_client_helper/BaseClient-class.html"
+    }
+  },
+  {
+    "name": "patch",
+    "qualifiedName": "http_client_helper.BaseClient.patch",
+    "href": "http_client_helper/BaseClient/patch.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "Sends an HTTP PATCH request with the given headers and body to the given\nURL.",
+    "enclosedBy": {
+      "name": "BaseClient",
+      "kind": 3,
+      "href": "http_client_helper/BaseClient-class.html"
+    }
+  },
+  {
+    "name": "post",
+    "qualifiedName": "http_client_helper.BaseClient.post",
+    "href": "http_client_helper/BaseClient/post.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "Sends an HTTP POST request with the given headers and body to the given\nURL.",
+    "enclosedBy": {
+      "name": "BaseClient",
+      "kind": 3,
+      "href": "http_client_helper/BaseClient-class.html"
+    }
+  },
+  {
+    "name": "put",
+    "qualifiedName": "http_client_helper.BaseClient.put",
+    "href": "http_client_helper/BaseClient/put.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "Sends an HTTP PUT request with the given headers and body to the given\nURL.",
+    "enclosedBy": {
+      "name": "BaseClient",
+      "kind": 3,
+      "href": "http_client_helper/BaseClient-class.html"
+    }
+  },
+  {
+    "name": "read",
+    "qualifiedName": "http_client_helper.BaseClient.read",
+    "href": "http_client_helper/BaseClient/read.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "Sends an HTTP GET request with the given headers to the given URL and\nreturns a Future that completes to the body of the response as a String.",
+    "enclosedBy": {
+      "name": "BaseClient",
+      "kind": 3,
+      "href": "http_client_helper/BaseClient-class.html"
+    }
+  },
+  {
+    "name": "readBytes",
+    "qualifiedName": "http_client_helper.BaseClient.readBytes",
+    "href": "http_client_helper/BaseClient/readBytes.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "Sends an HTTP GET request with the given headers to the given URL and\nreturns a Future that completes to the body of the response as a list of\nbytes.",
+    "enclosedBy": {
+      "name": "BaseClient",
+      "kind": 3,
+      "href": "http_client_helper/BaseClient-class.html"
+    }
+  },
+  {
+    "name": "send",
+    "qualifiedName": "http_client_helper.BaseClient.send",
+    "href": "http_client_helper/BaseClient/send.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "Sends an HTTP request and asynchronously returns the response.",
+    "enclosedBy": {
+      "name": "BaseClient",
+      "kind": 3,
+      "href": "http_client_helper/BaseClient-class.html"
+    }
+  },
+  {
+    "name": "BaseRequest",
+    "qualifiedName": "http_client_helper.BaseRequest",
+    "href": "http_client_helper/BaseRequest-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "The base class for HTTP requests.",
+    "enclosedBy": {
+      "name": "http_client_helper",
+      "kind": 9,
+      "href": "http_client_helper/"
+    }
+  },
+  {
+    "name": "BaseRequest.new",
+    "qualifiedName": "http_client_helper.BaseRequest.BaseRequest.new",
+    "href": "http_client_helper/BaseRequest/BaseRequest.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "BaseRequest",
+      "kind": 3,
+      "href": "http_client_helper/BaseRequest-class.html"
+    }
+  },
+  {
+    "name": "contentLength",
+    "qualifiedName": "http_client_helper.BaseRequest.contentLength",
+    "href": "http_client_helper/BaseRequest/contentLength.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The size of the request body, in bytes.",
+    "enclosedBy": {
+      "name": "BaseRequest",
+      "kind": 3,
+      "href": "http_client_helper/BaseRequest-class.html"
+    }
+  },
+  {
+    "name": "finalize",
+    "qualifiedName": "http_client_helper.BaseRequest.finalize",
+    "href": "http_client_helper/BaseRequest/finalize.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Finalizes the HTTP request in preparation for it being sent.",
+    "enclosedBy": {
+      "name": "BaseRequest",
+      "kind": 3,
+      "href": "http_client_helper/BaseRequest-class.html"
+    }
+  },
+  {
+    "name": "finalized",
+    "qualifiedName": "http_client_helper.BaseRequest.finalized",
+    "href": "http_client_helper/BaseRequest/finalized.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Whether finalize has been called.",
+    "enclosedBy": {
+      "name": "BaseRequest",
+      "kind": 3,
+      "href": "http_client_helper/BaseRequest-class.html"
+    }
+  },
+  {
+    "name": "followRedirects",
+    "qualifiedName": "http_client_helper.BaseRequest.followRedirects",
+    "href": "http_client_helper/BaseRequest/followRedirects.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Whether the client should follow redirects while resolving this request.",
+    "enclosedBy": {
+      "name": "BaseRequest",
+      "kind": 3,
+      "href": "http_client_helper/BaseRequest-class.html"
+    }
+  },
+  {
+    "name": "headers",
+    "qualifiedName": "http_client_helper.BaseRequest.headers",
+    "href": "http_client_helper/BaseRequest/headers.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "BaseRequest",
+      "kind": 3,
+      "href": "http_client_helper/BaseRequest-class.html"
+    }
+  },
+  {
+    "name": "maxRedirects",
+    "qualifiedName": "http_client_helper.BaseRequest.maxRedirects",
+    "href": "http_client_helper/BaseRequest/maxRedirects.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The maximum number of redirects to follow when followRedirects is true.",
+    "enclosedBy": {
+      "name": "BaseRequest",
+      "kind": 3,
+      "href": "http_client_helper/BaseRequest-class.html"
+    }
+  },
+  {
+    "name": "method",
+    "qualifiedName": "http_client_helper.BaseRequest.method",
+    "href": "http_client_helper/BaseRequest/method.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The HTTP method of the request.",
+    "enclosedBy": {
+      "name": "BaseRequest",
+      "kind": 3,
+      "href": "http_client_helper/BaseRequest-class.html"
+    }
+  },
+  {
+    "name": "persistentConnection",
+    "qualifiedName": "http_client_helper.BaseRequest.persistentConnection",
+    "href": "http_client_helper/BaseRequest/persistentConnection.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Whether a persistent connection should be maintained with the server.",
+    "enclosedBy": {
+      "name": "BaseRequest",
+      "kind": 3,
+      "href": "http_client_helper/BaseRequest-class.html"
+    }
+  },
+  {
+    "name": "send",
+    "qualifiedName": "http_client_helper.BaseRequest.send",
+    "href": "http_client_helper/BaseRequest/send.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Sends this request.",
+    "enclosedBy": {
+      "name": "BaseRequest",
+      "kind": 3,
+      "href": "http_client_helper/BaseRequest-class.html"
+    }
+  },
+  {
+    "name": "toString",
+    "qualifiedName": "http_client_helper.BaseRequest.toString",
+    "href": "http_client_helper/BaseRequest/toString.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "A string representation of this object.",
+    "enclosedBy": {
+      "name": "BaseRequest",
+      "kind": 3,
+      "href": "http_client_helper/BaseRequest-class.html"
+    }
+  },
+  {
+    "name": "url",
+    "qualifiedName": "http_client_helper.BaseRequest.url",
+    "href": "http_client_helper/BaseRequest/url.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The URL to which the request will be sent.",
+    "enclosedBy": {
+      "name": "BaseRequest",
+      "kind": 3,
+      "href": "http_client_helper/BaseRequest-class.html"
+    }
+  },
+  {
+    "name": "BaseResponse",
+    "qualifiedName": "http_client_helper.BaseResponse",
+    "href": "http_client_helper/BaseResponse-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "The base class for HTTP responses.",
+    "enclosedBy": {
+      "name": "http_client_helper",
+      "kind": 9,
+      "href": "http_client_helper/"
+    }
+  },
+  {
+    "name": "BaseResponse.new",
+    "qualifiedName": "http_client_helper.BaseResponse.BaseResponse.new",
+    "href": "http_client_helper/BaseResponse/BaseResponse.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "BaseResponse",
+      "kind": 3,
+      "href": "http_client_helper/BaseResponse-class.html"
+    }
+  },
+  {
+    "name": "contentLength",
+    "qualifiedName": "http_client_helper.BaseResponse.contentLength",
+    "href": "http_client_helper/BaseResponse/contentLength.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The size of the response body, in bytes.",
+    "enclosedBy": {
+      "name": "BaseResponse",
+      "kind": 3,
+      "href": "http_client_helper/BaseResponse-class.html"
+    }
+  },
+  {
+    "name": "headers",
+    "qualifiedName": "http_client_helper.BaseResponse.headers",
+    "href": "http_client_helper/BaseResponse/headers.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The HTTP headers returned by the server.",
+    "enclosedBy": {
+      "name": "BaseResponse",
+      "kind": 3,
+      "href": "http_client_helper/BaseResponse-class.html"
+    }
+  },
+  {
+    "name": "isRedirect",
+    "qualifiedName": "http_client_helper.BaseResponse.isRedirect",
+    "href": "http_client_helper/BaseResponse/isRedirect.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "BaseResponse",
+      "kind": 3,
+      "href": "http_client_helper/BaseResponse-class.html"
+    }
+  },
+  {
+    "name": "persistentConnection",
+    "qualifiedName": "http_client_helper.BaseResponse.persistentConnection",
+    "href": "http_client_helper/BaseResponse/persistentConnection.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Whether the server requested that a persistent connection be maintained.",
+    "enclosedBy": {
+      "name": "BaseResponse",
+      "kind": 3,
+      "href": "http_client_helper/BaseResponse-class.html"
+    }
+  },
+  {
+    "name": "reasonPhrase",
+    "qualifiedName": "http_client_helper.BaseResponse.reasonPhrase",
+    "href": "http_client_helper/BaseResponse/reasonPhrase.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The reason phrase associated with the status code.",
+    "enclosedBy": {
+      "name": "BaseResponse",
+      "kind": 3,
+      "href": "http_client_helper/BaseResponse-class.html"
+    }
+  },
+  {
+    "name": "request",
+    "qualifiedName": "http_client_helper.BaseResponse.request",
+    "href": "http_client_helper/BaseResponse/request.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The (frozen) request that triggered this response.",
+    "enclosedBy": {
+      "name": "BaseResponse",
+      "kind": 3,
+      "href": "http_client_helper/BaseResponse-class.html"
+    }
+  },
+  {
+    "name": "statusCode",
+    "qualifiedName": "http_client_helper.BaseResponse.statusCode",
+    "href": "http_client_helper/BaseResponse/statusCode.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The HTTP status code for this response.",
+    "enclosedBy": {
+      "name": "BaseResponse",
+      "kind": 3,
+      "href": "http_client_helper/BaseResponse-class.html"
+    }
+  },
+  {
+    "name": "BaseResponseWithUrl",
+    "qualifiedName": "http_client_helper.BaseResponseWithUrl",
+    "href": "http_client_helper/BaseResponseWithUrl-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "A BaseResponse with a url field.",
+    "enclosedBy": {
+      "name": "http_client_helper",
+      "kind": 9,
+      "href": "http_client_helper/"
+    }
+  },
+  {
+    "name": "url",
+    "qualifiedName": "http_client_helper.BaseResponseWithUrl.url",
+    "href": "http_client_helper/BaseResponseWithUrl/url.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The Uri of the response returned by the server.",
+    "enclosedBy": {
+      "name": "BaseResponseWithUrl",
+      "kind": 3,
+      "href": "http_client_helper/BaseResponseWithUrl-class.html"
+    }
+  },
+  {
+    "name": "ByteStream",
+    "qualifiedName": "http_client_helper.ByteStream",
+    "href": "http_client_helper/ByteStream-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "A stream of chunks of bytes representing a single piece of data.",
+    "enclosedBy": {
+      "name": "http_client_helper",
+      "kind": 9,
+      "href": "http_client_helper/"
+    }
+  },
+  {
+    "name": "ByteStream.fromBytes",
+    "qualifiedName": "http_client_helper.ByteStream.ByteStream.fromBytes",
+    "href": "http_client_helper/ByteStream/ByteStream.fromBytes.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "Returns a single-subscription byte stream that will emit the given bytes\nin a single chunk.",
+    "enclosedBy": {
+      "name": "ByteStream",
+      "kind": 3,
+      "href": "http_client_helper/ByteStream-class.html"
+    }
+  },
+  {
+    "name": "ByteStream.new",
+    "qualifiedName": "http_client_helper.ByteStream.ByteStream.new",
+    "href": "http_client_helper/ByteStream/ByteStream.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "ByteStream",
+      "kind": 3,
+      "href": "http_client_helper/ByteStream-class.html"
+    }
+  },
+  {
+    "name": "bytesToString",
+    "qualifiedName": "http_client_helper.ByteStream.bytesToString",
+    "href": "http_client_helper/ByteStream/bytesToString.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Collect the data of this stream in a String, decoded according to\nencoding, which defaults to UTF8.",
+    "enclosedBy": {
+      "name": "ByteStream",
+      "kind": 3,
+      "href": "http_client_helper/ByteStream-class.html"
+    }
+  },
+  {
+    "name": "toBytes",
+    "qualifiedName": "http_client_helper.ByteStream.toBytes",
+    "href": "http_client_helper/ByteStream/toBytes.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Collects the data of this stream in a Uint8List.",
+    "enclosedBy": {
+      "name": "ByteStream",
+      "kind": 3,
+      "href": "http_client_helper/ByteStream-class.html"
+    }
+  },
+  {
+    "name": "toStringStream",
+    "qualifiedName": "http_client_helper.ByteStream.toStringStream",
+    "href": "http_client_helper/ByteStream/toStringStream.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "ByteStream",
+      "kind": 3,
+      "href": "http_client_helper/ByteStream-class.html"
+    }
+  },
+  {
+    "name": "CancellationToken",
+    "qualifiedName": "http_client_helper.CancellationToken",
+    "href": "http_client_helper/CancellationToken-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "http_client_helper",
+      "kind": 9,
+      "href": "http_client_helper/"
+    }
+  },
+  {
+    "name": "CancellationToken.new",
+    "qualifiedName": "http_client_helper.CancellationToken.CancellationToken.new",
+    "href": "http_client_helper/CancellationToken/CancellationToken.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "CancellationToken",
+      "kind": 3,
+      "href": "http_client_helper/CancellationToken-class.html"
+    }
+  },
+  {
+    "name": "cancel",
+    "qualifiedName": "http_client_helper.CancellationToken.cancel",
+    "href": "http_client_helper/CancellationToken/cancel.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "cancel operation",
+    "enclosedBy": {
+      "name": "CancellationToken",
+      "kind": 3,
+      "href": "http_client_helper/CancellationToken-class.html"
+    }
+  },
+  {
+    "name": "cancelError",
+    "qualifiedName": "http_client_helper.CancellationToken.cancelError",
+    "href": "http_client_helper/CancellationToken/cancelError.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "if request have been canceled, save the cancel Error.",
+    "enclosedBy": {
+      "name": "CancellationToken",
+      "kind": 3,
+      "href": "http_client_helper/CancellationToken-class.html"
+    }
+  },
+  {
+    "name": "isCanceled",
+    "qualifiedName": "http_client_helper.CancellationToken.isCanceled",
+    "href": "http_client_helper/CancellationToken/isCanceled.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "whether has canceled",
+    "enclosedBy": {
+      "name": "CancellationToken",
+      "kind": 3,
+      "href": "http_client_helper/CancellationToken-class.html"
+    }
+  },
+  {
+    "name": "throwIfCancellationRequested",
+    "qualifiedName": "http_client_helper.CancellationToken.throwIfCancellationRequested",
+    "href": "http_client_helper/CancellationToken/throwIfCancellationRequested.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "CancellationToken",
+      "kind": 3,
+      "href": "http_client_helper/CancellationToken-class.html"
+    }
+  },
+  {
+    "name": "CancellationTokenSource",
+    "qualifiedName": "http_client_helper.CancellationTokenSource",
+    "href": "http_client_helper/CancellationTokenSource-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "http_client_helper",
+      "kind": 9,
+      "href": "http_client_helper/"
+    }
+  },
+  {
+    "name": "register",
+    "qualifiedName": "http_client_helper.CancellationTokenSource.register",
+    "href": "http_client_helper/CancellationTokenSource/register.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "CancellationTokenSource",
+      "kind": 3,
+      "href": "http_client_helper/CancellationTokenSource-class.html"
+    }
+  },
+  {
+    "name": "Client",
+    "qualifiedName": "http_client_helper.Client",
+    "href": "http_client_helper/Client-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "The interface for HTTP clients that take care of maintaining persistent\nconnections across multiple requests to the same server.",
+    "enclosedBy": {
+      "name": "http_client_helper",
+      "kind": 9,
+      "href": "http_client_helper/"
+    }
+  },
+  {
+    "name": "Client.new",
+    "qualifiedName": "http_client_helper.Client.Client.new",
+    "href": "http_client_helper/Client/Client.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "Creates a new platform appropriate client.",
+    "enclosedBy": {
+      "name": "Client",
+      "kind": 3,
+      "href": "http_client_helper/Client-class.html"
+    }
+  },
+  {
+    "name": "close",
+    "qualifiedName": "http_client_helper.Client.close",
+    "href": "http_client_helper/Client/close.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Closes the client and cleans up any resources associated with it.",
+    "enclosedBy": {
+      "name": "Client",
+      "kind": 3,
+      "href": "http_client_helper/Client-class.html"
+    }
+  },
+  {
+    "name": "delete",
+    "qualifiedName": "http_client_helper.Client.delete",
+    "href": "http_client_helper/Client/delete.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Sends an HTTP DELETE request with the given headers to the given URL.",
+    "enclosedBy": {
+      "name": "Client",
+      "kind": 3,
+      "href": "http_client_helper/Client-class.html"
+    }
+  },
+  {
+    "name": "get",
+    "qualifiedName": "http_client_helper.Client.get",
+    "href": "http_client_helper/Client/get.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Sends an HTTP GET request with the given headers to the given URL.",
+    "enclosedBy": {
+      "name": "Client",
+      "kind": 3,
+      "href": "http_client_helper/Client-class.html"
+    }
+  },
+  {
+    "name": "head",
+    "qualifiedName": "http_client_helper.Client.head",
+    "href": "http_client_helper/Client/head.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Sends an HTTP HEAD request with the given headers to the given URL.",
+    "enclosedBy": {
+      "name": "Client",
+      "kind": 3,
+      "href": "http_client_helper/Client-class.html"
+    }
+  },
+  {
+    "name": "patch",
+    "qualifiedName": "http_client_helper.Client.patch",
+    "href": "http_client_helper/Client/patch.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Sends an HTTP PATCH request with the given headers and body to the given\nURL.",
+    "enclosedBy": {
+      "name": "Client",
+      "kind": 3,
+      "href": "http_client_helper/Client-class.html"
+    }
+  },
+  {
+    "name": "post",
+    "qualifiedName": "http_client_helper.Client.post",
+    "href": "http_client_helper/Client/post.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Sends an HTTP POST request with the given headers and body to the given\nURL.",
+    "enclosedBy": {
+      "name": "Client",
+      "kind": 3,
+      "href": "http_client_helper/Client-class.html"
+    }
+  },
+  {
+    "name": "put",
+    "qualifiedName": "http_client_helper.Client.put",
+    "href": "http_client_helper/Client/put.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Sends an HTTP PUT request with the given headers and body to the given\nURL.",
+    "enclosedBy": {
+      "name": "Client",
+      "kind": 3,
+      "href": "http_client_helper/Client-class.html"
+    }
+  },
+  {
+    "name": "read",
+    "qualifiedName": "http_client_helper.Client.read",
+    "href": "http_client_helper/Client/read.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Sends an HTTP GET request with the given headers to the given URL and\nreturns a Future that completes to the body of the response as a String.",
+    "enclosedBy": {
+      "name": "Client",
+      "kind": 3,
+      "href": "http_client_helper/Client-class.html"
+    }
+  },
+  {
+    "name": "readBytes",
+    "qualifiedName": "http_client_helper.Client.readBytes",
+    "href": "http_client_helper/Client/readBytes.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Sends an HTTP GET request with the given headers to the given URL and\nreturns a Future that completes to the body of the response as a list of\nbytes.",
+    "enclosedBy": {
+      "name": "Client",
+      "kind": 3,
+      "href": "http_client_helper/Client-class.html"
+    }
+  },
+  {
+    "name": "send",
+    "qualifiedName": "http_client_helper.Client.send",
+    "href": "http_client_helper/Client/send.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Sends an HTTP request and asynchronously returns the response.",
+    "enclosedBy": {
+      "name": "Client",
+      "kind": 3,
+      "href": "http_client_helper/Client-class.html"
+    }
+  },
+  {
+    "name": "ClientException",
+    "qualifiedName": "http_client_helper.ClientException",
+    "href": "http_client_helper/ClientException-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "An exception caused by an error in a pkg/http client.",
+    "enclosedBy": {
+      "name": "http_client_helper",
+      "kind": 9,
+      "href": "http_client_helper/"
+    }
+  },
+  {
+    "name": "ClientException.new",
+    "qualifiedName": "http_client_helper.ClientException.ClientException.new",
+    "href": "http_client_helper/ClientException/ClientException.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "ClientException",
+      "kind": 3,
+      "href": "http_client_helper/ClientException-class.html"
+    }
+  },
+  {
+    "name": "message",
+    "qualifiedName": "http_client_helper.ClientException.message",
+    "href": "http_client_helper/ClientException/message.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "ClientException",
+      "kind": 3,
+      "href": "http_client_helper/ClientException-class.html"
+    }
+  },
+  {
+    "name": "toString",
+    "qualifiedName": "http_client_helper.ClientException.toString",
+    "href": "http_client_helper/ClientException/toString.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "A string representation of this object.",
+    "enclosedBy": {
+      "name": "ClientException",
+      "kind": 3,
+      "href": "http_client_helper/ClientException-class.html"
+    }
+  },
+  {
+    "name": "uri",
+    "qualifiedName": "http_client_helper.ClientException.uri",
+    "href": "http_client_helper/ClientException/uri.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The URL of the HTTP request or response that failed.",
+    "enclosedBy": {
+      "name": "ClientException",
+      "kind": 3,
+      "href": "http_client_helper/ClientException-class.html"
+    }
+  },
+  {
+    "name": "HeadersWithSplitValues",
+    "qualifiedName": "http_client_helper.HeadersWithSplitValues",
+    "href": "http_client_helper/HeadersWithSplitValues.html",
+    "kind": 6,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "http_client_helper",
+      "kind": 9,
+      "href": "http_client_helper/"
+    }
+  },
+  {
+    "name": "headersSplitValues",
+    "qualifiedName": "http_client_helper.HeadersWithSplitValues.headersSplitValues",
+    "href": "http_client_helper/HeadersWithSplitValues/headersSplitValues.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The HTTP headers returned by the server.",
+    "enclosedBy": {
+      "name": "HeadersWithSplitValues",
+      "kind": 6,
+      "href": "http_client_helper/HeadersWithSplitValues.html"
+    }
+  },
+  {
+    "name": "HttpClientHelper",
+    "qualifiedName": "http_client_helper.HttpClientHelper",
+    "href": "http_client_helper/HttpClientHelper-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "http_client_helper",
+      "kind": 9,
+      "href": "http_client_helper/"
+    }
+  },
+  {
+    "name": "close",
+    "qualifiedName": "http_client_helper.HttpClientHelper.close",
+    "href": "http_client_helper/HttpClientHelper/close.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "HttpClientHelper",
+      "kind": 3,
+      "href": "http_client_helper/HttpClientHelper-class.html"
+    }
+  },
+  {
+    "name": "delete",
+    "qualifiedName": "http_client_helper.HttpClientHelper.delete",
+    "href": "http_client_helper/HttpClientHelper/delete.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "HttpClientHelper",
+      "kind": 3,
+      "href": "http_client_helper/HttpClientHelper-class.html"
+    }
+  },
+  {
+    "name": "get",
+    "qualifiedName": "http_client_helper.HttpClientHelper.get",
+    "href": "http_client_helper/HttpClientHelper/get.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "HttpClientHelper",
+      "kind": 3,
+      "href": "http_client_helper/HttpClientHelper-class.html"
+    }
+  },
+  {
+    "name": "head",
+    "qualifiedName": "http_client_helper.HttpClientHelper.head",
+    "href": "http_client_helper/HttpClientHelper/head.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "HttpClientHelper",
+      "kind": 3,
+      "href": "http_client_helper/HttpClientHelper-class.html"
+    }
+  },
+  {
+    "name": "httpClient",
+    "qualifiedName": "http_client_helper.HttpClientHelper.httpClient",
+    "href": "http_client_helper/HttpClientHelper/httpClient.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "HttpClientHelper",
+      "kind": 3,
+      "href": "http_client_helper/HttpClientHelper-class.html"
+    }
+  },
+  {
+    "name": "patch",
+    "qualifiedName": "http_client_helper.HttpClientHelper.patch",
+    "href": "http_client_helper/HttpClientHelper/patch.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "HttpClientHelper",
+      "kind": 3,
+      "href": "http_client_helper/HttpClientHelper-class.html"
+    }
+  },
+  {
+    "name": "post",
+    "qualifiedName": "http_client_helper.HttpClientHelper.post",
+    "href": "http_client_helper/HttpClientHelper/post.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "HttpClientHelper",
+      "kind": 3,
+      "href": "http_client_helper/HttpClientHelper-class.html"
+    }
+  },
+  {
+    "name": "put",
+    "qualifiedName": "http_client_helper.HttpClientHelper.put",
+    "href": "http_client_helper/HttpClientHelper/put.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "HttpClientHelper",
+      "kind": 3,
+      "href": "http_client_helper/HttpClientHelper-class.html"
+    }
+  },
+  {
+    "name": "read",
+    "qualifiedName": "http_client_helper.HttpClientHelper.read",
+    "href": "http_client_helper/HttpClientHelper/read.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "HttpClientHelper",
+      "kind": 3,
+      "href": "http_client_helper/HttpClientHelper-class.html"
+    }
+  },
+  {
+    "name": "readBytes",
+    "qualifiedName": "http_client_helper.HttpClientHelper.readBytes",
+    "href": "http_client_helper/HttpClientHelper/readBytes.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "HttpClientHelper",
+      "kind": 3,
+      "href": "http_client_helper/HttpClientHelper-class.html"
+    }
+  },
+  {
+    "name": "send",
+    "qualifiedName": "http_client_helper.HttpClientHelper.send",
+    "href": "http_client_helper/HttpClientHelper/send.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "HttpClientHelper",
+      "kind": 3,
+      "href": "http_client_helper/HttpClientHelper-class.html"
+    }
+  },
+  {
+    "name": "set",
+    "qualifiedName": "http_client_helper.HttpClientHelper.set",
+    "href": "http_client_helper/HttpClientHelper/set.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "HttpClientHelper",
+      "kind": 3,
+      "href": "http_client_helper/HttpClientHelper-class.html"
+    }
+  },
+  {
+    "name": "setClient",
+    "qualifiedName": "http_client_helper.HttpClientHelper.setClient",
+    "href": "http_client_helper/HttpClientHelper/setClient.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "HttpClientHelper",
+      "kind": 3,
+      "href": "http_client_helper/HttpClientHelper-class.html"
+    }
+  },
+  {
+    "name": "MultipartFile",
+    "qualifiedName": "http_client_helper.MultipartFile",
+    "href": "http_client_helper/MultipartFile-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "A file to be uploaded as part of a MultipartRequest.",
+    "enclosedBy": {
+      "name": "http_client_helper",
+      "kind": 9,
+      "href": "http_client_helper/"
+    }
+  },
+  {
+    "name": "MultipartFile.fromBytes",
+    "qualifiedName": "http_client_helper.MultipartFile.MultipartFile.fromBytes",
+    "href": "http_client_helper/MultipartFile/MultipartFile.fromBytes.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "Creates a new MultipartFile from a byte array.",
+    "enclosedBy": {
+      "name": "MultipartFile",
+      "kind": 3,
+      "href": "http_client_helper/MultipartFile-class.html"
+    }
+  },
+  {
+    "name": "MultipartFile.fromString",
+    "qualifiedName": "http_client_helper.MultipartFile.MultipartFile.fromString",
+    "href": "http_client_helper/MultipartFile/MultipartFile.fromString.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "Creates a new MultipartFile from a string.",
+    "enclosedBy": {
+      "name": "MultipartFile",
+      "kind": 3,
+      "href": "http_client_helper/MultipartFile-class.html"
+    }
+  },
+  {
+    "name": "MultipartFile.new",
+    "qualifiedName": "http_client_helper.MultipartFile.MultipartFile.new",
+    "href": "http_client_helper/MultipartFile/MultipartFile.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "Creates a new MultipartFile from a chunked Stream of bytes.",
+    "enclosedBy": {
+      "name": "MultipartFile",
+      "kind": 3,
+      "href": "http_client_helper/MultipartFile-class.html"
+    }
+  },
+  {
+    "name": "contentType",
+    "qualifiedName": "http_client_helper.MultipartFile.contentType",
+    "href": "http_client_helper/MultipartFile/contentType.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The content-type of the file.",
+    "enclosedBy": {
+      "name": "MultipartFile",
+      "kind": 3,
+      "href": "http_client_helper/MultipartFile-class.html"
+    }
+  },
+  {
+    "name": "field",
+    "qualifiedName": "http_client_helper.MultipartFile.field",
+    "href": "http_client_helper/MultipartFile/field.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The name of the form field for the file.",
+    "enclosedBy": {
+      "name": "MultipartFile",
+      "kind": 3,
+      "href": "http_client_helper/MultipartFile-class.html"
+    }
+  },
+  {
+    "name": "filename",
+    "qualifiedName": "http_client_helper.MultipartFile.filename",
+    "href": "http_client_helper/MultipartFile/filename.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The basename of the file.",
+    "enclosedBy": {
+      "name": "MultipartFile",
+      "kind": 3,
+      "href": "http_client_helper/MultipartFile-class.html"
+    }
+  },
+  {
+    "name": "finalize",
+    "qualifiedName": "http_client_helper.MultipartFile.finalize",
+    "href": "http_client_helper/MultipartFile/finalize.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "MultipartFile",
+      "kind": 3,
+      "href": "http_client_helper/MultipartFile-class.html"
+    }
+  },
+  {
+    "name": "fromPath",
+    "qualifiedName": "http_client_helper.MultipartFile.fromPath",
+    "href": "http_client_helper/MultipartFile/fromPath.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Creates a new MultipartFile from a path to a file on disk.",
+    "enclosedBy": {
+      "name": "MultipartFile",
+      "kind": 3,
+      "href": "http_client_helper/MultipartFile-class.html"
+    }
+  },
+  {
+    "name": "isFinalized",
+    "qualifiedName": "http_client_helper.MultipartFile.isFinalized",
+    "href": "http_client_helper/MultipartFile/isFinalized.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Whether finalize has been called.",
+    "enclosedBy": {
+      "name": "MultipartFile",
+      "kind": 3,
+      "href": "http_client_helper/MultipartFile-class.html"
+    }
+  },
+  {
+    "name": "length",
+    "qualifiedName": "http_client_helper.MultipartFile.length",
+    "href": "http_client_helper/MultipartFile/length.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The size of the file in bytes.",
+    "enclosedBy": {
+      "name": "MultipartFile",
+      "kind": 3,
+      "href": "http_client_helper/MultipartFile-class.html"
+    }
+  },
+  {
+    "name": "MultipartRequest",
+    "qualifiedName": "http_client_helper.MultipartRequest",
+    "href": "http_client_helper/MultipartRequest-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "A multipart/form-data request.",
+    "enclosedBy": {
+      "name": "http_client_helper",
+      "kind": 9,
+      "href": "http_client_helper/"
+    }
+  },
+  {
+    "name": "MultipartRequest.new",
+    "qualifiedName": "http_client_helper.MultipartRequest.MultipartRequest.new",
+    "href": "http_client_helper/MultipartRequest/MultipartRequest.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "MultipartRequest",
+      "kind": 3,
+      "href": "http_client_helper/MultipartRequest-class.html"
+    }
+  },
+  {
+    "name": "contentLength",
+    "qualifiedName": "http_client_helper.MultipartRequest.contentLength",
+    "href": "http_client_helper/MultipartRequest/contentLength.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The total length of the request body, in bytes.",
+    "enclosedBy": {
+      "name": "MultipartRequest",
+      "kind": 3,
+      "href": "http_client_helper/MultipartRequest-class.html"
+    }
+  },
+  {
+    "name": "fields",
+    "qualifiedName": "http_client_helper.MultipartRequest.fields",
+    "href": "http_client_helper/MultipartRequest/fields.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The form fields to send for this request.",
+    "enclosedBy": {
+      "name": "MultipartRequest",
+      "kind": 3,
+      "href": "http_client_helper/MultipartRequest-class.html"
+    }
+  },
+  {
+    "name": "files",
+    "qualifiedName": "http_client_helper.MultipartRequest.files",
+    "href": "http_client_helper/MultipartRequest/files.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The list of files to upload for this request.",
+    "enclosedBy": {
+      "name": "MultipartRequest",
+      "kind": 3,
+      "href": "http_client_helper/MultipartRequest-class.html"
+    }
+  },
+  {
+    "name": "finalize",
+    "qualifiedName": "http_client_helper.MultipartRequest.finalize",
+    "href": "http_client_helper/MultipartRequest/finalize.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "Freezes all mutable fields and returns a single-subscription ByteStream\nthat will emit the request body.",
+    "enclosedBy": {
+      "name": "MultipartRequest",
+      "kind": 3,
+      "href": "http_client_helper/MultipartRequest-class.html"
+    }
+  },
+  {
+    "name": "OperationCanceledError",
+    "qualifiedName": "http_client_helper.OperationCanceledError",
+    "href": "http_client_helper/OperationCanceledError-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "http_client_helper",
+      "kind": 9,
+      "href": "http_client_helper/"
+    }
+  },
+  {
+    "name": "OperationCanceledError.new",
+    "qualifiedName": "http_client_helper.OperationCanceledError.OperationCanceledError.new",
+    "href": "http_client_helper/OperationCanceledError/OperationCanceledError.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "OperationCanceledError",
+      "kind": 3,
+      "href": "http_client_helper/OperationCanceledError-class.html"
+    }
+  },
+  {
+    "name": "msg",
+    "qualifiedName": "http_client_helper.OperationCanceledError.msg",
+    "href": "http_client_helper/OperationCanceledError/msg.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "OperationCanceledError",
+      "kind": 3,
+      "href": "http_client_helper/OperationCanceledError-class.html"
+    }
+  },
+  {
+    "name": "Request",
+    "qualifiedName": "http_client_helper.Request",
+    "href": "http_client_helper/Request-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "An HTTP request where the entire request body is known in advance.",
+    "enclosedBy": {
+      "name": "http_client_helper",
+      "kind": 9,
+      "href": "http_client_helper/"
+    }
+  },
+  {
+    "name": "Request.new",
+    "qualifiedName": "http_client_helper.Request.Request.new",
+    "href": "http_client_helper/Request/Request.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "Request",
+      "kind": 3,
+      "href": "http_client_helper/Request-class.html"
+    }
+  },
+  {
+    "name": "body",
+    "qualifiedName": "http_client_helper.Request.body",
+    "href": "http_client_helper/Request/body.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The body of the request as a string.",
+    "enclosedBy": {
+      "name": "Request",
+      "kind": 3,
+      "href": "http_client_helper/Request-class.html"
+    }
+  },
+  {
+    "name": "bodyBytes",
+    "qualifiedName": "http_client_helper.Request.bodyBytes",
+    "href": "http_client_helper/Request/bodyBytes.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The bytes comprising the body of the request.",
+    "enclosedBy": {
+      "name": "Request",
+      "kind": 3,
+      "href": "http_client_helper/Request-class.html"
+    }
+  },
+  {
+    "name": "bodyFields",
+    "qualifiedName": "http_client_helper.Request.bodyFields",
+    "href": "http_client_helper/Request/bodyFields.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The form-encoded fields in the body of the request as a map from field\nnames to values.",
+    "enclosedBy": {
+      "name": "Request",
+      "kind": 3,
+      "href": "http_client_helper/Request-class.html"
+    }
+  },
+  {
+    "name": "contentLength",
+    "qualifiedName": "http_client_helper.Request.contentLength",
+    "href": "http_client_helper/Request/contentLength.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The size of the request body, in bytes. This is calculated from\nbodyBytes.",
+    "enclosedBy": {
+      "name": "Request",
+      "kind": 3,
+      "href": "http_client_helper/Request-class.html"
+    }
+  },
+  {
+    "name": "encoding",
+    "qualifiedName": "http_client_helper.Request.encoding",
+    "href": "http_client_helper/Request/encoding.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The encoding used for the request.",
+    "enclosedBy": {
+      "name": "Request",
+      "kind": 3,
+      "href": "http_client_helper/Request-class.html"
+    }
+  },
+  {
+    "name": "finalize",
+    "qualifiedName": "http_client_helper.Request.finalize",
+    "href": "http_client_helper/Request/finalize.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "Freezes all mutable fields and returns a single-subscription ByteStream\ncontaining the request body.",
+    "enclosedBy": {
+      "name": "Request",
+      "kind": 3,
+      "href": "http_client_helper/Request-class.html"
+    }
+  },
+  {
+    "name": "Response",
+    "qualifiedName": "http_client_helper.Response",
+    "href": "http_client_helper/Response-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "An HTTP response where the entire response body is known in advance.",
+    "enclosedBy": {
+      "name": "http_client_helper",
+      "kind": 9,
+      "href": "http_client_helper/"
+    }
+  },
+  {
+    "name": "Response.bytes",
+    "qualifiedName": "http_client_helper.Response.Response.bytes",
+    "href": "http_client_helper/Response/Response.bytes.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "Create a new HTTP response with a byte array body.",
+    "enclosedBy": {
+      "name": "Response",
+      "kind": 3,
+      "href": "http_client_helper/Response-class.html"
+    }
+  },
+  {
+    "name": "Response.new",
+    "qualifiedName": "http_client_helper.Response.Response.new",
+    "href": "http_client_helper/Response/Response.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "Creates a new HTTP response with a string body.",
+    "enclosedBy": {
+      "name": "Response",
+      "kind": 3,
+      "href": "http_client_helper/Response-class.html"
+    }
+  },
+  {
+    "name": "body",
+    "qualifiedName": "http_client_helper.Response.body",
+    "href": "http_client_helper/Response/body.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The body of the response as a string.",
+    "enclosedBy": {
+      "name": "Response",
+      "kind": 3,
+      "href": "http_client_helper/Response-class.html"
+    }
+  },
+  {
+    "name": "bodyBytes",
+    "qualifiedName": "http_client_helper.Response.bodyBytes",
+    "href": "http_client_helper/Response/bodyBytes.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The bytes comprising the body of this response.",
+    "enclosedBy": {
+      "name": "Response",
+      "kind": 3,
+      "href": "http_client_helper/Response-class.html"
+    }
+  },
+  {
+    "name": "fromStream",
+    "qualifiedName": "http_client_helper.Response.fromStream",
+    "href": "http_client_helper/Response/fromStream.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Creates a new HTTP response by waiting for the full body to become\navailable from a StreamedResponse.",
+    "enclosedBy": {
+      "name": "Response",
+      "kind": 3,
+      "href": "http_client_helper/Response-class.html"
+    }
+  },
+  {
+    "name": "RetryHelper",
+    "qualifiedName": "http_client_helper.RetryHelper",
+    "href": "http_client_helper/RetryHelper-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "http_client_helper",
+      "kind": 9,
+      "href": "http_client_helper/"
+    }
+  },
+  {
+    "name": "tryRun",
+    "qualifiedName": "http_client_helper.RetryHelper.tryRun",
+    "href": "http_client_helper/RetryHelper/tryRun.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "RetryHelper",
+      "kind": 3,
+      "href": "http_client_helper/RetryHelper-class.html"
+    }
+  },
+  {
+    "name": "StreamedRequest",
+    "qualifiedName": "http_client_helper.StreamedRequest",
+    "href": "http_client_helper/StreamedRequest-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "An HTTP request where the request body is sent asynchronously after the\nconnection has been established and the headers have been sent.",
+    "enclosedBy": {
+      "name": "http_client_helper",
+      "kind": 9,
+      "href": "http_client_helper/"
+    }
+  },
+  {
+    "name": "StreamedRequest.new",
+    "qualifiedName": "http_client_helper.StreamedRequest.StreamedRequest.new",
+    "href": "http_client_helper/StreamedRequest/StreamedRequest.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "Creates a new streaming request.",
+    "enclosedBy": {
+      "name": "StreamedRequest",
+      "kind": 3,
+      "href": "http_client_helper/StreamedRequest-class.html"
+    }
+  },
+  {
+    "name": "finalize",
+    "qualifiedName": "http_client_helper.StreamedRequest.finalize",
+    "href": "http_client_helper/StreamedRequest/finalize.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "Freezes all mutable fields and returns a single-subscription ByteStream\nthat emits the data being written to sink.",
+    "enclosedBy": {
+      "name": "StreamedRequest",
+      "kind": 3,
+      "href": "http_client_helper/StreamedRequest-class.html"
+    }
+  },
+  {
+    "name": "sink",
+    "qualifiedName": "http_client_helper.StreamedRequest.sink",
+    "href": "http_client_helper/StreamedRequest/sink.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The sink to which to write data that will be sent as the request body.",
+    "enclosedBy": {
+      "name": "StreamedRequest",
+      "kind": 3,
+      "href": "http_client_helper/StreamedRequest-class.html"
+    }
+  },
+  {
+    "name": "StreamedResponse",
+    "qualifiedName": "http_client_helper.StreamedResponse",
+    "href": "http_client_helper/StreamedResponse-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "An HTTP response where the response body is received asynchronously after\nthe headers have been received.",
+    "enclosedBy": {
+      "name": "http_client_helper",
+      "kind": 9,
+      "href": "http_client_helper/"
+    }
+  },
+  {
+    "name": "StreamedResponse.new",
+    "qualifiedName": "http_client_helper.StreamedResponse.StreamedResponse.new",
+    "href": "http_client_helper/StreamedResponse/StreamedResponse.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "Creates a new streaming response.",
+    "enclosedBy": {
+      "name": "StreamedResponse",
+      "kind": 3,
+      "href": "http_client_helper/StreamedResponse-class.html"
+    }
+  },
+  {
+    "name": "stream",
+    "qualifiedName": "http_client_helper.StreamedResponse.stream",
+    "href": "http_client_helper/StreamedResponse/stream.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The stream from which the response body data can be read.",
+    "enclosedBy": {
+      "name": "StreamedResponse",
+      "kind": 3,
+      "href": "http_client_helper/StreamedResponse-class.html"
+    }
+  },
+  {
+    "name": "delete",
+    "qualifiedName": "http_client_helper.delete",
+    "href": "http_client_helper/delete.html",
+    "kind": 8,
+    "packageRank": 0,
+    "desc": "Sends an HTTP DELETE request with the given headers to the given URL.",
+    "enclosedBy": {
+      "name": "http_client_helper",
+      "kind": 9,
+      "href": "http_client_helper/"
+    }
+  },
+  {
+    "name": "get",
+    "qualifiedName": "http_client_helper.get",
+    "href": "http_client_helper/get.html",
+    "kind": 8,
+    "packageRank": 0,
+    "desc": "Sends an HTTP GET request with the given headers to the given URL.",
+    "enclosedBy": {
+      "name": "http_client_helper",
+      "kind": 9,
+      "href": "http_client_helper/"
+    }
+  },
+  {
+    "name": "head",
+    "qualifiedName": "http_client_helper.head",
+    "href": "http_client_helper/head.html",
+    "kind": 8,
+    "packageRank": 0,
+    "desc": "Sends an HTTP HEAD request with the given headers to the given URL.",
+    "enclosedBy": {
+      "name": "http_client_helper",
+      "kind": 9,
+      "href": "http_client_helper/"
+    }
+  },
+  {
+    "name": "patch",
+    "qualifiedName": "http_client_helper.patch",
+    "href": "http_client_helper/patch.html",
+    "kind": 8,
+    "packageRank": 0,
+    "desc": "Sends an HTTP PATCH request with the given headers and body to the given\nURL.",
+    "enclosedBy": {
+      "name": "http_client_helper",
+      "kind": 9,
+      "href": "http_client_helper/"
+    }
+  },
+  {
+    "name": "post",
+    "qualifiedName": "http_client_helper.post",
+    "href": "http_client_helper/post.html",
+    "kind": 8,
+    "packageRank": 0,
+    "desc": "Sends an HTTP POST request with the given headers and body to the given URL.",
+    "enclosedBy": {
+      "name": "http_client_helper",
+      "kind": 9,
+      "href": "http_client_helper/"
+    }
+  },
+  {
+    "name": "put",
+    "qualifiedName": "http_client_helper.put",
+    "href": "http_client_helper/put.html",
+    "kind": 8,
+    "packageRank": 0,
+    "desc": "Sends an HTTP PUT request with the given headers and body to the given URL.",
+    "enclosedBy": {
+      "name": "http_client_helper",
+      "kind": 9,
+      "href": "http_client_helper/"
+    }
+  },
+  {
+    "name": "read",
+    "qualifiedName": "http_client_helper.read",
+    "href": "http_client_helper/read.html",
+    "kind": 8,
+    "packageRank": 0,
+    "desc": "Sends an HTTP GET request with the given headers to the given URL and\nreturns a Future that completes to the body of the response as a String.",
+    "enclosedBy": {
+      "name": "http_client_helper",
+      "kind": 9,
+      "href": "http_client_helper/"
+    }
+  },
+  {
+    "name": "readBytes",
+    "qualifiedName": "http_client_helper.readBytes",
+    "href": "http_client_helper/readBytes.html",
+    "kind": 8,
+    "packageRank": 0,
+    "desc": "Sends an HTTP GET request with the given headers to the given URL and\nreturns a Future that completes to the body of the response as a list of\nbytes.",
+    "enclosedBy": {
+      "name": "http_client_helper",
+      "kind": 9,
+      "href": "http_client_helper/"
+    }
+  },
+  {
+    "name": "runWithClient",
+    "qualifiedName": "http_client_helper.runWithClient",
+    "href": "http_client_helper/runWithClient.html",
+    "kind": 8,
+    "packageRank": 0,
+    "desc": "Runs body in its own Zone with the Client returned by clientFactory\nset as the default Client.",
+    "enclosedBy": {
+      "name": "http_client_helper",
+      "kind": 9,
+      "href": "http_client_helper/"
+    }
+  }
+]

@@ -1,0 +1,27 @@
+{
+  "grantedPoints": 160,
+  "maxPoints": 160,
+  "likeCount": 31,
+  "downloadCount30Days": 215073,
+  "tags": [
+    "publisher:fluttercandies.com",
+    "sdk:dart",
+    "sdk:flutter",
+    "platform:android",
+    "platform:ios",
+    "platform:windows",
+    "platform:linux",
+    "platform:macos",
+    "platform:web",
+    "runtime:native-aot",
+    "runtime:native-jit",
+    "runtime:web",
+    "is:null-safe",
+    "is:wasm-ready",
+    "is:dart3-compatible",
+    "license:mit",
+    "license:fsf-libre",
+    "license:osi-approved"
+  ],
+  "lastUpdated": "2025-04-24T16:56:19.883390"
+}

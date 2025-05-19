@@ -1,0 +1,22 @@
+{
+  "grantedPoints": 160,
+  "maxPoints": 160,
+  "likeCount": 4,
+  "downloadCount30Days": 46,
+  "tags": [
+    "sdk:flutter",
+    "platform:android",
+    "platform:ios",
+    "platform:windows",
+    "platform:linux",
+    "platform:macos",
+    "platform:web",
+    "is:null-safe",
+    "is:wasm-ready",
+    "is:dart3-compatible",
+    "license:mit",
+    "license:fsf-libre",
+    "license:osi-approved"
+  ],
+  "lastUpdated": "2025-05-04T23:32:31.550650"
+}

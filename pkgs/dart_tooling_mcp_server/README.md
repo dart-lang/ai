@@ -15,6 +15,7 @@ WIP. This package is still experimental and is likely to evolve quickly.
 | `dart_fix` | `static tool` | Runs `dart fix --apply` for the given project roots. |
 | `dart_format` | `static tool` | Runs `dart format .` for the given project roots. |
 | `pub` | `static tool` | Runs a `dart pub` command for the given project roots. |
+| `pub_dev_search` | `package search` | Searches pub.dev for packages relevant to a given search query. |
 | `get_runtime_errors` | `runtime analysis` | Retrieves the list of runtime errors that have occurred in the active Dart or Flutter application. |
 | `take_screenshot` | `runtime analysis` | Takes a screenshot of the active Flutter application in its current state. |
 | `get_widget_tree` | `runtime analysis` | Retrieves the widget tree from the active Flutter application. |

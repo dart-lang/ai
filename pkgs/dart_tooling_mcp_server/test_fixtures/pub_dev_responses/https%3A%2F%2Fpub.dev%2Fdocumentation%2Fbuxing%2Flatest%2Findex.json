@@ -1,0 +1,1784 @@
+[
+  {
+    "name": "buxing",
+    "qualifiedName": "buxing",
+    "href": "buxing/",
+    "kind": 9,
+    "packageRank": 0,
+    "desc": ""
+  },
+  {
+    "name": "Conn",
+    "qualifiedName": "buxing.Conn",
+    "href": "buxing/Conn-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "The default ConnBase implementation.",
+    "enclosedBy": {
+      "name": "buxing",
+      "kind": 9,
+      "href": "buxing/"
+    }
+  },
+  {
+    "name": "Conn.new",
+    "qualifiedName": "buxing.Conn.Conn.new",
+    "href": "buxing/Conn/Conn.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "Conn",
+      "kind": 3,
+      "href": "buxing/Conn-class.html"
+    }
+  },
+  {
+    "name": "close",
+    "qualifiedName": "buxing.Conn.close",
+    "href": "buxing/Conn/close.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "Conn",
+      "kind": 3,
+      "href": "buxing/Conn-class.html"
+    }
+  },
+  {
+    "name": "startCore",
+    "qualifiedName": "buxing.Conn.startCore",
+    "href": "buxing/Conn/startCore.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "Conn",
+      "kind": 3,
+      "href": "buxing/Conn-class.html"
+    }
+  },
+  {
+    "name": "ConnBase",
+    "qualifiedName": "buxing.ConnBase",
+    "href": "buxing/ConnBase-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "Base class for a parallel worker connection.",
+    "enclosedBy": {
+      "name": "buxing",
+      "kind": 9,
+      "href": "buxing/"
+    }
+  },
+  {
+    "name": "ConnBase.new",
+    "qualifiedName": "buxing.ConnBase.ConnBase.new",
+    "href": "buxing/ConnBase/ConnBase.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "ConnBase",
+      "kind": 3,
+      "href": "buxing/ConnBase-class.html"
+    }
+  },
+  {
+    "name": "bufferSize",
+    "qualifiedName": "buxing.ConnBase.bufferSize",
+    "href": "buxing/ConnBase/bufferSize.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Gets the buffer size of this connection.",
+    "enclosedBy": {
+      "name": "ConnBase",
+      "kind": 3,
+      "href": "buxing/ConnBase-class.html"
+    }
+  },
+  {
+    "name": "close",
+    "qualifiedName": "buxing.ConnBase.close",
+    "href": "buxing/ConnBase/close.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "ConnBase",
+      "kind": 3,
+      "href": "buxing/ConnBase-class.html"
+    }
+  },
+  {
+    "name": "head",
+    "qualifiedName": "buxing.ConnBase.head",
+    "href": "buxing/ConnBase/head.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Gets the state header.",
+    "enclosedBy": {
+      "name": "ConnBase",
+      "kind": 3,
+      "href": "buxing/ConnBase-class.html"
+    }
+  },
+  {
+    "name": "id",
+    "qualifiedName": "buxing.ConnBase.id",
+    "href": "buxing/ConnBase/id.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Returns the identifier of this connection.",
+    "enclosedBy": {
+      "name": "ConnBase",
+      "kind": 3,
+      "href": "buxing/ConnBase-class.html"
+    }
+  },
+  {
+    "name": "initialState",
+    "qualifiedName": "buxing.ConnBase.initialState",
+    "href": "buxing/ConnBase/initialState.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Gets the initial connection stated passed in constructor.",
+    "enclosedBy": {
+      "name": "ConnBase",
+      "kind": 3,
+      "href": "buxing/ConnBase-class.html"
+    }
+  },
+  {
+    "name": "onStateChange",
+    "qualifiedName": "buxing.ConnBase.onStateChange",
+    "href": "buxing/ConnBase/onStateChange.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Fires when connection state updates.",
+    "enclosedBy": {
+      "name": "ConnBase",
+      "kind": 3,
+      "href": "buxing/ConnBase-class.html"
+    }
+  },
+  {
+    "name": "start",
+    "qualifiedName": "buxing.ConnBase.start",
+    "href": "buxing/ConnBase/start.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Starts transmission from server.",
+    "enclosedBy": {
+      "name": "ConnBase",
+      "kind": 3,
+      "href": "buxing/ConnBase-class.html"
+    }
+  },
+  {
+    "name": "startCore",
+    "qualifiedName": "buxing.ConnBase.startCore",
+    "href": "buxing/ConnBase/startCore.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "ConnBase",
+      "kind": 3,
+      "href": "buxing/ConnBase-class.html"
+    }
+  },
+  {
+    "name": "transferred",
+    "qualifiedName": "buxing.ConnBase.transferred",
+    "href": "buxing/ConnBase/transferred.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Returns the number of bytes transferred.",
+    "enclosedBy": {
+      "name": "ConnBase",
+      "kind": 3,
+      "href": "buxing/ConnBase-class.html"
+    }
+  },
+  {
+    "name": "ConnState",
+    "qualifiedName": "buxing.ConnState",
+    "href": "buxing/ConnState-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "Contains information about an ongoing connection in a parallel worker.",
+    "enclosedBy": {
+      "name": "buxing",
+      "kind": 9,
+      "href": "buxing/"
+    }
+  },
+  {
+    "name": "ConnState.fromJson",
+    "qualifiedName": "buxing.ConnState.ConnState.fromJson",
+    "href": "buxing/ConnState/ConnState.fromJson.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "ConnState",
+      "kind": 3,
+      "href": "buxing/ConnState-class.html"
+    }
+  },
+  {
+    "name": "ConnState.new",
+    "qualifiedName": "buxing.ConnState.ConnState.new",
+    "href": "buxing/ConnState/ConnState.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "ConnState",
+      "kind": 3,
+      "href": "buxing/ConnState-class.html"
+    }
+  },
+  {
+    "name": "end",
+    "qualifiedName": "buxing.ConnState.end",
+    "href": "buxing/ConnState/end.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Shortcut for range.end.",
+    "enclosedBy": {
+      "name": "ConnState",
+      "kind": 3,
+      "href": "buxing/ConnState-class.html"
+    }
+  },
+  {
+    "name": "id",
+    "qualifiedName": "buxing.ConnState.id",
+    "href": "buxing/ConnState/id.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The identifier of this connection.",
+    "enclosedBy": {
+      "name": "ConnState",
+      "kind": 3,
+      "href": "buxing/ConnState-class.html"
+    }
+  },
+  {
+    "name": "range",
+    "qualifiedName": "buxing.ConnState.range",
+    "href": "buxing/ConnState/range.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The data range to be transferred.",
+    "enclosedBy": {
+      "name": "ConnState",
+      "kind": 3,
+      "href": "buxing/ConnState-class.html"
+    }
+  },
+  {
+    "name": "start",
+    "qualifiedName": "buxing.ConnState.start",
+    "href": "buxing/ConnState/start.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Shortcut for range.start.",
+    "enclosedBy": {
+      "name": "ConnState",
+      "kind": 3,
+      "href": "buxing/ConnState-class.html"
+    }
+  },
+  {
+    "name": "toJson",
+    "qualifiedName": "buxing.ConnState.toJson",
+    "href": "buxing/ConnState/toJson.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "ConnState",
+      "kind": 3,
+      "href": "buxing/ConnState-class.html"
+    }
+  },
+  {
+    "name": "DataBody",
+    "qualifiedName": "buxing.DataBody",
+    "href": "buxing/DataBody-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "A chunk of data transferred from server.",
+    "enclosedBy": {
+      "name": "buxing",
+      "kind": 9,
+      "href": "buxing/"
+    }
+  },
+  {
+    "name": "DataBody.new",
+    "qualifiedName": "buxing.DataBody.DataBody.new",
+    "href": "buxing/DataBody/DataBody.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "DataBody",
+      "kind": 3,
+      "href": "buxing/DataBody-class.html"
+    }
+  },
+  {
+    "name": "data",
+    "qualifiedName": "buxing.DataBody.data",
+    "href": "buxing/DataBody/data.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The data bytes.",
+    "enclosedBy": {
+      "name": "DataBody",
+      "kind": 3,
+      "href": "buxing/DataBody-class.html"
+    }
+  },
+  {
+    "name": "position",
+    "qualifiedName": "buxing.DataBody.position",
+    "href": "buxing/DataBody/position.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The position the data should be written to. null if worker is not parallel.",
+    "enclosedBy": {
+      "name": "DataBody",
+      "kind": 3,
+      "href": "buxing/DataBody-class.html"
+    }
+  },
+  {
+    "name": "toString",
+    "qualifiedName": "buxing.DataBody.toString",
+    "href": "buxing/DataBody/toString.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "A string representation of this object.",
+    "enclosedBy": {
+      "name": "DataBody",
+      "kind": 3,
+      "href": "buxing/DataBody-class.html"
+    }
+  },
+  {
+    "name": "DataRange",
+    "qualifiedName": "buxing.DataRange",
+    "href": "buxing/DataRange-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "Represents a range.",
+    "enclosedBy": {
+      "name": "buxing",
+      "kind": 9,
+      "href": "buxing/"
+    }
+  },
+  {
+    "name": "DataRange.new",
+    "qualifiedName": "buxing.DataRange.DataRange.new",
+    "href": "buxing/DataRange/DataRange.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "DataRange",
+      "kind": 3,
+      "href": "buxing/DataRange-class.html"
+    }
+  },
+  {
+    "name": "end",
+    "qualifiedName": "buxing.DataRange.end",
+    "href": "buxing/DataRange/end.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "End index of the range. Inclusive.",
+    "enclosedBy": {
+      "name": "DataRange",
+      "kind": 3,
+      "href": "buxing/DataRange-class.html"
+    }
+  },
+  {
+    "name": "start",
+    "qualifiedName": "buxing.DataRange.start",
+    "href": "buxing/DataRange/start.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Start index of the range. Inclusive.",
+    "enclosedBy": {
+      "name": "DataRange",
+      "kind": 3,
+      "href": "buxing/DataRange-class.html"
+    }
+  },
+  {
+    "name": "toString",
+    "qualifiedName": "buxing.DataRange.toString",
+    "href": "buxing/DataRange/toString.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "A string representation of this object.",
+    "enclosedBy": {
+      "name": "DataRange",
+      "kind": 3,
+      "href": "buxing/DataRange-class.html"
+    }
+  },
+  {
+    "name": "Dumper",
+    "qualifiedName": "buxing.Dumper",
+    "href": "buxing/Dumper-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "Dumper writes data to a disk file.",
+    "enclosedBy": {
+      "name": "buxing",
+      "kind": 9,
+      "href": "buxing/"
+    }
+  },
+  {
+    "name": "close",
+    "qualifiedName": "buxing.Dumper.close",
+    "href": "buxing/Dumper/close.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Releases any resources of the current dumper.",
+    "enclosedBy": {
+      "name": "Dumper",
+      "kind": 3,
+      "href": "buxing/Dumper-class.html"
+    }
+  },
+  {
+    "name": "complete",
+    "qualifiedName": "buxing.Dumper.complete",
+    "href": "buxing/Dumper/complete.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "Dumper",
+      "kind": 3,
+      "href": "buxing/Dumper-class.html"
+    }
+  },
+  {
+    "name": "create",
+    "qualifiedName": "buxing.Dumper.create",
+    "href": "buxing/Dumper/create.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Creates a dumper and overwrites the existing one.",
+    "enclosedBy": {
+      "name": "Dumper",
+      "kind": 3,
+      "href": "buxing/Dumper-class.html"
+    }
+  },
+  {
+    "name": "currentState",
+    "qualifiedName": "buxing.Dumper.currentState",
+    "href": "buxing/Dumper/currentState.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Last written state.",
+    "enclosedBy": {
+      "name": "Dumper",
+      "kind": 3,
+      "href": "buxing/Dumper-class.html"
+    }
+  },
+  {
+    "name": "dataFile",
+    "qualifiedName": "buxing.Dumper.dataFile",
+    "href": "buxing/Dumper/dataFile.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "File object of the destination file.",
+    "enclosedBy": {
+      "name": "Dumper",
+      "kind": 3,
+      "href": "buxing/Dumper-class.html"
+    }
+  },
+  {
+    "name": "load",
+    "qualifiedName": "buxing.Dumper.load",
+    "href": "buxing/Dumper/load.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Loads a dumper from the given path.",
+    "enclosedBy": {
+      "name": "Dumper",
+      "kind": 3,
+      "href": "buxing/Dumper-class.html"
+    }
+  },
+  {
+    "name": "loadOrCreate",
+    "qualifiedName": "buxing.Dumper.loadOrCreate",
+    "href": "buxing/Dumper/loadOrCreate.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Loads a dumper at the given path or creates one if it doesn't exist.",
+    "enclosedBy": {
+      "name": "Dumper",
+      "kind": 3,
+      "href": "buxing/Dumper-class.html"
+    }
+  },
+  {
+    "name": "logger",
+    "qualifiedName": "buxing.Dumper.logger",
+    "href": "buxing/Dumper/logger.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "Dumper",
+      "kind": 3,
+      "href": "buxing/Dumper-class.html"
+    }
+  },
+  {
+    "name": "path",
+    "qualifiedName": "buxing.Dumper.path",
+    "href": "buxing/Dumper/path.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Path of the destination file.",
+    "enclosedBy": {
+      "name": "Dumper",
+      "kind": 3,
+      "href": "buxing/Dumper-class.html"
+    }
+  },
+  {
+    "name": "position",
+    "qualifiedName": "buxing.Dumper.position",
+    "href": "buxing/Dumper/position.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Returns the current file position.",
+    "enclosedBy": {
+      "name": "Dumper",
+      "kind": 3,
+      "href": "buxing/Dumper-class.html"
+    }
+  },
+  {
+    "name": "seek",
+    "qualifiedName": "buxing.Dumper.seek",
+    "href": "buxing/Dumper/seek.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Sets the internal file position.",
+    "enclosedBy": {
+      "name": "Dumper",
+      "kind": 3,
+      "href": "buxing/Dumper-class.html"
+    }
+  },
+  {
+    "name": "stateFile",
+    "qualifiedName": "buxing.Dumper.stateFile",
+    "href": "buxing/Dumper/stateFile.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "File object of the task file.",
+    "enclosedBy": {
+      "name": "Dumper",
+      "kind": 3,
+      "href": "buxing/Dumper-class.html"
+    }
+  },
+  {
+    "name": "truncate",
+    "qualifiedName": "buxing.Dumper.truncate",
+    "href": "buxing/Dumper/truncate.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Truncates the internal file to the given length.",
+    "enclosedBy": {
+      "name": "Dumper",
+      "kind": 3,
+      "href": "buxing/Dumper-class.html"
+    }
+  },
+  {
+    "name": "writeData",
+    "qualifiedName": "buxing.Dumper.writeData",
+    "href": "buxing/Dumper/writeData.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Writes the specified data to disk.",
+    "enclosedBy": {
+      "name": "Dumper",
+      "kind": 3,
+      "href": "buxing/Dumper-class.html"
+    }
+  },
+  {
+    "name": "writeState",
+    "qualifiedName": "buxing.Dumper.writeState",
+    "href": "buxing/Dumper/writeState.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Saves the state to disk.",
+    "enclosedBy": {
+      "name": "Dumper",
+      "kind": 3,
+      "href": "buxing/Dumper-class.html"
+    }
+  },
+  {
+    "name": "LogLevel",
+    "qualifiedName": "buxing.LogLevel",
+    "href": "buxing/LogLevel.html",
+    "kind": 5,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "buxing",
+      "kind": 9,
+      "href": "buxing/"
+    }
+  },
+  {
+    "name": "values",
+    "qualifiedName": "buxing.LogLevel.values",
+    "href": "buxing/LogLevel/values-constant.html",
+    "kind": 1,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "A constant List of the values in this enum, in order of their declaration.",
+    "enclosedBy": {
+      "name": "LogLevel",
+      "kind": 5,
+      "href": "buxing/LogLevel.html"
+    }
+  },
+  {
+    "name": "Logger",
+    "qualifiedName": "buxing.Logger",
+    "href": "buxing/Logger-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "buxing",
+      "kind": 9,
+      "href": "buxing/"
+    }
+  },
+  {
+    "name": "Logger.new",
+    "qualifiedName": "buxing.Logger.Logger.new",
+    "href": "buxing/Logger/Logger.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "Logger",
+      "kind": 3,
+      "href": "buxing/Logger-class.html"
+    }
+  },
+  {
+    "name": "error",
+    "qualifiedName": "buxing.Logger.error",
+    "href": "buxing/Logger/error.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "Logger",
+      "kind": 3,
+      "href": "buxing/Logger-class.html"
+    }
+  },
+  {
+    "name": "info",
+    "qualifiedName": "buxing.Logger.info",
+    "href": "buxing/Logger/info.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "Logger",
+      "kind": 3,
+      "href": "buxing/Logger-class.html"
+    }
+  },
+  {
+    "name": "level",
+    "qualifiedName": "buxing.Logger.level",
+    "href": "buxing/Logger/level.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "Logger",
+      "kind": 3,
+      "href": "buxing/Logger-class.html"
+    }
+  },
+  {
+    "name": "verbose",
+    "qualifiedName": "buxing.Logger.verbose",
+    "href": "buxing/Logger/verbose.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "Logger",
+      "kind": 3,
+      "href": "buxing/Logger-class.html"
+    }
+  },
+  {
+    "name": "warn",
+    "qualifiedName": "buxing.Logger.warn",
+    "href": "buxing/Logger/warn.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "Logger",
+      "kind": 3,
+      "href": "buxing/Logger-class.html"
+    }
+  },
+  {
+    "name": "ParallelWorker",
+    "qualifiedName": "buxing.ParallelWorker",
+    "href": "buxing/ParallelWorker-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "The default parallel worker implementation.",
+    "enclosedBy": {
+      "name": "buxing",
+      "kind": 9,
+      "href": "buxing/"
+    }
+  },
+  {
+    "name": "ParallelWorker.new",
+    "qualifiedName": "buxing.ParallelWorker.ParallelWorker.new",
+    "href": "buxing/ParallelWorker/ParallelWorker.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "ParallelWorker",
+      "kind": 3,
+      "href": "buxing/ParallelWorker-class.html"
+    }
+  },
+  {
+    "name": "close",
+    "qualifiedName": "buxing.ParallelWorker.close",
+    "href": "buxing/ParallelWorker/close.html",
+    "kind": 10,
+    "overriddenDepth": 2,
+    "packageRank": 0,
+    "desc": "Closes current worker and releases any resources associated with it.",
+    "enclosedBy": {
+      "name": "ParallelWorker",
+      "kind": 3,
+      "href": "buxing/ParallelWorker-class.html"
+    }
+  },
+  {
+    "name": "concurrency",
+    "qualifiedName": "buxing.ParallelWorker.concurrency",
+    "href": "buxing/ParallelWorker/concurrency.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Gets or sets the number of concurrent connections.",
+    "enclosedBy": {
+      "name": "ParallelWorker",
+      "kind": 3,
+      "href": "buxing/ParallelWorker-class.html"
+    }
+  },
+  {
+    "name": "nextConnID",
+    "qualifiedName": "buxing.ParallelWorker.nextConnID",
+    "href": "buxing/ParallelWorker/nextConnID.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "ParallelWorker",
+      "kind": 3,
+      "href": "buxing/ParallelWorker-class.html"
+    }
+  },
+  {
+    "name": "prepare",
+    "qualifiedName": "buxing.ParallelWorker.prepare",
+    "href": "buxing/ParallelWorker/prepare.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "Returns a new state if state needs to be updated before start is called.",
+    "enclosedBy": {
+      "name": "ParallelWorker",
+      "kind": 3,
+      "href": "buxing/ParallelWorker-class.html"
+    }
+  },
+  {
+    "name": "spawnConn",
+    "qualifiedName": "buxing.ParallelWorker.spawnConn",
+    "href": "buxing/ParallelWorker/spawnConn.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "ParallelWorker",
+      "kind": 3,
+      "href": "buxing/ParallelWorker-class.html"
+    }
+  },
+  {
+    "name": "start",
+    "qualifiedName": "buxing.ParallelWorker.start",
+    "href": "buxing/ParallelWorker/start.html",
+    "kind": 10,
+    "overriddenDepth": 2,
+    "packageRank": 0,
+    "desc": "Starts data transfer.",
+    "enclosedBy": {
+      "name": "ParallelWorker",
+      "kind": 3,
+      "href": "buxing/ParallelWorker-class.html"
+    }
+  },
+  {
+    "name": "State",
+    "qualifiedName": "buxing.State",
+    "href": "buxing/State-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "Represents a download task that will be persisted to disk.\nA state is deleted when the task is completed.",
+    "enclosedBy": {
+      "name": "buxing",
+      "kind": 9,
+      "href": "buxing/"
+    }
+  },
+  {
+    "name": "State.new",
+    "qualifiedName": "buxing.State.State.new",
+    "href": "buxing/State/State.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "State",
+      "kind": 3,
+      "href": "buxing/State-class.html"
+    }
+  },
+  {
+    "name": "conns",
+    "qualifiedName": "buxing.State.conns",
+    "href": "buxing/State/conns.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Connection state, only applicable to a parallel worker.",
+    "enclosedBy": {
+      "name": "State",
+      "kind": 3,
+      "href": "buxing/State-class.html"
+    }
+  },
+  {
+    "name": "fromJSON",
+    "qualifiedName": "buxing.State.fromJSON",
+    "href": "buxing/State/fromJSON.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Deserializes a state from a JSON string.",
+    "enclosedBy": {
+      "name": "State",
+      "kind": 3,
+      "href": "buxing/State-class.html"
+    }
+  },
+  {
+    "name": "head",
+    "qualifiedName": "buxing.State.head",
+    "href": "buxing/State/head.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Core information about a task such as URL, file size etc.",
+    "enclosedBy": {
+      "name": "State",
+      "kind": 3,
+      "href": "buxing/State-class.html"
+    }
+  },
+  {
+    "name": "parallel",
+    "qualifiedName": "buxing.State.parallel",
+    "href": "buxing/State/parallel.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Indicates if a parallel worker is used.",
+    "enclosedBy": {
+      "name": "State",
+      "kind": 3,
+      "href": "buxing/State-class.html"
+    }
+  },
+  {
+    "name": "toJSON",
+    "qualifiedName": "buxing.State.toJSON",
+    "href": "buxing/State/toJSON.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Serializes a state to a JSON string.",
+    "enclosedBy": {
+      "name": "State",
+      "kind": 3,
+      "href": "buxing/State-class.html"
+    }
+  },
+  {
+    "name": "transferred",
+    "qualifiedName": "buxing.State.transferred",
+    "href": "buxing/State/transferred.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Number of bytes transferred.",
+    "enclosedBy": {
+      "name": "State",
+      "kind": 3,
+      "href": "buxing/State-class.html"
+    }
+  },
+  {
+    "name": "StateHead",
+    "qualifiedName": "buxing.StateHead",
+    "href": "buxing/StateHead-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "Core information about a task such as URL, file size etc.",
+    "enclosedBy": {
+      "name": "buxing",
+      "kind": 9,
+      "href": "buxing/"
+    }
+  },
+  {
+    "name": "StateHead.new",
+    "qualifiedName": "buxing.StateHead.StateHead.new",
+    "href": "buxing/StateHead/StateHead.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "StateHead",
+      "kind": 3,
+      "href": "buxing/StateHead-class.html"
+    }
+  },
+  {
+    "name": "originalURL",
+    "qualifiedName": "buxing.StateHead.originalURL",
+    "href": "buxing/StateHead/originalURL.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Original URL passed in constructor.",
+    "enclosedBy": {
+      "name": "StateHead",
+      "kind": 3,
+      "href": "buxing/StateHead-class.html"
+    }
+  },
+  {
+    "name": "size",
+    "qualifiedName": "buxing.StateHead.size",
+    "href": "buxing/StateHead/size.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Server file size, can be -1 if unknown.",
+    "enclosedBy": {
+      "name": "StateHead",
+      "kind": 3,
+      "href": "buxing/StateHead-class.html"
+    }
+  },
+  {
+    "name": "toString",
+    "qualifiedName": "buxing.StateHead.toString",
+    "href": "buxing/StateHead/toString.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "A string representation of this object.",
+    "enclosedBy": {
+      "name": "StateHead",
+      "kind": 3,
+      "href": "buxing/StateHead-class.html"
+    }
+  },
+  {
+    "name": "url",
+    "qualifiedName": "buxing.StateHead.url",
+    "href": "buxing/StateHead/url.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Resolved URL.",
+    "enclosedBy": {
+      "name": "StateHead",
+      "kind": 3,
+      "href": "buxing/StateHead-class.html"
+    }
+  },
+  {
+    "name": "Task",
+    "qualifiedName": "buxing.Task",
+    "href": "buxing/Task-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "Represents a download operation.",
+    "enclosedBy": {
+      "name": "buxing",
+      "kind": 9,
+      "href": "buxing/"
+    }
+  },
+  {
+    "name": "Task.new",
+    "qualifiedName": "buxing.Task.Task.new",
+    "href": "buxing/Task/Task.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "Task",
+      "kind": 3,
+      "href": "buxing/Task-class.html"
+    }
+  },
+  {
+    "name": "close",
+    "qualifiedName": "buxing.Task.close",
+    "href": "buxing/Task/close.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Releases any resources of the current dumper.",
+    "enclosedBy": {
+      "name": "Task",
+      "kind": 3,
+      "href": "buxing/Task-class.html"
+    }
+  },
+  {
+    "name": "destFile",
+    "qualifiedName": "buxing.Task.destFile",
+    "href": "buxing/Task/destFile.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The destination file.",
+    "enclosedBy": {
+      "name": "Task",
+      "kind": 3,
+      "href": "buxing/Task-class.html"
+    }
+  },
+  {
+    "name": "logger",
+    "qualifiedName": "buxing.Task.logger",
+    "href": "buxing/Task/logger.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Logger of this task.",
+    "enclosedBy": {
+      "name": "Task",
+      "kind": 3,
+      "href": "buxing/Task-class.html"
+    }
+  },
+  {
+    "name": "onBeforeDownload",
+    "qualifiedName": "buxing.Task.onBeforeDownload",
+    "href": "buxing/Task/onBeforeDownload.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Called when the download is about to start.",
+    "enclosedBy": {
+      "name": "Task",
+      "kind": 3,
+      "href": "buxing/Task-class.html"
+    }
+  },
+  {
+    "name": "onProgress",
+    "qualifiedName": "buxing.Task.onProgress",
+    "href": "buxing/Task/onProgress.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Called when a progress update is available.",
+    "enclosedBy": {
+      "name": "Task",
+      "kind": 3,
+      "href": "buxing/Task-class.html"
+    }
+  },
+  {
+    "name": "originalURL",
+    "qualifiedName": "buxing.Task.originalURL",
+    "href": "buxing/Task/originalURL.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "The original URL passed in constructor.",
+    "enclosedBy": {
+      "name": "Task",
+      "kind": 3,
+      "href": "buxing/Task-class.html"
+    }
+  },
+  {
+    "name": "start",
+    "qualifiedName": "buxing.Task.start",
+    "href": "buxing/Task/start.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Starts or resumes downloading.",
+    "enclosedBy": {
+      "name": "Task",
+      "kind": 3,
+      "href": "buxing/Task-class.html"
+    }
+  },
+  {
+    "name": "state",
+    "qualifiedName": "buxing.Task.state",
+    "href": "buxing/Task/state.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Gets the current state information.",
+    "enclosedBy": {
+      "name": "Task",
+      "kind": 3,
+      "href": "buxing/Task-class.html"
+    }
+  },
+  {
+    "name": "stateFile",
+    "qualifiedName": "buxing.Task.stateFile",
+    "href": "buxing/Task/stateFile.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Gets the state file path.",
+    "enclosedBy": {
+      "name": "Task",
+      "kind": 3,
+      "href": "buxing/Task-class.html"
+    }
+  },
+  {
+    "name": "status",
+    "qualifiedName": "buxing.Task.status",
+    "href": "buxing/Task/status.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Gets the status of this task.",
+    "enclosedBy": {
+      "name": "Task",
+      "kind": 3,
+      "href": "buxing/Task-class.html"
+    }
+  },
+  {
+    "name": "TaskProgress",
+    "qualifiedName": "buxing.TaskProgress",
+    "href": "buxing/TaskProgress-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "Represents a progress update of a task.",
+    "enclosedBy": {
+      "name": "buxing",
+      "kind": 9,
+      "href": "buxing/"
+    }
+  },
+  {
+    "name": "TaskProgress.new",
+    "qualifiedName": "buxing.TaskProgress.TaskProgress.new",
+    "href": "buxing/TaskProgress/TaskProgress.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "TaskProgress",
+      "kind": 3,
+      "href": "buxing/TaskProgress-class.html"
+    }
+  },
+  {
+    "name": "total",
+    "qualifiedName": "buxing.TaskProgress.total",
+    "href": "buxing/TaskProgress/total.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "TaskProgress",
+      "kind": 3,
+      "href": "buxing/TaskProgress-class.html"
+    }
+  },
+  {
+    "name": "transferred",
+    "qualifiedName": "buxing.TaskProgress.transferred",
+    "href": "buxing/TaskProgress/transferred.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "TaskProgress",
+      "kind": 3,
+      "href": "buxing/TaskProgress-class.html"
+    }
+  },
+  {
+    "name": "TaskStatus",
+    "qualifiedName": "buxing.TaskStatus",
+    "href": "buxing/TaskStatus.html",
+    "kind": 5,
+    "packageRank": 0,
+    "desc": "The state of a task.",
+    "enclosedBy": {
+      "name": "buxing",
+      "kind": 9,
+      "href": "buxing/"
+    }
+  },
+  {
+    "name": "values",
+    "qualifiedName": "buxing.TaskStatus.values",
+    "href": "buxing/TaskStatus/values-constant.html",
+    "kind": 1,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "A constant List of the values in this enum, in order of their declaration.",
+    "enclosedBy": {
+      "name": "TaskStatus",
+      "kind": 5,
+      "href": "buxing/TaskStatus.html"
+    }
+  },
+  {
+    "name": "Worker",
+    "qualifiedName": "buxing.Worker",
+    "href": "buxing/Worker-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "The default worker implementation.",
+    "enclosedBy": {
+      "name": "buxing",
+      "kind": 9,
+      "href": "buxing/"
+    }
+  },
+  {
+    "name": "Worker.new",
+    "qualifiedName": "buxing.Worker.Worker.new",
+    "href": "buxing/Worker/Worker.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "Worker",
+      "kind": 3,
+      "href": "buxing/Worker-class.html"
+    }
+  },
+  {
+    "name": "bufferSize",
+    "qualifiedName": "buxing.Worker.bufferSize",
+    "href": "buxing/Worker/bufferSize.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Internal buffer size.",
+    "enclosedBy": {
+      "name": "Worker",
+      "kind": 3,
+      "href": "buxing/Worker-class.html"
+    }
+  },
+  {
+    "name": "canResume",
+    "qualifiedName": "buxing.Worker.canResume",
+    "href": "buxing/Worker/canResume.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "Checks if server supports requesting a portion of the data.",
+    "enclosedBy": {
+      "name": "Worker",
+      "kind": 3,
+      "href": "buxing/Worker-class.html"
+    }
+  },
+  {
+    "name": "close",
+    "qualifiedName": "buxing.Worker.close",
+    "href": "buxing/Worker/close.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "Closes current worker and releases any resources associated with it.",
+    "enclosedBy": {
+      "name": "Worker",
+      "kind": 3,
+      "href": "buxing/Worker-class.html"
+    }
+  },
+  {
+    "name": "connect",
+    "qualifiedName": "buxing.Worker.connect",
+    "href": "buxing/Worker/connect.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "Connects to server and returns core information about the task, for example, file size.",
+    "enclosedBy": {
+      "name": "Worker",
+      "kind": 3,
+      "href": "buxing/Worker-class.html"
+    }
+  },
+  {
+    "name": "start",
+    "qualifiedName": "buxing.Worker.start",
+    "href": "buxing/Worker/start.html",
+    "kind": 10,
+    "overriddenDepth": 1,
+    "packageRank": 0,
+    "desc": "Starts data transfer.",
+    "enclosedBy": {
+      "name": "Worker",
+      "kind": 3,
+      "href": "buxing/Worker-class.html"
+    }
+  },
+  {
+    "name": "WorkerBase",
+    "qualifiedName": "buxing.WorkerBase",
+    "href": "buxing/WorkerBase-class.html",
+    "kind": 3,
+    "packageRank": 0,
+    "desc": "Base class for all workers.",
+    "enclosedBy": {
+      "name": "buxing",
+      "kind": 9,
+      "href": "buxing/"
+    }
+  },
+  {
+    "name": "WorkerBase.new",
+    "qualifiedName": "buxing.WorkerBase.WorkerBase.new",
+    "href": "buxing/WorkerBase/WorkerBase.html",
+    "kind": 2,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "WorkerBase",
+      "kind": 3,
+      "href": "buxing/WorkerBase-class.html"
+    }
+  },
+  {
+    "name": "canResume",
+    "qualifiedName": "buxing.WorkerBase.canResume",
+    "href": "buxing/WorkerBase/canResume.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Checks if server supports requesting a portion of the data.",
+    "enclosedBy": {
+      "name": "WorkerBase",
+      "kind": 3,
+      "href": "buxing/WorkerBase-class.html"
+    }
+  },
+  {
+    "name": "close",
+    "qualifiedName": "buxing.WorkerBase.close",
+    "href": "buxing/WorkerBase/close.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Closes current worker and releases any resources associated with it.",
+    "enclosedBy": {
+      "name": "WorkerBase",
+      "kind": 3,
+      "href": "buxing/WorkerBase-class.html"
+    }
+  },
+  {
+    "name": "connect",
+    "qualifiedName": "buxing.WorkerBase.connect",
+    "href": "buxing/WorkerBase/connect.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Connects to server and returns core information about the task, for example, file size.",
+    "enclosedBy": {
+      "name": "WorkerBase",
+      "kind": 3,
+      "href": "buxing/WorkerBase-class.html"
+    }
+  },
+  {
+    "name": "logger",
+    "qualifiedName": "buxing.WorkerBase.logger",
+    "href": "buxing/WorkerBase/logger.html",
+    "kind": 16,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Logger of this worker.",
+    "enclosedBy": {
+      "name": "WorkerBase",
+      "kind": 3,
+      "href": "buxing/WorkerBase-class.html"
+    }
+  },
+  {
+    "name": "prepare",
+    "qualifiedName": "buxing.WorkerBase.prepare",
+    "href": "buxing/WorkerBase/prepare.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Returns a new state if state needs to be updated before start is called.",
+    "enclosedBy": {
+      "name": "WorkerBase",
+      "kind": 3,
+      "href": "buxing/WorkerBase-class.html"
+    }
+  },
+  {
+    "name": "start",
+    "qualifiedName": "buxing.WorkerBase.start",
+    "href": "buxing/WorkerBase/start.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Starts data transfer.",
+    "enclosedBy": {
+      "name": "WorkerBase",
+      "kind": 3,
+      "href": "buxing/WorkerBase-class.html"
+    }
+  },
+  {
+    "name": "transferCompleted",
+    "qualifiedName": "buxing.WorkerBase.transferCompleted",
+    "href": "buxing/WorkerBase/transferCompleted.html",
+    "kind": 10,
+    "overriddenDepth": 0,
+    "packageRank": 0,
+    "desc": "Called when transfer is completed.",
+    "enclosedBy": {
+      "name": "WorkerBase",
+      "kind": 3,
+      "href": "buxing/WorkerBase-class.html"
+    }
+  },
+  {
+    "name": "connKey",
+    "qualifiedName": "buxing.connKey",
+    "href": "buxing/connKey-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "buxing",
+      "kind": 9,
+      "href": "buxing/"
+    }
+  },
+  {
+    "name": "dataExt",
+    "qualifiedName": "buxing.dataExt",
+    "href": "buxing/dataExt-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "File extension of a partially downloaded file.",
+    "enclosedBy": {
+      "name": "buxing",
+      "kind": 9,
+      "href": "buxing/"
+    }
+  },
+  {
+    "name": "defConnNumber",
+    "qualifiedName": "buxing.defConnNumber",
+    "href": "buxing/defConnNumber-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "buxing",
+      "kind": 9,
+      "href": "buxing/"
+    }
+  },
+  {
+    "name": "endKey",
+    "qualifiedName": "buxing.endKey",
+    "href": "buxing/endKey-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "buxing",
+      "kind": 9,
+      "href": "buxing/"
+    }
+  },
+  {
+    "name": "getDataFile",
+    "qualifiedName": "buxing.getDataFile",
+    "href": "buxing/getDataFile.html",
+    "kind": 8,
+    "packageRank": 0,
+    "desc": "Gets the download data file path.",
+    "enclosedBy": {
+      "name": "buxing",
+      "kind": 9,
+      "href": "buxing/"
+    }
+  },
+  {
+    "name": "getStateFile",
+    "qualifiedName": "buxing.getStateFile",
+    "href": "buxing/getStateFile.html",
+    "kind": 8,
+    "packageRank": 0,
+    "desc": "Gets the state file path.",
+    "enclosedBy": {
+      "name": "buxing",
+      "kind": 9,
+      "href": "buxing/"
+    }
+  },
+  {
+    "name": "idKey",
+    "qualifiedName": "buxing.idKey",
+    "href": "buxing/idKey-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "buxing",
+      "kind": 9,
+      "href": "buxing/"
+    }
+  },
+  {
+    "name": "originalURLKey",
+    "qualifiedName": "buxing.originalURLKey",
+    "href": "buxing/originalURLKey-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "buxing",
+      "kind": 9,
+      "href": "buxing/"
+    }
+  },
+  {
+    "name": "parallelKey",
+    "qualifiedName": "buxing.parallelKey",
+    "href": "buxing/parallelKey-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "buxing",
+      "kind": 9,
+      "href": "buxing/"
+    }
+  },
+  {
+    "name": "redPen",
+    "qualifiedName": "buxing.redPen",
+    "href": "buxing/redPen.html",
+    "kind": 20,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "buxing",
+      "kind": 9,
+      "href": "buxing/"
+    }
+  },
+  {
+    "name": "sizeKey",
+    "qualifiedName": "buxing.sizeKey",
+    "href": "buxing/sizeKey-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "buxing",
+      "kind": 9,
+      "href": "buxing/"
+    }
+  },
+  {
+    "name": "startKey",
+    "qualifiedName": "buxing.startKey",
+    "href": "buxing/startKey-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "buxing",
+      "kind": 9,
+      "href": "buxing/"
+    }
+  },
+  {
+    "name": "stateExt",
+    "qualifiedName": "buxing.stateExt",
+    "href": "buxing/stateExt-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "File extension of a task file.",
+    "enclosedBy": {
+      "name": "buxing",
+      "kind": 9,
+      "href": "buxing/"
+    }
+  },
+  {
+    "name": "transferredKey",
+    "qualifiedName": "buxing.transferredKey",
+    "href": "buxing/transferredKey-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "buxing",
+      "kind": 9,
+      "href": "buxing/"
+    }
+  },
+  {
+    "name": "urlKey",
+    "qualifiedName": "buxing.urlKey",
+    "href": "buxing/urlKey-constant.html",
+    "kind": 19,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "buxing",
+      "kind": 9,
+      "href": "buxing/"
+    }
+  },
+  {
+    "name": "yellowPen",
+    "qualifiedName": "buxing.yellowPen",
+    "href": "buxing/yellowPen.html",
+    "kind": 20,
+    "packageRank": 0,
+    "desc": "",
+    "enclosedBy": {
+      "name": "buxing",
+      "kind": 9,
+      "href": "buxing/"
+    }
+  }
+]
