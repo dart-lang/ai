@@ -248,16 +248,18 @@ extension type ValidationError.fromMap(Map<String, Object?> _value) {
     List<String>? path,
     String? details,
   }) => ValidationError.fromMap({
-    'error': error,
+    'error': error.name,
     if (path != null) 'path': path,
     if (details != null) 'details': details,
   });
 
   /// The type of validation error that occurred.
-  ValidationErrorType? get error => _value['error'] as ValidationErrorType?;
+  ValidationErrorType? get error => ValidationErrorType.values.firstWhereOrNull(
+    (t) => t.name == _value['error'],
+  );
 
   /// The path to the object that had the error.
-  List<String>? get path => _value['path'] as List<String>?;
+  List<String>? get path => (_value['path'] as List?)?.cast<String>();
 
   /// Additional details about the error (optional).
   String? get details => _value['details'] as String?;
@@ -368,30 +370,10 @@ extension SchemaValidation on Schema {
   /// Returns a list of [ValidationError] if validation fails,
   /// or an empty list if validation succeeds.
   List<ValidationError> validate(Object? data) {
-    final failures = <ValidationError>[];
+    final failures = _createHashSet();
     _validateSchema(data, [], failures);
 
-    // Calling .toSet().toList() isn't enough to de-duplicate, since even maps
-    // with identical members can be different maps, so we do it the hard, slow
-    // way. Duplicates arise because the same message can occur for multiple
-    // layers in the hierarchy.
-    final dedupedSet = <ValidationError>{};
-    for (final failure in failures.toSet()) {
-      var alreadyExists = false;
-      for (final dedupedFailure in dedupedSet) {
-        if (failure.path == dedupedFailure.path &&
-            failure.details == dedupedFailure.details &&
-            failure.error == dedupedFailure.error) {
-          alreadyExists = true;
-          break;
-        }
-      }
-      if (!alreadyExists) {
-        dedupedSet.add(failure);
-      }
-    }
-
-    return dedupedSet.toList(); // Remove duplicates at the end
+    return failures.toList();
   }
 
   /// Performs validation based on the direct, non-combinator keywords of this
@@ -401,7 +383,7 @@ extension SchemaValidation on Schema {
   bool _performDirectValidation(
     Object? data,
     List<String> currentPath,
-    List<ValidationError> accumulatedFailures,
+    HashSet<ValidationError> accumulatedFailures,
   ) {
     var isValid = true;
     if (type case final schemaType?) {
@@ -467,7 +449,7 @@ extension SchemaValidation on Schema {
   bool _validateSchema(
     Object? data,
     List<String> currentPath,
-    List<ValidationError> accumulatedFailures,
+    HashSet<ValidationError> accumulatedFailures,
   ) {
     var isValid = true;
 
@@ -509,7 +491,7 @@ extension SchemaValidation on Schema {
 
       for (final subSchemaMember in allOfList) {
         final effectiveSubSchema = mergeWithBase(subSchemaMember);
-        final currentSubSchemaFailures = <ValidationError>[];
+        final currentSubSchemaFailures = _createHashSet();
         if (!effectiveSubSchema._validateSchema(
           data,
           currentPath,
@@ -532,7 +514,11 @@ extension SchemaValidation on Schema {
       var oneSubSchemaPassed = false;
       anyOfList.any((element) {
         final effectiveSubSchema = mergeWithBase(element);
-        if (effectiveSubSchema._validateSchema(data, currentPath, [])) {
+        if (effectiveSubSchema._validateSchema(
+          data,
+          currentPath,
+          _createHashSet(),
+        )) {
           oneSubSchemaPassed = true;
           return true;
         }
@@ -549,7 +535,11 @@ extension SchemaValidation on Schema {
       var matchingSubSchemaCount = 0;
       for (final subSchemaMember in oneOfList) {
         final effectiveSubSchema = mergeWithBase(subSchemaMember);
-        if (effectiveSubSchema._validateSchema(data, currentPath, [])) {
+        if (effectiveSubSchema._validateSchema(
+          data,
+          currentPath,
+          _createHashSet(),
+        )) {
           matchingSubSchemaCount++;
         }
       }
@@ -565,7 +555,11 @@ extension SchemaValidation on Schema {
         final effectiveSubSchemaForNot = mergeWithBase(subSchemaInNot);
         // 'not' is violated if data *validates* against the (Base AND
         // NotSubSchema).
-        return effectiveSubSchemaForNot._validateSchema(data, currentPath, []);
+        return effectiveSubSchemaForNot._validateSchema(
+          data,
+          currentPath,
+          _createHashSet(),
+        );
       });
 
       if (notConditionViolatedBySubSchema) {
@@ -817,7 +811,7 @@ extension type ObjectSchema.fromMap(Map<String, Object?> _value)
   bool _validateObject(
     Object? data,
     List<String> currentPath,
-    List<ValidationError> accumulatedFailures,
+    HashSet<ValidationError> accumulatedFailures,
   ) {
     if (data is! Map<String, Object?>) {
       accumulatedFailures.add(
@@ -877,7 +871,7 @@ extension type ObjectSchema.fromMap(Map<String, Object?> _value)
         if (data.containsKey(entry.key)) {
           evaluatedKeys.add(entry.key);
           final propertyPath = [...currentPath, entry.key];
-          final propertySpecificFailures = <ValidationError>[];
+          final propertySpecificFailures = _createHashSet();
           if (!entry.value._validateSchema(
             data[entry.key],
             propertyPath,
@@ -907,7 +901,7 @@ extension type ObjectSchema.fromMap(Map<String, Object?> _value)
           if (pattern.hasMatch(dataKey)) {
             evaluatedKeys.add(dataKey);
             final propertyPath = [...currentPath, dataKey];
-            final patternPropertySpecificFailures = <ValidationError>[];
+            final patternPropertySpecificFailures = _createHashSet();
             if (!entry.value._validateSchema(
               data[dataKey],
               propertyPath,
@@ -934,7 +928,7 @@ extension type ObjectSchema.fromMap(Map<String, Object?> _value)
     if (propertyNames case final propNamesSchema?) {
       for (final key in data.keys) {
         final propertyNamePath = [...currentPath, key];
-        final propertyNameSpecificFailures = <ValidationError>[];
+        final propertyNameSpecificFailures = _createHashSet();
         if (!propNamesSchema._validateSchema(
           key,
           propertyNamePath,
@@ -966,7 +960,7 @@ extension type ObjectSchema.fromMap(Map<String, Object?> _value)
         if (ap is bool && !ap) {
           isAdditionalPropertyAllowed = false;
         } else if (ap is Schema) {
-          final additionalPropSchemaFailures = <ValidationError>[];
+          final additionalPropSchemaFailures = _createHashSet();
           if (!ap._validateSchema(
             data[dataKey],
             additionalPropertyPath,
@@ -1032,7 +1026,7 @@ extension type const StringSchema.fromMap(Map<String, Object?> _value)
   bool _validateString(
     Object? data,
     List<String> currentPath,
-    List<ValidationError> accumulatedFailures,
+    HashSet<ValidationError> accumulatedFailures,
   ) {
     if (data is! String) {
       accumulatedFailures.add(
@@ -1116,7 +1110,7 @@ extension type NumberSchema.fromMap(Map<String, Object?> _value)
   bool _validateNumber(
     Object? data,
     List<String> currentPath,
-    List<ValidationError> accumulatedFailures,
+    HashSet<ValidationError> accumulatedFailures,
   ) {
     if (data is! num) {
       accumulatedFailures.add(
@@ -1224,7 +1218,7 @@ extension type IntegerSchema.fromMap(Map<String, Object?> _value)
   bool _validateInteger(
     Object? data,
     List<String> currentPath,
-    List<ValidationError> accumulatedFailures,
+    HashSet<ValidationError> accumulatedFailures,
   ) {
     if (data == null || (data is! int && data is! num)) {
       accumulatedFailures.add(
@@ -1464,7 +1458,7 @@ extension type ListSchema.fromMap(Map<String, Object?> _value)
   bool _validateList(
     Object? data,
     List<String> currentPath,
-    List<ValidationError> accumulatedFailures,
+    HashSet<ValidationError> accumulatedFailures,
   ) {
     if (data is! List<dynamic>) {
       accumulatedFailures.add(
@@ -1526,7 +1520,7 @@ extension type ListSchema.fromMap(Map<String, Object?> _value)
       for (var i = 0; i < pItems.length && i < data.length; i++) {
         evaluatedItems[i] = true;
         final itemPath = [...currentPath, i.toString()];
-        final prefixItemSpecificFailures = <ValidationError>[];
+        final prefixItemSpecificFailures = _createHashSet();
         if (!pItems[i]._validateSchema(
           data[i],
           itemPath,
@@ -1548,7 +1542,7 @@ extension type ListSchema.fromMap(Map<String, Object?> _value)
       for (var i = startIndex; i < data.length; i++) {
         evaluatedItems[i] = true;
         final itemPath = [...currentPath, i.toString()];
-        final itemSpecificFailures = <ValidationError>[];
+        final itemSpecificFailures = _createHashSet();
         if (!itemSchema._validateSchema(
           data[i],
           itemPath,
@@ -1583,4 +1577,18 @@ extension type ListSchema.fromMap(Map<String, Object?> _value)
     }
     return isValid;
   }
+}
+
+HashSet<ValidationError> _createHashSet() {
+  return HashSet<ValidationError>(
+    equals:
+        (ValidationError a, ValidationError b) {
+          return const ListEquality<String>().equals(a.path, b.path) &&
+            a.details == b.details &&
+            a.error == b.error;
+        },
+    hashCode: (ValidationError error) {
+      return Object.hashAll([...error.path ?? [], error.details, error.error]);
+    },
+  );
 }

@@ -5,6 +5,8 @@
 /// Interfaces are based on https://github.com/modelcontextprotocol/specification/blob/main/schema/2024-11-05/schema.json
 library;
 
+import 'dart:collection';
+
 import 'package:collection/collection.dart';
 import 'package:json_rpc_2/json_rpc_2.dart';
 
