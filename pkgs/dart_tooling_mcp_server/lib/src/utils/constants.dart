@@ -2,6 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'package:dart_mcp/server.dart';
+
 /// A namespace for all the parameter names.
 extension ParameterNames on Never {
   static const column = 'column';
@@ -17,3 +19,6 @@ extension ParameterNames on Never {
   static const uri = 'uri';
   static const uris = 'uris';
 }
+
+/// A shared success response for tools.
+final success = CallToolResult(content: [Content.text(text: 'Success')]);

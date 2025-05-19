@@ -25,7 +25,7 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
   );
 
   /// Whether or not to force the fallback mode for roots, regardless of the
-  /// clients reported support.
+  /// client's reported support.
   ///
   /// Override this to enable it.
   bool get forceRootsFallback => false;
@@ -81,7 +81,7 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
 
   /// Adds the roots in [request] the custom roots and calls [updateRoots].
   ///
-  /// Should only be called if [supportsRoots] is false.
+  /// Should only be called if [_fallbackEnabled] is `true`.
   Future<CallToolResult> _addRoots(CallToolRequest request) async {
     if (!_fallbackEnabled) {
       throw StateError(
@@ -89,19 +89,17 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
       );
     }
 
-    final roots =
-        (request.arguments![ParameterNames.roots] as List).cast<Root>();
-    for (final root in roots) {
-      _customRoots.add(root);
-    }
+    (request.arguments![ParameterNames.roots] as List).cast<Root>().forEach(
+      _customRoots.add,
+    );
     _rootsListChangedFallbackController?.add(RootsListChangedNotification());
-    return CallToolResult(content: [Content.text(text: 'Success')]);
+    return success;
   }
 
   /// Removes the roots in [request] from the custom roots and calls
   /// [updateRoots].
   ///
-  /// Should only be called if [supportsRoots] is false.
+  /// Should only be called if [_fallbackEnabled] is true.
   Future<CallToolResult> _removeRoots(CallToolRequest request) async {
     if (!_fallbackEnabled) {
       throw StateError(
@@ -115,7 +113,7 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
     _customRoots.removeAll(roots);
     _rootsListChangedFallbackController?.add(RootsListChangedNotification());
 
-    return CallToolResult(content: [Content.text(text: 'Success')]);
+    return success;
   }
 
   @override

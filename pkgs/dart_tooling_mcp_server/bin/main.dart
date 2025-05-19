@@ -14,7 +14,7 @@ import 'package:stream_channel/stream_channel.dart';
 
 void main(List<String> args) async {
   final parsedArgs = argParser.parse(args);
-  if (parsedArgs.flag('help')) {
+  if (parsedArgs.flag(help)) {
     print(argParser.usage);
     io.exit(0);
   }
@@ -33,7 +33,7 @@ void main(List<String> args) async {
                 },
               ),
             ),
-        forceRootsFallback: parsedArgs.flag('force-roots-fallback'),
+        forceRootsFallback: parsedArgs.flag(forceRootsFallback),
       );
     },
     (e, s) {
@@ -66,7 +66,7 @@ void main(List<String> args) async {
 final argParser =
     ArgParser(allowTrailingOptions: false)
       ..addFlag(
-        'force-roots-fallback',
+        forceRootsFallback,
         negatable: true,
         defaultsTo: false,
         help:
@@ -75,4 +75,7 @@ final argParser =
             'cursor which claim to have roots support but do not actually '
             'support it.',
       )
-      ..addFlag('help', abbr: 'h', help: 'Show usage text');
+      ..addFlag(help, abbr: 'h', help: 'Show usage text');
+
+const forceRootsFallback = 'force-roots-fallback';
+const help = 'help';

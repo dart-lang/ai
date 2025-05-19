@@ -197,7 +197,7 @@ final class TestClientWithoutRoots extends MCPClient {
       );
 }
 
-// A test client that does not support roots
+/// A test client that supports roots
 final class TestClientWithRoots extends MCPClient with RootsSupport {
   TestClientWithRoots()
     : super(
@@ -208,7 +208,7 @@ final class TestClientWithRoots extends MCPClient with RootsSupport {
       );
 }
 
-// Test class that mixes in RootsFallbackSupport
+/// A test server that mixes in RootsFallbackSupport
 final class TestServer extends MCPServer
     with
         LoggingSupport,
