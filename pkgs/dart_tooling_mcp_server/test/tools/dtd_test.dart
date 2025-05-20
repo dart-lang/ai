@@ -93,7 +93,7 @@ void main() {
           final stdout = debugSession.appProcess.stdout;
           final stdin = debugSession.appProcess.stdin;
           await stdout.skip(1); // VM service line
-          stdin.writeln(' ');
+          stdin.writeln('');
           expect(await stdout.next, 'hello');
           await Future<void>.delayed(const Duration(seconds: 1));
 
@@ -117,7 +117,7 @@ void main() {
             startsWith('Hot reload succeeded'),
           );
 
-          stdin.writeln(' ');
+          stdin.writeln('');
           expect(await stdout.next, 'world');
 
           stdin.writeln('q');
@@ -315,7 +315,7 @@ void main() {
 
           // Give the errors at most a second to come through.
           var count = 0;
-          stdin.writeln(' ');
+          stdin.writeln('');
           while (true) {
             runtimeErrorsResult = await testHarness.callToolWithRetry(
               CallToolRequest(
@@ -349,7 +349,7 @@ void main() {
           );
 
           // Trigger another error.
-          stdin.writeln(' ');
+          stdin.writeln('');
           final finalRuntimeErrorsResult = await testHarness.callToolWithRetry(
             CallToolRequest(name: runtimeErrorsTool.name),
           );
@@ -369,7 +369,7 @@ void main() {
               serverConnection.resourceListChanged.first;
 
           final stdin = debugSession.appProcess.stdin;
-          stdin.writeln(' ');
+          stdin.writeln('');
           var resources =
               (await serverConnection.listResources(
                 ListResourcesRequest(),
@@ -415,7 +415,7 @@ void main() {
           );
           expect(originalContents.single, errorMatcher);
 
-          stdin.writeln(' ');
+          stdin.writeln('');
           expect(
             await resourceUpdatedQueue.next,
             isA<ResourceUpdatedNotification>().having(
