@@ -109,6 +109,9 @@ base mixin DartToolingDaemonSupport
         final resource = Resource(
           uri: '$runtimeErrorsScheme://${debugSession.id}',
           name: debugSession.name,
+          description:
+              'The last 10 runtime errors seen for debug session '
+              '"${debugSession.name}".',
         );
         addResource(resource, (request) async {
           final errors = errorService.errors;
@@ -614,7 +617,7 @@ base mixin DartToolingDaemonSupport
   static final getRuntimeErrorsTool = Tool(
     name: 'get_runtime_errors',
     description:
-        'Retrieves the list of runtime errors that have occurred in the active '
+        'Retrieves the list 10 runtime errors that have occurred in the active '
         'Dart or Flutter application. Requires "${connectTool.name}" to be '
         'successfully called first.',
     annotations: ToolAnnotations(
@@ -810,7 +813,12 @@ class _AppErrorsListener {
       // are added.
       final errorsController = StreamController<String>.broadcast();
       final errors = <String>[];
-      errorsController.stream.listen(errors.add);
+      errorsController.stream.listen((e) {
+        if (errors.length > 10) {
+          errors.removeAt(0);
+        }
+        errors.add(e);
+      });
       // We need to listen to streams with history so that we can get errors
       // that occurred before this tool call.
       // TODO(https://github.com/dart-lang/ai/issues/57): this can result in
