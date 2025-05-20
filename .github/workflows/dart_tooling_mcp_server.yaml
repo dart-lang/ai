@@ -41,12 +41,6 @@ jobs:
       # https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#setting-an-environment-variable
       - run: echo "DART_SDK=$(which dart | xargs dirname | xargs dirname)" >> "$GITHUB_ENV"
 
-      # Required to build for linux
-      - run: |
-          sudo apt-get update -y
-          sudo apt-get install -y ninja-build libgtk-3-dev
-          sudo apt-get install -y xvfb
-
       - name: fetch counter app deps
         working-directory: pkgs/dart_tooling_mcp_server/test_fixtures/counter_app
         run: flutter pub get
@@ -58,4 +52,4 @@ jobs:
       - run: dart format --output=none --set-exit-if-changed .
         if: ${{ matrix.flutterSdk == 'master' }}
 
-      - run: xvfb-run -s "-screen 0 1024x768x24" dart test
+      - run: dart test

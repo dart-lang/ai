@@ -193,19 +193,11 @@ final class AppDebugSession {
     List<String> args = const [],
     required bool isFlutter,
   }) async {
-    final platform =
-        Platform.isLinux
-            ? 'linux'
-            : Platform.isMacOS
-            ? 'macos'
-            : throw StateError(
-              'unsupported platform, only mac and linux are supported',
-            );
     final process = await TestProcess.start(isFlutter ? 'flutter' : 'dart', [
       'run',
       '--no${isFlutter ? '' : '-serve'}-devtools',
       if (!isFlutter) '--enable-vm-service',
-      if (isFlutter) ...['-d', platform],
+      if (isFlutter) ...['-d', 'flutter-tester'],
       appPath,
       ...args,
     ], workingDirectory: projectRoot);
