@@ -70,6 +70,27 @@ void main() {
             contains('MyHomePage'),
           );
         });
+
+        test('can perform a hot reload', () async {
+          await testHarness.startDebugSession(
+            counterAppPath,
+            'lib/main.dart',
+            isFlutter: true,
+          );
+          final tools =
+              (await testHarness.mcpServerConnection.listTools()).tools;
+          final hotReloadTool = tools.singleWhere(
+            (t) => t.name == DartToolingDaemonSupport.hotReloadTool.name,
+          );
+          final hotReloadResult = await testHarness.callToolWithRetry(
+            CallToolRequest(name: hotReloadTool.name),
+          );
+
+          expect(hotReloadResult.isError, isNot(true));
+          expect(hotReloadResult.content, [
+            TextContent(text: 'Hot reload succeeded.'),
+          ]);
+        });
       });
 
       group('dart cli tests', () {
@@ -309,31 +330,43 @@ void main() {
           final runtimeErrorsTool = tools.singleWhere(
             (t) => t.name == DartToolingDaemonSupport.getRuntimeErrorsTool.name,
           );
-          late CallToolResult runtimeErrorsResult;
 
           final stdin = debugSession.appProcess.stdin;
 
-          // Give the errors at most a second to come through.
-          var count = 0;
-          stdin.writeln('');
-          while (true) {
-            runtimeErrorsResult = await testHarness.callToolWithRetry(
-              CallToolRequest(
-                name: runtimeErrorsTool.name,
-                arguments: {'clearRuntimeErrors': true},
-              ),
-            );
-            expect(runtimeErrorsResult.isError, isNot(true));
-            final firstText =
-                (runtimeErrorsResult.content.first as TextContent).text;
-            if (errorCountRegex.hasMatch(firstText)) {
-              break;
-            } else if (++count > 10) {
-              fail('No errors found, expected at least one');
-            } else {
-              await Future<void>.delayed(const Duration(milliseconds: 100));
+          /// Waits up to a second for errors to appear, returns first result
+          /// that does have some errors.
+          Future<CallToolResult> expectErrors({
+            required bool clearErrors,
+          }) async {
+            late CallToolResult runtimeErrorsResult;
+            var count = 0;
+            while (true) {
+              runtimeErrorsResult = await testHarness.callToolWithRetry(
+                CallToolRequest(
+                  name: runtimeErrorsTool.name,
+                  arguments: {'clearRuntimeErrors': clearErrors},
+                ),
+              );
+              expect(runtimeErrorsResult.isError, isNot(true));
+              final firstText =
+                  (runtimeErrorsResult.content.first as TextContent).text;
+              if (errorCountRegex.hasMatch(firstText)) {
+                return runtimeErrorsResult;
+              } else if (++count > 10) {
+                fail('No errors found, expected at least one');
+              } else {
+                await Future<void>.delayed(const Duration(milliseconds: 100));
+              }
             }
           }
+
+          // Give the errors at most a second to come through.
+          stdin.writeln('');
+          final runtimeErrorsResult = await expectErrors(clearErrors: true);
+          expect(
+            (runtimeErrorsResult.content.first as TextContent).text,
+            contains(errorCountRegex),
+          );
           expect(
             (runtimeErrorsResult.content[1] as TextContent).text,
             contains('error!'),
@@ -350,8 +383,8 @@ void main() {
 
           // Trigger another error.
           stdin.writeln('');
-          final finalRuntimeErrorsResult = await testHarness.callToolWithRetry(
-            CallToolRequest(name: runtimeErrorsTool.name),
+          final finalRuntimeErrorsResult = await expectErrors(
+            clearErrors: false,
           );
           expect(
             (finalRuntimeErrorsResult.content.first as TextContent).text,
@@ -389,7 +422,6 @@ void main() {
           await serverConnection.subscribeResource(
             SubscribeRequest(uri: resource.uri),
           );
-          await pumpEventQueue();
           var originalContents =
               (await serverConnection.readResource(
                 ReadResourceRequest(uri: resource.uri),
@@ -424,7 +456,6 @@ void main() {
               resource.uri,
             ),
           );
-          await pumpEventQueue();
 
           // Should now have another error.
           final newContents =

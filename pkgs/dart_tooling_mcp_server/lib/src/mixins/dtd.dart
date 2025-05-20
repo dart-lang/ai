@@ -96,10 +96,11 @@ base mixin DartToolingDaemonSupport
         continue;
       }
       if (debugSession.vmServiceUri case final vmServiceUri?) {
-        final vmService =
-            await (activeVmServices[debugSession.id] = vmServiceConnectUri(
+        final vmServiceFuture =
+            activeVmServices[debugSession.id] = vmServiceConnectUri(
               vmServiceUri,
-            ));
+            );
+        final vmService = await vmServiceFuture;
         // Start listening for and collecting errors immediately.
         final errorService = await _AppErrorsListener.forVmService(
           vmService,
@@ -344,16 +345,15 @@ base mixin DartToolingDaemonSupport
           await serviceStreamSubscription?.cancel();
           await vmService.streamCancel(EventStreams.kService);
         }
-        if (report.success == true) {
-          return CallToolResult(
-            content: [TextContent(text: 'Hot reload succeeded')],
-          );
-        } else {
-          return CallToolResult(
-            isError: true,
-            content: [TextContent(text: 'Hot reload failed')],
-          );
-        }
+        final success = report.success == true;
+        return CallToolResult(
+          isError: !success ? true : null,
+          content: [
+            TextContent(
+              text: 'Hot reload ${success ? 'succeeded' : 'failed'}.',
+            ),
+          ],
+        );
       },
     );
   }
@@ -796,7 +796,7 @@ class _AppErrorsListener {
 
   /// Maintain a cache of error listeners by [VmService] instance as an
   /// [Expando] so we don't have to worry about explicit cleanup.
-  static final _errorListeners = Expando<_AppErrorsListener>();
+  static final _errorListeners = Expando<Future<_AppErrorsListener>>();
 
   /// Returns the canonical [_AppErrorsListener] for the [vmService] instance,
   /// which may be an already existing instance.
@@ -804,7 +804,7 @@ class _AppErrorsListener {
     VmService vmService,
     LoggingSupport logger,
   ) async {
-    return _errorListeners[vmService] ??= await () async {
+    return _errorListeners[vmService] ??= () async {
       // Needs to be a broadcast stream because we use it to add errors to the
       // list but also expose it to clients so they can know when new errors
       // are added.
@@ -825,7 +825,14 @@ class _AppErrorsListener {
           errorsController.add(e.json.toString());
         }
       });
+      Event? lastError;
       final stderrEvents = vmService.onStderrEventWithHistory.listen((Event e) {
+        if (lastError case final last?
+            when last.timestamp == e.timestamp && last.bytes == e.bytes) {
+          // Looks like a duplicate event, on Dart 3.7 stable we get these.
+          return;
+        }
+        lastError = e;
         final message = decodeBase64(e.bytes!);
         // TODO(https://github.com/dart-lang/ai/issues/57): consider
         // pruning this content down to only what is useful for the LLM to
