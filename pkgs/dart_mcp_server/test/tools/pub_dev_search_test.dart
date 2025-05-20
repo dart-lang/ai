@@ -6,7 +6,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dart_mcp/server.dart';
-import 'package:dart_tooling_mcp_server/src/mixins/pub_dev_search.dart';
+import 'package:dart_mcp_server/src/mixins/pub_dev_search.dart';
 import 'package:http/http.dart';
 import 'package:test/test.dart';
 

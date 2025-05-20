@@ -9,7 +9,7 @@ import 'package:process/process.dart';
 /// An interface class that provides a single getter of type
 /// [LocalProcessManager].
 ///
-/// The `DartToolingMCPServer` class implements this class so that [Process]
+/// The `DartMCPServer` class implements this class so that [Process]
 /// methods can be easily mocked during testing.
 ///
 /// MCP support mixins like `DartCliSupport` that spawn processes should also

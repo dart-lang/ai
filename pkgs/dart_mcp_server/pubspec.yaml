@@ -1,4 +1,4 @@
-name: dart_tooling_mcp_server
+name: dart_mcp_server
 version: 0.1.0-wip
 description: >-
   An MCP server for Dart projects, exposing various developer tools to AI
@@ -10,7 +10,7 @@ environment:
   sdk: ^3.7.0
 
 executables:
-  dart_tooling_mcp_server: main
+  dart_mcp_server: main
 
 dependencies:
   args: ^2.7.0

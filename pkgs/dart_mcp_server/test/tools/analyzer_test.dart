@@ -5,8 +5,8 @@
 import 'dart:io';
 
 import 'package:dart_mcp/server.dart';
-import 'package:dart_tooling_mcp_server/src/mixins/analyzer.dart';
-import 'package:dart_tooling_mcp_server/src/utils/constants.dart';
+import 'package:dart_mcp_server/src/mixins/analyzer.dart';
+import 'package:dart_mcp_server/src/utils/constants.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;

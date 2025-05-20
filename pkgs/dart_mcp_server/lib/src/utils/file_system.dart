@@ -6,7 +6,7 @@ import 'package:file/file.dart';
 
 /// An interface class that provides a single getter of type [FileSystem].
 ///
-/// The `DartToolingMCPServer` class implements this class so that [File]
+/// The `DartMCPServer` class implements this class so that [File]
 /// methods can be easily mocked during testing.
 ///
 /// MCP support mixins like `DartCliSupport` that access files should also

@@ -9,7 +9,7 @@ import 'dart:io' as io;
 import 'package:args/args.dart';
 import 'package:async/async.dart';
 import 'package:dart_mcp/server.dart';
-import 'package:dart_tooling_mcp_server/dart_tooling_mcp_server.dart';
+import 'package:dart_mcp_server/dart_mcp_server.dart';
 import 'package:stream_channel/stream_channel.dart';
 
 void main(List<String> args) async {
@@ -19,10 +19,10 @@ void main(List<String> args) async {
     io.exit(0);
   }
 
-  DartToolingMCPServer? server;
+  DartMCPServer? server;
   await runZonedGuarded(
     () async {
-      server = await DartToolingMCPServer.connect(
+      server = await DartMCPServer.connect(
         StreamChannel.withCloseGuarantee(io.stdin, io.stdout)
             .transform(StreamChannelTransformer.fromCodec(utf8))
             .transformStream(const LineSplitter())

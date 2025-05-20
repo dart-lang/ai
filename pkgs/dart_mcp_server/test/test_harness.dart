@@ -8,9 +8,9 @@ import 'dart:io';
 
 import 'package:async/async.dart';
 import 'package:dart_mcp/client.dart';
-import 'package:dart_tooling_mcp_server/src/mixins/dtd.dart';
-import 'package:dart_tooling_mcp_server/src/server.dart';
-import 'package:dart_tooling_mcp_server/src/utils/constants.dart';
+import 'package:dart_mcp_server/src/mixins/dtd.dart';
+import 'package:dart_mcp_server/src/server.dart';
+import 'package:dart_mcp_server/src/utils/constants.dart';
 import 'package:dtd/dtd.dart';
 import 'package:file/file.dart';
 import 'package:file/local.dart';
@@ -359,9 +359,9 @@ Future<String> _getDTDUri(TestProcess dtdProcess) async {
 }
 
 typedef ServerConnectionPair =
-    ({ServerConnection serverConnection, DartToolingMCPServer? server});
+    ({ServerConnection serverConnection, DartMCPServer? server});
 
-/// Starts up the [DartToolingMCPServer] and connects [client] to it.
+/// Starts up the [DartMCPServer] and connects [client] to it.
 ///
 /// Also handles the full intialization handshake between the client and
 /// server.
@@ -371,7 +371,7 @@ Future<ServerConnectionPair> _initializeMCPServer(
   FileSystem fileSystem,
 ) async {
   ServerConnection connection;
-  DartToolingMCPServer? server;
+  DartMCPServer? server;
   if (inProcess) {
     /// The client side of the communication channel - the stream is the
     /// incoming data and the sink is outgoing data.
@@ -389,7 +389,7 @@ Future<ServerConnectionPair> _initializeMCPServer(
       clientController.stream,
       serverController.sink,
     );
-    server = DartToolingMCPServer(
+    server = DartMCPServer(
       serverChannel,
       processManager: TestProcessManager(),
       fileSystem: fileSystem,

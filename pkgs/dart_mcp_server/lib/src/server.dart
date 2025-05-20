@@ -21,7 +21,7 @@ import 'utils/file_system.dart';
 import 'utils/process_manager.dart';
 
 /// An MCP server for Dart and Flutter tooling.
-final class DartToolingMCPServer extends MCPServer
+final class DartMCPServer extends MCPServer
     with
         LoggingSupport,
         ToolsSupport,
@@ -34,7 +34,7 @@ final class DartToolingMCPServer extends MCPServer
         PubDevSupport,
         DartToolingDaemonSupport
     implements ProcessManagerSupport, FileSystemSupport {
-  DartToolingMCPServer(
+  DartMCPServer(
     super.channel, {
     @visibleForTesting this.processManager = const LocalProcessManager(),
     @visibleForTesting this.fileSystem = const LocalFileSystem(),
@@ -49,14 +49,11 @@ final class DartToolingMCPServer extends MCPServer
              'their development tools and running applications.',
        );
 
-  static Future<DartToolingMCPServer> connect(
+  static Future<DartMCPServer> connect(
     StreamChannel<String> mcpChannel, {
     bool forceRootsFallback = false,
   }) async {
-    return DartToolingMCPServer(
-      mcpChannel,
-      forceRootsFallback: forceRootsFallback,
-    );
+    return DartMCPServer(mcpChannel, forceRootsFallback: forceRootsFallback);
   }
 
   @override

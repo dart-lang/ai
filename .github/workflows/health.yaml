@@ -11,7 +11,7 @@ jobs:
       # TODO: Add breaking check once we have a real version published to
       # compare against.
       checks: "version,changelog,do-not-submit"
-      flutter_packages: "pkgs/dart_tooling_mcp_server/test_fixtures/counter_app"
+      flutter_packages: "pkgs/dart_mcp_server/test_fixtures/counter_app"
       sdk: dev
     permissions:
       pull-requests: write

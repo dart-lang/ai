@@ -45,11 +45,11 @@ Or from git:
 
 ```sh
 dart pub global activate -s git https://github.com/dart-lang/ai.git \
-  --git-path pkgs/dart_tooling_mcp_server/
+  --git-path pkgs/dart_mcp_server/
 ```
 
 And then, assuming the pub cache bin dir is [on your PATH][set-up-path], the
-`dart_tooling_mcp_server` command will run it, and recompile as necessary.
+`dart_mcp_server` command will run it, and recompile as necessary.
 
 [set-up-path]: https://dart.dev/tools/pub/cmd/pub-global#running-a-script-from-your-path
 
@@ -62,7 +62,7 @@ dart compile exe bin/main.dart
 ```
 
 And then provide the path to the executable instead of using the globally
-activated `dart_tooling_mcp_server` command.
+activated `dart_mcp_server` command.
 
 ### With the example WorkflowBot
 
@@ -77,8 +77,8 @@ directory of the app you wish to test the server against.
 
 
 ```dart
-dart pub add "dart_mcp_examples:{git: {url: https://github.com/dart-lang/ai.git, path: mcp_examples}}" 
-dart run dart_mcp_examples:workflow_client --server dart_tooling_mcp_server
+dart pub add "dart_mcp_examples:{git: {url: https://github.com/dart-lang/ai.git, path: mcp_examples}}"
+dart run dart_mcp_examples:workflow_client --server dart_mcp_server
 ```
 
 ### With Cursor
@@ -87,7 +87,7 @@ Go to Cursor -> Settings -> Cursor Settings and select "MCP".
 
 Then, click "Add new global MCP server". Assuming you have already globally
 activated the package and it is on  your path, you can add
-`dart_tooling_mcp_server` as the command.
+`dart_mcp_server` as the command.
 
 If you are directly editing your mcp.json file, it should look like this:
 
@@ -95,7 +95,7 @@ If you are directly editing your mcp.json file, it should look like this:
 {
   "mcpServers": {
     "dart_mcp": {
-      "command": "dart_tooling_mcp_server",
+      "command": "dart_mcp_server",
       "args": []
     }
   }
@@ -115,7 +115,7 @@ For local development, use the [MCP Inspector](https://modelcontextprotocol.io/d
     npx @modelcontextprotocol/inspector
     ```
 
-2. Open the MCP Inspector in the browser and enter `dart_tooling_mcp_server` in
+2. Open the MCP Inspector in the browser and enter `dart_mcp_server` in
 the "Command" field.
 
 3. Click "Connect" to connect to the server and debug using the MCP Inspector.

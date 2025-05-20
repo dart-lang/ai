@@ -3,8 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'package:dart_mcp/server.dart';
-import 'package:dart_tooling_mcp_server/src/mixins/dash_cli.dart';
-import 'package:dart_tooling_mcp_server/src/utils/constants.dart';
+import 'package:dart_mcp_server/src/mixins/dash_cli.dart';
+import 'package:dart_mcp_server/src/utils/constants.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
 

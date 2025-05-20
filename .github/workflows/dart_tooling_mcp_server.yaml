@@ -1,25 +1,25 @@
-name: package:dart_tooling_mcp_server
+name: package:dart_mcp_server
 permissions: read-all
 
 on:
   # Run CI on all PRs (against any branch) and on pushes to the main branch.
   pull_request:
     paths:
-      - '.github/workflows/dart_tooling_mcp_server.yaml'
-      - 'pkgs/dart_tooling_mcp_server/**'
+      - '.github/workflows/dart_mcp_server.yaml'
+      - 'pkgs/dart_mcp_server/**'
       - 'pkgs/dart_mcp/**'
   push:
     branches: [ main ]
     paths:
-      - '.github/workflows/dart_tooling_mcp_server.yaml'
-      - 'pkgs/dart_tooling_mcp_server/**'
+      - '.github/workflows/dart_mcp_server.yaml'
+      - 'pkgs/dart_mcp_server/**'
       - 'pkgs/dart_mcp/**'
   schedule:
     - cron: '0 0 * * 0' # weekly
 
 defaults:
   run:
-    working-directory: pkgs/dart_tooling_mcp_server
+    working-directory: pkgs/dart_mcp_server
 
 jobs:
   build:
@@ -42,7 +42,7 @@ jobs:
       - run: echo "DART_SDK=$(which dart | xargs dirname | xargs dirname)" >> "$GITHUB_ENV"
 
       - name: fetch counter app deps
-        working-directory: pkgs/dart_tooling_mcp_server/test_fixtures/counter_app
+        working-directory: pkgs/dart_mcp_server/test_fixtures/counter_app
         run: flutter pub get
 
       - run: dart pub get
