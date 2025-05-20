@@ -197,6 +197,80 @@ enum JsonType {
   final String typeName;
 }
 
+/// Enum representing the types of validation failures when checking data
+/// against a schema.
+enum ValidationErrorType {
+  // General
+  typeMismatch,
+
+  // Schema combinators
+  allOfNotMet,
+  anyOfNotMet,
+  oneOfNotMet,
+  notConditionViolated,
+
+  // Object specific
+  requiredPropertyMissing,
+  additionalPropertyNotAllowed,
+  minPropertiesNotMet,
+  maxPropertiesExceeded,
+  propertyNamesInvalid,
+  propertyValueInvalid,
+  patternPropertyValueInvalid,
+  unevaluatedPropertyNotAllowed,
+
+  // Array/List specific
+  minItemsNotMet,
+  maxItemsExceeded,
+  uniqueItemsViolated,
+  itemInvalid,
+  prefixItemInvalid,
+  unevaluatedItemNotAllowed,
+
+  // String specific
+  minLengthNotMet,
+  maxLengthExceeded,
+  patternMismatch,
+
+  // Number/Integer specific
+  minimumNotMet,
+  maximumExceeded,
+  exclusiveMinimumNotMet,
+  exclusiveMaximumExceeded,
+  multipleOfInvalid,
+}
+
+/// A validation error with detailed information about the location of the
+/// error.
+extension type ValidationError.fromMap(Map<String, Object?> _value) {
+  factory ValidationError(
+    ValidationErrorType error, {
+    List<String>? path,
+    String? details,
+  }) => ValidationError.fromMap({
+    'error': error.name,
+    if (path != null) 'path': path.toList(),
+    if (details != null) 'details': details,
+  });
+
+  /// The type of validation error that occurred.
+  ValidationErrorType? get error => ValidationErrorType.values.firstWhereOrNull(
+    (t) => t.name == _value['error'],
+  );
+
+  /// The path to the object that had the error.
+  List<String>? get path => (_value['path'] as List?)?.cast<String>();
+
+  /// Additional details about the error (optional).
+  String? get details => _value['details'] as String?;
+
+  String toErrorString() {
+    return '${error!.name} in object at '
+        '${path!.map((p) => '[$p]').join('')}'
+        '${details != null ? ' - $details' : ''}';
+  }
+}
+
 /// A JSON Schema object defining the any kind of property.
 ///
 /// See the subtypes [ObjectSchema], [ListSchema], [StringSchema],
@@ -268,7 +342,7 @@ extension type Schema.fromMap(Map<String, Object?> _value) {
   /// This is not required, and commonly won't be present if one of the schema
   /// combinators ([allOf], [anyOf], [oneOf], or [not]) are used.
   JsonType? get type => JsonType.values.firstWhereOrNull(
-    (t) => _value['type'] as String == t.typeName,
+    (t) => (_value['type'] as String? ?? '') == t.typeName,
   );
 
   /// A title for this schema, should be short.
@@ -290,7 +364,307 @@ extension type Schema.fromMap(Map<String, Object?> _value) {
   List<Schema>? get not => (_value['not'] as List?)?.cast<Schema>();
 }
 
+extension SchemaValidation on Schema {
+  /// Validates the given [data] against this schema.
+  ///
+  /// Returns a list of [ValidationError] if validation fails,
+  /// or an empty list if validation succeeds.
+  List<ValidationError> validate(Object? data) {
+    final failures = _createHashSet();
+    _validateSchema(data, [], failures);
+
+    return failures.toList();
+  }
+
+  /// Performs validation based on the direct, non-combinator keywords of this
+  /// schema.
+  ///
+  /// Adds failures to [accumulatedFailures] and returns `false` if any occur.
+  bool _performDirectValidation(
+    Object? data,
+    List<String> currentPath,
+    HashSet<ValidationError> accumulatedFailures,
+  ) {
+    var isValid = true;
+    if (type case final schemaType?) {
+      switch (schemaType) {
+        case JsonType.object:
+          isValid = (this as ObjectSchema)._validateObject(
+            data,
+            currentPath,
+            accumulatedFailures,
+          );
+        case JsonType.list:
+          isValid = (this as ListSchema)._validateList(
+            data,
+            currentPath,
+            accumulatedFailures,
+          );
+        case JsonType.string:
+          isValid = (this as StringSchema)._validateString(
+            data,
+            currentPath,
+            accumulatedFailures,
+          );
+        case JsonType.num:
+          isValid = (this as NumberSchema)._validateNumber(
+            data,
+            currentPath,
+            accumulatedFailures,
+          );
+        case JsonType.int:
+          isValid = (this as IntegerSchema)._validateInteger(
+            data,
+            currentPath,
+            accumulatedFailures,
+          );
+        case JsonType.bool:
+          if (data is! bool) {
+            isValid = false;
+            accumulatedFailures.add(
+              ValidationError(
+                ValidationErrorType.typeMismatch,
+                path: currentPath,
+              ),
+            );
+          }
+        case JsonType.nil:
+          if (data != null) {
+            isValid = false;
+            accumulatedFailures.add(
+              ValidationError(
+                ValidationErrorType.typeMismatch,
+                path: currentPath,
+              ),
+            );
+          }
+      }
+    }
+    return isValid;
+  }
+
+  /// Validates data against the schema.
+  ///
+  /// Adds failures to [accumulatedFailures] and returns `false` if any occur.
+  bool _validateSchema(
+    Object? data,
+    List<String> currentPath,
+    HashSet<ValidationError> accumulatedFailures,
+  ) {
+    var isValid = true;
+
+    // Validate data against the non-combinator keywords of the current schema
+    // ('this').
+    if (!_performDirectValidation(data, currentPath, accumulatedFailures)) {
+      isValid = false;
+    }
+
+    // Handle combinator keywords. Create the "base schema" from 'this' schema,
+    // excluding combinator keywords. This base schema's constraints are
+    // effectively ANDed with each sub-schema in combinators.
+    final baseSchemaMapForCombinators = Map<String, Object?>.from(_value);
+    baseSchemaMapForCombinators.remove('allOf');
+    baseSchemaMapForCombinators.remove('anyOf');
+    baseSchemaMapForCombinators.remove('oneOf');
+    baseSchemaMapForCombinators.remove('not');
+    final baseSchemaForCombinators = Schema.fromMap(
+      baseSchemaMapForCombinators,
+    );
+
+    // Helper to merge a sub-schema with the baseSchemaForCombinators.
+    Schema mergeWithBase(Schema subSchema) {
+      final mergedMap = Map<String, Object?>.from(
+        baseSchemaForCombinators._value,
+      );
+      // Sub-schema's values override base's if keys conflict. This is generally
+      // correct; if sub-schema specifies a conflicting 'type', the merged
+      // schema will use sub-schema's type, and validation will proceed. If this
+      // makes the schema unsatisfiable with base constraints, validation will
+      // fail.
+      mergedMap.addAll(subSchema._value);
+      return Schema.fromMap(mergedMap);
+    }
+
+    if (allOf case final allOfList?) {
+      var allSubSchemasAreValid = true;
+      final allOfDetailedSubFailures = <ValidationError>[];
+
+      for (final subSchemaMember in allOfList) {
+        final effectiveSubSchema = mergeWithBase(subSchemaMember);
+        final currentSubSchemaFailures = _createHashSet();
+        if (!effectiveSubSchema._validateSchema(
+          data,
+          currentPath,
+          currentSubSchemaFailures,
+        )) {
+          allSubSchemasAreValid = false;
+          allOfDetailedSubFailures.addAll(currentSubSchemaFailures);
+        }
+      }
+      // `allOf` fails if any effective sub-schema (Base AND SubMember) failed.
+      if (!allSubSchemasAreValid) {
+        isValid = false;
+        accumulatedFailures.add(
+          ValidationError(ValidationErrorType.allOfNotMet, path: currentPath),
+        );
+        accumulatedFailures.addAll(allOfDetailedSubFailures);
+      }
+    }
+    if (anyOf case final anyOfList?) {
+      var oneSubSchemaPassed = false;
+      anyOfList.any((element) {
+        final effectiveSubSchema = mergeWithBase(element);
+        if (effectiveSubSchema._validateSchema(
+          data,
+          currentPath,
+          _createHashSet(),
+        )) {
+          oneSubSchemaPassed = true;
+          return true;
+        }
+        return false;
+      });
+      if (!oneSubSchemaPassed) {
+        isValid = false;
+        accumulatedFailures.add(
+          ValidationError(ValidationErrorType.anyOfNotMet, path: currentPath),
+        );
+      }
+    }
+    if (oneOf case final oneOfList?) {
+      var matchingSubSchemaCount = 0;
+      for (final subSchemaMember in oneOfList) {
+        final effectiveSubSchema = mergeWithBase(subSchemaMember);
+        if (effectiveSubSchema._validateSchema(
+          data,
+          currentPath,
+          _createHashSet(),
+        )) {
+          matchingSubSchemaCount++;
+        }
+      }
+      if (matchingSubSchemaCount != 1) {
+        isValid = false;
+        accumulatedFailures.add(
+          ValidationError(ValidationErrorType.oneOfNotMet, path: currentPath),
+        );
+      }
+    }
+    if (not case final notList?) {
+      final notConditionViolatedBySubSchema = notList.any((subSchemaInNot) {
+        final effectiveSubSchemaForNot = mergeWithBase(subSchemaInNot);
+        // 'not' is violated if data *validates* against the (Base AND
+        // NotSubSchema).
+        return effectiveSubSchemaForNot._validateSchema(
+          data,
+          currentPath,
+          _createHashSet(),
+        );
+      });
+
+      if (notConditionViolatedBySubSchema) {
+        isValid = false;
+        accumulatedFailures.add(
+          ValidationError(
+            ValidationErrorType.notConditionViolated,
+            path: currentPath,
+          ),
+        );
+      }
+    }
+
+    return isValid;
+  }
+}
+
 /// A JSON Schema definition for an object with properties.
+///
+/// `ObjectSchema` is used to define the expected structure, data types, and
+/// constraints for MCP argument objects. It allows you to specify:
+///
+/// - Which properties an object can or must have ([properties], [required]).
+/// - The schema for each of those properties (e.g., string, number, nested
+///   object).
+/// - Whether additional properties not explicitly defined are allowed
+///   ([additionalProperties], [unevaluatedProperties]).
+/// - Constraints on the number of properties ([minProperties],
+///   [maxProperties]).
+/// - Constraints on property names ([propertyNames]).
+///
+/// See https://json-schema.org/understanding-json-schema/reference/object.html
+/// for more details on object schemas.
+///
+/// Example:
+///
+/// To define a schema for a product object that requires `productId` and
+/// `productName`, has an optional `price` (non-negative number) and optional
+/// `tags` (list of unique strings), and optional `dimensions` (an object with
+/// required numeric length, width, and height):
+///
+/// ```dart
+/// final productSchema = ObjectSchema(
+///   title: 'Product',
+///   description: 'Schema for a product object',
+///   required: ['productId', 'productName'],
+///   properties: {
+///     'productId': Schema.string(
+///       description: 'Unique identifier for the product',
+///     ),
+///     'productName': Schema.string(description: 'Name of the product'),
+///     'price': Schema.num(
+///       description: 'Price of the product',
+///       minimum: 0,
+///     ),
+///     'tags': Schema.list(
+///       description: 'Optional list of tags for the product',
+///       items: Schema.string(),
+///       uniqueItems: true,
+///     ),
+///     'dimensions': ObjectSchema(
+///       description: 'Optional product dimensions',
+///       properties: {
+///         'length': Schema.num(),
+///         'width': Schema.num(),
+///         'height': Schema.num(),
+///       },
+///       required: ['length', 'width', 'height'],
+///     ),
+///   },
+///   additionalProperties: false, // No other properties allowed beyond those defined
+/// );
+/// ```
+///
+/// This schema can then be used with the `validate` method to check if a given
+/// JSON-like map conforms to the defined structure.
+///
+/// For example, valid data might look like:
+///
+/// ```json
+/// {
+///   "productId": "ABC12345",
+///   "productName": "Super Widget",
+///   "price": 19.99,
+///   "tags": ["electronics", "gadget"],
+///   "dimensions": {"length": 10, "width": 5, "height": 2.5}
+/// }
+/// ```
+///
+/// And invalid data (e.g., missing productName, or an extra undefined
+/// property):
+/// ```json
+/// {
+///   "productId": "XYZ67890",
+///   "price": 9.99
+/// }
+/// ```
+///
+/// ```json
+/// {
+///   "productId": "DEF4567",
+///   "productName": "Another Gadget",
+///   "color": "blue" // Invalid if additionalProperties is false
+/// }
+/// ```
 extension type ObjectSchema.fromMap(Map<String, Object?> _value)
     implements Schema {
   factory ObjectSchema({
@@ -329,10 +703,38 @@ extension type ObjectSchema.fromMap(Map<String, Object?> _value)
 
   /// A map of the property patterns of the object to the nested [Schema]s for
   /// those properties.
+  ///
+  /// For example, to define a schema where any property name starting with
+  /// "x-" should have a string value:
+  ///
+  /// ```dart
+  /// final schema = ObjectSchema(patternProperties: {r'^x-': Schema.string()});
+  /// ```
+  ///
   Map<String, Schema>? get patternProperties =>
       (_value['patternProperties'] as Map?)?.cast<String, Schema>();
 
   /// A list of the required properties by name.
+  ///
+  /// For example, to define a schema for an object that requires a `name`
+  /// property:
+  ///
+  /// ```dart
+  /// final schema = ObjectSchema(
+  ///   required: ['name'],
+  ///   properties: {'name': Schema.string()},
+  /// );
+  /// ```
+  ///
+  /// In this schema, an object like `{'name': 'John'}` would be valid, but
+  /// `{}` or `{'age': 30}` would be invalid because they do not contain the
+  /// required `name` property. Note that the type of the `name` property is
+  /// also defined using the `properties` field; `required` only enforces the
+  /// presence of the property, not its type or value, which are handled by
+  /// the corresponding schema in the `properties` map (if provided, otherwise
+  /// any value is accepted).
+  ///
+  /// Properties in this list must be set in the object.
   List<String>? get required => (_value['required'] as List?)?.cast<String>();
 
   /// Rules for additional properties that don't match the
@@ -340,23 +742,263 @@ extension type ObjectSchema.fromMap(Map<String, Object?> _value)
   ///
   /// Can be either a [bool] or a [Schema], if it is a [Schema] then additional
   /// properties should match that [Schema].
-  /*bool|Schema|Null*/
+  ///
+  /// For example, to define a schema where any property not explicitly defined
+  /// in `properties` should have an integer value:
+  ///
+  /// ```dart
+  /// final schema = ObjectSchema(
+  ///   properties: {'name': Schema.string()},
+  ///   additionalProperties: Schema.int(),
+  /// );
+  /// ```
+  ///
+  /// In this schema, an object like `{'name': 'John', 'age': 30}` would be
+  /// valid, but `{'name': 'John', 'age': 'thirty'}` would be invalid because
+  /// `age` is not a defined property and its value is not an integer as
+  /// required by `additionalProperties`.
   Object? get additionalProperties => _value['additionalProperties'];
 
   /// Similar to [additionalProperties] but more flexible, see
   /// https://json-schema.org/understanding-json-schema/reference/object#unevaluatedproperties
+  /// for more details.
+  ///
+  /// For example, to define a schema where any property not explicitly defined
+  /// in `properties` or matched by `patternProperties` is disallowed:
+  ///
+  /// ```dart
+  /// final schema = ObjectSchema(
+  ///   properties: {'name': Schema.string()},
+  ///   patternProperties: {r'^x-': Schema.string()},
+  ///   unevaluatedProperties: false,
+  /// );
+  /// ```
+  ///
+  /// In this schema, an object like `{'name': 'John', 'x-id': '123'}` would be
+  /// valid, but `{'name': 'John', 'age': 30}` would be invalid because `age` is
+  /// neither a defined property nor matches the pattern, and
+  /// `unevaluatedProperties` is set to `false`.
   bool? get unevaluatedProperties => _value['unevaluatedProperties'] as bool?;
 
   /// A list of valid patterns for all property names.
+  ///
+  /// For example, to define a schema where all property names must start with
+  /// a lowercase letter:
+  ///
+  /// ```dart
+  /// final schema = ObjectSchema(
+  ///   propertyNames: Schema.string(pattern: r'^[a-z].*$'),
+  /// );
+  /// ```
+  ///
+  /// In this schema, an object like `{'name': 'John', 'age': 30}` would be
+  /// valid, but `{'Name': 'John', 'Age': 30}` would be invalid because the
+  /// property names do not start with a lowercase letter.
   StringSchema? get propertyNames =>
       (_value['propertyNames'] as Map?)?.cast<String, Object?>()
           as StringSchema?;
 
   /// The minimum number of properties in this object.
+  ///
+  /// If the object has less than this many properties, it will be invalid.
   int? get minProperties => _value['minProperties'] as int?;
 
   /// The maximum number of properties in this object.
+  ///
+  /// If the object has more than this many properties, it will be invalid.
   int? get maxProperties => _value['maxProperties'] as int?;
+
+  bool _validateObject(
+    Object? data,
+    List<String> currentPath,
+    HashSet<ValidationError> accumulatedFailures,
+  ) {
+    if (data is! Map<String, Object?>) {
+      accumulatedFailures.add(
+        ValidationError(ValidationErrorType.typeMismatch, path: currentPath),
+      );
+      return false;
+    }
+
+    var isValid = true;
+
+    if (minProperties case final min? when data.keys.length < min) {
+      isValid = false;
+      accumulatedFailures.add(
+        ValidationError(
+          ValidationErrorType.minPropertiesNotMet,
+          path: currentPath,
+          details:
+              'There should be at least $minProperties '
+              'properties. Only ${data.keys.length} were found.',
+        ),
+      );
+    }
+
+    if (maxProperties case final max? when data.keys.length > max) {
+      isValid = false;
+      accumulatedFailures.add(
+        ValidationError(
+          ValidationErrorType.maxPropertiesExceeded,
+          path: currentPath,
+          details:
+              'Exceeded maxProperties limit of $maxProperties '
+              '(${data.keys.length}).',
+        ),
+      );
+    }
+
+    for (final reqProp in required ?? const []) {
+      if (!data.containsKey(reqProp)) {
+        isValid = false;
+        accumulatedFailures.add(
+          ValidationError(
+            ValidationErrorType.requiredPropertyMissing,
+            path: currentPath,
+            details: 'Required property "$reqProp" is missing.',
+          ),
+        );
+      }
+    }
+
+    // Check for property values that match any defined properties in the
+    // `properties` map. If a property name exists in the `properties` map, the
+    // value of that property is validated against the schema associated with
+    // that property.
+    final evaluatedKeys = <String>{};
+    if (properties case final props?) {
+      for (final entry in props.entries) {
+        if (data.containsKey(entry.key)) {
+          currentPath.add(entry.key);
+          evaluatedKeys.add(entry.key);
+          final propertySpecificFailures = _createHashSet();
+          if (!entry.value._validateSchema(
+            data[entry.key],
+            currentPath,
+            propertySpecificFailures,
+          )) {
+            isValid = false;
+            accumulatedFailures.add(
+              ValidationError(
+                ValidationErrorType.propertyValueInvalid,
+                path: currentPath,
+              ),
+            );
+            accumulatedFailures.addAll(propertySpecificFailures);
+          }
+          currentPath.removeLast();
+        }
+      }
+    }
+
+    // Check for property values that match any defined pattern properties.
+    // If a property name matches a pattern in `patternProperties`, the value
+    // of that property is validated against the schema associated with that
+    // pattern.
+    if (patternProperties case final patternProps?) {
+      for (final entry in patternProps.entries) {
+        final pattern = RegExp(entry.key);
+        for (final dataKey in data.keys) {
+          if (pattern.hasMatch(dataKey)) {
+            currentPath.add(dataKey);
+            evaluatedKeys.add(dataKey);
+            final patternPropertySpecificFailures = _createHashSet();
+            if (!entry.value._validateSchema(
+              data[dataKey],
+              currentPath,
+              patternPropertySpecificFailures,
+            )) {
+              isValid = false;
+              accumulatedFailures.add(
+                ValidationError(
+                  ValidationErrorType.patternPropertyValueInvalid,
+                  path: currentPath,
+                ),
+              );
+              accumulatedFailures.addAll(patternPropertySpecificFailures);
+            }
+            currentPath.removeLast();
+          }
+        }
+      }
+    }
+
+    // If a `propertyNames` schema is defined, iterate over each key (property
+    // name) in the input `data` object and validate it against that schema.
+    // If any property name is invalid, mark the overall validation as failed
+    // and record the specific errors.
+    if (propertyNames case final propNamesSchema?) {
+      for (final key in data.keys) {
+        currentPath.add(key);
+        final propertyNameSpecificFailures = _createHashSet();
+        if (!propNamesSchema._validateSchema(
+          key,
+          currentPath,
+          propertyNameSpecificFailures,
+        )) {
+          isValid = false;
+          accumulatedFailures.addAll(propertyNameSpecificFailures);
+          accumulatedFailures.add(
+            ValidationError(
+              ValidationErrorType.propertyNamesInvalid,
+              path: currentPath,
+            ),
+          );
+        }
+        currentPath.removeLast();
+      }
+    }
+
+    // If additionalProperties is defined, check if unevaluated properties
+    // (properties not in `properties` or `patternProperties`) are allowed. If
+    // additionalProperties is not defined, check if unevaluated properties are
+    // allowed based on the value of unevaluatedProperties.
+    for (final dataKey in data.keys) {
+      if (evaluatedKeys.contains(dataKey)) continue;
+
+      var isAdditionalPropertyAllowed = true;
+      if (additionalProperties != null) {
+        final ap = additionalProperties;
+        currentPath.add(dataKey);
+        if (ap is bool && !ap) {
+          isAdditionalPropertyAllowed = false;
+        } else if (ap is Schema) {
+          final additionalPropSchemaFailures = _createHashSet();
+          if (!ap._validateSchema(
+            data[dataKey],
+            currentPath,
+            additionalPropSchemaFailures,
+          )) {
+            isAdditionalPropertyAllowed = false;
+            // Add details why it failed
+            accumulatedFailures.addAll(additionalPropSchemaFailures);
+          }
+        }
+        if (!isAdditionalPropertyAllowed) {
+          isValid = false;
+          accumulatedFailures.add(
+            ValidationError(
+              ValidationErrorType.additionalPropertyNotAllowed,
+              path: currentPath,
+            ),
+          );
+        }
+        currentPath.removeLast();
+      } else if (unevaluatedProperties == false) {
+        isValid = false;
+        // Only applies if additionalProperties is not defined
+        currentPath.add(dataKey);
+        accumulatedFailures.add(
+          ValidationError(
+            ValidationErrorType.unevaluatedPropertyNotAllowed,
+            path: currentPath,
+          ),
+        );
+        currentPath.removeLast();
+      }
+    }
+    return isValid;
+  }
 }
 
 /// A JSON Schema definition for a String.
@@ -385,6 +1027,52 @@ extension type const StringSchema.fromMap(Map<String, Object?> _value)
 
   /// A regular expression pattern that the String must match.
   String? get pattern => _value['pattern'] as String?;
+
+  bool _validateString(
+    Object? data,
+    List<String> currentPath,
+    HashSet<ValidationError> accumulatedFailures,
+  ) {
+    if (data is! String) {
+      accumulatedFailures.add(
+        ValidationError(ValidationErrorType.typeMismatch, path: currentPath),
+      );
+      return false;
+    }
+    var isValid = true;
+    if (minLength case final minLen? when data.length < minLen) {
+      isValid = false;
+      accumulatedFailures.add(
+        ValidationError(
+          ValidationErrorType.minLengthNotMet,
+          path: currentPath,
+          details: 'String "$data" is not at least $minLen characters long.',
+        ),
+      );
+    }
+    if (maxLength case final maxLen? when data.length > maxLen) {
+      isValid = false;
+      accumulatedFailures.add(
+        ValidationError(
+          ValidationErrorType.maxLengthExceeded,
+          path: currentPath,
+          details: 'String "$data" is more than $maxLen characters long.',
+        ),
+      );
+    }
+    if (pattern case final dataPattern?
+        when !RegExp(dataPattern).hasMatch(data)) {
+      isValid = false;
+      accumulatedFailures.add(
+        ValidationError(
+          ValidationErrorType.patternMismatch,
+          path: currentPath,
+          details: 'String "$data" doesn\'t match the pattern "$dataPattern".',
+        ),
+      );
+    }
+    return isValid;
+  }
 }
 
 /// A JSON Schema definition for a [num].
@@ -423,6 +1111,76 @@ extension type NumberSchema.fromMap(Map<String, Object?> _value)
 
   /// The value must be a multiple of this number.
   num? get multipleOf => _value['multipleOf'] as num?;
+
+  bool _validateNumber(
+    Object? data,
+    List<String> currentPath,
+    HashSet<ValidationError> accumulatedFailures,
+  ) {
+    if (data is! num) {
+      accumulatedFailures.add(
+        ValidationError(ValidationErrorType.typeMismatch, path: currentPath),
+      );
+      return false;
+    }
+
+    var isValid = true;
+    if (minimum case final min? when data < min) {
+      isValid = false;
+      accumulatedFailures.add(
+        ValidationError(
+          ValidationErrorType.minimumNotMet,
+          path: currentPath,
+          details: 'Value $data is not at least $min.',
+        ),
+      );
+    }
+    if (maximum case final max? when data > max) {
+      isValid = false;
+      accumulatedFailures.add(
+        ValidationError(
+          ValidationErrorType.maximumExceeded,
+          path: currentPath,
+          details: 'Value $data is larger than $max.',
+        ),
+      );
+    }
+    if (exclusiveMinimum case final exclusiveMin? when data <= exclusiveMin) {
+      isValid = false;
+      accumulatedFailures.add(
+        ValidationError(
+          ValidationErrorType.exclusiveMinimumNotMet,
+          path: currentPath,
+
+          details: 'Value $data is not greater than $exclusiveMin.',
+        ),
+      );
+    }
+    if (exclusiveMaximum case final exclusiveMax? when data >= exclusiveMax) {
+      isValid = false;
+      accumulatedFailures.add(
+        ValidationError(
+          ValidationErrorType.exclusiveMaximumExceeded,
+          path: currentPath,
+          details: 'Value $data is not less than $exclusiveMax.',
+        ),
+      );
+    }
+    if (multipleOf case final multOf? when multOf != 0) {
+      final remainder = data / multOf;
+      if ((remainder - remainder.round()).abs() > 1e-9) {
+        isValid = false;
+        accumulatedFailures.add(
+          ValidationError(
+            ValidationErrorType.multipleOfInvalid,
+            path: currentPath,
+            details: 'Value $data is not a multiple of $multipleOf.',
+          ),
+        );
+      }
+    }
+    return isValid;
+  }
 }
 
 /// A JSON Schema definition for an [int].
@@ -461,6 +1219,94 @@ extension type IntegerSchema.fromMap(Map<String, Object?> _value)
 
   /// The value must be a multiple of this number.
   num? get multipleOf => _value['multipleOf'] as num?;
+
+  bool _validateInteger(
+    Object? data,
+    List<String> currentPath,
+    HashSet<ValidationError> accumulatedFailures,
+  ) {
+    if (data == null || (data is! int && data is! num)) {
+      accumulatedFailures.add(
+        ValidationError(
+          ValidationErrorType.typeMismatch,
+          path: currentPath,
+          details:
+              'Value $data has the type ${data.runtimeType}, which is not '
+              'an integer.',
+        ),
+      );
+      return false;
+    }
+    if (data is num) {
+      final intData = data.toInt();
+      if (data != intData) {
+        accumulatedFailures.add(
+          ValidationError(
+            ValidationErrorType.typeMismatch,
+            path: currentPath,
+            details: 'Value $data is a number, but is not an integer.',
+          ),
+        );
+        return false;
+      }
+      data = intData;
+    } else {
+      data = data as int;
+    }
+    var isValid = true;
+    if (minimum case final min? when data < min) {
+      isValid = false;
+      accumulatedFailures.add(
+        ValidationError(
+          ValidationErrorType.minimumNotMet,
+          path: currentPath,
+          details: 'Value $data is less than the minimum of $min.',
+        ),
+      );
+    }
+    if (maximum case final max? when data > max) {
+      isValid = false;
+      accumulatedFailures.add(
+        ValidationError(
+          ValidationErrorType.maximumExceeded,
+          path: currentPath,
+          details: 'Value $data is more than the maximum of $max.',
+        ),
+      );
+    }
+    if (exclusiveMinimum case final exclusiveMin? when data <= exclusiveMin) {
+      isValid = false;
+      accumulatedFailures.add(
+        ValidationError(
+          ValidationErrorType.exclusiveMinimumNotMet,
+          path: currentPath,
+          details: 'Value $data is not greater than $exclusiveMin.',
+        ),
+      );
+    }
+    if (exclusiveMaximum case final exclusiveMax? when data >= exclusiveMax) {
+      isValid = false;
+      accumulatedFailures.add(
+        ValidationError(
+          ValidationErrorType.exclusiveMaximumExceeded,
+          path: currentPath,
+          details: 'Value $data is not less than $exclusiveMax.',
+        ),
+      );
+    }
+    if (multipleOf case final multOf?
+        when multOf != 0 && (data % multOf != 0)) {
+      isValid = false;
+      accumulatedFailures.add(
+        ValidationError(
+          ValidationErrorType.multipleOfInvalid,
+          path: currentPath,
+          details: 'Value $data is not a multiple of $multOf.',
+        ),
+      );
+    }
+    return isValid;
+  }
 }
 
 /// A JSON Schema definition for a [bool].
@@ -511,14 +1357,81 @@ extension type ListSchema.fromMap(Map<String, Object?> _value)
 
   /// The schema for all the items in this list, or all those after
   /// [prefixItems] (if present).
+  ///
+  /// For example, to define a schema for a list where all items must be
+  /// strings:
+  ///
+  /// ```dart
+  /// final schema = ListSchema(items: Schema.string());
+  /// ```
+  ///
+  /// In this schema, a list like `['apple', 'banana', 'cherry']` would be
+  /// valid, but `['apple', 42, 'cherry']` would be invalid because it
+  /// contains a non-string item.
+  ///
+  /// Note that if you want to define a schema for a list where the initial
+  /// items have specific types and the remaining items follow a different
+  /// schema, you can use the `prefixItems` property in conjunction with
+  /// `items`. For example, to allow a string followed by an integer, and
+  /// then any number of booleans:
+  ///
+  /// ```dart
+  /// final schema = ListSchema(
+  ///   prefixItems: [Schema.string(), Schema.int()],
+  ///   items: Schema.bool(),
+  /// );
+  /// ```
   Schema? get items => _value['items'] as Schema?;
 
   /// The schema for the initial items in this list, if specified.
+  ///
+  /// For example, to define a schema for a list where the first item must be
+  /// a string and the second item must be an integer:
+  ///
+  /// ```dart
+  /// final schema = ListSchema(
+  ///   prefixItems: [Schema.string(), Schema.int()],
+  /// );
+  /// ```
+  ///
+  /// In this schema, a list like `['hello', 42]` would be valid, but
+  /// `[42, 'hello']` or `['hello']` would be invalid because they do not
+  /// conform to the specified order and types of the prefix items.
+  ///
+  /// Note that if you want to allow additional items in the list that do not
+  /// match the prefix items, you can use the `items` property to define a
+  /// schema for those additional items. For example, to allow any number of
+  /// additional strings after the initial string and integer:
+  ///
+  /// ```dart
+  /// final schema = ListSchema(
+  ///   prefixItems: [Schema.string(), Schema.int()],
+  ///   items: Schema.string()
+  /// );
+  /// ```
   List<Schema>? get prefixItems =>
       (_value['prefixItems'] as List?)?.cast<Schema>();
 
   /// Whether or not  additional items in the list are allowed that don't
   /// match the [items] or [prefixItems] schemas.
+  ///
+  /// For example, to define a schema for a list where only items matching
+  /// `prefixItems` or `items` are allowed:
+  ///
+  /// ```dart
+  /// final schema = ListSchema(
+  ///   prefixItems: [Schema.string(), Schema.int()],
+  ///   items: Schema.bool(),
+  ///   unevaluatedItems: false,
+  /// );
+  /// ```
+  ///
+  /// In this schema, a list like `['hello', 42, true]` would be valid, but
+  /// `['hello', 42, true, 123]` would be invalid because the last item does
+  /// not match the schema defined by `items` (which applies to items
+  /// beyond those covered by `prefixItems`), and `unevaluatedItems` is set
+  /// to `false`, disallowing any items not explicitly matched by the
+  /// schema.
   bool? get unevaluatedItems => _value['unevaluatedItems'] as bool?;
 
   /// The minimum number of items in this list.
@@ -528,5 +1441,166 @@ extension type ListSchema.fromMap(Map<String, Object?> _value)
   int? get maxItems => _value['maxItems'] as int?;
 
   /// Whether or not all the items in this list must be unique.
+  ///
+  /// For example, to define a schema for a list where all items must be
+  /// unique:
+  ///
+  /// ```dart
+  /// final schema = ListSchema(
+  ///   items: Schema.string(),
+  ///   uniqueItems: true,
+  /// );
+  /// ```
+  ///
+  /// In this schema, a list like `['apple', 'banana', 'cherry']` would be
+  /// valid, but `['apple', 'banana', 'apple']` would be invalid because it
+  /// contains duplicate items. Note that the type of the items is also
+  /// defined using the `items` property; `uniqueItems` only enforces the
+  /// uniqueness of the items, not their type or value, which are handled by
+  /// the corresponding schema in the `items` property.
   bool? get uniqueItems => _value['uniqueItems'] as bool?;
+
+  bool _validateList(
+    Object? data,
+    List<String> currentPath,
+    HashSet<ValidationError> accumulatedFailures,
+  ) {
+    if (data is! List<dynamic>) {
+      accumulatedFailures.add(
+        ValidationError(ValidationErrorType.typeMismatch, path: currentPath),
+      );
+      return false;
+    }
+
+    var isValid = true;
+
+    if (minItems case final min? when data.length < min) {
+      isValid = false;
+      accumulatedFailures.add(
+        ValidationError(
+          ValidationErrorType.minItemsNotMet,
+          path: currentPath,
+          details:
+              'List has ${data.length} items, but must have at least '
+              '$min.',
+        ),
+      );
+    }
+
+    if (maxItems case final max? when data.length > max) {
+      isValid = false;
+      accumulatedFailures.add(
+        ValidationError(
+          ValidationErrorType.maxItemsExceeded,
+          path: currentPath,
+          details:
+              'List has ${data.length} items, but must have less than '
+              '$max.',
+        ),
+      );
+    }
+
+    if (uniqueItems == true && data.toSet().length != data.length) {
+      final seenItems = <Object?>{};
+      final duplicates = <Object?>{};
+      for (final item in data) {
+        if (seenItems.contains(item)) {
+          duplicates.add(item);
+        } else {
+          seenItems.add(item);
+        }
+      }
+      isValid = false;
+      accumulatedFailures.add(
+        ValidationError(
+          ValidationErrorType.uniqueItemsViolated,
+          path: currentPath,
+          details: 'List contains duplicate items: ${duplicates.join(', ')}.',
+        ),
+      );
+    }
+
+    final evaluatedItems = List<bool>.filled(data.length, false);
+    if (prefixItems case final pItems?) {
+      for (var i = 0; i < pItems.length && i < data.length; i++) {
+        evaluatedItems[i] = true;
+        currentPath.add(i.toString());
+        final prefixItemSpecificFailures = _createHashSet();
+        if (!pItems[i]._validateSchema(
+          data[i],
+          currentPath,
+          prefixItemSpecificFailures,
+        )) {
+          isValid = false;
+          accumulatedFailures.add(
+            ValidationError(
+              ValidationErrorType.prefixItemInvalid,
+              path: currentPath,
+            ),
+          );
+          accumulatedFailures.addAll(prefixItemSpecificFailures);
+        }
+        currentPath.removeLast();
+      }
+    }
+    if (items case final itemSchema?) {
+      final startIndex = prefixItems?.length ?? 0;
+      for (var i = startIndex; i < data.length; i++) {
+        evaluatedItems[i] = true;
+        currentPath.add(i.toString());
+        final itemSpecificFailures = _createHashSet();
+        if (!itemSchema._validateSchema(
+          data[i],
+          currentPath,
+          itemSpecificFailures,
+        )) {
+          isValid = false;
+          accumulatedFailures.add(
+            ValidationError(ValidationErrorType.itemInvalid, path: currentPath),
+          );
+          accumulatedFailures.addAll(itemSpecificFailures);
+        }
+        currentPath.removeLast();
+      }
+    }
+    if (unevaluatedItems == false) {
+      for (var i = 0; i < data.length; i++) {
+        if (!evaluatedItems[i]) {
+          currentPath.add(i.toString());
+
+          isValid = false;
+          accumulatedFailures.add(
+            ValidationError(
+              ValidationErrorType.unevaluatedItemNotAllowed,
+              path: currentPath,
+              details: 'Unevaluated item in list at index $i',
+            ),
+          );
+          currentPath.removeLast();
+          // Only report the first unevaluated item to avoid excessive errors.
+          // If we want all, remove the break. For now, keeping existing
+          // behavior of early exit.
+          break;
+        }
+      }
+    }
+    return isValid;
+  }
+}
+
+HashSet<ValidationError> _createHashSet() {
+  return HashSet<ValidationError>(
+    equals: (ValidationError a, ValidationError b) {
+      return const ListEquality<String>().equals(a.path, b.path) &&
+          a.details == b.details &&
+          a.error == b.error;
+    },
+    hashCode: (ValidationError error) {
+      return Object.hashAll([
+        ...error.path ?? const [],
+        error.details,
+        error.error,
+      ]);
+    },
+  );
 }

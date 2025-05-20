@@ -7,7 +7,7 @@ import 'package:dart_mcp/client.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:test/test.dart';
 
-import 'test_utils.dart';
+import '../test_utils.dart';
 
 void main() {
   test('server can track the workspace roots if enabled', () async {
