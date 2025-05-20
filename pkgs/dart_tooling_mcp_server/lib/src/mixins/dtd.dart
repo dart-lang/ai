@@ -317,7 +317,7 @@ base mixin DartToolingDaemonSupport
 
           final hotReloadMethodName = await hotReloadMethodNameCompleter.future
               .timeout(
-                const Duration(milliseconds: 250),
+                const Duration(milliseconds: 1000),
                 onTimeout: () async {
                   return null;
                 },

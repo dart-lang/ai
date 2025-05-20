@@ -408,6 +408,11 @@ void main() {
                   ReadResourceRequest(uri: resource.uri),
                 )).contents;
           }
+          expect(
+            originalContents.length,
+            1,
+            reason: 'should have exactly one error, got $originalContents',
+          );
           expect(originalContents.single, errorMatcher);
 
           stdin.writeln(' ');
@@ -548,7 +553,8 @@ extension on Iterable<Resource> {
   );
 }
 
-/// A dart app which exits when it receives a `q` on stdin.
+/// A dart app which exits when it receives a `q` on stdin, and prints 'hello'
+/// on any other input.
 final exampleMain = '''
 import 'dart:convert';
 import 'dart:io';
