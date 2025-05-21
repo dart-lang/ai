@@ -8,14 +8,17 @@ import 'package:dart_mcp/server.dart';
 extension ParameterNames on Never {
   static const column = 'column';
   static const command = 'command';
+  static const directory = 'directory';
   static const line = 'line';
   static const name = 'name';
   static const packageName = 'packageName';
   static const paths = 'paths';
   static const position = 'position';
+  static const projectType = 'projectType';
   static const query = 'query';
   static const root = 'root';
   static const roots = 'roots';
+  static const template = 'template';
   static const uri = 'uri';
   static const uris = 'uris';
 }
