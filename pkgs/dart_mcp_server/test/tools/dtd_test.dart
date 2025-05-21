@@ -576,6 +576,64 @@ void main() {
       });
     });
   });
+
+  group('ErrorLog', () {
+    test('adds errors and respects max size', () {
+      final log = ErrorLog(maxSize: 10);
+      log.add('abc');
+      expect(log.errors, ['abc']);
+      expect(log.size, 3);
+
+      log.add('defg');
+      expect(log.errors, ['abc', 'defg']);
+      expect(log.size, 7);
+
+      log.add('hijkl');
+      expect(log.errors, ['defg', 'hijkl']);
+      expect(log.size, 9);
+
+      log.add('mnopq');
+      expect(log.errors, ['hijkl', 'mnopq']);
+      expect(log.size, 10);
+    });
+
+    test('handles single error larger than max size', () {
+      final log = ErrorLog(maxSize: 10);
+      log.add('abcdefghijkl');
+      expect(log.errors, ['abcdefghij']);
+      expect(log.size, 10);
+
+      log.add('mnopqrstuvwxyz');
+      expect(log.errors, ['mnopqrstuv']);
+      expect(log.size, 10);
+    });
+
+    test('clear removes all errors', () {
+      final log = ErrorLog(maxSize: 10);
+      log
+        ..add('abc')
+        ..add('def');
+      log.clear();
+      expect(log.errors, isEmpty);
+      expect(log.size, 0);
+    });
+
+    test('add, clear,clear and then add again', () {
+      final log = ErrorLog(maxSize: 10);
+      log
+        ..add('abc')
+        ..add('def');
+      log.clear();
+      expect(log.errors, isEmpty);
+      expect(log.size, 0);
+      log.add('ghi');
+      expect(log.errors, ['ghi']);
+      expect(log.size, 3);
+      log.add('jklmnopqrstuv');
+      expect(log.errors, ['jklmnopqrs']);
+      expect(log.size, 10);
+    });
+  });
 }
 
 extension on Iterable<Resource> {
