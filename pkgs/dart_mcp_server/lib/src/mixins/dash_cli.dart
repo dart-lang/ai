@@ -158,7 +158,10 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
   static final createProjectTool = Tool(
     name: 'create_project',
     description: 'Creates a new Dart or Flutter project.',
-    annotations: ToolAnnotations(title: 'Create project'),
+    annotations: ToolAnnotations(
+      title: 'Create project',
+      destructiveHint: true,
+    ),
     inputSchema: Schema.object(
       properties: {
         ParameterNames.root: rootSchema,
