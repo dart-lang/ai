@@ -114,10 +114,9 @@ base mixin DartToolingDaemonSupport
               '"${debugSession.name}".',
         );
         addResource(resource, (request) async {
-          final errors = errorService.errorLog;
           return ReadResourceResult(
             contents: [
-              for (var error in errors.errors)
+              for (var error in errorService.errorLog.errors)
                 TextResourceContents(uri: resource.uri, text: error),
             ],
           );
@@ -375,9 +374,9 @@ base mixin DartToolingDaemonSupport
             vmService,
             this,
           );
-          final errors = errorService.errorLog;
+          final errorLog = errorService.errorLog;
 
-          if (errors.errors.isEmpty) {
+          if (errorLog.errors.isEmpty) {
             return CallToolResult(
               content: [TextContent(text: 'No runtime errors found.')],
             );
@@ -386,10 +385,10 @@ base mixin DartToolingDaemonSupport
             content: [
               TextContent(
                 text:
-                    'Found ${errors.errors.length} '
-                    'error${errors.errors.length == 1 ? '' : 's'}:\n',
+                    'Found ${errorLog.errors.length} '
+                    'error${errorLog.errors.length == 1 ? '' : 's'}:\n',
               ),
-              ...errors.errors.map((e) => TextContent(text: e.toString())),
+              ...errorLog.errors.map((e) => TextContent(text: e.toString())),
             ],
           );
           if (request.arguments?['clearRuntimeErrors'] == true) {
@@ -968,6 +967,8 @@ class ErrorLog {
   Iterable<String> get errors => _errors;
   final List<String> _errors = [];
   int _size = 0;
+
+  /// The number of characters used by all errors in the log.
   @visibleForTesting
   int get size => _size;
 
