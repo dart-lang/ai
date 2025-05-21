@@ -39,13 +39,13 @@ dependencies:
     exampleFlutterAppRoot = testHarness.rootForPath(flutterExample.io.path);
     dartCliAppRoot = testHarness.rootForPath(dartCliAppsPath);
 
-    testHarness.mcpClient.addRoot(exampleFlutterAppRoot);
     await pumpEventQueue();
   });
 
   group('cli tools', () {
     late Tool dartFixTool;
     late Tool dartFormatTool;
+    late Tool createProjectTool;
 
     setUp(() async {
       final tools = (await testHarness.mcpServerConnection.listTools()).tools;
@@ -55,9 +55,13 @@ dependencies:
       dartFormatTool = tools.singleWhere(
         (t) => t.name == DashCliSupport.dartFormatTool.name,
       );
+      createProjectTool = tools.singleWhere(
+        (t) => t.name == DashCliSupport.createProjectTool.name,
+      );
     });
 
     test('dart fix', () async {
+      testHarness.mcpClient.addRoot(exampleFlutterAppRoot);
       final request = CallToolRequest(
         name: dartFixTool.name,
         arguments: {
@@ -79,6 +83,7 @@ dependencies:
     });
 
     test('dart format', () async {
+      testHarness.mcpClient.addRoot(exampleFlutterAppRoot);
       final request = CallToolRequest(
         name: dartFormatTool.name,
         arguments: {
@@ -100,6 +105,7 @@ dependencies:
     });
 
     test('dart format with paths', () async {
+      testHarness.mcpClient.addRoot(exampleFlutterAppRoot);
       final request = CallToolRequest(
         name: dartFormatTool.name,
         arguments: {
@@ -125,6 +131,7 @@ dependencies:
 
     test('flutter and dart package tests with paths', () async {
       testHarness.mcpClient.addRoot(dartCliAppRoot);
+      testHarness.mcpClient.addRoot(exampleFlutterAppRoot);
       await pumpEventQueue();
       final request = CallToolRequest(
         name: DashCliSupport.runTestsTool.name,
@@ -155,6 +162,141 @@ dependencies:
           workingDirectory: dartCliAppRoot.path,
         )),
       ]);
+    });
+
+    group('create', () {
+      test('creates a Dart project', () async {
+        testHarness.mcpClient.addRoot(dartCliAppRoot);
+        final request = CallToolRequest(
+          name: createProjectTool.name,
+          arguments: {
+            ParameterNames.root: dartCliAppRoot.uri,
+            ParameterNames.directory: 'new_app',
+            ParameterNames.projectType: 'dart',
+            ParameterNames.template: 'cli',
+          },
+        );
+        await testHarness.callToolWithRetry(request);
+
+        expect(testProcessManager.commandsRan, [
+          equalsCommand((
+            command: ['dart', 'create', '--template', 'cli', 'new_app'],
+            workingDirectory: dartCliAppRoot.path,
+          )),
+        ]);
+      });
+
+      test('creates a Flutter project', () async {
+        testHarness.mcpClient.addRoot(exampleFlutterAppRoot);
+        final request = CallToolRequest(
+          name: createProjectTool.name,
+          arguments: {
+            ParameterNames.root: exampleFlutterAppRoot.uri,
+            ParameterNames.directory: 'new_app',
+            ParameterNames.projectType: 'flutter',
+            ParameterNames.template: 'app',
+          },
+        );
+        await testHarness.callToolWithRetry(request);
+
+        expect(testProcessManager.commandsRan, [
+          equalsCommand((
+            command: ['flutter', 'create', '--template', 'app', 'new_app'],
+            workingDirectory: exampleFlutterAppRoot.path,
+          )),
+        ]);
+      });
+
+      test('fails if projectType is missing', () async {
+        testHarness.mcpClient.addRoot(dartCliAppRoot);
+        final request = CallToolRequest(
+          name: createProjectTool.name,
+          arguments: {
+            ParameterNames.root: dartCliAppRoot.uri,
+            ParameterNames.directory: 'my_app_no_type',
+          },
+        );
+        final result = await testHarness.callToolWithRetry(
+          request,
+          expectError: true,
+        );
+
+        expect(result.isError, isTrue);
+        expect(
+          (result.content.first as TextContent).text,
+          contains('Required property "projectType" is missing'),
+        );
+        expect(testProcessManager.commandsRan, isEmpty);
+      });
+
+      test('fails with invalid projectType', () async {
+        testHarness.mcpClient.addRoot(dartCliAppRoot);
+        final request = CallToolRequest(
+          name: createProjectTool.name,
+          arguments: {
+            ParameterNames.root: dartCliAppRoot.uri,
+            ParameterNames.directory: 'my_app_invalid_type',
+            ParameterNames.projectType: 'java', // Invalid type
+          },
+        );
+        final result = await testHarness.callToolWithRetry(
+          request,
+          expectError: true,
+        );
+
+        expect(result.isError, isTrue);
+        expect(
+          (result.content.first as TextContent).text,
+          contains('Only `dart` and `flutter` are allowed values.'),
+        );
+        expect(testProcessManager.commandsRan, isEmpty);
+      });
+
+      test('fails if directory (project name) is an absolute path', () async {
+        testHarness.mcpClient.addRoot(dartCliAppRoot);
+        final request = CallToolRequest(
+          name: createProjectTool.name,
+          arguments: {
+            ParameterNames.root: dartCliAppRoot.uri,
+            ParameterNames.directory: '/an/absolute/path/project',
+            ParameterNames.projectType: 'dart',
+          },
+        );
+        final result = await testHarness.callToolWithRetry(
+          request,
+          expectError: true,
+        );
+
+        expect(result.isError, isTrue);
+        expect(
+          (result.content.first as TextContent).text,
+          contains('Directory must be a relative path'),
+        );
+        expect(testProcessManager.commandsRan, isEmpty);
+      });
+
+      test('requires a root to be passed', () async {
+        testHarness.mcpClient.addRoot(dartCliAppRoot);
+        final request = CallToolRequest(
+          name: createProjectTool.name,
+          arguments: {
+            ParameterNames.directory: 'new_app',
+            ParameterNames.projectType: 'dart',
+            ParameterNames.template: 'cli',
+          },
+        );
+        final result = await testHarness.callToolWithRetry(
+          request,
+          expectError: true,
+        );
+
+        expect(result.isError, true);
+        expect(
+          (result.content.first as TextContent).text,
+          contains('missing `root` key'),
+        );
+        expect(testProcessManager.commandsRan, isEmpty);
+      });
     });
   });
 }

@@ -91,103 +91,150 @@ Future<CallToolResult> runCommandInRoots(
     ];
   }
 
-  final outputs = <TextContent>[];
+  final outputs = <Content>[];
   for (var rootConfig in rootConfigs) {
-    final rootUriString = rootConfig[ParameterNames.root] as String?;
-    if (rootUriString == null) {
-      // This shouldn't happen based on the schema, but handle defensively.
-      return CallToolResult(
-        content: [
-          TextContent(text: 'Invalid root configuration: missing `root` key.'),
-        ],
-        isError: true,
-      );
-    }
-
-    final root = _findRoot(rootUriString, knownRoots);
-    if (root == null) {
-      return CallToolResult(
-        content: [
-          TextContent(
-            text:
-                'Invalid root $rootUriString, must be under one of the '
-                'registered project roots:\n\n${knownRoots.join('\n')}',
-          ),
-        ],
-        isError: true,
-      );
-    }
-
-    final rootUri = Uri.parse(rootUriString);
-    if (rootUri.scheme != 'file') {
-      return CallToolResult(
-        content: [
-          TextContent(
-            text:
-                'Only file scheme uris are allowed for roots, but got '
-                '$rootUri',
-          ),
-        ],
-        isError: true,
-      );
-    }
-    final projectRoot = fileSystem.directory(rootUri);
-
-    final commandWithPaths = <String>[
-      await commandForRoot(root, fileSystem),
-      ...arguments,
-    ];
-    final paths =
-        (rootConfig[ParameterNames.paths] as List?)?.cast<String>() ??
-        defaultPaths;
-    final invalidPaths = paths.where((path) {
-      final resolvedPath = rootUri.resolve(path).toString();
-      return rootUriString != resolvedPath &&
-          !p.isWithin(rootUriString, resolvedPath);
-    });
-    if (invalidPaths.isNotEmpty) {
-      return CallToolResult(
-        content: [
-          TextContent(
-            text:
-                'Paths are not allowed to escape their project root:\n'
-                '${invalidPaths.join('\n')}',
-          ),
-        ],
-        isError: true,
-      );
-    }
-    commandWithPaths.addAll(paths);
-
-    final result = await processManager.run(
-      commandWithPaths,
-      workingDirectory: projectRoot.path,
-      runInShell: true,
+    final result = await runCommandInRoot(
+      request,
+      rootConfig: rootConfig,
+      commandForRoot: commandForRoot,
+      arguments: arguments,
+      commandDescription: commandDescription,
+      fileSystem: fileSystem,
+      processManager: processManager,
+      knownRoots: knownRoots,
+      defaultPaths: defaultPaths,
     );
-
-    final output = (result.stdout as String).trim();
-    final errors = (result.stderr as String).trim();
-    if (result.exitCode != 0) {
-      return CallToolResult(
-        content: [
-          TextContent(
-            text:
-                '$commandDescription failed in ${projectRoot.path}:\n'
-                '$output\n\nErrors\n$errors',
-          ),
-        ],
-        isError: true,
-      );
-    }
-    if (output.isNotEmpty) {
-      outputs.add(
-        TextContent(
-          text: '$commandDescription in ${projectRoot.path}:\n$output',
-        ),
-      );
-    }
+    if (result.isError == true) return result;
+    outputs.addAll(result.content);
   }
   return CallToolResult(content: outputs);
+}
+
+/// Runs [commandForRoot] in a single project root specified in the
+/// [request], with [arguments].
+///
+/// If [rootConfig] is passed, this will be used to read the root configuration,
+/// otherwise it is read directly off of `request.arguments`.
+///
+/// These [commandForRoot] plus [arguments] are passed directly to
+/// [ProcessManager.run].
+///
+/// The [commandDescription] is used in the output to describe the command
+/// being run. For example, if the command is `['dart', 'fix', '--apply']`, the
+/// command description might be `dart fix`.
+///
+/// [defaultPaths] may be specified if one or more path arguments are required
+/// for the command (e.g. `dart format <default paths>`). The paths can be
+/// absolute or relative paths that point to the directories on which the
+/// command should be run. For example, the `dart format` command may pass a
+/// default path of '.', which indicates that every Dart file in the working
+/// directory should be formatted. The value of `defaultPaths` will only be used
+/// if the [request]'s root configuration does not contain a set value for a
+/// root's 'paths'.
+Future<CallToolResult> runCommandInRoot(
+  CallToolRequest request, {
+  Map<String, Object?>? rootConfig,
+  FutureOr<String> Function(Root, FileSystem) commandForRoot =
+      defaultCommandForRoot,
+  List<String> arguments = const [],
+  required String commandDescription,
+  required FileSystem fileSystem,
+  required ProcessManager processManager,
+  required List<Root> knownRoots,
+  List<String> defaultPaths = const <String>[],
+}) async {
+  rootConfig ??= request.arguments;
+  final rootUriString = rootConfig?[ParameterNames.root] as String?;
+  if (rootUriString == null) {
+    // This shouldn't happen based on the schema, but handle defensively.
+    return CallToolResult(
+      content: [
+        TextContent(text: 'Invalid root configuration: missing `root` key.'),
+      ],
+      isError: true,
+    );
+  }
+
+  final root = _findRoot(rootUriString, knownRoots);
+  if (root == null) {
+    return CallToolResult(
+      content: [
+        TextContent(
+          text:
+              'Invalid root $rootUriString, must be under one of the '
+              'registered project roots:\n\n${knownRoots.join('\n')}',
+        ),
+      ],
+      isError: true,
+    );
+  }
+
+  final rootUri = Uri.parse(rootUriString);
+  if (rootUri.scheme != 'file') {
+    return CallToolResult(
+      content: [
+        TextContent(
+          text:
+              'Only file scheme uris are allowed for roots, but got '
+              '$rootUri',
+        ),
+      ],
+      isError: true,
+    );
+  }
+  final projectRoot = fileSystem.directory(rootUri);
+
+  final commandWithPaths = <String>[
+    await commandForRoot(root, fileSystem),
+    ...arguments,
+  ];
+  final paths =
+      (rootConfig?[ParameterNames.paths] as List?)?.cast<String>() ??
+      defaultPaths;
+  final invalidPaths = paths.where((path) {
+    final resolvedPath = rootUri.resolve(path).toString();
+    return rootUriString != resolvedPath &&
+        !p.isWithin(rootUriString, resolvedPath);
+  });
+  if (invalidPaths.isNotEmpty) {
+    return CallToolResult(
+      content: [
+        TextContent(
+          text:
+              'Paths are not allowed to escape their project root:\n'
+              '${invalidPaths.join('\n')}',
+        ),
+      ],
+      isError: true,
+    );
+  }
+  commandWithPaths.addAll(paths);
+
+  final result = await processManager.run(
+    commandWithPaths,
+    workingDirectory: projectRoot.path,
+    runInShell: true,
+  );
+
+  final output = (result.stdout as String).trim();
+  final errors = (result.stderr as String).trim();
+  if (result.exitCode != 0) {
+    return CallToolResult(
+      content: [
+        TextContent(
+          text:
+              '$commandDescription failed in ${projectRoot.path}:\n'
+              '$output\n\nErrors\n$errors',
+        ),
+      ],
+      isError: true,
+    );
+  }
+  return CallToolResult(
+    content: [
+      TextContent(text: '$commandDescription in ${projectRoot.path}:\n$output'),
+    ],
+  );
 }
 
 /// Returns 'dart' or 'flutter' based on the pubspec contents.
@@ -224,12 +271,7 @@ ListSchema rootsSchema({bool supportsPaths = false}) => Schema.list(
   title: 'All projects roots to run this tool in.',
   items: Schema.object(
     properties: {
-      ParameterNames.root: Schema.string(
-        title: 'The URI of the project root to run this tool in.',
-        description:
-            'This must be equal to or a subdirectory of one of the roots '
-            'returned by a call to "listRoots".',
-      ),
+      ParameterNames.root: rootSchema,
       if (supportsPaths)
         ParameterNames.paths: Schema.list(
           title:
@@ -240,6 +282,13 @@ ListSchema rootsSchema({bool supportsPaths = false}) => Schema.list(
     },
     required: [ParameterNames.root],
   ),
+);
+
+final rootSchema = Schema.string(
+  title: 'The URI of the project root to run this tool in.',
+  description:
+      'This must be equal to or a subdirectory of one of the roots '
+      'returned by a call to "listRoots".',
 );
 
 /// Very thin extension type for a pubspec just containing what we need.

@@ -5,6 +5,7 @@
 import 'dart:async';
 
 import 'package:dart_mcp/server.dart';
+import 'package:path/path.dart' as p;
 
 import '../utils/cli_utils.dart';
 import '../utils/constants.dart';
@@ -89,7 +90,7 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
       );
     }
     final directory = args![ParameterNames.directory] as String;
-    if (Uri.parse(directory).isAbsolute) {
+    if (p.isAbsolute(directory)) {
       errors.add(
         ValidationError(
           ValidationErrorType.itemInvalid,
@@ -116,7 +117,7 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
       directory,
     ];
 
-    return runCommandInRoots(
+    return runCommandInRoot(
       request,
       arguments: commandArgs,
       commandForRoot: (_, _) => projectType!,
@@ -160,7 +161,7 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
     annotations: ToolAnnotations(title: 'Create project'),
     inputSchema: Schema.object(
       properties: {
-        ParameterNames.roots: rootsSchema(),
+        ParameterNames.root: rootSchema,
         ParameterNames.directory: Schema.string(
           description:
               'The subdirectory in which to create the project, must '
