@@ -388,7 +388,8 @@ base mixin DartToolingDaemonSupport
                     'Found ${errorLog.errors.length} '
                     'error${errorLog.errors.length == 1 ? '' : 's'}:\n',
               ),
-              ...errorLog.errors.map((e) => TextContent(text: e.toString())),
+              for (final e in errorLog.errors)
+                TextContent(text: e.toString()),
             ],
           );
           if (request.arguments?['clearRuntimeErrors'] == true) {
@@ -961,8 +962,9 @@ extension type DebugSession.fromJson(Map<String, Object?> _value)
   });
 }
 
-@visibleForTesting
+
 /// Manages a log of errors with a maximum size in terms of total characters.
+@visibleForTesting
 class ErrorLog {
   Iterable<String> get errors => _errors;
   final List<String> _errors = [];
