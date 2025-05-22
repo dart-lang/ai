@@ -79,8 +79,7 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
 
     final errors = createProjectTool.inputSchema.validate(args);
     final projectType = args?[ParameterNames.projectType] as String?;
-    if (projectType == null ||
-        projectType != 'dart' && projectType != 'flutter') {
+    if (projectType != 'dart' && projectType != 'flutter') {
       errors.add(
         ValidationError(
           ValidationErrorType.itemInvalid,
