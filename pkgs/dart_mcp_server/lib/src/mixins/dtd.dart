@@ -966,11 +966,11 @@ extension type DebugSession.fromJson(Map<String, Object?> _value)
 class ErrorLog {
   Iterable<String> get errors => _errors;
   final List<String> _errors = [];
-  int _size = 0;
+  int _characters = 0;
 
   /// The number of characters used by all errors in the log.
   @visibleForTesting
-  int get size => _size;
+  int get characters => _characters;
 
   final int _maxSize;
 
@@ -987,16 +987,16 @@ class ErrorLog {
       // all other errors.
       final trimmed = error.substring(0, _maxSize);
       _errors.clear();
-      _size = trimmed.length;
+      _characters = trimmed.length;
       _errors.add(trimmed);
     } else {
       // Otherwise, we append the error and then remove as many errors from the
       // front as we need to in order to get under the max size.
-      _size += error.length;
+      _characters += error.length;
       _errors.add(error);
       var removeCount = 0;
-      while (_size > _maxSize) {
-        _size -= _errors[removeCount].length;
+      while (_characters > _maxSize) {
+        _characters -= _errors[removeCount].length;
         removeCount++;
       }
       _errors.removeRange(0, removeCount);
@@ -1005,7 +1005,7 @@ class ErrorLog {
 
   /// Clears all errors.
   void clear() {
-    _size = 0;
+    _characters = 0;
     _errors.clear();
   }
 }
