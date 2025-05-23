@@ -69,7 +69,7 @@ class Sdk {
       (throw ArgumentError(
         'Flutter SDK location unknown. To work on flutter projects, you must '
         'spawn the server using `dart` from the flutter SDK and not a Dart '
-        'SDK.',
+        'SDK, or set a FLUTTER_SDK environment variable.',
       ));
 }
 
