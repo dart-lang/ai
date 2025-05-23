@@ -76,7 +76,7 @@ dependencies:
       expect(result.isError, isNot(true));
       expect(testProcessManager.commandsRan, [
         equalsCommand((
-          command: ['dart', 'fix', '--apply'],
+          command: [endsWith('dart'), 'fix', '--apply'],
           workingDirectory: exampleFlutterAppRoot.path,
         )),
       ]);
@@ -98,7 +98,7 @@ dependencies:
       expect(result.isError, isNot(true));
       expect(testProcessManager.commandsRan, [
         equalsCommand((
-          command: ['dart', 'format', '.'],
+          command: [endsWith('dart'), 'format', '.'],
           workingDirectory: exampleFlutterAppRoot.path,
         )),
       ]);
@@ -123,7 +123,7 @@ dependencies:
       expect(result.isError, isNot(true));
       expect(testProcessManager.commandsRan, [
         equalsCommand((
-          command: ['dart', 'format', 'foo.dart', 'bar.dart'],
+          command: [endsWith('dart'), 'format', 'foo.dart', 'bar.dart'],
           workingDirectory: exampleFlutterAppRoot.path,
         )),
       ]);
@@ -154,11 +154,16 @@ dependencies:
       expect(result.isError, isNot(true));
       expect(testProcessManager.commandsRan, [
         equalsCommand((
-          command: ['flutter', 'test', 'foo_test.dart', 'bar_test.dart'],
+          command: [
+            endsWith('flutter'),
+            'test',
+            'foo_test.dart',
+            'bar_test.dart',
+          ],
           workingDirectory: exampleFlutterAppRoot.path,
         )),
         equalsCommand((
-          command: ['dart', 'test', 'zip_test.dart'],
+          command: [endsWith('dart'), 'test', 'zip_test.dart'],
           workingDirectory: dartCliAppRoot.path,
         )),
       ]);
@@ -180,7 +185,13 @@ dependencies:
 
         expect(testProcessManager.commandsRan, [
           equalsCommand((
-            command: ['dart', 'create', '--template', 'cli', 'new_app'],
+            command: [
+              endsWith('dart'),
+              'create',
+              '--template',
+              'cli',
+              'new_app',
+            ],
             workingDirectory: dartCliAppRoot.path,
           )),
         ]);
@@ -201,7 +212,13 @@ dependencies:
 
         expect(testProcessManager.commandsRan, [
           equalsCommand((
-            command: ['flutter', 'create', '--template', 'app', 'new_app'],
+            command: [
+              endsWith('flutter'),
+              'create',
+              '--template',
+              'app',
+              'new_app',
+            ],
             workingDirectory: exampleFlutterAppRoot.path,
           )),
         ]);

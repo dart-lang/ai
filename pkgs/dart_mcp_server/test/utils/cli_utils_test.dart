@@ -5,6 +5,7 @@
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp_server/src/utils/cli_utils.dart';
 import 'package:dart_mcp_server/src/utils/constants.dart';
+import 'package:dart_mcp_server/src/utils/sdk.dart';
 import 'package:file/memory.dart';
 import 'package:process/process.dart';
 import 'package:test/fake.dart';
@@ -35,12 +36,13 @@ void main() {
             ],
           },
         ),
-        commandForRoot: (_, _) => 'testCommand',
+        commandForRoot: (_, _, _) => 'testCommand',
         arguments: ['a', 'b'],
         commandDescription: '',
         processManager: processManager,
         knownRoots: [Root(uri: 'file:///bar/')],
         fileSystem: fileSystem,
+        sdk: Sdk(),
       );
       expect(result.isError, isNot(true));
       expect(processManager.commandsRan, [
@@ -63,11 +65,12 @@ void main() {
               ],
             },
           ),
-          commandForRoot: (_, _) => 'testCommand',
+          commandForRoot: (_, _, _) => 'testCommand',
           commandDescription: '',
           processManager: processManager,
           knownRoots: [Root(uri: 'file:///bar/')],
           fileSystem: fileSystem,
+          sdk: Sdk(),
         );
         expect(result.isError, isNot(true));
         expect(processManager.commandsRan, [
@@ -94,11 +97,12 @@ void main() {
               ],
             },
           ),
-          commandForRoot: (_, _) => 'fake',
+          commandForRoot: (_, _, _) => 'fake',
           commandDescription: '',
           processManager: processManager,
           knownRoots: [Root(uri: 'file:///foo/')],
           fileSystem: fileSystem,
+          sdk: Sdk(),
         );
         expect(result.isError, isTrue);
         expect(
@@ -130,11 +134,12 @@ void main() {
             ],
           },
         ),
-        commandForRoot: (_, _) => 'fake',
+        commandForRoot: (_, _, _) => 'fake',
         commandDescription: '',
         processManager: processManager,
         knownRoots: [Root(uri: 'file:///foo/')],
         fileSystem: fileSystem,
+        sdk: Sdk(),
       );
       expect(result.isError, isTrue);
       expect(

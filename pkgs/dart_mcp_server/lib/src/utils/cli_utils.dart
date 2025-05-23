@@ -11,6 +11,7 @@ import 'package:process/process.dart';
 import 'package:yaml/yaml.dart';
 
 import 'constants.dart';
+import 'sdk.dart';
 
 /// The supported kinds of projects.
 enum ProjectKind {
@@ -71,7 +72,7 @@ Future<ProjectKind> inferProjectKind(Root root, FileSystem fileSystem) async {
 /// root's 'paths'.
 Future<CallToolResult> runCommandInRoots(
   CallToolRequest request, {
-  FutureOr<String> Function(Root, FileSystem) commandForRoot =
+  FutureOr<String> Function(Root, FileSystem, Sdk) commandForRoot =
       defaultCommandForRoot,
   List<String> arguments = const [],
   required String commandDescription,
@@ -79,6 +80,7 @@ Future<CallToolResult> runCommandInRoots(
   required ProcessManager processManager,
   required List<Root> knownRoots,
   List<String> defaultPaths = const <String>[],
+  required Sdk sdk,
 }) async {
   var rootConfigs =
       (request.arguments?[ParameterNames.roots] as List?)
@@ -103,6 +105,7 @@ Future<CallToolResult> runCommandInRoots(
       processManager: processManager,
       knownRoots: knownRoots,
       defaultPaths: defaultPaths,
+      sdk: sdk,
     );
     if (result.isError == true) return result;
     outputs.addAll(result.content);
@@ -134,7 +137,7 @@ Future<CallToolResult> runCommandInRoots(
 Future<CallToolResult> runCommandInRoot(
   CallToolRequest request, {
   Map<String, Object?>? rootConfig,
-  FutureOr<String> Function(Root, FileSystem) commandForRoot =
+  FutureOr<String> Function(Root, FileSystem, Sdk) commandForRoot =
       defaultCommandForRoot,
   List<String> arguments = const [],
   required String commandDescription,
@@ -142,6 +145,7 @@ Future<CallToolResult> runCommandInRoot(
   required ProcessManager processManager,
   required List<Root> knownRoots,
   List<String> defaultPaths = const <String>[],
+  required Sdk sdk,
 }) async {
   rootConfig ??= request.arguments;
   final rootUriString = rootConfig?[ParameterNames.root] as String?;
@@ -185,7 +189,7 @@ Future<CallToolResult> runCommandInRoot(
   final projectRoot = fileSystem.directory(rootUri);
 
   final commandWithPaths = <String>[
-    await commandForRoot(root, fileSystem),
+    await commandForRoot(root, fileSystem, sdk),
     ...arguments,
   ];
   final paths =
@@ -240,18 +244,21 @@ Future<CallToolResult> runCommandInRoot(
 /// Returns 'dart' or 'flutter' based on the pubspec contents.
 ///
 /// Throws an [ArgumentError] if there is no pubspec.
-Future<String> defaultCommandForRoot(Root root, FileSystem fileSystem) async =>
-    switch (await inferProjectKind(root, fileSystem)) {
-      ProjectKind.dart => 'dart',
-      ProjectKind.flutter => 'flutter',
-      ProjectKind.unknown =>
-        throw ArgumentError.value(
-          root.uri,
-          'root.uri',
-          'Unknown project kind at root ${root.uri}. All projects must have a '
-              'pubspec.',
-        ),
-    };
+Future<String> defaultCommandForRoot(
+  Root root,
+  FileSystem fileSystem,
+  Sdk sdk,
+) async => switch (await inferProjectKind(root, fileSystem)) {
+  ProjectKind.dart => sdk.dartExecutablePath,
+  ProjectKind.flutter => sdk.flutterExecutablePath,
+  ProjectKind.unknown =>
+    throw ArgumentError.value(
+      root.uri,
+      'root.uri',
+      'Unknown project kind at root ${root.uri}. All projects must have a '
+          'pubspec.',
+    ),
+};
 
 /// Returns whether or not [rootUri] is an allowed root, either exactly matching
 /// or under on of the [knownRoots].

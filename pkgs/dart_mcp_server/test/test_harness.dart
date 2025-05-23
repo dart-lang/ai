@@ -11,6 +11,7 @@ import 'package:dart_mcp/client.dart';
 import 'package:dart_mcp_server/src/mixins/dtd.dart';
 import 'package:dart_mcp_server/src/server.dart';
 import 'package:dart_mcp_server/src/utils/constants.dart';
+import 'package:dart_mcp_server/src/utils/sdk.dart';
 import 'package:dtd/dtd.dart';
 import 'package:file/file.dart';
 import 'package:file/local.dart';
@@ -34,6 +35,7 @@ class TestHarness {
   final DartToolingMCPClient mcpClient;
   final ServerConnectionPair serverConnectionPair;
   final FileSystem fileSystem;
+  final Sdk sdk;
 
   ServerConnection get mcpServerConnection =>
       serverConnectionPair.serverConnection;
@@ -43,6 +45,7 @@ class TestHarness {
     this.serverConnectionPair,
     this.fakeEditorExtension,
     this.fileSystem,
+    this.sdk,
   );
 
   /// Starts a Dart Tooling Daemon as well as an MCP client and server, and
@@ -64,6 +67,11 @@ class TestHarness {
     bool inProcess = false,
     FileSystem? fileSystem,
   }) async {
+    final sdk = Sdk.findFromDartSdk(
+      Platform.environment['DART_SDK'] ??
+          p.dirname(p.dirname(Platform.resolvedExecutable)),
+      flutterSdk: Platform.environment['FLUTTER_SDK'],
+    );
     fileSystem ??= const LocalFileSystem();
 
     final mcpClient = DartToolingMCPClient();
@@ -73,13 +81,14 @@ class TestHarness {
       mcpClient,
       inProcess,
       fileSystem,
+      sdk,
     );
     final connection = serverConnectionPair.serverConnection;
     connection.onLog.listen((log) {
       printOnFailure('MCP Server Log: $log');
     });
 
-    final fakeEditorExtension = await FakeEditorExtension.connect();
+    final fakeEditorExtension = await FakeEditorExtension.connect(sdk);
     addTearDown(fakeEditorExtension.shutdown);
 
     return TestHarness._(
@@ -87,6 +96,7 @@ class TestHarness {
       serverConnectionPair,
       fakeEditorExtension,
       fileSystem,
+      sdk,
     );
   }
 
@@ -102,6 +112,7 @@ class TestHarness {
       appPath,
       isFlutter: isFlutter,
       args: args,
+      sdk: sdk,
     );
     await fakeEditorExtension.addDebugSession(session);
     final root = rootForPath(projectRoot);
@@ -192,15 +203,20 @@ final class AppDebugSession {
     String appPath, {
     List<String> args = const [],
     required bool isFlutter,
+    required Sdk sdk,
   }) async {
-    final process = await TestProcess.start(isFlutter ? 'flutter' : 'dart', [
-      'run',
-      '--no${isFlutter ? '' : '-serve'}-devtools',
-      if (!isFlutter) '--enable-vm-service=0',
-      if (isFlutter) ...['-d', 'flutter-tester'],
-      appPath,
-      ...args,
-    ], workingDirectory: projectRoot);
+    final process = await TestProcess.start(
+      isFlutter ? sdk.flutterExecutablePath : sdk.dartExecutablePath,
+      [
+        'run',
+        '--no${isFlutter ? '' : '-serve'}-devtools',
+        if (!isFlutter) '--enable-vm-service=0',
+        if (isFlutter) ...['-d', 'flutter-tester'],
+        appPath,
+        ...args,
+      ],
+      workingDirectory: projectRoot,
+    );
 
     addTearDown(() async {
       await kill(process, isFlutter);
@@ -284,8 +300,10 @@ class FakeEditorExtension {
   static int get nextId => ++_nextId;
   static int _nextId = 0;
 
-  static Future<FakeEditorExtension> connect() async {
-    final dtdProcess = await TestProcess.start('dart', ['tooling-daemon']);
+  static Future<FakeEditorExtension> connect(Sdk sdk) async {
+    final dtdProcess = await TestProcess.start(sdk.dartExecutablePath, [
+      'tooling-daemon',
+    ]);
     final dtdUri = await _getDTDUri(dtdProcess);
     final dtd = await DartToolingDaemon.connect(Uri.parse(dtdUri));
     final extension = FakeEditorExtension._(dtd, dtdProcess, dtdUri);
@@ -369,6 +387,7 @@ Future<ServerConnectionPair> _initializeMCPServer(
   MCPClient client,
   bool inProcess,
   FileSystem fileSystem,
+  Sdk sdk,
 ) async {
   ServerConnection connection;
   DartMCPServer? server;
@@ -393,11 +412,12 @@ Future<ServerConnectionPair> _initializeMCPServer(
       serverChannel,
       processManager: TestProcessManager(),
       fileSystem: fileSystem,
+      sdk: sdk,
     );
     addTearDown(server.shutdown);
     connection = client.connectServer(clientChannel);
   } else {
-    connection = await client.connectStdioServer('dart', [
+    connection = await client.connectStdioServer(sdk.dartExecutablePath, [
       'pub', // Using `pub` gives us incremental compilation
       'run',
       'bin/main.dart',
@@ -470,11 +490,8 @@ class _CommandMatcher extends Matcher {
     if (item.workingDirectory != value.workingDirectory) {
       return false;
     }
-    if (item.command.length != value.command.length) {
+    if (!equals(value.command).matches(item.command, matchState)) {
       return false;
-    }
-    for (var i = 0; i < item.command.length; i++) {
-      if (item.command[i] != value.command[i]) return false;
     }
     return true;
   }
