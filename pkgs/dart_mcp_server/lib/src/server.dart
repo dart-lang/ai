@@ -2,14 +2,11 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'dart:async';
-
 import 'package:dart_mcp/server.dart';
 import 'package:file/file.dart';
 import 'package:file/local.dart';
 import 'package:meta/meta.dart';
 import 'package:process/process.dart';
-import 'package:stream_channel/stream_channel.dart';
 
 import 'mixins/analyzer.dart';
 import 'mixins/dash_cli.dart';
@@ -37,6 +34,7 @@ final class DartMCPServer extends MCPServer
     implements ProcessManagerSupport, FileSystemSupport, SdkSupport {
   DartMCPServer(
     super.channel, {
+    required this.sdk,
     @visibleForTesting this.processManager = const LocalProcessManager(),
     @visibleForTesting this.fileSystem = const LocalFileSystem(),
     this.forceRootsFallback = false,
@@ -50,13 +48,6 @@ final class DartMCPServer extends MCPServer
              'their development tools and running applications.',
        );
 
-  static Future<DartMCPServer> connect(
-    StreamChannel<String> mcpChannel, {
-    bool forceRootsFallback = false,
-  }) async {
-    return DartMCPServer(mcpChannel, forceRootsFallback: forceRootsFallback);
-  }
-
   @override
   final LocalProcessManager processManager;
 
@@ -65,4 +56,7 @@ final class DartMCPServer extends MCPServer
 
   @override
   final bool forceRootsFallback;
+
+  @override
+  final Sdk sdk;
 }

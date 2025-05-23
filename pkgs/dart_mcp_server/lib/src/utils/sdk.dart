@@ -2,6 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:io';
+
 import 'package:path/path.dart' as p;
 
 /// An interface class that provides a single getter of type [Sdk].
@@ -19,16 +21,60 @@ class Sdk {
   /// The path to the root of the Flutter SDK.
   final String? flutterSdkPath;
 
-  Sdk({required this.dartSdkPath, required this.flutterSdkPath});
+  Sdk({this.dartSdkPath, this.flutterSdkPath});
+
+  /// Creates an [Sdk] from the path to the Dart SDK.
+  ///
+  /// Validates that the path is valid by checking for the `version` file.
+  ///
+  /// If no [flutterSdk] is given, it Will search up to see if it is nested
+  /// inside a flutter SDK.
+  factory Sdk.findFromDartSdk(String dartSdkPath, {String? flutterSdk}) {
+    final versionFile = dartSdkPath.child('version');
+    if (!File(versionFile).existsSync()) {
+      throw ArgumentError('Invalid Dart SDK path: $dartSdkPath');
+    }
+
+    // Check if this is nested inside a Flutter SDK.
+    var flutterSdkPath = flutterSdk;
+    if (dartSdkPath.parent.parent case final cacheDir
+        when cacheDir.basename == 'cache' && flutterSdkPath == null) {
+      if (cacheDir.parent case final binDir when binDir.basename == 'flutter') {
+        final flutterBin = binDir.child('bin');
+        final flutterExecutable = flutterBin.child('flutter');
+        if (File(flutterExecutable).existsSync()) {
+          flutterSdkPath = binDir.parent;
+        }
+      }
+    }
+
+    return Sdk(dartSdkPath: dartSdkPath, flutterSdkPath: flutterSdkPath);
+  }
 
   /// The path to the `dart` executable.
-  String? get dartExecutablePath => dartSdkPath?.child('bin').child('dart');
+  ///
+  /// Throws an [ArgumentError] if [dartSdkPath] is `null`.
+  String get dartExecutablePath =>
+      dartSdkPath?.child('bin').child('dart') ??
+      (throw ArgumentError(
+        'Dart SDK location unknown, try setting the DART_SDK environment '
+        'variable.',
+      ));
 
   /// The path to the `flutter` executable.
-  String? get flutterExecutablePath =>
-      flutterSdkPath?.child('bin').child('flutter');
+  ///
+  /// Throws an [ArgumentError] if [flutterSdkPath] is `null`.
+  String get flutterExecutablePath =>
+      flutterSdkPath?.child('bin').child('flutter') ??
+      (throw ArgumentError(
+        'Flutter SDK location unknown. To work on flutter projects, you must '
+        'spawn the server using `dart` from the flutter SDK and not a Dart '
+        'SDK.',
+      ));
 }
 
 extension on String {
+  String get basename => p.basename(this);
   String child(String path) => p.join(this, path);
+  String get parent => p.dirname(this);
 }

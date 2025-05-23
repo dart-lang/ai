@@ -10,6 +10,7 @@ import '../utils/cli_utils.dart';
 import '../utils/constants.dart';
 import '../utils/file_system.dart';
 import '../utils/process_manager.dart';
+import '../utils/sdk.dart';
 
 /// Mix this in to any MCPServer to add support for running Pub commands like
 /// like `pub add` and `pub get`.
@@ -19,7 +20,7 @@ import '../utils/process_manager.dart';
 /// The MCPServer must already have the [ToolsSupport] and [LoggingSupport]
 /// mixins applied.
 base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
-    implements ProcessManagerSupport, FileSystemSupport {
+    implements ProcessManagerSupport, FileSystemSupport, SdkSupport {
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
     try {
@@ -79,6 +80,7 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
       processManager: processManager,
       knownRoots: await roots,
       fileSystem: fileSystem,
+      sdk: sdk,
     );
   }
 

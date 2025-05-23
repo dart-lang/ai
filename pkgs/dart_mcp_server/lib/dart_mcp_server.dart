@@ -3,3 +3,4 @@
 // BSD-style license that can be found in the LICENSE file.
 
 export 'src/server.dart';
+export 'src/utils/sdk.dart' show Sdk;

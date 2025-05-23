@@ -11,6 +11,7 @@ import '../utils/cli_utils.dart';
 import '../utils/constants.dart';
 import '../utils/file_system.dart';
 import '../utils/process_manager.dart';
+import '../utils/sdk.dart';
 
 /// Mix this in to any MCPServer to add support for running Dart or Flutter CLI
 /// commands like `dart fix`, `dart format`, and `flutter test`.
@@ -18,14 +19,14 @@ import '../utils/process_manager.dart';
 /// The MCPServer must already have the [ToolsSupport] and [LoggingSupport]
 /// mixins applied.
 base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
-    implements ProcessManagerSupport, FileSystemSupport {
+    implements ProcessManagerSupport, FileSystemSupport, SdkSupport {
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
     try {
       return super.initialize(request);
     } finally {
-      // Can't call this until after `super.initialize`.
-      if (supportsRoots) {
+      // Can't call `supportsRoots` until after `super.initialize`.
+      if (supportsRoots && sdk.dartSdkPath != null) {
         registerTool(dartFixTool, _runDartFixTool);
         registerTool(dartFormatTool, _runDartFormatTool);
         registerTool(runTestsTool, _runTests);
@@ -38,12 +39,13 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
   Future<CallToolResult> _runDartFixTool(CallToolRequest request) async {
     return runCommandInRoots(
       request,
-      commandForRoot: (_, _) => 'dart',
+      commandForRoot: (_, _, sdk) => sdk.dartExecutablePath,
       arguments: ['fix', '--apply'],
       commandDescription: 'dart fix',
       processManager: processManager,
       knownRoots: await roots,
       fileSystem: fileSystem,
+      sdk: sdk,
     );
   }
 
@@ -51,13 +53,14 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
   Future<CallToolResult> _runDartFormatTool(CallToolRequest request) async {
     return runCommandInRoots(
       request,
-      commandForRoot: (_, _) => 'dart',
+      commandForRoot: (_, _, sdk) => sdk.dartExecutablePath,
       arguments: ['format'],
       commandDescription: 'dart format',
       processManager: processManager,
       defaultPaths: ['.'],
       knownRoots: await roots,
       fileSystem: fileSystem,
+      sdk: sdk,
     );
   }
 
@@ -70,6 +73,7 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
       processManager: processManager,
       knownRoots: await roots,
       fileSystem: fileSystem,
+      sdk: sdk,
     );
   }
 
@@ -119,11 +123,19 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
     return runCommandInRoot(
       request,
       arguments: commandArgs,
-      commandForRoot: (_, _) => projectType!,
+      commandForRoot:
+          (_, _, sdk) =>
+              switch (projectType) {
+                    'dart' => sdk.dartExecutablePath,
+                    'flutter' => sdk.flutterExecutablePath,
+                    _ => StateError('Unknown project type: $projectType'),
+                  }
+                  as String,
       commandDescription: '$projectType create',
       fileSystem: fileSystem,
       processManager: processManager,
       knownRoots: await roots,
+      sdk: sdk,
     );
   }
 

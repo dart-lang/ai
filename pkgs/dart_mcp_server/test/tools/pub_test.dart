@@ -68,7 +68,7 @@ void main() {
           expect(result.isError, isNot(true));
           expect(testProcessManager.commandsRan, [
             equalsCommand((
-              command: [appKind, 'pub', 'add', 'foo'],
+              command: [endsWith(appKind), 'pub', 'add', 'foo'],
               workingDirectory: fakeAppPath,
             )),
           ]);
@@ -91,7 +91,7 @@ void main() {
           expect(result.isError, isNot(true));
           expect(testProcessManager.commandsRan, [
             equalsCommand((
-              command: [appKind, 'pub', 'remove', 'foo'],
+              command: [endsWith(appKind), 'pub', 'remove', 'foo'],
               workingDirectory: fakeAppPath,
             )),
           ]);
@@ -113,7 +113,7 @@ void main() {
           expect(result.isError, isNot(true));
           expect(testProcessManager.commandsRan, [
             equalsCommand((
-              command: [appKind, 'pub', 'get'],
+              command: [endsWith(appKind), 'pub', 'get'],
               workingDirectory: fakeAppPath,
             )),
           ]);
@@ -135,7 +135,7 @@ void main() {
           expect(result.isError, isNot(true));
           expect(testProcessManager.commandsRan, [
             equalsCommand((
-              command: [appKind, 'pub', 'upgrade'],
+              command: [endsWith(appKind), 'pub', 'upgrade'],
               workingDirectory: fakeAppPath,
             )),
           ]);

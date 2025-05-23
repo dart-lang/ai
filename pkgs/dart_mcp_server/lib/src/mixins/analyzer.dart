@@ -14,13 +14,15 @@ import 'package:meta/meta.dart';
 
 import '../lsp/wire_format.dart';
 import '../utils/constants.dart';
+import '../utils/sdk.dart';
 
 /// Mix this in to any MCPServer to add support for analyzing Dart projects.
 ///
 /// The MCPServer must already have the [ToolsSupport] and [LoggingSupport]
 /// mixins applied.
 base mixin DartAnalyzerSupport
-    on ToolsSupport, LoggingSupport, RootsTrackingSupport {
+    on ToolsSupport, LoggingSupport, RootsTrackingSupport
+    implements SdkSupport {
   /// The LSP server connection for the analysis server.
   late final Peer _lspConnection;
 
@@ -52,9 +54,8 @@ base mixin DartAnalyzerSupport
       if (!supportsRoots)
         'Project analysis requires the "roots" capability which is not '
             'supported. Analysis tools have been disabled.',
-      if (Platform.environment['DART_SDK'] == null)
-        'Project analysis requires a "DART_SDK" environment variable to be set '
-            '(this should be the path to the root of the dart SDK). Analysis '
+      if (sdk.dartSdkPath == null)
+        'Project analysis requires a Dart SDK but none was given. Analysis '
             'tools have been disabled.',
     ];
 
@@ -90,7 +91,7 @@ base mixin DartAnalyzerSupport
   ///
   /// On failure, returns a reason for the failure.
   Future<String?> _initializeAnalyzerLspServer() async {
-    _lspServer = await Process.start('dart', [
+    _lspServer = await Process.start(sdk.dartExecutablePath, [
       'language-server',
       // Required even though it is documented as the default.
       // https://github.com/dart-lang/sdk/issues/60574
