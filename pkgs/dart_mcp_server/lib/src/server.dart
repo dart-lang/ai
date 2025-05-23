@@ -19,6 +19,7 @@ import 'mixins/pub_dev_search.dart';
 import 'mixins/roots_fallback_support.dart';
 import 'utils/file_system.dart';
 import 'utils/process_manager.dart';
+import 'utils/sdk.dart';
 
 /// An MCP server for Dart and Flutter tooling.
 final class DartMCPServer extends MCPServer
@@ -33,7 +34,7 @@ final class DartMCPServer extends MCPServer
         PubSupport,
         PubDevSupport,
         DartToolingDaemonSupport
-    implements ProcessManagerSupport, FileSystemSupport {
+    implements ProcessManagerSupport, FileSystemSupport, SdkSupport {
   DartMCPServer(
     super.channel, {
     @visibleForTesting this.processManager = const LocalProcessManager(),
