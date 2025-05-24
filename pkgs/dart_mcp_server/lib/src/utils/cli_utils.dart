@@ -292,10 +292,11 @@ ListSchema rootsSchema({bool supportsPaths = false}) => Schema.list(
 );
 
 final rootSchema = Schema.string(
-  title: 'The URI of the project root to run this tool in.',
+  title: 'The file URI of the project root to run this tool in.',
   description:
       'This must be equal to or a subdirectory of one of the roots '
-      'returned by a call to "listRoots".',
+      'allowed by the client. Must be a URI with a `file:` '
+      'scheme (e.g. file:///absolute/path/to/root).',
 );
 
 /// Very thin extension type for a pubspec just containing what we need.
