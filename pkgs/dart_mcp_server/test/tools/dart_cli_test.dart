@@ -213,15 +213,76 @@ dependencies:
         expect(testProcessManager.commandsRan, [
           equalsCommand((
             command: [
-              endsWith('flutter'),
+              'flutter',
               'create',
               '--template',
               'app',
+              '--empty',
               'new_app',
             ],
             workingDirectory: exampleFlutterAppRoot.path,
           )),
         ]);
+      });
+
+      test('creates a non-empty Flutter project', () async {
+        testHarness.mcpClient.addRoot(exampleFlutterAppRoot);
+        final request = CallToolRequest(
+          name: createProjectTool.name,
+          arguments: {
+            ParameterNames.root: exampleFlutterAppRoot.uri,
+            ParameterNames.directory: 'new_full_app',
+            ParameterNames.projectType: 'flutter',
+            ParameterNames.template: 'app',
+            ParameterNames.empty:
+                false, // Explicitly create a non-empty project
+          },
+        );
+        await testHarness.callToolWithRetry(request);
+
+        expect(testProcessManager.commandsRan, [
+          equalsCommand((
+            command: [
+              'flutter',
+              'create',
+              '--template',
+              'app',
+              // Note: --empty is NOT present
+              'new_full_app',
+            ],
+            workingDirectory: exampleFlutterAppRoot.path,
+          )),
+        ]);
+      });
+
+      test('fails with invalid platform for Flutter project', () async {
+        testHarness.mcpClient.addRoot(exampleFlutterAppRoot);
+        final request = CallToolRequest(
+          name: createProjectTool.name,
+          arguments: {
+            ParameterNames.root: exampleFlutterAppRoot.uri,
+            ParameterNames.directory: 'my_app_invalid_platform',
+            ParameterNames.projectType: 'flutter',
+            ParameterNames.platform: ['atari_jaguar', 'web'], // One invalid
+          },
+        );
+        final result = await testHarness.callToolWithRetry(
+          request,
+          expectError: true,
+        );
+
+        expect(result.isError, isTrue);
+        expect(
+          (result.content.first as TextContent).text,
+          allOf(
+            contains('atari_jaguar is not a valid platform.'),
+            contains(
+              'Platforms `web`, `linux`, `macos`, `windows`, `android`, `ios` '
+              'are the only allowed values',
+            ),
+          ),
+        );
+        expect(testProcessManager.commandsRan, isEmpty);
       });
 
       test('fails if projectType is missing', () async {

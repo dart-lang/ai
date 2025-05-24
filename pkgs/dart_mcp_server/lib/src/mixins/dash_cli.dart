@@ -102,6 +102,29 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
         ),
       );
     }
+    final platforms =
+        ((args[ParameterNames.platform] as List?)?.cast<String>() ?? [])
+            .toSet();
+    if (projectType == 'flutter') {
+      // Platforms are ignored for Dart, so no need to validate them.
+      final invalidPlatforms = platforms.difference(_allowedFlutterPlatforms);
+      if (invalidPlatforms.isNotEmpty) {
+        final plural =
+            invalidPlatforms.length > 1
+                ? 'are not valid platforms'
+                : 'is not a valid platform';
+        errors.add(
+          ValidationError(
+            ValidationErrorType.itemInvalid,
+            path: [ParameterNames.platform],
+            details:
+                '${invalidPlatforms.join(',')} $plural. Platforms '
+                '${_allowedFlutterPlatforms.map((e) => '`$e`').join(', ')} '
+                'are the only allowed values for the platform list argument.',
+          ),
+        );
+      }
+    }
 
     if (errors.isNotEmpty) {
       return CallToolResult(
@@ -117,6 +140,13 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
     final commandArgs = [
       'create',
       if (template != null && template.isNotEmpty) ...['--template', template],
+      if (projectType == 'flutter' && platforms.isNotEmpty)
+        '--platform=${platforms.join(',')}',
+      // Create an "empty" project by default so the LLM doesn't have to deal
+      // with all the boilerplate and comments.
+      if (projectType == 'flutter' &&
+          (args[ParameterNames.empty] as bool? ?? true))
+        '--empty',
       directory,
     ];
 
@@ -188,8 +218,30 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
           description:
               'The project template to use (e.g., "console-full", "app").',
         ),
+        ParameterNames.platform: Schema.list(
+          items: Schema.string(),
+          description:
+              'The list of platforms this Flutter project supports. Only valid '
+              'for Flutter projects. The allowed values are '
+              '${_allowedFlutterPlatforms.map((e) => '`$e`').join(', ')}. '
+              'Defaults to creating a project for all platforms.',
+        ),
+        ParameterNames.empty: Schema.bool(
+          description:
+              'Whether or not to create an "empty" project with minimized '
+              'boilerplate and example code. Defaults to true.',
+        ),
       },
       required: [ParameterNames.directory, ParameterNames.projectType],
     ),
   );
+
+  static const _allowedFlutterPlatforms = {
+    'web',
+    'linux',
+    'macos',
+    'windows',
+    'android',
+    'ios',
+  };
 }

@@ -16,5 +16,5 @@ import 'package:process/process.dart';
 /// implement this class and use [processManager] instead of making direct calls
 /// to dart:io's [Process] class.
 abstract interface class ProcessManagerSupport {
-  LocalProcessManager get processManager;
+  ProcessManager get processManager;
 }
