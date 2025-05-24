@@ -9,10 +9,12 @@ extension ParameterNames on Never {
   static const column = 'column';
   static const command = 'command';
   static const directory = 'directory';
+  static const empty = 'empty';
   static const line = 'line';
   static const name = 'name';
   static const packageName = 'packageName';
   static const paths = 'paths';
+  static const platform = 'platform';
   static const position = 'position';
   static const projectType = 'projectType';
   static const query = 'query';
