@@ -82,9 +82,6 @@ void main() {
             'license:osi-approved',
           ],
           'publisher': 'publisher:google.dev',
-          'api': {
-            'qualifiedNames': containsAll(['retry', 'retry.RetryOptions']),
-          },
         });
       });
     }, _GoldenResponseClient.new);
@@ -161,7 +158,7 @@ void main() {
           expect(result.isError, isTrue);
           expect(
             (result.content[0] as TextContent).text,
-            contains('No packages mached the query, consider simplifying it'),
+            contains('No packages matched the query, consider simplifying it'),
           );
         });
       },

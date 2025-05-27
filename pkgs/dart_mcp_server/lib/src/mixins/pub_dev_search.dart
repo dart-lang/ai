@@ -14,13 +14,10 @@ import '../utils/json.dart';
 /// Limit the number of concurrent requests.
 final _pool = Pool(10);
 
-/// The number of reults to return for a query.
+/// The number of results to return for a query.
 // If this should be set higher than 10 we need to implement paging of the
 // http://pub.dev/api/search endpoint.
 final _resultsLimit = 10;
-
-/// The number of identifiers we list per packages.
-final _maxIdentifiersListed = 200;
 
 /// Mix this in to any MCPServer to add support for doing searches on pub.dev.
 base mixin PubDevSupport on ToolsSupport {
@@ -56,7 +53,7 @@ base mixin PubDevSupport on ToolsSupport {
         return CallToolResult(
           content: [
             TextContent(
-              text: 'No packages mached the query, consider simplifying it.',
+              text: 'No packages matched the query, consider simplifying it.',
             ),
           ],
           isError: true,
@@ -80,9 +77,6 @@ base mixin PubDevSupport on ToolsSupport {
                 (packageName) => (
                   versionListing: retrieve('api/packages/$packageName'),
                   score: retrieve('api/packages/$packageName/score'),
-                  docIndex: retrieve(
-                    'documentation/$packageName/latest/index.json',
-                  ),
                 ),
               )
               .toList();
@@ -94,18 +88,6 @@ base mixin PubDevSupport on ToolsSupport {
         final packageName = packageNames[i];
         final versionListing = await subQueryFutures[i].versionListing;
         final scoreResult = await subQueryFutures[i].score;
-        final docIndex = await subQueryFutures[i].docIndex;
-
-        Map<String, Object?> identifiers(Object index) {
-          final items = dig<List>(index, []);
-          return {
-            'qualifiedNames': [
-              for (final item in items.take(_maxIdentifiersListed))
-                dig<String>(item, ['qualifiedName']),
-            ],
-          };
-        }
-
         results.add(
           TextContent(
             text: jsonEncode({
@@ -144,7 +126,6 @@ base mixin PubDevSupport on ToolsSupport {
                         .where((t) => (t as String).startsWith('publisher:'))
                         .firstOrNull,
               },
-              if (docIndex != null) ...{'api': identifiers(docIndex)},
             }),
           ),
         );
@@ -164,8 +145,7 @@ base mixin PubDevSupport on ToolsSupport {
     description:
         'Searches pub.dev for packages relevant to a given search query. '
         'The response will describe each result with its download count, '
-        'package description, topics, license, publisher, and a list of '
-        'identifiers in the public api.',
+        'package description, topics, license, and publisher.',
     annotations: ToolAnnotations(title: 'pub.dev search', readOnlyHint: true),
     inputSchema: Schema.object(
       properties: {
