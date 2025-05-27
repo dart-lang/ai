@@ -27,7 +27,7 @@ class Sdk {
   ///
   /// Validates that the path is valid by checking for the `version` file.
   ///
-  /// If no [flutterSdk] is given, it Will search up to see if it is nested
+  /// If no [flutterSdk] is given, it will search up to see if it is nested
   /// inside a flutter SDK.
   factory Sdk.findFromDartSdk(String dartSdkPath, {String? flutterSdk}) {
     final versionFile = dartSdkPath.child('version');
@@ -37,11 +37,10 @@ class Sdk {
 
     // Check if this is nested inside a Flutter SDK.
     var flutterSdkPath = flutterSdk;
-    if (dartSdkPath.parent.parent case final cacheDir
+    if (dartSdkPath.parent case final cacheDir
         when cacheDir.basename == 'cache' && flutterSdkPath == null) {
-      if (cacheDir.parent case final binDir when binDir.basename == 'flutter') {
-        final flutterBin = binDir.child('bin');
-        final flutterExecutable = flutterBin.child('flutter');
+      if (cacheDir.parent case final binDir when binDir.basename == 'bin') {
+        final flutterExecutable = binDir.child('flutter');
         if (File(flutterExecutable).existsSync()) {
           flutterSdkPath = binDir.parent;
         }
