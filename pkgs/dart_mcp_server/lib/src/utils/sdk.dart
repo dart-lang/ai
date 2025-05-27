@@ -25,18 +25,25 @@ class Sdk {
 
   /// Creates an [Sdk] from the path to the Dart SDK.
   ///
+  /// If no [dartSdkPath] is given, it will attempt to find it using
+  /// [Platform.resolvedExecutable], and assuming that is the `dart` binary
+  /// under the `bin` dir of the Dart SDK.
+  ///
   /// Validates that the path is valid by checking for the `version` file.
   ///
-  /// If no [flutterSdk] is given, it will search up to see if it is nested
-  /// inside a flutter SDK.
-  factory Sdk.findFromDartSdk(String dartSdkPath, {String? flutterSdk}) {
+  /// If no [flutterSdkPath] is given, it will search up to see if it is nested
+  /// inside a Flutter SDK.
+  factory Sdk.find({String? dartSdkPath, String? flutterSdkPath}) {
+    // Assume that we are running from the Dart SDK bin dir if not given any
+    // other configuration.
+    dartSdkPath ??= p.dirname(p.dirname(Platform.resolvedExecutable));
+
     final versionFile = dartSdkPath.child('version');
     if (!File(versionFile).existsSync()) {
       throw ArgumentError('Invalid Dart SDK path: $dartSdkPath');
     }
 
     // Check if this is nested inside a Flutter SDK.
-    var flutterSdkPath = flutterSdk;
     if (dartSdkPath.parent case final cacheDir
         when cacheDir.basename == 'cache' && flutterSdkPath == null) {
       if (cacheDir.parent case final binDir when binDir.basename == 'bin') {

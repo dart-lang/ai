@@ -39,10 +39,7 @@ void main(List<String> args) async {
               ),
             ),
         forceRootsFallback: parsedArgs.flag(forceRootsFallback),
-        sdk:
-            dartSdkPath != null
-                ? Sdk.findFromDartSdk(dartSdkPath, flutterSdk: flutterSdkPath)
-                : Sdk(),
+        sdk: Sdk.find(dartSdkPath: dartSdkPath, flutterSdkPath: flutterSdkPath),
       );
     },
     (e, s) {

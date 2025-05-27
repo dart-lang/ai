@@ -67,10 +67,9 @@ class TestHarness {
     bool inProcess = false,
     FileSystem? fileSystem,
   }) async {
-    final sdk = Sdk.findFromDartSdk(
-      Platform.environment['DART_SDK'] ??
-          p.dirname(p.dirname(Platform.resolvedExecutable)),
-      flutterSdk: Platform.environment['FLUTTER_SDK'],
+    final sdk = Sdk.find(
+      dartSdkPath: Platform.environment['DART_SDK'],
+      flutterSdkPath: Platform.environment['FLUTTER_SDK'],
     );
     fileSystem ??= const LocalFileSystem();
 
