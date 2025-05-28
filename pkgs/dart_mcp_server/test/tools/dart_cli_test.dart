@@ -213,7 +213,7 @@ dependencies:
         expect(testProcessManager.commandsRan, [
           equalsCommand((
             command: [
-              'flutter',
+              endsWith('flutter'),
               'create',
               '--template',
               'app',
@@ -243,7 +243,7 @@ dependencies:
         expect(testProcessManager.commandsRan, [
           equalsCommand((
             command: [
-              'flutter',
+              endsWith('flutter'),
               'create',
               '--template',
               'app',

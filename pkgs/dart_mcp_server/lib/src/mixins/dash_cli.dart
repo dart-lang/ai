@@ -221,7 +221,7 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
         ParameterNames.platform: Schema.list(
           items: Schema.string(),
           description:
-              'The list of platforms this Flutter project supports. Only valid '
+              'The list of platforms this project supports. Only valid '
               'for Flutter projects. The allowed values are '
               '${_allowedFlutterPlatforms.map((e) => '`$e`').join(', ')}. '
               'Defaults to creating a project for all platforms.',
