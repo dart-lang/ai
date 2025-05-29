@@ -210,9 +210,12 @@ Future<CallToolResult> runCommandInRoot(
   }
   commandWithPaths.addAll(paths);
 
+  final workingDir = fileSystem.directory(projectRoot.path);
+  await workingDir.create(recursive: true);
+
   final result = await processManager.run(
     commandWithPaths,
-    workingDirectory: projectRoot.path,
+    workingDirectory: workingDir.path,
     runInShell: true,
   );
 
