@@ -15,6 +15,7 @@ executables:
 dependencies:
   args: ^2.7.0
   async: ^2.13.0
+  collection: ^1.19.1
   dart_mcp: ^0.2.1
   dds_service_extensions: ^2.0.1
   devtools_shared: ^11.2.0
