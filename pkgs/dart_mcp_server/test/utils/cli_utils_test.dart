@@ -83,6 +83,60 @@ void main() {
         expect(fileSystem.directory('/bar/baz').existsSync(), true);
       },
     );
+
+    test('can run commands with missing trailing slashes for roots', () async {
+      final result = await runCommandInRoots(
+        CallToolRequest(
+          name: 'foo',
+          arguments: {
+            ParameterNames.roots: [
+              {ParameterNames.root: 'file:///bar'},
+            ],
+          },
+        ),
+        commandForRoot: (_, _, _) => 'testCommand',
+        arguments: ['a', 'b'],
+        commandDescription: '',
+        processManager: processManager,
+        knownRoots: [Root(uri: 'file:///bar/')],
+        fileSystem: fileSystem,
+        sdk: Sdk(),
+      );
+      expect(result.isError, isNot(true));
+      expect(processManager.commandsRan, [
+        equalsCommand((
+          command: ['testCommand', 'a', 'b'],
+          workingDirectory: '/bar',
+        )),
+      ]);
+    });
+
+    test('can run commands with extra trailing slashes for roots', () async {
+      final result = await runCommandInRoots(
+        CallToolRequest(
+          name: 'foo',
+          arguments: {
+            ParameterNames.roots: [
+              {ParameterNames.root: 'file:///bar/'},
+            ],
+          },
+        ),
+        commandForRoot: (_, _, _) => 'testCommand',
+        arguments: ['a', 'b'],
+        commandDescription: '',
+        processManager: processManager,
+        knownRoots: [Root(uri: 'file:///bar')],
+        fileSystem: fileSystem,
+        sdk: Sdk(),
+      );
+      expect(result.isError, isNot(true));
+      expect(processManager.commandsRan, [
+        equalsCommand((
+          command: ['testCommand', 'a', 'b'],
+          workingDirectory: '/bar/',
+        )),
+      ]);
+    });
   });
 
   group('cannot run commands', () {

@@ -268,8 +268,18 @@ Future<String> defaultCommandForRoot(
 Root? _findRoot(String rootUri, List<Root> knownRoots) {
   for (final root in knownRoots) {
     final knownRootUri = Uri.parse(root.uri);
-    final resolvedRoot = knownRootUri.resolve(rootUri).toString();
-    if (root.uri == resolvedRoot || p.isWithin(root.uri, resolvedRoot)) {
+    final resolvedRootUri = knownRootUri.resolve(rootUri);
+    // We don't care about queries or fragments, but the scheme/authority must
+    // match.
+    if (knownRootUri.scheme != resolvedRootUri.scheme ||
+        knownRootUri.authority != resolvedRootUri.authority) {
+      continue;
+    }
+    // Canonicalizing the paths handles any `../` segments and also deals with
+    // trailing slashes versus no trailing slashes.
+    final canonicalKnownPath = p.canonicalize(knownRootUri.path);
+    final canonicalRootPath = p.canonicalize(resolvedRootUri.path);
+    if (canonicalRootPath.startsWith(canonicalKnownPath)) {
       return root;
     }
   }
