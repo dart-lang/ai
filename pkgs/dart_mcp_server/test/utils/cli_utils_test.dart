@@ -54,6 +54,7 @@ void main() {
     test(
       'can run commands with roots that are subdirectories of known roots',
       () async {
+        expect(fileSystem.directory('/bar/baz').existsSync(), false);
         final result = await runCommandInRoots(
           CallToolRequest(
             name: 'foo',
@@ -76,6 +77,7 @@ void main() {
             workingDirectory: '/bar/baz/',
           )),
         ]);
+        expect(fileSystem.directory('/bar/baz').existsSync(), true);
       },
     );
   });
