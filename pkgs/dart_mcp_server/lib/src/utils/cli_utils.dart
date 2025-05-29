@@ -26,13 +26,16 @@ enum ProjectKind {
   unknown,
 }
 
-/// Infers the [ProjectKind] of a given [Root].
+/// Infers the [ProjectKind] of a given project at [rootUri].
 ///
 /// Currently, this is done by checking for the existence of a `pubspec.yaml`
 /// file and whether it contains a Flutter SDK dependency.
-Future<ProjectKind> inferProjectKind(Root root, FileSystem fileSystem) async {
+Future<ProjectKind> inferProjectKind(
+  String rootUri,
+  FileSystem fileSystem,
+) async {
   final pubspecFile = fileSystem
-      .directory(Uri.parse(root.uri))
+      .directory(Uri.parse(rootUri))
       .childFile('pubspec.yaml');
   if (!await pubspecFile.exists()) {
     return ProjectKind.unknown;
@@ -73,7 +76,7 @@ Future<ProjectKind> inferProjectKind(Root root, FileSystem fileSystem) async {
 /// root's 'paths'.
 Future<CallToolResult> runCommandInRoots(
   CallToolRequest request, {
-  FutureOr<String> Function(Root, FileSystem, Sdk) commandForRoot =
+  FutureOr<String> Function(String, FileSystem, Sdk) commandForRoot =
       defaultCommandForRoot,
   List<String> arguments = const [],
   required String commandDescription,
@@ -138,7 +141,7 @@ Future<CallToolResult> runCommandInRoots(
 Future<CallToolResult> runCommandInRoot(
   CallToolRequest request, {
   Map<String, Object?>? rootConfig,
-  FutureOr<String> Function(Root, FileSystem, Sdk) commandForRoot =
+  FutureOr<String> Function(String, FileSystem, Sdk) commandForRoot =
       defaultCommandForRoot,
   List<String> arguments = const [],
   required String commandDescription,
@@ -192,7 +195,7 @@ Future<CallToolResult> runCommandInRoot(
   final projectRoot = fileSystem.directory(rootUri);
 
   final commandWithPaths = <String>[
-    await commandForRoot(root, fileSystem, sdk),
+    await commandForRoot(rootUriString, fileSystem, sdk),
     ...arguments,
   ];
   final paths =
@@ -247,17 +250,17 @@ Future<CallToolResult> runCommandInRoot(
 ///
 /// Throws an [ArgumentError] if there is no pubspec.
 Future<String> defaultCommandForRoot(
-  Root root,
+  String rootUri,
   FileSystem fileSystem,
   Sdk sdk,
-) async => switch (await inferProjectKind(root, fileSystem)) {
+) async => switch (await inferProjectKind(rootUri, fileSystem)) {
   ProjectKind.dart => sdk.dartExecutablePath,
   ProjectKind.flutter => sdk.flutterExecutablePath,
   ProjectKind.unknown =>
     throw ArgumentError.value(
-      root.uri,
-      'root.uri',
-      'Unknown project kind at root ${root.uri}. All projects must have a '
+      rootUri,
+      'rootUri',
+      'Unknown project kind at root $rootUri. All projects must have a '
           'pubspec.',
     ),
 };

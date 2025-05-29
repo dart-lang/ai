@@ -141,6 +141,33 @@ void main() {
           ]);
         });
 
+        test('in a subdir of an a root', () async {
+          fileSystem.file(p.join(fakeAppPath, 'subdir', 'pubspec.yaml'))
+            ..createSync(recursive: true)
+            ..writeAsStringSync(
+              appKind == 'flutter' ? flutterPubspec : dartPubspec,
+            );
+          final request = CallToolRequest(
+            name: dartPubTool.name,
+            arguments: {
+              ParameterNames.command: 'get',
+              ParameterNames.roots: [
+                {ParameterNames.root: p.join(testRoot.uri, 'subdir')},
+              ],
+            },
+          );
+          final result = await testHarness.callToolWithRetry(request);
+
+          // Verify the command was sent to the process manager without error.
+          expect(result.isError, isNot(true));
+          expect(testProcessManager.commandsRan, [
+            equalsCommand((
+              command: [endsWith(appKind), 'pub', 'get'],
+              workingDirectory: p.join(fakeAppPath, 'subdir'),
+            )),
+          ]);
+        });
+
         group('returns error', () {
           test('for missing command', () async {
             final request = CallToolRequest(name: dartPubTool.name);
