@@ -262,7 +262,7 @@ Future<String> defaultCommandForRoot(
     ),
 };
 
-/// Returns whether [uri] is under [root].
+/// Returns whether [uri] is under or exactly equal to [root].
 ///
 /// Relative uris will always be under [root] unless they escape it with `../`.
 bool _isUnderRoot(Root root, String uri) {
@@ -278,7 +278,8 @@ bool _isUnderRoot(Root root, String uri) {
   // trailing slashes versus no trailing slashes.
   final canonicalRootPath = p.canonicalize(rootUri.path);
   final canonicalUriPath = p.canonicalize(resolvedUri.path);
-  return canonicalUriPath.startsWith(canonicalRootPath);
+  return canonicalRootPath == canonicalUriPath ||
+      canonicalUriPath.startsWith(canonicalRootPath);
 }
 
 /// The schema for the `roots` parameter for any tool that accepts it.
