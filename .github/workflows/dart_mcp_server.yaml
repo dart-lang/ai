@@ -27,7 +27,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        sdk:
+        flutterSdk:
           - stable
           - master
         os:
