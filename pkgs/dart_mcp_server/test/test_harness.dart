@@ -257,7 +257,7 @@ final class AppDebugSession {
       await process.shouldExit(0);
     } else {
       unawaited(process.kill());
-      await process.shouldExit(anyOf(0, -9));
+      await process.shouldExit(anyOf(0, Platform.isWindows ? -1 : -9));
     }
   }
 
