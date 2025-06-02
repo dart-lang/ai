@@ -2,7 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'dart:io';
+import 'dart:io' hide File;
+import 'dart:io' as io show File;
 
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp_server/src/mixins/pub.dart';
@@ -21,7 +22,7 @@ void main() {
   late Tool dartPubTool;
   late FileSystem fileSystem;
 
-  final fakeAppPath = '/fake_app/';
+  final fakeAppPath = io.File.fromUri(Uri.parse('/fake_app/')).path;
 
   for (final appKind in const ['dart', 'flutter']) {
     final executableName =
@@ -34,7 +35,12 @@ void main() {
       // TODO: Use setUpAll, currently this fails due to an apparent TestProcess
       // issue.
       setUp(() async {
-        fileSystem = MemoryFileSystem();
+        fileSystem = MemoryFileSystem(
+          style:
+              Platform.isWindows
+                  ? FileSystemStyle.windows
+                  : FileSystemStyle.posix,
+        );
         fileSystem.file(p.join(fakeAppPath, 'pubspec.yaml'))
           ..createSync(recursive: true)
           ..writeAsStringSync(
@@ -77,7 +83,7 @@ void main() {
           expect(testProcessManager.commandsRan, [
             equalsCommand((
               command: [endsWith(executableName), 'pub', 'add', 'foo'],
-              workingDirectory: fakeAppPath,
+              workingDirectory: testRoot.path,
             )),
           ]);
         });
@@ -100,7 +106,7 @@ void main() {
           expect(testProcessManager.commandsRan, [
             equalsCommand((
               command: [endsWith(executableName), 'pub', 'remove', 'foo'],
-              workingDirectory: fakeAppPath,
+              workingDirectory: testRoot.path,
             )),
           ]);
         });
@@ -122,7 +128,7 @@ void main() {
           expect(testProcessManager.commandsRan, [
             equalsCommand((
               command: [endsWith(executableName), 'pub', 'get'],
-              workingDirectory: fakeAppPath,
+              workingDirectory: testRoot.path,
             )),
           ]);
         });
@@ -144,7 +150,7 @@ void main() {
           expect(testProcessManager.commandsRan, [
             equalsCommand((
               command: [endsWith(executableName), 'pub', 'upgrade'],
-              workingDirectory: fakeAppPath,
+              workingDirectory: testRoot.path,
             )),
           ]);
         });
