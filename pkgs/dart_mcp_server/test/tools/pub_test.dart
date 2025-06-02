@@ -176,7 +176,7 @@ void main() {
           expect(result.isError, isNot(true));
           expect(testProcessManager.commandsRan, [
             equalsCommand((
-              command: [endsWith(appKind), 'pub', 'get'],
+              command: [endsWith(executableName), 'pub', 'get'],
               workingDirectory: p.join(fakeAppPath, 'subdir'),
             )),
           ]);
