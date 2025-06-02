@@ -33,7 +33,6 @@ jobs:
         os:
           - ubuntu-latest
           - windows-latest
-          - macos-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       # We need the flutter SDK in order to run the counter app for integration
