@@ -2,6 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:io';
+
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp_server/src/mixins/dash_cli.dart';
 import 'package:dart_mcp_server/src/utils/constants.dart';
@@ -15,6 +17,8 @@ void main() {
   late TestProcessManager testProcessManager;
   late Root exampleFlutterAppRoot;
   late Root dartCliAppRoot;
+  final dartExecutableName = 'dart${Platform.isWindows ? '.bat' : ''}';
+  final flutterExecutableName = 'flutter${Platform.isWindows ? '.bat' : ''}';
 
   // TODO: Use setUpAll, currently this fails due to an apparent TestProcess
   // issue.
@@ -76,7 +80,7 @@ dependencies:
       expect(result.isError, isNot(true));
       expect(testProcessManager.commandsRan, [
         equalsCommand((
-          command: [endsWith('dart'), 'fix', '--apply'],
+          command: [endsWith(dartExecutableName), 'fix', '--apply'],
           workingDirectory: exampleFlutterAppRoot.path,
         )),
       ]);
@@ -98,7 +102,7 @@ dependencies:
       expect(result.isError, isNot(true));
       expect(testProcessManager.commandsRan, [
         equalsCommand((
-          command: [endsWith('dart'), 'format', '.'],
+          command: [endsWith(dartExecutableName), 'format', '.'],
           workingDirectory: exampleFlutterAppRoot.path,
         )),
       ]);
@@ -123,7 +127,12 @@ dependencies:
       expect(result.isError, isNot(true));
       expect(testProcessManager.commandsRan, [
         equalsCommand((
-          command: [endsWith('dart'), 'format', 'foo.dart', 'bar.dart'],
+          command: [
+            endsWith(dartExecutableName),
+            'format',
+            'foo.dart',
+            'bar.dart',
+          ],
           workingDirectory: exampleFlutterAppRoot.path,
         )),
       ]);
@@ -155,7 +164,7 @@ dependencies:
       expect(testProcessManager.commandsRan, [
         equalsCommand((
           command: [
-            endsWith('flutter'),
+            endsWith(flutterExecutableName),
             'test',
             'foo_test.dart',
             'bar_test.dart',
@@ -163,7 +172,7 @@ dependencies:
           workingDirectory: exampleFlutterAppRoot.path,
         )),
         equalsCommand((
-          command: [endsWith('dart'), 'test', 'zip_test.dart'],
+          command: [endsWith(dartExecutableName), 'test', 'zip_test.dart'],
           workingDirectory: dartCliAppRoot.path,
         )),
       ]);
@@ -186,7 +195,7 @@ dependencies:
         expect(testProcessManager.commandsRan, [
           equalsCommand((
             command: [
-              endsWith('dart'),
+              endsWith(dartExecutableName),
               'create',
               '--template',
               'cli',
@@ -213,7 +222,7 @@ dependencies:
         expect(testProcessManager.commandsRan, [
           equalsCommand((
             command: [
-              endsWith('flutter'),
+              endsWith(flutterExecutableName),
               'create',
               '--template',
               'app',
@@ -243,7 +252,7 @@ dependencies:
         expect(testProcessManager.commandsRan, [
           equalsCommand((
             command: [
-              endsWith('flutter'),
+              endsWith(flutterExecutableName),
               'create',
               '--template',
               'app',

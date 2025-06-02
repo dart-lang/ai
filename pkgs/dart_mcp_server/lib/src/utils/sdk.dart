@@ -47,7 +47,9 @@ class Sdk {
     if (dartSdkPath.parent case final cacheDir
         when cacheDir.basename == 'cache' && flutterSdkPath == null) {
       if (cacheDir.parent case final binDir when binDir.basename == 'bin') {
-        final flutterExecutable = binDir.child('flutter');
+        final flutterExecutable = binDir.child(
+          'flutter${Platform.isWindows ? '.bat' : ''}',
+        );
         if (File(flutterExecutable).existsSync()) {
           flutterSdkPath = binDir.parent;
         }
@@ -61,7 +63,9 @@ class Sdk {
   ///
   /// Throws an [ArgumentError] if [dartSdkPath] is `null`.
   String get dartExecutablePath =>
-      dartSdkPath?.child('bin').child('dart') ??
+      dartSdkPath
+          ?.child('bin')
+          .child('dart${Platform.isWindows ? '.bat' : ''}') ??
       (throw ArgumentError(
         'Dart SDK location unknown, try setting the DART_SDK environment '
         'variable.',
@@ -71,7 +75,9 @@ class Sdk {
   ///
   /// Throws an [ArgumentError] if [flutterSdkPath] is `null`.
   String get flutterExecutablePath =>
-      flutterSdkPath?.child('bin').child('flutter') ??
+      flutterSdkPath
+          ?.child('bin')
+          .child('flutter${Platform.isWindows ? '.bat' : ''}') ??
       (throw ArgumentError(
         'Flutter SDK location unknown. To work on flutter projects, you must '
         'spawn the server using `dart` from the flutter SDK and not a Dart '
