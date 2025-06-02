@@ -4,6 +4,7 @@
 
 import 'dart:async';
 
+import 'package:collection/collection.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:file/file.dart';
 import 'package:path/path.dart' as p;
@@ -25,13 +26,16 @@ enum ProjectKind {
   unknown,
 }
 
-/// Infers the [ProjectKind] of a given [Root].
+/// Infers the [ProjectKind] of a given project at [rootUri].
 ///
 /// Currently, this is done by checking for the existence of a `pubspec.yaml`
 /// file and whether it contains a Flutter SDK dependency.
-Future<ProjectKind> inferProjectKind(Root root, FileSystem fileSystem) async {
+Future<ProjectKind> inferProjectKind(
+  String rootUri,
+  FileSystem fileSystem,
+) async {
   final pubspecFile = fileSystem
-      .directory(Uri.parse(root.uri))
+      .directory(Uri.parse(rootUri))
       .childFile('pubspec.yaml');
   if (!await pubspecFile.exists()) {
     return ProjectKind.unknown;
@@ -72,7 +76,7 @@ Future<ProjectKind> inferProjectKind(Root root, FileSystem fileSystem) async {
 /// root's 'paths'.
 Future<CallToolResult> runCommandInRoots(
   CallToolRequest request, {
-  FutureOr<String> Function(Root, FileSystem, Sdk) commandForRoot =
+  FutureOr<String> Function(String, FileSystem, Sdk) commandForRoot =
       defaultCommandForRoot,
   List<String> arguments = const [],
   required String commandDescription,
@@ -137,7 +141,7 @@ Future<CallToolResult> runCommandInRoots(
 Future<CallToolResult> runCommandInRoot(
   CallToolRequest request, {
   Map<String, Object?>? rootConfig,
-  FutureOr<String> Function(Root, FileSystem, Sdk) commandForRoot =
+  FutureOr<String> Function(String, FileSystem, Sdk) commandForRoot =
       defaultCommandForRoot,
   List<String> arguments = const [],
   required String commandDescription,
@@ -159,7 +163,9 @@ Future<CallToolResult> runCommandInRoot(
     );
   }
 
-  final root = _findRoot(rootUriString, knownRoots);
+  final root = knownRoots.firstWhereOrNull(
+    (root) => _isUnderRoot(root, rootUriString),
+  );
   if (root == null) {
     return CallToolResult(
       content: [
@@ -189,17 +195,13 @@ Future<CallToolResult> runCommandInRoot(
   final projectRoot = fileSystem.directory(rootUri);
 
   final commandWithPaths = <String>[
-    await commandForRoot(root, fileSystem, sdk),
+    await commandForRoot(rootUriString, fileSystem, sdk),
     ...arguments,
   ];
   final paths =
       (rootConfig?[ParameterNames.paths] as List?)?.cast<String>() ??
       defaultPaths;
-  final invalidPaths = paths.where((path) {
-    final resolvedPath = rootUri.resolve(path).toString();
-    return rootUriString != resolvedPath &&
-        !p.isWithin(rootUriString, resolvedPath);
-  });
+  final invalidPaths = paths.where((path) => !_isUnderRoot(root, path));
   if (invalidPaths.isNotEmpty) {
     return CallToolResult(
       content: [
@@ -248,32 +250,39 @@ Future<CallToolResult> runCommandInRoot(
 ///
 /// Throws an [ArgumentError] if there is no pubspec.
 Future<String> defaultCommandForRoot(
-  Root root,
+  String rootUri,
   FileSystem fileSystem,
   Sdk sdk,
-) async => switch (await inferProjectKind(root, fileSystem)) {
+) async => switch (await inferProjectKind(rootUri, fileSystem)) {
   ProjectKind.dart => sdk.dartExecutablePath,
   ProjectKind.flutter => sdk.flutterExecutablePath,
   ProjectKind.unknown =>
     throw ArgumentError.value(
-      root.uri,
-      'root.uri',
-      'Unknown project kind at root ${root.uri}. All projects must have a '
+      rootUri,
+      'rootUri',
+      'Unknown project kind at root $rootUri. All projects must have a '
           'pubspec.',
     ),
 };
 
-/// Returns whether or not [rootUri] is an allowed root, either exactly matching
-/// or under on of the [knownRoots].
-Root? _findRoot(String rootUri, List<Root> knownRoots) {
-  for (final root in knownRoots) {
-    final knownRootUri = Uri.parse(root.uri);
-    final resolvedRoot = knownRootUri.resolve(rootUri).toString();
-    if (root.uri == resolvedRoot || p.isWithin(root.uri, resolvedRoot)) {
-      return root;
-    }
+/// Returns whether [uri] is under or exactly equal to [root].
+///
+/// Relative uris will always be under [root] unless they escape it with `../`.
+bool _isUnderRoot(Root root, String uri) {
+  final rootUri = Uri.parse(root.uri);
+  final resolvedUri = rootUri.resolve(uri);
+  // We don't care about queries or fragments, but the scheme/authority must
+  // match.
+  if (rootUri.scheme != resolvedUri.scheme ||
+      rootUri.authority != resolvedUri.authority) {
+    return false;
   }
-  return null;
+  // Canonicalizing the paths handles any `../` segments and also deals with
+  // trailing slashes versus no trailing slashes.
+  final canonicalRootPath = p.canonicalize(rootUri.path);
+  final canonicalUriPath = p.canonicalize(resolvedUri.path);
+  return canonicalRootPath == canonicalUriPath ||
+      canonicalUriPath.startsWith(canonicalRootPath);
 }
 
 /// The schema for the `roots` parameter for any tool that accepts it.
