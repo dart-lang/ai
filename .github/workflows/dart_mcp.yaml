@@ -21,14 +21,17 @@ defaults:
 
 jobs:
   build:
-    runs-on:
-      - ubuntu-latest
-      - windows-latest
-      - macos-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        sdk: [stable, dev]
+        sdk:
+          - stable
+          - dev
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: dart-lang/setup-dart@e51d8e571e22473a2ddebf0ef8a2123f0ab2c02c
