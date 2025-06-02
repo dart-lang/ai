@@ -97,7 +97,7 @@ void main() {
         test('can perform a hot reload', () async {
           final exampleApp = await Directory.systemTemp.createTemp('dart_app');
           addTearDown(() async {
-            await exampleApp.delete(recursive: true);
+            await _deleteWithRetry(exampleApp);
           });
           final mainFile = File.fromUri(
             exampleApp.uri.resolve('bin/main.dart'),
@@ -165,7 +165,7 @@ void main() {
         setUp(() async {
           appDir = await Directory.systemTemp.createTemp('dart_app');
           addTearDown(() async {
-            await appDir.delete(recursive: true);
+            await _deleteWithRetry(appDir);
           });
           final mainFile = File.fromUri(appDir.uri.resolve(appPath));
           await mainFile.create(recursive: true);
@@ -306,7 +306,7 @@ void main() {
         setUp(() async {
           appDir = await Directory.systemTemp.createTemp('dart_app');
           addTearDown(() async {
-            await appDir.delete(recursive: true);
+            await _deleteWithRetry(appDir);
           });
           final mainFile = File.fromUri(appDir.uri.resolve(appPath));
           await mainFile.create(recursive: true);
@@ -659,3 +659,18 @@ void action() {
   print('hello');
 }
 ''';
+
+/// Tries to delete [dir] up to 5 times, waiting 200ms between each.
+///
+/// Necessary for windows tests.
+Future<void> _deleteWithRetry(Directory dir) async {
+  var i = 0;
+  while (++i <= 5) {
+    try {
+      await dir.delete(recursive: true);
+      return;
+    } catch (_) {
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    }
+  }
+}
