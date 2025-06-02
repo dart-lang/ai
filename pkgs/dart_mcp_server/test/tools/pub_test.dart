@@ -2,6 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:io';
+
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp_server/src/mixins/pub.dart';
 import 'package:dart_mcp_server/src/utils/constants.dart';
@@ -22,6 +24,7 @@ void main() {
   final fakeAppPath = '/fake_app/';
 
   for (final appKind in const ['dart', 'flutter']) {
+    final executableName = '$appKind${Platform.isWindows ? '.bat' : ''}';
     group('$appKind app', () {
       // TODO: Use setUpAll, currently this fails due to an apparent TestProcess
       // issue.
@@ -68,7 +71,7 @@ void main() {
           expect(result.isError, isNot(true));
           expect(testProcessManager.commandsRan, [
             equalsCommand((
-              command: [endsWith(appKind), 'pub', 'add', 'foo'],
+              command: [endsWith(executableName), 'pub', 'add', 'foo'],
               workingDirectory: fakeAppPath,
             )),
           ]);
@@ -91,7 +94,7 @@ void main() {
           expect(result.isError, isNot(true));
           expect(testProcessManager.commandsRan, [
             equalsCommand((
-              command: [endsWith(appKind), 'pub', 'remove', 'foo'],
+              command: [endsWith(executableName), 'pub', 'remove', 'foo'],
               workingDirectory: fakeAppPath,
             )),
           ]);
@@ -113,7 +116,7 @@ void main() {
           expect(result.isError, isNot(true));
           expect(testProcessManager.commandsRan, [
             equalsCommand((
-              command: [endsWith(appKind), 'pub', 'get'],
+              command: [endsWith(executableName), 'pub', 'get'],
               workingDirectory: fakeAppPath,
             )),
           ]);
@@ -135,7 +138,7 @@ void main() {
           expect(result.isError, isNot(true));
           expect(testProcessManager.commandsRan, [
             equalsCommand((
-              command: [endsWith(appKind), 'pub', 'upgrade'],
+              command: [endsWith(executableName), 'pub', 'upgrade'],
               workingDirectory: fakeAppPath,
             )),
           ]);
