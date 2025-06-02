@@ -65,7 +65,7 @@ class Sdk {
   String get dartExecutablePath =>
       dartSdkPath
           ?.child('bin')
-          .child('dart${Platform.isWindows ? '.bat' : ''}') ??
+          .child('dart${Platform.isWindows ? '.exe' : ''}') ??
       (throw ArgumentError(
         'Dart SDK location unknown, try setting the DART_SDK environment '
         'variable.',

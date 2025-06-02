@@ -17,7 +17,7 @@ void main() {
   late TestProcessManager testProcessManager;
   late Root exampleFlutterAppRoot;
   late Root dartCliAppRoot;
-  final dartExecutableName = 'dart${Platform.isWindows ? '.bat' : ''}';
+  final dartExecutableName = 'dart${Platform.isWindows ? '.exe' : ''}';
   final flutterExecutableName = 'flutter${Platform.isWindows ? '.bat' : ''}';
 
   // TODO: Use setUpAll, currently this fails due to an apparent TestProcess

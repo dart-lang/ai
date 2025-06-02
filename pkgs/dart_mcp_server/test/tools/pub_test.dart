@@ -24,7 +24,12 @@ void main() {
   final fakeAppPath = '/fake_app/';
 
   for (final appKind in const ['dart', 'flutter']) {
-    final executableName = '$appKind${Platform.isWindows ? '.bat' : ''}';
+    final executableName =
+        '$appKind${Platform.isWindows
+            ? appKind == 'dart'
+                ? '.exe'
+                : '.bat'
+            : ''}';
     group('$appKind app', () {
       // TODO: Use setUpAll, currently this fails due to an apparent TestProcess
       // issue.
