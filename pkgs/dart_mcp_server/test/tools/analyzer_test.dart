@@ -2,8 +2,6 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'dart:io';
-
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp_server/src/mixins/analyzer.dart';
 import 'package:dart_mcp_server/src/utils/constants.dart';
