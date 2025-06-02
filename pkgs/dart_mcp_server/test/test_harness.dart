@@ -4,7 +4,8 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
+import 'dart:io' hide File;
+import 'dart:io' as io show File;
 
 import 'package:async/async.dart';
 import 'package:dart_mcp/client.dart';
@@ -497,5 +498,6 @@ class _CommandMatcher extends Matcher {
 }
 
 extension RootPath on Root {
-  String get path => Uri.parse(uri).path;
+  // Get the OS specific file path for this root.
+  String get path => io.File.fromUri(Uri.parse(uri)).path;
 }
