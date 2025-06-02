@@ -498,6 +498,6 @@ class _CommandMatcher extends Matcher {
 }
 
 extension RootPath on Root {
-  // Get the OS specific file path for this root.
+  /// Get the OS specific file path for this root.
   String get path => io.File.fromUri(Uri.parse(uri)).path;
 }
