@@ -7,7 +7,6 @@ import 'dart:async';
 import 'package:collection/collection.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:file/file.dart';
-import 'package:path/path.dart' as p;
 import 'package:process/process.dart';
 import 'package:yaml/yaml.dart';
 
@@ -283,10 +282,11 @@ bool _isUnderRoot(Root root, String uri, FileSystem fileSystem) {
   }
   // Canonicalizing the paths handles any `../` segments and also deals with
   // trailing slashes versus no trailing slashes.
-  final canonicalRootPath = p.canonicalize(rootUri.path);
-  final canonicalUriPath = p.canonicalize(resolvedUri.path);
+
+  final canonicalRootPath = fileSystem.path.canonicalize(rootUri.path);
+  final canonicalUriPath = fileSystem.path.canonicalize(resolvedUri.path);
   return canonicalRootPath == canonicalUriPath ||
-      canonicalUriPath.startsWith(canonicalRootPath);
+      fileSystem.path.isWithin(canonicalRootPath, canonicalUriPath);
 }
 
 /// The schema for the `roots` parameter for any tool that accepts it.
