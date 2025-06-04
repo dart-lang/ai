@@ -139,45 +139,58 @@ void main() {
     });
 
     test('with paths inside of known roots', () async {
-      final paths = ['file:///foo/', 'file:///foo', './', '.'];
-      final result = await runCommandInRoots(
-        CallToolRequest(
-          name: 'foo',
-          arguments: {
-            ParameterNames.roots: [
-              {ParameterNames.root: 'file:///foo', ParameterNames.paths: paths},
-              {
-                ParameterNames.root: 'file:///foo/',
-                ParameterNames.paths: paths,
-              },
-            ],
-          },
-        ),
-        commandForRoot: (_, _, _) => 'fake',
-        commandDescription: '',
-        processManager: processManager,
-        knownRoots: [Root(uri: 'file:///foo/')],
-        fileSystem: fileSystem,
-        sdk: Sdk(),
-      );
-      expect(
-        result.isError,
-        isNot(true),
-        reason: result.content.map((c) => (c as TextContent).text).join('\n'),
-      );
-      expect(
-        processManager.commandsRan,
-        unorderedEquals([
-          equalsCommand((
-            command: ['fake', ...paths],
-            workingDirectory: '/foo/',
-          )),
-          equalsCommand((
-            command: ['fake', ...paths],
-            workingDirectory: '/foo',
-          )),
-        ]),
-      );
+      // Check with registered roots that do and do not have trailing slashes.
+      for (final knownRoot in ['file:///foo', 'file:///foo/']) {
+        processManager.reset();
+        final paths = [
+          'file:///foo/',
+          'file:///foo',
+          './',
+          '.',
+          'lib/foo.dart',
+        ];
+        final result = await runCommandInRoots(
+          CallToolRequest(
+            name: 'foo',
+            arguments: {
+              ParameterNames.roots: [
+                {
+                  ParameterNames.root: 'file:///foo',
+                  ParameterNames.paths: paths,
+                },
+                {
+                  ParameterNames.root: 'file:///foo/',
+                  ParameterNames.paths: paths,
+                },
+              ],
+            },
+          ),
+          commandForRoot: (_, _, _) => 'fake',
+          commandDescription: '',
+          processManager: processManager,
+          knownRoots: [Root(uri: knownRoot)],
+          fileSystem: fileSystem,
+          sdk: Sdk(),
+        );
+        expect(
+          result.isError,
+          isNot(true),
+          reason: result.content.map((c) => (c as TextContent).text).join('\n'),
+        );
+        expect(
+          processManager.commandsRan,
+          unorderedEquals([
+            equalsCommand((
+              command: ['fake', ...paths],
+              workingDirectory: '/foo/',
+            )),
+            equalsCommand((
+              command: ['fake', ...paths],
+              workingDirectory: '/foo',
+            )),
+          ]),
+        );
+      }
     });
   });
 

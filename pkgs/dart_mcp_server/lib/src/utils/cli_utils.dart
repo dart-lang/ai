@@ -164,7 +164,7 @@ Future<CallToolResult> runCommandInRoot(
   }
 
   final root = knownRoots.firstWhereOrNull(
-    (root) => _isUnderRoot(root, rootUriString),
+    (root) => _isUnderRoot(root, rootUriString, fileSystem),
   );
   if (root == null) {
     return CallToolResult(
@@ -201,7 +201,9 @@ Future<CallToolResult> runCommandInRoot(
   final paths =
       (rootConfig?[ParameterNames.paths] as List?)?.cast<String>() ??
       defaultPaths;
-  final invalidPaths = paths.where((path) => !_isUnderRoot(root, path));
+  final invalidPaths = paths.where(
+    (path) => !_isUnderRoot(root, path, fileSystem),
+  );
   if (invalidPaths.isNotEmpty) {
     return CallToolResult(
       content: [
@@ -268,8 +270,10 @@ Future<String> defaultCommandForRoot(
 /// Returns whether [uri] is under or exactly equal to [root].
 ///
 /// Relative uris will always be under [root] unless they escape it with `../`.
-bool _isUnderRoot(Root root, String uri) {
-  final rootUri = Uri.parse(root.uri);
+bool _isUnderRoot(Root root, String uri, FileSystem fileSystem) {
+  // This normalizes the URI to ensure it is treated as a directory (for example
+  // ensures it ends with a trailing slash).
+  final rootUri = fileSystem.directory(Uri.parse(root.uri)).uri;
   final resolvedUri = rootUri.resolve(uri);
   // We don't care about queries or fragments, but the scheme/authority must
   // match.
