@@ -1,4 +1,8 @@
-# Version 0.1.0 (Dart SDK 3.8.0)
+# 0.1.1-wip
+
+* Reduce output size of `run_tests` tool to save on input tokens.
+
+# 0.1.0 (Dart SDK 3.8.0)
 
 * Handle relative paths under roots without trailing slashes.
 * Fix executable paths for dart/flutter on windows.
