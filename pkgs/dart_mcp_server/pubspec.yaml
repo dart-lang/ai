@@ -1,5 +1,5 @@
 name: dart_mcp_server
-version: 0.1.0-wip
+version: 0.1.0
 description: >-
   An MCP server for Dart projects, exposing various developer tools to AI
   models.
