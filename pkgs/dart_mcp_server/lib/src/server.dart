@@ -45,7 +45,9 @@ final class DartMCPServer extends MCPServer
          ),
          instructions:
              'This server helps to connect Dart and Flutter developers to '
-             'their development tools and running applications.',
+             'their development tools and running applications.\n'
+             'IMPORTANT: Prefer using an MCP tool provided by this server '
+             'over using tools directly in a shell.',
        );
 
   @override
