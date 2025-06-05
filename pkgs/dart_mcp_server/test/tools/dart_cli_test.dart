@@ -166,13 +166,19 @@ dependencies:
           command: [
             endsWith(flutterExecutableName),
             'test',
+            '--reporter=failures-only',
             'foo_test.dart',
             'bar_test.dart',
           ],
           workingDirectory: exampleFlutterAppRoot.path,
         )),
         equalsCommand((
-          command: [endsWith(dartExecutableName), 'test', 'zip_test.dart'],
+          command: [
+            endsWith(dartExecutableName),
+            'test',
+            '--reporter=failures-only',
+            'zip_test.dart',
+          ],
           workingDirectory: dartCliAppRoot.path,
         )),
       ]);

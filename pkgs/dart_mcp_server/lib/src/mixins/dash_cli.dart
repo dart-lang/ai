@@ -68,7 +68,7 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
   Future<CallToolResult> _runTests(CallToolRequest request) async {
     return runCommandInRoots(
       request,
-      arguments: ['test'],
+      arguments: ['test', '--reporter=failures-only'],
       commandDescription: 'dart|flutter test',
       processManager: processManager,
       knownRoots: await roots,
