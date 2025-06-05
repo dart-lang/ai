@@ -70,6 +70,7 @@ void main() {
               'retry logic with exponential back-off, useful when making '
               'requests over network.',
           'homepage': 'https://github.com/google/dart-neats/tree/master/retry',
+          'repository': 'https://github.com/google/dart-neats.git',
           'scores': {
             'pubPoints': isA<int>(),
             'maxPubPoints': isA<int>(),
@@ -83,6 +84,31 @@ void main() {
             'license:osi-approved',
           ],
           'publisher': 'publisher:google.dev',
+        });
+        expect(json.decode((result.content[2] as TextContent).text), {
+          'packageName': 'dio_smart_retry',
+          'latestVersion': '7.0.1',
+          'description':
+              'Retry library for Dio and Dio package made with love. By '
+              'default, the request will be retried only for '
+              'appropriate retryable http statuses.',
+          'homepage': 'https://github.com/rodion-m/dio_smart_retry',
+          'repository': 'https://github.com/rodion-m/dio_smart_retry',
+          'documentation':
+              'https://github.com/rodion-m/dio_smart_retry#contents',
+          'scores': {
+            'pubPoints': isA<int>(),
+            'maxPubPoints': isA<int>(),
+            'likes': isA<int>(),
+            'downloadCount': isA<int>(),
+          },
+          'topics': isEmpty,
+          'licenses': [
+            'license:mit',
+            'license:fsf-libre',
+            'license:osi-approved',
+          ],
+          'publisher': 'publisher:rodion-m.ru',
         });
       });
     }, _GoldenResponseClient.new);
