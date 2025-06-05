@@ -104,6 +104,16 @@ base mixin PubDevSupport on ToolsSupport {
                   'pubspec',
                   'homepage',
                 ]),
+                'repository': ?dig<String?>(versionListing, [
+                  'latest',
+                  'pubspec',
+                  'repository',
+                ]),
+                'documentation': ?dig<String?>(versionListing, [
+                  'latest',
+                  'pubspec',
+                  'documentation',
+                ]),
               },
               if (scoreResult != null) ...{
                 'scores': {
