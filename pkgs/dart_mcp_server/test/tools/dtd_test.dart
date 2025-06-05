@@ -405,16 +405,14 @@ void main() {
 
             final stdin = debugSession.appProcess.stdin;
             stdin.writeln('');
-            var resources =
-                (await serverConnection.listResources(
-                  ListResourcesRequest(),
-                )).resources;
+            var resources = (await serverConnection.listResources(
+              ListResourcesRequest(),
+            )).resources;
             if (resources.runtimeErrors.isEmpty) {
               await onResourceListChanged;
-              resources =
-                  (await serverConnection.listResources(
-                    ListResourcesRequest(),
-                  )).resources;
+              resources = (await serverConnection.listResources(
+                ListResourcesRequest(),
+              )).resources;
             }
             final resource = resources.runtimeErrors.single;
 
@@ -424,10 +422,9 @@ void main() {
             await serverConnection.subscribeResource(
               SubscribeRequest(uri: resource.uri),
             );
-            var originalContents =
-                (await serverConnection.readResource(
-                  ReadResourceRequest(uri: resource.uri),
-                )).contents;
+            var originalContents = (await serverConnection.readResource(
+              ReadResourceRequest(uri: resource.uri),
+            )).contents;
             final errorMatcher = isA<TextResourceContents>().having(
               (c) => c.text,
               'text',
@@ -437,10 +434,9 @@ void main() {
             // re-read the resource.
             if (originalContents.isEmpty) {
               await resourceUpdatedQueue.next;
-              originalContents =
-                  (await serverConnection.readResource(
-                    ReadResourceRequest(uri: resource.uri),
-                  )).contents;
+              originalContents = (await serverConnection.readResource(
+                ReadResourceRequest(uri: resource.uri),
+              )).contents;
             }
             expect(
               originalContents.length,
@@ -460,10 +456,9 @@ void main() {
             );
 
             // Should now have another error.
-            final newContents =
-                (await serverConnection.readResource(
-                  ReadResourceRequest(uri: resource.uri),
-                )).contents;
+            final newContents = (await serverConnection.readResource(
+              ReadResourceRequest(uri: resource.uri),
+            )).contents;
             expect(newContents.length, 2);
             expect(newContents.last, errorMatcher);
 
@@ -475,10 +470,9 @@ void main() {
               ),
             );
 
-            final finalContents =
-                (await serverConnection.readResource(
-                  ReadResourceRequest(uri: resource.uri),
-                )).contents;
+            final finalContents = (await serverConnection.readResource(
+              ReadResourceRequest(uri: resource.uri),
+            )).contents;
             expect(finalContents, isEmpty);
           },
           onPlatform: {

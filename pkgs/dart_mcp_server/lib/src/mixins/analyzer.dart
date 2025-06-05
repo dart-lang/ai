@@ -109,19 +109,18 @@ base mixin DartAnalyzerSupport
           log(LoggingLevel.warning, line, logger: 'DartLanguageServer');
         });
 
-    _lspConnection =
-        Peer(lspChannel(_lspServer.stdout, _lspServer.stdin))
-          ..registerMethod(
-            lsp.Method.textDocument_publishDiagnostics.toString(),
-            _handleDiagnostics,
-          )
-          ..registerMethod(r'$/analyzerStatus', _handleAnalyzerStatus)
-          ..registerFallback((Parameters params) {
-            log(
-              LoggingLevel.debug,
-              () => 'Unhandled LSP message: ${params.method} - ${params.asMap}',
-            );
-          });
+    _lspConnection = Peer(lspChannel(_lspServer.stdout, _lspServer.stdin))
+      ..registerMethod(
+        lsp.Method.textDocument_publishDiagnostics.toString(),
+        _handleDiagnostics,
+      )
+      ..registerMethod(r'$/analyzerStatus', _handleAnalyzerStatus)
+      ..registerFallback((Parameters params) {
+        log(
+          LoggingLevel.debug,
+          () => 'Unhandled LSP message: ${params.method} - ${params.asMap}',
+        );
+      });
 
     unawaited(_lspConnection.listen());
 
@@ -355,8 +354,9 @@ base mixin DartAnalyzerSupport
     diagnostics[diagnosticParams.uri] = diagnosticParams.diagnostics;
     log(LoggingLevel.debug, {
       ParameterNames.uri: diagnosticParams.uri,
-      'diagnostics':
-          diagnosticParams.diagnostics.map((d) => d.toJson()).toList(),
+      'diagnostics': diagnosticParams.diagnostics
+          .map((d) => d.toJson())
+          .toList(),
     });
   }
 
@@ -368,16 +368,18 @@ base mixin DartAnalyzerSupport
       final newRoots = await roots;
 
       final oldWorkspaceFolders = _currentWorkspaceFolders;
-      final newWorkspaceFolders =
-          _currentWorkspaceFolders = HashSet<lsp.WorkspaceFolder>(
+      final newWorkspaceFolders = _currentWorkspaceFolders =
+          HashSet<lsp.WorkspaceFolder>(
             equals: (a, b) => a.uri == b.uri,
             hashCode: (a) => a.uri.hashCode,
           )..addAll(newRoots.map((r) => r.asWorkspaceFolder));
 
-      final added =
-          newWorkspaceFolders.difference(oldWorkspaceFolders).toList();
-      final removed =
-          oldWorkspaceFolders.difference(newWorkspaceFolders).toList();
+      final added = newWorkspaceFolders
+          .difference(oldWorkspaceFolders)
+          .toList();
+      final removed = oldWorkspaceFolders
+          .difference(newWorkspaceFolders)
+          .toList();
 
       // This can happen in the case of multiple notifications in quick
       // succession, the `roots` future will complete only after the state has
