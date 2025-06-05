@@ -69,6 +69,7 @@ void main() {
               'Utility for wrapping an asynchronous function in automatic '
               'retry logic with exponential back-off, useful when making '
               'requests over network.',
+          'homepage': 'https://github.com/google/dart-neats/tree/master/retry',
           'scores': {
             'pubPoints': isA<int>(),
             'maxPubPoints': isA<int>(),
@@ -179,10 +180,8 @@ class _FixedResponseClient implements Client {
   _FixedResponseClient(this.handler);
 
   _FixedResponseClient.withMappedResponses(Map<String, String> responses)
-    : handler =
-          ((url) =>
-              responses[url.toString()] ??
-              (throw ClientException('No internet')));
+    : handler = ((url) =>
+          responses[url.toString()] ?? (throw ClientException('No internet')));
 
   @override
   Future<String> read(Uri url, {Map<String, String>? headers}) async {

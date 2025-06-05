@@ -43,11 +43,9 @@ base mixin PubDevSupport on ToolsSupport {
     try {
       result = jsonDecode(await _client.read(searchUrl));
 
-      final packageNames =
-          dig<List>(result, ['packages'])
-              .take(_resultsLimit)
-              .map((p) => dig<String>(p, ['package']))
-              .toList();
+      final packageNames = dig<List>(result, [
+        'packages',
+      ]).take(_resultsLimit).map((p) => dig<String>(p, ['package'])).toList();
 
       if (packageNames.isEmpty) {
         return CallToolResult(
@@ -71,15 +69,14 @@ base mixin PubDevSupport on ToolsSupport {
       }
 
       // Retrieve information about all the packages in parallel.
-      final subQueryFutures =
-          packageNames
-              .map(
-                (packageName) => (
-                  versionListing: retrieve('api/packages/$packageName'),
-                  score: retrieve('api/packages/$packageName/score'),
-                ),
-              )
-              .toList();
+      final subQueryFutures = packageNames
+          .map(
+            (packageName) => (
+              versionListing: retrieve('api/packages/$packageName'),
+              score: retrieve('api/packages/$packageName/score'),
+            ),
+          )
+          .toList();
 
       // Aggregate the retrieved information about each package into a
       // TextContent.
@@ -97,10 +94,15 @@ base mixin PubDevSupport on ToolsSupport {
                   'latest',
                   'version',
                 ]),
-                'description': dig<String>(versionListing, [
+                'description': ?dig<String?>(versionListing, [
                   'latest',
                   'pubspec',
                   'description',
+                ]),
+                'homepage': ?dig<String?>(versionListing, [
+                  'latest',
+                  'pubspec',
+                  'homepage',
                 ]),
               },
               if (scoreResult != null) ...{
@@ -112,19 +114,15 @@ base mixin PubDevSupport on ToolsSupport {
                     'downloadCount30Days',
                   ]),
                 },
-                'topics':
-                    dig<List>(
-                      scoreResult,
-                      ['tags'],
-                    ).where((t) => (t as String).startsWith('topic:')).toList(),
-                'licenses':
-                    dig<List>(scoreResult, ['tags'])
-                        .where((t) => (t as String).startsWith('license'))
-                        .toList(),
-                'publisher':
-                    dig<List>(scoreResult, ['tags'])
-                        .where((t) => (t as String).startsWith('publisher:'))
-                        .firstOrNull,
+                'topics': dig<List>(scoreResult, [
+                  'tags',
+                ]).where((t) => (t as String).startsWith('topic:')).toList(),
+                'licenses': dig<List>(scoreResult, [
+                  'tags',
+                ]).where((t) => (t as String).startsWith('license')).toList(),
+                'publisher': dig<List>(scoreResult, ['tags'])
+                    .where((t) => (t as String).startsWith('publisher:'))
+                    .firstOrNull,
               },
             }),
           ),
