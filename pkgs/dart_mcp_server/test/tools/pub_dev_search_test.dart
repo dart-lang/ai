@@ -71,6 +71,9 @@ void main() {
               'requests over network.',
           'homepage': 'https://github.com/google/dart-neats/tree/master/retry',
           'repository': 'https://github.com/google/dart-neats.git',
+          'libraries': {
+            'retry': 'https://pub.dev/documentation/retry/latest/retry/',
+          },
           'scores': {
             'pubPoints': isA<int>(),
             'maxPubPoints': isA<int>(),
@@ -96,6 +99,10 @@ void main() {
           'repository': 'https://github.com/rodion-m/dio_smart_retry',
           'documentation':
               'https://github.com/rodion-m/dio_smart_retry#contents',
+          'libraries': {
+            'dio_smart_retry':
+                'https://pub.dev/documentation/dio_smart_retry/latest/dio_smart_retry/',
+          },
           'scores': {
             'pubPoints': isA<int>(),
             'maxPubPoints': isA<int>(),

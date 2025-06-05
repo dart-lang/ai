@@ -1,5 +1,6 @@
 # Version 0.1.0 (Dart SDK 3.8.0)
 
+* Add documentation/homepage/repository links to pub results.
 * Handle relative paths under roots without trailing slashes.
 * Fix executable paths for dart/flutter on windows.
 * Pass the provided root instead of the resolved root for project type detection.

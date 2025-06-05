@@ -74,6 +74,9 @@ base mixin PubDevSupport on ToolsSupport {
             (packageName) => (
               versionListing: retrieve('api/packages/$packageName'),
               score: retrieve('api/packages/$packageName/score'),
+              docIndex: retrieve(
+                'documentation/$packageName/latest/index.json',
+              ),
             ),
           )
           .toList();
@@ -85,6 +88,17 @@ base mixin PubDevSupport on ToolsSupport {
         final packageName = packageNames[i];
         final versionListing = await subQueryFutures[i].versionListing;
         final scoreResult = await subQueryFutures[i].score;
+        final libraryDocs = {
+          for (var object
+              in ((await subQueryFutures[i].docIndex) as List?)
+                      ?.cast<Map<String, Object?>>() ??
+                  <Map<String, Object?>>[])
+            if (!object.containsKey('enclosedBy'))
+              object['name'] as String: Uri.https(
+                'pub.dev',
+                'documentation/$packageName/latest/${object['href']}',
+              ).toString(),
+        };
         results.add(
           TextContent(
             text: jsonEncode({
@@ -115,6 +129,7 @@ base mixin PubDevSupport on ToolsSupport {
                   'documentation',
                 ]),
               },
+              if (libraryDocs.isNotEmpty) ...{'libraries': libraryDocs},
               if (scoreResult != null) ...{
                 'scores': {
                   'pubPoints': dig<int>(scoreResult, ['grantedPoints']),
