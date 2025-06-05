@@ -1,5 +1,7 @@
 The Dart Tooling MCP Server exposes Dart and Flutter development tool actions to compatible AI-assistant clients.
 
+[![Add to Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/install-mcp?name=dart_tooling&config=eyJ0eXBlIjoic3RkaW8iLCJjb21tYW5kIjoiZGFydCBtY3Atc2VydmVyIC0tZXhwZXJpbWVudGFsLW1jcC1zZXJ2ZXIgLS1mb3JjZS1yb290cy1mYWxsYmFjayJ9)
+
 ## Status
 
 WIP. This package is still experimental and is likely to evolve quickly.
@@ -33,6 +35,18 @@ WIP. This package is still experimental and is likely to evolve quickly.
 This server only supports the STDIO transport mechanism and runs locally on
 your machine. Many of the tools require that your MCP client has `roots`
 support, and usage of the tools is scoped to only these directories.
+
+If you are using a client that claims it supports roots but does not actually
+set them, pass `--force-roots-fallback` which will instead enable tools for
+managing the roots.
+
+### Running from the SDK
+
+For most users, you should just use the `dart mcp-server` command. For now you
+also need to provide `--experimental-mcp-server` in order for the command to
+succeed.
+
+### Running a local checkout
 
 The server entrypoint lives at `bin/main.dart`, and can be ran however you
 choose, but the easiest way is to run it as a globally activated package.
@@ -85,20 +99,26 @@ dart run dart_mcp_examples:workflow_client --server dart_mcp_server
 
 ### With Cursor
 
-Go to Cursor -> Settings -> Cursor Settings and select "MCP".
+The following button should work for most users:
 
-Then, click "Add new global MCP server". Assuming you have already globally
-activated the package and it is on  your path, you can add
-`dart_mcp_server` as the command.
+[![Add to Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/install-mcp?name=dart_tooling&config=eyJ0eXBlIjoic3RkaW8iLCJjb21tYW5kIjoiZGFydCBtY3Atc2VydmVyIC0tZXhwZXJpbWVudGFsLW1jcC1zZXJ2ZXIgLS1mb3JjZS1yb290cy1mYWxsYmFjayJ9)
+
+To manually install it, go to Cursor -> Settings -> Cursor Settings and select "MCP".
+
+Then, click "Add new global MCP server".
 
 If you are directly editing your mcp.json file, it should look like this:
 
-```yaml
+```json
 {
   "mcpServers": {
     "dart_mcp": {
-      "command": "dart_mcp_server",
-      "args": []
+      "command": "dart",
+      "args": [
+        "mcp-server",
+        "--experimental-mcp-server",
+        "--force-roots-fallback"
+      ]
     }
   }
 }

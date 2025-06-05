@@ -7,7 +7,6 @@ import 'dart:async';
 import 'package:collection/collection.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:file/file.dart';
-import 'package:path/path.dart' as p;
 import 'package:process/process.dart';
 import 'package:yaml/yaml.dart';
 
@@ -163,7 +162,7 @@ Future<CallToolResult> runCommandInRoot(
   }
 
   final root = knownRoots.firstWhereOrNull(
-    (root) => _isUnderRoot(root, rootUriString),
+    (root) => _isUnderRoot(root, rootUriString, fileSystem),
   );
   if (root == null) {
     return CallToolResult(
@@ -200,7 +199,9 @@ Future<CallToolResult> runCommandInRoot(
   final paths =
       (rootConfig?[ParameterNames.paths] as List?)?.cast<String>() ??
       defaultPaths;
-  final invalidPaths = paths.where((path) => !_isUnderRoot(root, path));
+  final invalidPaths = paths.where(
+    (path) => !_isUnderRoot(root, path, fileSystem),
+  );
   if (invalidPaths.isNotEmpty) {
     return CallToolResult(
       content: [
@@ -266,8 +267,10 @@ Future<String> defaultCommandForRoot(
 /// Returns whether [uri] is under or exactly equal to [root].
 ///
 /// Relative uris will always be under [root] unless they escape it with `../`.
-bool _isUnderRoot(Root root, String uri) {
-  final rootUri = Uri.parse(root.uri);
+bool _isUnderRoot(Root root, String uri, FileSystem fileSystem) {
+  // This normalizes the URI to ensure it is treated as a directory (for example
+  // ensures it ends with a trailing slash).
+  final rootUri = fileSystem.directory(Uri.parse(root.uri)).uri;
   final resolvedUri = rootUri.resolve(uri);
   // We don't care about queries or fragments, but the scheme/authority must
   // match.
@@ -277,10 +280,11 @@ bool _isUnderRoot(Root root, String uri) {
   }
   // Canonicalizing the paths handles any `../` segments and also deals with
   // trailing slashes versus no trailing slashes.
-  final canonicalRootPath = p.canonicalize(rootUri.path);
-  final canonicalUriPath = p.canonicalize(resolvedUri.path);
+
+  final canonicalRootPath = fileSystem.path.canonicalize(rootUri.path);
+  final canonicalUriPath = fileSystem.path.canonicalize(resolvedUri.path);
   return canonicalRootPath == canonicalUriPath ||
-      canonicalUriPath.startsWith(canonicalRootPath);
+      fileSystem.path.isWithin(canonicalRootPath, canonicalUriPath);
 }
 
 /// The schema for the `roots` parameter for any tool that accepts it.
