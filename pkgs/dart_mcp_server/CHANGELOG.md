@@ -1,9 +1,4 @@
-# 0.1.1-wip
-
-* Instruct clients to prefer MCP tools over running tools in the shell.
-* Reduce output size of `run_tests` tool to save on input tokens.
-
-# 0.1.0 (Dart SDK 3.8.0)
+# 0.1.0-wip (Dart SDK 3.8.0)
 
 * Handle relative paths under roots without trailing slashes.
 * Fix executable paths for dart/flutter on windows.
@@ -41,3 +36,5 @@
 * Add a hot reload tool.
 * Add basic analysis support.
 * Add the beginnings of a Dart tooling MCP server.
+* Instruct clients to prefer MCP tools over running tools in the shell.
+* Reduce output size of `run_tests` tool to save on input tokens.
