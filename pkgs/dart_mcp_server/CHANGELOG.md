@@ -1,4 +1,4 @@
-# 0.1.0-wip (Dart SDK 3.8.0)
+# Dart SDK 3.8.0 - WP
 
 * Handle relative paths under roots without trailing slashes.
 * Fix executable paths for dart/flutter on windows.
