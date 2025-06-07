@@ -96,8 +96,10 @@ base mixin DartToolingDaemonSupport
         continue;
       }
       if (debugSession.vmServiceUri case final vmServiceUri?) {
-        final vmServiceFuture = activeVmServices[debugSession.id] =
-            vmServiceConnectUri(vmServiceUri);
+        final vmServiceFuture =
+            activeVmServices[debugSession.id] = vmServiceConnectUri(
+              vmServiceUri,
+            );
         final vmService = await vmServiceFuture;
         // Start listening for and collecting errors immediately.
         final errorService = await _AppErrorsListener.forVmService(

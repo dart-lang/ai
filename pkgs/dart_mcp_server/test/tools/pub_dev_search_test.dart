@@ -213,8 +213,10 @@ class _FixedResponseClient implements Client {
   _FixedResponseClient(this.handler);
 
   _FixedResponseClient.withMappedResponses(Map<String, String> responses)
-    : handler = ((url) =>
-          responses[url.toString()] ?? (throw ClientException('No internet')));
+    : handler =
+          ((url) =>
+              responses[url.toString()] ??
+              (throw ClientException('No internet')));
 
   @override
   Future<String> read(Uri url, {Map<String, String>? headers}) async {

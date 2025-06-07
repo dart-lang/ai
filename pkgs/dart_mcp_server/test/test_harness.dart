@@ -226,9 +226,8 @@ final class AppDebugSession {
     final stdout = StreamQueue(process.stdoutStream());
     while (vmServiceUri == null && await stdout.hasNext) {
       final line = await stdout.next;
-      final serviceString = isFlutter
-          ? 'A Dart VM Service'
-          : 'The Dart VM service';
+      final serviceString =
+          isFlutter ? 'A Dart VM Service' : 'The Dart VM service';
       if (line.contains(serviceString)) {
         vmServiceUri = line
             .substring(line.indexOf('http:'))
@@ -377,10 +376,8 @@ Future<String> _getDTDUri(TestProcess dtdProcess) async {
   return dtdUri;
 }
 
-typedef ServerConnectionPair = ({
-  ServerConnection serverConnection,
-  DartMCPServer? server,
-});
+typedef ServerConnectionPair =
+    ({ServerConnection serverConnection, DartMCPServer? server});
 
 /// Starts up the [DartMCPServer] and connects [client] to it.
 ///
