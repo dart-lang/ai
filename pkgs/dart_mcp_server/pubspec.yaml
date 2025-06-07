@@ -6,7 +6,7 @@ description: >-
 publish_to: none
 
 environment:
-  sdk: ^3.8.0
+  sdk: ^3.7.0
 
 executables:
   dart_mcp_server: main

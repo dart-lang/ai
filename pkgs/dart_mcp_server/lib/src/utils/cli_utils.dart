@@ -85,8 +85,9 @@ Future<CallToolResult> runCommandInRoots(
   List<String> defaultPaths = const <String>[],
   required Sdk sdk,
 }) async {
-  var rootConfigs = (request.arguments?[ParameterNames.roots] as List?)
-      ?.cast<Map<String, Object?>>();
+  var rootConfigs =
+      (request.arguments?[ParameterNames.roots] as List?)
+          ?.cast<Map<String, Object?>>();
 
   // Default to use the known roots if none were specified.
   if (rootConfigs == null || rootConfigs.isEmpty) {
@@ -256,12 +257,13 @@ Future<String> defaultCommandForRoot(
 ) async => switch (await inferProjectKind(rootUri, fileSystem)) {
   ProjectKind.dart => sdk.dartExecutablePath,
   ProjectKind.flutter => sdk.flutterExecutablePath,
-  ProjectKind.unknown => throw ArgumentError.value(
-    rootUri,
-    'rootUri',
-    'Unknown project kind at root $rootUri. All projects must have a '
-        'pubspec.',
-  ),
+  ProjectKind.unknown =>
+    throw ArgumentError.value(
+      rootUri,
+      'rootUri',
+      'Unknown project kind at root $rootUri. All projects must have a '
+          'pubspec.',
+    ),
 };
 
 /// Returns whether [uri] is under or exactly equal to [root].
