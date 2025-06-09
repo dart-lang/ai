@@ -66,9 +66,19 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
 
   /// Implementation of the [runTestsTool].
   Future<CallToolResult> _runTests(CallToolRequest request) async {
+    final cliArgs = (request.arguments?['args'] as List?)?.cast<String>();
+    final hasReporterArg =
+        cliArgs?.any(
+          (a) => a == '-r' || a == '--reporter' || a.startsWith('--reporter='),
+        ) ??
+        false;
     return runCommandInRoots(
       request,
-      arguments: ['test', '--reporter=failures-only'],
+      arguments: [
+        'test',
+        if (!hasReporterArg) '--reporter=failures-only',
+        ...?cliArgs,
+      ],
       commandDescription: 'dart|flutter test',
       processManager: processManager,
       knownRoots: await roots,
@@ -187,14 +197,24 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
     ),
   );
 
-  static final runTestsTool = Tool(
-    name: 'run_tests',
-    description: 'Runs Dart or Flutter tests for the given project roots.',
-    annotations: ToolAnnotations(title: 'Run tests', readOnlyHint: true),
-    inputSchema: Schema.object(
-      properties: {ParameterNames.roots: rootsSchema(supportsPaths: true)},
-    ),
-  );
+  static final Tool runTestsTool = () {
+    return Tool(
+      name: 'run_tests',
+      description:
+          'Run Dart tests with an agent centric UX. '
+          'ALWAYS use instead of `dart test` or `flutter test` shell commands.',
+      annotations: ToolAnnotations(title: 'Run tests', readOnlyHint: true),
+      inputSchema: Schema.object(
+        properties: {
+          ParameterNames.roots: rootsSchema(supportsPaths: true),
+          'args': Schema.list(
+            description: 'CLI arguments',
+            items: Schema.string(),
+          ),
+        },
+      ),
+    );
+  }();
 
   static final createProjectTool = Tool(
     name: 'create_project',
