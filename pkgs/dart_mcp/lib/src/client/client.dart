@@ -29,7 +29,7 @@ part 'sampling_support.dart';
 /// this will be invoked at the end of base class constructor.
 base class MCPClient {
   /// A description of the client sent to servers during initialization.
-  final ClientImplementation implementation;
+  final Implementation implementation;
 
   MCPClient(this.implementation) {
     initialize();
