@@ -200,6 +200,8 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
   static final Tool runTestsTool = () {
     final cliSchemaJson =
         jsonDecode(_dartTestCliSchema) as Map<String, Object?>;
+    const blocklist = {'color', 'debug', 'help', 'pause-after-load', 'version'};
+    cliSchemaJson.removeWhere((argument, _) => blocklist.contains(argument));
     final cliSchema = Schema.fromMap(cliSchemaJson);
     return Tool(
       name: 'run_tests',
