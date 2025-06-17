@@ -337,7 +337,7 @@ void main() {
           InitializeRequest(
             protocolVersion: ProtocolVersion.latestSupported,
             capabilities: ClientCapabilities(),
-            clientInfo: ClientImplementation(name: '', version: ''),
+            clientInfo: Implementation(name: '', version: ''),
           ),
         ),
         throwsA(

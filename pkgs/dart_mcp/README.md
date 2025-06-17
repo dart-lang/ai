@@ -36,7 +36,7 @@ an error, which may result in a better UX for the users of the client.
 
 To implement a client, import `package:dart_mcp/client.dart` and extend the
 `MCPClient` class, or directly call its constructor with a
-`ClientImplementation` if you aren't implementing any "capabilities".
+`Implementation` if you aren't implementing any "capabilities".
 
 For each specific MCP capability your client supports, there is a corresponding
 mixin that you can use (`RootsSupport`, `SamplingSupport`, etc). Each mixin has

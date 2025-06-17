@@ -39,7 +39,7 @@ final class DartMCPServer extends MCPServer
     @visibleForTesting this.fileSystem = const LocalFileSystem(),
     this.forceRootsFallback = false,
   }) : super.fromStreamChannel(
-         implementation: ServerImplementation(
+         implementation: Implementation(
            name: 'dart and flutter tooling',
            version: '0.1.0-wip',
          ),

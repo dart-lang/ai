@@ -33,10 +33,7 @@ final class SimpleFileSystemServer extends MCPServer
     with LoggingSupport, RootsTrackingSupport, ToolsSupport {
   SimpleFileSystemServer.fromStreamChannel(super.channel)
     : super.fromStreamChannel(
-        implementation: ServerImplementation(
-          name: 'file system',
-          version: '0.0.1',
-        ),
+        implementation: Implementation(name: 'file system', version: '0.0.1'),
       );
 
   @override

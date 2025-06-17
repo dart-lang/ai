@@ -29,7 +29,7 @@ void main() {
 base class DartMCPServer extends MCPServer with ToolsSupport {
   DartMCPServer(super.channel)
     : super.fromStreamChannel(
-        implementation: ServerImplementation(
+        implementation: Implementation(
           name: 'example dart server',
           version: '0.1.0',
         ),

@@ -45,7 +45,7 @@ final class SamplingTestMCPClient extends TestMCPClient with SamplingSupport {
   @override
   FutureOr<CreateMessageResult> handleCreateMessage(
     CreateMessageRequest request,
-    ServerImplementation serverInfo,
+    Implementation serverInfo,
   ) {
     if (nextResult case final result?) {
       nextResult = null;

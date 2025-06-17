@@ -1,3 +1,9 @@
+## 0.2.2-wip
+
+- Refactor `ClientImplementation` and `ServerImplementation` to the shared
+  `Implementation` type to match the spec. The old names are deprecated but will
+  still work until the next breaking release.
+
 ## 0.2.1
 
 - Fix the `protocolLogSink` support when using `MCPClient.connectStdioServer`.

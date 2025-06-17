@@ -126,10 +126,10 @@ base class ServerConnection extends MCPBase {
   /// protocol version.
   late ProtocolVersion protocolVersion;
 
-  /// The [ServerImplementation] returned from the [initialize] request.
+  /// The [Implementation] returned from the [initialize] request.
   ///
   /// Only non-null after [initialize] has successfully completed.
-  ServerImplementation? serverInfo;
+  Implementation? serverInfo;
 
   /// The [ServerCapabilities] returned from the [initialize] request.
   ///
