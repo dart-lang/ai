@@ -23,6 +23,12 @@ void main() {
     expect(initializeResult.instructions, environment.server.instructions);
     expect(initializeResult.protocolVersion, ProtocolVersion.latestSupported);
 
+    expect(environment.server.clientInfo, environment.client.implementation);
+    expect(
+      environment.serverConnection.serverInfo,
+      environment.server.implementation,
+    );
+
     expect(
       environment.serverConnection.listTools(ListToolsRequest()),
       throwsA(
