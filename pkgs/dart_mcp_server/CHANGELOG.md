@@ -1,4 +1,4 @@
-# Dart SDK 3.8.0 - WP
+# 0.1.0 (Dart SDK 3.8.0) - WP
 
 * Add documentation/homepage/repository links to pub results.
 * Handle relative paths under roots without trailing slashes.
@@ -39,3 +39,4 @@
 * Add the beginnings of a Dart tooling MCP server.
 * Instruct clients to prefer MCP tools over running tools in the shell.
 * Reduce output size of `run_tests` tool to save on input tokens.
+* Add support for injecting an `Analytics` instance to track usage.
