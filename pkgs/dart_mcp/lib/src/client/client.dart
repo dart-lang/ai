@@ -54,7 +54,8 @@ base class MCPClient {
   ///
   /// If [protocolLogSink] is provided, all messages sent between the client and
   /// server will be forwarded to that [Sink] as well, with `<<<` preceding
-  /// incoming messages and `>>>` preceding outgoing messages.
+  /// incoming messages and `>>>` preceding outgoing messages. It is the
+  /// responsibility of the caller to close this sink.
   Future<ServerConnection> connectStdioServer(
     String command,
     List<String> arguments, {
@@ -90,7 +91,8 @@ base class MCPClient {
   ///
   /// If [protocolLogSink] is provided, all messages sent on [channel] will be
   /// forwarded to that [Sink] as well, with `<<<` preceding incoming messages
-  /// and `>>>` preceding outgoing messages.
+  /// and `>>>` preceding outgoing messages. It is the responsibility of the
+  /// caller to close this sink.
   ServerConnection connectServer(
     StreamChannel<String> channel, {
     Sink<String>? protocolLogSink,
