@@ -119,17 +119,16 @@ Sink<String> createLogSink(io.File logFile) {
     mode: io.FileMode.write,
     encoding: utf8,
   );
-  final logSink = fileByteSink.transform<String>(
+  return fileByteSink.transform(
     StreamSinkTransformer.fromHandlers(
-      handleData: (String data, EventSink<List<int>> innerSink) {
+      handleData: (data, innerSink) {
         innerSink.add(utf8.encode(data));
         // It's a log, so we want to make sure it's always up-to-date.
         fileByteSink.flush();
       },
-      handleDone: (EventSink<List<int>> innerSink) {
+      handleDone: (innerSink) {
         innerSink.close();
       },
     ),
   );
-  return logSink;
 }
