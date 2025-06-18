@@ -15,11 +15,12 @@ abstract interface class AnalyticsSupport {
 
 enum AnalyticsEvent { callTool, readResource }
 
+/// The metrics for a resources/read MCP handler.
 final class ReadResourceMetrics extends CustomMetrics {
   /// The kind of resource that was read.
   ///
   /// We don't want to record the full URI.
-  final String kind;
+  final ResourceKind kind;
 
   /// The length of the resource.
   final int length;
@@ -35,12 +36,13 @@ final class ReadResourceMetrics extends CustomMetrics {
 
   @override
   Map<String, Object> toMap() => {
-    'kind': 'runtimeErrors',
-    'length': length,
-    'elapsedMilliseconds': elapsedMilliseconds,
+    _kind: kind.name,
+    _length: length,
+    _elapsedMilliseconds: elapsedMilliseconds,
   };
 }
 
+/// The metrics for a tools/call MCP handler.
 final class CallToolMetrics extends CustomMetrics {
   /// The name of the tool that was invoked.
   final String tool;
@@ -59,8 +61,16 @@ final class CallToolMetrics extends CustomMetrics {
 
   @override
   Map<String, Object> toMap() => {
-    'tool': tool,
-    'success': success,
-    'elapsedMilliseconds': elapsedMilliseconds,
+    _tool: tool,
+    _success: success,
+    _elapsedMilliseconds: elapsedMilliseconds,
   };
 }
+
+enum ResourceKind { runtimeErrors }
+
+const _elapsedMilliseconds = 'elapsedMilliseconds';
+const _kind = 'kind';
+const _length = 'length';
+const _success = 'success';
+const _tool = 'tool';

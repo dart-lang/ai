@@ -10,6 +10,7 @@ import 'package:async/async.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp_server/src/mixins/dtd.dart';
 import 'package:dart_mcp_server/src/server.dart';
+import 'package:dart_mcp_server/src/utils/analytics.dart';
 import 'package:dart_mcp_server/src/utils/constants.dart';
 import 'package:test/test.dart';
 import 'package:unified_analytics/testing.dart';
@@ -505,7 +506,7 @@ void main() {
                         'clientVersion': server.clientInfo.version,
                         'serverVersion': server.implementation.version,
                         'type': 'readResource',
-                        'kind': 'runtimeErrors',
+                        'kind': ResourceKind.runtimeErrors.name,
                         'length': isA<int>(),
                         'elapsedMilliseconds': isA<int>(),
                       }),

@@ -134,7 +134,7 @@ base mixin DartToolingDaemonSupport
                 serverVersion: implementation.version,
                 type: AnalyticsEvent.readResource.name,
                 additionalData: ReadResourceMetrics(
-                  kind: 'runtimeErrors',
+                  kind: ResourceKind.runtimeErrors,
                   length: result.contents.length,
                   elapsedMilliseconds: watch.elapsedMilliseconds,
                 ),
