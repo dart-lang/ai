@@ -187,10 +187,6 @@ base class ServerConnection extends MCPBase {
   final _logController =
       StreamController<LoggingMessageNotification>.broadcast();
 
-  /// Completes when [shutdown] is called.
-  Future<void> get done => _done.future;
-  final Completer<void> _done = Completer<void>();
-
   /// A 1:1 connection from a client to a server using [channel].
   ///
   /// If the client supports "roots", then it should provide an implementation
@@ -256,7 +252,6 @@ base class ServerConnection extends MCPBase {
       _resourceUpdatedController.close(),
       _logController.close(),
     ]);
-    _done.complete();
   }
 
   /// Called after a successful call to [initialize].
