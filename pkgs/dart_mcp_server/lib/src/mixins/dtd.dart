@@ -4,6 +4,8 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi';
+import 'dart:io';
 
 import 'package:dart_mcp/server.dart';
 import 'package:dds_service_extensions/dds_service_extensions.dart';
@@ -182,10 +184,19 @@ base mixin DartToolingDaemonSupport
       return CallToolResult(
         content: [TextContent(text: 'Connection succeeded')],
       );
+    } on WebSocketException catch (_) {
+      return CallToolResult(
+        isError: true,
+        content: [
+          Content.text(
+            text: 'Connection failed, make sure your DTD Uri is up to date.',
+          ),
+        ],
+      );
     } catch (e) {
       return CallToolResult(
         isError: true,
-        content: [TextContent(text: 'Connection failed: $e')],
+        content: [Content.text(text: 'Connection failed: $e')],
       );
     }
   }
@@ -604,7 +615,8 @@ base mixin DartToolingDaemonSupport
     description:
         'Connects to the Dart Tooling Daemon. You should ask the user for the '
         'dart tooling daemon URI, and suggest the "Copy DTD Uri to clipboard" '
-        'command. Do not just make up a random URI to pass.',
+        'command. Do not just make up a random URI to pass. When reconnecting '
+        'to DTD after losing a connection, always request a new DTD Uri first.',
     annotations: ToolAnnotations(title: 'Connect to DTD', readOnlyHint: true),
     inputSchema: Schema.object(
       properties: {ParameterNames.uri: Schema.string()},
