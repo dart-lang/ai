@@ -69,7 +69,7 @@ base class MCPBase {
     await Future.wait([
       for (var controller in progressControllers) controller.close(),
     ]);
-    _done.complete();
+    if (!_done.isCompleted) _done.complete();
   }
 
   /// Registers a handler for the method [name] on this server.
