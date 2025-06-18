@@ -615,7 +615,7 @@ base mixin DartToolingDaemonSupport
         'Connects to the Dart Tooling Daemon. You should get the uri either '
         'from available tools or the user, do not just make up a random URI to '
         'pass. When asking the user for the uri, you should suggest the "Copy '
-        'DTD Uri to clipboard" action. Do . When reconnecting after losing a '
+        'DTD Uri to clipboard" action. When reconnecting after losing a '
         'connection, always request a new uri first.',
     annotations: ToolAnnotations(title: 'Connect to DTD', readOnlyHint: true),
     inputSchema: Schema.object(
