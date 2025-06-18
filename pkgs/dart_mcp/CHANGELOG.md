@@ -1,3 +1,8 @@
+## 0.2.2-wip
+
+- Move the `done` future from the `ServerConnection` into `MCPBase` so it is
+  available to the `MPCServer` class as well.
+
 ## 0.2.1
 
 - Fix the `protocolLogSink` support when using `MCPClient.connectStdioServer`.

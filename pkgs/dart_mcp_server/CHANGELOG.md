@@ -39,4 +39,5 @@
 * Add the beginnings of a Dart tooling MCP server.
 * Instruct clients to prefer MCP tools over running tools in the shell.
 * Reduce output size of `run_tests` tool to save on input tokens.
+* Add `--log-file` argument to log all protocol traffic to a file.
 * Add support for injecting an `Analytics` instance to track usage.

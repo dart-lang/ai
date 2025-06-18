@@ -1,5 +1,5 @@
 name: dart_mcp
-version: 0.2.1
+version: 0.2.2-wip
 description: A package for making MCP servers and clients.
 repository: https://github.com/dart-lang/ai/tree/main/pkgs/dart_mcp
 issue_tracker: https://github.com/dart-lang/ai/issues?q=is%3Aissue+is%3Aopen+label%3Apackage%3Adart_mcp

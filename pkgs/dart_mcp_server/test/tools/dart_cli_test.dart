@@ -184,6 +184,69 @@ dependencies:
       ]);
     });
 
+    test('flutter and dart package tests with extra arguments', () async {
+      testHarness.mcpClient.addRoot(dartCliAppRoot);
+      testHarness.mcpClient.addRoot(exampleFlutterAppRoot);
+      await pumpEventQueue();
+      final request = CallToolRequest(
+        name: DashCliSupport.runTestsTool.name,
+        arguments: {
+          ParameterNames.testRunnerArgs: {
+            'run-skipped': true,
+            'platform': ['vm', 'chrome'],
+            'reporter': 'json',
+          },
+          ParameterNames.roots: [
+            {
+              ParameterNames.root: exampleFlutterAppRoot.uri,
+              ParameterNames.paths: ['foo_test.dart', 'bar_test.dart'],
+            },
+            {
+              ParameterNames.root: dartCliAppRoot.uri,
+              ParameterNames.paths: ['zip_test.dart'],
+            },
+          ],
+        },
+      );
+      final result = await testHarness.callToolWithRetry(request);
+
+      // Verify the command was sent to the process manager without error.
+      expect(result.isError, isNot(true));
+      expect(testProcessManager.commandsRan, [
+        equalsCommand((
+          command: [
+            endsWith(flutterExecutableName),
+            'test',
+            '--run-skipped',
+            '--platform',
+            'vm',
+            '--platform',
+            'chrome',
+            '--reporter',
+            'json',
+            'foo_test.dart',
+            'bar_test.dart',
+          ],
+          workingDirectory: exampleFlutterAppRoot.path,
+        )),
+        equalsCommand((
+          command: [
+            endsWith(dartExecutableName),
+            'test',
+            '--run-skipped',
+            '--platform',
+            'vm',
+            '--platform',
+            'chrome',
+            '--reporter',
+            'json',
+            'zip_test.dart',
+          ],
+          workingDirectory: dartCliAppRoot.path,
+        )),
+      ]);
+    });
+
     group('create', () {
       test('creates a Dart project', () async {
         testHarness.mcpClient.addRoot(dartCliAppRoot);

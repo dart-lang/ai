@@ -21,6 +21,7 @@ extension ParameterNames on Never {
   static const root = 'root';
   static const roots = 'roots';
   static const template = 'template';
+  static const testRunnerArgs = 'testRunnerArgs';
   static const uri = 'uri';
   static const uris = 'uris';
 }
