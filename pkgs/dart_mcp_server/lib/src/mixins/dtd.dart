@@ -4,8 +4,6 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ffi';
-import 'dart:io';
 
 import 'package:dart_mcp/server.dart';
 import 'package:dds_service_extensions/dds_service_extensions.dart';
@@ -14,6 +12,7 @@ import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:meta/meta.dart';
 import 'package:vm_service/vm_service.dart';
 import 'package:vm_service/vm_service_io.dart';
+import 'package:web_socket/web_socket.dart';
 
 import '../utils/constants.dart';
 
