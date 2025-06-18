@@ -612,10 +612,11 @@ base mixin DartToolingDaemonSupport
   static final connectTool = Tool(
     name: 'connect_dart_tooling_daemon',
     description:
-        'Connects to the Dart Tooling Daemon. You should ask the user for the '
-        'dart tooling daemon URI, and suggest the "Copy DTD Uri to clipboard" '
-        'command. Do not just make up a random URI to pass. When reconnecting '
-        'to DTD after losing a connection, always request a new DTD Uri first.',
+        'Connects to the Dart Tooling Daemon. You should get the uri either '
+        'from available tools or the user, do not just make up a random URI to '
+        'pass. When asking the user for the uri, you should suggest the "Copy '
+        'DTD Uri to clipboard" action. Do . When reconnecting after losing a '
+        'connection, always request a new uri first.',
     annotations: ToolAnnotations(title: 'Connect to DTD', readOnlyHint: true),
     inputSchema: Schema.object(
       properties: {ParameterNames.uri: Schema.string()},
