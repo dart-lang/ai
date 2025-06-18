@@ -12,10 +12,11 @@ import 'test_harness.dart';
 void main() {
   group('--log-file', () {
     late d.FileDescriptor logDescriptor;
+    late TestHarness testHarness;
 
     setUp(() async {
       logDescriptor = d.file('log.txt');
-      await TestHarness.start(
+      testHarness = await TestHarness.start(
         inProcess: false,
         cliArgs: ['--log-file', logDescriptor.io.path],
       );
@@ -30,6 +31,8 @@ void main() {
           allOf(startsWith('<<<'), contains('"notifications/initialized"')),
         ]),
       );
+      // Ensure the file handle is released before the file is cleaned up.
+      await testHarness.serverConnectionPair.serverConnection.shutdown();
     });
   });
 }
