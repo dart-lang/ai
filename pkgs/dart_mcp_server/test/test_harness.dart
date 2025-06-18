@@ -64,9 +64,14 @@ class TestHarness {
   /// MCP server is ran in process.
   ///
   /// Use [startDebugSession] to start up apps and connect to them.
+  ///
+  /// If [cliArgs] are passed, they will be given to the MCP server. This is
+  /// only supported when [inProcess] is `false`, which is enforced via
+  /// assertions.
   static Future<TestHarness> start({
     bool inProcess = false,
     FileSystem? fileSystem,
+    List<String> cliArgs = const [],
   }) async {
     final sdk = Sdk.find(
       dartSdkPath: Platform.environment['DART_SDK'],
@@ -82,6 +87,7 @@ class TestHarness {
       inProcess,
       fileSystem,
       sdk,
+      cliArgs,
     );
     final connection = serverConnectionPair.serverConnection;
     connection.onLog.listen((log) {
@@ -388,10 +394,13 @@ Future<ServerConnectionPair> _initializeMCPServer(
   bool inProcess,
   FileSystem fileSystem,
   Sdk sdk,
+  List<String> cliArgs,
 ) async {
   ServerConnection connection;
   DartMCPServer? server;
   if (inProcess) {
+    assert(cliArgs.isEmpty);
+
     /// The client side of the communication channel - the stream is the
     /// incoming data and the sink is outgoing data.
     final clientController = StreamController<String>();
@@ -421,6 +430,7 @@ Future<ServerConnectionPair> _initializeMCPServer(
       'pub', // Using `pub` gives us incremental compilation
       'run',
       'bin/main.dart',
+      ...cliArgs,
     ]);
   }
 

@@ -38,6 +38,7 @@ final class DartMCPServer extends MCPServer
     @visibleForTesting this.processManager = const LocalProcessManager(),
     @visibleForTesting this.fileSystem = const LocalFileSystem(),
     this.forceRootsFallback = false,
+    super.protocolLogSink,
   }) : super.fromStreamChannel(
          implementation: Implementation(
            name: 'dart and flutter tooling',

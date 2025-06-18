@@ -39,6 +39,15 @@ base class MCPBase {
   /// Whether the connection with the peer is active.
   bool get isActive => !_peer.isClosed;
 
+  /// Completes after [shutdown] is called.
+  Future<void> get done => _done.future;
+  final _done = Completer<void>();
+
+  /// Initializes an MCP connection on [channel].
+  ///
+  /// If [protocolLogSink] is provided, all incoming and outgoing messages will
+  /// added logged to it. It is the responsibility of the caller to close the
+  /// sink.
   MCPBase(StreamChannel<String> channel, {Sink<String>? protocolLogSink}) {
     _peer = Peer(_maybeForwardMessages(channel, protocolLogSink));
     registerNotificationHandler(
@@ -48,7 +57,7 @@ base class MCPBase {
 
     registerRequestHandler(PingRequest.methodName, _handlePing);
 
-    _peer.listen();
+    _peer.listen().whenComplete(shutdown);
   }
 
   /// Handles cleanup of all streams and other resources on shutdown.
@@ -60,6 +69,7 @@ base class MCPBase {
     await Future.wait([
       for (var controller in progressControllers) controller.close(),
     ]);
+    if (!_done.isCompleted) _done.complete();
   }
 
   /// Registers a handler for the method [name] on this server.

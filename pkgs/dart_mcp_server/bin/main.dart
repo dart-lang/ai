@@ -25,6 +25,9 @@ void main(List<String> args) async {
   final flutterSdkPath =
       parsedArgs.option(flutterSdkOption) ??
       io.Platform.environment['FLUTTER_SDK'];
+  final logFilePath = parsedArgs.option(logFileOption);
+  final logFileSink =
+      logFilePath == null ? null : createLogSink(io.File(logFilePath));
   runZonedGuarded(
     () {
       server = DartMCPServer(
@@ -40,7 +43,8 @@ void main(List<String> args) async {
             ),
         forceRootsFallback: parsedArgs.flag(forceRootsFallback),
         sdk: Sdk.find(dartSdkPath: dartSdkPath, flutterSdkPath: flutterSdkPath),
-      );
+        protocolLogSink: logFileSink,
+      )..done.whenComplete(() => logFileSink?.close());
     },
     (e, s) {
       if (server != null) {
@@ -94,9 +98,37 @@ final argParser =
             'cursor which claim to have roots support but do not actually '
             'support it.',
       )
+      ..addOption(
+        logFileOption,
+        help:
+            'Path to a file to log all MPC protocol traffic to. File will be '
+            'overwritten if it exists.',
+      )
       ..addFlag(help, abbr: 'h', help: 'Show usage text');
 
 const dartSdkOption = 'dart-sdk';
 const flutterSdkOption = 'flutter-sdk';
 const forceRootsFallback = 'force-roots-fallback';
 const help = 'help';
+const logFileOption = 'log-file';
+
+/// Creates a `Sink<String>` for [logFile].
+Sink<String> createLogSink(io.File logFile) {
+  logFile.createSync(recursive: true);
+  final fileByteSink = logFile.openWrite(
+    mode: io.FileMode.write,
+    encoding: utf8,
+  );
+  return fileByteSink.transform(
+    StreamSinkTransformer.fromHandlers(
+      handleData: (data, innerSink) {
+        innerSink.add(utf8.encode(data));
+        // It's a log, so we want to make sure it's always up-to-date.
+        fileByteSink.flush();
+      },
+      handleDone: (innerSink) {
+        innerSink.close();
+      },
+    ),
+  );
+}

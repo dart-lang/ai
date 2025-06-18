@@ -54,7 +54,8 @@ base class MCPClient {
   ///
   /// If [protocolLogSink] is provided, all messages sent between the client and
   /// server will be forwarded to that [Sink] as well, with `<<<` preceding
-  /// incoming messages and `>>>` preceding outgoing messages.
+  /// incoming messages and `>>>` preceding outgoing messages. It is the
+  /// responsibility of the caller to close this sink.
   Future<ServerConnection> connectStdioServer(
     String command,
     List<String> arguments, {
@@ -90,7 +91,8 @@ base class MCPClient {
   ///
   /// If [protocolLogSink] is provided, all messages sent on [channel] will be
   /// forwarded to that [Sink] as well, with `<<<` preceding incoming messages
-  /// and `>>>` preceding outgoing messages.
+  /// and `>>>` preceding outgoing messages. It is the responsibility of the
+  /// caller to close this sink.
   ServerConnection connectServer(
     StreamChannel<String> channel, {
     Sink<String>? protocolLogSink,
@@ -187,10 +189,6 @@ base class ServerConnection extends MCPBase {
   final _logController =
       StreamController<LoggingMessageNotification>.broadcast();
 
-  /// Completes when [shutdown] is called.
-  Future<void> get done => _done.future;
-  final Completer<void> _done = Completer<void>();
-
   /// A 1:1 connection from a client to a server using [channel].
   ///
   /// If the client supports "roots", then it should provide an implementation
@@ -256,7 +254,6 @@ base class ServerConnection extends MCPBase {
       _resourceUpdatedController.close(),
       _logController.close(),
     ]);
-    _done.complete();
   }
 
   /// Called after a successful call to [initialize].
