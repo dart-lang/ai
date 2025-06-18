@@ -75,19 +75,6 @@ final class DartMCPServer extends MCPServer
   @override
   final Analytics? analytics;
 
-  /// Only safe to call after [initialize].
-  @override
-  ClientImplementation get clientInfo => _clientInfo;
-
-  /// Assigned in [initialize].
-  late final ClientImplementation _clientInfo;
-
-  @override
-  FutureOr<InitializeResult> initialize(InitializeRequest request) {
-    _clientInfo = request.clientInfo;
-    return super.initialize(request);
-  }
-
   @override
   /// Automatically logs all tool calls via analytics by wrapping the [impl],
   /// if [analytics] is not `null`.

@@ -2,21 +2,15 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'package:dart_mcp/server.dart';
 import 'package:unified_analytics/unified_analytics.dart';
 
 /// An interface class that provides a access to an [Analytics] instance, if
 /// enabled.
 ///
-/// Also provides a [clientInfo] getter which is required for analytics
-/// requests.
-///
 /// The `DartMCPServer` class implements this class so that [Analytics]
 /// methods can be easily mocked during testing.
 abstract interface class AnalyticsSupport {
   Analytics? get analytics;
-
-  ClientImplementation get clientInfo;
 }
 
 enum AnalyticsEvent { callTool, readResource }
