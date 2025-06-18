@@ -57,7 +57,7 @@ base class MCPBase {
 
     registerRequestHandler(PingRequest.methodName, _handlePing);
 
-    _peer.listen();
+    _peer.listen().whenComplete(shutdown);
   }
 
   /// Handles cleanup of all streams and other resources on shutdown.
