@@ -1,5 +1,9 @@
-## 0.2.2-wip
+## 0.2.2
 
+- Refactor `ClientImplementation` and `ServerImplementation` to the shared
+  `Implementation` type to match the spec. The old names are deprecated but will
+  still work until the next breaking release.
+- Add `clientInfo` field to `MCPServer`, assigned during initialization.
 - Move the `done` future from the `ServerConnection` into `MCPBase` so it is
   available to the `MPCServer` class as well.
 

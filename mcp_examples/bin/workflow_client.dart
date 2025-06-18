@@ -107,9 +107,7 @@ final class WorkflowClient extends MCPClient with RootsSupport {
        stdinQueue = StreamQueue(
          stdin.transform(utf8.decoder).transform(const LineSplitter()),
        ),
-       super(
-         ClientImplementation(name: 'Gemini workflow client', version: '0.1.0'),
-       ) {
+       super(Implementation(name: 'Gemini workflow client', version: '0.1.0')) {
     logSink = _createLogSink(logFile);
     addRoot(
       Root(

@@ -32,7 +32,7 @@ abstract base class MCPServer extends MCPBase {
   bool get ready => isActive && _initialized.isCompleted;
 
   /// The name, current version, and other info to give to the client.
-  final ServerImplementation implementation;
+  final Implementation implementation;
 
   /// Instructions for how to use this server, which are given to the client.
   ///
@@ -48,6 +48,11 @@ abstract base class MCPServer extends MCPBase {
   ///
   /// Only assigned after `initialize` has been called.
   late ClientCapabilities clientCapabilities;
+
+  /// The client implementation information provided during initialization.
+  ///
+  /// Only assigned after `initialize` has been called.
+  late Implementation clientInfo;
 
   @override
   String get name => implementation.name;
@@ -106,6 +111,9 @@ abstract base class MCPServer extends MCPBase {
         _rootsListChangedController!.sink.add,
       );
     }
+
+    clientInfo = request.clientInfo;
+
     assert(!_initialized.isCompleted);
     return InitializeResult(
       protocolVersion: protocolVersion,

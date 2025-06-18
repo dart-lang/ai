@@ -13,7 +13,7 @@ extension type InitializeRequest._fromMap(Map<String, Object?> _value)
   factory InitializeRequest({
     required ProtocolVersion protocolVersion,
     required ClientCapabilities capabilities,
-    required ClientImplementation clientInfo,
+    required Implementation clientInfo,
     MetaWithProgressToken? meta,
   }) => InitializeRequest._fromMap({
     'protocolVersion': protocolVersion.versionString,
@@ -33,8 +33,7 @@ extension type InitializeRequest._fromMap(Map<String, Object?> _value)
   ClientCapabilities get capabilities =>
       _value['capabilities'] as ClientCapabilities;
 
-  ClientImplementation get clientInfo =>
-      _value['clientInfo'] as ClientImplementation;
+  Implementation get clientInfo => _value['clientInfo'] as Implementation;
 }
 
 /// After receiving an initialize request from the client, the server sends
@@ -44,7 +43,7 @@ extension type InitializeResult.fromMap(Map<String, Object?> _value)
   factory InitializeResult({
     required ProtocolVersion protocolVersion,
     required ServerCapabilities serverCapabilities,
-    required ServerImplementation serverInfo,
+    required Implementation serverInfo,
     String? instructions,
   }) => InitializeResult.fromMap({
     'protocolVersion': protocolVersion.versionString,
@@ -74,8 +73,7 @@ extension type InitializeResult.fromMap(Map<String, Object?> _value)
   ServerCapabilities get capabilities =>
       _value['capabilities'] as ServerCapabilities;
 
-  ServerImplementation get serverInfo =>
-      _value['serverInfo'] as ServerImplementation;
+  Implementation get serverInfo => _value['serverInfo'] as Implementation;
 
   /// Instructions describing how to use the server and its features.
   ///
@@ -295,24 +293,17 @@ extension type Tools.fromMap(Map<String, Object?> _value) {
   }
 }
 
-/// Describes the name and version of an MCP client implementation.
-extension type ClientImplementation.fromMap(Map<String, Object?> _value) {
-  factory ClientImplementation({
-    required String name,
-    required String version,
-  }) => ClientImplementation.fromMap({'name': name, 'version': version});
+/// Describes the name and version of an MCP implementation.
+extension type Implementation.fromMap(Map<String, Object?> _value) {
+  factory Implementation({required String name, required String version}) =>
+      Implementation.fromMap({'name': name, 'version': version});
 
   String get name => _value['name'] as String;
   String get version => _value['version'] as String;
 }
 
-/// Describes the name and version of an MCP server implementation.
-extension type ServerImplementation.fromMap(Map<String, Object?> _value) {
-  factory ServerImplementation({
-    required String name,
-    required String version,
-  }) => ServerImplementation.fromMap({'name': name, 'version': version});
+@Deprecated('Use Implementation instead.')
+typedef ClientImplementation = Implementation;
 
-  String get name => _value['name'] as String;
-  String get version => _value['version'] as String;
-}
+@Deprecated('Use Implementation instead.')
+typedef ServerImplementation = Implementation;

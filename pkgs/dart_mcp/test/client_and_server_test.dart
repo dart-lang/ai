@@ -23,6 +23,12 @@ void main() {
     expect(initializeResult.instructions, environment.server.instructions);
     expect(initializeResult.protocolVersion, ProtocolVersion.latestSupported);
 
+    expect(environment.server.clientInfo, environment.client.implementation);
+    expect(
+      environment.serverConnection.serverInfo,
+      environment.server.implementation,
+    );
+
     expect(
       environment.serverConnection.listTools(ListToolsRequest()),
       throwsA(
@@ -337,7 +343,7 @@ void main() {
           InitializeRequest(
             protocolVersion: ProtocolVersion.latestSupported,
             capabilities: ClientCapabilities(),
-            clientInfo: ClientImplementation(name: '', version: ''),
+            clientInfo: Implementation(name: '', version: ''),
           ),
         ),
         throwsA(

@@ -6,7 +6,7 @@ import 'package:dart_mcp/client.dart';
 
 void main() async {
   final client = MCPClient(
-    ClientImplementation(name: 'example dart client', version: '0.1.0'),
+    Implementation(name: 'example dart client', version: '0.1.0'),
   );
   print('connecting to server');
   final server = await client.connectStdioServer('dart', [

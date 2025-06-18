@@ -284,7 +284,7 @@ final class AppDebugSession {
 final class DartToolingMCPClient extends MCPClient with RootsSupport {
   DartToolingMCPClient()
     : super(
-        ClientImplementation(
+        Implementation(
           name: 'test client for the dart tooling mcp server',
           version: '0.1.0',
         ),

@@ -190,7 +190,7 @@ void main() {
 final class TestClientWithoutRoots extends MCPClient {
   TestClientWithoutRoots()
     : super(
-        ClientImplementation(
+        Implementation(
           name: 'test client with no roots support',
           version: '0.1.0',
         ),
@@ -201,7 +201,7 @@ final class TestClientWithoutRoots extends MCPClient {
 final class TestClientWithRoots extends MCPClient with RootsSupport {
   TestClientWithRoots()
     : super(
-        ClientImplementation(
+        Implementation(
           name: 'test client with roots support',
           version: '0.1.0',
         ),
@@ -223,10 +223,7 @@ final class TestServer extends MCPServer
     super.protocolLogSink,
     this.forceRootsFallback = false,
   }) : super.fromStreamChannel(
-         implementation: ServerImplementation(
-           name: 'test server',
-           version: '0.1.0',
-         ),
+         implementation: Implementation(name: 'test server', version: '0.1.0'),
          instructions: 'A test server with roots fallback support',
        );
 }

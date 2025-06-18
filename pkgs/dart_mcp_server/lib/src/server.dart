@@ -49,7 +49,7 @@ final class DartMCPServer extends MCPServer
     this.forceRootsFallback = false,
     super.protocolLogSink,
   }) : super.fromStreamChannel(
-         implementation: ServerImplementation(
+         implementation: Implementation(
            name: 'dart and flutter tooling',
            version: '0.1.0',
          ),

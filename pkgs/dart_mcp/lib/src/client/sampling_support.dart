@@ -26,6 +26,6 @@ base mixin SamplingSupport on MCPClient {
   /// request gave when it was initialized.
   FutureOr<CreateMessageResult> handleCreateMessage(
     CreateMessageRequest request,
-    ServerImplementation serverInfo,
+    Implementation serverInfo,
   );
 }
