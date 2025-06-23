@@ -35,7 +35,7 @@ extension type ListRootsResult.fromMap(Map<String, Object?> _value)
 
   List<Root> get roots {
     if (_value['roots'] == null) {
-      throw ArgumentError('Missing roots field in ListRootsResult.');
+      throw ArgumentError('Missing roots field in $ListRootsResult.');
     }
     return (_value['roots'] as List).cast<Root>();
   }

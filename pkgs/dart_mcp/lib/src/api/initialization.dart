@@ -15,15 +15,12 @@ extension type InitializeRequest._fromMap(Map<String, Object?> _value)
     required ClientCapabilities capabilities,
     required Implementation clientInfo,
     MetaWithProgressToken? meta,
-  }) {
-    print('Made it!');
-    return InitializeRequest._fromMap({
-      'protocolVersion': protocolVersion.versionString,
-      'capabilities': capabilities,
-      'clientInfo': clientInfo,
-      if (meta != null) '_meta': meta,
-    });
-  }
+  }) => InitializeRequest._fromMap({
+    'protocolVersion': protocolVersion.versionString,
+    'capabilities': capabilities,
+    'clientInfo': clientInfo,
+    if (meta != null) '_meta': meta,
+  });
 
   /// The latest version of the Model Context Protocol that the client supports.
   ///

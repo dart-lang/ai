@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'package:dart_mcp/client.dart';
-import 'package:dart_mcp/src/api/api.dart';
 import 'package:test/test.dart';
 
 void main() {
