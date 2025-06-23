@@ -80,7 +80,12 @@ extension type CallToolRequest._fromMap(Map<String, Object?> _value)
   });
 
   /// The name of the method to invoke.
-  String get name => _value['name'] as String;
+  String get name {
+    if (_value['name'] == null) {
+      throw ArgumentError('Missing name field in $CallToolRequest');
+    }
+    return _value['name'] as String;
+  }
 
   /// The arguments to pass to the method.
   Map<String, Object?>? get arguments =>

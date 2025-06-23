@@ -39,8 +39,12 @@ extension type CreateMessageRequest.fromMap(Map<String, Object?> _value)
   });
 
   /// The messages to send to the LLM.
-  List<SamplingMessage> get messages =>
-      (_value['messages'] as List).cast<SamplingMessage>();
+  List<SamplingMessage> get messages {
+    if (_value['messages'] == null) {
+      throw ArgumentError('Missing messages field in $CreateMessageRequest.');
+    }
+    return (_value['messages'] as List).cast<SamplingMessage>();
+  }
 
   /// The server's preferences for which model to select.
   ///
@@ -69,7 +73,12 @@ extension type CreateMessageRequest.fromMap(Map<String, Object?> _value)
   /// The maximum number of tokens to sample, as requested by the server.
   ///
   /// The client MAY choose to sample fewer tokens than requested.
-  int get maxTokens => _value['maxTokens'] as int;
+  int get maxTokens {
+    if (_value['maxTokens'] == null) {
+      throw ArgumentError('Missing maxTokens field in $CreateMessageRequest.');
+    }
+    return _value['maxTokens'] as int;
+  }
 
   /// Note: This has no documentation in the specification or schema.
   List<String>? get stopSequences =>

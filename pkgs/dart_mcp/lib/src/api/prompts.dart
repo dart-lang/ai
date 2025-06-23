@@ -49,7 +49,12 @@ extension type GetPromptRequest.fromMap(Map<String, Object?> _value)
   });
 
   /// The name of the prompt or prompt template.
-  String get name => _value['name'] as String;
+  String get name {
+    if (_value['name'] == null) {
+      throw ArgumentError('Missing name field in $GetPromptRequest.');
+    }
+    return _value['name'] as String;
+  }
 
   /// Arguments to use for templating the prompt.
   Map<String, Object?>? get arguments =>

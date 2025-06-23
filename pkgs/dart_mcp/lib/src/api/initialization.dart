@@ -15,12 +15,15 @@ extension type InitializeRequest._fromMap(Map<String, Object?> _value)
     required ClientCapabilities capabilities,
     required Implementation clientInfo,
     MetaWithProgressToken? meta,
-  }) => InitializeRequest._fromMap({
-    'protocolVersion': protocolVersion.versionString,
-    'capabilities': capabilities,
-    'clientInfo': clientInfo,
-    if (meta != null) '_meta': meta,
-  });
+  }) {
+    print('Made it!');
+    return InitializeRequest._fromMap({
+      'protocolVersion': protocolVersion.versionString,
+      'capabilities': capabilities,
+      'clientInfo': clientInfo,
+      if (meta != null) '_meta': meta,
+    });
+  }
 
   /// The latest version of the Model Context Protocol that the client supports.
   ///
@@ -30,10 +33,19 @@ extension type InitializeRequest._fromMap(Map<String, Object?> _value)
   ProtocolVersion? get protocolVersion =>
       ProtocolVersion.tryParse(_value['protocolVersion'] as String);
 
-  ClientCapabilities get capabilities =>
-      _value['capabilities'] as ClientCapabilities;
+  ClientCapabilities get capabilities {
+    if (_value['capabilities'] == null) {
+      throw ArgumentError('Missing capabilities field in $InitializeRequest.');
+    }
+    return _value['capabilities'] as ClientCapabilities;
+  }
 
-  Implementation get clientInfo => _value['clientInfo'] as Implementation;
+  Implementation get clientInfo {
+    if (_value['clientInfo'] == null) {
+      throw ArgumentError('Missing clientInfo field in $InitializeRequest.');
+    }
+    return _value['clientInfo'] as Implementation;
+  }
 }
 
 /// After receiving an initialize request from the client, the server sends
