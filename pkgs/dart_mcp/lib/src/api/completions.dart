@@ -28,19 +28,25 @@ extension type CompleteRequest.fromMap(Map<String, Object?> _value)
   /// In the case of a [ResourceReference], it must refer to a
   /// [ResourceTemplate].
   Reference get ref {
-    if (_value['ref'] == null) {
-      throw ArgumentError('Missing ref field in $CompleteRequest.');
-    }
-    return _value['ref'] as Reference;
+    final ref = _value['ref'];
+    return switch (ref) {
+      Reference _ => ref,
+      null => throw ArgumentError('Missing ref field in $CompleteRequest.'),
+      _ =>
+        throw ArgumentError(
+          'Invalid ref field in $CompleteRequest, expected a $Reference.',
+        ),
+    };
   }
 
   /// The argument's information.
   CompletionArgument get argument {
     if (_value['argument'] == null) {
       throw ArgumentError('Missing argument field in $CompleteRequest.');
+    } else {
+      return (_value['argument'] as Map).cast<String, Object?>()
+          as CompletionArgument;
     }
-    return (_value['argument'] as Map).cast<String, Object?>()
-        as CompletionArgument;
   }
 }
 
