@@ -2,7 +2,6 @@ name: dart_mcp_server
 description: >-
   An MCP server for Dart projects, exposing various developer tools to AI
   models.
-
 publish_to: none
 
 environment:
@@ -33,6 +32,7 @@ dependencies:
   pool: ^1.5.1
   process: ^5.0.3
   stream_channel: ^2.1.4
+  unified_analytics: ^8.0.2
   vm_service: ^15.0.0
   watcher: ^1.1.1
   web_socket: ^1.0.1

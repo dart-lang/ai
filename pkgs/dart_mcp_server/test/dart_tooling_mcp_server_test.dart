@@ -5,12 +5,94 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:dart_mcp/server.dart';
+import 'package:dart_mcp_server/src/server.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
+import 'package:unified_analytics/testing.dart';
+import 'package:unified_analytics/unified_analytics.dart';
 
 import 'test_harness.dart';
 
 void main() {
+  group('analytics', () {
+    late TestHarness testHarness;
+    late DartMCPServer server;
+    late FakeAnalytics analytics;
+
+    setUp(() async {
+      testHarness = await TestHarness.start(inProcess: true);
+      server = testHarness.serverConnectionPair.server!;
+      analytics = server.analytics as FakeAnalytics;
+    });
+
+    test('sends analytics for successful tool calls', () async {
+      server.registerTool(
+        Tool(name: 'hello', inputSchema: Schema.object()),
+        (_) => CallToolResult(content: [Content.text(text: 'world')]),
+      );
+      final result = await testHarness.callToolWithRetry(
+        CallToolRequest(name: 'hello'),
+      );
+      expect((result.content.single as TextContent).text, 'world');
+      expect(
+        analytics.sentEvents.single,
+        isA<Event>()
+            .having((e) => e.eventName, 'eventName', DashEvent.dartMCPEvent)
+            .having(
+              (e) => e.eventData,
+              'eventData',
+              equals({
+                'client': server.clientInfo.name,
+                'clientVersion': server.clientInfo.version,
+                'serverVersion': server.implementation.version,
+                'type': 'callTool',
+                'tool': 'hello',
+                'success': true,
+                'elapsedMilliseconds': isA<int>(),
+              }),
+            ),
+      );
+    });
+
+    test('sends analytics for failed tool calls', () async {
+      server.registerTool(
+        Tool(name: 'hello', inputSchema: Schema.object()),
+        (_) => CallToolResult(isError: true, content: []),
+      );
+      final result = await testHarness.mcpServerConnection.callTool(
+        CallToolRequest(name: 'hello'),
+      );
+      expect(result.isError, true);
+      expect(
+        analytics.sentEvents.single,
+        isA<Event>()
+            .having((e) => e.eventName, 'eventName', DashEvent.dartMCPEvent)
+            .having(
+              (e) => e.eventData,
+              'eventData',
+              equals({
+                'client': server.clientInfo.name,
+                'clientVersion': server.clientInfo.version,
+                'serverVersion': server.implementation.version,
+                'type': 'callTool',
+                'tool': 'hello',
+                'success': false,
+                'elapsedMilliseconds': isA<int>(),
+              }),
+            ),
+      );
+    });
+
+    test('Changelog version matches dart server version', () {
+      final changelogFile = File('CHANGELOG.md');
+      expect(
+        changelogFile.readAsLinesSync().first.split(' ')[1],
+        testHarness.serverConnectionPair.server!.implementation.version,
+      );
+    });
+  });
+
   group('--log-file', () {
     late d.FileDescriptor logDescriptor;
     late TestHarness testHarness;
@@ -41,7 +123,7 @@ void main() {
 
       // Wait for the process to release the file.
       await doWithRetries(() => File(logDescriptor.io.path).delete());
-    });
+    }, skip: 'https://github.com/dart-lang/ai/issues/181');
   });
 }
 

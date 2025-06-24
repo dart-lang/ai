@@ -1,4 +1,4 @@
-# Dart SDK 3.8.0 - WP
+# 0.1.0 (Dart SDK 3.8.0) - WP
 
 * Add documentation/homepage/repository links to pub results.
 * Handle relative paths under roots without trailing slashes.
@@ -41,3 +41,4 @@
 * Reduce output size of `run_tests` tool to save on input tokens.
 * Add `--log-file` argument to log all protocol traffic to a file.
 * Improve error text for failed DTD connections as well as the tool description.
+* Add support for injecting an `Analytics` instance to track usage.

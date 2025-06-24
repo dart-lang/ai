@@ -16,11 +16,13 @@ import 'package:dart_mcp_server/src/utils/sdk.dart';
 import 'package:dtd/dtd.dart';
 import 'package:file/file.dart';
 import 'package:file/local.dart';
+import 'package:file/memory.dart';
 import 'package:path/path.dart' as p;
 import 'package:process/process.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'package:test/test.dart';
 import 'package:test_process/test_process.dart';
+import 'package:unified_analytics/unified_analytics.dart';
 
 /// A full environment for integration testing the MCP server.
 ///
@@ -417,11 +419,32 @@ Future<ServerConnectionPair> _initializeMCPServer(
       clientController.stream,
       serverController.sink,
     );
+    final analyticsFileSystem = MemoryFileSystem();
+    final analyticsHomeDir = analyticsFileSystem.directory('home');
+    late Analytics analytics;
+    // Need to create it twice, for the first run analytics are never sent.
+    for (var i = 0; i < 2; i++) {
+      analytics = Analytics.fake(
+        tool: DashTool.dartTool,
+        dartVersion: Platform.version.substring(
+          0,
+          Platform.version.indexOf(' '),
+        ),
+        fs: analyticsFileSystem,
+        homeDirectory: analyticsHomeDir,
+        toolsMessageVersion: -2, // Required or else analytics are disabled
+      );
+    }
+    // Required to enable telemetry
+    analytics.clientShowedMessage();
+    expect(analytics.okToSend, true);
+
     server = DartMCPServer(
       serverChannel,
       processManager: TestProcessManager(),
       fileSystem: fileSystem,
       sdk: sdk,
+      analytics: analytics,
     );
     addTearDown(server.shutdown);
     connection = client.connectServer(clientChannel);

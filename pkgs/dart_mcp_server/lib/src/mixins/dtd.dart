@@ -10,10 +10,12 @@ import 'package:dds_service_extensions/dds_service_extensions.dart';
 import 'package:dtd/dtd.dart';
 import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:meta/meta.dart';
+import 'package:unified_analytics/unified_analytics.dart' as ua;
 import 'package:vm_service/vm_service.dart';
 import 'package:vm_service/vm_service_io.dart';
 import 'package:web_socket/web_socket.dart';
 
+import '../utils/analytics.dart';
 import '../utils/constants.dart';
 
 /// Mix this in to any MCPServer to add support for connecting to the Dart
@@ -22,7 +24,8 @@ import '../utils/constants.dart';
 ///
 /// The MCPServer must already have the [ToolsSupport] mixin applied.
 base mixin DartToolingDaemonSupport
-    on ToolsSupport, LoggingSupport, ResourcesSupport {
+    on ToolsSupport, LoggingSupport, ResourcesSupport
+    implements AnalyticsSupport {
   DartToolingDaemon? _dtd;
 
   /// Whether or not the DTD extension to get the active debug sessions is
@@ -115,12 +118,32 @@ base mixin DartToolingDaemonSupport
               '"${debugSession.name}".',
         );
         addResource(resource, (request) async {
-          return ReadResourceResult(
+          final watch = Stopwatch()..start();
+          final result = ReadResourceResult(
             contents: [
               for (var error in errorService.errorLog.errors)
                 TextResourceContents(uri: resource.uri, text: error),
             ],
           );
+          watch.stop();
+          try {
+            analytics?.send(
+              ua.Event.dartMCPEvent(
+                client: clientInfo.name,
+                clientVersion: clientInfo.version,
+                serverVersion: implementation.version,
+                type: AnalyticsEvent.readResource.name,
+                additionalData: ReadResourceMetrics(
+                  kind: ResourceKind.runtimeErrors,
+                  length: result.contents.length,
+                  elapsedMilliseconds: watch.elapsedMilliseconds,
+                ),
+              ),
+            );
+          } catch (e) {
+            log(LoggingLevel.warning, 'Error sending analytics event: $e');
+          }
+          return result;
         });
         errorService.errorsStream.listen((_) => updateResource(resource));
         unawaited(

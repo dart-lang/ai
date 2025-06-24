@@ -9,8 +9,12 @@ import 'dart:io';
 import 'package:async/async.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp_server/src/mixins/dtd.dart';
+import 'package:dart_mcp_server/src/server.dart';
+import 'package:dart_mcp_server/src/utils/analytics.dart';
 import 'package:dart_mcp_server/src/utils/constants.dart';
 import 'package:test/test.dart';
+import 'package:unified_analytics/testing.dart';
+import 'package:unified_analytics/unified_analytics.dart' as ua;
 import 'package:vm_service/vm_service.dart';
 
 import '../test_harness.dart';
@@ -148,6 +152,8 @@ void main() {
     });
 
     group('[in process]', () {
+      late ua.FakeAnalytics analytics;
+      late DartMCPServer server;
       setUp(() async {
         DartToolingDaemonSupport.debugAwaitVmServiceDisposal = true;
         addTearDown(
@@ -155,6 +161,8 @@ void main() {
         );
 
         testHarness = await TestHarness.start(inProcess: true);
+        server = testHarness.serverConnectionPair.server!;
+        analytics = server.analytics! as ua.FakeAnalytics;
         await testHarness.connectToDtd();
       });
 
@@ -480,6 +488,31 @@ void main() {
                   ReadResourceRequest(uri: resource.uri),
                 )).contents;
             expect(finalContents, isEmpty);
+
+            expect(
+              analytics.sentEvents,
+              contains(
+                isA<ua.Event>()
+                    .having(
+                      (e) => e.eventName,
+                      'eventName',
+                      DashEvent.dartMCPEvent,
+                    )
+                    .having(
+                      (e) => e.eventData,
+                      'eventData',
+                      equals({
+                        'client': server.clientInfo.name,
+                        'clientVersion': server.clientInfo.version,
+                        'serverVersion': server.implementation.version,
+                        'type': 'readResource',
+                        'kind': ResourceKind.runtimeErrors.name,
+                        'length': isA<int>(),
+                        'elapsedMilliseconds': isA<int>(),
+                      }),
+                    ),
+              ),
+            );
           },
           onPlatform: {
             'windows': const Skip('https://github.com/dart-lang/ai/issues/151'),
