@@ -28,11 +28,11 @@ extension type CompleteRequest.fromMap(Map<String, Object?> _value)
   /// In the case of a [ResourceReference], it must refer to a
   /// [ResourceTemplate].
   Reference get ref {
-    final ref = _value['ref'];
+    final ref = _value['ref'] as Reference?;
     if (ref == null) {
       throw ArgumentError('Missing ref field in $CompleteRequest.');
     }
-    return ref as Reference;
+    return ref;
   }
 
   /// The argument's information.
