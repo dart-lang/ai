@@ -41,12 +41,11 @@ extension type CompleteRequest.fromMap(Map<String, Object?> _value)
 
   /// The argument's information.
   CompletionArgument get argument {
-    if (_value['argument'] == null) {
+    final argument = _value['argument'] as Map?;
+    if (argument == null) {
       throw ArgumentError('Missing argument field in $CompleteRequest.');
-    } else {
-      return (_value['argument'] as Map).cast<String, Object?>()
-          as CompletionArgument;
     }
+    return argument.cast<String, Object?>() as CompletionArgument;
   }
 }
 

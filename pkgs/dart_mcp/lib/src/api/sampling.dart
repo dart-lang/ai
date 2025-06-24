@@ -40,10 +40,11 @@ extension type CreateMessageRequest.fromMap(Map<String, Object?> _value)
 
   /// The messages to send to the LLM.
   List<SamplingMessage> get messages {
-    if (_value['messages'] == null) {
+    final messages = _value['messages'] as List?;
+    if (messages == null) {
       throw ArgumentError('Missing messages field in $CreateMessageRequest.');
     }
-    return (_value['messages'] as List).cast<SamplingMessage>();
+    return messages.cast<SamplingMessage>();
   }
 
   /// The server's preferences for which model to select.
@@ -74,10 +75,11 @@ extension type CreateMessageRequest.fromMap(Map<String, Object?> _value)
   ///
   /// The client MAY choose to sample fewer tokens than requested.
   int get maxTokens {
-    if (_value['maxTokens'] == null) {
+    final maxTokens = _value['maxTokens'] as int?;
+    if (maxTokens == null) {
       throw ArgumentError('Missing maxTokens field in $CreateMessageRequest.');
     }
-    return _value['maxTokens'] as int;
+    return maxTokens;
   }
 
   /// Note: This has no documentation in the specification or schema.

@@ -39,11 +39,11 @@ extension type InitializeRequest._fromMap(Map<String, Object?> _value)
   }
 
   Implementation get clientInfo {
-    if (_value['clientInfo'] == null) {
+    final clientInfo = _value['clientInfo'] as Implementation?;
+    if (clientInfo == null) {
       throw ArgumentError('Missing clientInfo field in $InitializeRequest.');
-    } else {
-      return _value['clientInfo'] as Implementation;
     }
+    return clientInfo;
   }
 }
 
