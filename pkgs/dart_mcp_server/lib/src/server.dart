@@ -125,8 +125,8 @@ final class DartMCPServer extends MCPServer
         print: (_, _, _, value) {
           if (server != null) {
             try {
-              // Don't allow `print` since this breaks stdio communication, but if
-              // we have a server we do log messages to the client.
+              // Don't allow `print` since this breaks stdio communication, but
+              // if we have a server we do log messages to the client.
               server!.log(LoggingLevel.info, value);
             } catch (_) {}
           }
@@ -211,18 +211,18 @@ final class DartMCPServer extends MCPServer
           flutterSdkOption,
           help:
               'The path to the root of the desired Flutter SDK. Defaults to '
-              'the FLUTTER_SDK environment variable, then searching up from the '
-              'Dart SDK.',
+              'the FLUTTER_SDK environment variable, then searching up from '
+              'the Dart SDK.',
         )
         ..addFlag(
           forceRootsFallbackFlag,
           negatable: true,
           defaultsTo: false,
           help:
-              'Forces a behavior for project roots which uses MCP tools instead '
-              'of the native MCP roots. This can be helpful for clients like '
-              'cursor which claim to have roots support but do not actually '
-              'support it.',
+              'Forces a behavior for project roots which uses MCP tools '
+              'instead of the native MCP roots. This can be helpful for '
+              'clients like cursor which claim to have roots support but do '
+              'not actually support it.',
         )
         ..addOption(
           logFileOption,
