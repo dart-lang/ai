@@ -22,7 +22,8 @@ part 'tools.dart';
 /// Enum of the known protocol versions.
 enum ProtocolVersion {
   v2024_11_05('2024-11-05'),
-  v2025_03_26('2025-03-26');
+  v2025_03_26('2025-03-26'),
+  v2025_06_18('2025-06-18');
 
   const ProtocolVersion(this.versionString);
 

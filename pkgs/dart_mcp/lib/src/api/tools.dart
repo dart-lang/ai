@@ -47,16 +47,21 @@ extension type CallToolResult.fromMap(Map<String, Object?> _value)
   factory CallToolResult({
     Meta? meta,
     required List<Content> content,
+    Object? structuredContent,
     bool? isError,
   }) => CallToolResult.fromMap({
     'content': content,
+    if (structuredContent != null) 'structuredContent': structuredContent,
     if (isError != null) 'isError': isError,
     if (meta != null) '_meta': meta,
   });
 
-  /// The type of content, either [TextContent], [ImageContent],
-  /// or [EmbeddedResource],
+  /// The content, either [TextContent], [ImageContent], or [EmbeddedResource].
   List<Content> get content => (_value['content'] as List).cast<Content>();
+
+  /// The content as structured output, if the [Tool] declared an
+  /// `outputSchema`.
+  Object? get structuredContent => _value['structuredContent'];
 
   /// Whether the tool call ended in an error.
   ///
@@ -106,12 +111,15 @@ extension type Tool.fromMap(Map<String, Object?> _value) {
     required String name,
     String? description,
     required ObjectSchema inputSchema,
+    // Only supported since version `ProtocolVersion.v2025_06_18`.
+    ObjectSchema? outputSchema,
     // Only supported since version `ProtocolVersion.v2025_03_26`.
     ToolAnnotations? annotations,
   }) => Tool.fromMap({
     'name': name,
     if (description != null) 'description': description,
     'inputSchema': inputSchema,
+    if (outputSchema != null) 'outputSchema': outputSchema,
     if (annotations != null) 'annotations': annotations,
   });
 
@@ -131,6 +139,13 @@ extension type Tool.fromMap(Map<String, Object?> _value) {
   /// A JSON [ObjectSchema] object defining the expected parameters for the
   /// tool.
   ObjectSchema get inputSchema => _value['inputSchema'] as ObjectSchema;
+
+  /// An optional JSON [ObjectSchema] object defining the expected schema of the
+  /// tool output.
+  ///
+  /// If the `outputSchema` is specified, then the output from the tool must
+  /// conform to the schema.
+  ObjectSchema get outputSchema => _value['outputSchema'] as ObjectSchema;
 }
 
 /// Additional properties describing a Tool to clients.
