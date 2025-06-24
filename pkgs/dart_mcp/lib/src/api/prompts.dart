@@ -52,8 +52,9 @@ extension type GetPromptRequest.fromMap(Map<String, Object?> _value)
   String get name {
     if (_value['name'] == null) {
       throw ArgumentError('Missing name field in $GetPromptRequest.');
+    } else {
+      return _value['name'] as String;
     }
-    return _value['name'] as String;
   }
 
   /// Arguments to use for templating the prompt.

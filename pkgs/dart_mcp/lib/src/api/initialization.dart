@@ -31,17 +31,19 @@ extension type InitializeRequest._fromMap(Map<String, Object?> _value)
       ProtocolVersion.tryParse(_value['protocolVersion'] as String);
 
   ClientCapabilities get capabilities {
-    if (_value['capabilities'] == null) {
+    final capabilities = _value['capabilities'] as ClientCapabilities?;
+    if (capabilities == null) {
       throw ArgumentError('Missing capabilities field in $InitializeRequest.');
     }
-    return _value['capabilities'] as ClientCapabilities;
+    return capabilities;
   }
 
   Implementation get clientInfo {
     if (_value['clientInfo'] == null) {
       throw ArgumentError('Missing clientInfo field in $InitializeRequest.');
+    } else {
+      return _value['clientInfo'] as Implementation;
     }
-    return _value['clientInfo'] as Implementation;
   }
 }
 
