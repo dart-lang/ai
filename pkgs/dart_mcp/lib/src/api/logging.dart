@@ -27,13 +27,13 @@ extension type SetLevelRequest.fromMap(Map<String, Object?> _value)
   /// The server should send all logs at this level and higher (i.e., more
   /// severe) to the client as notifications/message.
   LoggingLevel get level {
+    final levelName = _value['level'];
     final foundLevel = LoggingLevel.values.firstWhereOrNull(
-      (level) => level.name == _value['level'],
+      (level) => level.name == levelName,
     );
     if (foundLevel == null) {
       throw ArgumentError(
-        "Invalid level field in SetLevelRequest: didn't find level "
-        '${_value['level']}',
+        "Invalid level field in $SetLevelRequest: didn't find level $levelName",
       );
     }
     return foundLevel;

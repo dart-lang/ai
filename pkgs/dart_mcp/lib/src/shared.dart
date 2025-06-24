@@ -80,7 +80,7 @@ base class MCPBase {
     String name,
     FutureOr<R> Function(T) impl,
   ) => _peer.registerMethod(name, (Parameters p) {
-    if (p.value is! Map?) {
+    if (p.value != null && p.value is! Map) {
       throw ArgumentError(
         'Request to $name must be a Map or null. Instead, got '
         '${p.value.runtimeType}',
