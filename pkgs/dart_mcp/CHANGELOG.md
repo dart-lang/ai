@@ -1,3 +1,8 @@
+## 0.2.3-wip
+
+- Added error checking to required fields of all `Request` subclasses so that
+  they will throw helpful errors when accessed and not set.
+
 ## 0.2.2
 
 - Refactor `ClientImplementation` and `ServerImplementation` to the shared
@@ -6,8 +11,6 @@
 - Add `clientInfo` field to `MCPServer`, assigned during initialization.
 - Move the `done` future from the `ServerConnection` into `MCPBase` so it is
   available to the `MPCServer` class as well.
-- Added error checking to required fields of all `Request` subclasses so that
-  they will throw helpful errors when accessed and not set.
 
 ## 0.2.1
 
