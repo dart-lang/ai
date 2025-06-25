@@ -338,12 +338,25 @@ extension type Elicitation.fromMap(Map<String, Object?> _value) {
 }
 
 /// Describes the name and version of an MCP implementation.
-extension type Implementation.fromMap(Map<String, Object?> _value) {
-  factory Implementation({required String name, required String version}) =>
-      Implementation.fromMap({'name': name, 'version': version});
+extension type Implementation.fromMap(Map<String, Object?> _value)
+    implements BaseMetadata {
+  factory Implementation({
+    required String name,
+    required String version,
+    String? title,
+  }) => Implementation.fromMap({
+    'name': name,
+    'version': version,
+    'title': title,
+  });
 
-  String get name => _value['name'] as String;
-  String get version => _value['version'] as String;
+  String get version {
+    final version = _value['version'] as String?;
+    if (version == null) {
+      throw ArgumentError('Missing version field in $Implementation.');
+    }
+    return version;
+  }
 }
 
 @Deprecated('Use Implementation instead.')

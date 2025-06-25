@@ -53,7 +53,7 @@ extension type CallToolResult.fromMap(Map<String, Object?> _value)
   factory CallToolResult({
     Meta? meta,
     required List<Content> content,
-    Object? structuredContent,
+    Map<String, Object?>? structuredContent,
     bool? isError,
   }) => CallToolResult.fromMap({
     'content': content,
@@ -74,7 +74,8 @@ extension type CallToolResult.fromMap(Map<String, Object?> _value)
 
   /// The content as structured output, if the [Tool] declared an
   /// `outputSchema`.
-  Object? get structuredContent => _value['structuredContent'];
+  Map<String, Object?>? get structuredContent =>
+      _value['structuredContent'] as Map<String, Object?>?;
 
   /// Whether the tool call ended in an error.
   ///
@@ -125,21 +126,27 @@ extension type ToolListChangedNotification.fromMap(Map<String, Object?> _value)
 }
 
 /// Definition for a tool the client can call.
-extension type Tool.fromMap(Map<String, Object?> _value) {
+extension type Tool.fromMap(Map<String, Object?> _value)
+    implements BaseMetadata {
   factory Tool({
     required String name,
+    String? title,
     String? description,
     required ObjectSchema inputSchema,
     // Only supported since version `ProtocolVersion.v2025_06_18`.
     ObjectSchema? outputSchema,
     // Only supported since version `ProtocolVersion.v2025_03_26`.
     ToolAnnotations? annotations,
+    // Only supported since version `ProtocolVersion.v2025_03_26`.
+    Meta? meta,
   }) => Tool.fromMap({
     'name': name,
+    if (title != null) 'title': title,
     if (description != null) 'description': description,
     'inputSchema': inputSchema,
     if (outputSchema != null) 'outputSchema': outputSchema,
     if (annotations != null) 'annotations': annotations,
+    if (meta != null) '_meta': meta,
   });
 
   /// Optional additional tool information.
@@ -148,15 +155,6 @@ extension type Tool.fromMap(Map<String, Object?> _value) {
   ToolAnnotations? get toolAnnotations =>
       (_value['annotations'] as Map?)?.cast<String, Object?>()
           as ToolAnnotations?;
-
-  /// The name of the tool.
-  String get name {
-    final name = _value['name'] as String?;
-    if (name == null) {
-      throw ArgumentError('Missing name field in $Tool');
-    }
-    return name;
-  }
 
   /// A human-readable description of the tool.
   String? get description => _value['description'] as String?;

@@ -27,13 +27,13 @@ base mixin ElicitationRequestSupport on LoggingSupport {
   ///
   /// This method will only success if the client has advertised the
   /// `elicitation` capability.
-  Future<ElicitationResult> elicit(String message, Schema requestedSchema) {
+  Future<ElicitResult> elicit(String message, Schema requestedSchema) async {
     if (!supportsElicitation) {
       throw StateError('Client does not support elicitation');
     }
     return sendRequest(
-      ElicitationRequest.methodName,
-      ElicitationRequest(message: message, requestedSchema: requestedSchema),
+      ElicitRequest.methodName,
+      ElicitRequest(message: message, requestedSchema: requestedSchema),
     );
   }
 }

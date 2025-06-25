@@ -221,11 +221,9 @@ base class ServerConnection extends MCPBase {
     }
 
     if (elicitationSupport != null) {
-      registerRequestHandler(ElicitationRequest.methodName, (
-        ElicitationRequest request,
-      ) {
+      registerRequestHandler(ElicitRequest.methodName, (ElicitRequest request) {
         if (elicitationSupport.elicitationHandler == null) {
-          return ElicitationResult(action: ElicitationAction.reject);
+          return ElicitResult(action: ElicitationAction.reject);
         }
         return elicitationSupport.elicitationHandler!(request);
       });

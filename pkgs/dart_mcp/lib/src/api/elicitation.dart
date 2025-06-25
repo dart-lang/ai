@@ -2,11 +2,11 @@ part of 'api.dart';
 
 /// The parameters for an `elicitation/create` request.
 
-extension type ElicitationRequest._fromMap(Map<String, Object?> _value)
+extension type ElicitRequest._fromMap(Map<String, Object?> _value)
     implements Request {
   static const methodName = 'elicitation/create';
 
-  factory ElicitationRequest({
+  factory ElicitRequest({
     required String message,
     required Schema requestedSchema,
   }) {
@@ -14,7 +14,7 @@ extension type ElicitationRequest._fromMap(Map<String, Object?> _value)
       validateRequestedSchema(requestedSchema),
       'Invalid requestedSchema. Must be a flat object of primitive values.',
     );
-    return ElicitationRequest._fromMap({
+    return ElicitRequest._fromMap({
       'message': message,
       'requestedSchema': requestedSchema,
     });
@@ -77,21 +77,25 @@ extension type ElicitationRequest._fromMap(Map<String, Object?> _value)
   }
 }
 
-/// The response to an `elicitation/create` request.
-extension type ElicitationResult.fromMap(Map<String, Object?> _value)
+/// The client's response to an `elicitation/create` request.
+extension type ElicitResult.fromMap(Map<String, Object?> _value)
     implements Result {
-  factory ElicitationResult({
+  factory ElicitResult({
     required ElicitationAction action,
     Map<String, Object?>? content,
-  }) => ElicitationResult.fromMap({'action': action, 'content': content});
+  }) => ElicitResult.fromMap({'action': action, 'content': content});
 
-  /// The action taken by the user.
+  /// The action taken by the user in response to an elicitation request.
+  ///
+  /// - [ElicitationAction.accept]: The user accepted the request and provided
+  ///   the requested information.
+  /// - [ElicitationAction.reject]: The user explicitly declined the action.
+  /// - [ElicitationAction.cancel]: The user dismissed without making an
+  ///   explicit choice.
   ElicitationAction get action {
     final action = _value['action'] as ElicitationAction?;
     if (action == null) {
-      throw ArgumentError(
-        'Missing required action field in $ElicitationResult',
-      );
+      throw ArgumentError('Missing required action field in $ElicitResult');
     }
     return action;
   }
@@ -100,7 +104,7 @@ extension type ElicitationResult.fromMap(Map<String, Object?> _value)
   ///
   /// Must be `null` if the user didn't accept the request.
   ///
-  /// The content must conform to the [ElicitationRequest]'s `requestedSchema`.
+  /// The content must conform to the [ElicitRequest]'s `requestedSchema`.
   Map<String, Object?>? get content =>
       _value['content'] as Map<String, Object?>?;
 }
@@ -110,9 +114,9 @@ enum ElicitationAction {
   /// The user accepted the request and provided the requested information.
   accept,
 
-  /// The user rejected the request.
+  /// The user explicitly declined the action.
   reject,
 
-  /// The user cancelled the request.
+  /// The user dismissed without making an explicit choice.
   cancel,
 }

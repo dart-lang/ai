@@ -63,6 +63,41 @@ extension type Cursor(String _) {}
 /// Generic metadata passed with most requests, can be anything.
 extension type Meta.fromMap(Map<String, Object?> _value) {}
 
+/// Basic metadata required by multiple types.
+///
+/// Not to be confused with the `_meta` property in the spec, which has a
+/// different purpose.
+extension type BaseMetadata.fromMap(Map<String, Object?> _value)
+    implements Meta {
+  factory BaseMetadata({required String name, String? title}) =>
+      BaseMetadata.fromMap({'name': name, 'title': title});
+
+  /// A human-readable name for this object.
+  ///
+  /// This can be used by clients to populate UI elements.
+  ///
+  /// Intended for programmatic or logical use, but used as a display name in
+  /// past specs for fallback (if title isn't present).
+  String get name {
+    final name = _value['name'] as String?;
+    if (name == null) {
+      throw ArgumentError('Missing name field in $runtimeType');
+    }
+    return name;
+  }
+
+  /// A short title for this object.
+  ///
+  /// Intended for UI and end-user contexts — optimized to be human-readable and
+  /// easily understood, even by those unfamiliar with domain-specific
+  /// terminology.
+  ///
+  /// If not provided, the name should be used for display (except for Tool,
+  /// where `annotations.title` should be given precedence over using `name`, if
+  /// present).
+  String? get title => _value['title'] as String?;
+}
+
 /// A "mixin"-like extension type for any extension type that might contain a
 /// [ProgressToken] at the key "progressToken".
 ///
@@ -80,10 +115,24 @@ extension type MetaWithProgressToken.fromMap(Map<String, Object?> _value)
       MetaWithProgressToken.fromMap({'progressToken': progressToken});
 }
 
+/// Base interface for all types that can have arbitrary metadata attached.
+///
+/// Should not be constructed directly, and has no public constructor.
+extension type WithMetadata._fromMap(Map<String, Object?> _value) {
+  /// If specified, the caller is requesting out-of-band progress notifications
+  /// for this request (as represented by notifications/progress).
+  ///
+  /// The value of this parameter is an opaque token that will be attached to
+  /// any subsequent notifications. The receiver is not obligated to provide
+  /// these notifications.
+  Meta? get meta => _value['_meta'] as Meta?;
+}
+
 /// Base interface for all request types.
 ///
 /// Should not be constructed directly, and has no public constructor.
-extension type Request._fromMap(Map<String, Object?> _value) {
+extension type Request._fromMap(Map<String, Object?> _value)
+    implements WithMetadata {
   /// If specified, the caller is requesting out-of-band progress notifications
   /// for this request (as represented by notifications/progress).
   ///
@@ -275,15 +324,19 @@ extension type Content._(Map<String, Object?> _value) {
 
 /// Text provided to or from an LLM.
 extension type TextContent.fromMap(Map<String, Object?> _value)
-    implements Content, Annotated {
+    implements Content, Annotated, WithMetadata {
   static const expectedType = 'text';
 
-  factory TextContent({required String text, Annotations? annotations}) =>
-      TextContent.fromMap({
-        'text': text,
-        'type': expectedType,
-        if (annotations != null) 'annotations': annotations,
-      });
+  factory TextContent({
+    required String text,
+    Annotations? annotations,
+    Meta? meta,
+  }) => TextContent.fromMap({
+    'text': text,
+    'type': expectedType,
+    if (annotations != null) 'annotations': annotations,
+    if (meta != null) '_meta': meta,
+  });
 
   String get type {
     final type = _value['type'] as String;
@@ -297,18 +350,20 @@ extension type TextContent.fromMap(Map<String, Object?> _value)
 
 /// An image provided to or from an LLM.
 extension type ImageContent.fromMap(Map<String, Object?> _value)
-    implements Content, Annotated {
+    implements Content, Annotated, WithMetadata {
   static const expectedType = 'image';
 
   factory ImageContent({
     required String data,
     required String mimeType,
     Annotations? annotations,
+    Meta? meta,
   }) => ImageContent.fromMap({
     'data': data,
     'mimeType': mimeType,
     'type': expectedType,
     if (annotations != null) 'annotations': annotations,
+    if (meta != null) '_meta': meta,
   });
 
   String get type {
@@ -330,18 +385,20 @@ extension type ImageContent.fromMap(Map<String, Object?> _value)
 ///
 /// Only supported since version [ProtocolVersion.v2025_03_26].
 extension type AudioContent.fromMap(Map<String, Object?> _value)
-    implements Content, Annotated {
+    implements Content, Annotated, WithMetadata {
   static const expectedType = 'audio';
 
   factory AudioContent({
     required String data,
     required String mimeType,
     Annotations? annotations,
+    Meta? meta,
   }) => AudioContent.fromMap({
     'data': data,
     'mimeType': mimeType,
     'type': expectedType,
     if (annotations != null) 'annotations': annotations,
+    if (meta != null) '_meta': meta,
   });
 
   String get type {
@@ -364,16 +421,18 @@ extension type AudioContent.fromMap(Map<String, Object?> _value)
 /// It is up to the client how best to render embedded resources for the benefit
 /// of the LLM and/or the user.
 extension type EmbeddedResource.fromMap(Map<String, Object?> _value)
-    implements Content, Annotated {
+    implements Content, Annotated, WithMetadata {
   static const expectedType = 'resource';
 
   factory EmbeddedResource({
     required Content resource,
     Annotations? annotations,
+    Meta? meta,
   }) => EmbeddedResource.fromMap({
     'resource': resource,
     'type': expectedType,
     if (annotations != null) 'annotations': annotations,
+    if (meta != null) '_meta': meta,
   });
 
   String get type {
@@ -446,10 +505,15 @@ extension type Annotated._fromMap(Map<String, Object?> _value) {
 
 /// The annotations for an [Annotated] object.
 extension type Annotations.fromMap(Map<String, Object?> _value) {
-  factory Annotations({List<Role>? audience, double? priority}) {
+  factory Annotations({
+    List<Role>? audience,
+    DateTime? lastModified,
+    double? priority,
+  }) {
     assert(priority == null || (priority >= 0 && priority <= 1));
     return Annotations.fromMap({
       if (audience != null) 'audience': [for (var role in audience) role.name],
+      if (lastModified != null) 'lastModified': lastModified.toIso8601String(),
       if (priority != null) 'priority': priority,
     });
   }
@@ -464,6 +528,18 @@ extension type Annotations.fromMap(Map<String, Object?> _value) {
     return [
       for (var role in audience) Role.values.firstWhere((e) => e.name == role),
     ];
+  }
+
+  /// Describes when this data was last modified.
+  ///
+  /// The moment the resource was last modified.
+  ///
+  /// Examples: last activity timestamp in an open file, timestamp when the
+  /// resource was attached, etc.
+  DateTime? get lastModified {
+    final lastModified = _value['lastModified'] as String?;
+    if (lastModified == null) return null;
+    return DateTime.parse(lastModified);
   }
 
   /// Describes how important this data is for operating the server.

@@ -2,7 +2,7 @@ part of 'client.dart';
 
 /// A function that can handle an elicitation request.
 typedef ElicitationHandler =
-    FutureOr<ElicitationResult> Function(ElicitationRequest request);
+    FutureOr<ElicitResult> Function(ElicitRequest request);
 
 /// A mixin that adds support for the `elicitation` capability to an
 /// [MCPClient].

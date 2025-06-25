@@ -84,7 +84,8 @@ final class TestMCPServerWithCompletions extends TestMCPServer
           completion: Completion(values: cLanguages, hasMore: false),
         );
       case Reference(isResource: true)
-          when (ref as ResourceReference).uri == packageUriTemplate.uriTemplate:
+          when (ref as ResourceTemplateReference).uri ==
+              packageUriTemplate.uriTemplate:
         return switch (request.argument) {
           CompletionArgument(name: 'package_name', value: 'a') =>
             CompleteResult(
@@ -124,7 +125,7 @@ final class TestMCPServerWithCompletions extends TestMCPServer
   );
   static final cLanguages = ['c', 'c++', 'c#'];
 
-  static final packageUriTemplateRef = ResourceReference(
+  static final packageUriTemplateRef = ResourceTemplateReference(
     uri: packageUriTemplate.uriTemplate,
   );
   static final packageUriTemplate = ResourceTemplate(

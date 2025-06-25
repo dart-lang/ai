@@ -43,9 +43,14 @@ extension type ListRootsResult.fromMap(Map<String, Object?> _value)
 }
 
 /// Represents a root directory or file that the server can operate on.
-extension type Root.fromMap(Map<String, Object?> _value) {
-  factory Root({required String uri, String? name}) =>
-      Root.fromMap({'uri': uri, if (name != null) 'name': name});
+extension type Root.fromMap(Map<String, Object?> _value)
+    implements WithMetadata {
+  factory Root({required String uri, String? name, Meta? meta}) =>
+      Root.fromMap({
+        'uri': uri,
+        if (name != null) 'name': name,
+        if (meta != null) '_meta': meta,
+      });
 
   /// The URI identifying the root.
   ///
