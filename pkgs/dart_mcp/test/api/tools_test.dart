@@ -4,8 +4,12 @@
 
 // ignore_for_file: lines_longer_than_80_chars
 
-import 'package:dart_mcp/src/api/api.dart';
+import 'dart:async';
+
+import 'package:dart_mcp/server.dart';
 import 'package:test/test.dart';
+
+import '../test_utils.dart';
 
 void main() {
   // Helper to strip path and details for comparison, keeping only the error
@@ -56,12 +60,12 @@ void main() {
     // This relies on ValidationError's equality being based on its
     // underlying map (including the path if present).
     expect(
-      actualErrors.toSet(),
-      equals(expectedErrorsWithPaths.toSet()),
+      actualErrors.map((e) => e.toString()).toList()..sort(),
+      equals(expectedErrorsWithPaths.map((e) => e.toString()).toList()..sort()),
       reason:
           reason ??
-          'Data: $data. Expected (exact): $expectedErrorsWithPaths. '
-              'Actual (exact): $actualErrors',
+          'Data: $data. Expected (exact): ${expectedErrorsWithPaths.map((e) => e.toString()).toSet()}. '
+              'Actual (exact): ${actualErrors.map((e) => e.toString()).toSet()}',
     );
   }
 
@@ -1763,4 +1767,151 @@ void main() {
       );
     });
   });
+
+  group('Tool Communication', () {
+    test('can call a tool', () async {
+      final environment = TestEnvironment(
+        TestMCPClient(),
+        (channel) => TestMCPServerWithTools(
+          channel,
+          tools: [
+            Tool(
+              name: 'foo',
+              inputSchema: ObjectSchema(properties: {'bar': StringSchema()}),
+            ),
+          ],
+          toolHandlers: {
+            'foo': (CallToolRequest request) {
+              return CallToolResult(
+                content: [
+                  TextContent(
+                    text: (request.arguments as Map)['bar'] as String,
+                  ),
+                ],
+              );
+            },
+          },
+        ),
+      );
+      final serverConnection = environment.serverConnection;
+      await serverConnection.initialize(
+        InitializeRequest(
+          protocolVersion: ProtocolVersion.latestSupported,
+          capabilities: environment.client.capabilities,
+          clientInfo: environment.client.implementation,
+        ),
+      );
+      final request = CallToolRequest(name: 'foo', arguments: {'bar': 'baz'});
+      final result = await serverConnection.callTool(request);
+      expect(result.content, hasLength(1));
+      expect(result.content.first, isA<TextContent>());
+      final textContent = result.content.first as TextContent;
+      expect(textContent.text, 'baz');
+    });
+
+    test('can return a resource link', () async {
+      final environment = TestEnvironment(
+        TestMCPClient(),
+        (channel) => TestMCPServerWithTools(
+          channel,
+          tools: [Tool(name: 'foo', inputSchema: ObjectSchema())],
+          toolHandlers: {
+            'foo': (request) {
+              return CallToolResult(
+                content: [
+                  ResourceLink(
+                    name: 'foo',
+                    description: 'a description',
+                    uri: 'https://google.com',
+                    mimeType: 'text/html',
+                  ),
+                ],
+              );
+            },
+          },
+        ),
+      );
+      final serverConnection = environment.serverConnection;
+      await serverConnection.initialize(
+        InitializeRequest(
+          protocolVersion: ProtocolVersion.latestSupported,
+          capabilities: environment.client.capabilities,
+          clientInfo: environment.client.implementation,
+        ),
+      );
+      final request = CallToolRequest(name: 'foo', arguments: {});
+      final result = await serverConnection.callTool(request);
+      expect(result.content, hasLength(1));
+      expect(result.content.first, isA<ResourceLink>());
+      final resourceLink = result.content.first as ResourceLink;
+      expect(resourceLink.name, 'foo');
+      expect(resourceLink.description, 'a description');
+      expect(resourceLink.uri, 'https://google.com');
+      expect(resourceLink.mimeType, 'text/html');
+    });
+
+    test('can return structured content', () async {
+      final environment = TestEnvironment(
+        TestMCPClient(),
+        (channel) => TestMCPServerWithTools(
+          channel,
+          tools: [
+            Tool(
+              name: 'foo',
+              inputSchema: ObjectSchema(),
+              outputSchema: ObjectSchema(properties: {'bar': StringSchema()}),
+            ),
+          ],
+          toolHandlers: {
+            'foo': (request) {
+              return CallToolResult(
+                content: [],
+                structuredContent: {'bar': 'baz'},
+              );
+            },
+          },
+        ),
+      );
+      final serverConnection = environment.serverConnection;
+      await serverConnection.initialize(
+        InitializeRequest(
+          protocolVersion: ProtocolVersion.latestSupported,
+          capabilities: environment.client.capabilities,
+          clientInfo: environment.client.implementation,
+        ),
+      );
+      final request = CallToolRequest(name: 'foo', arguments: {});
+      final result = await serverConnection.callTool(request);
+      expect(result.structuredContent, {'bar': 'baz'});
+    });
+  });
+}
+
+base class TestMCPServerWithTools extends TestMCPServer with ToolsSupport {
+  final List<Tool> _initialTools;
+  final Map<String, FutureOr<CallToolResult> Function(CallToolRequest)>
+  _initialToolHandlers;
+
+  TestMCPServerWithTools(
+    super.channel, {
+    List<Tool> tools = const [],
+    Map<String, FutureOr<CallToolResult> Function(CallToolRequest)>
+        toolHandlers =
+        const {},
+  }) : _initialTools = tools,
+       _initialToolHandlers = toolHandlers;
+
+  @override
+  FutureOr<InitializeResult> initialize(InitializeRequest request) async {
+    final result = await super.initialize(request);
+    for (final tool in _initialTools) {
+      final handler = _initialToolHandlers[tool.name];
+      if (handler != null) {
+        registerTool(tool, handler);
+      } else {
+        throw StateError('No handler provided for tool: ${tool.name}');
+      }
+    }
+    return result;
+  }
 }

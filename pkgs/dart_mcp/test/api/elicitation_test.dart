@@ -1,3 +1,7 @@
+// Copyright (c) 2025, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
 import 'dart:async';
 
 import 'package:dart_mcp/client.dart';
@@ -6,9 +10,9 @@ import 'package:test/test.dart';
 
 import '../test_utils.dart';
 
-void elicitationTests() {
+void main() {
   group('elicitation', () {
-    test('client and server can elicit information', () async {
+    test('server can elicit information from client', () async {
       final elicitationCompleter = Completer<ElicitResult>();
       final environment = TestEnvironment(
         TestMCPClientWithElicitationSupport(
@@ -55,10 +59,10 @@ final class TestMCPClientWithElicitationSupport extends TestMCPClient
   TestMCPClientWithElicitationSupport({this.elicitationHandler});
 
   @override
-  final ElicitationHandler? elicitationHandler;
+  ElicitationHandler? elicitationHandler;
 }
 
-final class TestMCPServerWithElicitationRequestSupport extends TestMCPServer
+base class TestMCPServerWithElicitationRequestSupport extends TestMCPServer
     with LoggingSupport, ElicitationRequestSupport {
   TestMCPServerWithElicitationRequestSupport(super.channel);
 }

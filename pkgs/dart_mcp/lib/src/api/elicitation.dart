@@ -83,7 +83,7 @@ extension type ElicitResult.fromMap(Map<String, Object?> _value)
   factory ElicitResult({
     required ElicitationAction action,
     Map<String, Object?>? content,
-  }) => ElicitResult.fromMap({'action': action, 'content': content});
+  }) => ElicitResult.fromMap({'action': action.name, 'content': content});
 
   /// The action taken by the user in response to an elicitation request.
   ///
@@ -93,11 +93,11 @@ extension type ElicitResult.fromMap(Map<String, Object?> _value)
   /// - [ElicitationAction.cancel]: The user dismissed without making an
   ///   explicit choice.
   ElicitationAction get action {
-    final action = _value['action'] as ElicitationAction?;
+    final action = _value['action'] as String?;
     if (action == null) {
       throw ArgumentError('Missing required action field in $ElicitResult');
     }
-    return action;
+    return ElicitationAction.values.byName(action);
   }
 
   /// The content of the response, if the user accepted the request.

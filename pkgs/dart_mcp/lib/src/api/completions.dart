@@ -117,7 +117,7 @@ extension type CompletionContext.fromMap(Map<String, Object?> _value) {
 
   /// Previously-resolved variables in a URI template or prompt.
   Map<String, String>? get arguments =>
-      _value['arguments'] as Map<String, String>?;
+      (_value['arguments'] as Map?)?.cast<String, String>();
 }
 
 /// Union type for references, see [PromptReference] and
