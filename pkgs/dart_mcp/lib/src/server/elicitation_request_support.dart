@@ -1,7 +1,7 @@
 part of 'server.dart';
 
 /// A mixin that adds support for making `elicitation/create` requests to a
-/// [MCPServer].
+/// [MCPClient].
 base mixin ElicitationRequestSupport on LoggingSupport {
   /// Whether or not the connected client supports elicitation.
   ///
