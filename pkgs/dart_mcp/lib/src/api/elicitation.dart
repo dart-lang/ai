@@ -10,6 +10,10 @@ extension type ElicitationRequest._fromMap(Map<String, Object?> _value)
     required String message,
     required Schema requestedSchema,
   }) {
+    assert(
+      validateRequestedSchema(requestedSchema),
+      'Invalid requestedSchema. Must be a flat object of primitive values.',
+    );
     return ElicitationRequest._fromMap({
       'message': message,
       'requestedSchema': requestedSchema,
@@ -21,64 +25,59 @@ extension type ElicitationRequest._fromMap(Map<String, Object?> _value)
 
   /// A JSON schema that describes the expected response.
   ///
-  /// The content will only consist of a flat `Map` (no nested maps or lists)
+  /// The content may only consist of a flat `Map` (no nested maps or lists)
   /// with primitive values (`String`, `num`, `bool`, `enum`).
   ///
-  /// Here are the allowed schemas for the primitive values that could be
-  /// received:
-  ///
-  /// 1. **String Schema**
-  ///
-  ///    ```json
-  ///    {
-  ///      "type": "string",
-  ///      "title": "Display Name",
-  ///      "description": "Description text",
-  ///      "minLength": 3,
-  ///      "maxLength": 50,
-  ///      "pattern": "^[A-Za-z]+$",
-  ///      "format": "email"
-  ///    }
-  ///    ```
-  ///
-  ///    Supported formats: `email`, `uri`, `date`, `date-time`
-  ///
-  /// 2. **Number Schema**
-  ///
-  ///    ```json
-  ///    {
-  ///      "type": "number", // or "integer"
-  ///      "title": "Display Name",
-  ///      "description": "Description text",
-  ///      "minimum": 0,
-  ///      "maximum": 100
-  ///    }
-  ///    ```
-  ///
-  /// 3. **Boolean Schema**
-  ///
-  ///    ```json
-  ///    {
-  ///      "type": "boolean",
-  ///      "title": "Display Name",
-  ///      "description": "Description text",
-  ///      "default": false
-  ///    }
-  ///    ```
-  ///
-  /// 4. **Enum Schema**
-  ///    ```json
-  ///    {
-  ///      "type": "string",
-  ///      "title": "Display Name",
-  ///      "description": "Description text",
-  ///      "enum": ["option1", "option2", "option3"],
-  ///      "enumNames": ["Option 1", "Option 2", "Option 3"]
-  ///    }
-  ///    ```
+  /// You can use [validateRequestedSchema] to validate that the schema conforms
+  /// to these limitations.
   ///
   /// In Dart, the enum values will be represented as a `String`.
   Schema get requestedSchema => _value['requestedSchema'] as Schema;
+
+  /// Validates the [schema] to make sure that it conforms to the
+  /// limitations of the spec.
+  ///
+  /// See also: [requestedSchema] for a description of the spec limitations.
+  static bool validateRequestedSchema(Schema schema) {
+    if (schema.type != JsonType.object) {
+      return false;
+    }
+
+    final objectSchema = schema as ObjectSchema;
+    final properties = objectSchema.properties;
+
+    if (properties == null) {
+      return true; // No properties to validate.
+    }
+
+    for (final propertySchema in properties.values) {
+      // Combinators would mean it's not a simple primitive type.
+      if (propertySchema.allOf != null ||
+          propertySchema.anyOf != null ||
+          propertySchema.oneOf != null ||
+          propertySchema.not != null) {
+        return false;
+      }
+
+      switch (propertySchema.type) {
+        case JsonType.string:
+        case JsonType.num:
+        case JsonType.int:
+        case JsonType.bool:
+        case JsonType.enumeration:
+          // These are the allowed primitive types.
+          break;
+        case JsonType.object:
+        case JsonType.list:
+        case JsonType.nil:
+        case null:
+          // Disallowed, or no type specified.
+          return false;
+      }
+    }
+
+    return true;
+  }
 
   Map<String, dynamic> toJson() => _value;
 }

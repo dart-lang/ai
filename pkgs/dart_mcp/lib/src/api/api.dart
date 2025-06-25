@@ -37,7 +37,7 @@ enum ProtocolVersion {
   static const oldestSupported = ProtocolVersion.v2024_11_05;
 
   /// The most recent version supported by the current API.
-  static const latestSupported = ProtocolVersion.v2025_03_26;
+  static const latestSupported = ProtocolVersion.v2025_06_18;
 
   /// The version string used over the wire to identify this version.
   final String versionString;
