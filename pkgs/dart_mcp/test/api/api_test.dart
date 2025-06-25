@@ -5,6 +5,8 @@
 import 'package:dart_mcp/client.dart';
 import 'package:test/test.dart';
 
+import '../test_utils.dart';
+
 void main() {
   test('protocol versions can be compared', () {
     expect(
@@ -57,5 +59,20 @@ void main() {
       ProtocolVersion.latestSupported > ProtocolVersion.latestSupported,
       false,
     );
+  });
+  group('negotiation', () {
+    test('client and server respect negotiated protocol version', () async {
+      final environment = TestEnvironment(TestMCPClient(), TestMCPServer.new);
+      final serverConnection = environment.serverConnection;
+      final initializeResult = await serverConnection.initialize(
+        InitializeRequest(
+          protocolVersion: ProtocolVersion.oldestSupported,
+          capabilities: environment.client.capabilities,
+          clientInfo: environment.client.implementation,
+        ),
+      );
+      expect(initializeResult.protocolVersion, ProtocolVersion.oldestSupported);
+      expect(serverConnection.protocolVersion, ProtocolVersion.oldestSupported);
+    });
   });
 }

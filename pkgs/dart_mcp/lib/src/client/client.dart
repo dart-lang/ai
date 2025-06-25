@@ -122,7 +122,7 @@ base class MCPClient {
 
 /// An active server connection.
 base class ServerConnection extends MCPBase {
-  /// The version of the protocol that was negotiated during intialization.
+  /// The version of the protocol that was negotiated during initialization.
   ///
   /// Some APIs may error if you attempt to use them without first checking the
   /// protocol version.
@@ -279,6 +279,8 @@ base class ServerConnection extends MCPBase {
     final serverVersion = response.protocolVersion;
     if (serverVersion?.isSupported != true) {
       await shutdown();
+    } else {
+      protocolVersion = response.protocolVersion!;
     }
     return response;
   }
