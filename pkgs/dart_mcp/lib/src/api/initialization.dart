@@ -113,10 +113,12 @@ extension type ClientCapabilities.fromMap(Map<String, Object?> _value) {
     Map<String, Object?>? experimental,
     RootsCapabilities? roots,
     Map<String, Object?>? sampling,
+    ElicitationCapability? elicitation,
   }) => ClientCapabilities.fromMap({
     if (experimental != null) 'experimental': experimental,
     if (roots != null) 'roots': roots,
     if (sampling != null) 'sampling': sampling,
+    if (elicitation != null) 'elicitation': elicitation,
   });
 
   /// Experimental, non-standard capabilities that the client supports.
@@ -147,6 +149,16 @@ extension type ClientCapabilities.fromMap(Map<String, Object?> _value) {
     assert(sampling == null);
     _value['sampling'] = value;
   }
+
+  /// Present if the client supports elicitation.
+  ElicitationCapability? get elicitation =>
+      _value['elicitation'] as ElicitationCapability?;
+
+  /// Sets [elicitation] asserting it is non-null first.
+  set elicitation(ElicitationCapability? value) {
+    assert(elicitation == null);
+    _value['elicitation'] = value;
+  }
 }
 
 /// Whether the client supports notifications for changes to the roots list.
@@ -165,6 +177,11 @@ extension type RootsCapabilities.fromMap(Map<String, Object?> _value) {
   }
 }
 
+/// Whether the client supports elicitation.
+extension type ElicitationCapability.fromMap(Map<String, Object?> _value) {
+  factory ElicitationCapability() => ElicitationCapability.fromMap({});
+}
+
 /// Capabilities that a server may support.
 ///
 /// Known capabilities are defined here, in this schema, but this is not a
@@ -177,12 +194,14 @@ extension type ServerCapabilities.fromMap(Map<String, Object?> _value) {
     Prompts? prompts,
     Resources? resources,
     Tools? tools,
+    Elicitation? elicitation,
   }) => ServerCapabilities.fromMap({
     if (experimental != null) 'experimental': experimental,
     if (logging != null) 'logging': logging,
     if (prompts != null) 'prompts': prompts,
     if (resources != null) 'resources': resources,
     if (tools != null) 'tools': tools,
+    if (elicitation != null) 'elicitation': elicitation,
   });
 
   /// Experimental, non-standard capabilities that the server supports.
@@ -239,6 +258,15 @@ extension type ServerCapabilities.fromMap(Map<String, Object?> _value) {
   set tools(Tools? value) {
     assert(tools == null);
     _value['tools'] = value;
+  }
+
+  /// Present if the server supports elicitation.
+  Elicitation? get elicitation => _value['elicitation'] as Elicitation?;
+
+  /// Sets [elicitation] if it is null, otherwise throws.
+  set elicitation(Elicitation? value) {
+    assert(elicitation == null);
+    _value['elicitation'] = value;
   }
 }
 
@@ -302,6 +330,11 @@ extension type Tools.fromMap(Map<String, Object?> _value) {
     assert(listChanged == null);
     _value['listChanged'] = value;
   }
+}
+
+/// Elicitation parameter for [ServerCapabilities].
+extension type Elicitation.fromMap(Map<String, Object?> _value) {
+  factory Elicitation() => Elicitation.fromMap({});
 }
 
 /// Describes the name and version of an MCP implementation.

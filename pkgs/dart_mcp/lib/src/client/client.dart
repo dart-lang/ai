@@ -15,6 +15,7 @@ import 'package:stream_channel/stream_channel.dart';
 import '../api/api.dart';
 import '../shared.dart';
 
+part 'elicitation_support.dart';
 part 'roots_support.dart';
 part 'sampling_support.dart';
 
@@ -104,6 +105,7 @@ base class MCPClient {
       protocolLogSink: protocolLogSink,
       rootsSupport: self is RootsSupport ? self : null,
       samplingSupport: self is SamplingSupport ? self : null,
+      elicitationSupport: self is ElicitationSupport ? self : null,
     );
     connections.add(connection);
     channel.sink.done.then((_) => connections.remove(connection));
@@ -201,6 +203,7 @@ base class ServerConnection extends MCPBase {
     super.protocolLogSink,
     RootsSupport? rootsSupport,
     SamplingSupport? samplingSupport,
+    ElicitationSupport? elicitationSupport,
   }) {
     if (rootsSupport != null) {
       registerRequestHandler(
@@ -215,6 +218,17 @@ base class ServerConnection extends MCPBase {
         (CreateMessageRequest request) =>
             samplingSupport.handleCreateMessage(request, serverInfo!),
       );
+    }
+
+    if (elicitationSupport != null) {
+      registerRequestHandler(ElicitationRequest.methodName, (
+        ElicitationRequest request,
+      ) {
+        if (elicitationSupport.elicitationHandler == null) {
+          return ElicitationResult(action: ElicitationAction.reject);
+        }
+        return elicitationSupport.elicitationHandler!(request);
+      });
     }
 
     registerNotificationHandler(

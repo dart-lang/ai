@@ -11,6 +11,7 @@ import 'package:collection/collection.dart';
 import 'package:json_rpc_2/json_rpc_2.dart';
 
 part 'completions.dart';
+part 'elicitation.dart';
 part 'initialization.dart';
 part 'logging.dart';
 part 'prompts.dart';

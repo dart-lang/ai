@@ -73,7 +73,7 @@ extension type Root.fromMap(Map<String, Object?> _value) {
 /// This notification should be sent whenever the client adds, removes, or
 /// modifies any root.
 /// The server should then request an updated list of roots using the
-/// ListRootsRequest.
+/// [ListRootsRequest].
 extension type RootsListChangedNotification.fromMap(Map<String, Object?> _value)
     implements Notification {
   static const methodName = 'notifications/roots/list_changed';
