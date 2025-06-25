@@ -56,7 +56,8 @@ extension type CallToolResult.fromMap(Map<String, Object?> _value)
     if (meta != null) '_meta': meta,
   });
 
-  /// The content, either [TextContent], [ImageContent], or [EmbeddedResource].
+  /// The returned content, either [TextContent], [ImageContent],
+  /// [AudioContent], [ResourceLink] or [EmbeddedResource].
   List<Content> get content => (_value['content'] as List).cast<Content>();
 
   /// The content as structured output, if the [Tool] declared an

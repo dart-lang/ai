@@ -387,6 +387,54 @@ extension type EmbeddedResource.fromMap(Map<String, Object?> _value)
   String? get mimeType => _value['mimeType'] as String?;
 }
 
+/// A resource link returned from a tool.
+///
+/// Resource links returned by tools are not guaranteed to appear in the results
+/// of a `resources/list` request.
+extension type ResourceLink.fromMap(Map<String, Object?> _value)
+    implements Content, Annotated {
+  static const expectedType = 'resource_link';
+
+  factory ResourceLink({
+    required String name,
+    required String description,
+    required String uri,
+    required String mimeType,
+    Annotations? annotations,
+  }) => ResourceLink.fromMap({
+    'name': name,
+    'description': description,
+    'uri': uri,
+    'mimeType': mimeType,
+    'type': expectedType,
+    if (annotations != null) 'annotations': annotations,
+  });
+
+  String get type {
+    final type = _value['type'] as String;
+    assert(type == expectedType);
+    return type;
+  }
+
+  /// The name of the resource.
+  String get name => _value['name'] as String;
+
+  /// The description of the resource.
+  String get description => _value['description'] as String;
+
+  /// The base64 encoded image data.
+  String get uri {
+    final uri = _value['uri'] as String?;
+    if (uri == null) {
+      throw ArgumentError('Missing uri field in $ResourceLink.');
+    }
+    return uri;
+  }
+
+  /// The MIME type of the resource.
+  String get mimeType => _value['mimeType'] as String;
+}
+
 /// Base type for objects that include optional annotations for the client.
 ///
 /// The client can use annotations to inform how objects are used or displayed.

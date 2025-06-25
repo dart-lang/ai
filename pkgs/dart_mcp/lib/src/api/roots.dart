@@ -51,7 +51,13 @@ extension type Root.fromMap(Map<String, Object?> _value) {
   ///
   /// This *must* start with file:// for now. This restriction may be relaxed
   /// in future versions of the protocol to allow other URI schemes.
-  String get uri => _value['uri'] as String;
+  String get uri {
+    final uri = _value['uri'] as String?;
+    if (uri == null) {
+      throw ArgumentError('Missing uri field in $Root.');
+    }
+    return uri;
+  }
 
   /// An optional name for the root.
   ///
