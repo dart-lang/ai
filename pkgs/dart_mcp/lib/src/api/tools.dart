@@ -340,13 +340,6 @@ extension type ValidationError.fromMap(Map<String, Object?> _value) {
 /// if you need something more complex you can create your own
 /// `Map<String, Object?>` and cast it to [Schema] (or [ObjectSchema]) directly.
 extension type Schema.fromMap(Map<String, Object?> _value) {
-  factory Schema({JsonType? type, String? title, String? description}) =>
-      Schema.fromMap({
-        'type': JsonType.enumeration.typeName,
-        if (title != null) 'title': title,
-        if (description != null) 'description': description,
-      });
-
   /// A combined schema, see
   /// https://json-schema.org/understanding-json-schema/reference/combining#schema-composition
   factory Schema.combined({
