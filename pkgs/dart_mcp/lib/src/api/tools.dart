@@ -196,6 +196,7 @@ enum JsonType {
   num('number'),
   int('integer'),
   bool('boolean'),
+  enumeration('enum'),
   nil('null');
 
   const JsonType(this.typeName);
@@ -237,6 +238,9 @@ enum ValidationErrorType {
   minLengthNotMet,
   maxLengthExceeded,
   patternMismatch,
+
+  // Enum specific
+  enumValueNotAllowed,
 
   // Number/Integer specific
   minimumNotMet,
@@ -334,6 +338,9 @@ extension type Schema.fromMap(Map<String, Object?> _value) {
   /// Alias for [ObjectSchema.new].
   static const object = ObjectSchema.new;
 
+  /// Alias for [EnumSchema.new].
+  static const enumeration = EnumSchema.new;
+
   /// Alias for [NullSchema.new].
   static const nil = NullSchema.new;
 
@@ -420,6 +427,12 @@ extension SchemaValidation on Schema {
           );
         case JsonType.int:
           isValid = (this as IntegerSchema)._validateInteger(
+            data,
+            currentPath,
+            accumulatedFailures,
+          );
+        case JsonType.enumeration:
+          isValid = (this as EnumSchema)._validateEnum(
             data,
             currentPath,
             accumulatedFailures,
@@ -1078,6 +1091,56 @@ extension type const StringSchema.fromMap(Map<String, Object?> _value)
       );
     }
     return isValid;
+  }
+}
+
+/// A JSON Schema definition for a set of allowed string values.
+extension type EnumSchema.fromMap(Map<String, Object?> _value)
+    implements Schema {
+  factory EnumSchema({
+    String? title,
+    String? description,
+    required Set<String> values,
+  }) => EnumSchema.fromMap({
+    'type': JsonType.enumeration.typeName,
+    if (title != null) 'title': title,
+    if (description != null) 'description': description,
+    'enum': values.toSet(),
+  });
+
+  /// A title for this schema, should be short.
+  String? get title => _value['title'] as String?;
+
+  /// A description of this schema.
+  String? get description => _value['description'] as String?;
+
+  /// The allowed enum values.
+  Set<String> get values => (_value['enum'] as Set).cast<String>();
+
+  bool _validateEnum(
+    Object? data,
+    List<String> currentPath,
+    HashSet<ValidationError> accumulatedFailures,
+  ) {
+    if (data is! String) {
+      accumulatedFailures.add(
+        ValidationError(ValidationErrorType.typeMismatch, path: currentPath),
+      );
+      return false;
+    }
+    if (!values.contains(data)) {
+      accumulatedFailures.add(
+        ValidationError(
+          ValidationErrorType.enumValueNotAllowed,
+          path: currentPath,
+          details:
+              'String "$data" is not one of the allowed values: '
+              '${values.join(', ')}',
+        ),
+      );
+      return false;
+    }
+    return true;
   }
 }
 
