@@ -19,6 +19,32 @@ WIP. This package is still experimental and is likely to evolve quickly.
 - `run_tests`: Run Dart or Flutter tests with an agent centric UX. ALWAYS use instead of `dart test` or `flutter test` shell commands.
 - `create_project`: Creates a new Dart or Flutter project.
 
+### analysis
+
+- `analyze_files`: Analyzes the entire project for errors.
+- `resolve_workspace_symbol`: Look up a symbol or symbols in all workspaces by name. Can be used to validate that a symbol exists or discover small spelling mistakes, since the search is fuzzy.
+- `signature_help`: Get signature help for an API being used at a given cursor position in a file.
+- `hover`: Get hover information at a given cursor position in a file. This can include documentation, type information, etc for the text at that position.
+
+### runtime
+
+- `connect_dart_tooling_daemon`: Connects to the Dart Tooling Daemon. You should get the uri either from available tools or the user, do not just make up a random URI to pass. When asking the user for the uri, you should suggest the "Copy DTD Uri to clipboard" action. When reconnecting after losing a connection, always request a new uri first.
+- `get_runtime_errors`: Retrieves the most recent runtime errors that have occurred in the active Dart or Flutter application. Requires "connect_dart_tooling_daemon" to be successfully called first.
+- `take_screenshot`: Takes a screenshot of the active Flutter application in its current state. Requires "connect_dart_tooling_daemon" to be successfully called first.
+- `hot_reload`: Performs a hot reload of the active Flutter application. This is to apply the latest code changes to the running application. Requires "connect_dart_tooling_daemon" to be successfully called first.
+- `get_widget_tree`: Retrieves the widget tree from the active Flutter application. Requires "connect_dart_tooling_daemon" to be successfully called first.
+- `get_selected_widget`: Retrieves the selected widget from the active Flutter application. Requires "connect_dart_tooling_daemon" to be successfully called first.
+- `set_widget_selection_mode`: Enables or disables widget selection mode in the active Flutter application. Requires "connect_dart_tooling_daemon" to be successfully called first.
+- `get_active_location`: Retrieves the current active location (e.g., cursor position) in the connected editor. Requires "connect_dart_tooling_daemon" to be successfully called first.
+
+### pub
+
+- `pub`: Runs a pub command for the given project roots, like `dart pub get` or `flutter pub add`.
+
+### pub.dev
+
+- `pub_dev_search`: Searches pub.dev for packages relevant to a given search query. The response will describe each result with its download count, package description, topics, license, and publisher.
+
 <!-- generated -->
 
 ## Usage
