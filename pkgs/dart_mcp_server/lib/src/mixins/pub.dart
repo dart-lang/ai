@@ -84,6 +84,8 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
     );
   }
 
+  static final List<Tool> allTools = [pubTool];
+
   static final pubTool = Tool(
     name: 'pub',
     description:

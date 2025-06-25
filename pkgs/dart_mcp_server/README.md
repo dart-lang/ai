@@ -8,27 +8,18 @@ WIP. This package is still experimental and is likely to evolve quickly.
 
 ## Tools
 
-| Tool Name | Feature Group | Description |
-| --- | --- | --- |
-| `analyze_files` | `static analysis` | Analyzes the entire project for errors. |
-| `signature_help` | `static_analysis` | Gets signature information for usage at a given cursor position. |
-| `hover` | `static_analysis` | Gets the hover information for a given cursor position. |
-| `resolve_workspace_symbol` | `static analysis` | Look up a symbol or symbols in all workspaces by name. |
-| `dart_fix` | `static tool` | Runs `dart fix --apply` for the given project roots. |
-| `dart_format` | `static tool` | Runs `dart format .` for the given project roots. |
-| `pub` | `static tool` | Runs a `dart pub` command for the given project roots. |
-| `pub_dev_search` | `package search` | Searches pub.dev for packages relevant to a given search query. |
-| `get_runtime_errors` | `runtime analysis` | Retrieves the list of runtime errors that have occurred in the active Dart or Flutter application. |
-| `take_screenshot` | `runtime analysis` | Takes a screenshot of the active Flutter application in its current state. |
-| `get_widget_tree` | `runtime analysis` | Retrieves the widget tree from the active Flutter application. |
-| `get_selected_widget` | `runtime analysis` | Retrieves the selected widget from the active Flutter application. |
-| `hot_reload` | `runtime tool` | Performs a hot reload of the active Flutter application. |
-| `connect_dart_tooling_daemon`* | `configuration` | Connects to the locally running Dart Tooling Daemon. |
-| `get_active_location` | `editor` | Gets the active cursor position in the connected editor (if available). |
-| `run_tests` | `static tool` | Runs tests for the given project roots. |
-| `create_project` | `static tool` | Creates a new Dart or Flutter project. |
+<!-- run 'dart tool/update_readme.dart' to update -->
 
-> *Experimental: may be removed.
+<!-- generated -->
+
+### project
+
+- `dart_fix`: Runs `dart fix --apply` for the given project roots.
+- `dart_format`: Runs `dart format .` for the given project roots.
+- `run_tests`: Run Dart or Flutter tests with an agent centric UX. ALWAYS use instead of `dart test` or `flutter test` shell commands.
+- `create_project`: Creates a new Dart or Flutter project.
+
+<!-- generated -->
 
 ## Usage
 
