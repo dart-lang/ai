@@ -25,13 +25,11 @@ extension type ElicitationRequest._fromMap(Map<String, Object?> _value)
 
   /// A JSON schema that describes the expected response.
   ///
-  /// The content may only consist of a flat `Map` (no nested maps or lists)
+  /// The content may only consist of a flat object (no nested maps or lists)
   /// with primitive values (`String`, `num`, `bool`, `enum`).
   ///
-  /// You can use [validateRequestedSchema] to validate that the schema conforms
+  /// You can use [validateRequestedSchema] to validate that a schema conforms
   /// to these limitations.
-  ///
-  /// In Dart, the enum values will be represented as a `String`.
   Schema get requestedSchema => _value['requestedSchema'] as Schema;
 
   /// Validates the [schema] to make sure that it conforms to the
@@ -65,7 +63,6 @@ extension type ElicitationRequest._fromMap(Map<String, Object?> _value)
         case JsonType.int:
         case JsonType.bool:
         case JsonType.enumeration:
-          // These are the allowed primitive types.
           break;
         case JsonType.object:
         case JsonType.list:
@@ -78,8 +75,6 @@ extension type ElicitationRequest._fromMap(Map<String, Object?> _value)
 
     return true;
   }
-
-  Map<String, dynamic> toJson() => _value;
 }
 
 /// The response to an `elicitation/create` request.
@@ -91,7 +86,15 @@ extension type ElicitationResult.fromMap(Map<String, Object?> _value)
   }) => ElicitationResult.fromMap({'action': action, 'content': content});
 
   /// The action taken by the user.
-  ElicitationAction get action => _value['action'] as ElicitationAction;
+  ElicitationAction get action {
+    final action = _value['action'] as ElicitationAction?;
+    if (action == null) {
+      throw ArgumentError(
+        'Missing required action field in $ElicitationResult',
+      );
+    }
+    return action;
+  }
 
   /// The content of the response, if the user accepted the request.
   ///
@@ -100,8 +103,6 @@ extension type ElicitationResult.fromMap(Map<String, Object?> _value)
   /// The content must conform to the [ElicitationRequest]'s `requestedSchema`.
   Map<String, Object?>? get content =>
       _value['content'] as Map<String, Object?>?;
-
-  Map<String, dynamic> toJson() => _value;
 }
 
 /// The action taken by the user in response to an elicitation request.
@@ -113,11 +114,5 @@ enum ElicitationAction {
   reject,
 
   /// The user cancelled the request.
-  cancel;
-
-  factory ElicitationAction.fromJson(String json) {
-    return ElicitationAction.values.firstWhere((e) => e.name == json);
-  }
-
-  String toJson() => name;
+  cancel,
 }

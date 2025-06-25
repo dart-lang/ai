@@ -154,7 +154,7 @@ extension type ClientCapabilities.fromMap(Map<String, Object?> _value) {
   ElicitationCapability? get elicitation =>
       _value['elicitation'] as ElicitationCapability?;
 
-  /// Sets [elicitation] asserting it is non-null first.
+  /// Sets [elicitation], asserting it is null first.
   set elicitation(ElicitationCapability? value) {
     assert(elicitation == null);
     _value['elicitation'] = value;
@@ -263,7 +263,7 @@ extension type ServerCapabilities.fromMap(Map<String, Object?> _value) {
   /// Present if the server supports elicitation.
   Elicitation? get elicitation => _value['elicitation'] as Elicitation?;
 
-  /// Sets [elicitation] if it is null, otherwise throws.
+  /// Sets [elicitation] if it is null, otherwise asserts.
   set elicitation(Elicitation? value) {
     assert(elicitation == null);
     _value['elicitation'] = value;

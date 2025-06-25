@@ -4,7 +4,7 @@ part of 'client.dart';
 typedef ElicitationHandler =
     FutureOr<ElicitationResult> Function(ElicitationRequest request);
 
-/// A mixin that adds support for the `elicitation` capability to a
+/// A mixin that adds support for the `elicitation` capability to an
 /// [MCPClient].
 base mixin ElicitationSupport on MCPClient {
   ElicitationHandler? _elicitationHandler;
