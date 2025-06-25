@@ -2,6 +2,7 @@
 
 - Added error checking to required fields of all `Request` subclasses so that
   they will throw helpful errors when accessed and not set.
+- Added enum support to Schema.
 
 ## 0.2.2
 
