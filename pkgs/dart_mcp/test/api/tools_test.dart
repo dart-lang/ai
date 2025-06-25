@@ -199,6 +199,20 @@ void main() {
       });
     });
 
+    test('EnumSchema', () {
+      final schema = EnumSchema(
+        title: 'Foo',
+        description: 'Bar',
+        values: {'a', 'b', 'c'},
+      );
+      expect(schema, {
+        'type': 'enum',
+        'title': 'Foo',
+        'description': 'Bar',
+        'enum': ['a', 'b', 'c'],
+      });
+    });
+
     test('Schema', () {
       final schema = Schema.combined(
         type: JsonType.bool,
@@ -826,6 +840,27 @@ void main() {
       test('integer schema with integer-like num data (e.g. 10.0)', () {
         expectFailuresMatch(IntegerSchema(minimum: 11), 10.0, [
           ValidationError(ValidationErrorType.minimumNotMet),
+        ]);
+      });
+    });
+
+    group('Enum Specific', () {
+      test('enumValueNotAllowed', () {
+        final schema = EnumSchema(values: {'a', 'b'});
+        expectFailuresMatch(schema, 'c', [
+          ValidationError(ValidationErrorType.enumValueNotAllowed),
+        ]);
+      });
+
+      test('valid enum value', () {
+        final schema = EnumSchema(values: {'a', 'b'});
+        expectFailuresMatch(schema, 'a', []);
+      });
+
+      test('enum with non-string data', () {
+        final schema = EnumSchema(values: {'a', 'b'});
+        expectFailuresMatch(schema, 1, [
+          ValidationError(ValidationErrorType.typeMismatch),
         ]);
       });
     });
