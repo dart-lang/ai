@@ -29,7 +29,13 @@ extension type ListToolsResult.fromMap(Map<String, Object?> _value)
     if (meta != null) '_meta': meta,
   });
 
-  List<Tool> get tools => (_value['tools'] as List).cast<Tool>();
+  List<Tool> get tools {
+    final tools = (_value['tools'] as List?)?.cast<Tool>();
+    if (tools == null) {
+      throw ArgumentError('Missing tools field in $ListToolsResult');
+    }
+    return tools;
+  }
 }
 
 /// The server's response to a tool call.
@@ -56,7 +62,13 @@ extension type CallToolResult.fromMap(Map<String, Object?> _value)
 
   /// The type of content, either [TextContent], [ImageContent],
   /// or [EmbeddedResource],
-  List<Content> get content => (_value['content'] as List).cast<Content>();
+  List<Content> get content {
+    final content = (_value['content'] as List?)?.cast<Content>();
+    if (content == null) {
+      throw ArgumentError('Missing content field in $CallToolResult');
+    }
+    return content;
+  }
 
   /// Whether the tool call ended in an error.
   ///
@@ -129,14 +141,26 @@ extension type Tool.fromMap(Map<String, Object?> _value) {
           as ToolAnnotations?;
 
   /// The name of the tool.
-  String get name => _value['name'] as String;
+  String get name {
+    final name = _value['name'] as String?;
+    if (name == null) {
+      throw ArgumentError('Missing name field in $Tool');
+    }
+    return name;
+  }
 
   /// A human-readable description of the tool.
   String? get description => _value['description'] as String?;
 
   /// A JSON [ObjectSchema] object defining the expected parameters for the
   /// tool.
-  ObjectSchema get inputSchema => _value['inputSchema'] as ObjectSchema;
+  ObjectSchema get inputSchema {
+    final inputSchema = _value['inputSchema'] as ObjectSchema?;
+    if (inputSchema == null) {
+      throw ArgumentError('Missing inputSchema field in $Tool');
+    }
+    return inputSchema;
+  }
 }
 
 /// Additional properties describing a Tool to clients.
@@ -300,6 +324,13 @@ extension type ValidationError.fromMap(Map<String, Object?> _value) {
 /// if you need something more complex you can create your own
 /// `Map<String, Object?>` and cast it to [Schema] (or [ObjectSchema]) directly.
 extension type Schema.fromMap(Map<String, Object?> _value) {
+  factory Schema({JsonType? type, String? title, String? description}) =>
+      Schema.fromMap({
+        'type': JsonType.enumeration.typeName,
+        if (title != null) 'title': title,
+        if (description != null) 'description': description,
+      });
+
   /// A combined schema, see
   /// https://json-schema.org/understanding-json-schema/reference/combining#schema-composition
   factory Schema.combined({
@@ -1100,12 +1131,12 @@ extension type EnumSchema.fromMap(Map<String, Object?> _value)
   factory EnumSchema({
     String? title,
     String? description,
-    required Set<String> values,
+    required Iterable<String> values,
   }) => EnumSchema.fromMap({
     'type': JsonType.enumeration.typeName,
     if (title != null) 'title': title,
     if (description != null) 'description': description,
-    'enum': values.toSet(),
+    'enum': values,
   });
 
   /// A title for this schema, should be short.
@@ -1115,7 +1146,17 @@ extension type EnumSchema.fromMap(Map<String, Object?> _value)
   String? get description => _value['description'] as String?;
 
   /// The allowed enum values.
-  Set<String> get values => (_value['enum'] as Set).cast<String>();
+  Iterable<String> get values {
+    final values = (_value['enum'] as Iterable?)?.cast<String>();
+    if (values == null) {
+      throw ArgumentError('Missing required property "values"');
+    }
+    assert(
+      values.toSet().length == values.length,
+      "The 'values' property has duplicate entries.",
+    );
+    return values;
+  }
 
   bool _validateEnum(
     Object? data,
