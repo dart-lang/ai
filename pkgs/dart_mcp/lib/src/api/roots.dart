@@ -33,7 +33,13 @@ extension type ListRootsResult.fromMap(Map<String, Object?> _value)
         if (meta != null) '_meta': meta,
       });
 
-  List<Root> get roots => (_value['roots'] as List).cast<Root>();
+  List<Root> get roots {
+    final roots = _value['roots'] as List?;
+    if (roots == null) {
+      throw ArgumentError('Missing roots field in $ListRootsResult.');
+    }
+    return roots.cast<Root>();
+  }
 }
 
 /// Represents a root directory or file that the server can operate on.

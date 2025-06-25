@@ -30,10 +30,21 @@ extension type InitializeRequest._fromMap(Map<String, Object?> _value)
   ProtocolVersion? get protocolVersion =>
       ProtocolVersion.tryParse(_value['protocolVersion'] as String);
 
-  ClientCapabilities get capabilities =>
-      _value['capabilities'] as ClientCapabilities;
+  ClientCapabilities get capabilities {
+    final capabilities = _value['capabilities'] as ClientCapabilities?;
+    if (capabilities == null) {
+      throw ArgumentError('Missing capabilities field in $InitializeRequest.');
+    }
+    return capabilities;
+  }
 
-  Implementation get clientInfo => _value['clientInfo'] as Implementation;
+  Implementation get clientInfo {
+    final clientInfo = _value['clientInfo'] as Implementation?;
+    if (clientInfo == null) {
+      throw ArgumentError('Missing clientInfo field in $InitializeRequest.');
+    }
+    return clientInfo;
+  }
 }
 
 /// After receiving an initialize request from the client, the server sends

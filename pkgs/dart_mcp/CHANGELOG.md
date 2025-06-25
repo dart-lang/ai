@@ -1,3 +1,8 @@
+## 0.2.3-wip
+
+- Added error checking to required fields of all `Request` subclasses so that
+  they will throw helpful errors when accessed and not set.
+
 ## 0.2.2
 
 - Refactor `ClientImplementation` and `ServerImplementation` to the shared

@@ -80,7 +80,13 @@ extension type ReadResourceRequest.fromMap(Map<String, Object?> _value)
 
   /// The URI of the resource to read. The URI can use any protocol; it is
   /// up to the server how to interpret it.
-  String get uri => _value['uri'] as String;
+  String get uri {
+    final uri = _value['uri'] as String?;
+    if (uri == null) {
+      throw ArgumentError('Missing uri field in $ReadResourceRequest.');
+    }
+    return uri;
+  }
 }
 
 /// The server's response to a resources/read request from the client.
@@ -128,7 +134,13 @@ extension type SubscribeRequest.fromMap(Map<String, Object?> _value)
 
   /// The URI of the resource to subscribe to. The URI can use any protocol;
   /// it is up to the server how to interpret it.
-  String get uri => _value['uri'] as String;
+  String get uri {
+    final uri = _value['uri'] as String?;
+    if (uri == null) {
+      throw ArgumentError('Missing uri field in $SubscribeRequest.');
+    }
+    return uri;
+  }
 }
 
 /// Sent from the client to request cancellation of resources/updated
@@ -146,7 +158,13 @@ extension type UnsubscribeRequest.fromMap(Map<String, Object?> _value)
       UnsubscribeRequest.fromMap({'uri': uri, if (meta != null) '_meta': meta});
 
   /// The URI of the resource to unsubscribe from.
-  String get uri => _value['uri'] as String;
+  String get uri {
+    final uri = _value['uri'] as String?;
+    if (uri == null) {
+      throw ArgumentError('Missing uri field in $UnsubscribeRequest.');
+    }
+    return uri;
+  }
 }
 
 /// A notification from the server to the client, informing it that a resource
