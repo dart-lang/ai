@@ -3,6 +3,18 @@
 - Added error checking to required fields of all `Request` subclasses so that
   they will throw helpful errors when accessed and not set.
 - Added enum support to Schema.
+- Add more detail to type validation errors.
+- Remove some duplicate validation errors, errors are only reported for the
+  leaf nodes and not all the way up the tree.
+  - Deprecated a few validation error types as a part of this, including
+    `propertyNamesInvalid`, `propertyValueInvalid`, `itemInvalid` and
+    `prefixItemInvalid`.
+- Added a `custom` validation error type.
+- Auto-validate schemas for all tools by default. This can be disabled by
+  passing `validateArguments: false` to `registerTool`.
+  - While this could be breaking, we are not treating it as such as it should
+    not be breaking and will generally result in better errors for invalid
+    arguments.
 
 ## 0.2.2
 

@@ -24,9 +24,11 @@ void main() {
     final serverConnection = environment.serverConnection;
 
     final toolsResult = await serverConnection.listTools();
-    expect(toolsResult.tools.length, 1);
+    expect(toolsResult.tools.length, 2);
 
-    final tool = toolsResult.tools.single;
+    final tool = toolsResult.tools.firstWhere(
+      (tool) => tool.name == TestMCPServerWithTools.helloWorld.name,
+    );
 
     final result = await serverConnection.callTool(
       CallToolRequest(name: tool.name),
@@ -72,6 +74,46 @@ void main() {
     // Need to manually close so the stream matchers can complete.
     await environment.shutdown();
   });
+
+  test('schema validation failure returns an error', () async {
+    final environment = TestEnvironment(
+      TestMCPClient(),
+      TestMCPServerWithTools.new,
+    );
+    await environment.initializeServer();
+
+    final serverConnection = environment.serverConnection;
+
+    // Call with no arguments, should fail because 'message' is required.
+    var result = await serverConnection.callTool(
+      CallToolRequest(
+        name: TestMCPServerWithTools.echo.name,
+        arguments: const {},
+      ),
+    );
+    expect(result.isError, isTrue);
+    expect(result.content.single, isA<TextContent>());
+    final textContent = result.content.single as TextContent;
+    expect(
+      textContent.text,
+      contains('Required property "message" is missing at path #root'),
+    );
+
+    // Call with wrong type for 'message'.
+    result = await serverConnection.callTool(
+      CallToolRequest(
+        name: TestMCPServerWithTools.echo.name,
+        arguments: {'message': 123},
+      ),
+    );
+    expect(result.isError, isTrue);
+    expect(result.content.single, isA<TextContent>());
+    final textContent2 = result.content.single as TextContent;
+    expect(
+      textContent2.text,
+      contains('Value `123` is not of type `String` at path #root["message"]'),
+    );
+  });
 }
 
 final class TestMCPServerWithTools extends TestMCPServer with ToolsSupport {
@@ -83,7 +125,22 @@ final class TestMCPServerWithTools extends TestMCPServer with ToolsSupport {
       helloWorld,
       (_) => CallToolResult(content: [helloWorldContent]),
     );
+    registerTool(TestMCPServerWithTools.echo, TestMCPServerWithTools.echoImpl);
     return super.initialize(request);
+  }
+
+  static final echo = Tool(
+    name: 'echo',
+    description: 'Echoes the input',
+    inputSchema: ObjectSchema(
+      properties: {'message': StringSchema(description: 'The message to echo')},
+      required: ['message'],
+    ),
+  );
+
+  static CallToolResult echoImpl(CallToolRequest request) {
+    final message = request.arguments!['message'] as String;
+    return CallToolResult(content: [TextContent(text: message)]);
   }
 
   static final helloWorld = Tool(

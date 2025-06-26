@@ -96,7 +96,7 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
     if (projectType != 'dart' && projectType != 'flutter') {
       errors.add(
         ValidationError(
-          ValidationErrorType.itemInvalid,
+          ValidationErrorType.custom,
           path: [ParameterNames.projectType],
           details: 'Only `dart` and `flutter` are allowed values.',
         ),
@@ -106,7 +106,7 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
     if (p.isAbsolute(directory)) {
       errors.add(
         ValidationError(
-          ValidationErrorType.itemInvalid,
+          ValidationErrorType.custom,
           path: [ParameterNames.directory],
           details: 'Directory must be a relative path.',
         ),
@@ -125,7 +125,7 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
                 : 'is not a valid platform';
         errors.add(
           ValidationError(
-            ValidationErrorType.itemInvalid,
+            ValidationErrorType.custom,
             path: [ParameterNames.platform],
             details:
                 '${invalidPlatforms.join(',')} $plural. Platforms '
