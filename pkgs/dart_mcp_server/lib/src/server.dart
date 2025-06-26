@@ -161,8 +161,9 @@ final class DartMCPServer extends MCPServer
   /// if [analytics] is not `null`.
   void registerTool(
     Tool tool,
-    FutureOr<CallToolResult> Function(CallToolRequest) impl,
-  ) {
+    FutureOr<CallToolResult> Function(CallToolRequest) impl, {
+    bool validateArguments = true,
+  }) {
     // For type promotion.
     final analytics = this.analytics;
 
@@ -196,6 +197,7 @@ final class DartMCPServer extends MCPServer
               }
             }
           },
+      validateArguments: validateArguments,
     );
   }
 

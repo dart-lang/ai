@@ -1,4 +1,4 @@
-## 0.2.3-wip
+## 0.3.0-wip
 
 - Added error checking to required fields of all `Request` subclasses so that
   they will throw helpful errors when accessed and not set.
@@ -12,9 +12,7 @@
 - Added a `custom` validation error type.
 - Auto-validate schemas for all tools by default. This can be disabled by
   passing `validateArguments: false` to `registerTool`.
-  - While this could be breaking, we are not treating it as such as it should
-    not be breaking and will generally result in better errors for invalid
-    arguments.
+  - This is breaking since this method is overridden by the Dart MCP server.
 
 ## 0.2.2
 
