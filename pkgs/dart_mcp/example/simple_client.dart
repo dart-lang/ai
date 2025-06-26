@@ -45,10 +45,10 @@ void main() async {
   final toolsResult = await server.listTools(ListToolsRequest());
   for (final tool in toolsResult.tools) {
     print('Found Tool: ${tool.name}');
-    if (tool.name == 'hello world') {
-      print('Calling `hello world` tool');
+    if (tool.name == 'hello_world') {
+      print('Calling `hello_world` tool');
       final result = await server.callTool(
-        CallToolRequest(name: 'hello world'),
+        CallToolRequest(name: 'hello_world'),
       );
       if (result.isError == true) {
         throw StateError('Tool call failed: ${result.content}');
