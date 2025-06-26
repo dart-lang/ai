@@ -452,22 +452,26 @@ extension type EmbeddedResource.fromMap(Map<String, Object?> _value)
 /// Resource links returned by tools are not guaranteed to appear in the results
 /// of a `resources/list` request.
 extension type ResourceLink.fromMap(Map<String, Object?> _value)
-    implements Content, Annotated {
+    implements Content, Annotated, WithMetadata, BaseMetadata {
   static const expectedType = 'resource_link';
 
   factory ResourceLink({
     required String name,
+    String? title,
     required String description,
     required String uri,
     required String mimeType,
     Annotations? annotations,
+    Meta? meta,
   }) => ResourceLink.fromMap({
     'name': name,
+    if (title != null) 'title': title,
     'description': description,
     'uri': uri,
     'mimeType': mimeType,
     'type': expectedType,
     if (annotations != null) 'annotations': annotations,
+    if (meta != null) '_meta': meta,
   });
 
   String get type {
