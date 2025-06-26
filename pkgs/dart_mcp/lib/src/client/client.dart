@@ -222,10 +222,7 @@ base class ServerConnection extends MCPBase {
 
     if (elicitationSupport != null) {
       registerRequestHandler(ElicitRequest.methodName, (ElicitRequest request) {
-        if (elicitationSupport.elicitationHandler == null) {
-          return ElicitResult(action: ElicitationAction.reject);
-        }
-        return elicitationSupport.elicitationHandler!(request);
+        return elicitationSupport.handleElicitation(request);
       });
     }
 
@@ -289,10 +286,10 @@ base class ServerConnection extends MCPBase {
     serverInfo = response.serverInfo;
     serverCapabilities = response.capabilities;
     final serverVersion = response.protocolVersion;
-    if (serverVersion?.isSupported != true) {
+    if (serverVersion == null || !serverVersion.isSupported) {
       await shutdown();
     } else {
-      protocolVersion = response.protocolVersion!;
+      protocolVersion = serverVersion;
     }
     return response;
   }

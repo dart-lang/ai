@@ -174,7 +174,7 @@ extension type Tool.fromMap(Map<String, Object?> _value)
   ///
   /// If the `outputSchema` is specified, then the output from the tool must
   /// conform to the schema.
-  ObjectSchema get outputSchema => _value['outputSchema'] as ObjectSchema;
+  ObjectSchema? get outputSchema => _value['outputSchema'] as ObjectSchema?;
 }
 
 /// Additional properties describing a Tool to clients.

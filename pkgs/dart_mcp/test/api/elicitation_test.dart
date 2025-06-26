@@ -33,10 +33,12 @@ void main() {
       );
 
       final elicitationRequest = server.elicit(
-        'What is your name?',
-        ObjectSchema(
-          properties: {'name': StringSchema(description: 'Your name')},
-          required: ['name'],
+        ElicitRequest(
+          message: 'What is your name?',
+          requestedSchema: ObjectSchema(
+            properties: {'name': StringSchema(description: 'Your name')},
+            required: ['name'],
+          ),
         ),
       );
 
@@ -56,10 +58,14 @@ void main() {
 
 final class TestMCPClientWithElicitationSupport extends TestMCPClient
     with ElicitationSupport {
-  TestMCPClientWithElicitationSupport({this.elicitationHandler});
+  TestMCPClientWithElicitationSupport({required this.elicitationHandler});
+
+  FutureOr<ElicitResult> Function(ElicitRequest request) elicitationHandler;
 
   @override
-  ElicitationHandler? elicitationHandler;
+  FutureOr<ElicitResult> handleElicitation(ElicitRequest request) {
+    return elicitationHandler(request);
+  }
 }
 
 base class TestMCPServerWithElicitationRequestSupport extends TestMCPServer

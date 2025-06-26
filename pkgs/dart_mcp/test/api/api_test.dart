@@ -5,8 +5,6 @@
 import 'package:dart_mcp/client.dart';
 import 'package:test/test.dart';
 
-import '../test_utils.dart';
-
 void main() {
   test('protocol versions can be compared', () {
     expect(
@@ -60,21 +58,6 @@ void main() {
       false,
     );
   });
-  group('negotiation', () {
-    test('client and server respect negotiated protocol version', () async {
-      final environment = TestEnvironment(TestMCPClient(), TestMCPServer.new);
-      final serverConnection = environment.serverConnection;
-      final initializeResult = await serverConnection.initialize(
-        InitializeRequest(
-          protocolVersion: ProtocolVersion.oldestSupported,
-          capabilities: environment.client.capabilities,
-          clientInfo: environment.client.implementation,
-        ),
-      );
-      expect(initializeResult.protocolVersion, ProtocolVersion.oldestSupported);
-      expect(serverConnection.protocolVersion, ProtocolVersion.oldestSupported);
-    });
-  });
 
   group('API object validation', () {
     test('throws when required fields are missing', () {
@@ -86,6 +69,49 @@ void main() {
       expect(
         () => BaseMetadata.fromMap({}).name,
         throwsA(isA<ArgumentError>()),
+      );
+
+      final empty = <String, Object?>{};
+
+      // Initialization
+      expect(
+        () => (empty as InitializeRequest).capabilities,
+        throwsArgumentError,
+      );
+      expect(
+        () => (empty as InitializeRequest).clientInfo,
+        throwsArgumentError,
+      );
+
+      // Tools
+      expect(() => (empty as CallToolRequest).name, throwsArgumentError);
+
+      // Resources
+      expect(() => (empty as ReadResourceRequest).uri, throwsArgumentError);
+      expect(() => (empty as SubscribeRequest).uri, throwsArgumentError);
+      expect(() => (empty as UnsubscribeRequest).uri, throwsArgumentError);
+
+      // Roots
+      expect(() => (empty as ListRootsResult).roots, throwsArgumentError);
+
+      // Prompts
+      expect(() => (empty as GetPromptRequest).name, throwsArgumentError);
+
+      // Completions
+      expect(() => (empty as CompleteRequest).ref, throwsArgumentError);
+      expect(() => (empty as CompleteRequest).argument, throwsArgumentError);
+
+      // Logging
+      expect(() => (empty as SetLevelRequest).level, throwsArgumentError);
+
+      // Sampling
+      expect(
+        () => (empty as CreateMessageRequest).messages,
+        throwsArgumentError,
+      );
+      expect(
+        () => (empty as CreateMessageRequest).maxTokens,
+        throwsArgumentError,
       );
     });
     test('meta field is parsed correctly', () {

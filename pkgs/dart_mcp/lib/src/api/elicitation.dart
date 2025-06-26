@@ -1,7 +1,10 @@
+// Copyright (c) 2025, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
 part of 'api.dart';
 
 /// The parameters for an `elicitation/create` request.
-
 extension type ElicitRequest._fromMap(Map<String, Object?> _value)
     implements Request {
   static const methodName = 'elicitation/create';
@@ -21,7 +24,13 @@ extension type ElicitRequest._fromMap(Map<String, Object?> _value)
   }
 
   /// A message to display to the user when collecting the response.
-  String get message => _value['message'] as String;
+  String get message {
+    final message = _value['message'] as String?;
+    if (message == null) {
+      throw ArgumentError('Missing required message field in $ElicitRequest');
+    }
+    return message;
+  }
 
   /// A JSON schema that describes the expected response.
   ///
@@ -30,7 +39,15 @@ extension type ElicitRequest._fromMap(Map<String, Object?> _value)
   ///
   /// You can use [validateRequestedSchema] to validate that a schema conforms
   /// to these limitations.
-  Schema get requestedSchema => _value['requestedSchema'] as Schema;
+  Schema get requestedSchema {
+    final requestedSchema = _value['requestedSchema'] as Schema?;
+    if (requestedSchema == null) {
+      throw ArgumentError(
+        'Missing required requestedSchema field in $ElicitRequest',
+      );
+    }
+    return requestedSchema;
+  }
 
   /// Validates the [schema] to make sure that it conforms to the
   /// limitations of the spec.

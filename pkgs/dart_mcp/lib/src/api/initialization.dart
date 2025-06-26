@@ -347,7 +347,7 @@ extension type Implementation.fromMap(Map<String, Object?> _value)
   }) => Implementation.fromMap({
     'name': name,
     'version': version,
-    'title': title,
+    if (title != null) 'title': title,
   });
 
   String get version {

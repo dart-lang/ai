@@ -2,7 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-/// Interfaces are based on https://github.com/modelcontextprotocol/specification/blob/main/schema/2024-11-05/schema.json
+/// Interfaces are based on
+/// https://github.com/modelcontextprotocol/specification/blob/main/schema/2025-06-18/schema.ts
 library;
 
 import 'dart:collection';
@@ -60,7 +61,32 @@ extension type ProgressToken( /*String|int*/ Object _) {}
 /// An opaque token used to represent a cursor for pagination.
 extension type Cursor(String _) {}
 
-/// Generic metadata passed with most requests, can be anything.
+/// Generic metadata passed with most requests.
+///
+/// Metadata reserved by MCP to allow clients and servers to attach additional
+/// metadata to their interactions.
+///
+/// Certain key names are reserved by MCP for protocol-level metadata, as
+/// specified below; implementations MUST NOT make assumptions about values at
+/// these keys.
+///
+/// Additionally, definitions in the schema may reserve particular names for
+/// purpose-specific metadata, as declared in those definitions.
+///
+/// Key name format: valid `_meta` key names have two segments: an optional
+/// prefix, and a name.
+///
+/// - Prefix: If specified, MUST be a series of labels separated by dots
+///   (`.`), followed by a slash (`/`). Labels MUST start with a letter and
+///   end with a letter or digit; interior characters can be letters, digits,
+///   or hyphens (`-`). Any prefix beginning with zero or more valid labels,
+///   followed by `modelcontextprotocol` or `mcp`, followed by any valid
+///   label, is reserved for MCP use. For example: `modelcontextprotocol.io/`,
+///   `mcp.dev/`, `api.modelcontextprotocol.org/`, and `tools.mcp.com/` are
+///   all reserved.
+/// - Name: Unless empty, MUST begin and end with an alphanumeric character
+///   (`[a-z0-9A-Z]`). MAY contain hyphens (`-`), underscores (`_`), dots
+///   (`.`), and alphanumerics in between.
 extension type Meta.fromMap(Map<String, Object?> _value) {}
 
 /// Basic metadata required by multiple types.
@@ -72,10 +98,6 @@ extension type BaseMetadata.fromMap(Map<String, Object?> _value)
   factory BaseMetadata({required String name, String? title}) =>
       BaseMetadata.fromMap({'name': name, 'title': title});
 
-  /// A human-readable name for this object.
-  ///
-  /// This can be used by clients to populate UI elements.
-  ///
   /// Intended for programmatic or logical use, but used as a display name in
   /// past specs for fallback (if title isn't present).
   String get name {
@@ -119,12 +141,10 @@ extension type MetaWithProgressToken.fromMap(Map<String, Object?> _value)
 ///
 /// Should not be constructed directly, and has no public constructor.
 extension type WithMetadata._fromMap(Map<String, Object?> _value) {
-  /// If specified, the caller is requesting out-of-band progress notifications
-  /// for this request (as represented by notifications/progress).
+  /// The `_meta` property/parameter is reserved by MCP to allow clients and
+  /// servers to attach additional metadata to their interactions.
   ///
-  /// The value of this parameter is an opaque token that will be attached to
-  /// any subsequent notifications. The receiver is not obligated to provide
-  /// these notifications.
+  /// See [Meta] for more information about the format of these values.
   Meta? get meta => _value['_meta'] as Meta?;
 }
 
@@ -481,12 +501,24 @@ extension type ResourceLink.fromMap(Map<String, Object?> _value)
   }
 
   /// The name of the resource.
-  String get name => _value['name'] as String;
+  String get name {
+    final name = _value['name'] as String?;
+    if (name == null) {
+      throw ArgumentError('Missing name field in $ResourceLink.');
+    }
+    return name;
+  }
 
   /// The description of the resource.
-  String get description => _value['description'] as String;
+  String get description {
+    final description = _value['description'] as String?;
+    if (description == null) {
+      throw ArgumentError('Missing description field in $ResourceLink.');
+    }
+    return description;
+  }
 
-  /// The base64 encoded image data.
+  /// The URI of the resource.
   String get uri {
     final uri = _value['uri'] as String?;
     if (uri == null) {
@@ -496,7 +528,13 @@ extension type ResourceLink.fromMap(Map<String, Object?> _value)
   }
 
   /// The MIME type of the resource.
-  String get mimeType => _value['mimeType'] as String;
+  String get mimeType {
+    final mimeType = _value['mimeType'] as String?;
+    if (mimeType == null) {
+      throw ArgumentError('Missing mimeType field in $ResourceLink.');
+    }
+    return mimeType;
+  }
 }
 
 /// Base type for objects that include optional annotations for the client.
