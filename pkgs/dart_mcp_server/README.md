@@ -57,8 +57,7 @@ to enable this build.
 AI agent directly in your IDE. To configure Gemini Code Assist to use the Dart MCP
 server, follow the instructions to [configure the Gemini](#gemini-cli) CLI above.
 
-You can verify the MCP server has been configured properly by typing `/mcp` in the chat window in
-Agent mode.
+You can verify the MCP server has been configured properly by typing `/mcp` in the chat window in Agent mode.
 
 ![Gemini Code Assist list mcp tools](_docs/gca_mcp_list_tools.png "Gemini Code Assist list MCP tools")
 
