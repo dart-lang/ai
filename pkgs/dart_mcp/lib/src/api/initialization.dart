@@ -28,7 +28,7 @@ extension type InitializeRequest._fromMap(Map<String, Object?> _value)
   ///
   /// May be `null` if the version is not recognized.
   ProtocolVersion? get protocolVersion =>
-      ProtocolVersion.tryParse(_value['protocolVersion'] as String);
+      ProtocolVersion.tryParse(_value['protocolVersion'] as String? ?? '');
 
   ClientCapabilities get capabilities {
     final capabilities = _value['capabilities'] as ClientCapabilities?;
