@@ -34,13 +34,7 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
 
   /// Implementation of the [pubTool].
   Future<CallToolResult> _runDartPubTool(CallToolRequest request) async {
-    final command = request.arguments?[ParameterNames.command] as String?;
-    if (command == null) {
-      return CallToolResult(
-        content: [TextContent(text: 'Missing required argument `command`.')],
-        isError: true,
-      );
-    }
+    final command = request.arguments![ParameterNames.command] as String;
     final matchingCommand = SupportedPubCommand.fromName(command);
     if (matchingCommand == null) {
       return CallToolResult(

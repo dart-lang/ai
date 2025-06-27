@@ -1,8 +1,22 @@
-## 0.2.3-wip
+## 0.3.0-wip
 
 - Added error checking to required fields of all `Request` subclasses so that
   they will throw helpful errors when accessed and not set.
 - Added enum support to Schema.
+- Add more detail to type validation errors.
+- Remove some duplicate validation errors, errors are only reported for the
+  leaf nodes and not all the way up the tree.
+  - Deprecated a few validation error types as a part of this, including
+    `propertyNamesInvalid`, `propertyValueInvalid`, `itemInvalid` and
+    `prefixItemInvalid`.
+- Added a `custom` validation error type.
+- Auto-validate schemas for all tools by default. This can be disabled by
+  passing `validateArguments: false` to `registerTool`.
+  - This is breaking since this method is overridden by the Dart MCP server.
+- Updates to the latest MCP spec, [2025-06-08](https://modelcontextprotocol.io/specification/2025-06-18/changelog)
+  - Adds support for Elicitations to allow the server to ask the user questions.
+  - Adds `ResourceLink` as a tool return content type.
+  - Adds support for structured tool output.
 
 ## 0.2.2
 

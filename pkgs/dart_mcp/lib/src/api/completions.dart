@@ -14,18 +14,20 @@ extension type CompleteRequest.fromMap(Map<String, Object?> _value)
   factory CompleteRequest({
     required Reference ref,
     required CompletionArgument argument,
+    CompletionContext? context,
     MetaWithProgressToken? meta,
   }) => CompleteRequest.fromMap({
     'ref': ref,
     'argument': argument,
+    if (context != null) 'context': context,
     if (meta != null) '_meta': meta,
   });
 
   /// A reference to the thing to complete.
   ///
-  /// See the [PromptReference] and [ResourceReference] types.
+  /// See the [PromptReference] and [ResourceTemplateReference] types.
   ///
-  /// In the case of a [ResourceReference], it must refer to a
+  /// In the case of a [ResourceTemplateReference], it must refer to a
   /// [ResourceTemplate].
   Reference get ref {
     final ref = _value['ref'] as Reference?;
@@ -43,6 +45,9 @@ extension type CompleteRequest.fromMap(Map<String, Object?> _value)
     }
     return argument;
   }
+
+  /// Additional, optional context for completions.
+  CompletionContext? get context => _value['context'] as CompletionContext?;
 }
 
 /// The server's response to a completion/complete request
@@ -105,7 +110,18 @@ extension type CompletionArgument.fromMap(Map<String, Object?> _value) {
   String get value => _value['value'] as String;
 }
 
-/// Union type for references, see [PromptReference] and [ResourceReference].
+/// A context passed to a [CompleteRequest].
+extension type CompletionContext.fromMap(Map<String, Object?> _value) {
+  factory CompletionContext({Map<String, String>? arguments}) =>
+      CompletionContext.fromMap({'arguments': arguments});
+
+  /// Previously-resolved variables in a URI template or prompt.
+  Map<String, String>? get arguments =>
+      (_value['arguments'] as Map?)?.cast<String, String>();
+}
+
+/// Union type for references, see [PromptReference] and
+/// [ResourceTemplateReference].
 extension type Reference._(Map<String, Object?> _value) {
   factory Reference.fromMap(Map<String, Object?> value) {
     assert(value.containsKey('type'));
@@ -115,8 +131,9 @@ extension type Reference._(Map<String, Object?> _value) {
   /// Whether or not this is a [PromptReference].
   bool get isPrompt => _value['type'] == PromptReference.expectedType;
 
-  /// Whether or not this is a [ResourceReference].
-  bool get isResource => _value['type'] == ResourceReference.expectedType;
+  /// Whether or not this is a [ResourceTemplateReference].
+  bool get isResource =>
+      _value['type'] == ResourceTemplateReference.expectedType;
 
   /// The type of reference.
   ///
@@ -127,12 +144,12 @@ extension type Reference._(Map<String, Object?> _value) {
 }
 
 /// A reference to a resource or resource template definition.
-extension type ResourceReference.fromMap(Map<String, Object?> _value)
+extension type ResourceTemplateReference.fromMap(Map<String, Object?> _value)
     implements Reference {
   static const expectedType = 'ref/resource';
 
-  factory ResourceReference({required String uri}) =>
-      ResourceReference.fromMap({'uri': uri, 'type': expectedType});
+  factory ResourceTemplateReference({required String uri}) =>
+      ResourceTemplateReference.fromMap({'uri': uri, 'type': expectedType});
 
   /// This should always be [expectedType].
   ///
@@ -148,13 +165,20 @@ extension type ResourceReference.fromMap(Map<String, Object?> _value)
   String get uri => _value['uri'] as String;
 }
 
+@Deprecated('Use ResourceTemplateReference instead')
+typedef ResourceReference = ResourceTemplateReference;
+
 /// Identifies a prompt.
 extension type PromptReference.fromMap(Map<String, Object?> _value)
-    implements Reference {
+    implements Reference, BaseMetadata {
   static const expectedType = 'ref/prompt';
 
-  factory PromptReference({required String name}) =>
-      PromptReference.fromMap({'name': name, 'type': expectedType});
+  factory PromptReference({required String name, String? title}) =>
+      PromptReference.fromMap({
+        'name': name,
+        'title': title,
+        'type': expectedType,
+      });
 
   /// This should always be [expectedType].
   ///
@@ -165,7 +189,4 @@ extension type PromptReference.fromMap(Map<String, Object?> _value)
     assert(type == expectedType);
     return type;
   }
-
-  /// The name of the prompt or prompt template
-  String get name => _value['name'] as String;
 }

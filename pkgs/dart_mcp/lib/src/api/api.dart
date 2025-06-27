@@ -2,7 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-/// Interfaces are based on https://github.com/modelcontextprotocol/specification/blob/main/schema/2024-11-05/schema.json
+/// Interfaces are based on
+/// https://github.com/modelcontextprotocol/specification/blob/main/schema/2025-06-18/schema.ts
 library;
 
 import 'dart:collection';
@@ -11,6 +12,7 @@ import 'package:collection/collection.dart';
 import 'package:json_rpc_2/json_rpc_2.dart';
 
 part 'completions.dart';
+part 'elicitation.dart';
 part 'initialization.dart';
 part 'logging.dart';
 part 'prompts.dart';
@@ -22,7 +24,8 @@ part 'tools.dart';
 /// Enum of the known protocol versions.
 enum ProtocolVersion {
   v2024_11_05('2024-11-05'),
-  v2025_03_26('2025-03-26');
+  v2025_03_26('2025-03-26'),
+  v2025_06_18('2025-06-18');
 
   const ProtocolVersion(this.versionString);
 
@@ -35,7 +38,7 @@ enum ProtocolVersion {
   static const oldestSupported = ProtocolVersion.v2024_11_05;
 
   /// The most recent version supported by the current API.
-  static const latestSupported = ProtocolVersion.v2025_03_26;
+  static const latestSupported = ProtocolVersion.v2025_06_18;
 
   /// The version string used over the wire to identify this version.
   final String versionString;
@@ -58,8 +61,64 @@ extension type ProgressToken( /*String|int*/ Object _) {}
 /// An opaque token used to represent a cursor for pagination.
 extension type Cursor(String _) {}
 
-/// Generic metadata passed with most requests, can be anything.
+/// Generic metadata passed with most requests.
+///
+/// Metadata reserved by MCP to allow clients and servers to attach additional
+/// metadata to their interactions.
+///
+/// Certain key names are reserved by MCP for protocol-level metadata, as
+/// specified below; implementations MUST NOT make assumptions about values at
+/// these keys.
+///
+/// Additionally, definitions in the schema may reserve particular names for
+/// purpose-specific metadata, as declared in those definitions.
+///
+/// Key name format: valid `_meta` key names have two segments: an optional
+/// prefix, and a name.
+///
+/// - Prefix: If specified, MUST be a series of labels separated by dots
+///   (`.`), followed by a slash (`/`). Labels MUST start with a letter and
+///   end with a letter or digit; interior characters can be letters, digits,
+///   or hyphens (`-`). Any prefix beginning with zero or more valid labels,
+///   followed by `modelcontextprotocol` or `mcp`, followed by any valid
+///   label, is reserved for MCP use. For example: `modelcontextprotocol.io/`,
+///   `mcp.dev/`, `api.modelcontextprotocol.org/`, and `tools.mcp.com/` are
+///   all reserved.
+/// - Name: Unless empty, MUST begin and end with an alphanumeric character
+///   (`[a-z0-9A-Z]`). MAY contain hyphens (`-`), underscores (`_`), dots
+///   (`.`), and alphanumerics in between.
 extension type Meta.fromMap(Map<String, Object?> _value) {}
+
+/// Basic metadata required by multiple types.
+///
+/// Not to be confused with the `_meta` property in the spec, which has a
+/// different purpose.
+extension type BaseMetadata.fromMap(Map<String, Object?> _value)
+    implements Meta {
+  factory BaseMetadata({required String name, String? title}) =>
+      BaseMetadata.fromMap({'name': name, 'title': title});
+
+  /// Intended for programmatic or logical use, but used as a display name in
+  /// past specs for fallback (if title isn't present).
+  String get name {
+    final name = _value['name'] as String?;
+    if (name == null) {
+      throw ArgumentError('Missing name field in $runtimeType');
+    }
+    return name;
+  }
+
+  /// A short title for this object.
+  ///
+  /// Intended for UI and end-user contexts — optimized to be human-readable and
+  /// easily understood, even by those unfamiliar with domain-specific
+  /// terminology.
+  ///
+  /// If not provided, the name should be used for display (except for Tool,
+  /// where `annotations.title` should be given precedence over using `name`, if
+  /// present).
+  String? get title => _value['title'] as String?;
+}
 
 /// A "mixin"-like extension type for any extension type that might contain a
 /// [ProgressToken] at the key "progressToken".
@@ -78,10 +137,22 @@ extension type MetaWithProgressToken.fromMap(Map<String, Object?> _value)
       MetaWithProgressToken.fromMap({'progressToken': progressToken});
 }
 
+/// Base interface for all types that can have arbitrary metadata attached.
+///
+/// Should not be constructed directly, and has no public constructor.
+extension type WithMetadata._fromMap(Map<String, Object?> _value) {
+  /// The `_meta` property/parameter is reserved by MCP to allow clients and
+  /// servers to attach additional metadata to their interactions.
+  ///
+  /// See [Meta] for more information about the format of these values.
+  Meta? get meta => _value['_meta'] as Meta?;
+}
+
 /// Base interface for all request types.
 ///
 /// Should not be constructed directly, and has no public constructor.
-extension type Request._fromMap(Map<String, Object?> _value) {
+extension type Request._fromMap(Map<String, Object?> _value)
+    implements WithMetadata {
   /// If specified, the caller is requesting out-of-band progress notifications
   /// for this request (as represented by notifications/progress).
   ///
@@ -273,15 +344,19 @@ extension type Content._(Map<String, Object?> _value) {
 
 /// Text provided to or from an LLM.
 extension type TextContent.fromMap(Map<String, Object?> _value)
-    implements Content, Annotated {
+    implements Content, Annotated, WithMetadata {
   static const expectedType = 'text';
 
-  factory TextContent({required String text, Annotations? annotations}) =>
-      TextContent.fromMap({
-        'text': text,
-        'type': expectedType,
-        if (annotations != null) 'annotations': annotations,
-      });
+  factory TextContent({
+    required String text,
+    Annotations? annotations,
+    Meta? meta,
+  }) => TextContent.fromMap({
+    'text': text,
+    'type': expectedType,
+    if (annotations != null) 'annotations': annotations,
+    if (meta != null) '_meta': meta,
+  });
 
   String get type {
     final type = _value['type'] as String;
@@ -295,18 +370,20 @@ extension type TextContent.fromMap(Map<String, Object?> _value)
 
 /// An image provided to or from an LLM.
 extension type ImageContent.fromMap(Map<String, Object?> _value)
-    implements Content, Annotated {
+    implements Content, Annotated, WithMetadata {
   static const expectedType = 'image';
 
   factory ImageContent({
     required String data,
     required String mimeType,
     Annotations? annotations,
+    Meta? meta,
   }) => ImageContent.fromMap({
     'data': data,
     'mimeType': mimeType,
     'type': expectedType,
     if (annotations != null) 'annotations': annotations,
+    if (meta != null) '_meta': meta,
   });
 
   String get type {
@@ -328,18 +405,20 @@ extension type ImageContent.fromMap(Map<String, Object?> _value)
 ///
 /// Only supported since version [ProtocolVersion.v2025_03_26].
 extension type AudioContent.fromMap(Map<String, Object?> _value)
-    implements Content, Annotated {
+    implements Content, Annotated, WithMetadata {
   static const expectedType = 'audio';
 
   factory AudioContent({
     required String data,
     required String mimeType,
     Annotations? annotations,
+    Meta? meta,
   }) => AudioContent.fromMap({
     'data': data,
     'mimeType': mimeType,
     'type': expectedType,
     if (annotations != null) 'annotations': annotations,
+    if (meta != null) '_meta': meta,
   });
 
   String get type {
@@ -362,16 +441,18 @@ extension type AudioContent.fromMap(Map<String, Object?> _value)
 /// It is up to the client how best to render embedded resources for the benefit
 /// of the LLM and/or the user.
 extension type EmbeddedResource.fromMap(Map<String, Object?> _value)
-    implements Content, Annotated {
+    implements Content, Annotated, WithMetadata {
   static const expectedType = 'resource';
 
   factory EmbeddedResource({
     required Content resource,
     Annotations? annotations,
+    Meta? meta,
   }) => EmbeddedResource.fromMap({
     'resource': resource,
     'type': expectedType,
     if (annotations != null) 'annotations': annotations,
+    if (meta != null) '_meta': meta,
   });
 
   String get type {
@@ -386,6 +467,76 @@ extension type EmbeddedResource.fromMap(Map<String, Object?> _value)
   String? get mimeType => _value['mimeType'] as String?;
 }
 
+/// A resource link returned from a tool.
+///
+/// Resource links returned by tools are not guaranteed to appear in the results
+/// of a `resources/list` request.
+extension type ResourceLink.fromMap(Map<String, Object?> _value)
+    implements Content, Annotated, WithMetadata, BaseMetadata {
+  static const expectedType = 'resource_link';
+
+  factory ResourceLink({
+    required String name,
+    String? title,
+    required String description,
+    required String uri,
+    required String mimeType,
+    Annotations? annotations,
+    Meta? meta,
+  }) => ResourceLink.fromMap({
+    'name': name,
+    if (title != null) 'title': title,
+    'description': description,
+    'uri': uri,
+    'mimeType': mimeType,
+    'type': expectedType,
+    if (annotations != null) 'annotations': annotations,
+    if (meta != null) '_meta': meta,
+  });
+
+  String get type {
+    final type = _value['type'] as String;
+    assert(type == expectedType);
+    return type;
+  }
+
+  /// The name of the resource.
+  String get name {
+    final name = _value['name'] as String?;
+    if (name == null) {
+      throw ArgumentError('Missing name field in $ResourceLink.');
+    }
+    return name;
+  }
+
+  /// The description of the resource.
+  String get description {
+    final description = _value['description'] as String?;
+    if (description == null) {
+      throw ArgumentError('Missing description field in $ResourceLink.');
+    }
+    return description;
+  }
+
+  /// The URI of the resource.
+  String get uri {
+    final uri = _value['uri'] as String?;
+    if (uri == null) {
+      throw ArgumentError('Missing uri field in $ResourceLink.');
+    }
+    return uri;
+  }
+
+  /// The MIME type of the resource.
+  String get mimeType {
+    final mimeType = _value['mimeType'] as String?;
+    if (mimeType == null) {
+      throw ArgumentError('Missing mimeType field in $ResourceLink.');
+    }
+    return mimeType;
+  }
+}
+
 /// Base type for objects that include optional annotations for the client.
 ///
 /// The client can use annotations to inform how objects are used or displayed.
@@ -396,10 +547,15 @@ extension type Annotated._fromMap(Map<String, Object?> _value) {
 
 /// The annotations for an [Annotated] object.
 extension type Annotations.fromMap(Map<String, Object?> _value) {
-  factory Annotations({List<Role>? audience, double? priority}) {
+  factory Annotations({
+    List<Role>? audience,
+    DateTime? lastModified,
+    double? priority,
+  }) {
     assert(priority == null || (priority >= 0 && priority <= 1));
     return Annotations.fromMap({
       if (audience != null) 'audience': [for (var role in audience) role.name],
+      if (lastModified != null) 'lastModified': lastModified.toIso8601String(),
       if (priority != null) 'priority': priority,
     });
   }
@@ -414,6 +570,18 @@ extension type Annotations.fromMap(Map<String, Object?> _value) {
     return [
       for (var role in audience) Role.values.firstWhere((e) => e.name == role),
     ];
+  }
+
+  /// Describes when this data was last modified.
+  ///
+  /// The moment the resource was last modified.
+  ///
+  /// Examples: last activity timestamp in an open file, timestamp when the
+  /// resource was attached, etc.
+  DateTime? get lastModified {
+    final lastModified = _value['lastModified'] as String?;
+    if (lastModified == null) return null;
+    return DateTime.parse(lastModified);
   }
 
   /// Describes how important this data is for operating the server.

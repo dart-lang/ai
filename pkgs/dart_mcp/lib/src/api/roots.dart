@@ -43,15 +43,26 @@ extension type ListRootsResult.fromMap(Map<String, Object?> _value)
 }
 
 /// Represents a root directory or file that the server can operate on.
-extension type Root.fromMap(Map<String, Object?> _value) {
-  factory Root({required String uri, String? name}) =>
-      Root.fromMap({'uri': uri, if (name != null) 'name': name});
+extension type Root.fromMap(Map<String, Object?> _value)
+    implements WithMetadata {
+  factory Root({required String uri, String? name, Meta? meta}) =>
+      Root.fromMap({
+        'uri': uri,
+        if (name != null) 'name': name,
+        if (meta != null) '_meta': meta,
+      });
 
   /// The URI identifying the root.
   ///
   /// This *must* start with file:// for now. This restriction may be relaxed
   /// in future versions of the protocol to allow other URI schemes.
-  String get uri => _value['uri'] as String;
+  String get uri {
+    final uri = _value['uri'] as String?;
+    if (uri == null) {
+      throw ArgumentError('Missing uri field in $Root.');
+    }
+    return uri;
+  }
 
   /// An optional name for the root.
   ///
@@ -67,7 +78,7 @@ extension type Root.fromMap(Map<String, Object?> _value) {
 /// This notification should be sent whenever the client adds, removes, or
 /// modifies any root.
 /// The server should then request an updated list of roots using the
-/// ListRootsRequest.
+/// [ListRootsRequest].
 extension type RootsListChangedNotification.fromMap(Map<String, Object?> _value)
     implements Notification {
   static const methodName = 'notifications/roots/list_changed';
