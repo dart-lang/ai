@@ -1,10 +1,138 @@
 The Dart Tooling MCP Server exposes Dart and Flutter development tool actions to compatible AI-assistant clients.
 
-[![Add to Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/install-mcp?name=dart_tooling&config=eyJ0eXBlIjoic3RkaW8iLCJjb21tYW5kIjoiZGFydCBtY3Atc2VydmVyIC0tZXhwZXJpbWVudGFsLW1jcC1zZXJ2ZXIgLS1mb3JjZS1yb290cy1mYWxsYmFjayJ9)
-
 ## Status
 
 WIP. This package is still experimental and is likely to evolve quickly.
+
+<!-- Note: since many of our tools require access to the Dart Tooling Daemon, we may want
+to be cautious about recommending tools where access to the Dart Tooling Daemon does not exist. -->
+
+## Set up your MCP client
+
+The Dart MCP server can work with any MCP client that supports standard I/O (stdio) as the
+transport medium. To access all the features of the Dart MCP server, an MCP client must support
+[Tools](https://modelcontextprotocol.io/docs/concepts/tools) and
+[Resources](https://modelcontextprotocol.io/docs/concepts/resources). For the best development
+experience with the Dart MCP server, an MCP client should also support
+[Roots](https://modelcontextprotocol.io/docs/concepts/roots). Here are specific instructions for
+some popular tools:
+
+### Gemini CLI
+
+To configure the [Gemini CLI](https://github.com/google-gemini/gemini-cli) to use the Dart MCP
+server, edit the file `.gemini/settings.json` file in your local project (configuration will only
+apply to this project) or edit the global `~/.gemini/settings.json` file in your home directory
+(configuration will apply for all projects).
+
+```json
+{
+  "mcpServers": {
+    "dart": {
+      "command": "dart",
+      "args": [
+        "mcp-server",
+        "--experimental-mcp-server", // Can be removed for Dart 3.9.0 or later.
+      ]
+    }
+  }
+}
+```
+
+For more information, see the official Gemini CLI documentation for
+[setting up MCP servers](https://github.com/google-gemini/gemini-cli/blob/main/docs/tools/mcp-server.md#how-to-set-up-your-mcp-server).
+
+### Gemini Code Assist in VS Code
+
+> Note: this currently requires the "Insiders" channel. Follow
+[instructions](https://developers.google.com/gemini-code-assist/docs/use-agentic-chat-pair-programmer#before-you-begin)
+to enable this build.
+
+[Gemini Code Assist](https://codeassist.google/)'s
+[Agent mode](https://developers.google.com/gemini-code-assist/docs/use-agentic-chat-pair-programmer) integrates the Gemini CLI to provide a powerful
+AI agent directly in your IDE. To configure Gemini Code Assist to use the Dart MCP
+server, follow the instructions to [configure the Gemini](#gemini-cli) CLI above.
+
+You can verify the MCP server has been configured properly by typing `/mcp` in the chat window in
+Agent mode.
+
+![Gemini Code Assist list mcp tools](_docs/gca_mcp_list_tools.png "Gemini Code Assist list MCP tools")
+
+For more information see the official Gemini Code Assist documentation for
+[using agent mode](https://developers.google.com/gemini-code-assist/docs/use-agentic-chat-pair-programmer#before-you-begin).
+
+<!-- ### Android Studio -->
+<!-- TODO(https://github.com/dart-lang/ai/issues/199): once we are confident that the
+Dart MCP server will work well with Android Studio's MCP support, add documentation here
+for configuring the server in Android Studio. -->
+
+### Cursor
+
+[![Add to Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/install-mcp?name=dart_tooling&config=eyJ0eXBlIjoic3RkaW8iLCJjb21tYW5kIjoiZGFydCBtY3Atc2VydmVyIC0tZXhwZXJpbWVudGFsLW1jcC1zZXJ2ZXIgLS1mb3JjZS1yb290cy1mYWxsYmFjayJ9)
+
+The easiest way to configure the Dart MCP server with Cursor is by clicking the "Add to Cursor"
+button above. Optionally, you can also configure the server manually by editing the
+`.cursor/mcp.json` file in your local project (configuration will only apply to this project) or
+editing the global `~/.cursor/mcp.json` file in your home directory (configuration will apply for
+all projects).
+
+```json
+{
+  "mcpServers": {
+    "dart": {
+      "command": "dart",
+      "args": [
+        "mcp-server",
+        "--experimental-mcp-server", // Can be removed for Dart 3.9.0 or later
+        "--force-roots-fallback" // Workaround for a Cursor issue with Roots support
+      ]
+    }
+  }
+}
+```
+
+For more information, see the official Cursor documentation for
+[installing MCP servers](https://docs.cursor.com/context/model-context-protocol#installing-mcp-servers).
+
+### Visual Studio Code Copilot
+<!-- TODO: update these docs to mention the automatic configuration provided by the Dart
+VS Code extension. -->
+
+To configure the Dart MCP server for a single project, edit the `.vscode/mcp.json`
+file in your workspace:
+
+```json
+"servers": {
+  "dart": {
+    "type": "stdio",
+    "command": "dart",
+    "args": [
+      "mcp-server",
+      "--experimental-mcp-server", // Can be removed for Dart 3.9.0 or later
+    ]
+  }
+}
+```
+
+To make the Dart MCP server available in every project you open, edit your
+VS Code user settings:
+
+```json
+"mcp": {
+  "servers": {
+    "dart": {
+      "type": "stdio",
+      "command": "dart",
+      "args": [
+        "mcp-server",
+        "--experimental-mcp-server", // Can be removed for Dart 3.9.0 or later
+      ]
+    }
+  }
+}
+```
+
+For more information, see the official VS Code documentation for
+[enabling MCP support](https://code.visualstudio.com/docs/copilot/chat/mcp-servers#_enable-mcp-support-in-vs-code).
 
 ## Tools
 
