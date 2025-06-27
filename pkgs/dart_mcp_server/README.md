@@ -89,8 +89,7 @@ directory you will want to run the command below from there (and alter the
 paths as necessary). For example, you may want to run this command from the
 directory of the app you wish to test the server against.
 
-[workflow_bot]: https://github.com/dart-lang/ai/tree/main/mcp_examples/bin/workflow_bot
-
+[workflow_bot]: https://github.com/dart-lang/ai/tree/main/mcp_examples/bin/workflow_client.dart
 
 ```dart
 dart pub add "dart_mcp_examples:{git: {url: https://github.com/dart-lang/ai.git, path: mcp_examples}}"
