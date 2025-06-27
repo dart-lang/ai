@@ -76,7 +76,7 @@ for configuring the server in Android Studio. -->
 The easiest way to configure the Dart MCP server with Cursor is by clicking the "Add to Cursor"
 button above. 
 
-Optionally, you can also configure the server manually. Go to **Cursor -> Settings -> Cursor Settings > Tools & Integrations**, and then click **"Add Custom MCP"** or **"New MCP Server"**
+Alternatively, you can configure the server manually. Go to **Cursor -> Settings -> Cursor Settings > Tools & Integrations**, and then click **"Add Custom MCP"** or **"New MCP Server"**
 depending on whether you already have other MCP servers configured. Edit the `.cursor/mcp.json` file in your local project (configuration will only apply to this project) or
 edit the global `~/.cursor/mcp.json` file in your home directory (configuration will apply for
 all projects) to configure the Dart MCP server:
@@ -110,9 +110,11 @@ to your VS Code user settings:
 
 By adding this setting, the Dart VS Code extension will register the Dart MCP Server
 configuration with VS Code so that you don't have to manually configure the server.
-Copilot will then automatically configure the Dart MCP server on your behalf.
+Copilot will then automatically configure the Dart MCP server on your behalf. This is
+a global setting.
 
-Optionally, you can also manually edit the `.vscode/mcp.json` file in your workspace:
+Alternatively, you can manually edit the `.vscode/mcp.json` file in your workspace,
+which will only configure the Dart MCP server for the local project:
 
 ```json
 "servers": {
@@ -123,24 +125,6 @@ Optionally, you can also manually edit the `.vscode/mcp.json` file in your works
       "mcp-server",
       "--experimental-mcp-server", // Can be removed for Dart 3.9.0 or later
     ]
-  }
-}
-```
-
-Or, to make the Dart MCP server available in every project you open, edit your
-VS Code user settings:
-
-```json
-"mcp": {
-  "servers": {
-    "dart": {
-      "type": "stdio",
-      "command": "dart",
-      "args": [
-        "mcp-server",
-        "--experimental-mcp-server", // Can be removed for Dart 3.9.0 or later
-      ]
-    }
   }
 }
 ```
