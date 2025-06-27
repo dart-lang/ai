@@ -114,7 +114,7 @@ Copilot will then automatically configure the Dart MCP server on your behalf. Th
 a global setting.
 
 Alternatively, you can manually edit the `.vscode/mcp.json` file in your workspace,
-which will only configure the Dart MCP server for the local project:
+which will only configure the Dart MCP server for the local workspace:
 
 ```json
 "servers": {
