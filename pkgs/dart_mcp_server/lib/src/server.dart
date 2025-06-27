@@ -252,11 +252,14 @@ Sink<String> _createLogSink(io.File logFile) {
     StreamSinkTransformer.fromHandlers(
       handleData: (data, innerSink) {
         innerSink.add(utf8.encode(data));
-        // It's a log, so we want to make sure it's always up-to-date.
-        fileByteSink.flush();
       },
-      handleDone: (innerSink) {
+      handleDone: (innerSink) async {
         innerSink.close();
+      },
+      handleError: (Object e, StackTrace s, _) {
+        io.stderr.writeln(
+          'Error in writing to log file ${logFile.path}: $e\n$s',
+        );
       },
     ),
   );
