@@ -71,7 +71,7 @@ for configuring the server in Android Studio. -->
 
 ### Cursor
 
-[![Add to Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/install-mcp?name=dart_tooling&config=eyJ0eXBlIjoic3RkaW8iLCJjb21tYW5kIjoiZGFydCBtY3Atc2VydmVyIC0tZXhwZXJpbWVudGFsLW1jcC1zZXJ2ZXIgLS1mb3JjZS1yb290cy1mYWxsYmFjayJ9)
+[![Add to Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/install-mcp?name=dart&config=eyJ0eXBlIjoic3RkaW8iLCJjb21tYW5kIjoiZGFydCBtY3Atc2VydmVyIC0tZXhwZXJpbWVudGFsLW1jcC1zZXJ2ZXIgLS1mb3JjZS1yb290cy1mYWxsYmFjayJ9)
 
 The easiest way to configure the Dart MCP server with Cursor is by clicking the "Add to Cursor"
 button above. 
@@ -99,7 +99,12 @@ all projects) to configure the Dart MCP server:
 For more information, see the official Cursor documentation for
 [installing MCP servers](https://docs.cursor.com/context/model-context-protocol#installing-mcp-servers).
 
-### Visual Studio Code Copilot
+### GitHub Copilot in VS Code
+
+<!-- TODO: once the dart.mcpServer setting is not hidden, we may be able
+to provide a deep link to the Dart Extension Settings UI for users to
+enable the server. See docs: https://code.visualstudio.com/docs/configure/settings#_settings-editor.
+This may be preferable to adding the deep link button to VS Code's mcp settings. -->
 
 To configure the Dart MCP server with Copilot or any other AI agent that supports the
 [VS Code MCP API](https://code.visualstudio.com/api/extension-guides/mcp), add the following
@@ -113,7 +118,12 @@ configuration with VS Code so that you don't have to manually configure the serv
 Copilot will then automatically configure the Dart MCP server on your behalf. This is
 a global setting.
 
-Alternatively, you can manually edit the `.vscode/mcp.json` file in your workspace,
+Alternatively, you can click the "Add to VS Code" button below to manually configure the server
+in your VS Code user settings.
+
+[![Add to VS Code](_docs/add_to_vs_code.png)](https://vscode.dev/redirect?url=vscode:mcp/install?%7B%22name%22%3A%22dart%22%2C%22command%22%3A%22dart%22%2C%22args%22%3A%5B%22mcp-server%22%2C%22--experimental-mcp%22%5D%7D)
+
+Or, you can manually edit the `.vscode/mcp.json` file in your workspace,
 which will only configure the Dart MCP server for the local workspace:
 
 ```json
