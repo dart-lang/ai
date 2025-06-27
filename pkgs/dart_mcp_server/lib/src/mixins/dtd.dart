@@ -187,15 +187,6 @@ base mixin DartToolingDaemonSupport
       return _dtdAlreadyConnected;
     }
 
-    if (request.arguments?[ParameterNames.uri] == null) {
-      return CallToolResult(
-        isError: true,
-        content: [
-          TextContent(text: 'Required parameter "uri" was not provided.'),
-        ],
-      );
-    }
-
     try {
       _dtd = await DartToolingDaemon.connect(
         Uri.parse(request.arguments![ParameterNames.uri] as String),

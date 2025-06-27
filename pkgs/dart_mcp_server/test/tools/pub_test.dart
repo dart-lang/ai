@@ -192,7 +192,7 @@ void main() {
 
             expect(
               (result.content.single as TextContent).text,
-              'Missing required argument `command`.',
+              'Required property "command" is missing at path #root',
             );
             expect(testProcessManager.commandsRan, isEmpty);
           });
