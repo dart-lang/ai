@@ -100,11 +100,20 @@ For more information, see the official Cursor documentation for
 [installing MCP servers](https://docs.cursor.com/context/model-context-protocol#installing-mcp-servers).
 
 ### Visual Studio Code Copilot
-<!-- TODO: update these docs to mention the automatic configuration provided by the Dart
-VS Code extension. -->
 
-To configure the Dart MCP server for a single project, edit the `.vscode/mcp.json`
-file in your workspace:
+To configure the Dart MCP server for a single project, edit your VS Code user settings to
+include the following flag:
+```json
+"dart.mcpServer": true
+```
+
+By adding this setting, the Dart VS Code extension will register the Dart MCP Server
+configuration with VS Code so that you don't have to manually configure the server.
+Copilot or other AI agents that support the
+[VS Code MCP API](https://code.visualstudio.com/api/extension-guides/mcp) will automatically
+configure the Dart MCP server on your behalf.
+
+Optionally, you can also manually edit the `.vscode/mcp.json` file in your workspace:
 
 ```json
 "servers": {
@@ -119,7 +128,7 @@ file in your workspace:
 }
 ```
 
-To make the Dart MCP server available in every project you open, edit your
+Or, to make the Dart MCP server available in every project you open, edit your
 VS Code user settings:
 
 ```json
