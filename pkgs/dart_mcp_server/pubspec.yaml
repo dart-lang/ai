@@ -25,6 +25,9 @@ dependencies:
     git:
       url: https://github.com/dart-lang/sdk.git
       path: third_party/pkg/language_server_protocol
+      # When changing this, also update .github/workflows/dart_mcp_server.yaml
+      # to cache the correct directory.
+      ref: b0838eac58308fc4e6654ca99eda75b30649c08f
   meta: ^1.16.0
   path: ^1.9.1
   pool: ^1.5.1
