@@ -20,6 +20,8 @@
   and stdout streams instead of starting processes itself. This enables custom
   process spawning (such as using package:process), and also enables the client
   to run in browser environments.
+- Fixed a problem where specifying `--log-file` would cause the server to stop
+  working.
 
 ## 0.2.2
 
