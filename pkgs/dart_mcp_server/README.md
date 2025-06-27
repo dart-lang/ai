@@ -25,7 +25,7 @@ Here are specific instructions for some popular tools:
 ### Gemini CLI
 
 To configure the [Gemini CLI](https://github.com/google-gemini/gemini-cli) to use the Dart MCP
-server, edit the file `.gemini/settings.json` file in your local project (configuration will only
+server, edit the `.gemini/settings.json` file in your local project (configuration will only
 apply to this project) or edit the global `~/.gemini/settings.json` file in your home directory
 (configuration will apply for all projects).
 
