@@ -2,6 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:io';
+
 import 'package:dart_mcp/client.dart';
 
 void main() async {
@@ -9,10 +11,16 @@ void main() async {
     Implementation(name: 'example dart client', version: '0.1.0'),
   );
   print('connecting to server');
-  final server = await client.connectStdioServer('dart', [
+
+  final process = await Process.start('dart', [
     'run',
     'example/simple_server.dart',
   ]);
+  final server = client.connectStdioServer(
+    process.stdin,
+    process.stdout,
+    onDone: process.kill,
+  );
   print('server started');
 
   print('initializing server');

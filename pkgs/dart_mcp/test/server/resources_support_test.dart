@@ -3,8 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:async';
-import 'dart:io';
-import 'dart:isolate';
 
 import 'package:async/async.dart';
 import 'package:dart_mcp/server.dart';
@@ -204,7 +202,10 @@ void main() {
   test('Resource templates can be listed and queried', () async {
     final environment = TestEnvironment(
       TestMCPClient(),
-      TestMCPServerWithResources.new,
+      (channel) => TestMCPServerWithResources(
+        channel,
+        fileContents: {'package:foo/foo.dart': 'hello world!'},
+      ),
     );
     await environment.initializeServer();
 
@@ -220,24 +221,24 @@ void main() {
     );
 
     final readResourceResponse = await serverConnection.readResource(
-      ReadResourceRequest(uri: 'package:test/test.dart'),
+      ReadResourceRequest(uri: 'package:foo/foo.dart'),
     );
     expect(
       (readResourceResponse.contents.single as TextResourceContents).text,
-      await File.fromUri(
-        (await Isolate.resolvePackageUri(Uri.parse('package:test/test.dart')))!,
-      ).readAsString(),
+      'hello world!',
     );
   });
 }
 
 final class TestMCPServerWithResources extends TestMCPServer
     with ResourcesSupport {
+  final Map<String, String> fileContents;
+
   @override
   /// Shorten this delay for the test so they run quickly.
   Duration get resourceUpdateThrottleDelay => Duration.zero;
 
-  TestMCPServerWithResources(super.channel);
+  TestMCPServerWithResources(super.channel, {this.fileContents = const {}});
 
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
@@ -260,14 +261,12 @@ final class TestMCPServerWithResources extends TestMCPServer
     if (!request.uri.endsWith('.dart')) {
       throw UnsupportedError('Only dart files can be read');
     }
-    final resolvedUri =
-        (await Isolate.resolvePackageUri(Uri.parse(request.uri)))!;
 
     return ReadResourceResult(
       contents: [
         TextResourceContents(
           uri: request.uri,
-          text: await File.fromUri(resolvedUri).readAsString(),
+          text: fileContents[request.uri]!,
         ),
       ],
     );

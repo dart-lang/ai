@@ -449,12 +449,18 @@ Future<ServerConnectionPair> _initializeMCPServer(
     addTearDown(server.shutdown);
     connection = client.connectServer(clientChannel);
   } else {
-    connection = await client.connectStdioServer(sdk.dartExecutablePath, [
+    final process = await Process.start(sdk.dartExecutablePath, [
       'pub', // Using `pub` gives us incremental compilation
       'run',
       'bin/main.dart',
       ...cliArgs,
     ]);
+    addTearDown(process.kill);
+    connection = client.connectStdioServer(
+      process.stdin,
+      process.stdout,
+      onDone: process.kill,
+    );
   }
 
   final initializeResult = await connection.initialize(
