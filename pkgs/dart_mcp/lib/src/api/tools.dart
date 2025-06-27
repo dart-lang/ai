@@ -53,15 +53,17 @@ extension type CallToolResult.fromMap(Map<String, Object?> _value)
   factory CallToolResult({
     Meta? meta,
     required List<Content> content,
+    Map<String, Object?>? structuredContent,
     bool? isError,
   }) => CallToolResult.fromMap({
     'content': content,
+    if (structuredContent != null) 'structuredContent': structuredContent,
     if (isError != null) 'isError': isError,
     if (meta != null) '_meta': meta,
   });
 
-  /// The type of content, either [TextContent], [ImageContent],
-  /// or [EmbeddedResource],
+  /// The returned content, either [TextContent], [ImageContent],
+  /// [AudioContent], [ResourceLink] or [EmbeddedResource].
   List<Content> get content {
     final content = (_value['content'] as List?)?.cast<Content>();
     if (content == null) {
@@ -69,6 +71,11 @@ extension type CallToolResult.fromMap(Map<String, Object?> _value)
     }
     return content;
   }
+
+  /// The content as structured output, if the [Tool] declared an
+  /// `outputSchema`.
+  Map<String, Object?>? get structuredContent =>
+      _value['structuredContent'] as Map<String, Object?>?;
 
   /// Whether the tool call ended in an error.
   ///
@@ -119,18 +126,27 @@ extension type ToolListChangedNotification.fromMap(Map<String, Object?> _value)
 }
 
 /// Definition for a tool the client can call.
-extension type Tool.fromMap(Map<String, Object?> _value) {
+extension type Tool.fromMap(Map<String, Object?> _value)
+    implements BaseMetadata {
   factory Tool({
     required String name,
+    String? title,
     String? description,
     required ObjectSchema inputSchema,
+    // Only supported since version `ProtocolVersion.v2025_06_18`.
+    ObjectSchema? outputSchema,
     // Only supported since version `ProtocolVersion.v2025_03_26`.
     ToolAnnotations? annotations,
+    // Only supported since version `ProtocolVersion.v2025_03_26`.
+    Meta? meta,
   }) => Tool.fromMap({
     'name': name,
+    if (title != null) 'title': title,
     if (description != null) 'description': description,
     'inputSchema': inputSchema,
+    if (outputSchema != null) 'outputSchema': outputSchema,
     if (annotations != null) 'annotations': annotations,
+    if (meta != null) '_meta': meta,
   });
 
   /// Optional additional tool information.
@@ -139,15 +155,6 @@ extension type Tool.fromMap(Map<String, Object?> _value) {
   ToolAnnotations? get toolAnnotations =>
       (_value['annotations'] as Map?)?.cast<String, Object?>()
           as ToolAnnotations?;
-
-  /// The name of the tool.
-  String get name {
-    final name = _value['name'] as String?;
-    if (name == null) {
-      throw ArgumentError('Missing name field in $Tool');
-    }
-    return name;
-  }
 
   /// A human-readable description of the tool.
   String? get description => _value['description'] as String?;
@@ -161,6 +168,13 @@ extension type Tool.fromMap(Map<String, Object?> _value) {
     }
     return inputSchema;
   }
+
+  /// An optional JSON [ObjectSchema] object defining the expected schema of the
+  /// tool output.
+  ///
+  /// If the `outputSchema` is specified, then the output from the tool must
+  /// conform to the schema.
+  ObjectSchema? get outputSchema => _value['outputSchema'] as ObjectSchema?;
 }
 
 /// Additional properties describing a Tool to clients.

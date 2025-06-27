@@ -66,6 +66,27 @@ void main() {
       TestMCPServerWithCompletions.packagePaths,
     );
   });
+
+  test('client can request resource completions with context', () async {
+    final environment = TestEnvironment(
+      TestMCPClient(),
+      TestMCPServerWithCompletions.new,
+    );
+    final initializeResult = await environment.initializeServer();
+    expect(initializeResult.capabilities.completions, Completions());
+
+    final serverConnection = environment.serverConnection;
+    expect(
+      (await serverConnection.requestCompletions(
+        CompleteRequest(
+          ref: TestMCPServerWithCompletions.packageUriTemplateRef,
+          argument: CompletionArgument(name: 'path', value: 'a'),
+          context: CompletionContext(arguments: {'package_name': 'async'}),
+        ),
+      )).completion.values,
+      ['async.dart'],
+    );
+  });
 }
 
 final class TestMCPServerWithCompletions extends TestMCPServer
@@ -84,15 +105,23 @@ final class TestMCPServerWithCompletions extends TestMCPServer
           completion: Completion(values: cLanguages, hasMore: false),
         );
       case Reference(isResource: true)
-          when (ref as ResourceReference).uri == packageUriTemplate.uriTemplate:
+          when (ref as ResourceTemplateReference).uri ==
+              packageUriTemplate.uriTemplate:
         return switch (request.argument) {
           CompletionArgument(name: 'package_name', value: 'a') =>
             CompleteResult(
               completion: Completion(values: aPackages, hasMore: false),
             ),
-          CompletionArgument(name: 'path', value: 'a') => CompleteResult(
-            completion: Completion(values: packagePaths, hasMore: false),
-          ),
+          CompletionArgument(name: 'path', value: 'a') => switch (request
+              .context
+              ?.arguments?['package_name']) {
+            'async' => CompleteResult(
+              completion: Completion(values: ['async.dart']),
+            ),
+            _ => CompleteResult(
+              completion: Completion(values: packagePaths, hasMore: false),
+            ),
+          },
           _ =>
             throw ArgumentError.value(
               request.argument,
@@ -124,7 +153,7 @@ final class TestMCPServerWithCompletions extends TestMCPServer
   );
   static final cLanguages = ['c', 'c++', 'c#'];
 
-  static final packageUriTemplateRef = ResourceReference(
+  static final packageUriTemplateRef = ResourceTemplateReference(
     uri: packageUriTemplate.uriTemplate,
   );
   static final packageUriTemplate = ResourceTemplate(

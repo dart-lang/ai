@@ -13,6 +13,10 @@
 - Auto-validate schemas for all tools by default. This can be disabled by
   passing `validateArguments: false` to `registerTool`.
   - This is breaking since this method is overridden by the Dart MCP server.
+- Updates to the latest MCP spec, [2025-06-08](https://modelcontextprotocol.io/specification/2025-06-18/changelog)
+  - Adds support for Elicitations to allow the server to ask the user questions.
+  - Adds `ResourceLink` as a tool return content type.
+  - Adds support for structured tool output.
 
 ## 0.2.2
 

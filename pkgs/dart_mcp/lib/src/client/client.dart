@@ -15,6 +15,7 @@ import 'package:stream_channel/stream_channel.dart';
 import '../api/api.dart';
 import '../shared.dart';
 
+part 'elicitation_support.dart';
 part 'roots_support.dart';
 part 'sampling_support.dart';
 
@@ -104,6 +105,7 @@ base class MCPClient {
       protocolLogSink: protocolLogSink,
       rootsSupport: self is RootsSupport ? self : null,
       samplingSupport: self is SamplingSupport ? self : null,
+      elicitationSupport: self is ElicitationSupport ? self : null,
     );
     connections.add(connection);
     channel.sink.done.then((_) => connections.remove(connection));
@@ -122,7 +124,7 @@ base class MCPClient {
 
 /// An active server connection.
 base class ServerConnection extends MCPBase {
-  /// The version of the protocol that was negotiated during intialization.
+  /// The version of the protocol that was negotiated during initialization.
   ///
   /// Some APIs may error if you attempt to use them without first checking the
   /// protocol version.
@@ -201,6 +203,7 @@ base class ServerConnection extends MCPBase {
     super.protocolLogSink,
     RootsSupport? rootsSupport,
     SamplingSupport? samplingSupport,
+    ElicitationSupport? elicitationSupport,
   }) {
     if (rootsSupport != null) {
       registerRequestHandler(
@@ -215,6 +218,12 @@ base class ServerConnection extends MCPBase {
         (CreateMessageRequest request) =>
             samplingSupport.handleCreateMessage(request, serverInfo!),
       );
+    }
+
+    if (elicitationSupport != null) {
+      registerRequestHandler(ElicitRequest.methodName, (ElicitRequest request) {
+        return elicitationSupport.handleElicitation(request);
+      });
     }
 
     registerNotificationHandler(
@@ -277,8 +286,10 @@ base class ServerConnection extends MCPBase {
     serverInfo = response.serverInfo;
     serverCapabilities = response.capabilities;
     final serverVersion = response.protocolVersion;
-    if (serverVersion?.isSupported != true) {
+    if (serverVersion == null || !serverVersion.isSupported) {
       await shutdown();
+    } else {
+      protocolVersion = serverVersion;
     }
     return response;
   }

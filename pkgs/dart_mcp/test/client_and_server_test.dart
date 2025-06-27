@@ -261,6 +261,19 @@ void main() {
   });
 
   group('version negotiation', () {
+    test('client and server respect negotiated protocol version', () async {
+      final environment = TestEnvironment(TestMCPClient(), TestMCPServer.new);
+      final serverConnection = environment.serverConnection;
+      final initializeResult = await serverConnection.initialize(
+        InitializeRequest(
+          protocolVersion: ProtocolVersion.oldestSupported,
+          capabilities: environment.client.capabilities,
+          clientInfo: environment.client.implementation,
+        ),
+      );
+      expect(initializeResult.protocolVersion, ProtocolVersion.oldestSupported);
+      expect(serverConnection.protocolVersion, ProtocolVersion.oldestSupported);
+    });
     test('server can downgrade the version', () async {
       final environment = TestEnvironment(
         TestMCPClient(),
