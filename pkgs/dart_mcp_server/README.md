@@ -148,7 +148,7 @@ For more information, see the official VS Code documentation for
 
 <!-- generated -->
 
-| Name | Title | Description |
+| Tool Name | Title | Description |
 | --- | --- | --- |
 | `connect_dart_tooling_daemon` | Connect to DTD | Connects to the Dart Tooling Daemon. You should get the uri either from available tools or the user, do not just make up a random URI to pass. When asking the user for the uri, you should suggest the "Copy DTD Uri to clipboard" action. When reconnecting after losing a connection, always request a new uri first. |
 | `get_runtime_errors` | Get runtime errors | Retrieves the most recent runtime errors that have occurred in the active Dart or Flutter application. Requires "connect_dart_tooling_daemon" to be successfully called first. |

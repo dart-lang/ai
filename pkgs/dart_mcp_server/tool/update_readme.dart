@@ -12,7 +12,7 @@ void main(List<String> args) async {
   final tools = await _retrieveRegisteredTools();
 
   final buf = StringBuffer('''
-| Name | Title | Description |
+| Tool Name | Title | Description |
 | --- | --- | --- |
 ''');
   for (final tool in tools) {
