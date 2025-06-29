@@ -179,8 +179,6 @@ base mixin PubDevSupport on ToolsSupport {
     }
   }
 
-  static final List<Tool> allTools = [pubDevTool];
-
   static final pubDevTool = Tool(
     name: 'pub_dev_search',
     description:

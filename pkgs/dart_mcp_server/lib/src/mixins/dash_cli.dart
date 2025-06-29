@@ -179,13 +179,6 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
     );
   }
 
-  static final List<Tool> allTools = [
-    dartFixTool,
-    dartFormatTool,
-    runTestsTool,
-    createProjectTool,
-  ];
-
   static final dartFixTool = Tool(
     name: 'dart_fix',
     description: 'Runs `dart fix --apply` for the given project roots.',

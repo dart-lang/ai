@@ -403,13 +403,6 @@ base mixin DartAnalyzerSupport
     }());
   }
 
-  static final List<Tool> allTools = [
-    analyzeFilesTool,
-    resolveWorkspaceSymbolTool,
-    signatureHelpTool,
-    hoverTool,
-  ];
-
   @visibleForTesting
   static final analyzeFilesTool = Tool(
     name: 'analyze_files',

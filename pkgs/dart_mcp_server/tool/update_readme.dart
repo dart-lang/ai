@@ -4,51 +4,63 @@
 
 import 'dart:io';
 
-import 'package:dart_mcp/server.dart';
-import 'package:dart_mcp_server/src/mixins/analyzer.dart';
-import 'package:dart_mcp_server/src/mixins/dash_cli.dart';
-import 'package:dart_mcp_server/src/mixins/dtd.dart';
-import 'package:dart_mcp_server/src/mixins/pub.dart';
-import 'package:dart_mcp_server/src/mixins/pub_dev_search.dart';
+import 'package:dart_mcp/client.dart';
 
-final Map<String, List<Tool>> toolCategories = {
-  'project': DashCliSupport.allTools,
-  'analysis': DartAnalyzerSupport.allTools,
-  'runtime': DartToolingDaemonSupport.allTools,
-  'pub': PubSupport.allTools,
-  'pub.dev': PubDevSupport.allTools,
-};
+void main(List<String> args) async {
+  print('Getting registered tools...');
 
-void main(List<String> args) {
-  final buf = StringBuffer();
+  final tools = await _retrieveRegisteredTools();
 
-  for (final entry in toolCategories.entries) {
-    final category = entry.key;
-    final tools = entry.value;
-
-    buf.writeln('### $category');
-    buf.writeln('');
-
-    for (final tool in tools) {
-      buf.writeln('- `${tool.name}`: ${tool.description}');
-    }
-
-    buf.writeln('');
+  final buf = StringBuffer('''
+| Name | Title | Description |
+| --- | --- | --- |
+''');
+  for (final tool in tools) {
+    buf.writeln('| `${tool.name}` | ${tool.title} | ${tool.description} |');
   }
 
   final readmeFile = File('README.md');
-  final updated = insertBetween(
+  final updated = _insertBetween(
     readmeFile.readAsStringSync(),
     buf.toString(),
     '<!-- generated -->',
   );
   readmeFile.writeAsStringSync(updated);
+
+  print('Wrote update tool list to ${readmeFile.path}.');
 }
 
-String insertBetween(String original, String insertion, String marker) {
+String _insertBetween(String original, String insertion, String marker) {
   final startIndex = original.indexOf(marker) + marker.length;
   final endIndex = original.lastIndexOf(marker);
 
   return '${original.substring(0, startIndex)}\n\n'
-      '$insertion${original.substring(endIndex)}';
+      '$insertion\n${original.substring(endIndex)}';
+}
+
+Future<List<Tool>> _retrieveRegisteredTools() async {
+  final client = MCPClient(
+    Implementation(name: 'list tools client', version: '1.0.0'),
+  );
+  final server = await client.connectStdioServer('dart', [
+    'run',
+    'bin/main.dart',
+  ]);
+
+  await server.initialize(
+    InitializeRequest(
+      protocolVersion: ProtocolVersion.latestSupported,
+      capabilities: client.capabilities,
+      clientInfo: client.implementation,
+    ),
+  );
+  server.notifyInitialized(InitializedNotification());
+
+  final toolsResult = await server.listTools(ListToolsRequest());
+  await client.shutdown();
+  return toolsResult.tools;
+}
+
+extension on Tool {
+  String get title => toolAnnotations?.title ?? '';
 }

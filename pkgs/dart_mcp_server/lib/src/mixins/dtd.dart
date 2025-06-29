@@ -631,17 +631,6 @@ base mixin DartToolingDaemonSupport
     );
   }
 
-  static final List<Tool> allTools = [
-    connectTool,
-    getRuntimeErrorsTool,
-    screenshotTool,
-    hotReloadTool,
-    getWidgetTreeTool,
-    getSelectedWidgetTool,
-    setWidgetSelectionModeTool,
-    getActiveLocationTool,
-  ];
-
   @visibleForTesting
   static final connectTool = Tool(
     name: 'connect_dart_tooling_daemon',
