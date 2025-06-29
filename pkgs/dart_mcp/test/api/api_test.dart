@@ -61,6 +61,16 @@ void main() {
 
   group('API object validation', () {
     test('throws when required fields are missing', () {
+      expect(() => Root.fromMap({}).uri, throwsA(isA<ArgumentError>()));
+      expect(
+        () => Implementation.fromMap({'name': 'test'}).version,
+        throwsA(isA<ArgumentError>()),
+      );
+      expect(
+        () => BaseMetadata.fromMap({}).name,
+        throwsA(isA<ArgumentError>()),
+      );
+
       final empty = <String, Object?>{};
 
       // Initialization
@@ -103,6 +113,15 @@ void main() {
         () => (empty as CreateMessageRequest).maxTokens,
         throwsArgumentError,
       );
+    });
+    test('meta field is parsed correctly', () {
+      final root = Root.fromMap({
+        'uri': 'file:///foo/bar',
+        '_meta': {'foo': 'bar'},
+      });
+      expect(root.meta, isNotNull);
+      final metaMap = root.meta as Map;
+      expect(metaMap['foo'], 'bar');
     });
   });
 }

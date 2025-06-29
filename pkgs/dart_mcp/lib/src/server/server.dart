@@ -12,6 +12,7 @@ import '../api/api.dart';
 import '../shared.dart';
 
 part 'completions_support.dart';
+part 'elicitation_request_support.dart';
 part 'logging_support.dart';
 part 'prompts_support.dart';
 part 'resources_support.dart';

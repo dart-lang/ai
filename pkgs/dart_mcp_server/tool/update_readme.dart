@@ -16,7 +16,9 @@ void main(List<String> args) async {
 | --- | --- | --- |
 ''');
   for (final tool in tools) {
-    buf.writeln('| `${tool.name}` | ${tool.title} | ${tool.description} |');
+    buf.writeln(
+      '| `${tool.name}` | ${tool.displayName} | ${tool.description} |',
+    );
   }
 
   final readmeFile = File('README.md');
@@ -42,10 +44,12 @@ Future<List<Tool>> _retrieveRegisteredTools() async {
   final client = MCPClient(
     Implementation(name: 'list tools client', version: '1.0.0'),
   );
-  final server = await client.connectStdioServer('dart', [
-    'run',
-    'bin/main.dart',
-  ]);
+  final process = await Process.start('dart', ['run', 'bin/main.dart']);
+  final server = client.connectStdioServer(
+    process.stdin,
+    process.stdout,
+    onDone: process.kill,
+  );
 
   await server.initialize(
     InitializeRequest(
@@ -62,5 +66,5 @@ Future<List<Tool>> _retrieveRegisteredTools() async {
 }
 
 extension on Tool {
-  String get title => toolAnnotations?.title ?? '';
+  String get displayName => toolAnnotations?.title ?? '';
 }

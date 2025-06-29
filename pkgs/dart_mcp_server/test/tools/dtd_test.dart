@@ -607,7 +607,7 @@ void main() {
         expect(missingArgResult.isError, isTrue);
         expect(
           (missingArgResult.content.first as TextContent).text,
-          'Required parameter "enabled" was not provided or is not a boolean.',
+          'Required property "enabled" is missing at path #root',
         );
 
         // Clean up

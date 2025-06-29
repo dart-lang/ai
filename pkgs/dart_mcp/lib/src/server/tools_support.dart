@@ -43,17 +43,38 @@ base mixin ToolsSupport on MCPServer {
   ///
   /// Throws a [StateError] if there is already a [Tool] registered with the
   /// same name.
+  ///
+  /// If [validateArguments] is true, then request arguments are automatically
+  /// validated against the [tool]s input schema.
   void registerTool(
     Tool tool,
-    FutureOr<CallToolResult> Function(CallToolRequest) impl,
-  ) {
+    FutureOr<CallToolResult> Function(CallToolRequest) impl, {
+    bool validateArguments = true,
+  }) {
     if (_registeredTools.containsKey(tool.name)) {
       throw StateError(
         'Failed to register tool ${tool.name}, it is already registered',
       );
     }
     _registeredTools[tool.name] = tool;
-    _registeredToolImpls[tool.name] = impl;
+    _registeredToolImpls[tool.name] =
+        validateArguments
+            ? (request) {
+              final errors = tool.inputSchema.validate(
+                request.arguments ?? const <String, Object?>{},
+              );
+              if (errors.isNotEmpty) {
+                return CallToolResult(
+                  content: [
+                    for (final error in errors)
+                      Content.text(text: error.toErrorString()),
+                  ],
+                  isError: true,
+                );
+              }
+              return impl(request);
+            }
+            : impl;
 
     if (ready) {
       _notifyToolListChanged();

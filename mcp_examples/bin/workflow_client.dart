@@ -409,11 +409,16 @@ final class WorkflowClient extends MCPClient with RootsSupport {
     for (var server in serverCommands) {
       final parts = server.split(' ');
       try {
+        final process = await Process.start(
+          parts.first,
+          parts.skip(1).toList(),
+        );
         serverConnections.add(
-          await connectStdioServer(
-            parts.first,
-            parts.skip(1).toList(),
+          connectStdioServer(
+            process.stdin,
+            process.stdout,
             protocolLogSink: logSink,
+            onDone: process.kill,
           ),
         );
       } catch (e) {

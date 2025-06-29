@@ -5,8 +5,6 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
-// TODO: Refactor to drop this dependency?
-import 'dart:io';
 
 import 'package:async/async.dart' hide Result;
 import 'package:meta/meta.dart';
@@ -15,6 +13,7 @@ import 'package:stream_channel/stream_channel.dart';
 import '../api/api.dart';
 import '../shared.dart';
 
+part 'elicitation_support.dart';
 part 'roots_support.dart';
 part 'sampling_support.dart';
 
@@ -49,29 +48,21 @@ base class MCPClient {
   @visibleForTesting
   final Set<ServerConnection> connections = {};
 
-  /// Connect to a new MCP server by invoking [command] with [arguments] and
-  /// talking to that process over stdin/stdout.
+  /// Connect to a new MCP server over [stdin] and [stdout].
   ///
   /// If [protocolLogSink] is provided, all messages sent between the client and
   /// server will be forwarded to that [Sink] as well, with `<<<` preceding
   /// incoming messages and `>>>` preceding outgoing messages. It is the
   /// responsibility of the caller to close this sink.
-  Future<ServerConnection> connectStdioServer(
-    String command,
-    List<String> arguments, {
+  ///
+  /// If [onDone] is passed, it will be invoked when the connection shuts down.
+  ServerConnection connectStdioServer(
+    StreamSink<List<int>> stdin,
+    Stream<List<int>> stdout, {
     Sink<String>? protocolLogSink,
-  }) async {
-    final process = await Process.start(command, arguments);
-    process.stderr
-        .transform(utf8.decoder)
-        .transform(const LineSplitter())
-        .listen((line) {
-          stderr.writeln('[StdErr from server $command]: $line');
-        });
-    final channel = StreamChannel.withCloseGuarantee(
-          process.stdout,
-          process.stdin,
-        )
+    void Function()? onDone,
+  }) {
+    final channel = StreamChannel.withCloseGuarantee(stdout, stdin)
         .transform(StreamChannelTransformer.fromCodec(utf8))
         .transformStream(const LineSplitter())
         .transformSink(
@@ -82,12 +73,15 @@ base class MCPClient {
           ),
         );
     final connection = connectServer(channel, protocolLogSink: protocolLogSink);
-    unawaited(connection.done.then((_) => process.kill()));
+    if (onDone != null) connection.done.then((_) => onDone());
     return connection;
   }
 
   /// Returns a connection for an MCP server using a [channel], which is already
   /// established.
+  ///
+  /// Each [String] sent over [channel] represents an entire JSON request or
+  /// response.
   ///
   /// If [protocolLogSink] is provided, all messages sent on [channel] will be
   /// forwarded to that [Sink] as well, with `<<<` preceding incoming messages
@@ -104,6 +98,7 @@ base class MCPClient {
       protocolLogSink: protocolLogSink,
       rootsSupport: self is RootsSupport ? self : null,
       samplingSupport: self is SamplingSupport ? self : null,
+      elicitationSupport: self is ElicitationSupport ? self : null,
     );
     connections.add(connection);
     channel.sink.done.then((_) => connections.remove(connection));
@@ -122,7 +117,7 @@ base class MCPClient {
 
 /// An active server connection.
 base class ServerConnection extends MCPBase {
-  /// The version of the protocol that was negotiated during intialization.
+  /// The version of the protocol that was negotiated during initialization.
   ///
   /// Some APIs may error if you attempt to use them without first checking the
   /// protocol version.
@@ -201,6 +196,7 @@ base class ServerConnection extends MCPBase {
     super.protocolLogSink,
     RootsSupport? rootsSupport,
     SamplingSupport? samplingSupport,
+    ElicitationSupport? elicitationSupport,
   }) {
     if (rootsSupport != null) {
       registerRequestHandler(
@@ -215,6 +211,12 @@ base class ServerConnection extends MCPBase {
         (CreateMessageRequest request) =>
             samplingSupport.handleCreateMessage(request, serverInfo!),
       );
+    }
+
+    if (elicitationSupport != null) {
+      registerRequestHandler(ElicitRequest.methodName, (ElicitRequest request) {
+        return elicitationSupport.handleElicitation(request);
+      });
     }
 
     registerNotificationHandler(
@@ -277,8 +279,10 @@ base class ServerConnection extends MCPBase {
     serverInfo = response.serverInfo;
     serverCapabilities = response.capabilities;
     final serverVersion = response.protocolVersion;
-    if (serverVersion?.isSupported != true) {
+    if (serverVersion == null || !serverVersion.isSupported) {
       await shutdown();
+    } else {
+      protocolVersion = serverVersion;
     }
     return response;
   }
