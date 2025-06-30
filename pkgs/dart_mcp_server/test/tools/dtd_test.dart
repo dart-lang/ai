@@ -218,6 +218,9 @@ void main() {
           );
           await pumpEventQueue();
           expect(server.activeVmServices.length, 1);
+          // TODO: It can cause an error in the mcp server if we haven't set
+          // up the listeners yet.
+          await Future<void>.delayed(const Duration(seconds: 1));
 
           await testHarness.stopDebugSession(debugSession);
           await pumpEventQueue();
