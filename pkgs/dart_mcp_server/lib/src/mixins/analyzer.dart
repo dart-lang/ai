@@ -91,7 +91,7 @@ base mixin DartAnalyzerSupport
   ///
   /// On failure, returns a reason for the failure.
   Future<String?> _initializeAnalyzerLspServer() async {
-    _lspServer = await Process.start(sdk.dartExecutablePath, [
+    final lspServer = await Process.start(sdk.dartExecutablePath, [
       'language-server',
       // Required even though it is documented as the default.
       // https://github.com/dart-lang/sdk/issues/60574
@@ -101,7 +101,8 @@ base mixin DartAnalyzerSupport
       // '--protocol-traffic-log',
       // 'language-server-protocol.log',
     ]);
-    _lspServer!.stderr
+    _lspServer = lspServer;
+    lspServer.stderr
         .transform(utf8.decoder)
         .transform(const LineSplitter())
         .listen((line) async {
@@ -109,8 +110,8 @@ base mixin DartAnalyzerSupport
           log(LoggingLevel.warning, line, logger: 'DartLanguageServer');
         });
 
-    _lspConnection =
-        Peer(lspChannel(_lspServer!.stdout, _lspServer!.stdin))
+    final lspConnection =
+        Peer(lspChannel(lspServer.stdout, lspServer.stdin))
           ..registerMethod(
             lsp.Method.textDocument_publishDiagnostics.toString(),
             _handleDiagnostics,
@@ -122,8 +123,9 @@ base mixin DartAnalyzerSupport
               () => 'Unhandled LSP message: ${params.method} - ${params.asMap}',
             );
           });
+    _lspConnection = lspConnection;
 
-    unawaited(_lspConnection!.listen());
+    unawaited(lspConnection.listen());
 
     log(LoggingLevel.debug, 'Connecting to analyzer lsp server');
     lsp.InitializeResult? initializeResult;
@@ -131,7 +133,7 @@ base mixin DartAnalyzerSupport
     try {
       // Initialize with the server.
       initializeResult = lsp.InitializeResult.fromJson(
-        (await _lspConnection!.sendRequest(
+        (await lspConnection.sendRequest(
               lsp.Method.initialize.toString(),
               lsp.InitializeParams(
                 capabilities: lsp.ClientCapabilities(
@@ -221,10 +223,10 @@ base mixin DartAnalyzerSupport
     }
 
     if (error != null) {
-      _lspServer?.kill();
-      await _lspConnection?.close();
+      lspServer.kill();
+      await lspConnection.close();
     } else {
-      _lspConnection?.sendNotification(
+      lspConnection.sendNotification(
         lsp.Method.initialized.toString(),
         lsp.InitializedParams().toJson(),
       );
