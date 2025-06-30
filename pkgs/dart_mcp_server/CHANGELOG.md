@@ -44,3 +44,4 @@
 * Add support for injecting an `Analytics` instance to track usage.
 * Screenshot tool disabled until
   https://github.com/flutter/flutter/issues/170357 is resolved.
+* Add `arg_parser.dart` public library with minimal deps to be used by the dart tool.
