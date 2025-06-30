@@ -44,3 +44,4 @@
 * Add support for injecting an `Analytics` instance to track usage.
 * Listen to the new DTD `ConnectedApp` service instead of the `Editor.DebugSessions`
   service, when available.
+* Add `arg_parser.dart` public library with minimal deps to be used by the dart tool.

@@ -6,7 +6,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io' as io;
 
-import 'package:args/args.dart';
 import 'package:async/async.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:file/file.dart';
@@ -16,6 +15,7 @@ import 'package:process/process.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'package:unified_analytics/unified_analytics.dart';
 
+import 'arg_parser.dart';
 import 'mixins/analyzer.dart';
 import 'mixins/dash_cli.dart';
 import 'mixins/dtd.dart';
@@ -204,45 +204,7 @@ final class DartMCPServer extends MCPServer
       validateArguments: validateArguments,
     );
   }
-
-  static final argParser = ArgParser(allowTrailingOptions: false)
-    ..addOption(
-      dartSdkOption,
-      help:
-          'The path to the root of the desired Dart SDK. Defaults to the '
-          'DART_SDK environment variable.',
-    )
-    ..addOption(
-      flutterSdkOption,
-      help:
-          'The path to the root of the desired Flutter SDK. Defaults to '
-          'the FLUTTER_SDK environment variable, then searching up from '
-          'the Dart SDK.',
-    )
-    ..addFlag(
-      forceRootsFallbackFlag,
-      negatable: true,
-      defaultsTo: false,
-      help:
-          'Forces a behavior for project roots which uses MCP tools '
-          'instead of the native MCP roots. This can be helpful for '
-          'clients like cursor which claim to have roots support but do '
-          'not actually support it.',
-    )
-    ..addOption(
-      logFileOption,
-      help:
-          'Path to a file to log all MPC protocol traffic to. File will be '
-          'overwritten if it exists.',
-    )
-    ..addFlag(helpFlag, abbr: 'h', help: 'Show usage text');
 }
-
-const dartSdkOption = 'dart-sdk';
-const flutterSdkOption = 'flutter-sdk';
-const forceRootsFallbackFlag = 'force-roots-fallback';
-const helpFlag = 'help';
-const logFileOption = 'log-file';
 
 /// Creates a `Sink<String>` for [logFile].
 Sink<String> _createLogSink(io.File logFile) {
