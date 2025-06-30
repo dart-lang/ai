@@ -74,7 +74,7 @@ for configuring the server in Android Studio. -->
 [![Add to Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/install-mcp?name=dart&config=eyJ0eXBlIjoic3RkaW8iLCJjb21tYW5kIjoiZGFydCBtY3Atc2VydmVyIC0tZXhwZXJpbWVudGFsLW1jcC1zZXJ2ZXIgLS1mb3JjZS1yb290cy1mYWxsYmFjayJ9)
 
 The easiest way to configure the Dart MCP server with Cursor is by clicking the "Add to Cursor"
-button above. 
+button above.
 
 Alternatively, you can configure the server manually. Go to **Cursor -> Settings -> Cursor Settings > Tools & Integrations**, and then click **"Add Custom MCP"** or **"New MCP Server"**
 depending on whether you already have other MCP servers configured. Edit the `.cursor/mcp.json` file in your local project (configuration will only apply to this project) or
@@ -155,7 +155,6 @@ For more information, see the official VS Code documentation for
 | `pub` | `static tool` | Runs a `dart pub` command for the given project roots. |
 | `pub_dev_search` | `package search` | Searches pub.dev for packages relevant to a given search query. |
 | `get_runtime_errors` | `runtime analysis` | Retrieves the list of runtime errors that have occurred in the active Dart or Flutter application. |
-| `take_screenshot` | `runtime analysis` | Takes a screenshot of the active Flutter application in its current state. |
 | `get_widget_tree` | `runtime analysis` | Retrieves the widget tree from the active Flutter application. |
 | `get_selected_widget` | `runtime analysis` | Retrieves the selected widget from the active Flutter application. |
 | `hot_reload` | `runtime tool` | Performs a hot reload of the active Flutter application. |
