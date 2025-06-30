@@ -303,9 +303,9 @@ class FakeEditorExtension {
   static Future<FakeEditorExtension> connect(Sdk sdk) async {
     final dtdProcess = await TestProcess.start(sdk.dartExecutablePath, [
       'tooling-daemon',
+      '--machine',
     ]);
-    final dtdUri = await _getDTDUri(dtdProcess);
-    final dtdSecret = await _getDTDSecret(dtdProcess);
+    final (:dtdUri, :dtdSecret) = await _getDTDInfo(dtdProcess);
     final dtd = await DartToolingDaemon.connect(Uri.parse(dtdUri));
     return FakeEditorExtension._(dtd, dtdProcess, dtdUri, dtdSecret);
   }
@@ -336,47 +336,16 @@ class FakeEditorExtension {
 }
 
 /// Reads DTD uri from the [dtdProcess] output.
-Future<String> _getDTDUri(TestProcess dtdProcess) async {
-  String? dtdUri;
-  final stdout = StreamQueue(dtdProcess.stdoutStream());
-  while (await stdout.hasNext) {
-    final line = await stdout.next;
-    const devtoolsLineStart = 'The Dart Tooling Daemon is listening on';
-    if (line.startsWith(devtoolsLineStart)) {
-      dtdUri = line.substring(line.indexOf('ws:'));
-      await stdout.cancel();
-      break;
-    }
-  }
-  if (dtdUri == null) {
-    throw StateError(
-      'Failed to scrape the Dart Tooling Daemon URI from the process output.',
-    );
-  }
-
-  return dtdUri;
-}
-
-/// Reads DTD uri from the [dtdProcess] output.
-Future<String> _getDTDSecret(TestProcess dtdProcess) async {
-  String? secret;
-  final stdout = StreamQueue(dtdProcess.stdoutStream());
-  while (await stdout.hasNext) {
-    final line = await stdout.next;
-    const clientSecretStart = 'Trusted Client Secret: ';
-    if (line.startsWith(clientSecretStart)) {
-      secret = line.substring(clientSecretStart.length);
-      await stdout.cancel();
-      break;
-    }
-  }
-  if (secret == null) {
-    throw StateError(
-      'Failed to scrape the Dart Tooling Daemon Secret from the process '
-      'output.',
-    );
-  }
-  return secret;
+Future<({String dtdUri, String dtdSecret})> _getDTDInfo(
+  TestProcess dtdProcess,
+) async {
+  final decoded =
+      jsonDecode(await dtdProcess.stdoutStream().first) as Map<String, Object?>;
+  final details = decoded['tooling_daemon_details'] as Map<String, Object?>;
+  return (
+    dtdUri: details['uri'] as String,
+    dtdSecret: details['trusted_client_secret'] as String,
+  );
 }
 
 typedef ServerConnectionPair = ({

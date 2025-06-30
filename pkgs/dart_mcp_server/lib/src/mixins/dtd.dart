@@ -135,7 +135,9 @@ base mixin DartToolingDaemonSupport
         }
         return result;
       });
-      errorService.errorsStream.listen((_) => updateResource(resource));
+      try {
+        errorService.errorsStream.listen((_) => updateResource(resource));
+      } catch (_) {}
       unawaited(
         vmService.onDone.then((_) {
           removeResource(resource.uri);
@@ -214,7 +216,8 @@ base mixin DartToolingDaemonSupport
     try {
       final registeredServices = await dtd.getRegisteredServices();
       if (registeredServices.dtdServices.contains(
-        'ConnectedApp.getVmServices',
+        '${ConnectedAppServiceConstants.serviceName}.'
+        '${ConnectedAppServiceConstants.getVmServices}',
       )) {
         _connectedAppServiceIsSupported = true;
       }
@@ -228,19 +231,19 @@ base mixin DartToolingDaemonSupport
 
   Future<void> _listenForConnectedAppServiceEvents() async {
     final dtd = _dtd!;
-    dtd.onEvent('ConnectedApp').listen((e) async {
+    dtd.onVmServiceUpdate().listen((e) async {
       log(LoggingLevel.debug, e.toString());
       switch (e.kind) {
-        case 'VmServiceRegistered':
+        case ConnectedAppServiceConstants.vmServiceRegistered:
           await updateActiveVmServices();
-        case 'vmServiceUnregistered':
+        case ConnectedAppServiceConstants.vmServiceUnregistered:
           await activeVmServices
               .remove(e.data['uri'] as String)
               ?.then((service) => service.dispose());
         default:
       }
     });
-    await dtd.streamListen('ConnectedApp');
+    await dtd.streamListen(ConnectedAppServiceConstants.serviceName);
   }
 
   /// Listens for editor specific events.
@@ -790,10 +793,10 @@ class _AppErrorsListener {
   final StreamController<String> _errorsController;
 
   /// The listener for Flutter.Error vm service extension events.
-  final StreamSubscription<Event> _extensionEventsListener;
+  final StreamSubscription<Event>? _extensionEventsListener;
 
   /// The stderr listener on the flutter process.
-  final StreamSubscription<Event> _stderrEventsListener;
+  final StreamSubscription<Event>? _stderrEventsListener;
 
   /// The vm service instance connected to the flutter app.
   final VmService _vmService;
@@ -829,32 +832,35 @@ class _AppErrorsListener {
       // that occurred before this tool call.
       // TODO(https://github.com/dart-lang/ai/issues/57): this can result in
       // duplicate errors that we need to de-duplicate somehow.
-      final extensionEvents = vmService.onExtensionEventWithHistory.listen((
-        Event e,
-      ) {
-        if (e.extensionKind == 'Flutter.Error') {
+      StreamSubscription<Event>? extensionEvents;
+      StreamSubscription<Event>? stderrEvents;
+
+      try {
+        extensionEvents = vmService.onExtensionEventWithHistory.listen((
+          Event e,
+        ) {
+          if (e.extensionKind == 'Flutter.Error') {
+            // TODO(https://github.com/dart-lang/ai/issues/57): consider
+            // pruning this content down to only what is useful for the LLM to
+            // understand the error and its source.
+            errorsController.add(e.json.toString());
+          }
+        });
+        Event? lastError;
+        stderrEvents = vmService.onStderrEventWithHistory.listen((Event e) {
+          if (lastError case final last?
+              when last.timestamp == e.timestamp && last.bytes == e.bytes) {
+            // Looks like a duplicate event, on Dart 3.7 stable we get these.
+            return;
+          }
+          lastError = e;
+          final message = decodeBase64(e.bytes!);
           // TODO(https://github.com/dart-lang/ai/issues/57): consider
           // pruning this content down to only what is useful for the LLM to
           // understand the error and its source.
-          errorsController.add(e.json.toString());
-        }
-      });
-      Event? lastError;
-      final stderrEvents = vmService.onStderrEventWithHistory.listen((Event e) {
-        if (lastError case final last?
-            when last.timestamp == e.timestamp && last.bytes == e.bytes) {
-          // Looks like a duplicate event, on Dart 3.7 stable we get these.
-          return;
-        }
-        lastError = e;
-        final message = decodeBase64(e.bytes!);
-        // TODO(https://github.com/dart-lang/ai/issues/57): consider
-        // pruning this content down to only what is useful for the LLM to
-        // understand the error and its source.
-        errorsController.add(message);
-      });
+          errorsController.add(message);
+        });
 
-      try {
         await [
           vmService.streamListen(EventStreams.kExtension),
           vmService.streamListen(EventStreams.kStderr),
@@ -875,8 +881,8 @@ class _AppErrorsListener {
   Future<void> shutdown() async {
     errorLog.clear();
     await _errorsController.close();
-    await _extensionEventsListener.cancel();
-    await _stderrEventsListener.cancel();
+    await _extensionEventsListener?.cancel();
+    await _stderrEventsListener?.cancel();
     try {
       await _vmService.streamCancel(EventStreams.kExtension);
       await _vmService.streamCancel(EventStreams.kStderr);
