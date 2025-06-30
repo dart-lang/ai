@@ -84,9 +84,8 @@ final class DartMCPServer extends MCPServer
         parsedArgs.option(flutterSdkOption) ??
         io.Platform.environment['FLUTTER_SDK'];
     final logFilePath = parsedArgs.option(logFileOption);
-    final logFileSink = logFilePath == null
-        ? null
-        : _createLogSink(io.File(logFilePath));
+    final logFileSink =
+        logFilePath == null ? null : _createLogSink(io.File(logFilePath));
     runZonedGuarded(
       () {
         server = DartMCPServer(
@@ -173,34 +172,31 @@ final class DartMCPServer extends MCPServer
       analytics == null
           ? impl
           : (CallToolRequest request) async {
-              final watch = Stopwatch()..start();
-              CallToolResult? result;
+            final watch = Stopwatch()..start();
+            CallToolResult? result;
+            try {
+              return result = await impl(request);
+            } finally {
+              watch.stop();
               try {
-                return result = await impl(request);
-              } finally {
-                watch.stop();
-                try {
-                  analytics.send(
-                    Event.dartMCPEvent(
-                      client: clientInfo.name,
-                      clientVersion: clientInfo.version,
-                      serverVersion: implementation.version,
-                      type: AnalyticsEvent.callTool.name,
-                      additionalData: CallToolMetrics(
-                        tool: request.name,
-                        success: result != null && result.isError != true,
-                        elapsedMilliseconds: watch.elapsedMilliseconds,
-                      ),
+                analytics.send(
+                  Event.dartMCPEvent(
+                    client: clientInfo.name,
+                    clientVersion: clientInfo.version,
+                    serverVersion: implementation.version,
+                    type: AnalyticsEvent.callTool.name,
+                    additionalData: CallToolMetrics(
+                      tool: request.name,
+                      success: result != null && result.isError != true,
+                      elapsedMilliseconds: watch.elapsedMilliseconds,
                     ),
-                  );
-                } catch (e) {
-                  log(
-                    LoggingLevel.warning,
-                    'Error sending analytics event: $e',
-                  );
-                }
+                  ),
+                );
+              } catch (e) {
+                log(LoggingLevel.warning, 'Error sending analytics event: $e');
               }
-            },
+            }
+          },
       validateArguments: validateArguments,
     );
   }
