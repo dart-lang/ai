@@ -52,6 +52,7 @@ final class DartMCPServer extends MCPServer
     @visibleForTesting this.processManager = const LocalProcessManager(),
     @visibleForTesting this.fileSystem = const LocalFileSystem(),
     this.forceRootsFallback = false,
+    // Disabled due to https://github.com/flutter/flutter/issues/170357
     this.enableScreenshots = false,
     super.protocolLogSink,
   }) : super.fromStreamChannel(
