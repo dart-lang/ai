@@ -42,3 +42,4 @@
 * Add `--log-file` argument to log all protocol traffic to a file.
 * Improve error text for failed DTD connections as well as the tool description.
 * Add support for injecting an `Analytics` instance to track usage.
+* Add `arg_parser.dart` public library with minimal deps to be used by the dart tool.
