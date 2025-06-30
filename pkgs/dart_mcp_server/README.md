@@ -6,7 +6,7 @@ WIP. This package is still experimental and is likely to evolve quickly.
 
 ## Set up your MCP client
 
-> Note: all of the following set up instructions require Dart 3.9.0 or later (current beta channel).
+> Note: all of the following set up instructions require Dart 3.9.0-163.0.dev or later.
 
 <!-- Note: since many of our tools require access to the Dart Tooling Daemon, we may want
 to be cautious about recommending tools where access to the Dart Tooling Daemon does not exist. -->
