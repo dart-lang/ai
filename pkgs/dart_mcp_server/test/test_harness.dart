@@ -268,16 +268,6 @@ final class AppDebugSession {
       await process.shouldExit(anyOf(0, Platform.isWindows ? -1 : -9));
     }
   }
-
-  /// Returns this as the Editor service representation.
-  DebugSession asEditorDebugSession({required bool includeVmServiceUri}) =>
-      DebugSession(
-        debuggerType: isFlutter ? 'Flutter' : 'Dart',
-        id: id,
-        name: 'Test app',
-        projectRootPath: projectRoot,
-        vmServiceUri: includeVmServiceUri ? vmServiceUri : null,
-      );
 }
 
 /// A basic MCP client which is started as a part of the harness.
@@ -302,8 +292,9 @@ class FakeEditorExtension {
   final TestProcess dtdProcess;
   final DartToolingDaemon dtd;
   final String dtdUri;
+  final String dtdSecret;
 
-  FakeEditorExtension._(this.dtd, this.dtdProcess, this.dtdUri);
+  FakeEditorExtension._(this.dtd, this.dtdProcess, this.dtdUri, this.dtdSecret);
 
   static int get nextId => ++_nextId;
   static int _nextId = 0;
@@ -313,46 +304,27 @@ class FakeEditorExtension {
       'tooling-daemon',
     ]);
     final dtdUri = await _getDTDUri(dtdProcess);
+    final dtdSecret = await _getDTDSecret(dtdProcess);
     final dtd = await DartToolingDaemon.connect(Uri.parse(dtdUri));
-    final extension = FakeEditorExtension._(dtd, dtdProcess, dtdUri);
-    await extension._registerService();
-    return extension;
+    return FakeEditorExtension._(dtd, dtdProcess, dtdUri, dtdSecret);
   }
 
   Future<void> addDebugSession(AppDebugSession session) async {
     _debugSessions.add(session);
-    await dtd.postEvent(
-      'Editor',
-      'debugSessionStarted',
-      session.asEditorDebugSession(includeVmServiceUri: false),
-    );
-    // Fake a delay between session start and session ready (vm service URI is
-    // known).
-    await Future<void>.delayed(const Duration(milliseconds: 10));
-    await dtd.postEvent(
-      'Editor',
-      'debugSessionChanged',
-      session.asEditorDebugSession(includeVmServiceUri: true),
+    await dtd.registerVmService(
+      uri: session.vmServiceUri,
+      secret: dtdSecret,
+      name: session.id,
     );
   }
 
   Future<void> removeDebugSession(AppDebugSession session) async {
     if (_debugSessions.remove(session)) {
-      await dtd.postEvent('Editor', 'debugSessionStopped', {
-        'debugSessionId': session.id,
-      });
-    }
-  }
-
-  Future<void> _registerService() async {
-    await dtd.registerService('Editor', 'getDebugSessions', (request) async {
-      return GetDebugSessionsResponse(
-        debugSessions: [
-          for (var debugSession in debugSessions)
-            debugSession.asEditorDebugSession(includeVmServiceUri: true),
-        ],
+      await dtd.unregisterVmService(
+        uri: session.vmServiceUri,
+        secret: dtdSecret,
       );
-    });
+    }
   }
 
   Future<void> shutdown() async {
@@ -382,6 +354,28 @@ Future<String> _getDTDUri(TestProcess dtdProcess) async {
   }
 
   return dtdUri;
+}
+
+/// Reads DTD uri from the [dtdProcess] output.
+Future<String> _getDTDSecret(TestProcess dtdProcess) async {
+  String? secret;
+  final stdout = StreamQueue(dtdProcess.stdoutStream());
+  while (await stdout.hasNext) {
+    final line = await stdout.next;
+    const clientSecretStart = 'Trusted Client Secret: ';
+    if (line.startsWith(clientSecretStart)) {
+      secret = line.substring(clientSecretStart.length);
+      await stdout.cancel();
+      break;
+    }
+  }
+  if (secret == null) {
+    throw StateError(
+      'Failed to scrape the Dart Tooling Daemon Secret from the process '
+      'output.',
+    );
+  }
+  return secret;
 }
 
 typedef ServerConnectionPair =
