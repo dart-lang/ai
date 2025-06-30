@@ -33,7 +33,7 @@ base mixin DartToolingDaemonSupport
   /// A Map of [VmService] object [Future]s by their VM Service URI.
   ///
   /// [VmService] objects are automatically removed from the Map when they
-  /// are unregistered via DTD.
+  /// are unregistered via DTD or when the VM service shuts down.
   @visibleForTesting
   final activeVmServices = <String, Future<VmService>>{};
 

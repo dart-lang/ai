@@ -42,5 +42,5 @@
 * Add `--log-file` argument to log all protocol traffic to a file.
 * Improve error text for failed DTD connections as well as the tool description.
 * Add support for injecting an `Analytics` instance to track usage.
-* Listen to the new ConnectedApp service instead of the Editor.DebugSessions
+* Listen to the new DTD `ConnectedApp` service instead of the `Editor.DebugSessions`
   service, when available.
