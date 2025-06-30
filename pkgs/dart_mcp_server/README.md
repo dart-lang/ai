@@ -108,7 +108,7 @@ This may be preferable to adding the deep link button to VS Code's mcp settings.
 
 To configure the Dart MCP server with Copilot or any other AI agent that supports the
 [VS Code MCP API](https://code.visualstudio.com/api/extension-guides/mcp), add the following
-to your VS Code user settings:
+to your VS Code user settings (Command Palette > **Preferences: Open User Settings (JSON)**):
 ```json
 "dart.mcpServer": true
 ```
@@ -116,8 +116,9 @@ to your VS Code user settings:
 By adding this setting, the Dart VS Code extension will register the Dart MCP Server
 configuration with VS Code so that you don't have to manually configure the server.
 Copilot will then automatically configure the Dart MCP server on your behalf. This is
-a global setting. If you'd only like the setting to apply to a specific workspace, add
-the entry to your workspace settings (Command Palette > **Preferences: Open Workspace Settings**).
+a global setting. If you'd like the setting to apply only to a specific workspace, add
+the entry to your workspace settings (Command Palette > **Preferences: Open Workspace Settings (JSON)**)
+instead.
 
 For more information, see the official VS Code documentation for
 [enabling MCP support](https://code.visualstudio.com/docs/copilot/chat/mcp-servers#_enable-mcp-support-in-vs-code).
