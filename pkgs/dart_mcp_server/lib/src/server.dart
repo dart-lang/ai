@@ -84,8 +84,9 @@ final class DartMCPServer extends MCPServer
         parsedArgs.option(flutterSdkOption) ??
         io.Platform.environment['FLUTTER_SDK'];
     final logFilePath = parsedArgs.option(logFileOption);
-    final logFileSink =
-        logFilePath == null ? null : _createLogSink(io.File(logFilePath));
+    final logFileSink = logFilePath == null
+        ? null
+        : _createLogSink(io.File(logFilePath));
     runZonedGuarded(
       () {
         server = DartMCPServer(
@@ -172,67 +173,69 @@ final class DartMCPServer extends MCPServer
       analytics == null
           ? impl
           : (CallToolRequest request) async {
-            final watch = Stopwatch()..start();
-            CallToolResult? result;
-            try {
-              return result = await impl(request);
-            } finally {
-              watch.stop();
+              final watch = Stopwatch()..start();
+              CallToolResult? result;
               try {
-                analytics.send(
-                  Event.dartMCPEvent(
-                    client: clientInfo.name,
-                    clientVersion: clientInfo.version,
-                    serverVersion: implementation.version,
-                    type: AnalyticsEvent.callTool.name,
-                    additionalData: CallToolMetrics(
-                      tool: request.name,
-                      success: result != null && result.isError != true,
-                      elapsedMilliseconds: watch.elapsedMilliseconds,
+                return result = await impl(request);
+              } finally {
+                watch.stop();
+                try {
+                  analytics.send(
+                    Event.dartMCPEvent(
+                      client: clientInfo.name,
+                      clientVersion: clientInfo.version,
+                      serverVersion: implementation.version,
+                      type: AnalyticsEvent.callTool.name,
+                      additionalData: CallToolMetrics(
+                        tool: request.name,
+                        success: result != null && result.isError != true,
+                        elapsedMilliseconds: watch.elapsedMilliseconds,
+                      ),
                     ),
-                  ),
-                );
-              } catch (e) {
-                log(LoggingLevel.warning, 'Error sending analytics event: $e');
+                  );
+                } catch (e) {
+                  log(
+                    LoggingLevel.warning,
+                    'Error sending analytics event: $e',
+                  );
+                }
               }
-            }
-          },
+            },
       validateArguments: validateArguments,
     );
   }
 
-  static final argParser =
-      ArgParser(allowTrailingOptions: false)
-        ..addOption(
-          dartSdkOption,
-          help:
-              'The path to the root of the desired Dart SDK. Defaults to the '
-              'DART_SDK environment variable.',
-        )
-        ..addOption(
-          flutterSdkOption,
-          help:
-              'The path to the root of the desired Flutter SDK. Defaults to '
-              'the FLUTTER_SDK environment variable, then searching up from '
-              'the Dart SDK.',
-        )
-        ..addFlag(
-          forceRootsFallbackFlag,
-          negatable: true,
-          defaultsTo: false,
-          help:
-              'Forces a behavior for project roots which uses MCP tools '
-              'instead of the native MCP roots. This can be helpful for '
-              'clients like cursor which claim to have roots support but do '
-              'not actually support it.',
-        )
-        ..addOption(
-          logFileOption,
-          help:
-              'Path to a file to log all MPC protocol traffic to. File will be '
-              'overwritten if it exists.',
-        )
-        ..addFlag(helpFlag, abbr: 'h', help: 'Show usage text');
+  static final argParser = ArgParser(allowTrailingOptions: false)
+    ..addOption(
+      dartSdkOption,
+      help:
+          'The path to the root of the desired Dart SDK. Defaults to the '
+          'DART_SDK environment variable.',
+    )
+    ..addOption(
+      flutterSdkOption,
+      help:
+          'The path to the root of the desired Flutter SDK. Defaults to '
+          'the FLUTTER_SDK environment variable, then searching up from '
+          'the Dart SDK.',
+    )
+    ..addFlag(
+      forceRootsFallbackFlag,
+      negatable: true,
+      defaultsTo: false,
+      help:
+          'Forces a behavior for project roots which uses MCP tools '
+          'instead of the native MCP roots. This can be helpful for '
+          'clients like cursor which claim to have roots support but do '
+          'not actually support it.',
+    )
+    ..addOption(
+      logFileOption,
+      help:
+          'Path to a file to log all MPC protocol traffic to. File will be '
+          'overwritten if it exists.',
+    )
+    ..addFlag(helpFlag, abbr: 'h', help: 'Show usage text');
 }
 
 const dartSdkOption = 'dart-sdk';

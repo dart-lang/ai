@@ -28,18 +28,17 @@ void main() {
     final executableName =
         '$appKind${Platform.isWindows
             ? appKind == 'dart'
-                ? '.exe'
-                : '.bat'
+                  ? '.exe'
+                  : '.bat'
             : ''}';
     group('$appKind app', () {
       // TODO: Use setUpAll, currently this fails due to an apparent TestProcess
       // issue.
       setUp(() async {
         fileSystem = MemoryFileSystem(
-          style:
-              Platform.isWindows
-                  ? FileSystemStyle.windows
-                  : FileSystemStyle.posix,
+          style: Platform.isWindows
+              ? FileSystemStyle.windows
+              : FileSystemStyle.posix,
         );
         fileSystem.file(p.join(fakeAppPath, 'pubspec.yaml'))
           ..createSync(recursive: true)
