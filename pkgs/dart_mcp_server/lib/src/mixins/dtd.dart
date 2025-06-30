@@ -61,6 +61,9 @@ base mixin DartToolingDaemonSupport
   /// for full list of available Flutter Widget Inspector service extensions.
   static const _inspectorServiceExtensionPrefix = 'ext.flutter.inspector';
 
+  /// Whether or not to enable the screenshot tool.
+  bool get enableScreenshots;
+
   /// Called when the DTD connection is lost, resets all associated state.
   Future<void> _resetDtd() async {
     _dtd = null;
@@ -165,7 +168,7 @@ base mixin DartToolingDaemonSupport
     // they should return an error when used against a pure Dart app (or a
     // Flutter app that does not support the operation, e.g. hot reload is not
     // supported in profile mode).
-    registerTool(screenshotTool, takeScreenshot);
+    if (enableScreenshots) registerTool(screenshotTool, takeScreenshot);
     registerTool(hotReloadTool, hotReload);
     registerTool(getWidgetTreeTool, widgetTree);
     registerTool(getSelectedWidgetTool, selectedWidget);

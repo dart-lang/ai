@@ -32,27 +32,6 @@ void main() {
       });
 
       group('flutter tests', () {
-        test('can take a screenshot', () async {
-          await testHarness.startDebugSession(
-            counterAppPath,
-            'lib/main.dart',
-            isFlutter: true,
-          );
-          final tools =
-              (await testHarness.mcpServerConnection.listTools()).tools;
-          final screenshotTool = tools.singleWhere(
-            (t) => t.name == DartToolingDaemonSupport.screenshotTool.name,
-          );
-          final screenshotResult = await testHarness.callToolWithRetry(
-            CallToolRequest(name: screenshotTool.name),
-          );
-          expect(screenshotResult.content.single, {
-            'data': anything,
-            'mimeType': 'image/png',
-            'type': ImageContent.expectedType,
-          });
-        });
-
         test('can get the widget tree', () async {
           await testHarness.startDebugSession(
             counterAppPath,
@@ -222,6 +201,26 @@ void main() {
           await testHarness.stopDebugSession(debugSession);
           await pumpEventQueue();
           expect(server.activeVmServices, isEmpty);
+        });
+      });
+
+      test('can take a screenshot', () async {
+        await testHarness.startDebugSession(
+          counterAppPath,
+          'lib/main.dart',
+          isFlutter: true,
+        );
+        final tools = (await testHarness.mcpServerConnection.listTools()).tools;
+        final screenshotTool = tools.singleWhere(
+          (t) => t.name == DartToolingDaemonSupport.screenshotTool.name,
+        );
+        final screenshotResult = await testHarness.callToolWithRetry(
+          CallToolRequest(name: screenshotTool.name),
+        );
+        expect(screenshotResult.content.single, {
+          'data': anything,
+          'mimeType': 'image/png',
+          'type': ImageContent.expectedType,
         });
       });
 

@@ -445,6 +445,8 @@ Future<ServerConnectionPair> _initializeMCPServer(
       fileSystem: fileSystem,
       sdk: sdk,
       analytics: analytics,
+      // So we can test them.
+      enableScreenshots: true,
     );
     addTearDown(server.shutdown);
     connection = client.connectServer(clientChannel);

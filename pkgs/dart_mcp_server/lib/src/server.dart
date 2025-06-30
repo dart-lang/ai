@@ -52,6 +52,7 @@ final class DartMCPServer extends MCPServer
     @visibleForTesting this.processManager = const LocalProcessManager(),
     @visibleForTesting this.fileSystem = const LocalFileSystem(),
     this.forceRootsFallback = false,
+    this.enableScreenshots = false,
     super.protocolLogSink,
   }) : super.fromStreamChannel(
          implementation: Implementation(
@@ -155,6 +156,9 @@ final class DartMCPServer extends MCPServer
 
   @override
   final Analytics? analytics;
+
+  @override
+  final bool enableScreenshots;
 
   @override
   /// Automatically logs all tool calls via analytics by wrapping the [impl],
