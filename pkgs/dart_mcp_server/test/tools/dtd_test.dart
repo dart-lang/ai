@@ -12,6 +12,7 @@ import 'package:dart_mcp_server/src/mixins/dtd.dart';
 import 'package:dart_mcp_server/src/server.dart';
 import 'package:dart_mcp_server/src/utils/analytics.dart';
 import 'package:dart_mcp_server/src/utils/constants.dart';
+import 'package:devtools_shared/devtools_shared.dart';
 import 'package:test/test.dart';
 import 'package:unified_analytics/testing.dart';
 import 'package:unified_analytics/unified_analytics.dart' as ua;
@@ -196,7 +197,11 @@ void main() {
             isFlutter: false,
           );
           await pumpEventQueue();
-          expect(server.activeVmServices.length, 1);
+          await runWithRetry(
+            callback: () => expect(server.activeVmServices.length, 1),
+            maxRetries: 5,
+          );
+
           // TODO: It can cause an error in the mcp server if we haven't set
           // up the listeners yet.
           await Future<void>.delayed(const Duration(seconds: 1));
