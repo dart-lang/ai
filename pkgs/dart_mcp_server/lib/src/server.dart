@@ -144,6 +144,9 @@ final class DartMCPServer extends MCPServer
     }
   }
 
+  /// The default arg parser for the MCP Server.
+  static final argParser = createArgParser();
+
   @override
   final LocalProcessManager processManager;
 
