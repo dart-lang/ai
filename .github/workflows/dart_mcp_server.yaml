@@ -36,12 +36,12 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - name: Cache Pub hosted dependencies
-        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684
         with:
           path: "~/.pub-cache/hosted"
           key: "pub-cache-hosted;${{ matrix.flutterSdk }};${{ matrix.os }}"
       - name: Cache Pub sdk git dependency
-        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684
         with:
           path: "~/.pub-cache/git/sdk-b0838eac58308fc4e6654ca99eda75b30649c08f/"
           key: "pub-cache-git;${{ matrix.flutterSdk }};${{ matrix.os }}"
