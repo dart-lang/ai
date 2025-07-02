@@ -42,3 +42,8 @@
 * Add `--log-file` argument to log all protocol traffic to a file.
 * Improve error text for failed DTD connections as well as the tool description.
 * Add support for injecting an `Analytics` instance to track usage.
+* Listen to the new DTD `ConnectedApp` service instead of the `Editor.DebugSessions`
+  service, when available.
+* Screenshot tool disabled until
+  https://github.com/flutter/flutter/issues/170357 is resolved.
+* Add `arg_parser.dart` public library with minimal deps to be used by the dart tool.

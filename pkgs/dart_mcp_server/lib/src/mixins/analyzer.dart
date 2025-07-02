@@ -24,10 +24,10 @@ base mixin DartAnalyzerSupport
     on ToolsSupport, LoggingSupport, RootsTrackingSupport
     implements SdkSupport {
   /// The LSP server connection for the analysis server.
-  late final Peer _lspConnection;
+  Peer? _lspConnection;
 
   /// The actual process for the LSP server.
-  late final Process _lspServer;
+  Process? _lspServer;
 
   /// The current diagnostics for a given file.
   Map<Uri, List<lsp.Diagnostic>> diagnostics = {};
@@ -91,7 +91,7 @@ base mixin DartAnalyzerSupport
   ///
   /// On failure, returns a reason for the failure.
   Future<String?> _initializeAnalyzerLspServer() async {
-    _lspServer = await Process.start(sdk.dartExecutablePath, [
+    final lspServer = await Process.start(sdk.dartExecutablePath, [
       'language-server',
       // Required even though it is documented as the default.
       // https://github.com/dart-lang/sdk/issues/60574
@@ -101,7 +101,8 @@ base mixin DartAnalyzerSupport
       // '--protocol-traffic-log',
       // 'language-server-protocol.log',
     ]);
-    _lspServer.stderr
+    _lspServer = lspServer;
+    lspServer.stderr
         .transform(utf8.decoder)
         .transform(const LineSplitter())
         .listen((line) async {
@@ -109,21 +110,21 @@ base mixin DartAnalyzerSupport
           log(LoggingLevel.warning, line, logger: 'DartLanguageServer');
         });
 
-    _lspConnection =
-        Peer(lspChannel(_lspServer.stdout, _lspServer.stdin))
-          ..registerMethod(
-            lsp.Method.textDocument_publishDiagnostics.toString(),
-            _handleDiagnostics,
-          )
-          ..registerMethod(r'$/analyzerStatus', _handleAnalyzerStatus)
-          ..registerFallback((Parameters params) {
-            log(
-              LoggingLevel.debug,
-              () => 'Unhandled LSP message: ${params.method} - ${params.asMap}',
-            );
-          });
+    final lspConnection = Peer(lspChannel(lspServer.stdout, lspServer.stdin))
+      ..registerMethod(
+        lsp.Method.textDocument_publishDiagnostics.toString(),
+        _handleDiagnostics,
+      )
+      ..registerMethod(r'$/analyzerStatus', _handleAnalyzerStatus)
+      ..registerFallback((Parameters params) {
+        log(
+          LoggingLevel.debug,
+          () => 'Unhandled LSP message: ${params.method} - ${params.asMap}',
+        );
+      });
+    _lspConnection = lspConnection;
 
-    unawaited(_lspConnection.listen());
+    unawaited(lspConnection.listen());
 
     log(LoggingLevel.debug, 'Connecting to analyzer lsp server');
     lsp.InitializeResult? initializeResult;
@@ -131,7 +132,7 @@ base mixin DartAnalyzerSupport
     try {
       // Initialize with the server.
       initializeResult = lsp.InitializeResult.fromJson(
-        (await _lspConnection.sendRequest(
+        (await lspConnection.sendRequest(
               lsp.Method.initialize.toString(),
               lsp.InitializeParams(
                 capabilities: lsp.ClientCapabilities(
@@ -221,10 +222,10 @@ base mixin DartAnalyzerSupport
     }
 
     if (error != null) {
-      _lspServer.kill();
-      await _lspConnection.close();
+      lspServer.kill();
+      await lspConnection.close();
     } else {
-      _lspConnection.sendNotification(
+      lspConnection.sendNotification(
         lsp.Method.initialized.toString(),
         lsp.InitializedParams().toJson(),
       );
@@ -235,8 +236,8 @@ base mixin DartAnalyzerSupport
   @override
   Future<void> shutdown() async {
     await super.shutdown();
-    _lspServer.kill();
-    await _lspConnection.close();
+    _lspServer?.kill();
+    await _lspConnection?.close();
   }
 
   /// Implementation of the [analyzeFilesTool], analyzes all the files in all
@@ -270,7 +271,7 @@ base mixin DartAnalyzerSupport
     if (errorResult != null) return errorResult;
 
     final query = request.arguments![ParameterNames.query] as String;
-    final result = await _lspConnection.sendRequest(
+    final result = await _lspConnection!.sendRequest(
       lsp.Method.workspace_symbol.toString(),
       lsp.WorkspaceSymbolParams(query: query).toJson(),
     );
@@ -288,7 +289,7 @@ base mixin DartAnalyzerSupport
       line: request.arguments![ParameterNames.line] as int,
       character: request.arguments![ParameterNames.column] as int,
     );
-    final result = await _lspConnection.sendRequest(
+    final result = await _lspConnection!.sendRequest(
       lsp.Method.textDocument_signatureHelp.toString(),
       lsp.SignatureHelpParams(
         textDocument: lsp.TextDocumentIdentifier(uri: uri),
@@ -309,7 +310,7 @@ base mixin DartAnalyzerSupport
       line: request.arguments![ParameterNames.line] as int,
       character: request.arguments![ParameterNames.column] as int,
     );
-    final result = await _lspConnection.sendRequest(
+    final result = await _lspConnection!.sendRequest(
       lsp.Method.textDocument_hover.toString(),
       lsp.HoverParams(
         textDocument: lsp.TextDocumentIdentifier(uri: uri),
@@ -355,8 +356,9 @@ base mixin DartAnalyzerSupport
     diagnostics[diagnosticParams.uri] = diagnosticParams.diagnostics;
     log(LoggingLevel.debug, {
       ParameterNames.uri: diagnosticParams.uri,
-      'diagnostics':
-          diagnosticParams.diagnostics.map((d) => d.toJson()).toList(),
+      'diagnostics': diagnosticParams.diagnostics
+          .map((d) => d.toJson())
+          .toList(),
     });
   }
 
@@ -368,16 +370,18 @@ base mixin DartAnalyzerSupport
       final newRoots = await roots;
 
       final oldWorkspaceFolders = _currentWorkspaceFolders;
-      final newWorkspaceFolders =
-          _currentWorkspaceFolders = HashSet<lsp.WorkspaceFolder>(
+      final newWorkspaceFolders = _currentWorkspaceFolders =
+          HashSet<lsp.WorkspaceFolder>(
             equals: (a, b) => a.uri == b.uri,
             hashCode: (a) => a.uri.hashCode,
           )..addAll(newRoots.map((r) => r.asWorkspaceFolder));
 
-      final added =
-          newWorkspaceFolders.difference(oldWorkspaceFolders).toList();
-      final removed =
-          oldWorkspaceFolders.difference(newWorkspaceFolders).toList();
+      final added = newWorkspaceFolders
+          .difference(oldWorkspaceFolders)
+          .toList();
+      final removed = oldWorkspaceFolders
+          .difference(newWorkspaceFolders)
+          .toList();
 
       // This can happen in the case of multiple notifications in quick
       // succession, the `roots` future will complete only after the state has
@@ -396,7 +400,7 @@ base mixin DartAnalyzerSupport
         () => 'Notifying of workspace root change: ${event.toJson()}',
       );
 
-      _lspConnection.sendNotification(
+      _lspConnection!.sendNotification(
         lsp.Method.workspace_didChangeWorkspaceFolders.toString(),
         lsp.DidChangeWorkspaceFoldersParams(event: event).toJson(),
       );

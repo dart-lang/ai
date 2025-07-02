@@ -1,4 +1,4 @@
-## 0.3.0-wip
+## 0.3.0
 
 - Added error checking to required fields of all `Request` subclasses so that
   they will throw helpful errors when accessed and not set.
@@ -20,6 +20,8 @@
   and stdout streams instead of starting processes itself. This enables custom
   process spawning (such as using package:process), and also enables the client
   to run in browser environments.
+- Fixed a problem where specifying `--log-file` would cause the server to stop
+  working.
 
 ## 0.2.2
 

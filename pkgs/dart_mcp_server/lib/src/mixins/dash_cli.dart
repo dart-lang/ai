@@ -119,10 +119,9 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
       // Platforms are ignored for Dart, so no need to validate them.
       final invalidPlatforms = platforms.difference(_allowedFlutterPlatforms);
       if (invalidPlatforms.isNotEmpty) {
-        final plural =
-            invalidPlatforms.length > 1
-                ? 'are not valid platforms'
-                : 'is not a valid platform';
+        final plural = invalidPlatforms.length > 1
+            ? 'are not valid platforms'
+            : 'is not a valid platform';
         errors.add(
           ValidationError(
             ValidationErrorType.custom,
@@ -163,14 +162,13 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
     return runCommandInRoot(
       request,
       arguments: commandArgs,
-      commandForRoot:
-          (_, _, sdk) =>
-              switch (projectType) {
-                    'dart' => sdk.dartExecutablePath,
-                    'flutter' => sdk.flutterExecutablePath,
-                    _ => StateError('Unknown project type: $projectType'),
-                  }
-                  as String,
+      commandForRoot: (_, _, sdk) =>
+          switch (projectType) {
+                'dart' => sdk.dartExecutablePath,
+                'flutter' => sdk.flutterExecutablePath,
+                _ => StateError('Unknown project type: $projectType'),
+              }
+              as String,
       commandDescription: '$projectType create',
       fileSystem: fileSystem,
       processManager: processManager,
