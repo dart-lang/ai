@@ -1,4 +1,4 @@
-## 0.3.0-wip
+## 0.3.0
 
 - Added error checking to required fields of all `Request` subclasses so that
   they will throw helpful errors when accessed and not set.
