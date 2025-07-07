@@ -2,6 +2,8 @@
 
 * Change tools that accept multiple roots to not return immediately on the first
   failure.
+* Add failure reason field to analytics events so we can know why tool calls are
+  failing.
 
 # 0.1.0 (Dart SDK 3.9.0)
 
