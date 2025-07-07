@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'package:dart_mcp/server.dart';
 import 'package:path/path.dart' as p;
 
+import '../utils/analytics.dart';
 import '../utils/cli_utils.dart';
 import '../utils/constants.dart';
 import '../utils/file_system.dart';
@@ -141,7 +142,7 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
           for (final error in errors) Content.text(text: error.toErrorString()),
         ],
         isError: true,
-      );
+      )..failureReason = CallToolFailureReason.argumentError;
     }
 
     final template = args[ParameterNames.template] as String?;

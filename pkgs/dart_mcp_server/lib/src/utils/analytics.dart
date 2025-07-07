@@ -88,11 +88,19 @@ extension WithFailureReason on CallToolResult {
 
 /// Known reasons for failed tool calls.
 enum CallToolFailureReason {
+  argumentError,
+  connectedAppServiceNotSupported,
+  dtdAlreadyConnected,
+  dtdNotConnected,
   invalidPath,
   invalidRootPath,
   invalidRootScheme,
+  noActiveDebugSession,
   noRootGiven,
+  noRootsSet,
+  noSuchCommand,
   nonZeroExitCode,
+  webSocketException,
 }
 
 const _elapsedMilliseconds = 'elapsedMilliseconds';

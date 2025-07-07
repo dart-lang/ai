@@ -9,6 +9,7 @@ import 'package:dart_mcp/server.dart';
 import 'package:http/http.dart';
 import 'package:pool/pool.dart';
 
+import '../utils/analytics.dart';
 import '../utils/json.dart';
 
 /// Limit the number of concurrent requests.
@@ -36,7 +37,7 @@ base mixin PubDevSupport on ToolsSupport {
       return CallToolResult(
         content: [TextContent(text: 'Missing required argument `query`.')],
         isError: true,
-      );
+      )..failureReason = CallToolFailureReason.argumentError;
     }
     final searchUrl = Uri.https('pub.dev', 'api/search', {'q': query});
     final Object? result;
@@ -54,7 +55,6 @@ base mixin PubDevSupport on ToolsSupport {
               text: 'No packages matched the query, consider simplifying it.',
             ),
           ],
-          isError: true,
         );
       }
 

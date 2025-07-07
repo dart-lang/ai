@@ -13,6 +13,7 @@ import 'package:language_server_protocol/protocol_generated.dart' as lsp;
 import 'package:meta/meta.dart';
 
 import '../lsp/wire_format.dart';
+import '../utils/analytics.dart';
 import '../utils/constants.dart';
 import '../utils/sdk.dart';
 
@@ -474,7 +475,7 @@ base mixin DartAnalyzerSupport
             'tool.',
       ),
     ],
-  );
+  )..failureReason = CallToolFailureReason.noRootsSet;
 }
 
 /// Common schema for tools that require a file URI, line, and column.

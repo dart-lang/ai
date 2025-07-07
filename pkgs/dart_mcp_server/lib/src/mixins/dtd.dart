@@ -199,7 +199,7 @@ base mixin DartToolingDaemonSupport
             text: 'Connection failed, make sure your DTD Uri is up to date.',
           ),
         ],
-      );
+      )..failureReason = CallToolFailureReason.webSocketException;
     } catch (e) {
       return CallToolResult(
         isError: true,
@@ -532,7 +532,7 @@ base mixin DartToolingDaemonSupport
                 'boolean.',
           ),
         ],
-      );
+      )..failureReason = CallToolFailureReason.argumentError;
     }
 
     return _callOnVmService(
@@ -750,7 +750,7 @@ base mixin DartToolingDaemonSupport
             'connect to Dart and Flutter applications.',
       ),
     ],
-  );
+  )..failureReason = CallToolFailureReason.connectedAppServiceNotSupported;
 
   static final _dtdNotConnected = CallToolResult(
     isError: true,
@@ -761,7 +761,7 @@ base mixin DartToolingDaemonSupport
             '"${connectTool.name}" first.',
       ),
     ],
-  );
+  )..failureReason = CallToolFailureReason.dtdNotConnected;
 
   static final _dtdAlreadyConnected = CallToolResult(
     isError: true,
@@ -772,14 +772,14 @@ base mixin DartToolingDaemonSupport
             '"${connectTool.name}" again.',
       ),
     ],
-  );
+  )..failureReason = CallToolFailureReason.dtdAlreadyConnected;
 
   static final _noActiveDebugSession = CallToolResult(
     content: [
       TextContent(text: 'No active debug session to take a screenshot'),
     ],
     isError: true,
-  );
+  )..failureReason = CallToolFailureReason.noActiveDebugSession;
 
   static final runtimeErrorsScheme = 'runtime-errors';
 }

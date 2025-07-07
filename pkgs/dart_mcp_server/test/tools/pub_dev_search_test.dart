@@ -175,7 +175,7 @@ void main() {
     );
   });
 
-  test('No matching packages gets reported as an error', () async {
+  test('No matching packages gets special handling', () async {
     await runWithClient(
       () async {
         await runWithHarness((testHarness, pubDevSearchTool) async {
@@ -187,9 +187,8 @@ void main() {
           final result = await testHarness.callToolWithRetry(
             request,
             maxTries: 1,
-            expectError: true,
           );
-          expect(result.isError, isTrue);
+          expect(result.isError, isNot(true));
           expect(
             (result.content[0] as TextContent).text,
             contains('No packages matched the query, consider simplifying it'),
