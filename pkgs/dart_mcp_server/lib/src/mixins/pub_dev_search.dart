@@ -43,11 +43,9 @@ base mixin PubDevSupport on ToolsSupport {
     try {
       result = jsonDecode(await _client.read(searchUrl));
 
-      final packageNames =
-          dig<List>(result, ['packages'])
-              .take(_resultsLimit)
-              .map((p) => dig<String>(p, ['package']))
-              .toList();
+      final packageNames = dig<List>(result, [
+        'packages',
+      ]).take(_resultsLimit).map((p) => dig<String>(p, ['package'])).toList();
 
       if (packageNames.isEmpty) {
         return CallToolResult(
@@ -71,18 +69,17 @@ base mixin PubDevSupport on ToolsSupport {
       }
 
       // Retrieve information about all the packages in parallel.
-      final subQueryFutures =
-          packageNames
-              .map(
-                (packageName) => (
-                  versionListing: retrieve('api/packages/$packageName'),
-                  score: retrieve('api/packages/$packageName/score'),
-                  docIndex: retrieve(
-                    'documentation/$packageName/latest/index.json',
-                  ),
-                ),
-              )
-              .toList();
+      final subQueryFutures = packageNames
+          .map(
+            (packageName) => (
+              versionListing: retrieve('api/packages/$packageName'),
+              score: retrieve('api/packages/$packageName/score'),
+              docIndex: retrieve(
+                'documentation/$packageName/latest/index.json',
+              ),
+            ),
+          )
+          .toList();
 
       // Aggregate the retrieved information about each package into a
       // TextContent.
@@ -97,11 +94,10 @@ base mixin PubDevSupport on ToolsSupport {
                       ?.cast<Map<String, Object?>>() ??
                   <Map<String, Object?>>[])
             if (!object.containsKey('enclosedBy'))
-              object['name'] as String:
-                  Uri.https(
-                    'pub.dev',
-                    'documentation/$packageName/latest/${object['href']}',
-                  ).toString(),
+              object['name'] as String: Uri.https(
+                'pub.dev',
+                'documentation/$packageName/latest/${object['href']}',
+              ).toString(),
         };
         results.add(
           TextContent(
@@ -151,19 +147,15 @@ base mixin PubDevSupport on ToolsSupport {
                     'downloadCount30Days',
                   ]),
                 },
-                'topics':
-                    dig<List>(
-                      scoreResult,
-                      ['tags'],
-                    ).where((t) => (t as String).startsWith('topic:')).toList(),
-                'licenses':
-                    dig<List>(scoreResult, ['tags'])
-                        .where((t) => (t as String).startsWith('license'))
-                        .toList(),
-                'publisher':
-                    dig<List>(scoreResult, ['tags'])
-                        .where((t) => (t as String).startsWith('publisher:'))
-                        .firstOrNull,
+                'topics': dig<List>(scoreResult, [
+                  'tags',
+                ]).where((t) => (t as String).startsWith('topic:')).toList(),
+                'licenses': dig<List>(scoreResult, [
+                  'tags',
+                ]).where((t) => (t as String).startsWith('license')).toList(),
+                'publisher': dig<List>(scoreResult, ['tags'])
+                    .where((t) => (t as String).startsWith('publisher:'))
+                    .firstOrNull,
               },
             }),
           ),

@@ -6,7 +6,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io' as io;
 
-import 'package:args/args.dart';
 import 'package:async/async.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:file/file.dart';
@@ -16,6 +15,7 @@ import 'package:process/process.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'package:unified_analytics/unified_analytics.dart';
 
+import 'arg_parser.dart';
 import 'mixins/analyzer.dart';
 import 'mixins/dash_cli.dart';
 import 'mixins/dtd.dart';
@@ -52,6 +52,8 @@ final class DartMCPServer extends MCPServer
     @visibleForTesting this.processManager = const LocalProcessManager(),
     @visibleForTesting this.fileSystem = const LocalFileSystem(),
     this.forceRootsFallback = false,
+    // Disabled due to https://github.com/flutter/flutter/issues/170357
+    this.enableScreenshots = false,
     super.protocolLogSink,
   }) : super.fromStreamChannel(
          implementation: Implementation(
@@ -84,8 +86,9 @@ final class DartMCPServer extends MCPServer
         parsedArgs.option(flutterSdkOption) ??
         io.Platform.environment['FLUTTER_SDK'];
     final logFilePath = parsedArgs.option(logFileOption);
-    final logFileSink =
-        logFilePath == null ? null : _createLogSink(io.File(logFilePath));
+    final logFileSink = logFilePath == null
+        ? null
+        : _createLogSink(io.File(logFilePath));
     runZonedGuarded(
       () {
         server = DartMCPServer(
@@ -141,6 +144,9 @@ final class DartMCPServer extends MCPServer
     }
   }
 
+  /// The default arg parser for the MCP Server.
+  static final argParser = createArgParser();
+
   @override
   final LocalProcessManager processManager;
 
@@ -155,6 +161,9 @@ final class DartMCPServer extends MCPServer
 
   @override
   final Analytics? analytics;
+
+  @override
+  final bool enableScreenshots;
 
   @override
   /// Automatically logs all tool calls via analytics by wrapping the [impl],
@@ -172,74 +181,38 @@ final class DartMCPServer extends MCPServer
       analytics == null
           ? impl
           : (CallToolRequest request) async {
-            final watch = Stopwatch()..start();
-            CallToolResult? result;
-            try {
-              return result = await impl(request);
-            } finally {
-              watch.stop();
+              final watch = Stopwatch()..start();
+              CallToolResult? result;
               try {
-                analytics.send(
-                  Event.dartMCPEvent(
-                    client: clientInfo.name,
-                    clientVersion: clientInfo.version,
-                    serverVersion: implementation.version,
-                    type: AnalyticsEvent.callTool.name,
-                    additionalData: CallToolMetrics(
-                      tool: request.name,
-                      success: result != null && result.isError != true,
-                      elapsedMilliseconds: watch.elapsedMilliseconds,
+                return result = await impl(request);
+              } finally {
+                watch.stop();
+                try {
+                  analytics.send(
+                    Event.dartMCPEvent(
+                      client: clientInfo.name,
+                      clientVersion: clientInfo.version,
+                      serverVersion: implementation.version,
+                      type: AnalyticsEvent.callTool.name,
+                      additionalData: CallToolMetrics(
+                        tool: request.name,
+                        success: result != null && result.isError != true,
+                        elapsedMilliseconds: watch.elapsedMilliseconds,
+                      ),
                     ),
-                  ),
-                );
-              } catch (e) {
-                log(LoggingLevel.warning, 'Error sending analytics event: $e');
+                  );
+                } catch (e) {
+                  log(
+                    LoggingLevel.warning,
+                    'Error sending analytics event: $e',
+                  );
+                }
               }
-            }
-          },
+            },
       validateArguments: validateArguments,
     );
   }
-
-  static final argParser =
-      ArgParser(allowTrailingOptions: false)
-        ..addOption(
-          dartSdkOption,
-          help:
-              'The path to the root of the desired Dart SDK. Defaults to the '
-              'DART_SDK environment variable.',
-        )
-        ..addOption(
-          flutterSdkOption,
-          help:
-              'The path to the root of the desired Flutter SDK. Defaults to '
-              'the FLUTTER_SDK environment variable, then searching up from '
-              'the Dart SDK.',
-        )
-        ..addFlag(
-          forceRootsFallbackFlag,
-          negatable: true,
-          defaultsTo: false,
-          help:
-              'Forces a behavior for project roots which uses MCP tools '
-              'instead of the native MCP roots. This can be helpful for '
-              'clients like cursor which claim to have roots support but do '
-              'not actually support it.',
-        )
-        ..addOption(
-          logFileOption,
-          help:
-              'Path to a file to log all MPC protocol traffic to. File will be '
-              'overwritten if it exists.',
-        )
-        ..addFlag(helpFlag, abbr: 'h', help: 'Show usage text');
 }
-
-const dartSdkOption = 'dart-sdk';
-const flutterSdkOption = 'flutter-sdk';
-const forceRootsFallbackFlag = 'force-roots-fallback';
-const helpFlag = 'help';
-const logFileOption = 'log-file';
 
 /// Creates a `Sink<String>` for [logFile].
 Sink<String> _createLogSink(io.File logFile) {
@@ -252,11 +225,14 @@ Sink<String> _createLogSink(io.File logFile) {
     StreamSinkTransformer.fromHandlers(
       handleData: (data, innerSink) {
         innerSink.add(utf8.encode(data));
-        // It's a log, so we want to make sure it's always up-to-date.
-        fileByteSink.flush();
       },
-      handleDone: (innerSink) {
+      handleDone: (innerSink) async {
         innerSink.close();
+      },
+      handleError: (Object e, StackTrace s, _) {
+        io.stderr.writeln(
+          'Error in writing to log file ${logFile.path}: $e\n$s',
+        );
       },
     ),
   );

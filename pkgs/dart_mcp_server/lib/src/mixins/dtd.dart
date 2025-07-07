@@ -8,7 +8,6 @@ import 'dart:convert';
 import 'package:dart_mcp/server.dart';
 import 'package:dds_service_extensions/dds_service_extensions.dart';
 import 'package:dtd/dtd.dart';
-import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:meta/meta.dart';
 import 'package:unified_analytics/unified_analytics.dart' as ua;
 import 'package:vm_service/vm_service.dart';
@@ -28,20 +27,20 @@ base mixin DartToolingDaemonSupport
     implements AnalyticsSupport {
   DartToolingDaemon? _dtd;
 
-  /// Whether or not the DTD extension to get the active debug sessions is
-  /// ready to be invoked.
-  bool _getDebugSessionsReady = false;
-
   /// The last reported active location from the editor.
   Map<String, Object?>? _activeLocation;
 
-  /// A Map of [VmService] object [Future]s by their associated
-  /// [DebugSession.id].
+  /// A Map of [VmService] object [Future]s by their VM Service URI.
   ///
-  /// [VmService] objects are automatically removed from the Map when the
-  /// [DebugSession] shuts down.
+  /// [VmService] objects are automatically removed from the Map when they
+  /// are unregistered via DTD or when the VM service shuts down.
   @visibleForTesting
   final activeVmServices = <String, Future<VmService>>{};
+
+  /// Whether or not the connected app service is supported.
+  ///
+  /// Once we connect to dtd, this may be toggled to `true`.
+  bool _connectedAppServiceIsSupported = false;
 
   /// Whether to await the disposal of all [VmService] objects in
   /// [activeVmServices] upon server shutdown or loss of DTD connection.
@@ -61,11 +60,14 @@ base mixin DartToolingDaemonSupport
   /// for full list of available Flutter Widget Inspector service extensions.
   static const _inspectorServiceExtensionPrefix = 'ext.flutter.inspector';
 
+  /// Whether or not to enable the screenshot tool.
+  bool get enableScreenshots;
+
   /// Called when the DTD connection is lost, resets all associated state.
   Future<void> _resetDtd() async {
     _dtd = null;
-    _getDebugSessionsReady = false;
     _activeLocation = null;
+    _connectedAppServiceIsSupported = false;
 
     // TODO: determine whether we need to dispose the [inspectorObjectGroup] on
     // the Flutter Widget Inspector for each VM service instance.
@@ -84,75 +86,67 @@ base mixin DartToolingDaemonSupport
   Future<void> updateActiveVmServices() async {
     final dtd = _dtd;
     if (dtd == null) return;
+    if (!_connectedAppServiceIsSupported) return;
 
-    // TODO: in the future, get the active VM service URIs from DTD directly
-    // instead of from the `Editor.getDebugSessions` service method.
-    if (!_getDebugSessionsReady) {
-      // Give it a chance to get ready.
-      await Future<void>.delayed(const Duration(seconds: 1));
-      if (!_getDebugSessionsReady) return;
-    }
+    final vmServiceInfos = (await dtd.getVmServices()).vmServicesInfos;
+    if (vmServiceInfos.isEmpty) return;
 
-    final response = await dtd.getDebugSessions();
-    final debugSessions = response.debugSessions;
-    for (final debugSession in debugSessions) {
-      if (activeVmServices.containsKey(debugSession.id)) {
+    for (final vmServiceInfo in vmServiceInfos) {
+      final vmServiceUri = vmServiceInfo.uri;
+      if (activeVmServices.containsKey(vmServiceUri)) {
         continue;
       }
-      if (debugSession.vmServiceUri case final vmServiceUri?) {
-        final vmServiceFuture =
-            activeVmServices[debugSession.id] = vmServiceConnectUri(
-              vmServiceUri,
-            );
-        final vmService = await vmServiceFuture;
-        // Start listening for and collecting errors immediately.
-        final errorService = await _AppErrorsListener.forVmService(
-          vmService,
-          this,
+      final vmServiceFuture = activeVmServices[vmServiceUri] =
+          vmServiceConnectUri(vmServiceUri);
+      final vmService = await vmServiceFuture;
+      // Start listening for and collecting errors immediately.
+      final errorService = await _AppErrorsListener.forVmService(
+        vmService,
+        this,
+      );
+      final resource = Resource(
+        uri: '$runtimeErrorsScheme://${vmService.id}',
+        name: 'Errors for app ${vmServiceInfo.name}',
+        description:
+            'Recent runtime errors seen for app "${vmServiceInfo.name}".',
+      );
+      addResource(resource, (request) async {
+        final watch = Stopwatch()..start();
+        final result = ReadResourceResult(
+          contents: [
+            for (var error in errorService.errorLog.errors)
+              TextResourceContents(uri: resource.uri, text: error),
+          ],
         );
-        final resource = Resource(
-          uri: '$runtimeErrorsScheme://${debugSession.id}',
-          name: debugSession.name,
-          description:
-              'Recent runtime errors seen for debug session '
-              '"${debugSession.name}".',
-        );
-        addResource(resource, (request) async {
-          final watch = Stopwatch()..start();
-          final result = ReadResourceResult(
-            contents: [
-              for (var error in errorService.errorLog.errors)
-                TextResourceContents(uri: resource.uri, text: error),
-            ],
-          );
-          watch.stop();
-          try {
-            analytics?.send(
-              ua.Event.dartMCPEvent(
-                client: clientInfo.name,
-                clientVersion: clientInfo.version,
-                serverVersion: implementation.version,
-                type: AnalyticsEvent.readResource.name,
-                additionalData: ReadResourceMetrics(
-                  kind: ResourceKind.runtimeErrors,
-                  length: result.contents.length,
-                  elapsedMilliseconds: watch.elapsedMilliseconds,
-                ),
+        watch.stop();
+        try {
+          analytics?.send(
+            ua.Event.dartMCPEvent(
+              client: clientInfo.name,
+              clientVersion: clientInfo.version,
+              serverVersion: implementation.version,
+              type: AnalyticsEvent.readResource.name,
+              additionalData: ReadResourceMetrics(
+                kind: ResourceKind.runtimeErrors,
+                length: result.contents.length,
+                elapsedMilliseconds: watch.elapsedMilliseconds,
               ),
-            );
-          } catch (e) {
-            log(LoggingLevel.warning, 'Error sending analytics event: $e');
-          }
-          return result;
-        });
+            ),
+          );
+        } catch (e) {
+          log(LoggingLevel.warning, 'Error sending analytics event: $e');
+        }
+        return result;
+      });
+      try {
         errorService.errorsStream.listen((_) => updateResource(resource));
-        unawaited(
-          vmService.onDone.then((_) {
-            removeResource(resource.uri);
-            activeVmServices.remove(debugSession.id);
-          }),
-        );
-      }
+      } catch (_) {}
+      unawaited(
+        vmService.onDone.then((_) {
+          removeResource(resource.uri);
+          activeVmServices.remove(vmServiceUri);
+        }),
+      );
     }
   }
 
@@ -165,7 +159,7 @@ base mixin DartToolingDaemonSupport
     // they should return an error when used against a pure Dart app (or a
     // Flutter app that does not support the operation, e.g. hot reload is not
     // supported in profile mode).
-    registerTool(screenshotTool, takeScreenshot);
+    if (enableScreenshots) registerTool(screenshotTool, takeScreenshot);
     registerTool(hotReloadTool, hotReload);
     registerTool(getWidgetTreeTool, widgetTree);
     registerTool(getSelectedWidgetTool, selectedWidget);
@@ -214,51 +208,53 @@ base mixin DartToolingDaemonSupport
     }
   }
 
-  /// Listens to the `Service` and `Editor` streams so we know when the
-  /// `Editor.getDebugSessions` extension method is registered and when debug
-  /// sessions are started and stopped.
+  /// Listens to the `ConnectedApp` and `Editor` streams to get app and IDE
+  /// state information.
   ///
   /// The dart tooling daemon must be connected prior to calling this function.
   Future<void> _listenForServices() async {
     final dtd = _dtd!;
-    dtd.onEvent('Service').listen((e) async {
-      log(
-        LoggingLevel.debug,
-        () => 'DTD Service event:\n${e.kind}: ${jsonEncode(e.data)}',
-      );
+
+    _connectedAppServiceIsSupported = false;
+    try {
+      final registeredServices = await dtd.getRegisteredServices();
+      if (registeredServices.dtdServices.contains(
+        '${ConnectedAppServiceConstants.serviceName}.'
+        '${ConnectedAppServiceConstants.getVmServices}',
+      )) {
+        _connectedAppServiceIsSupported = true;
+      }
+    } catch (_) {}
+
+    if (_connectedAppServiceIsSupported) {
+      await _listenForConnectedAppServiceEvents();
+    }
+    await _listenForEditorEvents();
+  }
+
+  Future<void> _listenForConnectedAppServiceEvents() async {
+    final dtd = _dtd!;
+    dtd.onVmServiceUpdate().listen((e) async {
+      log(LoggingLevel.debug, e.toString());
       switch (e.kind) {
-        case 'ServiceRegistered':
-          if (e.data['service'] == 'Editor' &&
-              e.data['method'] == 'getDebugSessions') {
-            log(
-              LoggingLevel.debug,
-              'Editor.getDebugSessions registered, dtd is ready',
-            );
-            _getDebugSessionsReady = true;
-          }
-        case 'ServiceUnregistered':
-          if (e.data['service'] == 'Editor' &&
-              e.data['method'] == 'getDebugSessions') {
-            log(
-              LoggingLevel.debug,
-              'Editor.getDebugSessions unregistered, dtd is no longer ready',
-            );
-            _getDebugSessionsReady = false;
-          }
+        case ConnectedAppServiceConstants.vmServiceRegistered:
+          await updateActiveVmServices();
+        case ConnectedAppServiceConstants.vmServiceUnregistered:
+          await activeVmServices
+              .remove(e.data['uri'] as String)
+              ?.then((service) => service.dispose());
+        default:
       }
     });
-    await dtd.streamListen('Service');
+    await dtd.streamListen(ConnectedAppServiceConstants.serviceName);
+  }
 
+  /// Listens for editor specific events.
+  Future<void> _listenForEditorEvents() async {
+    final dtd = _dtd!;
     dtd.onEvent('Editor').listen((e) async {
       log(LoggingLevel.debug, e.toString());
       switch (e.kind) {
-        case 'debugSessionStarted':
-        case 'debugSessionChanged':
-          await updateActiveVmServices();
-        case 'debugSessionStopped':
-          await activeVmServices
-              .remove(e.data['debugSessionId'] as String)
-              ?.then((service) => service.dispose());
         case 'activeLocationChanged':
           _activeLocation = e.data;
         default:
@@ -590,11 +586,7 @@ base mixin DartToolingDaemonSupport
   }) async {
     final dtd = _dtd;
     if (dtd == null) return _dtdNotConnected;
-    if (!_getDebugSessionsReady) {
-      // Give it a chance to get ready.
-      await Future<void>.delayed(const Duration(seconds: 1));
-      if (!_getDebugSessionsReady) return _dtdNotReady;
-    }
+    if (!_connectedAppServiceIsSupported) return _connectedAppsNotSupported;
 
     await updateActiveVmServices();
     if (activeVmServices.isEmpty) return _noActiveDebugSession;
@@ -749,6 +741,17 @@ base mixin DartToolingDaemonSupport
     inputSchema: Schema.object(),
   );
 
+  static final _connectedAppsNotSupported = CallToolResult(
+    isError: true,
+    content: [
+      TextContent(
+        text:
+            'A Dart SDK of version 3.9.0-163.0.dev or greater is required to '
+            'connect to Dart and Flutter applications.',
+      ),
+    ],
+  );
+
   static final _dtdNotConnected = CallToolResult(
     isError: true,
     content: [
@@ -778,17 +781,6 @@ base mixin DartToolingDaemonSupport
     isError: true,
   );
 
-  static final _dtdNotReady = CallToolResult(
-    isError: true,
-    content: [
-      TextContent(
-        text:
-            'The dart tooling daemon is not ready yet, please wait a few '
-            'seconds and try again.',
-      ),
-    ],
-  );
-
   static final runtimeErrorsScheme = 'runtime-errors';
 }
 
@@ -804,10 +796,10 @@ class _AppErrorsListener {
   final StreamController<String> _errorsController;
 
   /// The listener for Flutter.Error vm service extension events.
-  final StreamSubscription<Event> _extensionEventsListener;
+  final StreamSubscription<Event>? _extensionEventsListener;
 
   /// The stderr listener on the flutter process.
-  final StreamSubscription<Event> _stderrEventsListener;
+  final StreamSubscription<Event>? _stderrEventsListener;
 
   /// The vm service instance connected to the flutter app.
   final VmService _vmService;
@@ -843,32 +835,35 @@ class _AppErrorsListener {
       // that occurred before this tool call.
       // TODO(https://github.com/dart-lang/ai/issues/57): this can result in
       // duplicate errors that we need to de-duplicate somehow.
-      final extensionEvents = vmService.onExtensionEventWithHistory.listen((
-        Event e,
-      ) {
-        if (e.extensionKind == 'Flutter.Error') {
+      StreamSubscription<Event>? extensionEvents;
+      StreamSubscription<Event>? stderrEvents;
+
+      try {
+        extensionEvents = vmService.onExtensionEventWithHistory.listen((
+          Event e,
+        ) {
+          if (e.extensionKind == 'Flutter.Error') {
+            // TODO(https://github.com/dart-lang/ai/issues/57): consider
+            // pruning this content down to only what is useful for the LLM to
+            // understand the error and its source.
+            errorsController.add(e.json.toString());
+          }
+        });
+        Event? lastError;
+        stderrEvents = vmService.onStderrEventWithHistory.listen((Event e) {
+          if (lastError case final last?
+              when last.timestamp == e.timestamp && last.bytes == e.bytes) {
+            // Looks like a duplicate event, on Dart 3.7 stable we get these.
+            return;
+          }
+          lastError = e;
+          final message = decodeBase64(e.bytes!);
           // TODO(https://github.com/dart-lang/ai/issues/57): consider
           // pruning this content down to only what is useful for the LLM to
           // understand the error and its source.
-          errorsController.add(e.json.toString());
-        }
-      });
-      Event? lastError;
-      final stderrEvents = vmService.onStderrEventWithHistory.listen((Event e) {
-        if (lastError case final last?
-            when last.timestamp == e.timestamp && last.bytes == e.bytes) {
-          // Looks like a duplicate event, on Dart 3.7 stable we get these.
-          return;
-        }
-        lastError = e;
-        final message = decodeBase64(e.bytes!);
-        // TODO(https://github.com/dart-lang/ai/issues/57): consider
-        // pruning this content down to only what is useful for the LLM to
-        // understand the error and its source.
-        errorsController.add(message);
-      });
+          errorsController.add(message);
+        });
 
-      try {
         await [
           vmService.streamListen(EventStreams.kExtension),
           vmService.streamListen(EventStreams.kStderr),
@@ -889,8 +884,8 @@ class _AppErrorsListener {
   Future<void> shutdown() async {
     errorLog.clear();
     await _errorsController.close();
-    await _extensionEventsListener.cancel();
-    await _stderrEventsListener.cancel();
+    await _extensionEventsListener?.cancel();
+    await _stderrEventsListener?.cancel();
     try {
       await _vmService.streamCancel(EventStreams.kExtension);
       await _vmService.streamCancel(EventStreams.kStderr);
@@ -898,93 +893,6 @@ class _AppErrorsListener {
       // The vm service might already be disposed in which causes these to fail.
     }
   }
-}
-
-/// Adds the [getDebugSessions] method to [DartToolingDaemon], so that calling
-/// the Editor.getDebugSessions service method can be wrapped nicely behind a
-/// method call from a given client.
-//
-// TODO: Consider moving some of this to a shared location, possible under the
-// dtd  package.
-extension GetDebugSessions on DartToolingDaemon {
-  Future<GetDebugSessionsResponse> getDebugSessions() async {
-    final result = await call(
-      'Editor',
-      'getDebugSessions',
-      params: GetDebugSessionsRequest(),
-    );
-    return GetDebugSessionsResponse.fromDTDResponse(result);
-  }
-}
-
-/// The request type for the `Editor.getDebugSessions` extension method.
-//
-// TODO: Consider moving some of this to a shared location, possible under the
-// dtd  package.
-extension type GetDebugSessionsRequest.fromJson(Map<String, Object?> _value)
-    implements Map<String, Object?> {
-  factory GetDebugSessionsRequest({bool? verbose}) =>
-      GetDebugSessionsRequest.fromJson({
-        if (verbose != null) 'verbose': verbose,
-      });
-
-  bool? get verbose => _value['verbose'] as bool?;
-}
-
-/// The response type for the `Editor.getDebugSessions` extension method.
-//
-// TODO: Consider moving some of this to a shared location, possible under the
-// dtd  package.
-extension type GetDebugSessionsResponse.fromJson(Map<String, Object?> _value)
-    implements Map<String, Object?> {
-  static const String type = 'GetDebugSessionsResult';
-
-  List<DebugSession> get debugSessions =>
-      (_value['debugSessions'] as List).cast<DebugSession>();
-
-  factory GetDebugSessionsResponse.fromDTDResponse(DTDResponse response) {
-    // Ensure that the response has the type you expect.
-    if (response.type != type) {
-      throw RpcException.invalidParams(
-        'Expected DTDResponse.type to be $type, got: ${response.type}',
-      );
-    }
-    return GetDebugSessionsResponse.fromJson(response.result);
-  }
-
-  factory GetDebugSessionsResponse({
-    required List<DebugSession> debugSessions,
-  }) => GetDebugSessionsResponse.fromJson({
-    'debugSessions': debugSessions,
-    'type': type,
-  });
-}
-
-/// An individual debug session.
-//
-// TODO: Consider moving some of this to a shared location, possible under the
-// dtd  package.
-extension type DebugSession.fromJson(Map<String, Object?> _value)
-    implements Map<String, Object?> {
-  String get debuggerType => _value['debuggerType'] as String;
-  String get id => _value['id'] as String;
-  String get name => _value['name'] as String;
-  String get projectRootPath => _value['projectRootPath'] as String;
-  String? get vmServiceUri => _value['vmServiceUri'] as String?;
-
-  factory DebugSession({
-    required String debuggerType,
-    required String id,
-    required String name,
-    required String projectRootPath,
-    required String? vmServiceUri,
-  }) => DebugSession.fromJson({
-    'debuggerType': debuggerType,
-    'id': id,
-    'name': name,
-    'projectRootPath': projectRootPath,
-    if (vmServiceUri != null) 'vmServiceUri': vmServiceUri,
-  });
 }
 
 /// Manages a log of errors with a maximum size in terms of total characters.
@@ -1034,4 +942,10 @@ class ErrorLog {
     _characters = 0;
     _errors.clear();
   }
+}
+
+extension on VmService {
+  static final _ids = Expando<String>();
+  static int _nextId = 0;
+  String get id => _ids[this] ??= '${_nextId++}';
 }

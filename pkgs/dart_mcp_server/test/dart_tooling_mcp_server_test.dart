@@ -123,7 +123,7 @@ void main() {
 
       // Wait for the process to release the file.
       await doWithRetries(() => File(logDescriptor.io.path).delete());
-    }, skip: 'https://github.com/dart-lang/ai/issues/181');
+    });
   });
 }
 
