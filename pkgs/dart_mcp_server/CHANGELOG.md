@@ -1,4 +1,9 @@
-# 0.1.0 (Dart SDK 3.8.0) - WP
+# 0.1.1 (Dart SDK 3.10.0) - WIP
+
+* Change tools that accept multiple roots to not return immediately on the first
+  failure.
+
+# 0.1.0 (Dart SDK 3.9.0)
 
 * Add documentation/homepage/repository links to pub results.
 * Handle relative paths under roots without trailing slashes.

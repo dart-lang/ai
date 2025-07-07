@@ -195,39 +195,49 @@ void main() {
   });
 
   group('cannot run commands', () {
-    final processManager = FakeProcessManager();
-
     test('with roots outside of known roots', () async {
-      for (var invalidRoot in ['file:///bar/', 'file:///foo/../bar/']) {
-        final result = await runCommandInRoots(
-          CallToolRequest(
-            name: 'foo',
-            arguments: {
-              ParameterNames.roots: [
-                {ParameterNames.root: invalidRoot},
-              ],
-            },
-          ),
-          commandForRoot: (_, _, _) => 'fake',
-          commandDescription: '',
-          processManager: processManager,
-          knownRoots: [Root(uri: 'file:///foo/')],
-          fileSystem: fileSystem,
-          sdk: Sdk(),
-        );
-        expect(result.isError, isTrue);
-        expect(
-          result.content.single,
-          isA<TextContent>().having(
-            (t) => t.text,
-            'text',
-            allOf(contains('Invalid root $invalidRoot')),
-          ),
-        );
-      }
+      final processManager = TestProcessManager();
+      final invalidRoots = ['file:///bar/', 'file:///foo/../bar/'];
+      final allRoots = ['file:///foo/', ...invalidRoots];
+      final result = await runCommandInRoots(
+        CallToolRequest(
+          name: 'foo',
+          arguments: {
+            ParameterNames.roots: [
+              for (var root in allRoots) {ParameterNames.root: root},
+            ],
+          },
+        ),
+        commandForRoot: (_, _, _) => 'testProcess',
+        commandDescription: 'Test process',
+        processManager: processManager,
+        knownRoots: [Root(uri: 'file:///foo/')],
+        fileSystem: fileSystem,
+        sdk: Sdk(),
+      );
+      expect(result.isError, isTrue);
+      expect(
+        result.content,
+        unorderedEquals([
+          for (var root in invalidRoots)
+            isA<TextContent>().having(
+              (t) => t.text,
+              'text',
+              contains('Invalid root $root'),
+            ),
+          for (var root in allRoots)
+            if (!invalidRoots.contains(root))
+              isA<TextContent>().having(
+                (t) => t.text,
+                'text',
+                allOf(contains('Test process'), contains(Uri.parse(root).path)),
+              ),
+        ]),
+      );
     });
 
     test('with paths outside of known roots', () async {
+      final processManager = FakeProcessManager();
       final result = await runCommandInRoots(
         CallToolRequest(
           name: 'foo',

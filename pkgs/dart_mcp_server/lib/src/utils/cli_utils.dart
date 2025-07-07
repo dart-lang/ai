@@ -96,6 +96,7 @@ Future<CallToolResult> runCommandInRoots(
   }
 
   final outputs = <Content>[];
+  var isError = false;
   for (var rootConfig in rootConfigs) {
     final result = await runCommandInRoot(
       request,
@@ -109,10 +110,10 @@ Future<CallToolResult> runCommandInRoots(
       defaultPaths: defaultPaths,
       sdk: sdk,
     );
-    if (result.isError == true) return result;
+    isError = isError || result.isError == true;
     outputs.addAll(result.content);
   }
-  return CallToolResult(content: outputs);
+  return CallToolResult(content: outputs, isError: isError);
 }
 
 /// Runs [commandForRoot] in a single project root specified in the
@@ -233,7 +234,7 @@ Future<CallToolResult> runCommandInRoot(
         TextContent(
           text:
               '$commandDescription failed in ${projectRoot.path}:\n'
-              '$output\n\nErrors\n$errors',
+              '$output${errors.isEmpty ? '' : '\nErrors:\n$errors'}',
         ),
       ],
       isError: true,
