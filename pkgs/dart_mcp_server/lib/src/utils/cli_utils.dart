@@ -10,6 +10,7 @@ import 'package:file/file.dart';
 import 'package:process/process.dart';
 import 'package:yaml/yaml.dart';
 
+import 'analytics.dart';
 import 'constants.dart';
 import 'sdk.dart';
 
@@ -158,7 +159,7 @@ Future<CallToolResult> runCommandInRoot(
         TextContent(text: 'Invalid root configuration: missing `root` key.'),
       ],
       isError: true,
-    );
+    )..failureReason ??= CallToolFailureReason.noRootGiven;
   }
 
   final root = knownRoots.firstWhereOrNull(
@@ -174,7 +175,7 @@ Future<CallToolResult> runCommandInRoot(
         ),
       ],
       isError: true,
-    );
+    )..failureReason ??= CallToolFailureReason.invalidRootPath;
   }
 
   final rootUri = Uri.parse(rootUriString);
@@ -188,7 +189,7 @@ Future<CallToolResult> runCommandInRoot(
         ),
       ],
       isError: true,
-    );
+    )..failureReason ??= CallToolFailureReason.invalidRootScheme;
   }
   final projectRoot = fileSystem.directory(rootUri);
 
@@ -212,7 +213,7 @@ Future<CallToolResult> runCommandInRoot(
         ),
       ],
       isError: true,
-    );
+    )..failureReason ??= CallToolFailureReason.invalidPath;
   }
   commandWithPaths.addAll(paths);
 
@@ -237,7 +238,7 @@ Future<CallToolResult> runCommandInRoot(
         ),
       ],
       isError: true,
-    );
+    )..failureReason ??= CallToolFailureReason.nonZeroExitCode;
   }
   return CallToolResult(
     content: [

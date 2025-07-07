@@ -198,6 +198,7 @@ final class DartMCPServer extends MCPServer
                         tool: request.name,
                         success: result != null && result.isError != true,
                         elapsedMilliseconds: watch.elapsedMilliseconds,
+                        failureReason: result?.failureReason,
                       ),
                     ),
                   );
