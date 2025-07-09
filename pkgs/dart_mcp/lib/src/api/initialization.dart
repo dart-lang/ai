@@ -56,12 +56,17 @@ extension type InitializeResult.fromMap(Map<String, Object?> _value)
     required ServerCapabilities serverCapabilities,
     required Implementation serverInfo,
     String? instructions,
-  }) => InitializeResult.fromMap({
-    'protocolVersion': protocolVersion.versionString,
-    'capabilities': serverCapabilities,
-    'serverInfo': serverInfo,
-    'instructions': instructions,
-  });
+  }) {
+    final map = {
+      'protocolVersion': protocolVersion.versionString,
+      'capabilities': serverCapabilities,
+      'serverInfo': serverInfo,
+    };
+    if (instructions != null) {
+      map['instructions'] = instructions;
+    }
+    return InitializeResult.fromMap(map);
+  }
 
   /// The version of the Model Context Protocol that the server wants to use.
   ///
