@@ -1,4 +1,4 @@
-## 0.3.1
+## 0.3.1-wip
 
 - Fixes communication problem when a `MCPServer` is instantiated without
   instructions.
