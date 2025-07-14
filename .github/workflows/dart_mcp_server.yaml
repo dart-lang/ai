@@ -58,23 +58,12 @@ jobs:
         run: flutter pub get
 
       - run: dart pub get
-
       - run: dart analyze --fatal-infos
-
       - run: dart format --output=none --set-exit-if-changed .
         if: ${{ matrix.flutterSdk == 'master' }}
 
-      - run: dart test
-
-  readme:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - uses: dart-lang/setup-dart@e51d8e571e22473a2ddebf0ef8a2123f0ab2c02c
-
-      - run: dart pub get
-      - run: dart tool/update_readme.dart
       # If this fails, you need to run 'dart tool/update_readme.dart'.
+      - run: dart tool/update_readme.dart
       - run: git diff --exit-code
+
+      - run: dart test
