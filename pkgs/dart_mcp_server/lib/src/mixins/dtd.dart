@@ -100,10 +100,7 @@ base mixin DartToolingDaemonSupport
           vmServiceConnectUri(vmServiceUri);
       final vmService = await vmServiceFuture;
       // Start listening for and collecting errors immediately.
-      final errorService = await _AppErrorsListener.forVmService(
-        vmService,
-        this,
-      );
+      final errorService = await _AppListener.forVmService(vmService, this);
       final resource = Resource(
         uri: '$runtimeErrorsScheme://${vmService.id}',
         name: 'Errors for app ${vmServiceInfo.name}',
@@ -165,6 +162,7 @@ base mixin DartToolingDaemonSupport
     registerTool(getSelectedWidgetTool, selectedWidget);
     registerTool(setWidgetSelectionModeTool, _setWidgetSelectionMode);
     registerTool(getActiveLocationTool, _getActiveLocation);
+    registerTool(flutterDriverTool, _callFlutterDriver);
 
     return super.initialize(request);
   }
@@ -173,6 +171,39 @@ base mixin DartToolingDaemonSupport
   Future<void> shutdown() async {
     await _resetDtd();
     await super.shutdown();
+  }
+
+  Future<CallToolResult> _callFlutterDriver(CallToolRequest request) async {
+    return _callOnVmService(
+      callback: (vmService) async {
+        final appListener = await _AppListener.forVmService(vmService, this);
+        if (!appListener.registeredServices.contains(_flutterDriverService)) {
+          return _flutterDriverNotRegistered;
+        }
+        final vm = await vmService.getVM();
+        final result = await vmService
+            .callServiceExtension(
+              _flutterDriverService,
+              isolateId: vm.isolates!.first.id,
+              args: request.arguments,
+            )
+            .timeout(
+              Duration(
+                milliseconds:
+                    (request.arguments?['timeout'] as int?) ??
+                    _defaultTimeoutMs,
+              ),
+              onTimeout: () => Response.parse({
+                'isError': true,
+                'error': 'Timed out waiting for Flutter Driver response.',
+              })!,
+            );
+        return CallToolResult(
+          content: [Content.text(text: jsonEncode(result.json))],
+          isError: result.json?['isError'] as bool?,
+        );
+      },
+    );
   }
 
   /// Connects to the Dart Tooling Daemon.
@@ -313,10 +344,7 @@ base mixin DartToolingDaemonSupport
     return _callOnVmService(
       callback: (vmService) async {
         if (request.arguments?['clearRuntimeErrors'] == true) {
-          (await _AppErrorsListener.forVmService(
-            vmService,
-            this,
-          )).errorLog.clear();
+          (await _AppListener.forVmService(vmService, this)).errorLog.clear();
         }
 
         final vm = await vmService.getVM();
@@ -390,10 +418,7 @@ base mixin DartToolingDaemonSupport
     return _callOnVmService(
       callback: (vmService) async {
         try {
-          final errorService = await _AppErrorsListener.forVmService(
-            vmService,
-            this,
-          );
+          final errorService = await _AppListener.forVmService(vmService, this);
           final errorLog = errorService.errorLog;
 
           if (errorLog.errors.isEmpty) {
@@ -615,6 +640,207 @@ base mixin DartToolingDaemonSupport
   }
 
   @visibleForTesting
+  static final flutterDriverTool = Tool(
+    name: 'flutter_driver',
+    description: 'Run a flutter driver command',
+    annotations: ToolAnnotations(title: 'Flutter Driver', readOnlyHint: true),
+    inputSchema: Schema.object(
+      additionalProperties: true,
+      description:
+          'The flutter driver command to run. Command arguments should be '
+          'passed as additional properties to this map.\n\nWhen searching for '
+          'widgets, you should first inspect the widget tree in order to '
+          'figure out how to find the widget instead of just guessing tooltip '
+          'text or other things.',
+      properties: {
+        'command': Schema.enumeration(
+          // Commented out values are flutter_driver commands that are not
+          // supported, but may be in the future.
+          values: [
+            'get_health',
+            'get_layer_tree',
+            'get_render_tree',
+            'enter_text',
+            'send_text_input_action',
+            'get_text',
+            // 'request_data',
+            'scroll',
+            'scrollIntoView',
+            // 'set_frame_sync',
+            // 'set_semantics',
+            'set_text_entry_emulation',
+            'tap',
+            'waitFor',
+            'waitForAbsent',
+            'waitForTappable',
+            // 'waitForCondition',
+            // 'waitUntilNoTransientCallbacks',
+            // 'waitUntilNoPendingFrame',
+            // 'waitUntilFirstFrameRasterized',
+            // 'get_semantics_id',
+            'get_offset',
+            'get_diagnostics_tree',
+            // 'screenshot',
+          ],
+          description: 'The name of the driver command',
+        ),
+        'alignment': Schema.num(
+          description:
+              'How the widget should be aligned. '
+              'Required for the scrollIntoView command',
+        ),
+        'duration': Schema.int(
+          description:
+              'The duration of the scrolling action in microseconds. '
+              'Required for the scroll command',
+        ),
+        'dx': Schema.int(
+          description:
+              'Delta X offset for  move event. Required for the scroll command',
+        ),
+        'dy': Schema.int(
+          description:
+              'Delta Y offset for  move event. Required for the scroll command',
+        ),
+        'frequency': Schema.int(
+          description:
+              'The frequency in Hz of the generated move events. '
+              'Required for the scroll command',
+        ),
+        'finderType': Schema.enumeration(
+          description:
+              'The kind of finder to use, if required for the command. '
+              'Required for get_text, scroll, scroll_into_view, tap, waitFor, '
+              'waitForAbsent, waitForTappable, get_offset, and '
+              'get_diagnostics_tree',
+          values: [
+            'ByType',
+            'ByValueKey',
+            'ByTooltipMessage',
+            'BySemanticsLabel',
+            'ByText',
+            'PageBack', // This one seems to hang
+            'Descendant',
+            'Ancestor',
+          ],
+        ),
+        'keyValueString': Schema.string(
+          description:
+              'Required for the ByValueKey finder, the String value of the key',
+        ),
+        'keyValueType': Schema.enumeration(
+          values: ['int', 'String'],
+          description:
+              'Required for the ByValueKey finder, the type of the key',
+        ),
+        'isRegExp': Schema.bool(
+          description:
+              'Used by the BySemanticsLabel finder, indicates whether '
+              'the value should be treated as a regex',
+        ),
+        'label': Schema.string(
+          description:
+              'Required for the BySemanticsLabel finder, the label to search '
+              'for',
+        ),
+        'text': Schema.string(
+          description:
+              'The relevant text for the command. Required for the ByText and '
+              'ByTooltipMessage finders, as well as the enter_text command.',
+        ),
+        'type': Schema.string(
+          description:
+              'Required for the ByType finder, the runtimeType of the widget '
+              'in String form',
+        ),
+        'of': Schema.object(
+          description:
+              'Required by the Descendent and Ancestor finders. '
+              'Value should be a nested finder for the widget to start the '
+              'match from',
+          additionalProperties: true,
+        ),
+        'matching': Schema.object(
+          description:
+              'Required by the Descendent and Ancestor finders. '
+              'Value should be a nested finder for the descendent or ancestor',
+          additionalProperties: true,
+        ),
+        'matchRoot': Schema.object(
+          description:
+              'Required by the Descendent and Ancestor finders. '
+              'Whether the widget matching `of` will be considered for a '
+              'match',
+          additionalProperties: true,
+        ),
+        'firstMatchOnly': Schema.object(
+          description:
+              'Required by the Descendent and Ancestor finders. '
+              'If true then only the first ancestor or descendent matching '
+              '`matching` will be returned.',
+          additionalProperties: true,
+        ),
+        'action': Schema.enumeration(
+          description:
+              'Required for send_text_input_action, the input action to send',
+          values: [
+            'none',
+            'unspecified',
+            'done',
+            'go',
+            'search',
+            'send',
+            'next',
+            'previous',
+            'continueAction',
+            'join',
+            'route',
+            'emergencyCall',
+            'newline',
+          ],
+        ),
+        'timeout': Schema.int(
+          description:
+              'Maximum time in milliseconds to wait for the command to '
+              'complete. Defaults to $_defaultTimeoutMs.',
+        ),
+        'offsetType': Schema.enumeration(
+          description:
+              'Offset types that can be requested by get_offset. '
+              'Required for get_offset.',
+          values: [
+            'topLeft',
+            'topRight',
+            'bottomLeft',
+            'bottomRight',
+            'center',
+          ],
+        ),
+        'diagnosticsType': Schema.enumeration(
+          description:
+              'The type of diagnostics tree to request. '
+              'Required for get_diagnostics_tree',
+          values: ['renderObject', 'widget'],
+        ),
+        'subtreeDepth': Schema.int(
+          description:
+              'How many levels of children to include in the result. '
+              'Required for get_diagnostics_tree',
+        ),
+        'includeProperties': Schema.bool(
+          description:
+              'Whether the properties of a diagnostics node should be included '
+              'in get_diagnostics_tree results',
+        ),
+        'enabled': Schema.bool(
+          description: 'Used by set_text_entry_emulation, defaults to false',
+        ),
+      },
+      required: ['command'],
+    ),
+  );
+
+  @visibleForTesting
   static final connectTool = Tool(
     name: 'connect_dart_tooling_daemon',
     description:
@@ -714,7 +940,8 @@ base mixin DartToolingDaemonSupport
     description:
         'Enables or disables widget selection mode in the active Flutter '
         'application. Requires "${connectTool.name}" to be successfully called '
-        'first.',
+        'first. This is not necessary when using flutter driver, only use it '
+        'when you want the user to select a widget.',
     annotations: ToolAnnotations(
       title: 'Set Widget Selection Mode',
       readOnlyHint: true,
@@ -781,101 +1008,134 @@ base mixin DartToolingDaemonSupport
     isError: true,
   )..failureReason = CallToolFailureReason.noActiveDebugSession;
 
+  static final _flutterDriverNotRegistered = CallToolResult(
+    content: [
+      Content.text(
+        text:
+            'The flutter driver extension is not enabled. You need to '
+            'import "package:flutter_driver/driver_extension.dart" '
+            'and then add a call to `enableFlutterDriverExtension();` '
+            'before calling `runApp` to use this tool. It is recommended '
+            'that you create a separate entrypoint file like '
+            '`driver_main.dart` to do this.',
+      ),
+    ],
+    isError: true,
+  )..failureReason = CallToolFailureReason.flutterDriverNotEnabled;
+
   static final runtimeErrorsScheme = 'runtime-errors';
+
+  static const _defaultTimeoutMs = 5000;
+
+  static const _flutterDriverService = 'ext.flutter.driver';
 }
 
-/// Listens on a VM service for errors.
-class _AppErrorsListener {
+/// Listens on a VM service for relevant events, such as errors and registered
+/// vm service methods.
+class _AppListener {
   /// All the errors recorded so far (may be cleared explicitly).
   final ErrorLog errorLog;
 
   /// A broadcast stream of all errors that come in after you start listening.
   Stream<String> get errorsStream => _errorsController.stream;
 
+  final Set<String> registeredServices;
+
   /// Controller for the [errorsStream].
   final StreamController<String> _errorsController;
 
-  /// The listener for Flutter.Error vm service extension events.
-  final StreamSubscription<Event>? _extensionEventsListener;
-
-  /// The stderr listener on the flutter process.
-  final StreamSubscription<Event>? _stderrEventsListener;
+  /// Stream subscriptions we need to cancel on [shutdown].
+  final Iterable<StreamSubscription<void>> _subscriptions;
 
   /// The vm service instance connected to the flutter app.
   final VmService _vmService;
 
-  _AppErrorsListener._(
+  _AppListener._(
     this.errorLog,
+    this.registeredServices,
     this._errorsController,
-    this._extensionEventsListener,
-    this._stderrEventsListener,
+    this._subscriptions,
     this._vmService,
   ) {
     _vmService.onDone.then((_) => shutdown());
   }
 
-  /// Maintain a cache of error listeners by [VmService] instance as an
+  /// Maintain a cache of app listeners by [VmService] instance as an
   /// [Expando] so we don't have to worry about explicit cleanup.
-  static final _errorListeners = Expando<Future<_AppErrorsListener>>();
+  static final _appListeners = Expando<Future<_AppListener>>();
 
-  /// Returns the canonical [_AppErrorsListener] for the [vmService] instance,
+  /// Returns the canonical [_AppListener] for the [vmService] instance,
   /// which may be an already existing instance.
-  static Future<_AppErrorsListener> forVmService(
+  static Future<_AppListener> forVmService(
     VmService vmService,
     LoggingSupport logger,
   ) async {
-    return _errorListeners[vmService] ??= () async {
+    return _appListeners[vmService] ??= () async {
       // Needs to be a broadcast stream because we use it to add errors to the
       // list but also expose it to clients so they can know when new errors
       // are added.
       final errorsController = StreamController<String>.broadcast();
       final errorLog = ErrorLog();
       errorsController.stream.listen(errorLog.add);
-      // We need to listen to streams with history so that we can get errors
-      // that occurred before this tool call.
-      // TODO(https://github.com/dart-lang/ai/issues/57): this can result in
-      // duplicate errors that we need to de-duplicate somehow.
-      StreamSubscription<Event>? extensionEvents;
-      StreamSubscription<Event>? stderrEvents;
+      final subscriptions = <StreamSubscription<void>>[];
+      final registeredServices = <String>{};
 
       try {
-        extensionEvents = vmService.onExtensionEventWithHistory.listen((
-          Event e,
-        ) {
-          if (e.extensionKind == 'Flutter.Error') {
+        subscriptions.add(
+          vmService.onExtensionEventWithHistory.listen((Event e) {
+            if (e.extensionKind == 'Flutter.Error') {
+              // TODO(https://github.com/dart-lang/ai/issues/57): consider
+              // pruning this content down to only what is useful for the LLM to
+              // understand the error and its source.
+              errorsController.add(e.json.toString());
+            }
+          }),
+        );
+        Event? lastError;
+        subscriptions.add(
+          vmService.onStderrEventWithHistory.listen((Event e) {
+            if (lastError case final last?
+                when last.timestamp == e.timestamp && last.bytes == e.bytes) {
+              // Looks like a duplicate event, on Dart 3.7 stable we get these.
+              return;
+            }
+            lastError = e;
+            final message = decodeBase64(e.bytes!);
             // TODO(https://github.com/dart-lang/ai/issues/57): consider
             // pruning this content down to only what is useful for the LLM to
             // understand the error and its source.
-            errorsController.add(e.json.toString());
-          }
-        });
-        Event? lastError;
-        stderrEvents = vmService.onStderrEventWithHistory.listen((Event e) {
-          if (lastError case final last?
-              when last.timestamp == e.timestamp && last.bytes == e.bytes) {
-            // Looks like a duplicate event, on Dart 3.7 stable we get these.
-            return;
-          }
-          lastError = e;
-          final message = decodeBase64(e.bytes!);
-          // TODO(https://github.com/dart-lang/ai/issues/57): consider
-          // pruning this content down to only what is useful for the LLM to
-          // understand the error and its source.
-          errorsController.add(message);
-        });
+            errorsController.add(message);
+          }),
+        );
+
+        subscriptions.add(
+          vmService.onServiceEvent.listen((Event e) {
+            switch (e.kind) {
+              case EventKind.kServiceRegistered:
+                registeredServices.add(e.service!);
+              case EventKind.kServiceUnregistered:
+                registeredServices.remove(e.service!);
+            }
+          }),
+        );
 
         await [
           vmService.streamListen(EventStreams.kExtension),
           vmService.streamListen(EventStreams.kStderr),
+          vmService.streamListen(EventStreams.kService),
         ].wait;
+
+        final vm = await vmService.getVM();
+        final isolate = await vmService.getIsolate(vm.isolates!.first.id!);
+        registeredServices.addAll(isolate.extensionRPCs ?? []);
       } catch (e) {
         logger.log(LoggingLevel.error, 'Error subscribing to app errors: $e');
       }
-      return _AppErrorsListener._(
+      return _AppListener._(
         errorLog,
+        registeredServices,
         errorsController,
-        extensionEvents,
-        stderrEvents,
+        subscriptions,
         vmService,
       );
     }();
@@ -883,12 +1143,13 @@ class _AppErrorsListener {
 
   Future<void> shutdown() async {
     errorLog.clear();
+    registeredServices.clear();
     await _errorsController.close();
-    await _extensionEventsListener?.cancel();
-    await _stderrEventsListener?.cancel();
+    await Future.wait(_subscriptions.map((s) => s.cancel()));
     try {
       await _vmService.streamCancel(EventStreams.kExtension);
       await _vmService.streamCancel(EventStreams.kStderr);
+      await _vmService.streamCancel(EventStreams.kService);
     } on RPCError catch (_) {
       // The vm service might already be disposed in which causes these to fail.
     }

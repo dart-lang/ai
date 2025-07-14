@@ -4,6 +4,7 @@
   failure.
 * Add failure reason field to analytics events so we can know why tool calls are
   failing.
+* Add a flutter_driver command for executing flutter driver commands on a device.
 
 # 0.1.0 (Dart SDK 3.9.0)
 

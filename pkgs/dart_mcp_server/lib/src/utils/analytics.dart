@@ -92,6 +92,7 @@ enum CallToolFailureReason {
   connectedAppServiceNotSupported,
   dtdAlreadyConnected,
   dtdNotConnected,
+  flutterDriverNotEnabled,
   invalidPath,
   invalidRootPath,
   invalidRootScheme,
