@@ -64,6 +64,6 @@ jobs:
 
       # If this fails, you need to run 'dart tool/update_readme.dart'.
       - run: dart tool/update_readme.dart
-      - run: git diff --exit-code
+      - run: git diff --exit-code README.md
 
       - run: dart test
