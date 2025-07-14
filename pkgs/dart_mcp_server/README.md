@@ -147,5 +147,6 @@ For more information, see the official VS Code documentation for
 | `get_active_location` | `editor` | Gets the active cursor position in the connected editor (if available). |
 | `run_tests` | `static tool` | Runs tests for the given project roots. |
 | `create_project` | `static tool` | Creates a new Dart or Flutter project. |
+| `flutter_driver` | `runtime tool` | Enables executing flutter driver commands against the connected app. |
 
 > *Experimental: may be removed.
