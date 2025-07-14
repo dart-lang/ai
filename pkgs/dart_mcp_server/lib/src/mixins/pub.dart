@@ -6,6 +6,7 @@ import 'dart:async';
 
 import 'package:dart_mcp/server.dart';
 
+import '../utils/analytics.dart';
 import '../utils/cli_utils.dart';
 import '../utils/constants.dart';
 import '../utils/file_system.dart';
@@ -47,7 +48,7 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
           ),
         ],
         isError: true,
-      );
+      )..failureReason ??= CallToolFailureReason.noSuchCommand;
     }
 
     final packageName =
@@ -62,7 +63,7 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
           ),
         ],
         isError: true,
-      );
+      )..failureReason ??= CallToolFailureReason.argumentError;
     }
 
     return runCommandInRoots(

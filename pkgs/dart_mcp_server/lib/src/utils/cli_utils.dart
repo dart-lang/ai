@@ -10,6 +10,7 @@ import 'package:file/file.dart';
 import 'package:process/process.dart';
 import 'package:yaml/yaml.dart';
 
+import 'analytics.dart';
 import 'constants.dart';
 import 'sdk.dart';
 
@@ -96,6 +97,7 @@ Future<CallToolResult> runCommandInRoots(
   }
 
   final outputs = <Content>[];
+  var isError = false;
   for (var rootConfig in rootConfigs) {
     final result = await runCommandInRoot(
       request,
@@ -109,10 +111,10 @@ Future<CallToolResult> runCommandInRoots(
       defaultPaths: defaultPaths,
       sdk: sdk,
     );
-    if (result.isError == true) return result;
+    isError = isError || result.isError == true;
     outputs.addAll(result.content);
   }
-  return CallToolResult(content: outputs);
+  return CallToolResult(content: outputs, isError: isError);
 }
 
 /// Runs [commandForRoot] in a single project root specified in the
@@ -158,7 +160,7 @@ Future<CallToolResult> runCommandInRoot(
         TextContent(text: 'Invalid root configuration: missing `root` key.'),
       ],
       isError: true,
-    );
+    )..failureReason ??= CallToolFailureReason.noRootGiven;
   }
 
   final root = knownRoots.firstWhereOrNull(
@@ -174,7 +176,7 @@ Future<CallToolResult> runCommandInRoot(
         ),
       ],
       isError: true,
-    );
+    )..failureReason ??= CallToolFailureReason.invalidRootPath;
   }
 
   final rootUri = Uri.parse(rootUriString);
@@ -188,7 +190,7 @@ Future<CallToolResult> runCommandInRoot(
         ),
       ],
       isError: true,
-    );
+    )..failureReason ??= CallToolFailureReason.invalidRootScheme;
   }
   final projectRoot = fileSystem.directory(rootUri);
 
@@ -212,7 +214,7 @@ Future<CallToolResult> runCommandInRoot(
         ),
       ],
       isError: true,
-    );
+    )..failureReason ??= CallToolFailureReason.invalidPath;
   }
   commandWithPaths.addAll(paths);
 
@@ -233,11 +235,11 @@ Future<CallToolResult> runCommandInRoot(
         TextContent(
           text:
               '$commandDescription failed in ${projectRoot.path}:\n'
-              '$output\n\nErrors\n$errors',
+              '$output${errors.isEmpty ? '' : '\nErrors:\n$errors'}',
         ),
       ],
       isError: true,
-    );
+    )..failureReason ??= CallToolFailureReason.nonZeroExitCode;
   }
   return CallToolResult(
     content: [

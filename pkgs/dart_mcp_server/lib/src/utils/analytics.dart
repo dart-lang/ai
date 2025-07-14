@@ -2,6 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'package:dart_mcp/server.dart';
 import 'package:unified_analytics/unified_analytics.dart';
 
 /// An interface class that provides a access to an [Analytics] instance, if
@@ -53,10 +54,14 @@ final class CallToolMetrics extends CustomMetrics {
   /// The time it took to invoke the tool.
   final int elapsedMilliseconds;
 
+  /// The reason for the failure, if [success] is `false`.
+  final CallToolFailureReason? failureReason;
+
   CallToolMetrics({
     required this.tool,
     required this.success,
     required this.elapsedMilliseconds,
+    required this.failureReason,
   });
 
   @override
@@ -64,12 +69,42 @@ final class CallToolMetrics extends CustomMetrics {
     _tool: tool,
     _success: success,
     _elapsedMilliseconds: elapsedMilliseconds,
+    _failureReason: ?failureReason?.name,
   };
 }
 
 enum ResourceKind { runtimeErrors }
 
+/// Extension which tracks failure reasons for [CallToolResult] objects in an
+/// [Expando].
+extension WithFailureReason on CallToolResult {
+  static final _expando = Expando<CallToolFailureReason>();
+
+  CallToolFailureReason? get failureReason => _expando[this as Object];
+
+  set failureReason(CallToolFailureReason? value) =>
+      _expando[this as Object] = value;
+}
+
+/// Known reasons for failed tool calls.
+enum CallToolFailureReason {
+  argumentError,
+  connectedAppServiceNotSupported,
+  dtdAlreadyConnected,
+  dtdNotConnected,
+  invalidPath,
+  invalidRootPath,
+  invalidRootScheme,
+  noActiveDebugSession,
+  noRootGiven,
+  noRootsSet,
+  noSuchCommand,
+  nonZeroExitCode,
+  webSocketException,
+}
+
 const _elapsedMilliseconds = 'elapsedMilliseconds';
+const _failureReason = 'failureReason';
 const _kind = 'kind';
 const _length = 'length';
 const _success = 'success';

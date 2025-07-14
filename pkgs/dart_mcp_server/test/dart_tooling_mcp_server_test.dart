@@ -7,6 +7,7 @@ import 'dart:io';
 
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp_server/src/server.dart';
+import 'package:dart_mcp_server/src/utils/analytics.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
 import 'package:unified_analytics/testing.dart';
@@ -56,32 +57,43 @@ void main() {
     });
 
     test('sends analytics for failed tool calls', () async {
-      server.registerTool(
-        Tool(name: 'hello', inputSchema: Schema.object()),
-        (_) => CallToolResult(isError: true, content: []),
-      );
-      final result = await testHarness.mcpServerConnection.callTool(
-        CallToolRequest(name: 'hello'),
-      );
-      expect(result.isError, true);
-      expect(
-        analytics.sentEvents.single,
-        isA<Event>()
-            .having((e) => e.eventName, 'eventName', DashEvent.dartMCPEvent)
-            .having(
-              (e) => e.eventData,
-              'eventData',
-              equals({
-                'client': server.clientInfo.name,
-                'clientVersion': server.clientInfo.version,
-                'serverVersion': server.implementation.version,
-                'type': 'callTool',
-                'tool': 'hello',
-                'success': false,
-                'elapsedMilliseconds': isA<int>(),
-              }),
-            ),
-      );
+      for (var reason in [null, CallToolFailureReason.nonZeroExitCode]) {
+        analytics.sentEvents.clear();
+
+        final tool = Tool(
+          name: 'hello${reason?.name ?? ''}',
+          inputSchema: Schema.object(),
+        );
+        server.registerTool(
+          tool,
+          (_) =>
+              CallToolResult(isError: true, content: [])
+                ..failureReason = reason,
+        );
+        final result = await testHarness.mcpServerConnection.callTool(
+          CallToolRequest(name: tool.name),
+        );
+        expect(result.isError, true);
+        expect(
+          analytics.sentEvents.single,
+          isA<Event>()
+              .having((e) => e.eventName, 'eventName', DashEvent.dartMCPEvent)
+              .having(
+                (e) => e.eventData,
+                'eventData',
+                equals({
+                  'client': server.clientInfo.name,
+                  'clientVersion': server.clientInfo.version,
+                  'serverVersion': server.implementation.version,
+                  'type': 'callTool',
+                  'tool': tool.name,
+                  'success': false,
+                  'elapsedMilliseconds': isA<int>(),
+                  'failureReason': ?reason?.name,
+                }),
+              ),
+        );
+      }
     });
 
     test('Changelog version matches dart server version', () {

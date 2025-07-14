@@ -58,7 +58,7 @@ final class DartMCPServer extends MCPServer
   }) : super.fromStreamChannel(
          implementation: Implementation(
            name: 'dart and flutter tooling',
-           version: '0.1.0',
+           version: '0.1.1',
          ),
          instructions:
              'This server helps to connect Dart and Flutter developers to '
@@ -198,6 +198,7 @@ final class DartMCPServer extends MCPServer
                         tool: request.name,
                         success: result != null && result.isError != true,
                         elapsedMilliseconds: watch.elapsedMilliseconds,
+                        failureReason: result?.failureReason,
                       ),
                     ),
                   );

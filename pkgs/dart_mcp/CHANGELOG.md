@@ -1,3 +1,8 @@
+## 0.3.1-wip
+
+- Fixes communication problem when a `MCPServer` is instantiated without
+  instructions.
+
 ## 0.3.0
 
 - Added error checking to required fields of all `Request` subclasses so that

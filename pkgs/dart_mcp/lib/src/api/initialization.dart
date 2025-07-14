@@ -60,7 +60,7 @@ extension type InitializeResult.fromMap(Map<String, Object?> _value)
     'protocolVersion': protocolVersion.versionString,
     'capabilities': serverCapabilities,
     'serverInfo': serverInfo,
-    'instructions': instructions,
+    if (instructions != null) 'instructions': instructions,
   });
 
   /// The version of the Model Context Protocol that the server wants to use.
