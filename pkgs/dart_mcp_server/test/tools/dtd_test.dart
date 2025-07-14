@@ -614,6 +614,70 @@ void main() {
         // Clean up
         await testHarness.stopDebugSession(debugSession);
       });
+
+      group('Flutter driver', () {
+        test('can get text and tap buttons', () async {
+          final debugSession = await testHarness.startDebugSession(
+            counterAppPath,
+            'lib/driver_main.dart',
+            isFlutter: true,
+          );
+          var result = await testHarness.callToolWithRetry(
+            CallToolRequest(
+              name: DartToolingDaemonSupport.flutterDriverTool.name,
+              arguments: {
+                'command': 'get_text',
+                'finderType': 'ByValueKey',
+                'keyValueString': 'counter',
+                'keyValueType': 'String',
+              },
+            ),
+          );
+          expect(
+            result.content.first,
+            isA<TextContent>().having(
+              (c) => c.text,
+              'text',
+              contains('"text":"0"'),
+            ),
+          );
+
+          result = await testHarness.callToolWithRetry(
+            CallToolRequest(
+              name: DartToolingDaemonSupport.flutterDriverTool.name,
+              arguments: {
+                'command': 'tap',
+                'finderType': 'ByTooltipMessage',
+                'text': 'Increment',
+              },
+            ),
+          );
+          expect(result.isError, isNot(true));
+
+          result = await testHarness.callToolWithRetry(
+            CallToolRequest(
+              name: DartToolingDaemonSupport.flutterDriverTool.name,
+              arguments: {
+                'command': 'get_text',
+                'finderType': 'ByValueKey',
+                'keyValueString': 'counter',
+                'keyValueType': 'String',
+              },
+            ),
+          );
+          expect(
+            result.content.first,
+            isA<TextContent>().having(
+              (c) => c.text,
+              'text',
+              contains('"text":"1"'),
+            ),
+          );
+
+          // Clean up
+          await testHarness.stopDebugSession(debugSession);
+        });
+      });
     });
   });
 
