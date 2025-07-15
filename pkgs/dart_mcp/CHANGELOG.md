@@ -3,6 +3,9 @@
 - Fixes communication problem when a `MCPServer` is instantiated without
   instructions.
 - Fix the `content` argument to `PromptMessage` to be a single `Content` object.
+- Add new `package:dart_mcp/stdio.dart` library with a `stdioChannel` utility
+  for creating a stream channel that separates messages by newlines.
+- Added more examples.
 
 ## 0.3.0
 
