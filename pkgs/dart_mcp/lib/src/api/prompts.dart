@@ -135,7 +135,7 @@ enum Role { user, assistant }
 /// This is similar to `SamplingMessage`, but also supports the embedding of
 /// resources from the MCP server.
 extension type PromptMessage.fromMap(Map<String, Object?> _value) {
-  factory PromptMessage({required Role role, required List<Content> content}) =>
+  factory PromptMessage({required Role role, required Content content}) =>
       PromptMessage.fromMap({'role': role.name, 'content': content});
 
   /// The expected [Role] for this message in the prompt (multi-message

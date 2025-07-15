@@ -2,6 +2,7 @@
 
 - Fixes communication problem when a `MCPServer` is instantiated without
   instructions.
+- Fix the `content` argument to `PromptMessage` to be a single `Content` object.
 
 ## 0.3.0
 
