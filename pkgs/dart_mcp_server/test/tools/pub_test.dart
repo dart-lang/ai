@@ -69,7 +69,7 @@ void main() {
             name: dartPubTool.name,
             arguments: {
               ParameterNames.command: 'add',
-              ParameterNames.packageName: 'foo',
+              ParameterNames.packageNames: ['foo', 'bar'],
               ParameterNames.roots: [
                 {ParameterNames.root: testRoot.uri},
               ],
@@ -81,7 +81,7 @@ void main() {
           expect(result.isError, isNot(true));
           expect(testProcessManager.commandsRan, [
             equalsCommand((
-              command: [endsWith(executableName), 'pub', 'add', 'foo'],
+              command: [endsWith(executableName), 'pub', 'add', 'foo', 'bar'],
               workingDirectory: testRoot.path,
             )),
           ]);
@@ -92,7 +92,7 @@ void main() {
             name: dartPubTool.name,
             arguments: {
               ParameterNames.command: 'remove',
-              ParameterNames.packageName: 'foo',
+              ParameterNames.packageNames: ['foo', 'bar'],
               ParameterNames.roots: [
                 {ParameterNames.root: testRoot.uri},
               ],
@@ -104,7 +104,13 @@ void main() {
           expect(result.isError, isNot(true));
           expect(testProcessManager.commandsRan, [
             equalsCommand((
-              command: [endsWith(executableName), 'pub', 'remove', 'foo'],
+              command: [
+                endsWith(executableName),
+                'pub',
+                'remove',
+                'foo',
+                'bar',
+              ],
               workingDirectory: testRoot.path,
             )),
           ]);
@@ -214,7 +220,7 @@ void main() {
           });
 
           for (final command in SupportedPubCommand.values.where(
-            (c) => c.requiresPackageName,
+            (c) => c.requiresPackageNames,
           )) {
             test('for missing package name: $command', () async {
               final request = CallToolRequest(
@@ -228,7 +234,7 @@ void main() {
 
               expect(
                 (result.content.single as TextContent).text,
-                'Missing required argument `packageName` for the '
+                'Missing required argument `packageNames` for the '
                 '`${command.name}` command.',
               );
               expect(testProcessManager.commandsRan, isEmpty);

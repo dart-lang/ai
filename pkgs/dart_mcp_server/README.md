@@ -129,23 +129,30 @@ For more information, see the official VS Code documentation for
 
 ## Tools
 
-| Tool Name | Feature Group | Description |
-| --- | --- | --- |
-| `analyze_files` | `static analysis` | Analyzes the entire project for errors. |
-| `signature_help` | `static_analysis` | Gets signature information for usage at a given cursor position. |
-| `hover` | `static_analysis` | Gets the hover information for a given cursor position. |
-| `resolve_workspace_symbol` | `static analysis` | Look up a symbol or symbols in all workspaces by name. |
-| `dart_fix` | `static tool` | Runs `dart fix --apply` for the given project roots. |
-| `dart_format` | `static tool` | Runs `dart format .` for the given project roots. |
-| `pub` | `static tool` | Runs a `dart pub` command for the given project roots. |
-| `pub_dev_search` | `package search` | Searches pub.dev for packages relevant to a given search query. |
-| `get_runtime_errors` | `runtime analysis` | Retrieves the list of runtime errors that have occurred in the active Dart or Flutter application. |
-| `get_widget_tree` | `runtime analysis` | Retrieves the widget tree from the active Flutter application. |
-| `get_selected_widget` | `runtime analysis` | Retrieves the selected widget from the active Flutter application. |
-| `hot_reload` | `runtime tool` | Performs a hot reload of the active Flutter application. |
-| `connect_dart_tooling_daemon`* | `configuration` | Connects to the locally running Dart Tooling Daemon. |
-| `get_active_location` | `editor` | Gets the active cursor position in the connected editor (if available). |
-| `run_tests` | `static tool` | Runs tests for the given project roots. |
-| `create_project` | `static tool` | Creates a new Dart or Flutter project. |
+<!-- run 'dart tool/update_readme.dart' to update -->
 
-> *Experimental: may be removed.
+<!-- generated -->
+
+| Tool Name | Title | Description |
+| --- | --- | --- |
+| `connect_dart_tooling_daemon` | Connect to DTD | Connects to the Dart Tooling Daemon. You should get the uri either from available tools or the user, do not just make up a random URI to pass. When asking the user for the uri, you should suggest the "Copy DTD Uri to clipboard" action. When reconnecting after losing a connection, always request a new uri first. |
+| `get_runtime_errors` | Get runtime errors | Retrieves the most recent runtime errors that have occurred in the active Dart or Flutter application. Requires "connect_dart_tooling_daemon" to be successfully called first. |
+| `hot_reload` | Hot reload | Performs a hot reload of the active Flutter application. This is to apply the latest code changes to the running application. Requires "connect_dart_tooling_daemon" to be successfully called first. |
+| `get_widget_tree` | Get widget tree | Retrieves the widget tree from the active Flutter application. Requires "connect_dart_tooling_daemon" to be successfully called first. |
+| `get_selected_widget` | Get selected widget | Retrieves the selected widget from the active Flutter application. Requires "connect_dart_tooling_daemon" to be successfully called first. |
+| `set_widget_selection_mode` | Set Widget Selection Mode | Enables or disables widget selection mode in the active Flutter application. Requires "connect_dart_tooling_daemon" to be successfully called first. |
+| `get_active_location` | Get Active Editor Location | Retrieves the current active location (e.g., cursor position) in the connected editor. Requires "connect_dart_tooling_daemon" to be successfully called first. |
+| `pub_dev_search` | pub.dev search | Searches pub.dev for packages relevant to a given search query. The response will describe each result with its download count, package description, topics, license, and publisher. |
+| `remove_roots` | Remove roots | Removes one or more project roots previously added via the add_roots tool. |
+| `add_roots` | Add roots | Adds one or more project roots. Tools are only allowed to run under these roots, so you must call this function before passing any roots to any other tools. |
+| `dart_fix` | Dart fix | Runs `dart fix --apply` for the given project roots. |
+| `dart_format` | Dart format | Runs `dart format .` for the given project roots. |
+| `run_tests` | Run tests | Run Dart or Flutter tests with an agent centric UX. ALWAYS use instead of `dart test` or `flutter test` shell commands. |
+| `create_project` | Create project | Creates a new Dart or Flutter project. |
+| `pub` | pub | Runs a pub command for the given project roots, like `dart pub get` or `flutter pub add`. |
+| `analyze_files` | Analyze projects | Analyzes the entire project for errors. |
+| `resolve_workspace_symbol` | Project search | Look up a symbol or symbols in all workspaces by name. Can be used to validate that a symbol exists or discover small spelling mistakes, since the search is fuzzy. |
+| `signature_help` | Signature help | Get signature help for an API being used at a given cursor position in a file. |
+| `hover` | Hover information | Get hover information at a given cursor position in a file. This can include documentation, type information, etc for the text at that position. |
+
+<!-- generated -->

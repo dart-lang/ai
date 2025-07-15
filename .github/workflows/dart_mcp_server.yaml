@@ -58,10 +58,12 @@ jobs:
         run: flutter pub get
 
       - run: dart pub get
-
       - run: dart analyze --fatal-infos
-
       - run: dart format --output=none --set-exit-if-changed .
         if: ${{ matrix.flutterSdk == 'master' }}
+
+      # If this fails, you need to run 'dart tool/update_readme.dart'.
+      - run: dart tool/update_readme.dart
+      - run: git diff --exit-code README.md
 
       - run: dart test
