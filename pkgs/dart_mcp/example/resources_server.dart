@@ -2,6 +2,10 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+/// A server that implements the resources API using the [ResourcesSupport]
+/// mixin.
+library;
+
 import 'dart:async';
 import 'dart:io' as io;
 
@@ -9,10 +13,14 @@ import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp/stdio.dart';
 
 void main() {
+  // Create the server and connect it to stdio.
   MCPServerWithResources(stdioChannel(input: io.stdin, output: io.stdout));
 }
 
 /// An MCP server with resource and resource template support.
+///
+/// This server uses the [ResourcesSupport] mixin to provide resources to the
+/// client.
 base class MCPServerWithResources extends MCPServer with ResourcesSupport {
   MCPServerWithResources(super.channel)
     : super.fromStreamChannel(
@@ -21,11 +29,8 @@ base class MCPServerWithResources extends MCPServer with ResourcesSupport {
           version: '0.1.0',
         ),
         instructions: 'Just list and read the resources :D',
-      );
-
-  @override
-  FutureOr<InitializeResult> initialize(InitializeRequest request) {
-    // A standard resource.
+      ) {
+    // Add a standard resource with a fixed URI.
     addResource(
       Resource(uri: 'example://resource.txt', name: 'An example resource'),
       (request) => ReadResourceResult(
@@ -34,7 +39,7 @@ base class MCPServerWithResources extends MCPServer with ResourcesSupport {
     );
 
     // A resource template which always just returns the path portion of the
-    // requested URI.
+    // requested URI as the content of the resource.
     addResourceTemplate(
       ResourceTemplate(
         uriTemplate: 'example_template://{path}',
@@ -56,6 +61,5 @@ base class MCPServerWithResources extends MCPServer with ResourcesSupport {
         );
       },
     );
-    return super.initialize(request);
   }
 }
