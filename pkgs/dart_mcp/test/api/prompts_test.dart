@@ -40,7 +40,7 @@ void main() {
       greetingResult.messages.single,
       PromptMessage(
         role: Role.user,
-        content: [TextContent(text: 'Please greet me joyously')],
+        content: TextContent(text: 'Please greet me joyously'),
       ),
     );
   });
@@ -91,9 +91,9 @@ final class TestMCPServerWithPrompts extends TestMCPServer with PromptsSupport {
       messages: [
         PromptMessage(
           role: Role.user,
-          content: [
-            TextContent(text: 'Please greet me ${request.arguments!['style']}'),
-          ],
+          content: TextContent(
+            text: 'Please greet me ${request.arguments!['style']}',
+          ),
         ),
       ],
     );

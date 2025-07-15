@@ -13,7 +13,6 @@ import 'package:file/file.dart';
 import 'package:file/local.dart';
 import 'package:meta/meta.dart';
 import 'package:process/process.dart';
-import 'package:stream_channel/stream_channel.dart';
 import 'package:unified_analytics/unified_analytics.dart';
 
 import 'arg_parser.dart';

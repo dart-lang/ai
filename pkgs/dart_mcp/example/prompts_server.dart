@@ -9,12 +9,12 @@ import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp/stdio.dart';
 
 void main() {
-  MCPServerWithTools(stdioChannel(input: io.stdin, output: io.stdout));
+  MCPServerWithPrompts(stdioChannel(input: io.stdin, output: io.stdout));
 }
 
 /// Our actual MCP server.
-base class MCPServerWithTools extends MCPServer with PromptsSupport {
-  MCPServerWithTools(super.channel)
+base class MCPServerWithPrompts extends MCPServer with PromptsSupport {
+  MCPServerWithPrompts(super.channel)
     : super.fromStreamChannel(
         implementation: Implementation(
           name: 'An example dart server with prompts support',
