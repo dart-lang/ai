@@ -2,9 +2,11 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:dart_mcp/client.dart';
+import 'package:dart_mcp/stdio.dart';
 
 void main(List<String> args) async {
   print('Getting registered tools...');
@@ -45,11 +47,10 @@ Future<List<Tool>> _retrieveRegisteredTools() async {
     Implementation(name: 'list tools client', version: '1.0.0'),
   );
   final process = await Process.start('dart', ['run', 'bin/main.dart']);
-  final server = client.connectStdioServer(
-    process.stdin,
-    process.stdout,
-    onDone: process.kill,
+  final server = client.connectServer(
+    stdioChannel(input: process.stdout, output: process.stdin),
   );
+  unawaited(server.done.then((_) => process.kill()));
 
   await server.initialize(
     InitializeRequest(
