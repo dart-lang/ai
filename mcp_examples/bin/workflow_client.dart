@@ -10,6 +10,7 @@ import 'package:args/args.dart';
 import 'package:async/async.dart';
 import 'package:cli_util/cli_logging.dart';
 import 'package:dart_mcp/client.dart';
+import 'package:dart_mcp/stdio.dart';
 import 'package:google_generative_ai/google_generative_ai.dart' as gemini;
 
 /// The list of Gemini models that are accepted as a "--model" argument.
@@ -414,12 +415,10 @@ final class WorkflowClient extends MCPClient with RootsSupport {
           parts.skip(1).toList(),
         );
         serverConnections.add(
-          connectStdioServer(
-            process.stdin,
-            process.stdout,
+          connectServer(
+            stdioChannel(input: process.stdout, output: process.stdin),
             protocolLogSink: logSink,
-            onDone: process.kill,
-          ),
+          )..done.then((_) => process.kill()),
         );
       } catch (e) {
         logger.stderr('Failed to connect to server $server: $e');
