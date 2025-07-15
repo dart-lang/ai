@@ -6,7 +6,6 @@
 /// mixin.
 library;
 
-import 'dart:async';
 import 'dart:io' as io;
 
 import 'package:dart_mcp/server.dart';
