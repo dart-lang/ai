@@ -1,7 +1,9 @@
 # Client and Server examples
 
 For each piece of client or server feature, there is a corresponding example
-here with {feature}_client.dart and {feature}_server.dart file names.
+here with {feature}_client.dart and {feature}_server.dart file names. Sometimes
+multiple features are demonstrated together where appropriate, in which case the
+file name will indicate this.
 
 To run the examples, run the client file directly, so for instance
 `dart run example/tools_client.dart` with run the example client which invokes
