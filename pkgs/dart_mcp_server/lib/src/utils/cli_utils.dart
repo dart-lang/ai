@@ -291,7 +291,7 @@ bool _isUnderRoot(Root root, String uri, FileSystem fileSystem) {
 
 /// The schema for the `roots` parameter for any tool that accepts it.
 ListSchema rootsSchema({bool supportsPaths = false}) => Schema.list(
-  title: 'All projects roots to run this tool in.',
+  title: 'The project roots to run this tool in.',
   items: Schema.object(
     properties: {
       ParameterNames.root: rootSchema,
