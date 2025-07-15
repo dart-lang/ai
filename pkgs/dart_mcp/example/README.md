@@ -1,8 +1,12 @@
-# Simple Client and Server
+# Client and Server examples
 
-See `bin/simple_client.dart` and `bin/simple_server.dart` for a basic example of
-how to use the `MCPClient` and `MCPServer` classes. These don't use any LLM to
-invoke tools.
+For each piece of client or server feature, there is a corresponding example
+here with {feature}_client.dart and {feature}_server.dart file names.
+
+To run the examples, run the client file directly, so for instance
+`dart run example/tools_client.dart` with run the example client which invokes
+tools, connected to the example server that provides tools
+(at `example/tools_server.dart`).
 
 # Full Features Examples
 

@@ -2,9 +2,11 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:dart_mcp/client.dart';
+import 'package:dart_mcp/stdio.dart';
 
 void main() async {
   final client = MCPClient(
@@ -14,13 +16,12 @@ void main() async {
 
   final process = await Process.start('dart', [
     'run',
-    'example/simple_server.dart',
+    'example/tools_server.dart',
   ]);
-  final server = client.connectStdioServer(
-    process.stdin,
-    process.stdout,
-    onDone: process.kill,
+  final server = client.connectServer(
+    stdioChannel(input: process.stdout, output: process.stdin),
   );
+  unawaited(server.done.then((_) => process.kill()));
   print('server started');
 
   print('initializing server');
@@ -46,7 +47,7 @@ void main() async {
     throw StateError('Server doesn\'t support tools!');
   }
 
-  server.notifyInitialized(InitializedNotification());
+  server.notifyInitialized();
   print('sent initialized notification');
 
   print('Listing tools from server');
