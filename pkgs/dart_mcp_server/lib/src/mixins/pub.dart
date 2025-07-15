@@ -99,7 +99,8 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
           items: Schema.string(
             title: 'A package to run the command for.',
             description:
-                'Prefix with "dev:" to add the package as a dev dependency.',
+                'When used with "add", prefix with "dev:" to add the package '
+                'as a dev dependency.',
           ),
         ),
         ParameterNames.roots: rootsSchema(),
