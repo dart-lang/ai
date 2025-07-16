@@ -71,6 +71,7 @@ base mixin DartAnalyzerSupport
       registerTool(resolveWorkspaceSymbolTool, _resolveWorkspaceSymbol);
       registerTool(signatureHelpTool, _signatureHelp);
       registerTool(hoverTool, _hover);
+      registerTool(readSummaryTool, _readSummary);
     }
 
     // Don't call any methods on the client until we are fully initialized
@@ -321,6 +322,20 @@ base mixin DartAnalyzerSupport
     return CallToolResult(content: [TextContent(text: jsonEncode(result))]);
   }
 
+  /// Implementation of the [readSummaryTool], gets summary information for a
+  /// given library.
+  Future<CallToolResult> _readSummary(CallToolRequest request) async {
+    final errorResult = await _ensurePrerequisites(request);
+    if (errorResult != null) return errorResult;
+
+    final uri = Uri.parse(request.arguments![ParameterNames.uri] as String);
+    final result = await _lspConnection!.sendRequest(
+      'dart/textDocument/summary',
+      lsp.TextDocumentIdentifier(uri: uri).toJson(),
+    );
+    return CallToolResult(content: [TextContent(text: jsonEncode(result))]);
+  }
+
   /// Ensures that all prerequisites for any analysis task are met.
   ///
   /// Returns an error response if any prerequisite is not met, otherwise
@@ -463,6 +478,26 @@ base mixin DartAnalyzerSupport
       title: 'Hover information',
       readOnlyHint: true,
     ),
+  );
+
+  @visibleForTesting
+  static final readSummaryTool = Tool(
+    name: 'read_summary',
+    description:
+        'Gets a summary of a given dart library by URI. This should be '
+        'preferred over reading files when the only goal is to understand '
+        'how to use a given library. Supports `package:` URIs and `file:` '
+        'URIs. The library must be available to one of the currently active '
+        'projects.',
+    inputSchema: Schema.object(
+      properties: {
+        ParameterNames.uri: Schema.string(
+          description:
+              'The URI of the library, either a `package:` or `file:` URI.',
+        ),
+      },
+    ),
+    annotations: ToolAnnotations(title: 'Dart summary', readOnlyHint: true),
   );
 
   @visibleForTesting
