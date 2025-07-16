@@ -194,6 +194,7 @@ extension type ServerCapabilities.fromMap(Map<String, Object?> _value) {
     Prompts? prompts,
     Resources? resources,
     Tools? tools,
+    @Deprecated('Do not use, only clients have this capability')
     Elicitation? elicitation,
   }) => ServerCapabilities.fromMap({
     if (experimental != null) 'experimental': experimental,
@@ -261,9 +262,11 @@ extension type ServerCapabilities.fromMap(Map<String, Object?> _value) {
   }
 
   /// Present if the server supports elicitation.
+  @Deprecated('Do not use, only clients have this capability')
   Elicitation? get elicitation => _value['elicitation'] as Elicitation?;
 
   /// Sets [elicitation] if it is null, otherwise asserts.
+  @Deprecated('Do not use, only clients have this capability')
   set elicitation(Elicitation? value) {
     assert(elicitation == null);
     _value['elicitation'] = value;
@@ -333,6 +336,7 @@ extension type Tools.fromMap(Map<String, Object?> _value) {
 }
 
 /// Elicitation parameter for [ServerCapabilities].
+@Deprecated('Do not use, only clients have this capability')
 extension type Elicitation.fromMap(Map<String, Object?> _value) {
   factory Elicitation() => Elicitation.fromMap({});
 }

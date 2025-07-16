@@ -9,6 +9,9 @@
 - Deprecated the `WithElicitationHandler` interface - the method this required
   is now defined directly on the `ElicitationSupport` mixin which matches the
   pattern used by other mixins in this package.
+- Change the `schema` parameter for elicitation requests to an `ObjectSchema` to
+  match the spec.
+- Deprecate the `Elicitations` server capability, this doesn't exist in the spec.
 
 ## 0.3.0
 
