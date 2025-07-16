@@ -23,10 +23,10 @@ base class MCPServerWithElicitation extends MCPServer
   MCPServerWithElicitation(super.channel)
     : super.fromStreamChannel(
         implementation: Implementation(
-          name: 'An example dart server with tools support',
+          name: 'An example dart server which makes elicitations',
           version: '0.1.0',
         ),
-        instructions: 'Just list and call the tools :D',
+        instructions: 'Handle the elicitations and ask the user for the values',
       ) {
     // You must wait for initialization to complete before you can make an
     // elicitation request.
