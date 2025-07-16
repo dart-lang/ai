@@ -112,7 +112,8 @@ void main() async {
           } else if (next == 127) {
             // Backspace keypress.
             if (current.isNotEmpty) {
-              // Write a backspace followed by a space and then another backspace.
+              // Write a backspace followed by a space and then another
+              // backspace to clear one character.
               stdout.write('\b \b');
               // Trim current by one.
               current = current.substring(0, current.length - 1);
