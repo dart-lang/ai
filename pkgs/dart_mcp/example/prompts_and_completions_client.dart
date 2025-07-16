@@ -56,6 +56,12 @@ void main() async {
       throw StateError('Server doesn\'t support prompts!');
     }
 
+    // Ensure the server supports the completions capability.
+    if (initializeResult.capabilities.completions == null) {
+      await server.shutdown();
+      throw StateError('Server doesn\'t support completions!');
+    }
+
     // Notify the server that we are initialized.
     server.notifyInitialized();
     print('sent initialized notification');
