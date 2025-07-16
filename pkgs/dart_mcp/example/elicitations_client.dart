@@ -91,19 +91,42 @@ Do you want to accept (a), reject (r), or cancel (c) the elicitation?
           type == JsonType.enumeration
               ? ' (${(property.value as EnumSchema).values.join(', ')})'
               : '';
-      stdout.write('$name$allowedValues: ');
-      final value = stdin.readLineSync()!;
-      arguments[name] = switch (type) {
-        JsonType.string || JsonType.enumeration => value,
-        JsonType.num => num.parse(value),
-        JsonType.int => int.parse(value),
-        JsonType.bool => bool.parse(value),
-        JsonType.object ||
-        JsonType.list ||
-        JsonType.nil ||
-        null => throw StateError('Unsupported field type $type'),
-      };
+      // Ask the user in a loop until the value provided matches the schema,
+      // at which point we will `break` from the loop.
+      while (true) {
+        stdout.write('$name$allowedValues: ');
+        final userValue = stdin.readLineSync()!;
+        try {
+          // Convert the value to the correct type.
+          final convertedValue = switch (type) {
+            JsonType.string || JsonType.enumeration => userValue,
+            JsonType.num => num.parse(userValue),
+            JsonType.int => int.parse(userValue),
+            JsonType.bool => bool.parse(userValue),
+            JsonType.object ||
+            JsonType.list ||
+            JsonType.nil ||
+            null => throw StateError('Unsupported field type $type'),
+          };
+          // Actually validate the value based on the schema.
+          final errors = property.value.validate(convertedValue);
+          if (errors.isEmpty) {
+            // No errors, we can assign the value and exit the loop.
+            arguments[name] = convertedValue;
+            break;
+          } else {
+            print('Invalid value, got the following errors:');
+            for (final error in errors) {
+              print('  - $error');
+            }
+          }
+        } catch (e) {
+          // Handles parse errors etc.
+          print('Invalid value, got the following errors:\n  - $e');
+        }
+      }
     }
+    // Return the final result with the arguments.
     return ElicitResult(action: ElicitationAction.accept, content: arguments);
   }
 
