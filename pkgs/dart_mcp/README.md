@@ -74,6 +74,8 @@ from `ServerConnection.initialize`.
 ## Supported Protocol Versions
 
 [2024-11-05](https://spec.modelcontextprotocol.io/specification/2024-11-05/)
+[2025-03-26](https://spec.modelcontextprotocol.io/specification/2025-03-26/)
+[2025-06-18](https://spec.modelcontextprotocol.io/specification/2025-06-18/)
 
 If support for a given protocol version is dropped, that will be released as a
 breaking change in this package.
