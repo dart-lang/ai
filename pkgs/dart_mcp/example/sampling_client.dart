@@ -84,8 +84,7 @@ final class MCPClientWithSamplingSupport extends MCPClient
 
   /// Whenever connecting to a server, we also listen for log messages.
   ///
-  /// The server we connect to will log the roots that it sees, both on startup
-  /// and any time they change.
+  /// The server will log the responses it gets to sampling messages.
   @override
   ServerConnection connectServer(
     StreamChannel<String> channel, {
