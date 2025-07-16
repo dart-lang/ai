@@ -5,6 +5,7 @@
 * Add failure reason field to analytics events so we can know why tool calls are
   failing.
 * Allow for multiple package arguments to `pub add` and `pub remove`.
+* Require dart_mcp version 0.3.1.
 
 # 0.1.0 (Dart SDK 3.9.0)
 
@@ -55,4 +56,3 @@
 * Screenshot tool disabled until
   https://github.com/flutter/flutter/issues/170357 is resolved.
 * Add `arg_parser.dart` public library with minimal deps to be used by the dart tool.
-
