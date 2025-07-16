@@ -6,6 +6,9 @@
 - Add new `package:dart_mcp/stdio.dart` library with a `stdioChannel` utility
   for creating a stream channel that separates messages by newlines.
 - Added more examples.
+- Change the `schema` parameter for elicitation requests to an `ObjectSchema` to
+  match the spec.
+- Deprecate the `Elicitations` server capability, this doesn't exist in the spec.
 
 ## 0.3.0
 

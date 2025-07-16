@@ -11,7 +11,7 @@ extension type ElicitRequest._fromMap(Map<String, Object?> _value)
 
   factory ElicitRequest({
     required String message,
-    required Schema requestedSchema,
+    required ObjectSchema requestedSchema,
   }) {
     assert(
       validateRequestedSchema(requestedSchema),
@@ -39,8 +39,8 @@ extension type ElicitRequest._fromMap(Map<String, Object?> _value)
   ///
   /// You can use [validateRequestedSchema] to validate that a schema conforms
   /// to these limitations.
-  Schema get requestedSchema {
-    final requestedSchema = _value['requestedSchema'] as Schema?;
+  ObjectSchema get requestedSchema {
+    final requestedSchema = _value['requestedSchema'] as ObjectSchema?;
     if (requestedSchema == null) {
       throw ArgumentError(
         'Missing required requestedSchema field in $ElicitRequest',
@@ -53,14 +53,12 @@ extension type ElicitRequest._fromMap(Map<String, Object?> _value)
   /// limitations of the spec.
   ///
   /// See also: [requestedSchema] for a description of the spec limitations.
-  static bool validateRequestedSchema(Schema schema) {
+  static bool validateRequestedSchema(ObjectSchema schema) {
     if (schema.type != JsonType.object) {
       return false;
     }
 
-    final objectSchema = schema as ObjectSchema;
-    final properties = objectSchema.properties;
-
+    final properties = schema.properties;
     if (properties == null) {
       return true; // No properties to validate.
     }
