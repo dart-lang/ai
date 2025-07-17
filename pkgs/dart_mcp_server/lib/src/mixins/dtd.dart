@@ -766,19 +766,21 @@ base mixin DartToolingDaemonSupport
               'Value should be a nested finder for the descendent or ancestor',
           additionalProperties: true,
         ),
-        'matchRoot': Schema.object(
+        // This is a boolean but uses the `true` and `false` strings.
+        'matchRoot': Schema.enumeration(
           description:
               'Required by the Descendent and Ancestor finders. '
               'Whether the widget matching `of` will be considered for a '
               'match',
-          additionalProperties: true,
+          values: ['true', 'false'],
         ),
-        'firstMatchOnly': Schema.object(
+        // This is a boolean but uses the `true` and `false` strings.
+        'firstMatchOnly': Schema.enumeration(
           description:
               'Required by the Descendent and Ancestor finders. '
               'If true then only the first ancestor or descendent matching '
               '`matching` will be returned.',
-          additionalProperties: true,
+          values: ['true', 'false'],
         ),
         'action': Schema.enumeration(
           description:
