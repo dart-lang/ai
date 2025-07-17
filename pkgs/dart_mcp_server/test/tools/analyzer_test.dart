@@ -187,6 +187,46 @@ void printIt({required int x}) {
       );
     });
 
+    test('can get dart library summary information', () async {
+      final example = d.dir('example', [
+        d.file('main.dart', '''
+int x = 1;
+
+void foo() {};
+
+class A {
+  String get y => 'hello';
+}
+'''),
+      ]);
+      await example.create();
+      final exampleRoot = testHarness.rootForPath(example.io.path);
+      testHarness.mcpClient.addRoot(exampleRoot);
+      await pumpEventQueue();
+
+      final result = await testHarness.callToolWithRetry(
+        CallToolRequest(
+          name: DartAnalyzerSupport.readSummaryTool.name,
+          arguments: {ParameterNames.uri: p.join(exampleRoot.uri, 'main.dart')},
+        ),
+      );
+      expect(result.isError, isNot(true));
+
+      expect(
+        result.content.single,
+        isA<TextContent>().having(
+          (t) => t.text, // decode it to remove escapes
+          'text',
+          equalsIgnoringWhitespace('''
+int x;
+void foo() {}
+class A {
+  String get y {}
+}'''),
+        ),
+      );
+    });
+
     test('cannot analyze without roots set', () async {
       final result = await testHarness.callTool(
         CallToolRequest(name: DartAnalyzerSupport.analyzeFilesTool.name),

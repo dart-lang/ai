@@ -329,11 +329,13 @@ base mixin DartAnalyzerSupport
     if (errorResult != null) return errorResult;
 
     final uri = Uri.parse(request.arguments![ParameterNames.uri] as String);
-    final result = await _lspConnection!.sendRequest(
-      'dart/textDocument/summary',
-      lsp.TextDocumentIdentifier(uri: uri).toJson(),
-    );
-    return CallToolResult(content: [TextContent(text: jsonEncode(result))]);
+    final result =
+        (await _lspConnection!.sendRequest(
+              'dart/textDocument/summary',
+              lsp.TextDocumentIdentifier(uri: uri).toJson(),
+            ))
+            as String;
+    return CallToolResult(content: [TextContent(text: result)]);
   }
 
   /// Ensures that all prerequisites for any analysis task are met.
