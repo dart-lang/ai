@@ -1,4 +1,4 @@
-## 0.3.2-wip
+## 0.3.2
 
 - Deprecate the `EnumSchema` type in favor of the `StringSchema` with an
   `enumValues` parameter. The `EnumSchema` type was not MCP spec compatible.
