@@ -2,6 +2,8 @@
 
 - Deprecate the `EnumSchema` type in favor of the `StringSchema` with an
   `enumValues` parameter. The `EnumSchema` type was not MCP spec compatible.
+  - Also deprecated the associated JsonType.enumeration which doesn't exist
+    in the JSON schema spec.
 
 ## 0.3.1
 
