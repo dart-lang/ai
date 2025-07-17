@@ -12,7 +12,7 @@ extension ParameterNames on Never {
   static const empty = 'empty';
   static const line = 'line';
   static const name = 'name';
-  static const packageName = 'packageName';
+  static const packageNames = 'packageNames';
   static const paths = 'paths';
   static const platform = 'platform';
   static const position = 'position';

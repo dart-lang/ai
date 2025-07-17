@@ -9,6 +9,7 @@ import 'dart:io' as io show File;
 
 import 'package:async/async.dart';
 import 'package:dart_mcp/client.dart';
+import 'package:dart_mcp/stdio.dart';
 import 'package:dart_mcp_server/src/mixins/dtd.dart';
 import 'package:dart_mcp_server/src/server.dart';
 import 'package:dart_mcp_server/src/utils/constants.dart';
@@ -424,11 +425,10 @@ Future<ServerConnectionPair> _initializeMCPServer(
       ...cliArgs,
     ]);
     addTearDown(process.kill);
-    connection = client.connectStdioServer(
-      process.stdin,
-      process.stdout,
-      onDone: process.kill,
+    connection = client.connectServer(
+      stdioChannel(input: process.stdout, output: process.stdin),
     );
+    unawaited(connection.done.then((_) => process.kill()));
   }
 
   final initializeResult = await connection.initialize(

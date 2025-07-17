@@ -8,11 +8,11 @@ import 'dart:io' as io;
 
 import 'package:async/async.dart';
 import 'package:dart_mcp/server.dart';
+import 'package:dart_mcp/stdio.dart';
 import 'package:file/file.dart';
 import 'package:file/local.dart';
 import 'package:meta/meta.dart';
 import 'package:process/process.dart';
-import 'package:stream_channel/stream_channel.dart';
 import 'package:unified_analytics/unified_analytics.dart';
 
 import 'arg_parser.dart';
@@ -92,16 +92,7 @@ final class DartMCPServer extends MCPServer
     runZonedGuarded(
       () {
         server = DartMCPServer(
-          StreamChannel.withCloseGuarantee(io.stdin, io.stdout)
-              .transform(StreamChannelTransformer.fromCodec(utf8))
-              .transformStream(const LineSplitter())
-              .transformSink(
-                StreamSinkTransformer.fromHandlers(
-                  handleData: (data, sink) {
-                    sink.add('$data\n');
-                  },
-                ),
-              ),
+          stdioChannel(input: io.stdin, output: io.stdout),
           forceRootsFallback: parsedArgs.flag(forceRootsFallbackFlag),
           sdk: Sdk.find(
             dartSdkPath: dartSdkPath,

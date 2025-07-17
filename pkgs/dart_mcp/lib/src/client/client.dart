@@ -4,12 +4,11 @@
 
 import 'dart:async';
 import 'dart:collection';
-import 'dart:convert';
 
-import 'package:async/async.dart' hide Result;
 import 'package:meta/meta.dart';
 import 'package:stream_channel/stream_channel.dart';
 
+import '../../stdio.dart';
 import '../api/api.dart';
 import '../shared.dart';
 
@@ -48,7 +47,8 @@ base class MCPClient {
   @visibleForTesting
   final Set<ServerConnection> connections = {};
 
-  /// Connect to a new MCP server over [stdin] and [stdout].
+  /// Connect to a new MCP server over [stdin] and [stdout], where these
+  /// correspond to the stdio streams of the server process (not the client).
   ///
   /// If [protocolLogSink] is provided, all messages sent between the client and
   /// server will be forwarded to that [Sink] as well, with `<<<` preceding
@@ -56,22 +56,14 @@ base class MCPClient {
   /// responsibility of the caller to close this sink.
   ///
   /// If [onDone] is passed, it will be invoked when the connection shuts down.
+  @Deprecated('Use stdioChannel and connectServer instead.')
   ServerConnection connectStdioServer(
     StreamSink<List<int>> stdin,
     Stream<List<int>> stdout, {
     Sink<String>? protocolLogSink,
     void Function()? onDone,
   }) {
-    final channel = StreamChannel.withCloseGuarantee(stdout, stdin)
-        .transform(StreamChannelTransformer.fromCodec(utf8))
-        .transformStream(const LineSplitter())
-        .transformSink(
-          StreamSinkTransformer.fromHandlers(
-            handleData: (data, sink) {
-              sink.add('$data\n');
-            },
-          ),
-        );
+    final channel = stdioChannel(input: stdout, output: stdin);
     final connection = connectServer(channel, protocolLogSink: protocolLogSink);
     if (onDone != null) connection.done.then((_) => onDone());
     return connection;
@@ -87,6 +79,9 @@ base class MCPClient {
   /// forwarded to that [Sink] as well, with `<<<` preceding incoming messages
   /// and `>>>` preceding outgoing messages. It is the responsibility of the
   /// caller to close this sink.
+  ///
+  /// To perform cleanup when this connection is closed, use the
+  /// [ServerConnection.done] future.
   ServerConnection connectServer(
     StreamChannel<String> channel, {
     Sink<String>? protocolLogSink,

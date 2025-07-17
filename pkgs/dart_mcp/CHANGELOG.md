@@ -1,3 +1,18 @@
+## 0.3.1-wip
+
+- Fixes communication problem when a `MCPServer` is instantiated without
+  instructions.
+- Fix the `content` argument to `PromptMessage` to be a single `Content` object.
+- Add new `package:dart_mcp/stdio.dart` library with a `stdioChannel` utility
+  for creating a stream channel that separates messages by newlines.
+- Added more examples.
+- Deprecated the `WithElicitationHandler` interface - the method this required
+  is now defined directly on the `ElicitationSupport` mixin which matches the
+  pattern used by other mixins in this package.
+- Change the `schema` parameter for elicitation requests to an `ObjectSchema` to
+  match the spec.
+- Deprecate the `Elicitations` server capability, this doesn't exist in the spec.
+
 ## 0.3.0
 
 - Added error checking to required fields of all `Request` subclasses so that

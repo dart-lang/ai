@@ -6,23 +6,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io' as io;
 
-import 'package:async/async.dart';
 import 'package:dart_mcp/server.dart';
+import 'package:dart_mcp/stdio.dart';
 import 'package:path/path.dart' as p;
-import 'package:stream_channel/stream_channel.dart';
 
 void main() {
   SimpleFileSystemServer.fromStreamChannel(
-    StreamChannel.withCloseGuarantee(io.stdin, io.stdout)
-        .transform(StreamChannelTransformer.fromCodec(utf8))
-        .transformStream(const LineSplitter())
-        .transformSink(
-          StreamSinkTransformer.fromHandlers(
-            handleData: (data, sink) {
-              sink.add('$data\n');
-            },
-          ),
-        ),
+    stdioChannel(input: io.stdin, output: io.stdout),
   );
 }
 
