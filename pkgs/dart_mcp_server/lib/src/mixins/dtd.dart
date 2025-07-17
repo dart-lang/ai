@@ -767,20 +767,20 @@ base mixin DartToolingDaemonSupport
           additionalProperties: true,
         ),
         // This is a boolean but uses the `true` and `false` strings.
-        'matchRoot': Schema.enumeration(
+        'matchRoot': Schema.string(
           description:
               'Required by the Descendent and Ancestor finders. '
               'Whether the widget matching `of` will be considered for a '
               'match',
-          values: ['true', 'false'],
+          enumValues: ['true', 'false'],
         ),
         // This is a boolean but uses the `true` and `false` strings.
-        'firstMatchOnly': Schema.enumeration(
+        'firstMatchOnly': Schema.string(
           description:
               'Required by the Descendent and Ancestor finders. '
               'If true then only the first ancestor or descendent matching '
               '`matching` will be returned.',
-          values: ['true', 'false'],
+          enumValues: ['true', 'false'],
         ),
         'action': Schema.string(
           description:
