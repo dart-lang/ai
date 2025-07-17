@@ -77,7 +77,8 @@ extension type ElicitRequest._fromMap(Map<String, Object?> _value)
         case JsonType.num:
         case JsonType.int:
         case JsonType.bool:
-        case JsonType.enumeration:
+        case JsonType
+            .enumeration: // ignore: deprecated_member_use_from_same_package
           break;
         case JsonType.object:
         case JsonType.list:

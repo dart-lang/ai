@@ -1,3 +1,8 @@
+## 0.3.2-wip
+
+- Deprecate the `EnumSchema` type in favor of the `StringSchema` with an
+  `enumValues` parameter. The `EnumSchema` type was not MCP spec compatible.
+
 ## 0.3.1
 
 - Fixes communication problem when a `MCPServer` is instantiated without

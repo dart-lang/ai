@@ -88,8 +88,10 @@ Do you want to accept (a), reject (r), or cancel (c) the elicitation?
       final name = property.key;
       final type = property.value.type;
       final allowedValues =
-          type == JsonType.enumeration
-              ? ' (${(property.value as EnumSchema).values.join(', ')})'
+          // ignore: deprecated_member_use_from_same_package
+          (type == JsonType.enumeration || type == JsonType.string) &&
+                  (property.value as StringSchema).enumValues != null
+              ? ' (${(property.value as StringSchema).enumValues!.join(', ')})'
               : '';
       // Ask the user in a loop until the value provided matches the schema,
       // at which point we will `break` from the loop.
@@ -99,6 +101,7 @@ Do you want to accept (a), reject (r), or cancel (c) the elicitation?
         try {
           // Convert the value to the correct type.
           final convertedValue = switch (type) {
+            // ignore: deprecated_member_use_from_same_package
             JsonType.string || JsonType.enumeration => userValue,
             JsonType.num => num.parse(userValue),
             JsonType.int => int.parse(userValue),

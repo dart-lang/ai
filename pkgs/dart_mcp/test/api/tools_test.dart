@@ -205,6 +205,7 @@ void main() {
     });
 
     test('EnumSchema', () {
+      // ignore: deprecated_member_use_from_same_package
       final schema = EnumSchema(
         title: 'Foo',
         description: 'Bar',
@@ -860,30 +861,6 @@ void main() {
       });
     });
 
-    group('Enum Specific', () {
-      test('enumValueNotAllowed', () {
-        final schema = EnumSchema(values: {'a', 'b'});
-        expectFailuresMatch(schema, 'c', [
-          ValidationError(
-            ValidationErrorType.enumValueNotAllowed,
-            path: const [],
-          ),
-        ]);
-      });
-
-      test('valid enum value', () {
-        final schema = EnumSchema(values: {'a', 'b'});
-        expectFailuresMatch(schema, 'a', []);
-      });
-
-      test('enum with non-string data', () {
-        final schema = EnumSchema(values: {'a', 'b'});
-        expectFailuresMatch(schema, 1, [
-          ValidationError(ValidationErrorType.typeMismatch, path: const []),
-        ]);
-      });
-    });
-
     group('Schema Combinators', () {
       test('allOfNotMet - one sub-schema fails', () {
         final schema = Schema.combined(
@@ -1338,6 +1315,28 @@ void main() {
         final schema = StringSchema(pattern: r'^\d+$');
         expectFailuresMatch(schema, 'abc', [
           ValidationError(ValidationErrorType.patternMismatch, path: const []),
+        ]);
+      });
+
+      test('enumValueNotAllowed', () {
+        final schema = StringSchema(enumValues: {'a', 'b'});
+        expectFailuresMatch(schema, 'c', [
+          ValidationError(
+            ValidationErrorType.enumValueNotAllowed,
+            path: const [],
+          ),
+        ]);
+      });
+
+      test('valid enum value', () {
+        final schema = StringSchema(enumValues: {'a', 'b'});
+        expectFailuresMatch(schema, 'a', []);
+      });
+
+      test('enum with non-string data', () {
+        final schema = StringSchema(enumValues: {'a', 'b'});
+        expectFailuresMatch(schema, 1, [
+          ValidationError(ValidationErrorType.typeMismatch, path: const []),
         ]);
       });
     });

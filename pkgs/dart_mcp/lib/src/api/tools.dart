@@ -234,6 +234,7 @@ enum JsonType {
   num('number'),
   int('integer'),
   bool('boolean'),
+  @Deprecated('Use JsonType.string')
   enumeration('enum'),
   nil('null');
 
@@ -405,6 +406,7 @@ extension type Schema.fromMap(Map<String, Object?> _value) {
   static const object = ObjectSchema.new;
 
   /// Alias for [EnumSchema.new].
+  @Deprecated('Use Schema.string instead')
   static const enumeration = EnumSchema.new;
 
   /// Alias for [NullSchema.new].
@@ -480,6 +482,8 @@ extension SchemaValidation on Schema {
             accumulatedFailures,
           );
         case JsonType.string:
+        case JsonType
+            .enumeration: // ignore: deprecated_member_use_from_same_package
           isValid = (this as StringSchema)._validateString(
             data,
             currentPath,
@@ -493,12 +497,6 @@ extension SchemaValidation on Schema {
           );
         case JsonType.int:
           isValid = (this as IntegerSchema)._validateInteger(
-            data,
-            currentPath,
-            accumulatedFailures,
-          );
-        case JsonType.enumeration:
-          isValid = (this as EnumSchema)._validateEnum(
             data,
             currentPath,
             accumulatedFailures,
@@ -1077,6 +1075,7 @@ extension type const StringSchema.fromMap(Map<String, Object?> _value)
     int? minLength,
     int? maxLength,
     String? pattern,
+    Iterable<String>? enumValues,
   }) => StringSchema.fromMap({
     'type': JsonType.string.typeName,
     if (title != null) 'title': title,
@@ -1084,6 +1083,7 @@ extension type const StringSchema.fromMap(Map<String, Object?> _value)
     if (minLength != null) 'minLength': minLength,
     if (maxLength != null) 'maxLength': maxLength,
     if (pattern != null) 'pattern': pattern,
+    if (enumValues != null) 'enum': enumValues,
   });
 
   /// The minimum allowed length of this String.
@@ -1094,6 +1094,16 @@ extension type const StringSchema.fromMap(Map<String, Object?> _value)
 
   /// A regular expression pattern that the String must match.
   String? get pattern => _value['pattern'] as String?;
+
+  /// The allowed values for this String, corresponds to the `enum` key.
+  Iterable<String>? get enumValues {
+    final values = (_value['enum'] as Iterable?)?.cast<String>();
+    assert(
+      values?.toSet().length == values?.length,
+      "The 'enum' property has duplicate entries.",
+    );
+    return values;
+  }
 
   bool _validateString(
     Object? data,
@@ -1142,13 +1152,27 @@ extension type const StringSchema.fromMap(Map<String, Object?> _value)
         ),
       );
     }
+    if (enumValues case final enumValues? when !enumValues.contains(data)) {
+      accumulatedFailures.add(
+        ValidationError(
+          ValidationErrorType.enumValueNotAllowed,
+          path: currentPath,
+          details:
+              'String "$data" is not one of the allowed values: '
+              '${enumValues.join(', ')}',
+        ),
+      );
+      return false;
+    }
     return isValid;
   }
 }
 
 /// A JSON Schema definition for a set of allowed string values.
+@Deprecated('Use StringSchema instead')
 extension type EnumSchema.fromMap(Map<String, Object?> _value)
     implements Schema {
+  @Deprecated('Use StringSchema instead')
   factory EnumSchema({
     String? title,
     String? description,
@@ -1177,36 +1201,6 @@ extension type EnumSchema.fromMap(Map<String, Object?> _value)
       "The 'values' property has duplicate entries.",
     );
     return values;
-  }
-
-  bool _validateEnum(
-    Object? data,
-    List<String> currentPath,
-    HashSet<ValidationError> accumulatedFailures,
-  ) {
-    if (data is! String) {
-      accumulatedFailures.add(
-        ValidationError.typeMismatch(
-          path: currentPath,
-          expectedType: String,
-          actualValue: data,
-        ),
-      );
-      return false;
-    }
-    if (!values.contains(data)) {
-      accumulatedFailures.add(
-        ValidationError(
-          ValidationErrorType.enumValueNotAllowed,
-          path: currentPath,
-          details:
-              'String "$data" is not one of the allowed values: '
-              '${values.join(', ')}',
-        ),
-      );
-      return false;
-    }
-    return true;
   }
 }
 

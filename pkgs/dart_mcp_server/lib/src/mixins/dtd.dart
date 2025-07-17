@@ -653,10 +653,10 @@ base mixin DartToolingDaemonSupport
           'figure out how to find the widget instead of just guessing tooltip '
           'text or other things.',
       properties: {
-        'command': Schema.enumeration(
+        'command': Schema.string(
           // Commented out values are flutter_driver commands that are not
           // supported, but may be in the future.
-          values: [
+          enumValues: [
             'get_health',
             'get_layer_tree',
             'get_render_tree',
@@ -707,13 +707,13 @@ base mixin DartToolingDaemonSupport
               'The frequency in Hz of the generated move events. '
               'Required for the scroll command',
         ),
-        'finderType': Schema.enumeration(
+        'finderType': Schema.string(
           description:
               'The kind of finder to use, if required for the command. '
               'Required for get_text, scroll, scroll_into_view, tap, waitFor, '
               'waitForAbsent, waitForTappable, get_offset, and '
               'get_diagnostics_tree',
-          values: [
+          enumValues: [
             'ByType',
             'ByValueKey',
             'ByTooltipMessage',
@@ -728,8 +728,8 @@ base mixin DartToolingDaemonSupport
           description:
               'Required for the ByValueKey finder, the String value of the key',
         ),
-        'keyValueType': Schema.enumeration(
-          values: ['int', 'String'],
+        'keyValueType': Schema.string(
+          enumValues: ['int', 'String'],
           description:
               'Required for the ByValueKey finder, the type of the key',
         ),
@@ -780,10 +780,10 @@ base mixin DartToolingDaemonSupport
               '`matching` will be returned.',
           additionalProperties: true,
         ),
-        'action': Schema.enumeration(
+        'action': Schema.string(
           description:
               'Required for send_text_input_action, the input action to send',
-          values: [
+          enumValues: [
             'none',
             'unspecified',
             'done',
@@ -804,11 +804,11 @@ base mixin DartToolingDaemonSupport
               'Maximum time in milliseconds to wait for the command to '
               'complete. Defaults to $_defaultTimeoutMs.',
         ),
-        'offsetType': Schema.enumeration(
+        'offsetType': Schema.string(
           description:
               'Offset types that can be requested by get_offset. '
               'Required for get_offset.',
-          values: [
+          enumValues: [
             'topLeft',
             'topRight',
             'bottomLeft',
@@ -816,11 +816,11 @@ base mixin DartToolingDaemonSupport
             'center',
           ],
         ),
-        'diagnosticsType': Schema.enumeration(
+        'diagnosticsType': Schema.string(
           description:
               'The type of diagnostics tree to request. '
               'Required for get_diagnostics_tree',
-          values: ['renderObject', 'widget'],
+          enumValues: ['renderObject', 'widget'],
         ),
         'subtreeDepth': Schema.int(
           description:

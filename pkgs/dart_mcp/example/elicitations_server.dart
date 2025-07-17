@@ -42,7 +42,7 @@ base class MCPServerWithElicitation extends MCPServer
           properties: {
             'name': Schema.string(),
             'age': Schema.int(),
-            'gender': Schema.enumeration(values: ['male', 'female', 'other']),
+            'gender': Schema.string(enumValues: ['male', 'female', 'other']),
           },
         ),
       ),

@@ -512,9 +512,19 @@ final class WorkflowClient extends MCPClient with RootsSupport {
           properties: properties ?? {},
           nullable: nullable,
         );
-      case JsonType.string:
+      case JsonType.string
+          when (inputSchema as StringSchema).enumValues == null:
         return gemini.Schema.string(
           description: inputSchema.description,
+          nullable: nullable,
+        );
+      case JsonType.string
+          when (inputSchema as StringSchema).enumValues != null:
+      case JsonType.enumeration: // ignore: deprecated_member_use
+        final schema = inputSchema as StringSchema;
+        return gemini.Schema.enumString(
+          enumValues: schema.enumValues!.toList(),
+          description: description,
           nullable: nullable,
         );
       case JsonType.list:
@@ -543,13 +553,6 @@ final class WorkflowClient extends MCPClient with RootsSupport {
         );
       case JsonType.bool:
         return gemini.Schema.boolean(
-          description: description,
-          nullable: nullable,
-        );
-      case JsonType.enumeration:
-        final schema = inputSchema as EnumSchema;
-        return gemini.Schema.enumString(
-          enumValues: schema.values.toList(),
           description: description,
           nullable: nullable,
         );
