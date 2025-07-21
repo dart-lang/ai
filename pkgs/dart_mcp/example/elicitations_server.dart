@@ -56,8 +56,8 @@ base class MCPServerWithElicitation extends MCPServer
           'Hello $name! I see that you are $age years '
           'old and identify as $gender',
         );
-      case ElicitationAction.reject:
-        log(LoggingLevel.warning, 'Request for name was rejected');
+      case ElicitationAction.decline:
+        log(LoggingLevel.warning, 'Request for name was declined');
       case ElicitationAction.cancel:
         log(LoggingLevel.warning, 'Request for name was cancelled');
     }

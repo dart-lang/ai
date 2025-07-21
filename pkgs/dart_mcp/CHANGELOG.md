@@ -1,6 +1,13 @@
 ## 0.3.3-wip
 
 - Fix `PingRequest` handling when it is sent from a non-Dart client.
+- Deprecate `ElicitationAction.reject` and replace it with
+  `ElicitationAction.decline`.
+  - In the initial elicitations schema this was incorrectly listed as `reject`.
+  - This package still allows `reject` and treats it as an alias for`decline`.
+  - The old `reject` enum value was replaced with a static constant equal
+    exactly to `decline`, so switches are not affected.
+
 
 ## 0.3.2
 

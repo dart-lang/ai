@@ -105,14 +105,19 @@ extension type ElicitResult.fromMap(Map<String, Object?> _value)
   ///
   /// - [ElicitationAction.accept]: The user accepted the request and provided
   ///   the requested information.
-  /// - [ElicitationAction.reject]: The user explicitly declined the action.
+  /// - [ElicitationAction.decline]: The user explicitly declined the action.
   /// - [ElicitationAction.cancel]: The user dismissed without making an
   ///   explicit choice.
   ElicitationAction get action {
-    final action = _value['action'] as String?;
+    var action = _value['action'] as String?;
     if (action == null) {
       throw ArgumentError('Missing required action field in $ElicitResult');
     }
+    // There was a bug in the initial schema, where the `decline` action was
+    // named `reject` instead. Handle using that as an alias for `decline` in
+    // case some clients use the old name.
+    if (action == 'reject') action = 'decline';
+
     return ElicitationAction.values.byName(action);
   }
 
@@ -131,8 +136,11 @@ enum ElicitationAction {
   accept,
 
   /// The user explicitly declined the action.
-  reject,
+  decline,
 
   /// The user dismissed without making an explicit choice.
-  cancel,
+  cancel;
+
+  @Deprecated('Use `ElicitationAction.decline` instead.')
+  static const reject = decline;
 }

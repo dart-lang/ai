@@ -67,12 +67,12 @@ final class TestMCPClientWithElicitationSupport extends MCPClient
     print('''
 Elicitation received from server: ${request.message}
 
-Do you want to accept (a), reject (r), or cancel (c) the elicitation?
+Do you want to accept (a), decline (d), or cancel (c) the elicitation?
 ''');
     final answer = stdin.readLineSync();
     final action = switch (answer) {
       'a' => ElicitationAction.accept,
-      'r' => ElicitationAction.reject,
+      'd' => ElicitationAction.decline,
       'c' => ElicitationAction.cancel,
       _ => throw ArgumentError('Invalid answer: $answer'),
     };
