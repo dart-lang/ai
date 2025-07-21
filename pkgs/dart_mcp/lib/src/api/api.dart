@@ -225,9 +225,11 @@ extension type RequestId( /*String|int*/ Parameter _) {}
 ///
 /// The receiver must promptly respond, or else may be disconnected.
 ///
-/// The request itself has no parameters and should always be just `null`.
-extension type PingRequest._(Null _) {
+/// The request itself has no parameters.
+extension type PingRequest._(Map<String, Object?> _) implements Request {
   static const methodName = 'ping';
+
+  factory PingRequest() => PingRequest._(const {});
 }
 
 /// An out-of-band notification used to inform the receiver of a progress

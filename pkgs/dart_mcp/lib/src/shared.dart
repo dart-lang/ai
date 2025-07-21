@@ -131,8 +131,6 @@ base class MCPBase {
 
   /// The peer may ping us at any time, and we should respond with an empty
   /// response.
-  ///
-  /// Note that [PingRequest] is always actually just `null`.
   EmptyResult _handlePing([PingRequest? _]) => EmptyResult();
 
   /// Handles [ProgressNotification]s and forwards them to the streams returned
