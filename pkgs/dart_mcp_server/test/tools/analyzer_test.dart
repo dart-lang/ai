@@ -17,7 +17,7 @@ void main() {
   // TODO: Use setUpAll, currently this fails due to an apparent TestProcess
   // issue.
   setUp(() async {
-    testHarness = await TestHarness.start();
+    testHarness = await TestHarness.start(inProcess: true);
   });
 
   group('analyzer tools', () {
@@ -187,9 +187,11 @@ void printIt({required int x}) {
       );
     });
 
-    test('can get dart library summary information', () async {
-      final example = d.dir('example', [
-        d.file('main.dart', '''
+    test(
+      'can get dart library summary information for the current package',
+      () async {
+        final example = d.dir('example', [
+          d.file('main.dart', '''
 int x = 1;
 
 void foo() {};
@@ -198,16 +200,54 @@ class A {
   String get y => 'hello';
 }
 '''),
-      ]);
-      await example.create();
-      final exampleRoot = testHarness.rootForPath(example.io.path);
-      testHarness.mcpClient.addRoot(exampleRoot);
+        ]);
+        await example.create();
+        final exampleRoot = testHarness.rootForPath(example.io.path);
+        testHarness.mcpClient.addRoot(exampleRoot);
+        await pumpEventQueue();
+
+        // Should be able to look it up by relative and absolute path.
+        for (var uri in ['main.dart', p.join(exampleRoot.uri, 'main.dart')]) {
+          final result = await testHarness.callToolWithRetry(
+            CallToolRequest(
+              name: DartAnalyzerSupport.readSummaryTool.name,
+              arguments: {
+                ParameterNames.uri: uri,
+                ParameterNames.root: exampleRoot.uri,
+              },
+            ),
+          );
+          expect(result.isError, isNot(true));
+
+          expect(
+            result.content.single,
+            isA<TextContent>().having(
+              (t) => t.text,
+              'text',
+              equalsIgnoringWhitespace('''
+int x;
+void foo() {}
+class A {
+  String get y {}
+}'''),
+            ),
+          );
+        }
+      },
+    );
+
+    test('can get dart library summary information for a dependency', () async {
+      final currentRoot = testHarness.rootForPath(p.current);
+      testHarness.mcpClient.addRoot(currentRoot);
       await pumpEventQueue();
 
       final result = await testHarness.callToolWithRetry(
         CallToolRequest(
           name: DartAnalyzerSupport.readSummaryTool.name,
-          arguments: {ParameterNames.uri: p.join(exampleRoot.uri, 'main.dart')},
+          arguments: {
+            ParameterNames.uri: 'package:dart_mcp/stdio.dart',
+            ParameterNames.root: currentRoot.uri,
+          },
         ),
       );
       expect(result.isError, isNot(true));
@@ -215,14 +255,13 @@ class A {
       expect(
         result.content.single,
         isA<TextContent>().having(
-          (t) => t.text, // decode it to remove escapes
+          (t) => t.text,
           'text',
           equalsIgnoringWhitespace('''
-int x;
-void foo() {}
-class A {
-  String get y {}
-}'''),
+StreamChannel<String> stdioChannel({
+  required Stream<List<int>> input,
+  required StreamSink<List<int>> output,
+}) {}'''),
         ),
       );
     });

@@ -11,10 +11,13 @@ import 'package:dart_mcp/server.dart';
 import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:language_server_protocol/protocol_generated.dart' as lsp;
 import 'package:meta/meta.dart';
+import 'package:package_config/package_config.dart';
 
 import '../lsp/wire_format.dart';
 import '../utils/analytics.dart';
+import '../utils/cli_utils.dart';
 import '../utils/constants.dart';
+import '../utils/file_system.dart';
 import '../utils/sdk.dart';
 
 /// Mix this in to any MCPServer to add support for analyzing Dart projects.
@@ -23,7 +26,7 @@ import '../utils/sdk.dart';
 /// mixins applied.
 base mixin DartAnalyzerSupport
     on ToolsSupport, LoggingSupport, RootsTrackingSupport
-    implements SdkSupport {
+    implements FileSystemSupport, SdkSupport {
   /// The LSP server connection for the analysis server.
   Peer? _lspConnection;
 
@@ -325,10 +328,42 @@ base mixin DartAnalyzerSupport
   /// Implementation of the [readSummaryTool], gets summary information for a
   /// given library.
   Future<CallToolResult> _readSummary(CallToolRequest request) async {
-    final errorResult = await _ensurePrerequisites(request);
+    if (await _ensurePrerequisites(request) case final errorResult?) {
+      return errorResult;
+    }
+
+    final uriString = request.arguments![ParameterNames.uri] as String;
+    Uri? uri = Uri.parse(uriString);
+    final (
+      root: Root? root,
+      // We do our own path handling because we have to handle package URIs
+      // after getting a root.
+      paths: _,
+      errorResult: CallToolResult? errorResult,
+    ) = validateRootConfig(
+      request.arguments,
+      fileSystem: fileSystem,
+      knownRoots: await roots,
+      // Validates that the non-package: uris are valid under the provided root.
+      defaultPaths: [if (uri.scheme != 'package') uriString],
+    );
     if (errorResult != null) return errorResult;
 
-    final uri = Uri.parse(request.arguments![ParameterNames.uri] as String);
+    // This normalizes the URI to ensure it is treated as a directory (for
+    // example ensures it ends with a trailing slash).
+    final rootDir = fileSystem.directory(Uri.parse(root!.uri));
+
+    // Resolve package URIs using the package config.
+    if (uri.scheme == 'package') {
+      final packageConfig = await findPackageConfig(rootDir);
+      if (packageConfig == null) return noPackageConfig(root);
+
+      uri = packageConfig.resolve(uri);
+      if (uri == null) return unableToResolveUri(uriString);
+    } else if (uri.scheme == '' && !uri.isAbsolute) {
+      uri = rootDir.uri.resolve('$uri');
+    }
+
     final result =
         (await _lspConnection!.sendRequest(
               'dart/textDocument/summary',
@@ -486,20 +521,30 @@ base mixin DartAnalyzerSupport
   static final readSummaryTool = Tool(
     name: 'read_summary',
     description:
-        'Gets a summary of a given dart library by URI. This should be '
-        'preferred over reading files when the only goal is to understand '
-        'how to use a given library. Supports `package:` URIs and `file:` '
-        'URIs. The library must be available to one of the currently active '
-        'projects.',
+        'Read a summary of a given Dart library by URI. It is absolutely '
+        'critical that you read the summary of any library before using it to '
+        'ensure you know the correct API - failure to do so may result in '
+        'catastrophe. A project root is required in order to use this tool, '
+        'because `package:` URIs are specific to a given root. \n\n'
+        'Note that summary files omit implementation details for brevity, but '
+        'you must assume real implementations exist unless explicitly told '
+        'otherwise. DO NOT provide your own implementation. Failure to follow '
+        'this instruction will have dire consequences.',
     inputSchema: Schema.object(
       properties: {
+        ParameterNames.root: rootSchema,
         ParameterNames.uri: Schema.string(
           description:
-              'The URI of the library, either a `package:` or `file:` URI.',
+              'The URI of the library, either a `package:` or `file:` URI. '
+              'All `file:` URIs must resolve to a path under the given root.',
         ),
       },
+      required: [ParameterNames.root, ParameterNames.uri],
     ),
-    annotations: ToolAnnotations(title: 'Dart summary', readOnlyHint: true),
+    annotations: ToolAnnotations(
+      title: 'Dart library summary',
+      readOnlyHint: true,
+    ),
   );
 
   @visibleForTesting
@@ -513,6 +558,30 @@ base mixin DartAnalyzerSupport
       ),
     ],
   )..failureReason = CallToolFailureReason.noRootsSet;
+
+  @visibleForTesting
+  static CallToolResult noPackageConfig(Root root) => CallToolResult(
+    isError: true,
+    content: [
+      TextContent(
+        text:
+            'Unable to find a package config for root ${root.uri}. Please '
+            'make sure you have ran `flutter pub get` or `dart pub get`.',
+      ),
+    ],
+  );
+
+  @visibleForTesting
+  static CallToolResult unableToResolveUri(String uri) => CallToolResult(
+    isError: true,
+    content: [
+      TextContent(
+        text:
+            'Unable to resolve URI $uri. Have you added that package as a '
+            'dependency?',
+      ),
+    ],
+  );
 }
 
 /// Common schema for tools that require a file URI, line, and column.

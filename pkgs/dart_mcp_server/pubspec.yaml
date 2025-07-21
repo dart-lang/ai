@@ -4,7 +4,7 @@ description: >-
   models.
 publish_to: none
 environment:
-  sdk: ^3.9.0-163.0.dev
+  sdk: ^3.10.0-18.0.dev
 
 executables:
   dart_mcp_server: main
@@ -27,8 +27,9 @@ dependencies:
       path: third_party/pkg/language_server_protocol
       # When changing this, also update .github/workflows/dart_mcp_server.yaml
       # to cache the correct directory.
-      ref: b0838eac58308fc4e6654ca99eda75b30649c08f
+      ref: 82a01bb69cbee93663f3891d481c96f0ada4437c
   meta: ^1.16.0
+  package_config: ^2.2.0
   path: ^1.9.1
   pool: ^1.5.1
   process: ^5.0.3
