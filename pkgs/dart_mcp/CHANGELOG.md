@@ -1,3 +1,7 @@
+## 0.3.3-wip
+
+- Fix `PingRequest` handling when it is sent from a non-Dart client.
+
 ## 0.3.2
 
 - Deprecate the `EnumSchema` type in favor of the `StringSchema` with an

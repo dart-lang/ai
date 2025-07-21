@@ -128,34 +128,16 @@ void main() {
   });
 
   // Regression test for https://github.com/dart-lang/ai/issues/238.
-  test('client and server can handle ping with null parameters', () async {
+  test('client and server can handle ping with non-null parameters', () async {
     final environment = TestEnvironment(TestMCPClient(), TestMCPServer.new);
     await environment.initializeServer();
 
     await expectLater(
-      environment.serverConnection.sendRequest(PingRequest.methodName, null),
+      environment.serverConnection.ping(request: PingRequest()),
       completes,
     );
     await expectLater(
-      environment.server.sendRequest(PingRequest.methodName, null),
-      completes,
-    );
-  });
-
-  // Regression test for https://github.com/dart-lang/ai/issues/238.
-  test('client and server can handle ping with no parameters', () async {
-    final environment = TestEnvironment(TestMCPClient(), TestMCPServer.new);
-    await environment.initializeServer();
-
-    await expectLater(
-      environment.serverConnection.sendRequest(
-        PingRequest.methodName,
-        _EmptyRequest(),
-      ),
-      completes,
-    );
-    await expectLater(
-      environment.server.sendRequest(PingRequest.methodName, _EmptyRequest()),
+      environment.server.ping(request: PingRequest()),
       completes,
     );
   });
@@ -470,8 +452,4 @@ final class TestUnrecognizedVersionMcpServer extends TestMCPServer {
     (response as Map<String, Object?>)['protocolVersion'] = 'fooBar';
     return response;
   }
-}
-
-extension type _EmptyRequest._(Map<String, Object?> _) implements Request {
-  factory _EmptyRequest() => _EmptyRequest._(const {});
 }
