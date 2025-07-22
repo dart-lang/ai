@@ -182,6 +182,10 @@ base mixin DartToolingDaemonSupport
         }
         final vm = await vmService.getVM();
         final timeout = request.arguments?['timeout'] as String?;
+        final isScreenshot = request.arguments?['command'] == 'screenshot';
+        if (isScreenshot) {
+          request.arguments?.putIfAbsent('format', () => '4' /*png*/);
+        }
         final result = await vmService
             .callServiceExtension(
               _flutterDriverService,
@@ -200,7 +204,17 @@ base mixin DartToolingDaemonSupport
               })!,
             );
         return CallToolResult(
-          content: [Content.text(text: jsonEncode(result.json))],
+          content: [
+            isScreenshot && result.json?['isError'] == false
+                ? Content.image(
+                    data:
+                        (result.json!['response']
+                                as Map<String, Object?>)['data']
+                            as String,
+                    mimeType: 'image/png',
+                  )
+                : Content.text(text: jsonEncode(result.json)),
+          ],
           isError: result.json?['isError'] as bool?,
         );
       },
@@ -648,11 +662,11 @@ base mixin DartToolingDaemonSupport
     inputSchema: Schema.object(
       additionalProperties: true,
       description:
-          'The flutter driver command to run. Command arguments should be '
-          'passed as additional properties to this map.\n\nWhen searching for '
-          'widgets, you should first inspect the widget tree in order to '
-          'figure out how to find the widget instead of just guessing tooltip '
-          'text or other things.',
+          'Command arguments are passed as additional properties to this map.'
+          'To specify a widgets, you should first use the '
+          '"${getWidgetTreeTool.name}" tool to inspect the widget tree for the '
+          'value id of the widget and then use the "ByValueKey" finder type '
+          'with that id.',
       properties: {
         'command': Schema.string(
           // Commented out values are flutter_driver commands that are not
@@ -681,7 +695,7 @@ base mixin DartToolingDaemonSupport
             // 'get_semantics_id',
             'get_offset',
             'get_diagnostics_tree',
-            // 'screenshot',
+            'screenshot',
           ],
           description: 'The name of the driver command',
         ),
