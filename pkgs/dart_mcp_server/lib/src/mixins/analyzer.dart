@@ -369,8 +369,16 @@ base mixin DartAnalyzerSupport
               'dart/textDocument/summary',
               lsp.TextDocumentIdentifier(uri: uri).toJson(),
             ))
-            as String;
-    return CallToolResult(content: [TextContent(text: result)]);
+            as Map<String, Object?>;
+    final summary = result['summary'] as String?;
+    if (summary != null) {
+      return CallToolResult(content: [TextContent(text: summary)]);
+    } else {
+      return CallToolResult(
+        content: [Content.text(text: jsonEncode(result))],
+        isError: true,
+      );
+    }
   }
 
   /// Ensures that all prerequisites for any analysis task are met.

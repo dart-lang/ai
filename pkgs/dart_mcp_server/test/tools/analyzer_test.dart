@@ -226,9 +226,9 @@ class A {
               'text',
               equalsIgnoringWhitespace('''
 int x;
-void foo() {}
+void foo();
 class A {
-  String get y {}
+  String get y;
 }'''),
             ),
           );
@@ -261,7 +261,7 @@ class A {
 StreamChannel<String> stdioChannel({
   required Stream<List<int>> input,
   required StreamSink<List<int>> output,
-}) {}'''),
+});'''),
         ),
       );
     });
