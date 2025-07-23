@@ -7,6 +7,10 @@
 * Add a flutter_driver command for executing flutter driver commands on a device.
 * Allow for multiple package arguments to `pub add` and `pub remove`.
 * Require dart_mcp version 0.3.1.
+* Add support for the flutter_driver screenshot command.
+* Change the widget tree to the full version instead of the summary. The summary
+  tends to hide nested text widgets which makes it difficult to find widgets
+  based on their text values.
 
 # 0.1.0 (Dart SDK 3.9.0)
 
