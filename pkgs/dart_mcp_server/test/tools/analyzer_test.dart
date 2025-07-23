@@ -188,7 +188,7 @@ void printIt({required int x}) {
     });
 
     test('cannot analyze without roots set', () async {
-      final result = await testHarness.callToolWithRetry(
+      final result = await testHarness.callTool(
         CallToolRequest(name: DartAnalyzerSupport.analyzeFilesTool.name),
         expectError: true,
       );
@@ -203,7 +203,7 @@ void printIt({required int x}) {
     });
 
     test('cannot look up symbols without roots set', () async {
-      final result = await testHarness.callToolWithRetry(
+      final result = await testHarness.callTool(
         CallToolRequest(
           name: DartAnalyzerSupport.resolveWorkspaceSymbolTool.name,
           arguments: {ParameterNames.query: 'DartAnalyzerSupport'},
@@ -221,7 +221,7 @@ void printIt({required int x}) {
     });
 
     test('cannot get hover information without roots set', () async {
-      final result = await testHarness.callToolWithRetry(
+      final result = await testHarness.callTool(
         CallToolRequest(
           name: DartAnalyzerSupport.hoverTool.name,
           arguments: {

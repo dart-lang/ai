@@ -476,15 +476,14 @@ base mixin DartToolingDaemonSupport
       callback: (vmService) async {
         final vm = await vmService.getVM();
         final isolateId = vm.isolates!.first.id;
+        final summaryOnly = request.arguments?['summaryOnly'] as bool? ?? false;
         try {
           final result = await vmService.callServiceExtension(
             '$_inspectorServiceExtensionPrefix.getRootWidgetTree',
             isolateId: isolateId,
             args: {
               'groupName': inspectorObjectGroup,
-              // TODO: consider making these configurable or using defaults that
-              // are better for the LLM.
-              'isSummaryTree': 'false',
+              'isSummaryTree': summaryOnly ? 'true' : 'false',
               'withPreviews': 'true',
               'fullDetails': 'false',
             },
@@ -673,8 +672,8 @@ base mixin DartToolingDaemonSupport
           // supported, but may be in the future.
           enumValues: [
             'get_health',
-            'get_layer_tree',
-            'get_render_tree',
+            // 'get_layer_tree',
+            // 'get_render_tree',
             'enter_text',
             'send_text_input_action',
             'get_text',
@@ -939,7 +938,15 @@ base mixin DartToolingDaemonSupport
         'Retrieves the widget tree from the active Flutter application. '
         'Requires "${connectTool.name}" to be successfully called first.',
     annotations: ToolAnnotations(title: 'Get widget tree', readOnlyHint: true),
-    inputSchema: Schema.object(),
+    inputSchema: Schema.object(
+      properties: {
+        'summaryOnly': Schema.bool(
+          description:
+              'Defaults to false. If true, only widgets created by user code '
+              'are returned.',
+        ),
+      },
+    ),
   );
 
   @visibleForTesting

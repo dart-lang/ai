@@ -129,11 +129,7 @@ void main() {
           arguments: {'query': 'retry'},
         );
 
-        final result = await testHarness.callToolWithRetry(
-          request,
-          maxTries: 1,
-          expectError: true,
-        );
+        final result = await testHarness.callTool(request, expectError: true);
         expect(result.isError, isTrue);
         expect(
           (result.content[0] as TextContent).text,
@@ -152,11 +148,7 @@ void main() {
             arguments: {'query': 'retry'},
           );
 
-          final result = await testHarness.callToolWithRetry(
-            request,
-            maxTries: 1,
-            expectError: true,
-          );
+          final result = await testHarness.callTool(request);
           expect(result.content.length, 1);
           expect(json.decode((result.content[0] as TextContent).text), {
             'packageName': 'retry',

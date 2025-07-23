@@ -344,10 +344,7 @@ dependencies:
             ParameterNames.platform: ['atari_jaguar', 'web'], // One invalid
           },
         );
-        final result = await testHarness.callToolWithRetry(
-          request,
-          expectError: true,
-        );
+        final result = await testHarness.callTool(request, expectError: true);
 
         expect(result.isError, isTrue);
         expect(
@@ -372,10 +369,7 @@ dependencies:
             ParameterNames.directory: 'my_app_no_type',
           },
         );
-        final result = await testHarness.callToolWithRetry(
-          request,
-          expectError: true,
-        );
+        final result = await testHarness.callTool(request, expectError: true);
 
         expect(result.isError, isTrue);
         expect(
@@ -395,10 +389,7 @@ dependencies:
             ParameterNames.projectType: 'java', // Invalid type
           },
         );
-        final result = await testHarness.callToolWithRetry(
-          request,
-          expectError: true,
-        );
+        final result = await testHarness.callTool(request, expectError: true);
 
         expect(result.isError, isTrue);
         expect(
@@ -418,10 +409,7 @@ dependencies:
             ParameterNames.projectType: 'dart',
           },
         );
-        final result = await testHarness.callToolWithRetry(
-          request,
-          expectError: true,
-        );
+        final result = await testHarness.callTool(request, expectError: true);
 
         expect(result.isError, isTrue);
         expect(
@@ -441,10 +429,7 @@ dependencies:
             ParameterNames.template: 'cli',
           },
         );
-        final result = await testHarness.callToolWithRetry(
-          request,
-          expectError: true,
-        );
+        final result = await testHarness.callTool(request, expectError: true);
 
         expect(result.isError, true);
         expect(

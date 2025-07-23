@@ -163,27 +163,38 @@ class TestHarness {
     expect(result.isError, isNot(true), reason: result.content.join('\n'));
   }
 
+  /// Helper to send [request] to [mcpServerConnection].
+  ///
+  /// Some methods will fail if the DTD connection is not yet ready.
+  Future<CallToolResult> callTool(
+    CallToolRequest request, {
+    bool expectError = false,
+  }) async {
+    final result = await mcpServerConnection.callTool(request);
+    expect(
+      result.isError,
+      expectError ? true : isNot(true),
+      reason: result.content.join('\n'),
+    );
+    return result;
+  }
+
   /// Sends [request] to [mcpServerConnection], retrying [maxTries] times.
   ///
   /// Some methods will fail if the DTD connection is not yet ready.
   Future<CallToolResult> callToolWithRetry(
     CallToolRequest request, {
     int maxTries = 5,
-    bool expectError = false,
   }) async {
     var tryCount = 0;
-    late CallToolResult lastResult;
-    while (tryCount++ < maxTries) {
-      lastResult = await mcpServerConnection.callTool(request);
-      if (lastResult.isError != true) return lastResult;
+    while (true) {
+      try {
+        return await callTool(request);
+      } catch (_) {
+        if (tryCount++ >= maxTries) rethrow;
+      }
       await Future<void>.delayed(Duration(milliseconds: 100 * tryCount));
     }
-    expect(
-      lastResult.isError,
-      expectError ? true : isNot(true),
-      reason: lastResult.content.join('\n'),
-    );
-    return lastResult;
   }
 }
 

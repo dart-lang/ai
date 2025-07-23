@@ -190,7 +190,7 @@ void main() {
         group('returns error', () {
           test('for missing command', () async {
             final request = CallToolRequest(name: dartPubTool.name);
-            final result = await testHarness.callToolWithRetry(
+            final result = await testHarness.callTool(
               request,
               expectError: true,
             );
@@ -207,7 +207,7 @@ void main() {
               name: dartPubTool.name,
               arguments: {ParameterNames.command: 'publish'},
             );
-            final result = await testHarness.callToolWithRetry(
+            final result = await testHarness.callTool(
               request,
               expectError: true,
             );
@@ -227,7 +227,7 @@ void main() {
                 name: dartPubTool.name,
                 arguments: {ParameterNames.command: command.name},
               );
-              final result = await testHarness.callToolWithRetry(
+              final result = await testHarness.callTool(
                 request,
                 expectError: true,
               );
