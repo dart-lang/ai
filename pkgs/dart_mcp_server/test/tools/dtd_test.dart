@@ -232,6 +232,25 @@ void main() {
         });
       });
 
+      test('can take a screenshot using flutter_driver', () async {
+        await testHarness.startDebugSession(
+          counterAppPath,
+          'lib/driver_main.dart',
+          isFlutter: true,
+        );
+        final screenshotResult = await testHarness.callToolWithRetry(
+          CallToolRequest(
+            name: DartToolingDaemonSupport.flutterDriverTool.name,
+            arguments: {'command': 'screenshot'},
+          ),
+        );
+        expect(screenshotResult.content.single, {
+          'data': anything,
+          'mimeType': 'image/png',
+          'type': ImageContent.expectedType,
+        });
+      });
+
       group('get selected widget', () {
         test('when a selected widget exists', () async {
           final server = testHarness.serverConnectionPair.server!;
