@@ -7,7 +7,7 @@
   - This package still allows `reject` and treats it as an alias for`decline`.
   - The old `reject` enum value was replaced with a static constant equal
     exactly to `decline`, so switches are not affected.
-
+- Add `title` parameter to `Prompt` constructor.
 
 ## 0.3.2
 

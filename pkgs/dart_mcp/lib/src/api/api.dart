@@ -503,15 +503,6 @@ extension type ResourceLink.fromMap(Map<String, Object?> _value)
     return type;
   }
 
-  /// The name of the resource.
-  String get name {
-    final name = _value['name'] as String?;
-    if (name == null) {
-      throw ArgumentError('Missing name field in $ResourceLink.');
-    }
-    return name;
-  }
-
   /// The description of the resource.
   String get description {
     final description = _value['description'] as String?;

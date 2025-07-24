@@ -90,10 +90,12 @@ extension type Prompt.fromMap(Map<String, Object?> _value)
     implements BaseMetadata {
   factory Prompt({
     required String name,
+    String? title,
     String? description,
     List<PromptArgument>? arguments,
   }) => Prompt.fromMap({
     'name': name,
+    if (title != null) 'title': title,
     if (description != null) 'description': description,
     if (arguments != null) 'arguments': arguments,
   });

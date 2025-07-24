@@ -19,6 +19,7 @@ import 'arg_parser.dart';
 import 'mixins/analyzer.dart';
 import 'mixins/dash_cli.dart';
 import 'mixins/dtd.dart';
+import 'mixins/prompts.dart';
 import 'mixins/pub.dart';
 import 'mixins/pub_dev_search.dart';
 import 'mixins/roots_fallback_support.dart';
@@ -39,7 +40,9 @@ final class DartMCPServer extends MCPServer
         DashCliSupport,
         PubSupport,
         PubDevSupport,
-        DartToolingDaemonSupport
+        DartToolingDaemonSupport,
+        PromptsSupport,
+        DashPrompts
     implements
         AnalyticsSupport,
         ProcessManagerSupport,
