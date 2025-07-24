@@ -52,9 +52,14 @@ Perform the following tasks in order:
   reading in files to accomplish this task, just inspect the live state of the
   app and widget tree. If you get stuck, feel free to ask the user for help.
 - If you are able to successfully complete the journey, then create a flutter
-  driver based test with an appropriate name, which performs all the same
-  actions that you performed. Include the original user journey as a comment
-  in the test file.
+  driver based test with an appropriate name under the integration_test
+  directory. The test should perform all the successful actions that you
+  performed to complete the task and validate the result. Include the
+  original user journey as a comment above the test function, or reference the file
+  the user journey is defined in if it came from a file.
+- After writing the test, first analyze the project for errors, and format it.
+- Next, execute the test using the command `flutter drive --driver <test-path>`
+  and verify that it passes.
 ''',
   );
 }

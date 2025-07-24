@@ -1136,7 +1136,7 @@ class _AppListener {
           }),
         );
 
-        subscriptions.add(
+        subscriptions.addAll([
           vmService.onServiceEvent.listen((Event e) {
             switch (e.kind) {
               case EventKind.kServiceRegistered:
@@ -1145,10 +1145,17 @@ class _AppListener {
                 registeredServices.remove(e.service!);
             }
           }),
-        );
+          vmService.onIsolateEvent.listen((e) {
+            switch (e.kind) {
+              case EventKind.kServiceExtensionAdded:
+                registeredServices.add(e.extensionRPC!);
+            }
+          }),
+        ]);
 
         await [
           vmService.streamListen(EventStreams.kExtension),
+          vmService.streamListen(EventStreams.kIsolate),
           vmService.streamListen(EventStreams.kStderr),
           vmService.streamListen(EventStreams.kService),
         ].wait;
@@ -1176,6 +1183,7 @@ class _AppListener {
     await Future.wait(_subscriptions.map((s) => s.cancel()));
     try {
       await _vmService.streamCancel(EventStreams.kExtension);
+      await _vmService.streamCancel(EventStreams.kIsolate);
       await _vmService.streamCancel(EventStreams.kStderr);
       await _vmService.streamCancel(EventStreams.kService);
     } on RPCError catch (_) {
