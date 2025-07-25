@@ -24,6 +24,7 @@ extension ParameterNames on Never {
   static const testRunnerArgs = 'testRunnerArgs';
   static const uri = 'uri';
   static const uris = 'uris';
+  static const userJourney = 'user_journey';
 }
 
 /// A shared success response for tools.
