@@ -3,3 +3,5 @@ pubspec.lock
 .DS_Store
 *.exe
 .vscode
+.idea
+*.iml
