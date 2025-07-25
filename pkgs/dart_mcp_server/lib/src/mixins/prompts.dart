@@ -55,8 +55,11 @@ Perform the following tasks in order:
   driver based test with an appropriate name under the integration_test
   directory. The test should perform all the successful actions that you
   performed to complete the task and validate the result. Include the
-  original user journey as a comment above the test function, or reference the file
-  the user journey is defined in if it came from a file.
+  original user journey as a comment above the test function, or reference the
+  file the user journey is defined in if it came from a file. Note that
+  flutter_driver tests are NOT allowed to import package:flutter_test, they MUST
+  use package:test. Importing package:flutter_test will cause very confusing
+  errors and waste my time.
 - After writing the test, first analyze the project for errors, and format it.
 - Next, execute the test using the command `flutter drive --driver <test-path>`
   and verify that it passes.
