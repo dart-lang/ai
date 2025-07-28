@@ -1,4 +1,4 @@
-## 0.3.3-wip
+## 0.3.3
 
 - Fix `PingRequest` handling when it is sent from a non-Dart client.
 - Deprecate `ElicitationAction.reject` and replace it with
