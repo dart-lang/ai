@@ -122,7 +122,7 @@ void main() {
       }
 
       setUp(() {
-        server.addPrompt(Prompt(name: 'hello'), getHelloPrompt);
+        server.addPrompt(helloPrompt, getHelloPrompt);
       });
 
       test('with no arguments', () async {
