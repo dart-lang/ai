@@ -707,7 +707,7 @@ base mixin DartToolingDaemonSupport
         'duration': Schema.string(
           description:
               'Required for the scroll command, the duration of the '
-              'scrolling action in microseconds as a stringified integer.',
+              'scrolling action in MICROSECONDS as a stringified integer.',
         ),
         'dx': Schema.string(
           description:
