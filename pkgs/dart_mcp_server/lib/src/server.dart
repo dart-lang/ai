@@ -207,6 +207,51 @@ final class DartMCPServer extends MCPServer
       validateArguments: validateArguments,
     );
   }
+
+  @override
+  void addPrompt(
+    Prompt prompt,
+    FutureOr<GetPromptResult> Function(GetPromptRequest) impl,
+  ) {
+    // For type promotion.
+    final analytics = this.analytics;
+
+    super.addPrompt(
+      prompt,
+      analytics == null
+          ? impl
+          : (request) async {
+              final watch = Stopwatch()..start();
+              GetPromptResult? result;
+              try {
+                return result = await impl(request);
+              } finally {
+                watch.stop();
+                try {
+                  analytics.send(
+                    Event.dartMCPEvent(
+                      client: clientInfo.name,
+                      clientVersion: clientInfo.version,
+                      serverVersion: implementation.version,
+                      type: AnalyticsEvent.getPrompt.name,
+                      additionalData: GetPromptMetrics(
+                        name: request.name,
+                        success: result != null && result.messages.isNotEmpty,
+                        elapsedMilliseconds: watch.elapsedMilliseconds,
+                        withArguments: request.arguments?.isNotEmpty == true,
+                      ),
+                    ),
+                  );
+                } catch (e) {
+                  log(
+                    LoggingLevel.warning,
+                    'Error sending analytics event: $e',
+                  );
+                }
+              }
+            },
+    );
+  }
 }
 
 /// Creates a `Sink<String>` for [logFile].

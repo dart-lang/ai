@@ -14,7 +14,7 @@ abstract interface class AnalyticsSupport {
   Analytics? get analytics;
 }
 
-enum AnalyticsEvent { callTool, readResource }
+enum AnalyticsEvent { callTool, readResource, getPrompt }
 
 /// The metrics for a resources/read MCP handler.
 final class ReadResourceMetrics extends CustomMetrics {
@@ -40,6 +40,36 @@ final class ReadResourceMetrics extends CustomMetrics {
     _kind: kind.name,
     _length: length,
     _elapsedMilliseconds: elapsedMilliseconds,
+  };
+}
+
+/// The metrics for a prompts/get MCP handler.
+final class GetPromptMetrics extends CustomMetrics {
+  /// The name of the prompt that was retrieved.
+  final String name;
+
+  /// Whether or not the prompt was given with arguments.
+  final bool withArguments;
+
+  /// The time it took to generate the prompt.
+  final int elapsedMilliseconds;
+
+  /// Whether or not the prompt call succeeded.
+  final bool success;
+
+  GetPromptMetrics({
+    required this.name,
+    required this.withArguments,
+    required this.elapsedMilliseconds,
+    required this.success,
+  });
+
+  @override
+  Map<String, Object> toMap() => {
+    _name: name,
+    _withArguments: withArguments,
+    _elapsedMilliseconds: elapsedMilliseconds,
+    _success: success,
   };
 }
 
@@ -108,5 +138,7 @@ const _elapsedMilliseconds = 'elapsedMilliseconds';
 const _failureReason = 'failureReason';
 const _kind = 'kind';
 const _length = 'length';
+const _name = 'name';
 const _success = 'success';
 const _tool = 'tool';
+const _withArguments = 'withArguments';

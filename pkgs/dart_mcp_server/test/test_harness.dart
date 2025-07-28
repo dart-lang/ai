@@ -196,6 +196,10 @@ class TestHarness {
       await Future<void>.delayed(Duration(milliseconds: 100 * tryCount));
     }
   }
+
+  /// Calls [getPrompt] on the [mcpServerConnection].
+  Future<GetPromptResult> getPrompt(GetPromptRequest request) =>
+      mcpServerConnection.getPrompt(request);
 }
 
 /// The debug session for a single app.

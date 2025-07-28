@@ -47,7 +47,7 @@ void main() {
                 'client': server.clientInfo.name,
                 'clientVersion': server.clientInfo.version,
                 'serverVersion': server.implementation.version,
-                'type': 'callTool',
+                'type': AnalyticsEvent.callTool.name,
                 'tool': 'hello',
                 'success': true,
                 'elapsedMilliseconds': isA<int>(),
@@ -85,7 +85,7 @@ void main() {
                   'client': server.clientInfo.name,
                   'clientVersion': server.clientInfo.version,
                   'serverVersion': server.implementation.version,
-                  'type': 'callTool',
+                  'type': AnalyticsEvent.callTool.name,
                   'tool': tool.name,
                   'success': false,
                   'elapsedMilliseconds': isA<int>(),
@@ -94,6 +94,125 @@ void main() {
               ),
         );
       }
+    });
+
+    group('are sent for prompts', () {
+      final helloPrompt = Prompt(
+        name: 'hello',
+        arguments: [PromptArgument(name: 'name', required: false)],
+      );
+      GetPromptResult getHelloPrompt(GetPromptRequest request) {
+        assert(request.name == helloPrompt.name);
+        if (request.arguments?['throw'] == true) {
+          throw StateError('Oh no!');
+        }
+        return GetPromptResult(
+          messages: [
+            PromptMessage(
+              role: Role.user,
+              content: Content.text(text: 'hello'),
+            ),
+            if (request.arguments?['name'] case final name?)
+              PromptMessage(
+                role: Role.user,
+                content: Content.text(text: ', my name is $name'),
+              ),
+          ],
+        );
+      }
+
+      setUp(() {
+        server.addPrompt(Prompt(name: 'hello'), getHelloPrompt);
+      });
+
+      test('with no arguments', () async {
+        final result = await testHarness.getPrompt(
+          GetPromptRequest(name: helloPrompt.name),
+        );
+        expect((result.messages.single.content as TextContent).text, 'hello');
+        expect(result.messages.single.role, Role.user);
+        expect(
+          analytics.sentEvents.single,
+          isA<Event>()
+              .having((e) => e.eventName, 'eventName', DashEvent.dartMCPEvent)
+              .having(
+                (e) => e.eventData,
+                'eventData',
+                equals({
+                  'client': server.clientInfo.name,
+                  'clientVersion': server.clientInfo.version,
+                  'serverVersion': server.implementation.version,
+                  'type': AnalyticsEvent.getPrompt.name,
+                  'name': helloPrompt.name,
+                  'success': true,
+                  'elapsedMilliseconds': isA<int>(),
+                  'withArguments': false,
+                }),
+              ),
+        );
+      });
+
+      test('with arguments', () async {
+        final result = await testHarness.getPrompt(
+          GetPromptRequest(name: helloPrompt.name, arguments: {'name': 'Bob'}),
+        );
+        expect((result.messages[0].content as TextContent).text, 'hello');
+        expect(result.messages[0].role, Role.user);
+        expect(
+          (result.messages[1].content as TextContent).text,
+          ', my name is Bob',
+        );
+        expect(result.messages[1].role, Role.user);
+        expect(
+          analytics.sentEvents.single,
+          isA<Event>()
+              .having((e) => e.eventName, 'eventName', DashEvent.dartMCPEvent)
+              .having(
+                (e) => e.eventData,
+                'eventData',
+                equals({
+                  'client': server.clientInfo.name,
+                  'clientVersion': server.clientInfo.version,
+                  'serverVersion': server.implementation.version,
+                  'type': AnalyticsEvent.getPrompt.name,
+                  'name': helloPrompt.name,
+                  'success': true,
+                  'elapsedMilliseconds': isA<int>(),
+                  'withArguments': true,
+                }),
+              ),
+        );
+      });
+
+      test('even if they throw', () async {
+        try {
+          await testHarness.getPrompt(
+            GetPromptRequest(
+              name: helloPrompt.name,
+              arguments: {'throw': true},
+            ),
+          );
+        } catch (_) {}
+        expect(
+          analytics.sentEvents.single,
+          isA<Event>()
+              .having((e) => e.eventName, 'eventName', DashEvent.dartMCPEvent)
+              .having(
+                (e) => e.eventData,
+                'eventData',
+                equals({
+                  'client': server.clientInfo.name,
+                  'clientVersion': server.clientInfo.version,
+                  'serverVersion': server.implementation.version,
+                  'type': AnalyticsEvent.getPrompt.name,
+                  'name': helloPrompt.name,
+                  'success': false,
+                  'elapsedMilliseconds': isA<int>(),
+                  'withArguments': true,
+                }),
+              ),
+        );
+      });
     });
 
     test('Changelog version matches dart server version', () {
