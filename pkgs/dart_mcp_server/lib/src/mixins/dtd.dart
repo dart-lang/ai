@@ -662,10 +662,11 @@ base mixin DartToolingDaemonSupport
       additionalProperties: true,
       description:
           'Command arguments are passed as additional properties to this map.'
-          'To specify a widgets, you should first use the '
-          '"${getWidgetTreeTool.name}" tool to inspect the widget tree for the '
-          'value id of the widget and then use the "ByValueKey" finder type '
-          'with that id.',
+          'To specify a widget to interact with, you must first use the '
+          '"${getWidgetTreeTool.name}" tool to get the widget tree of the '
+          'current page so that you can see the available widgets. Do not '
+          'guess at how to select widgets, use the real text, tooltips, and '
+          'widget types that you see present in the tree.',
       properties: {
         'command': Schema.string(
           // Commented out values are flutter_driver commands that are not

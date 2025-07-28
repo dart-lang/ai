@@ -68,6 +68,8 @@ Perform the following tasks in order:
   widgets, but instead select them based on text, type, tooltip, etc. Avoid
   reading in files to accomplish this task, just inspect the live state of the
   app and widget tree. If you get stuck, feel free to ask the user for help.
+  ALWAYS get the widget tree after performing any interaction, so you can see
+  the updated state of the app.
 - If you are able to successfully complete the journey, then create a flutter
   driver based test with an appropriate name under the integration_test
   directory. The test should perform all the successful actions that you
