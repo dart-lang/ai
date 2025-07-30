@@ -227,7 +227,7 @@ Future<CallToolResult> runCommandInRoot(
     workingDirectory: workingDir.path,
     runInShell:
         // Required when running .bat files on windows, but otherwise should
-        // be avoided.
+        // be avoided due to escaping behavior.
         io.Platform.isWindows && commandWithPaths.first.endsWith('.bat'),
   );
 
