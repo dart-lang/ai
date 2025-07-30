@@ -8,6 +8,7 @@
   - The old `reject` enum value was replaced with a static constant equal
     exactly to `decline`, so switches are not affected.
 - Add `title` parameter to `Prompt` constructor.
+- Only execute sub-processes in a shell if they are `.bat` files.
 
 ## 0.3.2
 
