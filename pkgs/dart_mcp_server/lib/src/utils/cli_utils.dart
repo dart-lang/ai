@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:io' as io;
 
 import 'package:collection/collection.dart';
 import 'package:dart_mcp/server.dart';
@@ -224,7 +225,10 @@ Future<CallToolResult> runCommandInRoot(
   final result = await processManager.run(
     commandWithPaths,
     workingDirectory: workingDir.path,
-    runInShell: true,
+    runInShell:
+        // Required when running .bat files on windows, but otherwise should
+        // be avoided.
+        io.Platform.isWindows && commandWithPaths.first.endsWith('.bat'),
   );
 
   final output = (result.stdout as String).trim();
