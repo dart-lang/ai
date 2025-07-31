@@ -11,6 +11,7 @@
 * Change the widget tree to the full version instead of the summary. The summary
   tends to hide nested text widgets which makes it difficult to find widgets
   based on their text values.
+* Add an `--exclude-tool` command line flag to exclude tools by name.
 
 # 0.1.0 (Dart SDK 3.9.0)
 

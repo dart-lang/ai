@@ -47,6 +47,10 @@ ArgParser createArgParser({
           help:
               'Path to a file to log all MPC protocol traffic to. File will be '
               'overwritten if it exists.',
+        )
+        ..addMultiOption(
+          excludeToolOption,
+          help: 'The names of tools to exclude from this run of the server.',
         );
 
   if (includeHelp) parser.addFlag(helpFlag, abbr: 'h', help: 'Show usage text');
@@ -54,6 +58,7 @@ ArgParser createArgParser({
 }
 
 const dartSdkOption = 'dart-sdk';
+const excludeToolOption = 'exclude-tool';
 const flutterSdkOption = 'flutter-sdk';
 const forceRootsFallbackFlag = 'force-roots-fallback';
 const helpFlag = 'help';

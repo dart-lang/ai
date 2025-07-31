@@ -48,10 +48,16 @@ final class DartMCPServer extends MCPServer
         ProcessManagerSupport,
         FileSystemSupport,
         SdkSupport {
+  /// A list of tool names to exclude from this version of the server.
+  ///
+  /// Used in [registerTool] to skip registering these tools.
+  final List<String> excludedTools;
+
   DartMCPServer(
     super.channel, {
     required this.sdk,
     this.analytics,
+    this.excludedTools = const [],
     @visibleForTesting this.processManager = const LocalProcessManager(),
     @visibleForTesting this.fileSystem = const LocalFileSystem(),
     this.forceRootsFallback = false,
@@ -96,6 +102,7 @@ final class DartMCPServer extends MCPServer
       () {
         server = DartMCPServer(
           stdioChannel(input: io.stdin, output: io.stdout),
+          excludedTools: parsedArgs.multiOption(excludeToolOption),
           forceRootsFallback: parsedArgs.flag(forceRootsFallbackFlag),
           sdk: Sdk.find(
             dartSdkPath: dartSdkPath,
@@ -167,6 +174,9 @@ final class DartMCPServer extends MCPServer
     FutureOr<CallToolResult> Function(CallToolRequest) impl, {
     bool validateArguments = true,
   }) {
+    // Check manually excluded tools and skip them.
+    if (excludedTools.contains(tool.name)) return;
+
     // For type promotion.
     final analytics = this.analytics;
 
