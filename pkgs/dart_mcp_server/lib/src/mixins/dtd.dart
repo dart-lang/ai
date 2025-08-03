@@ -42,6 +42,12 @@ base mixin DartToolingDaemonSupport
   /// Once we connect to dtd, this may be toggled to `true`.
   bool _connectedAppServiceIsSupported = false;
 
+  /// Stores service detection errors for diagnostic purposes.
+  String? _serviceDetectionError;
+  
+  /// Stores the last error from getVmServices for diagnostic purposes.
+  String? _vmServicesError;
+
   /// Whether to await the disposal of all [VmService] objects in
   /// [activeVmServices] upon server shutdown or loss of DTD connection.
   ///
@@ -68,6 +74,8 @@ base mixin DartToolingDaemonSupport
     _dtd = null;
     _activeLocation = null;
     _connectedAppServiceIsSupported = false;
+    _serviceDetectionError = null;
+    _vmServicesError = null;
 
     // TODO: determine whether we need to dispose the [inspectorObjectGroup] on
     // the Flutter Widget Inspector for each VM service instance.
@@ -88,8 +96,23 @@ base mixin DartToolingDaemonSupport
     if (dtd == null) return;
     if (!_connectedAppServiceIsSupported) return;
 
-    final vmServiceInfos = (await dtd.getVmServices()).vmServicesInfos;
-    if (vmServiceInfos.isEmpty) return;
+    List<VmServiceInfo> vmServiceInfos;
+    try {
+      vmServiceInfos = (await dtd.getVmServices()).vmServicesInfos;
+      _vmServicesError = null;
+      log(LoggingLevel.debug,
+          'Found ${vmServiceInfos.length} VM service(s)');
+    } catch (e, stack) {
+      _vmServicesError = 'Failed to get VM services: $e';
+      log(LoggingLevel.error, _vmServicesError!);
+      log(LoggingLevel.debug, 'Stack trace: $stack');
+      return;
+    }
+    if (vmServiceInfos.isEmpty) {
+      _vmServicesError = 'No VM services available';
+      log(LoggingLevel.warning, _vmServicesError!);
+      return;
+    }
 
     for (final vmServiceInfo in vmServiceInfos) {
       final vmServiceUri = vmServiceInfo.uri;
@@ -262,15 +285,26 @@ base mixin DartToolingDaemonSupport
     final dtd = _dtd!;
 
     _connectedAppServiceIsSupported = false;
+    _serviceDetectionError = null;
     try {
       final registeredServices = await dtd.getRegisteredServices();
-      if (registeredServices.dtdServices.contains(
-        '${ConnectedAppServiceConstants.serviceName}.'
-        '${ConnectedAppServiceConstants.getVmServices}',
-      )) {
+      log(LoggingLevel.debug,
+          'Registered DTD services: ${registeredServices.dtdServices}');
+      final expectedService = '${ConnectedAppServiceConstants.serviceName}.'
+          '${ConnectedAppServiceConstants.getVmServices}';
+      if (registeredServices.dtdServices.contains(expectedService)) {
         _connectedAppServiceIsSupported = true;
+        log(LoggingLevel.debug, 'ConnectedApp service detected successfully');
+      } else {
+        _serviceDetectionError =
+            'Service "$expectedService" not found in registered services';
+        log(LoggingLevel.warning, _serviceDetectionError!);
       }
-    } catch (_) {}
+    } catch (e, stack) {
+      _serviceDetectionError = 'Failed to get registered services: $e';
+      log(LoggingLevel.error, _serviceDetectionError!);
+      log(LoggingLevel.debug, 'Stack trace: $stack');
+    }
 
     if (_connectedAppServiceIsSupported) {
       await _listenForConnectedAppServiceEvents();
@@ -997,16 +1031,21 @@ base mixin DartToolingDaemonSupport
     inputSchema: Schema.object(),
   );
 
-  static final _connectedAppsNotSupported = CallToolResult(
-    isError: true,
-    content: [
-      TextContent(
-        text:
-            'A Dart SDK of version 3.9.0-163.0.dev or greater is required to '
-            'connect to Dart and Flutter applications.',
-      ),
-    ],
-  )..failureReason = CallToolFailureReason.connectedAppServiceNotSupported;
+  CallToolResult get _connectedAppsNotSupported {
+    String errorText;
+    if (_serviceDetectionError != null) {
+      errorText = 'ConnectedApp service not available: $_serviceDetectionError';
+    } else {
+      errorText =
+          'A Dart SDK of version 3.9.0-163.0.dev or greater is required to '
+          'connect to Dart and Flutter applications.';
+    }
+    
+    return CallToolResult(
+      isError: true,
+      content: [TextContent(text: errorText)],
+    )..failureReason = CallToolFailureReason.connectedAppServiceNotSupported;
+  }
 
   static final _dtdNotConnected = CallToolResult(
     isError: true,
@@ -1030,12 +1069,19 @@ base mixin DartToolingDaemonSupport
     ],
   )..failureReason = CallToolFailureReason.dtdAlreadyConnected;
 
-  static final _noActiveDebugSession = CallToolResult(
-    content: [
-      TextContent(text: 'No active debug session to take a screenshot'),
-    ],
-    isError: true,
-  )..failureReason = CallToolFailureReason.noActiveDebugSession;
+  CallToolResult get _noActiveDebugSession {
+    var errorText = 'No VM services available';
+    if (_vmServicesError != null) {
+      errorText += ': $_vmServicesError';
+    } else if (_serviceDetectionError != null) {
+      errorText += ' (service detection failed: $_serviceDetectionError)';
+    }
+    
+    return CallToolResult(
+      content: [TextContent(text: errorText)],
+      isError: true,
+    )..failureReason = CallToolFailureReason.noActiveDebugSession;
+  }
 
   static final _flutterDriverNotRegistered = CallToolResult(
     content: [
