@@ -44,7 +44,7 @@ base mixin DartToolingDaemonSupport
 
   /// Stores service detection errors for diagnostic purposes.
   String? _serviceDetectionError;
-  
+
   /// Stores the last error from getVmServices for diagnostic purposes.
   String? _vmServicesError;
 
@@ -100,8 +100,7 @@ base mixin DartToolingDaemonSupport
     try {
       vmServiceInfos = (await dtd.getVmServices()).vmServicesInfos;
       _vmServicesError = null;
-      log(LoggingLevel.debug,
-          'Found ${vmServiceInfos.length} VM service(s)');
+      log(LoggingLevel.debug, 'Found ${vmServiceInfos.length} VM service(s)');
     } catch (e, stack) {
       _vmServicesError = 'Failed to get VM services: $e';
       log(LoggingLevel.error, _vmServicesError!);
@@ -288,9 +287,12 @@ base mixin DartToolingDaemonSupport
     _serviceDetectionError = null;
     try {
       final registeredServices = await dtd.getRegisteredServices();
-      log(LoggingLevel.debug,
-          'Registered DTD services: ${registeredServices.dtdServices}');
-      final expectedService = '${ConnectedAppServiceConstants.serviceName}.'
+      log(
+        LoggingLevel.debug,
+        'Registered DTD services: ${registeredServices.dtdServices}',
+      );
+      final expectedService =
+          '${ConnectedAppServiceConstants.serviceName}.'
           '${ConnectedAppServiceConstants.getVmServices}';
       if (registeredServices.dtdServices.contains(expectedService)) {
         _connectedAppServiceIsSupported = true;
@@ -1040,7 +1042,7 @@ base mixin DartToolingDaemonSupport
           'A Dart SDK of version 3.9.0-163.0.dev or greater is required to '
           'connect to Dart and Flutter applications.';
     }
-    
+
     return CallToolResult(
       isError: true,
       content: [TextContent(text: errorText)],
@@ -1076,7 +1078,7 @@ base mixin DartToolingDaemonSupport
     } else if (_serviceDetectionError != null) {
       errorText += ' (service detection failed: $_serviceDetectionError)';
     }
-    
+
     return CallToolResult(
       content: [TextContent(text: errorText)],
       isError: true,
