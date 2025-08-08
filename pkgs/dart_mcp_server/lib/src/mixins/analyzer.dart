@@ -249,8 +249,42 @@ base mixin DartAnalyzerSupport
     final errorResult = await _ensurePrerequisites(request);
     if (errorResult != null) return errorResult;
 
+    final paths = (request.arguments?[ParameterNames.paths] as List?)
+        ?.cast<String>();
+
+    Iterable<MapEntry<Uri, List<lsp.Diagnostic>>> entries;
+
+    if (paths != null && paths.isNotEmpty) {
+      final roots = await this.roots;
+      final requestedUris = <Uri>{};
+      for (final path in paths) {
+        final pathAsUri = Uri.tryParse(path);
+        if (pathAsUri != null && pathAsUri.scheme.isNotEmpty) {
+          requestedUris.add(pathAsUri);
+        } else {
+          // Treat as a relative or absolute path.
+          for (final root in roots) {
+            final rootUri = Uri.parse(root.uri);
+            final resolvedUri = rootUri.resolve(path);
+            requestedUris.add(resolvedUri);
+          }
+        }
+      }
+
+      entries = diagnostics.entries.where((entry) {
+        final entryPath = entry.key.toFilePath();
+        return requestedUris.any((uri) {
+          final requestedPath = uri.toFilePath();
+          return entryPath == requestedPath ||
+              entryPath.startsWith('$requestedPath${Platform.pathSeparator}');
+        });
+      });
+    } else {
+      entries = diagnostics.entries;
+    }
+
     final messages = <Content>[];
-    for (var entry in diagnostics.entries) {
+    for (var entry in entries) {
       for (var diagnostic in entry.value) {
         final diagnosticJson = diagnostic.toJson();
         diagnosticJson[ParameterNames.uri] = entry.key.toString();
@@ -411,8 +445,19 @@ base mixin DartAnalyzerSupport
   @visibleForTesting
   static final analyzeFilesTool = Tool(
     name: 'analyze_files',
-    description: 'Analyzes the entire project for errors.',
-    inputSchema: Schema.object(),
+    description:
+        'Analyzes individual paths, or the entire project, for errors.',
+    inputSchema: Schema.object(
+      properties: {
+        ParameterNames.paths: Schema.list(
+          items: Schema.string(),
+          description:
+              'A list of file paths to get analysis results for. If '
+              'not provided, analysis results for the entire package are '
+              'returned.',
+        ),
+      },
+    ),
     annotations: ToolAnnotations(title: 'Analyze projects', readOnlyHint: true),
   );
 

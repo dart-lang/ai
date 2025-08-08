@@ -72,6 +72,105 @@ void main() {
       );
     });
 
+    test('can analyze a project with multiple errors (no paths)', () async {
+      final example = d.dir('example', [
+        d.file('main.dart', 'void main() => 1 + "2";'),
+        d.file('other.dart', 'void other() => foo;'),
+      ]);
+      await example.create();
+      final exampleRoot = testHarness.rootForPath(example.io.path);
+      testHarness.mcpClient.addRoot(exampleRoot);
+
+      await pumpEventQueue();
+
+      final request = CallToolRequest(name: analyzeTool.name);
+      final result = await testHarness.callToolWithRetry(request);
+      expect(result.isError, isNot(true));
+      expect(result.content, hasLength(2));
+      expect(
+        result.content.first,
+        isA<TextContent>().having(
+          (t) => t.text,
+          'text',
+          contains("Undefined name 'foo'"),
+        ),
+      );
+      expect(
+        result.content.last,
+        isA<TextContent>().having(
+          (t) => t.text,
+          'text',
+          contains(
+            "The argument type 'String' can't be assigned to the parameter "
+            "type 'num'.",
+          ),
+        ),
+      );
+    });
+
+    test('can analyze a specific file', () async {
+      final example = d.dir('example', [
+        d.file('main.dart', 'void main() => 1 + "2";'),
+        d.file('other.dart', 'void other() => foo;'),
+      ]);
+      await example.create();
+      final exampleRoot = testHarness.rootForPath(example.io.path);
+      testHarness.mcpClient.addRoot(exampleRoot);
+
+      await pumpEventQueue();
+
+      final request = CallToolRequest(
+        name: analyzeTool.name,
+        arguments: {
+          'paths': [p.join(example.io.path, 'main.dart')],
+        },
+      );
+      final result = await testHarness.callToolWithRetry(request);
+      expect(result.isError, isNot(true));
+      expect(result.content, hasLength(1));
+      expect(
+        result.content.single,
+        isA<TextContent>().having(
+          (t) => t.text,
+          'text',
+          contains(
+            "The argument type 'String' can't be assigned to the parameter "
+            "type 'num'.",
+          ),
+        ),
+      );
+    });
+
+    test('can analyze a specific directory', () async {
+      final example = d.dir('example', [
+        d.file('main.dart', 'void main() => 1 + "2";'),
+        d.dir('sub', [d.file('other.dart', 'void other() => foo;')]),
+      ]);
+      await example.create();
+      final exampleRoot = testHarness.rootForPath(example.io.path);
+      testHarness.mcpClient.addRoot(exampleRoot);
+
+      await pumpEventQueue();
+
+      final request = CallToolRequest(
+        name: analyzeTool.name,
+        arguments: {
+          'paths': [p.join(example.io.path, 'sub')],
+        },
+      );
+      final result = await testHarness.callToolWithRetry(request);
+      expect(result.isError, isNot(true));
+      expect(result.content, hasLength(1));
+      expect(
+        result.content.single,
+        isA<TextContent>().having(
+          (t) => t.text,
+          'text',
+          contains("Undefined name 'foo'"),
+        ),
+      );
+    });
+
     test('can look up symbols in a workspace', () async {
       final example = d.dir('lib', [
         d.file('awesome_class.dart', 'class MyAwesomeClass {}'),
