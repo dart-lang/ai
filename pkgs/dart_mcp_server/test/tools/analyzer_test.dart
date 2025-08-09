@@ -180,6 +180,97 @@ void main() {
       );
     });
 
+    test('handles a non-existent path', () async {
+      final example = d.dir('example', [
+        d.file('main.dart', 'void main() => 1 + "2";'),
+      ]);
+      await example.create();
+      final exampleRoot = testHarness.rootForPath(example.io.path);
+      testHarness.mcpClient.addRoot(exampleRoot);
+
+      await pumpEventQueue();
+
+      final request = CallToolRequest(
+        name: analyzeTool.name,
+        arguments: {
+          ParameterNames.roots: [
+            {
+              ParameterNames.root: exampleRoot.uri,
+              ParameterNames.paths: ['not_a_real_file.dart'],
+            }
+          ]
+        },
+      );
+      final result = await testHarness.callToolWithRetry(request);
+      expect(result.isError, isNot(true));
+      expect(
+        result.content.single,
+        isA<TextContent>().having((t) => t.text, 'text', 'No errors'),
+      );
+    });
+
+    test('handles an empty paths list for a root', () async {
+      final example = d.dir('example', [
+        d.file('main.dart', 'void main() => 1 + "2";'),
+      ]);
+      await example.create();
+      final exampleRoot = testHarness.rootForPath(example.io.path);
+      testHarness.mcpClient.addRoot(exampleRoot);
+
+      await pumpEventQueue();
+
+      final request = CallToolRequest(
+        name: analyzeTool.name,
+        arguments: {
+          ParameterNames.roots: [
+            {
+              ParameterNames.root: exampleRoot.uri,
+              ParameterNames.paths: [], // Empty paths
+            }
+          ]
+        },
+      );
+      final result = await testHarness.callToolWithRetry(request);
+      expect(result.isError, isNot(true));
+      expect(result.content, hasLength(1));
+      expect(
+        result.content.single,
+        isA<TextContent>().having(
+          (t) => t.text,
+          'text',
+          contains(
+            "The argument type 'String' can't be assigned to the parameter "
+            "type 'num'.",
+          ),
+        ),
+      );
+    });
+
+    test('handles an empty roots list', () async {
+      // We still need a root registered with the server so that the
+      // prerequisites check passes.
+      final example = d.dir('example', [
+        d.file('main.dart', 'void main() => 1;'),
+      ]);
+      await example.create();
+      final exampleRoot = testHarness.rootForPath(example.io.path);
+      testHarness.mcpClient.addRoot(exampleRoot);
+      await pumpEventQueue();
+
+      final request = CallToolRequest(
+        name: analyzeTool.name,
+        arguments: {
+          ParameterNames.roots: [],
+        },
+      );
+      final result = await testHarness.callToolWithRetry(request);
+      expect(result.isError, isNot(true));
+      expect(
+        result.content.single,
+        isA<TextContent>().having((t) => t.text, 'text', 'No errors'),
+      );
+    });
+
     test('can analyze files in multiple roots', () async {
       final projectA = d.dir('project_a', [
         d.file('main.dart', 'void main() => 1 + "a";'),
