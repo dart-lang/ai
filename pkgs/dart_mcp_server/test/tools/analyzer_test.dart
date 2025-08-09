@@ -88,23 +88,22 @@ void main() {
       expect(result.isError, isNot(true));
       expect(result.content, hasLength(2));
       expect(
-        result.content.first,
-        isA<TextContent>().having(
-          (t) => t.text,
-          'text',
-          contains("Undefined name 'foo'"),
-        ),
-      );
-      expect(
-        result.content.last,
-        isA<TextContent>().having(
-          (t) => t.text,
-          'text',
-          contains(
-            "The argument type 'String' can't be assigned to the parameter "
-            "type 'num'.",
+        result.content,
+        containsAll([
+          isA<TextContent>().having(
+            (t) => t.text,
+            'text',
+            contains("Undefined name 'foo'"),
           ),
-        ),
+          isA<TextContent>().having(
+            (t) => t.text,
+            'text',
+            contains(
+              "The argument type 'String' can't be assigned to the parameter "
+              "type 'num'.",
+            ),
+          ),
+        ]),
       );
     });
 
@@ -122,7 +121,12 @@ void main() {
       final request = CallToolRequest(
         name: analyzeTool.name,
         arguments: {
-          'paths': [p.join(example.io.path, 'main.dart')],
+          ParameterNames.roots: [
+            {
+              ParameterNames.root: exampleRoot.uri,
+              ParameterNames.paths: ['main.dart']
+            }
+          ]
         },
       );
       final result = await testHarness.callToolWithRetry(request);
@@ -155,7 +159,12 @@ void main() {
       final request = CallToolRequest(
         name: analyzeTool.name,
         arguments: {
-          'paths': [p.join(example.io.path, 'sub')],
+          ParameterNames.roots: [
+            {
+              ParameterNames.root: exampleRoot.uri,
+              ParameterNames.paths: ['sub']
+            }
+          ]
         },
       );
       final result = await testHarness.callToolWithRetry(request);

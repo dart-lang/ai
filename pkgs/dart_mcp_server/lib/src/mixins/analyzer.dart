@@ -266,39 +266,29 @@ base mixin DartAnalyzerSupport
     ];
 
     final requestedUris = <Uri>{};
-    var filter = false;
-
     for (final rootConfig in rootConfigs) {
       final rootUriString = rootConfig[ParameterNames.root] as String;
       final rootUri = Uri.parse(rootUriString);
-      final root = Root(uri: rootUriString);
-      final paths = (rootConfig[ParameterNames.paths] as List?)?.cast<String>();
+      final paths =
+          (rootConfig[ParameterNames.paths] as List?)?.cast<String>();
 
       if (paths != null && paths.isNotEmpty) {
-        filter = true;
         for (final path in paths) {
-          if (isUnderRoot(root, path, fileSystem)) {
-            requestedUris.add(rootUri.resolve(path));
-          }
+          requestedUris.add(rootUri.resolve(path));
         }
       } else {
         requestedUris.add(rootUri);
       }
     }
 
-    var entries = <MapEntry<Uri, List<lsp.Diagnostic>>>{};
-    if (!filter) {
-      entries = diagnostics.entries.toSet();
-    } else {
-      entries = diagnostics.entries.where((entry) {
-        final entryPath = entry.key.toFilePath();
-        return requestedUris.any((uri) {
-          final requestedPath = uri.toFilePath();
-          return fileSystem.path.equals(requestedPath, entryPath) ||
-              fileSystem.path.isWithin(requestedPath, entryPath);
-        });
-      }).toSet();
-    }
+    final entries = diagnostics.entries.where((entry) {
+      final entryPath = entry.key.toFilePath();
+      return requestedUris.any((uri) {
+        final requestedPath = uri.toFilePath();
+        return fileSystem.path.equals(requestedPath, entryPath) ||
+            fileSystem.path.isWithin(requestedPath, entryPath);
+      });
+    });
 
     final messages = <Content>[];
     for (var entry in entries) {
