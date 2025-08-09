@@ -14,7 +14,9 @@ import 'package:meta/meta.dart';
 
 import '../lsp/wire_format.dart';
 import '../utils/analytics.dart';
+import '../utils/cli_utils.dart';
 import '../utils/constants.dart';
+import '../utils/file_system.dart';
 import '../utils/sdk.dart';
 
 /// Mix this in to any MCPServer to add support for analyzing Dart projects.
@@ -22,7 +24,7 @@ import '../utils/sdk.dart';
 /// The MCPServer must already have the [ToolsSupport] and [LoggingSupport]
 /// mixins applied.
 base mixin DartAnalyzerSupport
-    on ToolsSupport, LoggingSupport, RootsTrackingSupport
+    on ToolsSupport, LoggingSupport, RootsTrackingSupport, FileSystemSupport
     implements SdkSupport {
   /// The LSP server connection for the analysis server.
   Peer? _lspConnection;
@@ -249,38 +251,53 @@ base mixin DartAnalyzerSupport
     final errorResult = await _ensurePrerequisites(request);
     if (errorResult != null) return errorResult;
 
-    final paths = (request.arguments?[ParameterNames.paths] as List?)
-        ?.cast<String>();
+    var rootConfigs = (request.arguments?[ParameterNames.roots] as List?)
+        ?.cast<Map<String, Object?>>();
+    final allRoots = await roots;
 
-    Iterable<MapEntry<Uri, List<lsp.Diagnostic>>> entries;
+    if (rootConfigs != null && rootConfigs.isEmpty) {
+      // Empty list of roots means do nothing.
+      return CallToolResult(content: [TextContent(text: 'No errors')]);
+    }
 
-    if (paths != null && paths.isNotEmpty) {
-      final roots = await this.roots;
-      final requestedUris = <Uri>{};
-      for (final path in paths) {
-        final pathAsUri = Uri.tryParse(path);
-        if (pathAsUri != null && pathAsUri.scheme.isNotEmpty) {
-          requestedUris.add(pathAsUri);
-        } else {
-          // Treat as a relative or absolute path.
-          for (final root in roots) {
-            final rootUri = Uri.parse(root.uri);
-            final resolvedUri = rootUri.resolve(path);
-            requestedUris.add(resolvedUri);
+    // Default to use the known roots if none were specified.
+    rootConfigs ??= [
+      for (final root in allRoots) {ParameterNames.root: root.uri},
+    ];
+
+    final requestedUris = <Uri>{};
+    var filter = false;
+
+    for (final rootConfig in rootConfigs) {
+      final rootUriString = rootConfig[ParameterNames.root] as String;
+      final rootUri = Uri.parse(rootUriString);
+      final root = Root(uri: rootUriString);
+      final paths = (rootConfig[ParameterNames.paths] as List?)?.cast<String>();
+
+      if (paths != null && paths.isNotEmpty) {
+        filter = true;
+        for (final path in paths) {
+          if (isUnderRoot(root, path, fileSystem)) {
+            requestedUris.add(rootUri.resolve(path));
           }
         }
+      } else {
+        requestedUris.add(rootUri);
       }
+    }
 
+    var entries = <MapEntry<Uri, List<lsp.Diagnostic>>>{};
+    if (!filter) {
+      entries = diagnostics.entries.toSet();
+    } else {
       entries = diagnostics.entries.where((entry) {
         final entryPath = entry.key.toFilePath();
         return requestedUris.any((uri) {
           final requestedPath = uri.toFilePath();
-          return entryPath == requestedPath ||
-              entryPath.startsWith('$requestedPath${Platform.pathSeparator}');
+          return fileSystem.path.equals(requestedPath, entryPath) ||
+              fileSystem.path.isWithin(requestedPath, entryPath);
         });
-      });
-    } else {
-      entries = diagnostics.entries;
+      }).toSet();
     }
 
     final messages = <Content>[];
@@ -445,18 +462,9 @@ base mixin DartAnalyzerSupport
   @visibleForTesting
   static final analyzeFilesTool = Tool(
     name: 'analyze_files',
-    description:
-        'Analyzes individual paths, or the entire project, for errors.',
+    description: 'Analyzes specific paths, or the entire project, for errors.',
     inputSchema: Schema.object(
-      properties: {
-        ParameterNames.paths: Schema.list(
-          items: Schema.string(),
-          description:
-              'A list of file paths to get analysis results for. If '
-              'not provided, analysis results for the entire package are '
-              'returned.',
-        ),
-      },
+      properties: {ParameterNames.roots: rootsSchema(supportsPaths: true)},
     ),
     annotations: ToolAnnotations(title: 'Analyze projects', readOnlyHint: true),
   );
