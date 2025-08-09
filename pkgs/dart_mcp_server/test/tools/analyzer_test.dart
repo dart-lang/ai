@@ -180,6 +180,59 @@ void main() {
       );
     });
 
+    test('can analyze files in multiple roots', () async {
+      final projectA = d.dir('project_a', [
+        d.file('main.dart', 'void main() => 1 + "a";'),
+      ]);
+      await projectA.create();
+      final projectARoot = testHarness.rootForPath(projectA.io.path);
+      testHarness.mcpClient.addRoot(projectARoot);
+
+      final projectB = d.dir('project_b', [
+        d.file('other.dart', 'void other() => foo;'),
+      ]);
+      await projectB.create();
+      final projectBRoot = testHarness.rootForPath(projectB.io.path);
+      testHarness.mcpClient.addRoot(projectBRoot);
+
+      await pumpEventQueue();
+
+      final request = CallToolRequest(
+        name: analyzeTool.name,
+        arguments: {
+          ParameterNames.roots: [
+            {
+              ParameterNames.root: projectARoot.uri,
+              ParameterNames.paths: ['main.dart'],
+            },
+            {
+              ParameterNames.root: projectBRoot.uri,
+              ParameterNames.paths: ['other.dart'],
+            }
+          ]
+        },
+      );
+      final result = await testHarness.callToolWithRetry(request);
+      expect(result.isError, isNot(true));
+      expect(result.content, hasLength(2));
+      expect(
+          result.content,
+          containsAll([
+            isA<TextContent>().having(
+              (t) => t.text,
+              'text',
+              contains(
+                  "The argument type 'String' can't be assigned to the "
+                  "parameter type 'num'."),
+            ),
+            isA<TextContent>().having(
+              (t) => t.text,
+              'text',
+              contains("Undefined name 'foo'"),
+            ),
+          ]));
+    });
+
     test('can look up symbols in a workspace', () async {
       final example = d.dir('lib', [
         d.file('awesome_class.dart', 'class MyAwesomeClass {}'),
