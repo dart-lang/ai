@@ -269,8 +269,7 @@ base mixin DartAnalyzerSupport
     for (final rootConfig in rootConfigs) {
       final rootUriString = rootConfig[ParameterNames.root] as String;
       final rootUri = Uri.parse(rootUriString);
-      final paths =
-          (rootConfig[ParameterNames.paths] as List?)?.cast<String>();
+      final paths = (rootConfig[ParameterNames.paths] as List?)?.cast<String>();
 
       if (paths != null && paths.isNotEmpty) {
         for (final path in paths) {

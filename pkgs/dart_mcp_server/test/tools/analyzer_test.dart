@@ -124,9 +124,9 @@ void main() {
           ParameterNames.roots: [
             {
               ParameterNames.root: exampleRoot.uri,
-              ParameterNames.paths: ['main.dart']
-            }
-          ]
+              ParameterNames.paths: ['main.dart'],
+            },
+          ],
         },
       );
       final result = await testHarness.callToolWithRetry(request);
@@ -162,9 +162,9 @@ void main() {
           ParameterNames.roots: [
             {
               ParameterNames.root: exampleRoot.uri,
-              ParameterNames.paths: ['sub']
-            }
-          ]
+              ParameterNames.paths: ['sub'],
+            },
+          ],
         },
       );
       final result = await testHarness.callToolWithRetry(request);
@@ -197,8 +197,8 @@ void main() {
             {
               ParameterNames.root: exampleRoot.uri,
               ParameterNames.paths: ['not_a_real_file.dart'],
-            }
-          ]
+            },
+          ],
         },
       );
       final result = await testHarness.callToolWithRetry(request);
@@ -225,9 +225,9 @@ void main() {
           ParameterNames.roots: [
             {
               ParameterNames.root: exampleRoot.uri,
-              ParameterNames.paths: [], // Empty paths
-            }
-          ]
+              ParameterNames.paths: <String>[], // Empty paths
+            },
+          ],
         },
       );
       final result = await testHarness.callToolWithRetry(request);
@@ -259,9 +259,7 @@ void main() {
 
       final request = CallToolRequest(
         name: analyzeTool.name,
-        arguments: {
-          ParameterNames.roots: [],
-        },
+        arguments: {ParameterNames.roots: []},
       );
       final result = await testHarness.callToolWithRetry(request);
       expect(result.isError, isNot(true));
@@ -299,29 +297,31 @@ void main() {
             {
               ParameterNames.root: projectBRoot.uri,
               ParameterNames.paths: ['other.dart'],
-            }
-          ]
+            },
+          ],
         },
       );
       final result = await testHarness.callToolWithRetry(request);
       expect(result.isError, isNot(true));
       expect(result.content, hasLength(2));
       expect(
-          result.content,
-          containsAll([
-            isA<TextContent>().having(
-              (t) => t.text,
-              'text',
-              contains(
-                  "The argument type 'String' can't be assigned to the "
-                  "parameter type 'num'."),
+        result.content,
+        containsAll([
+          isA<TextContent>().having(
+            (t) => t.text,
+            'text',
+            contains(
+              "The argument type 'String' can't be assigned to the "
+              "parameter type 'num'.",
             ),
-            isA<TextContent>().having(
-              (t) => t.text,
-              'text',
-              contains("Undefined name 'foo'"),
-            ),
-          ]));
+          ),
+          isA<TextContent>().having(
+            (t) => t.text,
+            'text',
+            contains("Undefined name 'foo'"),
+          ),
+        ]),
+      );
     });
 
     test('can look up symbols in a workspace', () async {
