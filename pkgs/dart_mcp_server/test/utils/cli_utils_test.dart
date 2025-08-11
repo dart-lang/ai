@@ -279,6 +279,169 @@ void main() {
       );
     });
   });
+
+  group('validateRootConfig', () {
+    test('succeeds with a valid root and no paths', () {
+      final result = validateRootConfig(
+        {ParameterNames.root: 'file:///project/'},
+        knownRoots: [Root(uri: 'file:///project/')],
+        fileSystem: fileSystem,
+      );
+
+      expect(result.errorResult, isNull);
+      expect(result.root, isNotNull);
+      expect(result.root!.uri, 'file:///project/');
+      expect(result.paths, isNull);
+    });
+
+    test('succeeds with a root that is a subdirectory of a known root', () {
+      final result = validateRootConfig(
+        {ParameterNames.root: 'file:///project/sub'},
+        knownRoots: [Root(uri: 'file:///project/')],
+        fileSystem: fileSystem,
+      );
+
+      expect(result.errorResult, isNull);
+      expect(result.root, isNotNull);
+      expect(result.root!.uri, 'file:///project/sub');
+      expect(result.paths, isNull);
+    });
+
+    test('succeeds with valid paths', () {
+      final paths = ['./lib', 'lib/src/stuff.dart'];
+      final result = validateRootConfig(
+        {ParameterNames.root: 'file:///project/', ParameterNames.paths: paths},
+        knownRoots: [Root(uri: 'file:///project/')],
+        fileSystem: fileSystem,
+      );
+
+      expect(result.errorResult, isNull);
+      expect(result.root, isNotNull);
+      expect(result.root!.uri, 'file:///project/');
+      expect(result.paths, paths);
+    });
+
+    test('uses default paths when none are provided', () {
+      final defaultPaths = ['./lib'];
+      final result = validateRootConfig(
+        {ParameterNames.root: 'file:///project/'},
+        defaultPaths: defaultPaths,
+        knownRoots: [Root(uri: 'file:///project/')],
+        fileSystem: fileSystem,
+      );
+
+      expect(result.errorResult, isNull);
+      expect(result.root, isNotNull);
+      expect(result.root!.uri, 'file:///project/');
+      expect(result.paths, defaultPaths);
+    });
+
+    test('uses provided paths over default paths', () {
+      final paths = ['./lib'];
+      final defaultPaths = ['./test'];
+      final result = validateRootConfig(
+        {ParameterNames.root: 'file:///project/', ParameterNames.paths: paths},
+        defaultPaths: defaultPaths,
+        knownRoots: [Root(uri: 'file:///project/')],
+        fileSystem: fileSystem,
+      );
+
+      expect(result.errorResult, isNull);
+      expect(result.root, isNotNull);
+      expect(result.root!.uri, 'file:///project/');
+      expect(result.paths, paths);
+    });
+
+    test('fails if root config is null', () {
+      final result = validateRootConfig(
+        null,
+        knownRoots: [Root(uri: 'file:///project/')],
+        fileSystem: fileSystem,
+      );
+
+      expect(result.errorResult, isNotNull);
+      expect(result.root, isNull);
+      expect(result.paths, isNull);
+      expect(result.errorResult!.isError, isTrue);
+      expect(
+        (result.errorResult!.content.single as TextContent).text,
+        contains('missing `root` key'),
+      );
+    });
+
+    test('fails if root config is missing root key', () {
+      final result = validateRootConfig(
+        {},
+        knownRoots: [Root(uri: 'file:///project/')],
+        fileSystem: fileSystem,
+      );
+
+      expect(result.errorResult, isNotNull);
+      expect(result.root, isNull);
+      expect(result.paths, isNull);
+      expect(result.errorResult!.isError, isTrue);
+      expect(
+        (result.errorResult!.content.single as TextContent).text,
+        contains('missing `root` key'),
+      );
+    });
+
+    test('fails if root is outside of known roots', () {
+      final result = validateRootConfig(
+        {ParameterNames.root: 'file:///other/'},
+        knownRoots: [Root(uri: 'file:///project/')],
+        fileSystem: fileSystem,
+      );
+
+      expect(result.errorResult, isNotNull);
+      expect(result.root, isNull);
+      expect(result.paths, isNull);
+      expect(result.errorResult!.isError, isTrue);
+      expect(
+        (result.errorResult!.content.single as TextContent).text,
+        contains('Invalid root file:///other/'),
+      );
+    });
+
+    test('fails if root has a non-file scheme', () {
+      final result = validateRootConfig(
+        {ParameterNames.root: 'http:///project/'},
+        knownRoots: [Root(uri: 'file:///project/')],
+        fileSystem: fileSystem,
+      );
+
+      expect(result.errorResult, isNotNull);
+      expect(result.root, isNull);
+      expect(result.paths, isNull);
+      expect(result.errorResult!.isError, isTrue);
+      expect(
+        (result.errorResult!.content.single as TextContent).text,
+        contains('Only file scheme uris are allowed'),
+      );
+    });
+
+    test('fails with paths that escape the root', () {
+      final paths = ['../outside.dart', '/other/place.dart'];
+      final result = validateRootConfig(
+        {ParameterNames.root: 'file:///project/', ParameterNames.paths: paths},
+        knownRoots: [Root(uri: 'file:///project/')],
+        fileSystem: fileSystem,
+      );
+
+      expect(result.errorResult, isNotNull);
+      expect(result.root, isNull);
+      expect(result.paths, isNull);
+      expect(result.errorResult!.isError, isTrue);
+      expect(
+        (result.errorResult!.content.single as TextContent).text,
+        allOf(
+          contains('Paths are not allowed to escape their project root'),
+          contains('../outside.dart'),
+          contains('/other/place.dart'),
+        ),
+      );
+    });
+  });
 }
 
 class FakeProcessManager extends Fake implements ProcessManager {}

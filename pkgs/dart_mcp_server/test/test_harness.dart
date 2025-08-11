@@ -173,7 +173,7 @@ class TestHarness {
     final result = await mcpServerConnection.callTool(request);
     expect(
       result.isError,
-      expectError ? true : isNot(true),
+      expectError ? true : isNot(isTrue),
       reason: result.content.join('\n'),
     );
     return result;
@@ -185,11 +185,12 @@ class TestHarness {
   Future<CallToolResult> callToolWithRetry(
     CallToolRequest request, {
     int maxTries = 5,
+    bool expectError = false,
   }) async {
     var tryCount = 0;
     while (true) {
       try {
-        return await callTool(request);
+        return await callTool(request, expectError: expectError);
       } catch (_) {
         if (tryCount++ >= maxTries) rethrow;
       }

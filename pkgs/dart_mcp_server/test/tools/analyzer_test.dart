@@ -261,11 +261,19 @@ void main() {
         name: analyzeTool.name,
         arguments: {ParameterNames.roots: []},
       );
-      final result = await testHarness.callToolWithRetry(request);
-      expect(result.isError, isNot(true));
+      final result = await testHarness.callToolWithRetry(
+        request,
+        expectError: true,
+      );
+      expect(result.isError, isTrue);
       expect(
         result.content.single,
-        isA<TextContent>().having((t) => t.text, 'text', 'No errors'),
+        isA<TextContent>().having(
+          (t) => t.text,
+          'text',
+          'No roots set. At least one root must be set in order to use this '
+              'tool.',
+        ),
       );
     });
 
