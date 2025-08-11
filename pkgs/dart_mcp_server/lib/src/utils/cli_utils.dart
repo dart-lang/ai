@@ -238,12 +238,14 @@ Future<CallToolResult> runCommandInRoot(
       content: [
         TextContent(
           text:
-              '$commandDescription failed in ${projectRoot.path}:\n'
+              '$commandDescription returned a non-zero exit code in '
+              '${projectRoot.path}:\n'
               '$output${errors.isEmpty ? '' : '\nErrors:\n$errors'}',
         ),
+        // Returning a non-zero exit code is not considered an "error" in the
+        // "isError" sense.
       ],
-      isError: true,
-    )..failureReason ??= CallToolFailureReason.nonZeroExitCode;
+    );
   }
   return CallToolResult(
     content: [
