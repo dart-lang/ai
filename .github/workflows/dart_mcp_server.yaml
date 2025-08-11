@@ -5,17 +5,17 @@ on:
   # Run CI on all PRs (against any branch) and on pushes to the main branch.
   pull_request:
     paths:
-      - '.github/workflows/dart_mcp_server.yaml'
-      - 'pkgs/dart_mcp_server/**'
-      - 'pkgs/dart_mcp/**'
+      - ".github/workflows/dart_mcp_server.yaml"
+      - "pkgs/dart_mcp_server/**"
+      - "pkgs/dart_mcp/**"
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
-      - '.github/workflows/dart_mcp_server.yaml'
-      - 'pkgs/dart_mcp_server/**'
-      - 'pkgs/dart_mcp/**'
+      - ".github/workflows/dart_mcp_server.yaml"
+      - "pkgs/dart_mcp_server/**"
+      - "pkgs/dart_mcp/**"
   schedule:
-    - cron: '0 0 * * 0' # weekly
+    - cron: "0 0 * * 0" # weekly
 
 defaults:
   run:
@@ -64,6 +64,6 @@ jobs:
 
       # If this fails, you need to run 'dart tool/update_readme.dart'.
       - run: dart tool/update_readme.dart
-      - run: git diff --exit-code README.md
+      - run: git diff --exit-code README.md || (echo 'README.md needs to be updated. Run "dart tool/update_readme.dart"' && false)
 
       - run: dart test
