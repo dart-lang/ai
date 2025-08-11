@@ -151,7 +151,7 @@ For more information, see the official VS Code documentation for
 | `run_tests` | Run tests | Run Dart or Flutter tests with an agent centric UX. ALWAYS use instead of `dart test` or `flutter test` shell commands. |
 | `create_project` | Create project | Creates a new Dart or Flutter project. |
 | `pub` | pub | Runs a pub command for the given project roots, like `dart pub get` or `flutter pub add`. |
-| `analyze_files` | Analyze projects | Analyzes the entire project for errors. |
+| `analyze_files` | Analyze projects | Analyzes specific paths, or the entire project, for errors. |
 | `resolve_workspace_symbol` | Project search | Look up a symbol or symbols in all workspaces by name. Can be used to validate that a symbol exists or discover small spelling mistakes, since the search is fuzzy. |
 | `signature_help` | Signature help | Get signature help for an API being used at a given cursor position in a file. |
 | `hover` | Hover information | Get hover information at a given cursor position in a file. This can include documentation, type information, etc for the text at that position. |
