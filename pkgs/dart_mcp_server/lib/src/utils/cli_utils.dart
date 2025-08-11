@@ -252,6 +252,106 @@ Future<CallToolResult> runCommandInRoot(
   );
 }
 
+/// Validates a root argument given via [rootConfig], ensuring that it falls
+/// under one of the [knownRoots], and that all `paths` arguments are also under
+/// the given root.
+///
+/// Returns a root on success, equal to the given root (but this could be a
+/// subdirectory of one of the [knownRoots]), as well as any paths that were
+/// validated.
+///
+/// If no [ParameterNames.paths] are provided, then the [defaultPaths] will be
+/// used, if present. Otherwise no paths are validated or will be returned.
+///
+/// On failure, returns a [CallToolResult].
+({Root? root, List<String>? paths, CallToolResult? errorResult})
+validateRootConfig(
+  Map<String, Object?>? rootConfig, {
+  List<String>? defaultPaths,
+  required FileSystem fileSystem,
+  required List<Root> knownRoots,
+}) {
+  final rootUriString = rootConfig?[ParameterNames.root] as String?;
+  if (rootUriString == null) {
+    // This shouldn't happen based on the schema, but handle defensively.
+    return (
+      root: null,
+      paths: null,
+      errorResult: CallToolResult(
+        content: [
+          TextContent(text: 'Invalid root configuration: missing `root` key.'),
+        ],
+        isError: true,
+      )..failureReason ??= CallToolFailureReason.noRootGiven,
+    );
+  }
+
+  final knownRoot = knownRoots.firstWhereOrNull(
+    (root) => isUnderRoot(root, rootUriString, fileSystem),
+  );
+  if (knownRoot == null) {
+    return (
+      root: null,
+      paths: null,
+      errorResult: CallToolResult(
+        content: [
+          TextContent(
+            text:
+                'Invalid root $rootUriString, must be under one of the '
+                'registered project roots:\n\n${knownRoots.join('\n')}',
+          ),
+        ],
+        isError: true,
+      )..failureReason ??= CallToolFailureReason.invalidRootPath,
+    );
+  }
+  final root = Root(uri: rootUriString);
+
+  final rootUri = Uri.parse(rootUriString);
+  if (rootUri.scheme != 'file') {
+    return (
+      root: null,
+      paths: null,
+      errorResult: CallToolResult(
+        content: [
+          TextContent(
+            text:
+                'Only file scheme uris are allowed for roots, but got '
+                '$rootUri',
+          ),
+        ],
+        isError: true,
+      )..failureReason ??= CallToolFailureReason.invalidRootScheme,
+    );
+  }
+
+  final paths =
+      (rootConfig?[ParameterNames.paths] as List?)?.cast<String>() ??
+      defaultPaths;
+  if (paths != null) {
+    final invalidPaths = paths.where(
+      (path) => !isUnderRoot(root, path, fileSystem),
+    );
+    if (invalidPaths.isNotEmpty) {
+      return (
+        root: null,
+        paths: null,
+        errorResult: CallToolResult(
+          content: [
+            TextContent(
+              text:
+                  'Paths are not allowed to escape their project root:\n'
+                  '${invalidPaths.join('\n')}',
+            ),
+          ],
+          isError: true,
+        )..failureReason ??= CallToolFailureReason.invalidPath,
+      );
+    }
+  }
+  return (root: root, paths: paths, errorResult: null);
+}
+
 /// Returns 'dart' or 'flutter' based on the pubspec contents.
 ///
 /// Throws an [ArgumentError] if there is no pubspec.

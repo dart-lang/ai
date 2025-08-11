@@ -256,8 +256,8 @@ base mixin DartAnalyzerSupport
     final allRoots = await roots;
 
     if (rootConfigs != null && rootConfigs.isEmpty) {
-      // Empty list of roots means do nothing.
-      return CallToolResult(content: [TextContent(text: 'No errors')]);
+      // Have to have at least one root set.
+      return noRootsSetResponse;
     }
 
     // Default to use the known roots if none were specified.
@@ -267,12 +267,20 @@ base mixin DartAnalyzerSupport
 
     final requestedUris = <Uri>{};
     for (final rootConfig in rootConfigs) {
-      final rootUriString = rootConfig[ParameterNames.root] as String;
-      final rootUri = Uri.parse(rootUriString);
-      final paths = (rootConfig[ParameterNames.paths] as List?)?.cast<String>();
+      final validated = validateRootConfig(
+        rootConfig,
+        knownRoots: allRoots,
+        fileSystem: fileSystem,
+      );
 
-      if (paths != null && paths.isNotEmpty) {
-        for (final path in paths) {
+      if (validated.errorResult != null) {
+        return errorResult!;
+      }
+
+      final rootUri = Uri.parse(validated.root!.uri);
+
+      if (validated.paths != null && validated.paths!.isNotEmpty) {
+        for (final path in validated.paths!) {
           requestedUris.add(rootUri.resolve(path));
         }
       } else {
