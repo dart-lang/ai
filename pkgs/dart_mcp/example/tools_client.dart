@@ -73,6 +73,8 @@ void main() async {
           'parts': ['a', 'b', 'c', 'd'],
           'delay': delayMs,
         },
+        // Note that in the real world you need unique tokens, either a UUID
+        // or auto-incrementing int would suffice.
         meta: MetaWithProgressToken(progressToken: ProgressToken(1)),
       );
       // Make sure to listen before awaiting the response - you could listen
