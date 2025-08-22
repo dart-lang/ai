@@ -1,3 +1,7 @@
+## 0.3.4-wip
+
+- Update the tool calling example to include progress notifications.
+
 ## 0.3.3
 
 - Fix `PingRequest` handling when it is sent from a non-Dart client.
