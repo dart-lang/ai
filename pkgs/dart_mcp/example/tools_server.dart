@@ -39,19 +39,50 @@ base class MCPServerWithTools extends MCPServer with ToolsSupport {
           description: 'The parts to concatenate together',
           items: Schema.string(),
         ),
+        'delay': Schema.int(
+          description:
+              'Duration in milliseconds to delay the response, if passed '
+              'progress events will be sent every 100ms',
+        ),
       },
       required: ['parts'],
     ),
   );
 
   /// The implementation of the `concat` tool.
-  FutureOr<CallToolResult> _concat(CallToolRequest request) => CallToolResult(
-    content: [
-      TextContent(
-        text: (request.arguments!['parts'] as List<dynamic>)
-            .cast<String>()
-            .join(''),
-      ),
-    ],
-  );
+  FutureOr<CallToolResult> _concat(CallToolRequest request) async {
+    if (request.arguments!['delay'] case final int delay?) {
+      Timer? timer;
+      if (request.meta?.progressToken case final progressToken?) {
+        final watch = Stopwatch()..start();
+        timer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+          io.stderr.write('Tick ${timer.tick}');
+          notifyProgress(
+            ProgressNotification(
+              progressToken: progressToken,
+              progress: watch.elapsedMilliseconds,
+              total: delay,
+              message:
+                  'Calculating.... ${delay - watch.elapsedMilliseconds}ms left',
+            ),
+          );
+        });
+      } else {
+        io.stderr.writeln('No progress token');
+      }
+      await Future<void>.delayed(Duration(milliseconds: delay));
+      timer?.cancel();
+    } else {
+      io.stderr.writeln('No delay given');
+    }
+    return CallToolResult(
+      content: [
+        TextContent(
+          text: (request.arguments!['parts'] as List<dynamic>)
+              .cast<String>()
+              .join(''),
+        ),
+      ],
+    );
+  }
 }
