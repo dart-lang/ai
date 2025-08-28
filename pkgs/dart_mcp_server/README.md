@@ -150,6 +150,7 @@ For more information, see the official VS Code documentation for
 | `dart_format` | Dart format | Runs `dart format .` for the given project roots. |
 | `run_tests` | Run tests | Run Dart or Flutter tests with an agent centric UX. ALWAYS use instead of `dart test` or `flutter test` shell commands. |
 | `create_project` | Create project | Creates a new Dart or Flutter project. |
+| `build_runner` | Run build_runner | Runs `dart run build_runner build` for the given project roots. For this to succeed, the build_runner package must be a dev dependency of the package it is run on. |
 | `pub` | pub | Runs a pub command for the given project roots, like `dart pub get` or `flutter pub add`. |
 | `analyze_files` | Analyze projects | Analyzes specific paths, or the entire project, for errors. |
 | `resolve_workspace_symbol` | Project search | Look up a symbol or symbols in all workspaces by name. Can be used to validate that a symbol exists or discover small spelling mistakes, since the search is fuzzy. |
