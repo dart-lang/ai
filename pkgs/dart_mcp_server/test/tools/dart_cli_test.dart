@@ -50,6 +50,7 @@ dependencies:
     late Tool dartFixTool;
     late Tool dartFormatTool;
     late Tool createProjectTool;
+    late Tool buildRunnerTool;
 
     setUp(() async {
       final tools = (await testHarness.mcpServerConnection.listTools()).tools;
@@ -61,6 +62,9 @@ dependencies:
       );
       createProjectTool = tools.singleWhere(
         (t) => t.name == DashCliSupport.createProjectTool.name,
+      );
+      buildRunnerTool = tools.singleWhere(
+        (t) => t.name == DashCliSupport.buildRunnerTool.name,
       );
     });
 
@@ -437,6 +441,67 @@ dependencies:
           contains('missing `root` key'),
         );
         expect(testProcessManager.commandsRan, isEmpty);
+      });
+    });
+    group('build_runner', () {
+      test('can run buid_runner build without arguments', () async {
+        testHarness.mcpClient.addRoot(dartCliAppRoot);
+        await pumpEventQueue();
+
+        final request = CallToolRequest(
+          name: buildRunnerTool.name,
+          arguments: {
+            ParameterNames.roots: [
+              {ParameterNames.root: dartCliAppRoot.uri},
+            ],
+          },
+        );
+
+        final result = await testHarness.callToolWithRetry(request);
+
+        expect(result.isError, isNot(true));
+        expect(testProcessManager.commandsRan, [
+          equalsCommand((
+            command: [
+              endsWith(dartExecutableName),
+              'run',
+              'build_runner',
+              'build',
+            ],
+            workingDirectory: dartCliAppRoot.path,
+          )),
+        ]);
+      });
+
+      test('can run build_runner with delete-conflicting-outputs', () async {
+        testHarness.mcpClient.addRoot(dartCliAppRoot);
+        await pumpEventQueue();
+
+        final request = CallToolRequest(
+          name: buildRunnerTool.name,
+          arguments: {
+            ParameterNames.roots: [
+              {ParameterNames.root: dartCliAppRoot.uri},
+            ],
+            ParameterNames.deleteConflictingOutputs: true,
+          },
+        );
+
+        final result = await testHarness.callToolWithRetry(request);
+
+        expect(result.isError, isNot(true));
+        expect(testProcessManager.commandsRan, [
+          equalsCommand((
+            command: [
+              endsWith(dartExecutableName),
+              'run',
+              'build_runner',
+              'build',
+              '--delete-conflicting-outputs',
+            ],
+            workingDirectory: dartCliAppRoot.path,
+          )),
+        ]);
       });
     });
   });

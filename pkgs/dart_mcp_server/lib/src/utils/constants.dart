@@ -8,6 +8,7 @@ import 'package:dart_mcp/server.dart';
 extension ParameterNames on Never {
   static const column = 'column';
   static const command = 'command';
+  static const deleteConflictingOutputs = 'delete-conflicting-outputs';
   static const directory = 'directory';
   static const empty = 'empty';
   static const line = 'line';

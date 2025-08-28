@@ -31,8 +31,9 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
       if (supportsRoots && sdk.dartSdkPath != null) {
         registerTool(dartFixTool, _runDartFixTool);
         registerTool(dartFormatTool, _runDartFormatTool);
-        registerTool(runTestsTool, _runTests);
+        registerTool(runTestsTool, _runTestsTool);
         registerTool(createProjectTool, _runCreateProjectTool);
+        registerTool(buildRunnerTool, _runBuildRunnerTool);
       }
     }
   }
@@ -67,7 +68,7 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
   }
 
   /// Implementation of the [runTestsTool].
-  Future<CallToolResult> _runTests(CallToolRequest request) async {
+  Future<CallToolResult> _runTestsTool(CallToolRequest request) async {
     final testRunnerArguments =
         request.arguments?[ParameterNames.testRunnerArgs]
             as Map<String, Object?>?;
@@ -81,6 +82,27 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
         ...?testRunnerArguments?.asCliArgs(),
       ],
       commandDescription: 'dart|flutter test',
+      processManager: processManager,
+      knownRoots: await roots,
+      fileSystem: fileSystem,
+      sdk: sdk,
+    );
+  }
+
+  /// Implementation of the [buildRunnerTool].
+  Future<CallToolResult> _runBuildRunnerTool(CallToolRequest request) async {
+    final deleteConflictingOutputs =
+        request.arguments?[ParameterNames.deleteConflictingOutputs] as bool? ??
+        false;
+    return runCommandInRoots(
+      request,
+      arguments: [
+        'run',
+        'build_runner',
+        'build',
+        if (deleteConflictingOutputs) '--delete-conflicting-outputs',
+      ],
+      commandDescription: 'run build_runner build',
       processManager: processManager,
       knownRoots: await roots,
       fileSystem: fileSystem,
@@ -254,6 +276,28 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
         ),
       },
       required: [ParameterNames.directory, ParameterNames.projectType],
+    ),
+  );
+
+  static final buildRunnerTool = Tool(
+    name: 'build_runner',
+    description:
+        'Runs `dart run build_runner build` for the given project roots. For '
+        'this to succeed, the build_runner package must be a dev dependency of '
+        'the package it is run on.',
+    annotations: ToolAnnotations(
+      title: 'Run build_runner',
+      destructiveHint: true,
+    ),
+    inputSchema: Schema.object(
+      properties: {
+        ParameterNames.roots: rootsSchema(),
+        ParameterNames.deleteConflictingOutputs: Schema.bool(
+          description:
+              'Whether to run with the `--delete-conflicting-outputs` flag.',
+          title: 'Delete conflicting outputs',
+        ),
+      },
     ),
   );
 
