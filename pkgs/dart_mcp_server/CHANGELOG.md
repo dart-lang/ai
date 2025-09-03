@@ -14,6 +14,7 @@
 * Add an `--exclude-tool` command line flag to exclude tools by name.
 * Add the abillity to limit the output of `analyze_files` to a set of paths.
 * Stop reporting non-zero exit codes from command line tools as tool errors.
+* Add descriptions for pub tools, add support for `pub deps` and `pub outdated`.
 
 # 0.1.0 (Dart SDK 3.9.0)
 
