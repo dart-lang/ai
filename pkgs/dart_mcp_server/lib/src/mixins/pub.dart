@@ -87,7 +87,15 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
     inputSchema: Schema.object(
       properties: {
         ParameterNames.command: Schema.string(
-          title: 'The pub command to run.',
+          title: '''The pub subcommand to run.
+
+For the `add` subcommand:
+  - To add a package normally (typical): "pkg_name"
+  - Git reference: "pkg_name:{git:{url: https://github.com/pkg_name/pkg_name.git, ref: branch, path: subdir}}"
+    - branch and subdir are optional.
+  - Local path reference: "pkg_name:{path: ../pkg_name}"
+  - Dev Dependency: "dev:pkg_name"
+''',
           description:
               'Currently only ${SupportedPubCommand.listAll} are supported.',
         ),
