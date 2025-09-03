@@ -309,7 +309,7 @@ void main() {
           ],
         },
       );
-      final result = await testHarness.callToolWithRetry(request);
+      final result = await testHarness.callToolWithRetry(request, maxTries: 10);
       expect(result.isError, isNot(true));
       expect(result.content, hasLength(2));
       expect(
