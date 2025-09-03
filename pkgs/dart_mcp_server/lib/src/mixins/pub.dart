@@ -88,7 +88,9 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
       properties: {
         ParameterNames.command: Schema.string(
           title: 'The pub subcommand to run.',
-          enumValues: SupportedPubCommand.values.map<String>((e) => e.name),
+          enumValues: SupportedPubCommand.values
+              .map<String>((e) => e.name)
+              .toList(),
           description:
               'Only ${SupportedPubCommand.listAll} are supported.\n'
               '${SupportedPubCommand.commandDescriptions}',

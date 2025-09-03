@@ -160,6 +160,50 @@ void main() {
           ]);
         });
 
+        test('deps', () async {
+          final request = CallToolRequest(
+            name: dartPubTool.name,
+            arguments: {
+              ParameterNames.command: 'deps',
+              ParameterNames.roots: [
+                {ParameterNames.root: testRoot.uri},
+              ],
+            },
+          );
+          final result = await testHarness.callToolWithRetry(request);
+
+          // Verify the command was sent to the process manager without error.
+          expect(result.isError, isNot(true));
+          expect(testProcessManager.commandsRan, [
+            equalsCommand((
+              command: [endsWith(executableName), 'pub', 'deps'],
+              workingDirectory: testRoot.path,
+            )),
+          ]);
+        });
+
+        test('outdated', () async {
+          final request = CallToolRequest(
+            name: dartPubTool.name,
+            arguments: {
+              ParameterNames.command: 'outdated',
+              ParameterNames.roots: [
+                {ParameterNames.root: testRoot.uri},
+              ],
+            },
+          );
+          final result = await testHarness.callToolWithRetry(request);
+
+          // Verify the command was sent to the process manager without error.
+          expect(result.isError, isNot(true));
+          expect(testProcessManager.commandsRan, [
+            equalsCommand((
+              command: [endsWith(executableName), 'pub', 'outdated'],
+              workingDirectory: testRoot.path,
+            )),
+          ]);
+        });
+
         test('in a subdir of an a root', () async {
           fileSystem.file(p.join(fakeAppPath, 'subdir', 'pubspec.yaml'))
             ..createSync(recursive: true)
@@ -214,7 +258,7 @@ void main() {
 
             expect(
               (result.content.single as TextContent).text,
-              contains('Unsupported pub command `publish`.'),
+              contains('String "publish" is not one of the allowed values:'),
             );
             expect(testProcessManager.commandsRan, isEmpty);
           });
