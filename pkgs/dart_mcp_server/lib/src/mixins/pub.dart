@@ -91,9 +91,7 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
           enumValues: SupportedPubCommand.values
               .map<String>((e) => e.name)
               .toList(),
-          description:
-              'Only ${SupportedPubCommand.listAll} are supported.\n'
-              '${SupportedPubCommand.commandDescriptions}',
+          description: SupportedPubCommand.commandDescriptions,
         ),
         ParameterNames.packageNames: Schema.list(
           title: 'The package names to run the command for.',
@@ -174,7 +172,7 @@ enum SupportedPubCommand {
   }
 
   static String get commandDescriptions {
-    return _getDescriptions(values);
+    return 'Available subcommands:\n${_getDescriptions(values)}';
   }
 
   static String _getDescriptions(Iterable<SupportedPubCommand> commands) {
