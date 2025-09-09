@@ -1031,9 +1031,7 @@ base mixin DartToolingDaemonSupport
   )..failureReason = CallToolFailureReason.dtdAlreadyConnected;
 
   static final _noActiveDebugSession = CallToolResult(
-    content: [
-      TextContent(text: 'No active debug session to take a screenshot'),
-    ],
+    content: [TextContent(text: 'No active debug session.')],
     isError: true,
   )..failureReason = CallToolFailureReason.noActiveDebugSession;
 
