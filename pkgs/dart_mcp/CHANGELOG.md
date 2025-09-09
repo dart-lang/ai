@@ -1,6 +1,8 @@
 ## 0.3.4-wip
 
 - Update the tool calling example to include progress notifications.
+- Remove a reference to "screenshot" for a generic error that occurs for more
+  than just screenshots.
 
 ## 0.3.3
 
