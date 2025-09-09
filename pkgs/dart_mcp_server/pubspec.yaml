@@ -3,6 +3,7 @@ description: >-
   An MCP server for Dart projects, exposing various developer tools to AI
   models.
 publish_to: none
+resolution: workspace
 environment:
   sdk: ^3.9.0-163.0.dev
 
@@ -46,7 +47,3 @@ dev_dependencies:
   test: ^1.25.15
   test_descriptor: ^2.0.2
   test_process: ^2.1.1
-
-dependency_overrides:
-  dart_mcp:
-    path: ../dart_mcp

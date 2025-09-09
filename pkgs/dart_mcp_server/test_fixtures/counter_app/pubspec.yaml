@@ -1,8 +1,9 @@
 name: counter_app
 description: "A new Flutter project."
-publish_to: 'none'
+publish_to: "none"
 version: 0.1.0-wip
 
+resolution: workspace
 environment:
   sdk: ^3.6.1
 

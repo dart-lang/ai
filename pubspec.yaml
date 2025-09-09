@@ -1,0 +1,12 @@
+name: _
+publish_to: none
+
+environment:
+  sdk: ^3.6.1
+
+workspace:
+  - mcp_examples/
+  - pkgs/dart_mcp/
+  - pkgs/dart_mcp_server/
+  - pkgs/dart_mcp_server/test_fixtures/counter_app/
+  - pkgs/dart_mcp_server/test_fixtures/dart_cli_app/

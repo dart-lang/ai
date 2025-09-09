@@ -3,6 +3,7 @@ description: Examples for the Dart MCP package.
 publish_to: none
 version: 0.0.1
 
+resolution: workspace
 environment:
   sdk: ^3.7.0
 
@@ -14,7 +15,3 @@ dependencies:
   google_generative_ai: ^0.4.7
   path: ^1.9.1
   stream_channel: ^2.1.4
-
-dependency_overrides:
-  dart_mcp:
-    path: ../pkgs/dart_mcp
