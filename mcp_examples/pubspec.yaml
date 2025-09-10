@@ -11,7 +11,7 @@ dependencies:
   args: ^2.7.0
   async: ^2.13.0
   cli_util: ^0.4.2
-  dart_mcp: ^0.3.0
+  dart_mcp: ^0.3.4-wip
   google_generative_ai: ^0.4.7
   path: ^1.9.1
   stream_channel: ^2.1.4
