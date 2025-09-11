@@ -8,5 +8,8 @@ workspace:
   - mcp_examples/
   - pkgs/dart_mcp/
   - pkgs/dart_mcp_server/
-  - pkgs/dart_mcp_server/test_fixtures/counter_app/
   - pkgs/dart_mcp_server/test_fixtures/dart_cli_app/
+# The flutter counter_app is excluded from workspace
+# This avoids making flutter SDK a dependency during
+# development.
+# - pkgs/dart_mcp_server/test_fixtures/counter_app/

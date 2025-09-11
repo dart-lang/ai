@@ -3,7 +3,9 @@ description: "A new Flutter project."
 publish_to: "none"
 version: 0.1.0-wip
 
-resolution: workspace
+# As this is a flutter project we exclude it from the workspace.
+# This avoids making flutter SDK a dependency during development.
+# resolution: workspace
 environment:
   sdk: ^3.6.1
 
