@@ -29,8 +29,12 @@ void main() {
       final server = DartMCPServer(
         channel.local,
         sdk: Sdk(
-          flutterSdkPath: '/path/to/flutter/sdk',
-          dartSdkPath: '/path/to/flutter/sdk/bin/cache/dart-sdk',
+          flutterSdkPath: Platform.isWindows
+              ? r'C:\path\to\flutter\sdk'
+              : '/path/to/flutter/sdk',
+          dartSdkPath: Platform.isWindows
+              ? r'C:\path\to\flutter\sdk\bin\cache\dart-sdk'
+              : '/path/to/flutter/sdk/bin/cache/dart-sdk',
         ),
         processManager: processManager,
         fileSystem: fileSystem,
@@ -51,7 +55,9 @@ void main() {
       mockProcessManager.addCommand(
         Command(
           [
-            '/path/to/flutter/sdk/bin/cache/dart-sdk/bin/dart',
+            Platform.isWindows
+                ? r'C:\path\to\flutter\sdk\bin\cache\dart-sdk\bin\dart.exe'
+                : '/path/to/flutter/sdk/bin/cache/dart-sdk/bin/dart',
             'language-server',
             '--protocol',
             'lsp',
@@ -63,7 +69,9 @@ void main() {
       mockProcessManager.addCommand(
         Command(
           [
-            '/path/to/flutter/sdk/bin/flutter',
+            Platform.isWindows
+                ? r'C:\path\to\flutter\sdk\bin\flutter.exe'
+                : '/path/to/flutter/sdk/bin/flutter',
             'run',
             '--print-dtd',
             '--device-id',
@@ -117,7 +125,9 @@ void main() {
         mockProcessManager.addCommand(
           Command(
             [
-              '/path/to/flutter/sdk/bin/cache/dart-sdk/bin/dart',
+              Platform.isWindows
+                  ? r'C:\path\to\flutter\sdk\bin\cache\dart-sdk\bin\dart.exe'
+                  : '/path/to/flutter/sdk/bin/cache/dart-sdk/bin/dart',
               'language-server',
               '--protocol',
               'lsp',
@@ -129,7 +139,9 @@ void main() {
         mockProcessManager.addCommand(
           Command(
             [
-              '/path/to/flutter/sdk/bin/flutter',
+              Platform.isWindows
+                  ? r'C:\path\to\flutter\sdk\bin\flutter.exe'
+                  : '/path/to/flutter/sdk/bin/flutter',
               'run',
               '--print-dtd',
               '--device-id',
