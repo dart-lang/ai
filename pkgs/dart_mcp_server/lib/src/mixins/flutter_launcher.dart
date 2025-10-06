@@ -174,15 +174,14 @@ base mixin FlutterLauncherSupport
           if (!completer.isCompleted) {
             final logs = _runningApps[process.pid]?.logs ?? [];
             // Only output the last 500 lines of logs.
-            final startPos = math.max(0, logs.length - 500);
-            final logOutput = logs.sublist(startPos).join('\n');
-            final truncateMessage = startPos > 0
-                ? '[showing the last 500 lines of a log with '
-                      '${logs.length} lines.]...\n'
-                : '';
+            final startLine = math.max(0, logs.length - 500);
+            final logOutput = [
+              if (startLine > 0) '[skipping $startLine log lines]...',
+              ...logs.sublist(startLine),
+            ];
             completer.completeError(
               'Flutter application exited with code $exitCode before the DTD '
-              'URI was found, with log output:\n$truncateMessage$logOutput',
+              'URI was found, with log output:\n${logOutput.join('\n')}',
             );
           }
           _runningApps.remove(process.pid);
