@@ -170,13 +170,15 @@ base mixin FlutterLauncherSupport
             LoggingLevel.info,
             'Flutter application ${process!.pid} exited with code $exitCode.',
           );
-          _runningApps.remove(process.pid);
           if (!completer.isCompleted) {
+            final logOutput = _runningApps[process.pid]?.logs.join('\n');
             completer.completeError(
               'Flutter application exited with code $exitCode before the DTD '
-              'URI was found.',
+              'URI was found, with log output:\n$logOutput',
             );
           }
+          _runningApps.remove(process.pid);
+
           // Cancel subscriptions after all processing is done.
           await stdoutSubscription.cancel();
           await stderrSubscription.cancel();
