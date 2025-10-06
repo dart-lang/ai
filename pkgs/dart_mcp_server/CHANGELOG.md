@@ -15,6 +15,7 @@
 * Add the abillity to limit the output of `analyze_files` to a set of paths.
 * Stop reporting non-zero exit codes from command line tools as tool errors.
 * Add descriptions for pub tools, add support for `pub deps` and `pub outdated`.
+* Fix a bug in hot_reload ([#290](https://github.com/dart-lang/ai/issues/290)).
 
 # 0.1.0 (Dart SDK 3.9.0)
 
