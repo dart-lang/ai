@@ -358,8 +358,10 @@ base mixin DartToolingDaemonSupport
   Future<CallToolResult> hotReload(CallToolRequest request) async {
     return _callOnVmService(
       callback: (vmService) async {
+        var alreadyListening = false;
         if (request.arguments?['clearRuntimeErrors'] == true) {
           (await _AppListener.forVmService(vmService, this)).errorLog.clear();
+          alreadyListening = true;
         }
 
         final vm = await vmService.getVM();
@@ -379,7 +381,9 @@ base mixin DartToolingDaemonSupport
                 }
               });
 
-          await vmService.streamListen(EventStreams.kService);
+          if (!alreadyListening) {
+            await vmService.streamListen(EventStreams.kService);
+          }
 
           final hotReloadMethodName = await hotReloadMethodNameCompleter.future
               .timeout(
@@ -408,7 +412,9 @@ base mixin DartToolingDaemonSupport
           }
         } finally {
           await serviceStreamSubscription?.cancel();
-          await vmService.streamCancel(EventStreams.kService);
+          if (!alreadyListening) {
+            await vmService.streamCancel(EventStreams.kService);
+          }
         }
         final success = report.success == true;
         return CallToolResult(
