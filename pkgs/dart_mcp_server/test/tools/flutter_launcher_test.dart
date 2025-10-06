@@ -406,8 +406,9 @@ void main() {
       test.expect(result.isError, test.isNot(true));
       test.expect(result.structuredContent, {
         'logs': [
+          '[skipping 2 log lines]...',
           '[stdout] line 3',
-          '[stdout] The Dart Tooling Daemon is available at: $dtdUri',
+          '[stdout] The Dart Tooling Daemon is available at: ws://127.0.0.1:12345/abcdefg=',
         ],
       });
       await server.shutdown();
