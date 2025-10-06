@@ -19,6 +19,7 @@ import 'arg_parser.dart';
 import 'mixins/analyzer.dart';
 import 'mixins/dash_cli.dart';
 import 'mixins/dtd.dart';
+import 'mixins/flutter_launcher.dart';
 import 'mixins/prompts.dart';
 import 'mixins/pub.dart';
 import 'mixins/pub_dev_search.dart';
@@ -41,6 +42,7 @@ final class DartMCPServer extends MCPServer
         PubSupport,
         PubDevSupport,
         DartToolingDaemonSupport,
+        FlutterLauncherSupport,
         PromptsSupport,
         DashPrompts
     implements
@@ -149,7 +151,7 @@ final class DartMCPServer extends MCPServer
   static final argParser = createArgParser();
 
   @override
-  final LocalProcessManager processManager;
+  final ProcessManager processManager;
 
   @override
   final FileSystem fileSystem;

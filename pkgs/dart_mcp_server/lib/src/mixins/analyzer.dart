@@ -17,6 +17,7 @@ import '../utils/analytics.dart';
 import '../utils/cli_utils.dart';
 import '../utils/constants.dart';
 import '../utils/file_system.dart';
+import '../utils/process_manager.dart';
 import '../utils/sdk.dart';
 
 /// Mix this in to any MCPServer to add support for analyzing Dart projects.
@@ -25,7 +26,7 @@ import '../utils/sdk.dart';
 /// mixins applied.
 base mixin DartAnalyzerSupport
     on ToolsSupport, LoggingSupport, RootsTrackingSupport, FileSystemSupport
-    implements SdkSupport {
+    implements SdkSupport, ProcessManagerSupport {
   /// The LSP server connection for the analysis server.
   Peer? _lspConnection;
 
@@ -94,7 +95,8 @@ base mixin DartAnalyzerSupport
   ///
   /// On failure, returns a reason for the failure.
   Future<String?> _initializeAnalyzerLspServer() async {
-    final lspServer = await Process.start(sdk.dartExecutablePath, [
+    final lspServer = await processManager.start([
+      sdk.dartExecutablePath,
       'language-server',
       // Required even though it is documented as the default.
       // https://github.com/dart-lang/sdk/issues/60574
