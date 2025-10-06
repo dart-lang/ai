@@ -5,6 +5,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:collection/collection.dart';
 import 'package:dart_mcp/client.dart';
 import 'package:dart_mcp/stdio.dart';
 
@@ -12,6 +13,7 @@ void main(List<String> args) async {
   print('Getting registered tools...');
 
   final tools = await _retrieveRegisteredTools();
+  tools.sortBy((tool) => tool.name);
 
   final buf = StringBuffer('''
 | Tool Name | Title | Description |
