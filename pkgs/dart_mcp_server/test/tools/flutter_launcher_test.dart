@@ -106,7 +106,7 @@ void main() {
           arguments: {'root': projectRoot, 'device': 'test-device'},
         ),
       );
-
+      test.expect(result.content, <Content>[]);
       test.expect(result.isError, test.isNot(true));
       test.expect(result.structuredContent, {
         'dtdUri': dtdUri,
@@ -177,6 +177,7 @@ void main() {
           ),
         );
 
+        test.expect(result.content, <Content>[]);
         test.expect(result.isError, test.isNot(true));
         test.expect(result.structuredContent, {
           'dtdUri': dtdUri,
