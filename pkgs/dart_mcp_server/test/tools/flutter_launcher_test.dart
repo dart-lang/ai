@@ -70,7 +70,7 @@ void main() {
         Command(
           [
             Platform.isWindows
-                ? r'C:\path\to\flutter\sdk\bin\flutter.exe'
+                ? r'C:\path\to\flutter\sdk\bin\flutter.bat'
                 : '/path/to/flutter/sdk/bin/flutter',
             'run',
             '--print-dtd',
@@ -106,7 +106,12 @@ void main() {
           arguments: {'root': projectRoot, 'device': 'test-device'},
         ),
       );
-      test.expect(result.content, <Content>[]);
+      test.expect(result.content, <Content>[
+        Content.text(
+          text:
+              'Flutter application launched successfully with PID 54321 with the DTD URI ws://127.0.0.1:12345/abcdefg=',
+        ),
+      ]);
       test.expect(result.isError, test.isNot(true));
       test.expect(result.structuredContent, {
         'dtdUri': dtdUri,
@@ -140,7 +145,7 @@ void main() {
           Command(
             [
               Platform.isWindows
-                  ? r'C:\path\to\flutter\sdk\bin\flutter.exe'
+                  ? r'C:\path\to\flutter\sdk\bin\flutter.bat'
                   : '/path/to/flutter/sdk/bin/flutter',
               'run',
               '--print-dtd',
@@ -177,7 +182,12 @@ void main() {
           ),
         );
 
-        test.expect(result.content, <Content>[]);
+        test.expect(result.content, <Content>[
+          Content.text(
+            text:
+                'Flutter application launched successfully with PID 54321 with the DTD URI ws://127.0.0.1:12345/abcdefg=',
+          ),
+        ]);
         test.expect(result.isError, test.isNot(true));
         test.expect(result.structuredContent, {
           'dtdUri': dtdUri,
@@ -225,7 +235,9 @@ class MockProcessManager implements ProcessManager {
         return cmd;
       }
     }
-    throw Exception('Command not mocked: $command');
+    throw Exception(
+      'Command not mocked: $command. Mocked commands:\n${_commands.join('\n')}',
+    );
   }
 
   @override
