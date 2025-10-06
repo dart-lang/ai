@@ -8,6 +8,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:dart_mcp/server.dart';
 
@@ -171,10 +172,15 @@ base mixin FlutterLauncherSupport
             'Flutter application ${process!.pid} exited with code $exitCode.',
           );
           if (!completer.isCompleted) {
-            final logOutput = _runningApps[process.pid]?.logs.join('\n');
+            final logs = _runningApps[process.pid]?.logs ?? [];
+            // Only output the last 500 lines of logs.
+            final startPos = math.max(0, logs.length - 500);
+            final logOutput = logs.sublist(startPos).join('\n');
             completer.completeError(
               'Flutter application exited with code $exitCode before the DTD '
-              'URI was found, with log output:\n$logOutput',
+              'URI was found, with log output:\n'
+              '''${startPos > 0 ? '[showing only the last 500 lines of a log with ${logs.length} lines]...' : ''}'''
+              '$logOutput',
             );
           }
           _runningApps.remove(process.pid);
@@ -362,6 +368,11 @@ base mixin FlutterLauncherSupport
               'The process ID of the flutter run process running the '
               'application.',
         ),
+        'maxLines': Schema.int(
+          description:
+              'The maximum number of log lines to return from the end of the '
+              'logs. Defaults to 500. If set to -1, all logs will be returned.',
+        ),
       },
       required: ['pid'],
     ),
@@ -378,8 +389,9 @@ base mixin FlutterLauncherSupport
 
   Future<CallToolResult> _getAppLogs(CallToolRequest request) async {
     final pid = request.arguments!['pid'] as int;
+    var maxLines = request.arguments!['maxLines'] as int? ?? 500;
     log(LoggingLevel.info, 'Getting logs for application with PID: $pid');
-    final logs = _runningApps[pid]?.logs;
+    var logs = _runningApps[pid]?.logs;
 
     if (logs == null) {
       log(
@@ -394,6 +406,17 @@ base mixin FlutterLauncherSupport
           ),
         ],
       );
+    }
+
+    if (maxLines == -1) {
+      maxLines = logs.length;
+    }
+    if (maxLines > 0 && maxLines <= logs.length) {
+      final startLine = logs.length - maxLines;
+      logs = [
+        if (startLine > 0) '[skipping $startLine log lines]...',
+        ...logs.sublist(startLine),
+      ];
     }
 
     return CallToolResult(

@@ -337,6 +337,83 @@ void main() {
       await client.shutdown();
     });
 
+    test.test('get_app_logs tool respects maxLines', () async {
+      final dtdUri = 'ws://127.0.0.1:12345/abcdefg=';
+      final processPid = 54321;
+      final mockProcessManager = MockProcessManager();
+      mockProcessManager.addCommand(
+        Command(
+          [
+            Platform.isWindows
+                ? r'C:\path\to\flutter\sdk\bin\cache\dart-sdk\bin\dart.exe'
+                : '/path/to/flutter/sdk/bin/cache/dart-sdk/bin/dart',
+            'language-server',
+            '--protocol',
+            'lsp',
+          ],
+          stdout:
+              '''Content-Length: 145\r\n\r\n{"jsonrpc":"2.0","id":0,"result":{"capabilities":{"workspace":{"workspaceFolders":{"supported":true,"changeNotifications":true}},"workspaceSymbolProvider":true}}}''',
+        ),
+      );
+      mockProcessManager.addCommand(
+        Command(
+          [
+            Platform.isWindows
+                ? r'C:\path\to\flutter\sdk\bin\flutter.bat'
+                : '/path/to/flutter/sdk/bin/flutter',
+            'run',
+            '--print-dtd',
+            '--device-id',
+            'test-device',
+          ],
+          stdout:
+              'line 1\nline 2\nline 3\n'
+              'The Dart Tooling Daemon is available at: $dtdUri\n',
+          pid: processPid,
+        ),
+      );
+      final serverAndClient = await createServerAndClient(
+        processManager: mockProcessManager,
+        fileSystem: fileSystem,
+      );
+      final server = serverAndClient.server;
+      final client = serverAndClient.client;
+
+      // Initialize and launch the app
+      await client.initialize(
+        InitializeRequest(
+          protocolVersion: ProtocolVersion.latestSupported,
+          capabilities: ClientCapabilities(),
+          clientInfo: Implementation(name: 'test_client', version: '1.0.0'),
+        ),
+      );
+      client.notifyInitialized();
+      await client.callTool(
+        CallToolRequest(
+          name: 'launch_app',
+          arguments: {'root': projectRoot, 'device': 'test-device'},
+        ),
+      );
+
+      // Get the logs
+      final result = await client.callTool(
+        CallToolRequest(
+          name: 'get_app_logs',
+          arguments: {'pid': processPid, 'maxLines': 2},
+        ),
+      );
+
+      test.expect(result.isError, test.isNot(true));
+      test.expect(result.structuredContent, {
+        'logs': [
+          '[stdout] line 3',
+          '[stdout] The Dart Tooling Daemon is available at: $dtdUri',
+        ],
+      });
+      await server.shutdown();
+      await client.shutdown();
+    });
+
     test.test('list_devices tool returns available devices', () async {
       final mockProcessManager = MockProcessManager();
       mockProcessManager.addCommand(
