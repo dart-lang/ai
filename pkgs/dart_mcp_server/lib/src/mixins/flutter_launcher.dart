@@ -478,6 +478,49 @@ base mixin FlutterLauncherSupport
     ),
   );
 
+  Future<CallToolResult> _hotRestart(CallToolRequest request) async {
+    final pid = request.arguments!['pid'] as int;
+    log(LoggingLevel.info, 'Attempting hot restart for application PID: $pid');
+    final app = _runningApps[pid];
+
+    if (app == null) {
+      log(LoggingLevel.error, 'Application with PID $pid not found.');
+      return CallToolResult(
+        isError: true,
+        content: [TextContent(text: 'Application with PID $pid not found.')],
+      );
+    }
+
+    try {
+      app.process.stdin.writeln('R');
+      await app.process.stdin.flush();
+      log(LoggingLevel.info, 'Hot restart command sent to application $pid.');
+
+      return CallToolResult(
+        content: [
+          TextContent(
+            text: 'Hot restart initiated for application with PID $pid.',
+          ),
+        ],
+        structuredContent: {'success': true},
+      );
+    } catch (e, s) {
+      log(
+        LoggingLevel.error,
+        'Error performing hot restart for application $pid: $e\n$s',
+      );
+      return CallToolResult(
+        isError: true,
+        content: [
+          TextContent(
+            text: 'Failed to perform hot restart for application $pid: $e',
+          ),
+        ],
+        structuredContent: {'success': false},
+      );
+    }
+  }
+
   @override
   Future<void> shutdown() {
     log(LoggingLevel.info, 'Shutting down server, killing all processes.');
