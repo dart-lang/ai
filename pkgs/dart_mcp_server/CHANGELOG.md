@@ -18,6 +18,8 @@
 * Fix a bug in hot_reload ([#290](https://github.com/dart-lang/ai/issues/290)).
 * Add the `list_devices`, `launch_app`, `get_app_logs`, and `list_running_apps`
   tools for running Flutter apps.
+* Add extra log output to failed launches, and allow AI to specify the maxLines
+  of log output.
 
 # 0.1.0 (Dart SDK 3.9.0)
 
