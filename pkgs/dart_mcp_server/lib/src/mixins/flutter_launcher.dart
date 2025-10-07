@@ -40,6 +40,7 @@ base mixin FlutterLauncherSupport
     registerTool(listDevicesTool, _listDevices);
     registerTool(getAppLogsTool, _getAppLogs);
     registerTool(listRunningAppsTool, _listRunningApps);
+    registerTool(hotRestartTool, _hotRestart);
     return super.initialize(request);
   }
 
