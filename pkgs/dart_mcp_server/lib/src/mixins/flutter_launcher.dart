@@ -454,6 +454,30 @@ base mixin FlutterLauncherSupport
     );
   }
 
+  /// A tool to perform a hot restart on a running Flutter application.
+  final hotRestartTool = Tool(
+    name: 'hot_restart',
+    description:
+        'Performs a hot restart on a running Flutter application. This restarts the app while maintaining the current session.',
+    inputSchema: Schema.object(
+      properties: {
+        'pid': Schema.int(
+          description:
+              'The process ID of the flutter run process to hot restart.',
+        ),
+      },
+      required: ['pid'],
+    ),
+    outputSchema: Schema.object(
+      properties: {
+        'success': Schema.bool(
+          description: 'Whether the hot restart was successful.',
+        ),
+      },
+      required: ['success'],
+    ),
+  );
+
   @override
   Future<void> shutdown() {
     log(LoggingLevel.info, 'Shutting down server, killing all processes.');
