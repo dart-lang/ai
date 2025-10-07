@@ -197,6 +197,119 @@ void main() {
         await client.shutdown();
       },
     );
+
+    test.test('hot_restart tool sends restart command to running app', () async {
+      final dtdUri = 'ws://127.0.0.1:12345/abcdefg=';
+      final processPid = 54321;
+      final mockProcessManager = MockProcessManager();
+      mockProcessManager.addCommand(
+        Command(
+          [
+            Platform.isWindows
+                ? r'C:\path\to\flutter\sdk\bin\cache\dart-sdk\bin\dart.exe'
+                : '/path/to/flutter/sdk/bin/cache/dart-sdk/bin/dart',
+            'language-server',
+            '--protocol',
+            'lsp',
+          ],
+          stdout:
+              '''Content-Length: 145\r\n\r\n{"jsonrpc":"2.0","id":0,"result":{"capabilities":{"workspace":{"workspaceFolders":{"supported":true,"changeNotifications":true}},"workspaceSymbolProvider":true}}}''',
+        ),
+      );
+      mockProcessManager.addCommand(
+        Command(
+          [
+            Platform.isWindows
+                ? r'C:\path\to\flutter\sdk\bin\flutter.bat'
+                : '/path/to/flutter/sdk/bin/flutter',
+            'run',
+            '--print-dtd',
+            '--device-id',
+            'test-device',
+          ],
+          stdout: 'The Dart Tooling Daemon is available at: $dtdUri\n',
+          pid: processPid,
+        ),
+      );
+      final serverAndClient = await createServerAndClient(
+        processManager: mockProcessManager,
+        fileSystem: fileSystem,
+      );
+      final server = serverAndClient.server;
+      final client = serverAndClient.client;
+
+      // Initialize
+      await client.initialize(
+        InitializeRequest(
+          protocolVersion: ProtocolVersion.latestSupported,
+          capabilities: ClientCapabilities(),
+          clientInfo: Implementation(name: 'test_client', version: '1.0.0'),
+        ),
+      );
+      client.notifyInitialized();
+
+      // Launch the app first
+      final launchResult = await client.callTool(
+        CallToolRequest(
+          name: 'launch_app',
+          arguments: {'root': projectRoot, 'device': 'test-device'},
+        ),
+      );
+      test.expect(launchResult.isError, test.isNot(true));
+
+      // Perform hot restart
+      final restartResult = await client.callTool(
+        CallToolRequest(name: 'hot_restart', arguments: {'pid': processPid}),
+      );
+
+      test.expect(restartResult.isError, test.isNot(true));
+      test.expect(restartResult.structuredContent, {'success': true});
+      await server.shutdown();
+      await client.shutdown();
+    });
+
+    test.test('hot_restart tool returns error for non-existent app', () async {
+      final mockProcessManager = MockProcessManager();
+      mockProcessManager.addCommand(
+        Command(
+          [
+            Platform.isWindows
+                ? r'C:\path\to\flutter\sdk\bin\cache\dart-sdk\bin\dart.exe'
+                : '/path/to/flutter/sdk/bin/cache/dart-sdk/bin/dart',
+            'language-server',
+            '--protocol',
+            'lsp',
+          ],
+          stdout:
+              '''Content-Length: 145\r\n\r\n{"jsonrpc":"2.0","id":0,"result":{"capabilities":{"workspace":{"workspaceFolders":{"supported":true,"changeNotifications":true}},"workspaceSymbolProvider":true}}}''',
+        ),
+      );
+      final serverAndClient = await createServerAndClient(
+        processManager: mockProcessManager,
+        fileSystem: fileSystem,
+      );
+      final server = serverAndClient.server;
+      final client = serverAndClient.client;
+
+      // Initialize
+      await client.initialize(
+        InitializeRequest(
+          protocolVersion: ProtocolVersion.latestSupported,
+          capabilities: ClientCapabilities(),
+          clientInfo: Implementation(name: 'test_client', version: '1.0.0'),
+        ),
+      );
+      client.notifyInitialized();
+
+      // Try to hot restart a non-existent app
+      final restartResult = await client.callTool(
+        CallToolRequest(name: 'hot_restart', arguments: {'pid': 99999}),
+      );
+
+      test.expect(restartResult.isError, true);
+      await server.shutdown();
+      await client.shutdown();
+    });
   });
 }
 
