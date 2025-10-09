@@ -147,7 +147,8 @@ For more information, see the official VS Code documentation for
 | `get_runtime_errors` | Get runtime errors | Retrieves the most recent runtime errors that have occurred in the active Dart or Flutter application. Requires "connect_dart_tooling_daemon" to be successfully called first. |
 | `get_selected_widget` | Get selected widget | Retrieves the selected widget from the active Flutter application. Requires "connect_dart_tooling_daemon" to be successfully called first. |
 | `get_widget_tree` | Get widget tree | Retrieves the widget tree from the active Flutter application. Requires "connect_dart_tooling_daemon" to be successfully called first. |
-| `hot_reload` | Hot reload | Performs a hot reload of the active Flutter application. This is to apply the latest code changes to the running application. Requires "connect_dart_tooling_daemon" to be successfully called first. |
+| `hot_reload` | Hot reload | Performs a hot reload of the active Flutter application. This will apply the latest code changes to the running application, while maintaining application state.  Reload will not update const definitions of global values. Requires "connect_dart_tooling_daemon" to be successfully called first. |
+| `hot_restart` | Hot restart | Performs a hot restart of the active Flutter application. This applies the latest code changes to the running application, including changes to global const values, while resetting application state. Requires "connect_dart_tooling_daemon" to be successfully called first. Doesn't work for Non-Flutter Dart CLI programs. |
 | `hover` | Hover information | Get hover information at a given cursor position in a file. This can include documentation, type information, etc for the text at that position. |
 | `launch_app` |  | Launches a Flutter application and returns its DTD URI. |
 | `list_devices` |  | Lists available Flutter devices. |

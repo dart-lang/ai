@@ -157,6 +157,7 @@ base mixin DartToolingDaemonSupport
     // Flutter app that does not support the operation, e.g. hot reload is not
     // supported in profile mode).
     if (enableScreenshots) registerTool(screenshotTool, takeScreenshot);
+    registerTool(hotRestartTool, hotRestart);
     registerTool(hotReloadTool, hotReload);
     registerTool(getWidgetTreeTool, widgetTree);
     registerTool(getSelectedWidgetTool, selectedWidget);
@@ -347,6 +348,51 @@ base mixin DartToolingDaemonSupport
             ],
           );
         }
+      },
+    );
+  }
+
+  /// Performs a hot restart on the currently running app.
+  ///
+  /// If more than one debug session is active, then it just uses the first
+  /// one.
+  // TODO: support passing a debug session id when there is more than one
+  // debug session.
+  Future<CallToolResult> hotRestart(CallToolRequest request) async {
+    return _callOnVmService(
+      callback: (vmService) async {
+        final appListener = await _AppListener.forVmService(vmService, this);
+        appListener.errorLog.clear();
+
+        final vm = await vmService.getVM();
+        var success = false;
+        try {
+          final hotRestartMethodName =
+              (await appListener.waitForServiceRegistration('hotRestart')) ??
+              'hotRestart';
+
+          /// If we haven't seen a specific one, we just call the default one.
+          final result = await vmService.callMethod(
+            hotRestartMethodName,
+            isolateId: vm.isolates!.first.id,
+          );
+          final resultType = result.json?['type'];
+          success = resultType == 'Success';
+        } catch (e) {
+          // Handle potential errors during the process
+          return CallToolResult(
+            isError: true,
+            content: [TextContent(text: 'Hot restart failed: $e')],
+          );
+        }
+        return CallToolResult(
+          isError: !success ? true : null,
+          content: [
+            TextContent(
+              text: 'Hot restart ${success ? 'succeeded' : 'failed'}.',
+            ),
+          ],
+        );
       },
     );
   }
@@ -902,8 +948,10 @@ base mixin DartToolingDaemonSupport
     name: 'hot_reload',
     description:
         'Performs a hot reload of the active Flutter application. '
-        'This is to apply the latest code changes to the running application. '
-        'Requires "${connectTool.name}" to be successfully called first.',
+        'This will apply the latest code changes to the running application, '
+        'while maintaining application state.  Reload will not update const '
+        'definitions of global values. Requires "${connectTool.name}" to be '
+        'successfully called first.',
     annotations: ToolAnnotations(title: 'Hot reload', destructiveHint: true),
     inputSchema: Schema.object(
       properties: {
@@ -916,6 +964,20 @@ base mixin DartToolingDaemonSupport
       },
       required: [],
     ),
+  );
+
+  @visibleForTesting
+  static final hotRestartTool = Tool(
+    name: 'hot_restart',
+    description:
+        'Performs a hot restart of the active Flutter application. '
+        'This applies the latest code changes to the running application, '
+        'including changes to global const values, while resetting '
+        'application state. Requires "${connectTool.name}" to be '
+        "successfully called first. Doesn't work for Non-Flutter Dart CLI "
+        'programs.',
+    annotations: ToolAnnotations(title: 'Hot restart', destructiveHint: true),
+    inputSchema: Schema.object(properties: {}, required: []),
   );
 
   @visibleForTesting
