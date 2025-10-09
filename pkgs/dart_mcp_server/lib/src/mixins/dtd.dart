@@ -1086,11 +1086,11 @@ base mixin DartToolingDaemonSupport
     if (_serviceDetectionError != null) {
       errorText =
           'ConnectedApp service not available: $_serviceDetectionError. '
-          'A Dart SDK of version 3.9.0-163.0.dev or greater is required to '
+          'A Dart SDK of version 3.9.0-333.2.beta or greater is required to '
           'connect to Dart and Flutter applications.';
     } else {
       errorText =
-          'A Dart SDK of version 3.9.0-163.0.dev or greater is required to '
+          'A Dart SDK of version 3.9.0-333.2.beta or greater is required to '
           'connect to Dart and Flutter applications.';
     }
 
