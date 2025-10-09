@@ -19,6 +19,8 @@
 * Add the `list_devices`, `launch_app`, `get_app_logs`, and `list_running_apps`
   tools for running Flutter apps.
 * Add the `hot_restart` tool for restarting running Flutter apps.
+* Improve DTD error diagnostics to include service detection and VM services
+  errors ([#256](https://github.com/dart-lang/ai/issues/256)).
 
 # 0.1.0 (Dart SDK 3.9.0)
 
