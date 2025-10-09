@@ -179,6 +179,7 @@ base mixin DartToolingDaemonSupport
     // Flutter app that does not support the operation, e.g. hot reload is not
     // supported in profile mode).
     if (enableScreenshots) registerTool(screenshotTool, takeScreenshot);
+    registerTool(hotRestartTool, hotRestart);
     registerTool(hotReloadTool, hotReload);
     registerTool(getWidgetTreeTool, widgetTree);
     registerTool(getSelectedWidgetTool, selectedWidget);
@@ -199,7 +200,9 @@ base mixin DartToolingDaemonSupport
     return _callOnVmService(
       callback: (vmService) async {
         final appListener = await _AppListener.forVmService(vmService, this);
-        if (!appListener.registeredServices.contains(_flutterDriverService)) {
+        if (!appListener.registeredServices.containsKey(
+          _flutterDriverService,
+        )) {
           return _flutterDriverNotRegistered;
         }
         final vm = await vmService.getVM();
@@ -385,6 +388,51 @@ base mixin DartToolingDaemonSupport
     );
   }
 
+  /// Performs a hot restart on the currently running app.
+  ///
+  /// If more than one debug session is active, then it just uses the first
+  /// one.
+  // TODO: support passing a debug session id when there is more than one
+  // debug session.
+  Future<CallToolResult> hotRestart(CallToolRequest request) async {
+    return _callOnVmService(
+      callback: (vmService) async {
+        final appListener = await _AppListener.forVmService(vmService, this);
+        appListener.errorLog.clear();
+
+        final vm = await vmService.getVM();
+        var success = false;
+        try {
+          final hotRestartMethodName =
+              (await appListener.waitForServiceRegistration('hotRestart')) ??
+              'hotRestart';
+
+          /// If we haven't seen a specific one, we just call the default one.
+          final result = await vmService.callMethod(
+            hotRestartMethodName,
+            isolateId: vm.isolates!.first.id,
+          );
+          final resultType = result.json?['type'];
+          success = resultType == 'Success';
+        } catch (e) {
+          // Handle potential errors during the process
+          return CallToolResult(
+            isError: true,
+            content: [TextContent(text: 'Hot restart failed: $e')],
+          );
+        }
+        return CallToolResult(
+          isError: !success ? true : null,
+          content: [
+            TextContent(
+              text: 'Hot restart ${success ? 'succeeded' : 'failed'}.',
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   /// Performs a hot reload on the currently running app.
   ///
   /// If more than one debug session is active, then it just uses the first one.
@@ -394,36 +442,17 @@ base mixin DartToolingDaemonSupport
   Future<CallToolResult> hotReload(CallToolRequest request) async {
     return _callOnVmService(
       callback: (vmService) async {
+        final appListener = await _AppListener.forVmService(vmService, this);
         if (request.arguments?['clearRuntimeErrors'] == true) {
-          (await _AppListener.forVmService(vmService, this)).errorLog.clear();
+          appListener.errorLog.clear();
         }
 
         final vm = await vmService.getVM();
         ReloadReport? report;
-        StreamSubscription<Event>? serviceStreamSubscription;
+
         try {
-          final hotReloadMethodNameCompleter = Completer<String?>();
-          serviceStreamSubscription = vmService
-              .onEvent(EventStreams.kService)
-              .listen((Event e) {
-                if (e.kind == EventKind.kServiceRegistered) {
-                  final serviceName = e.service!;
-                  if (serviceName == 'reloadSources') {
-                    // This may look something like 's0.reloadSources'.
-                    hotReloadMethodNameCompleter.complete(e.method);
-                  }
-                }
-              });
-
-          await vmService.streamListen(EventStreams.kService);
-
-          final hotReloadMethodName = await hotReloadMethodNameCompleter.future
-              .timeout(
-                const Duration(milliseconds: 1000),
-                onTimeout: () async {
-                  return null;
-                },
-              );
+          final hotReloadMethodName = await appListener
+              .waitForServiceRegistration('reloadSources');
 
           /// If we haven't seen a specific one, we just call the default one.
           if (hotReloadMethodName == null) {
@@ -442,9 +471,12 @@ base mixin DartToolingDaemonSupport
               report = ReloadReport(success: false);
             }
           }
-        } finally {
-          await serviceStreamSubscription?.cancel();
-          await vmService.streamCancel(EventStreams.kService);
+        } catch (e) {
+          // Handle potential errors during the process
+          return CallToolResult(
+            isError: true,
+            content: [TextContent(text: 'Hot reload failed: $e')],
+          );
         }
         final success = report.success == true;
         return CallToolResult(
@@ -952,8 +984,10 @@ base mixin DartToolingDaemonSupport
     name: 'hot_reload',
     description:
         'Performs a hot reload of the active Flutter application. '
-        'This is to apply the latest code changes to the running application. '
-        'Requires "${connectTool.name}" to be successfully called first.',
+        'This will apply the latest code changes to the running application, '
+        'while maintaining application state.  Reload will not update const '
+        'definitions of global values. Requires "${connectTool.name}" to be '
+        'successfully called first.',
     annotations: ToolAnnotations(title: 'Hot reload', destructiveHint: true),
     inputSchema: Schema.object(
       properties: {
@@ -966,6 +1000,20 @@ base mixin DartToolingDaemonSupport
       },
       required: [],
     ),
+  );
+
+  @visibleForTesting
+  static final hotRestartTool = Tool(
+    name: 'hot_restart',
+    description:
+        'Performs a hot restart of the active Flutter application. '
+        'This applies the latest code changes to the running application, '
+        'including changes to global const values, while resetting '
+        'application state. Requires "${connectTool.name}" to be '
+        "successfully called first. Doesn't work for Non-Flutter Dart CLI "
+        'programs.',
+    annotations: ToolAnnotations(title: 'Hot restart', destructiveHint: true),
+    inputSchema: Schema.object(properties: {}, required: []),
   );
 
   @visibleForTesting
@@ -1036,7 +1084,8 @@ base mixin DartToolingDaemonSupport
   CallToolResult get _connectedAppsNotSupported {
     String errorText;
     if (_serviceDetectionError != null) {
-      errorText = 'ConnectedApp service not available: $_serviceDetectionError. '
+      errorText =
+          'ConnectedApp service not available: $_serviceDetectionError. '
           'A Dart SDK of version 3.9.0-163.0.dev or greater is required to '
           'connect to Dart and Flutter applications.';
     } else {
@@ -1118,7 +1167,12 @@ class _AppListener {
   /// A broadcast stream of all errors that come in after you start listening.
   Stream<String> get errorsStream => _errorsController.stream;
 
-  final Set<String> registeredServices;
+  /// A map of service names to the names of their methods.
+  final Map<String, String?> registeredServices;
+
+  /// A map of service names to completers that should be fired when the service
+  /// is registered.
+  final _pendingServiceRequests = <String, List<Completer<String?>>>{};
 
   /// Controller for the [errorsStream].
   final StreamController<String> _errorsController;
@@ -1157,9 +1211,36 @@ class _AppListener {
       final errorLog = ErrorLog();
       errorsController.stream.listen(errorLog.add);
       final subscriptions = <StreamSubscription<void>>[];
-      final registeredServices = <String>{};
+      final registeredServices = <String, String?>{};
+      final pendingServiceRequests = <String, List<Completer<String?>>>{};
 
       try {
+        subscriptions.addAll([
+          vmService.onServiceEvent.listen((Event e) {
+            switch (e.kind) {
+              case EventKind.kServiceRegistered:
+                final serviceName = e.service!;
+                registeredServices[serviceName] = e.method;
+                // If there are any pending requests for this service, complete
+                // them.
+                if (pendingServiceRequests.containsKey(serviceName)) {
+                  for (final completer
+                      in pendingServiceRequests[serviceName]!) {
+                    completer.complete(e.method);
+                  }
+                  pendingServiceRequests.remove(serviceName);
+                }
+              case EventKind.kServiceUnregistered:
+                registeredServices.remove(e.service!);
+            }
+          }),
+          vmService.onIsolateEvent.listen((e) {
+            switch (e.kind) {
+              case EventKind.kServiceExtensionAdded:
+                registeredServices[e.extensionRPC!] = null;
+            }
+          }),
+        ]);
         subscriptions.add(
           vmService.onExtensionEventWithHistory.listen((Event e) {
             if (e.extensionKind == 'Flutter.Error') {
@@ -1187,23 +1268,6 @@ class _AppListener {
           }),
         );
 
-        subscriptions.addAll([
-          vmService.onServiceEvent.listen((Event e) {
-            switch (e.kind) {
-              case EventKind.kServiceRegistered:
-                registeredServices.add(e.service!);
-              case EventKind.kServiceUnregistered:
-                registeredServices.remove(e.service!);
-            }
-          }),
-          vmService.onIsolateEvent.listen((e) {
-            switch (e.kind) {
-              case EventKind.kServiceExtensionAdded:
-                registeredServices.add(e.extensionRPC!);
-            }
-          }),
-        ]);
-
         await [
           vmService.streamListen(EventStreams.kExtension),
           vmService.streamListen(EventStreams.kIsolate),
@@ -1213,7 +1277,9 @@ class _AppListener {
 
         final vm = await vmService.getVM();
         final isolate = await vmService.getIsolate(vm.isolates!.first.id!);
-        registeredServices.addAll(isolate.extensionRPCs ?? []);
+        for (final extension in isolate.extensionRPCs ?? <String>[]) {
+          registeredServices[extension] = null;
+        }
       } catch (e) {
         logger.log(LoggingLevel.error, 'Error subscribing to app errors: $e');
       }
@@ -1227,18 +1293,46 @@ class _AppListener {
     }();
   }
 
+  /// Returns a future that completes with the registered method name for the
+  /// given [serviceName].
+  Future<String?> waitForServiceRegistration(
+    String serviceName, {
+    Duration timeout = const Duration(seconds: 1),
+  }) async {
+    if (registeredServices.containsKey(serviceName)) {
+      return registeredServices[serviceName];
+    }
+    final completer = Completer<String?>();
+    _pendingServiceRequests.putIfAbsent(serviceName, () => []).add(completer);
+
+    return completer.future.timeout(
+      timeout,
+      onTimeout: () {
+        // Important: Clean up the completer from the list on timeout.
+        _pendingServiceRequests[serviceName]?.remove(completer);
+        if (_pendingServiceRequests[serviceName]?.isEmpty ?? false) {
+          _pendingServiceRequests.remove(serviceName);
+        }
+        return null; // Return null on timeout
+      },
+    );
+  }
+
   Future<void> shutdown() async {
     errorLog.clear();
     registeredServices.clear();
     await _errorsController.close();
     await Future.wait(_subscriptions.map((s) => s.cancel()));
     try {
-      await _vmService.streamCancel(EventStreams.kExtension);
-      await _vmService.streamCancel(EventStreams.kIsolate);
-      await _vmService.streamCancel(EventStreams.kStderr);
-      await _vmService.streamCancel(EventStreams.kService);
+      await [
+        _vmService.streamCancel(EventStreams.kExtension),
+        _vmService.streamCancel(EventStreams.kIsolate),
+        _vmService.streamCancel(EventStreams.kStderr),
+        _vmService.streamCancel(EventStreams.kService),
+      ].wait;
     } on RPCError catch (_) {
-      // The vm service might already be disposed in which causes these to fail.
+      // The vm service might already be disposed which could cause these to
+      // fail.
     }
   }
 }

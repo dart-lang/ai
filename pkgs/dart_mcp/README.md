@@ -18,7 +18,7 @@ Each mixin has doc comments explaining how to use it - some may require you to
 provide implementations of methods, while others may just expose new methods
 that you can call.
 
-See the [server example](example/simple_server.dart) for some example code.
+See the [examples](example/) for some example code (server examples end in `_server.dart`).
 
 ### Invoking Client Capabilities
 

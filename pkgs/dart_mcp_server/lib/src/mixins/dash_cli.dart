@@ -253,7 +253,11 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
               'boilerplate and example code. Defaults to true.',
         ),
       },
-      required: [ParameterNames.directory, ParameterNames.projectType],
+      required: [
+        ParameterNames.directory,
+        ParameterNames.projectType,
+        ParameterNames.root,
+      ],
     ),
   );
 

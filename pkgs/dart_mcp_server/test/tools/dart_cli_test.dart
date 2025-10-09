@@ -434,7 +434,7 @@ dependencies:
         expect(result.isError, true);
         expect(
           (result.content.first as TextContent).text,
-          contains('missing `root` key'),
+          contains('Required property "root" is missing'),
         );
         expect(testProcessManager.commandsRan, isEmpty);
       });

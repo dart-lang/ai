@@ -1,3 +1,10 @@
+## 0.3.4-wip
+
+- Update the tool calling example to include progress notifications.
+- Remove a reference to "screenshot" for a generic error that occurs for more
+  than just screenshots.
+- Mark the "root" parameter for create_project required.
+
 ## 0.3.3
 
 - Fix `PingRequest` handling when it is sent from a non-Dart client.

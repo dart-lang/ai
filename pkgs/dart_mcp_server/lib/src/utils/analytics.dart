@@ -130,7 +130,6 @@ enum CallToolFailureReason {
   noRootGiven,
   noRootsSet,
   noSuchCommand,
-  nonZeroExitCode,
   webSocketException,
 }
 

@@ -62,20 +62,36 @@ void main() async {
     // sees fit. To keep this example simple and not require any API keys, we
     // just manually call the `concat` tool.
     if (tool.name == 'concat') {
-      print('Calling `${tool.name}` tool');
-      // Should return "abcd".
-      final result = await server.callTool(
-        CallToolRequest(
-          name: tool.name,
-          arguments: {
-            'parts': ['a', 'b', 'c', 'd'],
-          },
-        ),
+      const delayMs = 2000;
+      print(
+        'Calling `${tool.name}` tool, with an artificial ${delayMs}ms second '
+        'delay',
       );
+      final request = CallToolRequest(
+        name: tool.name,
+        arguments: {
+          'parts': ['a', 'b', 'c', 'd'],
+          'delay': delayMs,
+        },
+        // Note that in the real world you need unique tokens, either a UUID
+        // or auto-incrementing int would suffice.
+        meta: MetaWithProgressToken(progressToken: ProgressToken(1)),
+      );
+      // Make sure to listen before awaiting the response - you could listen
+      // after sending the request but before awaiting the result as well.
+      server.onProgress(request).listen((progress) {
+        stdout.write(
+          '${eraseLine}Progress: ${progress.progress}/${progress.total}: '
+          '${progress.message}',
+        );
+      });
+      // Should return "abcd".
+      final result = await server.callTool(request);
+
       if (result.isError == true) {
         throw StateError('Tool call failed: ${result.content}');
       } else {
-        print('Tool call succeeded: ${result.content}');
+        print('${eraseLine}Tool call succeeded: ${result.content}');
       }
     } else {
       throw ArgumentError('Unexpected tool ${tool.name}');
@@ -85,3 +101,5 @@ void main() async {
   // Shutdown the client, which will also shutdown the server connection.
   await client.shutdown();
 }
+
+const eraseLine = '\x1b[2K\r';

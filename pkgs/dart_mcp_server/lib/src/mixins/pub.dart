@@ -87,21 +87,18 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
     inputSchema: Schema.object(
       properties: {
         ParameterNames.command: Schema.string(
-          title: 'The pub command to run.',
-          description:
-              'Currently only ${SupportedPubCommand.listAll} are supported.',
+          title: 'The pub subcommand to run.',
+          enumValues: SupportedPubCommand.values
+              .map<String>((e) => e.name)
+              .toList(),
+          description: SupportedPubCommand.commandDescriptions,
         ),
         ParameterNames.packageNames: Schema.list(
           title: 'The package names to run the command for.',
           description:
               'This is required for the '
               '${SupportedPubCommand.listAllThatRequirePackageName} commands. ',
-          items: Schema.string(
-            title: 'A package to run the command for.',
-            description:
-                'When used with "add", prefix with "dev:" to add the package '
-                'as a dev dependency.',
-          ),
+          items: Schema.string(title: 'A package to run the command for.'),
         ),
         ParameterNames.roots: rootsSchema(),
       },
@@ -112,21 +109,48 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
 
 /// The set of supported `dart pub` subcommands.
 enum SupportedPubCommand {
-  // This is supported in a simplified form: `dart pub add <package-name>`.
-  // TODO(https://github.com/dart-lang/ai/issues/77): add support for adding
-  //  dev dependencies.
-  add(requiresPackageNames: true),
+  add(
+    requiresPackageNames: true,
+    description: '''Add package dependencies.
+  - To add a package normally (typical): "pkg_name"
+  - Git reference: "pkg_name:{git:{url: https://github.com/pkg_name/pkg_name.git, ref: branch, path: subdir}}"
+    - ref and path are optional.
+  - From local path: "pkg_name:{path: ../pkg_name}"
+  - Dev Dependency: "dev:pkg_name"
+  - Dependency override: "override:pkg_name:1.0.0"
+ ''',
+  ),
 
-  get,
+  deps(description: 'Print the dependency tree of the current package.'),
+
+  get(
+    description: "Fetch the current package's dependencies and install them.",
+  ),
+
+  outdated(
+    description: 'Analyze dependencies to find which ones can be upgraded.',
+  ),
 
   // This is supported in a simplified form: `dart pub remove <package-name>`.
-  remove(requiresPackageNames: true),
+  remove(
+    requiresPackageNames: true,
+    description: 'Removes specified dependencies from `pubspec.yaml`.',
+  ),
 
-  upgrade;
+  upgrade(
+    description:
+        "Upgrade the current package's dependencies to latest versions.",
+  );
 
-  const SupportedPubCommand({this.requiresPackageNames = false});
+  const SupportedPubCommand({
+    this.requiresPackageNames = false,
+    required this.description,
+  });
 
   final bool requiresPackageNames;
+
+  /// The description to use in the subcommand help.
+  final String description;
 
   static SupportedPubCommand? fromName(String name) {
     for (final command in SupportedPubCommand.values) {
@@ -145,6 +169,22 @@ enum SupportedPubCommand {
     return _writeCommandsAsList(
       SupportedPubCommand.values.where((c) => c.requiresPackageNames).toList(),
     );
+  }
+
+  static String get commandDescriptions {
+    return 'Available subcommands:\n${_getDescriptions(values)}';
+  }
+
+  static String _getDescriptions(Iterable<SupportedPubCommand> commands) {
+    final buffer = StringBuffer();
+    for (final command in commands) {
+      final commandName = command.name;
+      final description = command.description;
+      if (description.isNotEmpty) {
+        buffer.writeln('- `$commandName`: $description');
+      }
+    }
+    return buffer.toString();
   }
 
   static String _writeCommandsAsList(List<SupportedPubCommand> commands) {

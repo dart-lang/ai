@@ -75,6 +75,27 @@ void main() {
             TextContent(text: 'Hot reload succeeded.'),
           ]);
         });
+
+        test('can perform a hot restart', () async {
+          await testHarness.startDebugSession(
+            counterAppPath,
+            'lib/main.dart',
+            isFlutter: true,
+          );
+          final tools =
+              (await testHarness.mcpServerConnection.listTools()).tools;
+          final hotRestartTool = tools.singleWhere(
+            (t) => t.name == DartToolingDaemonSupport.hotRestartTool.name,
+          );
+          final hotRestartResult = await testHarness.callToolWithRetry(
+            CallToolRequest(name: hotRestartTool.name),
+          );
+
+          expect(hotRestartResult.isError, isNot(true));
+          expect(hotRestartResult.content, [
+            TextContent(text: 'Hot restart succeeded.'),
+          ]);
+        });
       });
 
       group('dart cli tests', () {
