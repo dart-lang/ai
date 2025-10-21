@@ -207,7 +207,7 @@ base mixin FlutterLauncherSupport
       );
 
       final result = await completer.future.timeout(
-        const Duration(seconds: 90),
+        const Duration(seconds: 60),
       );
       _runningApps[result.pid]?.dtdUri = result.dtdUri.toString();
 
@@ -227,7 +227,7 @@ base mixin FlutterLauncherSupport
     } catch (e, s) {
       log(LoggingLevel.error, 'Error launching Flutter application: $e\n$s');
       if (process != null) {
-        process.kill();
+        processManager.killPid(process.pid);
         // The exitCode handler will perform the rest of the cleanup.
       }
       return CallToolResult(
