@@ -97,6 +97,7 @@ base mixin FlutterLauncherSupport
           sdk.flutterExecutablePath,
           'run',
           '--print-dtd',
+          '--machine',
           '--device-id',
           device,
           if (target != null) '--target',
@@ -121,10 +122,34 @@ base mixin FlutterLauncherSupport
       );
 
       void checkForDtdUri(String line) {
+        line = line.trim();
+        // Check for --machine output first.
+        if (line.startsWith('[') && line.endsWith(']')) {
+          // Looking for:
+          // [{"event":"app.dtd","params":{"appId":"cd6c66eb-35e9-4ac1-96df-727540138346","uri":"ws://127.0.0.1:59548/3OpAaPw9i34="}}]
+          try {
+            final json =
+                jsonDecode(line.substring(1, line.length - 1))
+                    as Map<String, Object?>;
+            if (json['event'] == 'app.dtd' && json['params'] != null) {
+              final params = json['params'] as Map<String, Object?>;
+              if (params['uri'] != null) {
+                final dtdUri = Uri.parse(params['uri'] as String);
+                log(LoggingLevel.debug, 'Found machine DTD URI: $dtdUri');
+                completer.complete((dtdUri: dtdUri, pid: process!.pid));
+              }
+            }
+          } on FormatException {
+            // Ignore failures to parse the JSON.
+          }
+        }
         final match = dtdUriRegex.firstMatch(line);
+        // Leaving this check in for earlier versions of Flutter that don't
+        // print the DTD URI as part of --machine output. It won't work on
+        // Chrome devices, but will on other devices.
         if (match != null && !completer.isCompleted) {
           final dtdUri = Uri.parse(match.group(1)!);
-          log(LoggingLevel.debug, 'Found DTD URI: $dtdUri');
+          log(LoggingLevel.debug, 'Found stdout DTD URI: $dtdUri');
           completer.complete((dtdUri: dtdUri, pid: process!.pid));
         }
       }
