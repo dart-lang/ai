@@ -126,91 +126,89 @@ void main() {
       await client.shutdown();
     });
 
-    test.test(
-      'launch_app tool returns DTD URI and PID on success from stdout',
-      () {
-        fakeAsync((async) async {
-          final dtdUri = 'ws://127.0.0.1:12345/abcdefg=';
-          final processPid = 54321;
-          final mockProcessManager = MockProcessManager();
-          mockProcessManager.addCommand(
-            Command(
-              [
-                Platform.isWindows
-                    ? r'C:\path\to\flutter\sdk\bin\cache\dart-sdk\bin\dart.exe'
-                    : '/path/to/flutter/sdk/bin/cache/dart-sdk/bin/dart',
-                'language-server',
-                '--protocol',
-                'lsp',
-              ],
-              stdout:
-                  '''Content-Length: 145\r\n\r\n{"jsonrpc":"2.0","id":0,"result":{"capabilities":{"workspace":{"workspaceFolders":{"supported":true,"changeNotifications":true}},"workspaceSymbolProvider":true}}}''',
-            ),
-          );
-          mockProcessManager.addCommand(
-            Command(
-              [
-                Platform.isWindows
-                    ? r'C:\path\to\flutter\sdk\bin\flutter.bat'
-                    : '/path/to/flutter/sdk/bin/flutter',
-                'run',
-                '--print-dtd',
-                '--machine',
-                '--device-id',
-                'test-device',
-              ],
-              stdout: 'The Dart Tooling Daemon is available at: $dtdUri\n',
-              pid: processPid,
-            ),
-          );
+    test.test('launch_app tool returns DTD URI and PID on success from '
+        'stdout', () {
+      fakeAsync((async) async {
+        final dtdUri = 'ws://127.0.0.1:12345/abcdefg=';
+        final processPid = 54321;
+        final mockProcessManager = MockProcessManager();
+        mockProcessManager.addCommand(
+          Command(
+            [
+              Platform.isWindows
+                  ? r'C:\path\to\flutter\sdk\bin\cache\dart-sdk\bin\dart.exe'
+                  : '/path/to/flutter/sdk/bin/cache/dart-sdk/bin/dart',
+              'language-server',
+              '--protocol',
+              'lsp',
+            ],
+            stdout:
+                '''Content-Length: 145\r\n\r\n{"jsonrpc":"2.0","id":0,"result":{"capabilities":{"workspace":{"workspaceFolders":{"supported":true,"changeNotifications":true}},"workspaceSymbolProvider":true}}}''',
+          ),
+        );
+        mockProcessManager.addCommand(
+          Command(
+            [
+              Platform.isWindows
+                  ? r'C:\path\to\flutter\sdk\bin\flutter.bat'
+                  : '/path/to/flutter/sdk/bin/flutter',
+              'run',
+              '--print-dtd',
+              '--machine',
+              '--device-id',
+              'test-device',
+            ],
+            stdout: 'The Dart Tooling Daemon is available at: $dtdUri\n',
+            pid: processPid,
+          ),
+        );
 
-          final serverAndClient = await createServerAndClient(
-            processManager: mockProcessManager,
-            fileSystem: fileSystem,
-          );
-          final server = serverAndClient.server;
-          final client = serverAndClient.client;
-          async.flushMicrotasks();
+        final serverAndClient = await createServerAndClient(
+          processManager: mockProcessManager,
+          fileSystem: fileSystem,
+        );
+        final server = serverAndClient.server;
+        final client = serverAndClient.client;
+        async.flushMicrotasks();
 
-          // Initialize
-          final initResult = await client.initialize(
-            InitializeRequest(
-              protocolVersion: ProtocolVersion.latestSupported,
-              capabilities: ClientCapabilities(),
-              clientInfo: Implementation(name: 'test_client', version: '1.0.0'),
-            ),
-          );
-          test.expect(initResult.serverInfo.name, 'dart and flutter tooling');
-          client.notifyInitialized();
-          async.flushMicrotasks();
+        // Initialize
+        final initResult = await client.initialize(
+          InitializeRequest(
+            protocolVersion: ProtocolVersion.latestSupported,
+            capabilities: ClientCapabilities(),
+            clientInfo: Implementation(name: 'test_client', version: '1.0.0'),
+          ),
+        );
+        test.expect(initResult.serverInfo.name, 'dart and flutter tooling');
+        client.notifyInitialized();
+        async.flushMicrotasks();
 
-          // Call the tool
-          final result = await client.callTool(
-            CallToolRequest(
-              name: 'launch_app',
-              arguments: {'root': projectRoot, 'device': 'test-device'},
-            ),
-          );
-          async.flushMicrotasks();
+        // Call the tool
+        final result = await client.callTool(
+          CallToolRequest(
+            name: 'launch_app',
+            arguments: {'root': projectRoot, 'device': 'test-device'},
+          ),
+        );
+        async.flushMicrotasks();
 
-          test.expect(result.content, <Content>[
-            Content.text(
-              text:
-                  'Flutter application launched successfully with PID 54321 with the DTD URI ws://127.0.0.1:12345/abcdefg=',
-            ),
-          ]);
-          test.expect(result.isError, test.isNot(true));
-          test.expect(result.structuredContent, {
-            'dtdUri': dtdUri,
-            'pid': processPid,
-          });
-
-          await server.shutdown();
-          await client.shutdown();
-          async.flushMicrotasks();
+        test.expect(result.content, <Content>[
+          Content.text(
+            text:
+                'Flutter application launched successfully with PID 54321 with the DTD URI ws://127.0.0.1:12345/abcdefg=',
+          ),
+        ]);
+        test.expect(result.isError, test.isNot(true));
+        test.expect(result.structuredContent, {
+          'dtdUri': dtdUri,
+          'pid': processPid,
         });
-      },
-    );
+
+        await server.shutdown();
+        await client.shutdown();
+        async.flushMicrotasks();
+      });
+    });
 
     test.test('launch_app tool returns DTD URI and PID on success from '
         '--machine output', () async {
@@ -415,34 +413,41 @@ void main() {
 
         // Initialize
         var initialized = false;
-        client.initialize(
-          InitializeRequest(
-            protocolVersion: ProtocolVersion.latestSupported,
-            capabilities: ClientCapabilities(),
-            clientInfo: Implementation(name: 'test_client', version: '1.0.0'),
-          ),
-        ).then((_) {
-          client.notifyInitialized();
-          initialized = true;
-        });
+        client
+            .initialize(
+              InitializeRequest(
+                protocolVersion: ProtocolVersion.latestSupported,
+                capabilities: ClientCapabilities(),
+                clientInfo: Implementation(
+                  name: 'test_client',
+                  version: '1.0.0',
+                ),
+              ),
+            )
+            .then((_) {
+              client.notifyInitialized();
+              initialized = true;
+            });
         async.flushMicrotasks();
         test.expect(initialized, true);
 
         // Call the tool
         late CallToolResult result;
         var completed = false;
-        client.callTool(
-          CallToolRequest(
-            name: 'launch_app',
-            arguments: {'root': projectRoot, 'device': 'test-device'},
-          ),
-        ).then((res) {
-          result = res;
-          completed = true;
-        });
+        client
+            .callTool(
+              CallToolRequest(
+                name: 'launch_app',
+                arguments: {'root': projectRoot, 'device': 'test-device'},
+              ),
+            )
+            .then((res) {
+              result = res;
+              completed = true;
+            });
 
         // Elapse time to trigger timeout
-        async.elapse(const Duration(seconds: 61));
+        async.elapse(const Duration(seconds: 91));
         async.flushMicrotasks();
 
         test.expect(completed, true);
@@ -450,8 +455,10 @@ void main() {
         final textOutput = result.content as List<TextContent>;
         test.expect(
           textOutput.first.text,
-          test.stringContainsInOrder(
-              ['Failed to launch Flutter application', 'TimeoutException']),
+          test.stringContainsInOrder([
+            'Failed to launch Flutter application',
+            'TimeoutException',
+          ]),
         );
         test.expect(mockProcessManager.killedPids, [processPid]);
 

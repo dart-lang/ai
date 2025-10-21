@@ -207,7 +207,7 @@ base mixin FlutterLauncherSupport
       );
 
       final result = await completer.future.timeout(
-        const Duration(seconds: 60),
+        const Duration(seconds: 90),
       );
       _runningApps[result.pid]?.dtdUri = result.dtdUri.toString();
 
