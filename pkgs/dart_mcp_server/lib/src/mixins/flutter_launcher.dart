@@ -117,9 +117,6 @@ base mixin FlutterLauncherSupport
 
       late StreamSubscription stdoutSubscription;
       late StreamSubscription stderrSubscription;
-      final dtdUriRegex = RegExp(
-        r'The Dart Tooling Daemon is available at: (ws://.+:\d+/\S+=)',
-      );
 
       void checkForDtdUri(String line) {
         line = line.trim();
@@ -140,17 +137,9 @@ base mixin FlutterLauncherSupport
               }
             }
           } on FormatException {
-            // Ignore failures to parse the JSON.
+            // Ignore failures to parse the JSON or the URI.
+            log(LoggingLevel.debug, 'Failed to parse $line for the DTD URI.');
           }
-        }
-        final match = dtdUriRegex.firstMatch(line);
-        // Leaving this check in for earlier versions of Flutter that don't
-        // print the DTD URI as part of --machine output. It won't work on
-        // Chrome devices, but will on other devices.
-        if (match != null && !completer.isCompleted) {
-          final dtdUri = Uri.parse(match.group(1)!);
-          log(LoggingLevel.debug, 'Found stdout DTD URI: $dtdUri');
-          completer.complete((dtdUri: dtdUri, pid: process!.pid));
         }
       }
 

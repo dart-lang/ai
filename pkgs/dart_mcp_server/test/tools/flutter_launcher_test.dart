@@ -74,10 +74,14 @@ void main() {
                 : '/path/to/flutter/sdk/bin/flutter',
             'run',
             '--print-dtd',
+            '--machine',
             '--device-id',
             'test-device',
           ],
-          stdout: 'The Dart Tooling Daemon is available at: $dtdUri\n',
+          stdout:
+              '[{"event":"app.dtd","params":{'
+              '"appId":"cd6c66eb-35e9-4ac1-96df-727540138346",'
+              '"uri":"$dtdUri"}}]',
           pid: processPid,
         ),
       );
@@ -121,84 +125,10 @@ void main() {
       await client.shutdown();
     });
 
-    test.test(
-      'launch_app tool returns DTD URI and PID on success from stderr',
-      () async {
-        final dtdUri = 'ws://127.0.0.1:12345/abcdefg=';
-        final processPid = 54321;
-        final mockProcessManager = MockProcessManager();
-        mockProcessManager.addCommand(
-          Command(
-            [
-              Platform.isWindows
-                  ? r'C:\path\to\flutter\sdk\bin\cache\dart-sdk\bin\dart.exe'
-                  : '/path/to/flutter/sdk/bin/cache/dart-sdk/bin/dart',
-              'language-server',
-              '--protocol',
-              'lsp',
-            ],
-            stdout:
-                '''Content-Length: 145\r\n\r\n{"jsonrpc":"2.0","id":0,"result":{"capabilities":{"workspace":{"workspaceFolders":{"supported":true,"changeNotifications":true}},"workspaceSymbolProvider":true}}}''',
-          ),
-        );
-        mockProcessManager.addCommand(
-          Command(
-            [
-              Platform.isWindows
-                  ? r'C:\path\to\flutter\sdk\bin\flutter.bat'
-                  : '/path/to/flutter/sdk/bin/flutter',
-              'run',
-              '--print-dtd',
-              '--device-id',
-              'test-device',
-            ],
-            stderr: 'The Dart Tooling Daemon is available at: $dtdUri\n',
-            pid: processPid,
-          ),
-        );
-        final serverAndClient = await createServerAndClient(
-          processManager: mockProcessManager,
-          fileSystem: fileSystem,
-        );
-        final server = serverAndClient.server;
-        final client = serverAndClient.client;
-
-        // Initialize
-        final initResult = await client.initialize(
-          InitializeRequest(
-            protocolVersion: ProtocolVersion.latestSupported,
-            capabilities: ClientCapabilities(),
-            clientInfo: Implementation(name: 'test_client', version: '1.0.0'),
-          ),
-        );
-        test.expect(initResult.serverInfo.name, 'dart and flutter tooling');
-        client.notifyInitialized();
-
-        // Call the tool
-        final result = await client.callTool(
-          CallToolRequest(
-            name: 'launch_app',
-            arguments: {'root': projectRoot, 'device': 'test-device'},
-          ),
-        );
-
-        test.expect(result.content, <Content>[
-          Content.text(
-            text:
-                'Flutter application launched successfully with PID 54321 with the DTD URI ws://127.0.0.1:12345/abcdefg=',
-          ),
-        ]);
-        test.expect(result.isError, test.isNot(true));
-        test.expect(result.structuredContent, {
-          'dtdUri': dtdUri,
-          'pid': processPid,
-        });
-        await server.shutdown();
-        await client.shutdown();
-      },
-    );
-
-    test.test('launch_app tool fails when process exits early', () async {
+    test.test('launch_app tool returns DTD URI and PID on success from '
+        '--machine output', () async {
+      final dtdUri = 'ws://127.0.0.1:12345/abcdefg=';
+      final processPid = 54321;
       final mockProcessManager = MockProcessManager();
       mockProcessManager.addCommand(
         Command(
@@ -222,6 +152,84 @@ void main() {
                 : '/path/to/flutter/sdk/bin/flutter',
             'run',
             '--print-dtd',
+            '--machine',
+            '--device-id',
+            'test-device',
+          ],
+          stdout:
+              '[{"event":"app.dtd","params":{'
+              '"appId":"cd6c66eb-35e9-4ac1-96df-727540138346",'
+              '"uri":"$dtdUri"}}]',
+          pid: processPid,
+        ),
+      );
+      final serverAndClient = await createServerAndClient(
+        processManager: mockProcessManager,
+        fileSystem: fileSystem,
+      );
+      final server = serverAndClient.server;
+      final client = serverAndClient.client;
+
+      // Initialize
+      final initResult = await client.initialize(
+        InitializeRequest(
+          protocolVersion: ProtocolVersion.latestSupported,
+          capabilities: ClientCapabilities(),
+          clientInfo: Implementation(name: 'test_client', version: '1.0.0'),
+        ),
+      );
+      test.expect(initResult.serverInfo.name, 'dart and flutter tooling');
+      client.notifyInitialized();
+
+      // Call the tool
+      final result = await client.callTool(
+        CallToolRequest(
+          name: 'launch_app',
+          arguments: {'root': projectRoot, 'device': 'test-device'},
+        ),
+      );
+
+      test.expect(result.content, <Content>[
+        Content.text(
+          text:
+              'Flutter application launched successfully with PID 54321 with the DTD URI ws://127.0.0.1:12345/abcdefg=',
+        ),
+      ]);
+      test.expect(result.isError, test.isNot(true));
+      test.expect(result.structuredContent, {
+        'dtdUri': dtdUri,
+        'pid': processPid,
+      });
+      await server.shutdown();
+      await client.shutdown();
+    });
+
+    test.test('launch_app tool fails when process exits early', () async {
+      final mockProcessManager = MockProcessManager();
+      mockProcessManager.addCommand(
+        Command(
+          [
+            Platform.isWindows
+                ? r'C:\path\to\flutter\sdk\bin\cache\dart-sdk\bin\dart.exe'
+                : '/path/to/flutter/sdk/bin/cache/dart-sdk/bin/dart',
+            'language-server',
+            '--protocol',
+            'lsp',
+          ],
+          stdout:
+              '''Content-Length: 145\r\n\r\n{"jsonrpc":"2.0","id":0,"result":{"capabilities":{"workspace":{"workspaceFolders":{"supported":true,"changeNotifications":true}},"workspaceSymbolProvider":true}}}
+''',
+        ),
+      );
+      mockProcessManager.addCommand(
+        Command(
+          [
+            Platform.isWindows
+                ? r'C:\path\to\flutter\sdk\bin\flutter.bat'
+                : '/path/to/flutter/sdk/bin/flutter',
+            'run',
+            '--print-dtd',
+            '--machine',
             '--device-id',
             'test-device',
           ],
@@ -295,10 +303,14 @@ void main() {
                 : '/path/to/flutter/sdk/bin/flutter',
             'run',
             '--print-dtd',
+            '--machine',
             '--device-id',
             'test-device',
           ],
-          stdout: 'The Dart Tooling Daemon is available at: $dtdUri\n',
+          stdout:
+              '[{"event":"app.dtd","params":{'
+              '"appId":"cd6c66eb-35e9-4ac1-96df-727540138346",'
+              '"uri":"$dtdUri"}}]',
           pid: processPid,
         ),
       );
@@ -352,7 +364,8 @@ void main() {
             'lsp',
           ],
           stdout:
-              '''Content-Length: 145\r\n\r\n{"jsonrpc":"2.0","id":0,"result":{"capabilities":{"workspace":{"workspaceFolders":{"supported":true,"changeNotifications":true}},"workspaceSymbolProvider":true}}}''',
+              '''Content-Length: 145\r\n\r\n{"jsonrpc":"2.0","id":0,"result":{"capabilities":{"workspace":{"workspaceFolders":{"supported":true,"changeNotifications":true}},"workspaceSymbolProvider":true}}}
+''',
         ),
       );
       mockProcessManager.addCommand(
@@ -363,12 +376,15 @@ void main() {
                 : '/path/to/flutter/sdk/bin/flutter',
             'run',
             '--print-dtd',
+            '--machine',
             '--device-id',
             'test-device',
           ],
           stdout:
               'line 1\nline 2\nline 3\n'
-              'The Dart Tooling Daemon is available at: $dtdUri\n',
+              '[{"event":"app.dtd","params":{'
+              '"appId":"cd6c66eb-35e9-4ac1-96df-727540138346",'
+              '"uri":"$dtdUri"}}]',
           pid: processPid,
         ),
       );
@@ -408,7 +424,7 @@ void main() {
         'logs': [
           '[skipping 2 log lines]...',
           '[stdout] line 3',
-          '[stdout] The Dart Tooling Daemon is available at: ws://127.0.0.1:12345/abcdefg=',
+          '[stdout] [{"event":"app.dtd","params":{"appId":"cd6c66eb-35e9-4ac1-96df-727540138346","uri":"ws://127.0.0.1:12345/abcdefg="}}]',
         ],
       });
       await server.shutdown();
