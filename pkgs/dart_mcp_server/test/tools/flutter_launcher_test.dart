@@ -318,7 +318,7 @@ void main() {
             'test-device',
           ],
           stderr: 'Something went wrong',
-          exitCode: Future.value(1),
+          exitCode: 1,
         ),
       );
       final serverAndClient = await createServerAndClient(
@@ -543,7 +543,10 @@ void main() {
       );
 
       test.expect(result.structuredContent, {'success': true});
-      test.expect(mockProcessManager.killedPids, [11111, 22222, processPid]);
+      test.expect(mockProcessManager.killedPids, [
+        if (Platform.isLinux) ...[11111, 22222],
+        processPid,
+      ]);
       test.expect(result.isError, test.isNot(true));
       await server.shutdown();
       await client.shutdown();
@@ -697,7 +700,7 @@ class Command {
   final List<String> command;
   final String? stdout;
   final String? stderr;
-  final Future<int>? exitCode;
+  final int? exitCode;
   final int pid;
 
   Command(
@@ -754,7 +757,9 @@ class MockProcessManager implements ProcessManager {
       stdout: Stream.value(utf8.encode(mockCommand.stdout ?? '')),
       stderr: Stream.value(utf8.encode(mockCommand.stderr ?? '')),
       pid: pid,
-      exitCodeFuture: mockCommand.exitCode,
+      exitCodeFuture: mockCommand.exitCode != null
+          ? Future(() => mockCommand.exitCode!)
+          : null,
     );
     runningProcesses[pid] = process;
     return process;
@@ -781,7 +786,7 @@ class MockProcessManager implements ProcessManager {
     final mockCommand = _findCommand(command);
     return ProcessResult(
       mockCommand.pid,
-      await (mockCommand.exitCode ?? Future.value(0)),
+      mockCommand.exitCode ?? 0,
       mockCommand.stdout ?? '',
       mockCommand.stderr ?? '',
     );
@@ -804,7 +809,7 @@ class MockProcessManager implements ProcessManager {
     final mockCommand = _findCommand(command);
     return ProcessResult(
       mockCommand.pid,
-      0,
+      mockCommand.exitCode ?? 0,
       mockCommand.stdout ?? '',
       mockCommand.stderr ?? '',
     );
