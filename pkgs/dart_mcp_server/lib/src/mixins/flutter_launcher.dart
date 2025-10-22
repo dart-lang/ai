@@ -227,7 +227,7 @@ base mixin FlutterLauncherSupport
     } catch (e, s) {
       log(LoggingLevel.error, 'Error launching Flutter application: $e\n$s');
       if (process != null) {
-        process.kill();
+        processManager.killPid(process.pid);
         // The exitCode handler will perform the rest of the cleanup.
       }
       return CallToolResult(
@@ -243,11 +243,11 @@ base mixin FlutterLauncherSupport
   final stopAppTool = Tool(
     name: 'stop_app',
     description:
-        'Kills a running Flutter process started by the launch_app tool.',
+        'Stops a running Flutter process started by the launch_app tool.',
     inputSchema: Schema.object(
       properties: {
         'pid': Schema.int(
-          description: 'The process ID of the process to kill.',
+          description: 'The process ID of the process to stop.',
         ),
       },
       required: ['pid'],
@@ -255,7 +255,7 @@ base mixin FlutterLauncherSupport
     outputSchema: Schema.object(
       properties: {
         'success': Schema.bool(
-          description: 'Whether the process was killed successfully.',
+          description: 'Whether the process was stopped successfully.',
         ),
       },
       required: ['success'],
@@ -274,8 +274,33 @@ base mixin FlutterLauncherSupport
         content: [TextContent(text: 'Application with PID $pid not found.')],
       );
     }
-
-    final success = processManager.killPid(pid);
+    // On Unix, killing the flutter process doesn't kill the entire process
+    // group, so we have to look for the child processes.
+    if (Platform.isLinux) {
+      final ps = processManager.runSync([
+        'ps',
+        '--no-headers',
+        '--format',
+        '%p',
+        '--ppid',
+        '$pid',
+      ]);
+      if (ps.exitCode == 0) {
+        final children = (ps.stdout as String).trim().split('\n');
+        if (children.isNotEmpty) {
+          for (final child in children) {
+            int childPid;
+            try {
+              childPid = int.parse(child);
+            } on FormatException {
+              continue;
+            }
+            processManager.killPid(childPid, ProcessSignal.sigterm);
+          }
+        }
+      }
+    }
+    final success = processManager.killPid(app.process.pid);
     if (success) {
       log(
         LoggingLevel.info,

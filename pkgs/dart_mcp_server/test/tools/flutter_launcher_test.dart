@@ -460,6 +460,7 @@ void main() {
             'TimeoutException',
           ]),
         );
+        test.expect(mockProcessManager.killedPids, [processPid]);
 
         server.shutdown();
         client.shutdown();
@@ -504,6 +505,15 @@ void main() {
           pid: processPid,
         ),
       );
+      if (Platform.isLinux) {
+        mockProcessManager.addCommand(
+          Command(
+            ['ps', '--no-headers', '--format', '%p', '--ppid', '$processPid'],
+            stdout: '11111\n22222\n',
+            pid: processPid,
+          ),
+        );
+      }
       final serverAndClient = await createServerAndClient(
         processManager: mockProcessManager,
         fileSystem: fileSystem,
@@ -532,9 +542,9 @@ void main() {
         CallToolRequest(name: 'stop_app', arguments: {'pid': processPid}),
       );
 
-      test.expect(result.isError, test.isNot(true));
       test.expect(result.structuredContent, {'success': true});
-      test.expect(mockProcessManager.killedPids, [processPid]);
+      test.expect(mockProcessManager.killedPids, [11111, 22222, processPid]);
+      test.expect(result.isError, test.isNot(true));
       await server.shutdown();
       await client.shutdown();
     });
@@ -719,7 +729,9 @@ class MockProcessManager implements ProcessManager {
       }
     }
     throw Exception(
-      'Command not mocked: $command. Mocked commands:\n${_commands.join('\n')}',
+      'Command not mocked: "${command.join(' ')}".\n'
+      'Mocked commands:\n'
+      '${_commands.map<String>((e) => e.command.join(' ')).join('\n')}',
     );
   }
 
@@ -788,7 +800,14 @@ class MockProcessManager implements ProcessManager {
     Encoding? stdoutEncoding = systemEncoding,
     Encoding? stderrEncoding = systemEncoding,
   }) {
-    throw UnimplementedError();
+    commands.add(command);
+    final mockCommand = _findCommand(command);
+    return ProcessResult(
+      mockCommand.pid,
+      0,
+      mockCommand.stdout ?? '',
+      mockCommand.stderr ?? '',
+    );
   }
 }
 
