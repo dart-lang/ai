@@ -160,6 +160,6 @@ For more information, see the official VS Code documentation for
 | `run_tests` | Run tests | Run Dart or Flutter tests with an agent centric UX. ALWAYS use instead of `dart test` or `flutter test` shell commands. |
 | `set_widget_selection_mode` | Set Widget Selection Mode | Enables or disables widget selection mode in the active Flutter application. Requires "connect_dart_tooling_daemon" to be successfully called first. This is not necessary when using flutter driver, only use it when you want the user to select a widget. |
 | `signature_help` | Signature help | Get signature help for an API being used at a given cursor position in a file. |
-| `stop_app` |  | Kills a running Flutter process started by the launch_app tool. |
+| `stop_app` |  | Stops a running Flutter process started by the launch_app tool. |
 
 <!-- generated -->
