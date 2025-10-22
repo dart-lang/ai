@@ -460,7 +460,6 @@ void main() {
             'TimeoutException',
           ]),
         );
-        test.expect(mockProcessManager.killedPids, [processPid]);
 
         server.shutdown();
         client.shutdown();

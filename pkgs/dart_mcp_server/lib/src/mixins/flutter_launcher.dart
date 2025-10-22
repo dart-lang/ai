@@ -227,7 +227,7 @@ base mixin FlutterLauncherSupport
     } catch (e, s) {
       log(LoggingLevel.error, 'Error launching Flutter application: $e\n$s');
       if (process != null) {
-        processManager.killPid(process.pid);
+        process.kill();
         // The exitCode handler will perform the rest of the cleanup.
       }
       return CallToolResult(
