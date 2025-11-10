@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'package:args/args.dart';
-import 'package:collection/collection.dart';
 
 /// Creates an arg parser for th MCP server.
 ///
@@ -80,7 +79,11 @@ enum ToolsConfiguration {
   all,
   dart;
 
-  static ToolsConfiguration? fromArgs(ArgResults args) => ToolsConfiguration
-      .values
-      .firstWhereOrNull((option) => option.name == args.option(toolsOption));
+  static ToolsConfiguration? fromArgs(ArgResults args) {
+    final option = args.option(toolsOption);
+    for (var value in ToolsConfiguration.values) {
+      if (value.name == option) return value;
+    }
+    return null;
+  }
 }
