@@ -2,6 +2,7 @@
 
 - Add `--tools=dart|all` argument to allow enabling only vanilla Dart tools for
   non-flutter projects.
+- Include the device name and target platform in the list_devices tool.
 
 # 0.1.1 (Dart SDK 3.10.0)
 

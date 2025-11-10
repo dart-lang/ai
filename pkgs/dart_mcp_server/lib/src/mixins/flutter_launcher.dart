@@ -314,7 +314,14 @@ base mixin FlutterLauncherSupport
       properties: {
         'devices': Schema.list(
           description: 'A list of available device IDs.',
-          items: Schema.string(),
+          items: ObjectSchema(
+            properties: {
+              'id': Schema.string(),
+              'name': Schema.string(),
+              'targetPlatform': Schema.string(),
+            },
+            additionalProperties: true,
+          ),
         ),
       },
       required: ['devices'],
@@ -357,12 +364,21 @@ base mixin FlutterLauncherSupport
 
       final devices = (jsonDecode(stdout) as List)
           .cast<Map<String, dynamic>>()
-          .map((device) => device['id'] as String)
           .toList();
       log(LoggingLevel.debug, 'Found devices: $devices');
 
       return CallToolResult(
-        content: [TextContent(text: 'Found devices: ${devices.join(', ')}')],
+        content: [
+          TextContent(text: 'Found devices:\n'),
+          for (var device in devices)
+            TextContent(
+              text:
+                  '''
+  - Device ID: ${device['id']}
+    Name: ${device['name']}
+    Target Platform: ${device['targetPlatform']}''',
+            ),
+        ],
         structuredContent: {'devices': devices},
       );
     } catch (e, s) {

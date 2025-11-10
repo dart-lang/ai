@@ -642,8 +642,16 @@ void main() {
             '--machine',
           ],
           stdout: jsonEncode([
-            {'id': 'test-device-1'},
-            {'id': 'test-device-2'},
+            {
+              'id': 'test-device-1',
+              'name': 'Test Device 1',
+              'targetPlatform': 'android',
+            },
+            {
+              'id': 'test-device-2',
+              'name': 'Test Device 2',
+              'targetPlatform': 'ios',
+            },
           ]),
         ),
       );
@@ -671,7 +679,18 @@ void main() {
 
       expect(result.isError, isNot(true));
       expect(result.structuredContent, {
-        'devices': ['test-device-1', 'test-device-2'],
+        'devices': [
+          {
+            'id': 'test-device-1',
+            'name': 'Test Device 1',
+            'targetPlatform': 'android',
+          },
+          {
+            'id': 'test-device-2',
+            'name': 'Test Device 2',
+            'targetPlatform': 'ios',
+          },
+        ],
       });
       await server.shutdown();
       await client.shutdown();
