@@ -14,10 +14,10 @@ import 'package:fake_async/fake_async.dart';
 import 'package:file/memory.dart';
 import 'package:process/process.dart';
 import 'package:stream_channel/stream_channel.dart';
-import 'package:test/test.dart' as test;
+import 'package:test/test.dart';
 
 void main() {
-  test.group('DartMCPServer', () {
+  group('DartMCPServer', () {
     late MemoryFileSystem fileSystem;
     const projectRoot = '/project';
 
@@ -44,12 +44,12 @@ void main() {
       return (server: server, client: client);
     }
 
-    test.setUp(() {
+    setUp(() {
       fileSystem = MemoryFileSystem();
       fileSystem.directory(projectRoot).createSync(recursive: true);
     });
 
-    test.test('launch_app tool returns DTD URI and PID on success', () async {
+    test('launch_app tool returns DTD URI and PID on success', () async {
       final dtdUri = 'ws://127.0.0.1:12345/abcdefg=';
       final processPid = 54321;
       final mockProcessManager = MockProcessManager();
@@ -101,7 +101,7 @@ void main() {
           clientInfo: Implementation(name: 'test_client', version: '1.0.0'),
         ),
       );
-      test.expect(initResult.serverInfo.name, 'dart and flutter tooling');
+      expect(initResult.serverInfo.name, 'dart and flutter tooling');
       client.notifyInitialized();
 
       // Call the tool
@@ -111,14 +111,14 @@ void main() {
           arguments: {'root': projectRoot, 'device': 'test-device'},
         ),
       );
-      test.expect(result.content, <Content>[
+      expect(result.content, <Content>[
         Content.text(
           text:
               'Flutter application launched successfully with PID 54321 with the DTD URI ws://127.0.0.1:12345/abcdefg=',
         ),
       ]);
-      test.expect(result.isError, test.isNot(true));
-      test.expect(result.structuredContent, {
+      expect(result.isError, isNot(true));
+      expect(result.structuredContent, {
         'dtdUri': dtdUri,
         'pid': processPid,
       });
@@ -126,7 +126,7 @@ void main() {
       await client.shutdown();
     });
 
-    test.test('launch_app tool returns DTD URI and PID on success from '
+    test('launch_app tool returns DTD URI and PID on success from '
         'stdout', () {
       fakeAsync((async) async {
         final dtdUri = 'ws://127.0.0.1:12345/abcdefg=';
@@ -179,7 +179,7 @@ void main() {
             clientInfo: Implementation(name: 'test_client', version: '1.0.0'),
           ),
         );
-        test.expect(initResult.serverInfo.name, 'dart and flutter tooling');
+        expect(initResult.serverInfo.name, 'dart and flutter tooling');
         client.notifyInitialized();
         async.flushMicrotasks();
 
@@ -192,14 +192,14 @@ void main() {
         );
         async.flushMicrotasks();
 
-        test.expect(result.content, <Content>[
+        expect(result.content, <Content>[
           Content.text(
             text:
                 'Flutter application launched successfully with PID 54321 with the DTD URI ws://127.0.0.1:12345/abcdefg=',
           ),
         ]);
-        test.expect(result.isError, test.isNot(true));
-        test.expect(result.structuredContent, {
+        expect(result.isError, isNot(true));
+        expect(result.structuredContent, {
           'dtdUri': dtdUri,
           'pid': processPid,
         });
@@ -210,7 +210,7 @@ void main() {
       });
     });
 
-    test.test('launch_app tool returns DTD URI and PID on success from '
+    test('launch_app tool returns DTD URI and PID on success from '
         '--machine output', () async {
       final dtdUri = 'ws://127.0.0.1:12345/abcdefg=';
       final processPid = 54321;
@@ -263,7 +263,7 @@ void main() {
           clientInfo: Implementation(name: 'test_client', version: '1.0.0'),
         ),
       );
-      test.expect(initResult.serverInfo.name, 'dart and flutter tooling');
+      expect(initResult.serverInfo.name, 'dart and flutter tooling');
       client.notifyInitialized();
 
       // Call the tool
@@ -274,14 +274,14 @@ void main() {
         ),
       );
 
-      test.expect(result.content, <Content>[
+      expect(result.content, <Content>[
         Content.text(
           text:
               'Flutter application launched successfully with PID 54321 with the DTD URI ws://127.0.0.1:12345/abcdefg=',
         ),
       ]);
-      test.expect(result.isError, test.isNot(true));
-      test.expect(result.structuredContent, {
+      expect(result.isError, isNot(true));
+      expect(result.structuredContent, {
         'dtdUri': dtdUri,
         'pid': processPid,
       });
@@ -289,7 +289,7 @@ void main() {
       await client.shutdown();
     });
 
-    test.test('launch_app tool fails when process exits early', () async {
+    test('launch_app tool fails when process exits early', () async {
       final mockProcessManager = MockProcessManager();
       mockProcessManager.addCommand(
         Command(
@@ -346,11 +346,11 @@ void main() {
         ),
       );
 
-      test.expect(result.isError, true);
+      expect(result.isError, true);
       final textOutput = result.content as List<TextContent>;
-      test.expect(
+      expect(
         textOutput.map((context) => context.text).toList().join('\n'),
-        test.stringContainsInOrder([
+        stringContainsInOrder([
           'Flutter application exited with code 1 before the DTD URI was found',
           'with log output',
           'Something went wrong',
@@ -360,7 +360,7 @@ void main() {
       await client.shutdown();
     });
 
-    test.test('launch_app tool times out if DTD URI is not found', () {
+    test('launch_app tool times out if DTD URI is not found', () {
       fakeAsync((async) {
         // Setup mocks
         final mockProcessManager = MockProcessManager();
@@ -409,7 +409,7 @@ void main() {
           serverAndClientReady = true;
         });
         async.flushMicrotasks();
-        test.expect(serverAndClientReady, true);
+        expect(serverAndClientReady, true);
 
         // Initialize
         var initialized = false;
@@ -429,7 +429,7 @@ void main() {
               initialized = true;
             });
         async.flushMicrotasks();
-        test.expect(initialized, true);
+        expect(initialized, true);
 
         // Call the tool
         late CallToolResult result;
@@ -450,17 +450,17 @@ void main() {
         async.elapse(const Duration(seconds: 91));
         async.flushMicrotasks();
 
-        test.expect(completed, true);
-        test.expect(result.isError, true);
+        expect(completed, true);
+        expect(result.isError, true);
         final textOutput = result.content as List<TextContent>;
-        test.expect(
+        expect(
           textOutput.first.text,
-          test.stringContainsInOrder([
+          stringContainsInOrder([
             'Failed to launch Flutter application',
             'TimeoutException',
           ]),
         );
-        test.expect(mockProcessManager.killedPids, [processPid]);
+        expect(mockProcessManager.killedPids, [processPid]);
 
         server.shutdown();
         client.shutdown();
@@ -468,7 +468,7 @@ void main() {
       });
     });
 
-    test.test('stop_app tool stops a running app', () async {
+    test('stop_app tool stops a running app', () async {
       final dtdUri = 'ws://127.0.0.1:12345/abcdefg=';
       final processPid = 54321;
       final mockProcessManager = MockProcessManager();
@@ -533,14 +533,14 @@ void main() {
         CallToolRequest(name: 'stop_app', arguments: {'pid': processPid}),
       );
 
-      test.expect(result.isError, test.isNot(true));
-      test.expect(result.structuredContent, {'success': true});
-      test.expect(mockProcessManager.killedPids, [processPid]);
+      expect(result.isError, isNot(true));
+      expect(result.structuredContent, {'success': true});
+      expect(mockProcessManager.killedPids, [processPid]);
       await server.shutdown();
       await client.shutdown();
     });
 
-    test.test('get_app_logs tool respects maxLines', () async {
+    test('get_app_logs tool respects maxLines', () async {
       final dtdUri = 'ws://127.0.0.1:12345/abcdefg=';
       final processPid = 54321;
       final mockProcessManager = MockProcessManager();
@@ -609,8 +609,8 @@ void main() {
         ),
       );
 
-      test.expect(result.isError, test.isNot(true));
-      test.expect(result.structuredContent, {
+      expect(result.isError, isNot(true));
+      expect(result.structuredContent, {
         'logs': [
           '[skipping 2 log lines]...',
           '[stdout] line 3',
@@ -621,7 +621,7 @@ void main() {
       await client.shutdown();
     });
 
-    test.test('list_devices tool returns available devices', () async {
+    test('list_devices tool returns available devices', () async {
       final mockProcessManager = MockProcessManager();
       mockProcessManager.addCommand(
         Command(
@@ -647,8 +647,16 @@ void main() {
             '--machine',
           ],
           stdout: jsonEncode([
-            {'id': 'test-device-1'},
-            {'id': 'test-device-2'},
+            {
+              'id': 'test-device-1',
+              'name': 'Test Device 1',
+              'targetPlatform': 'android',
+            },
+            {
+              'id': 'test-device-2',
+              'name': 'Test Device 2',
+              'targetPlatform': 'ios',
+            },
           ]),
         ),
       );
@@ -674,9 +682,20 @@ void main() {
         CallToolRequest(name: 'list_devices', arguments: {}),
       );
 
-      test.expect(result.isError, test.isNot(true));
-      test.expect(result.structuredContent, {
-        'devices': ['test-device-1', 'test-device-2'],
+      expect(result.isError, isNot(true));
+      expect(result.structuredContent, {
+        'devices': [
+          {
+            'id': 'test-device-1',
+            'name': 'Test Device 1',
+            'targetPlatform': 'android',
+          },
+          {
+            'id': 'test-device-2',
+            'name': 'Test Device 2',
+            'targetPlatform': 'ios',
+          },
+        ],
       });
       await server.shutdown();
       await client.shutdown();
