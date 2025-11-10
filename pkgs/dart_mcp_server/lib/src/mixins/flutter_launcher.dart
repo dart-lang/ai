@@ -12,8 +12,10 @@ import 'dart:math' as math;
 
 import 'package:dart_mcp/server.dart';
 
+import '../arg_parser.dart';
 import '../utils/process_manager.dart';
 import '../utils/sdk.dart';
+import '../utils/tools_configuration.dart';
 
 class _RunningApp {
   final Process process;
@@ -31,16 +33,18 @@ class _RunningApp {
 /// launches.
 base mixin FlutterLauncherSupport
     on ToolsSupport, LoggingSupport, RootsTrackingSupport
-    implements ProcessManagerSupport, SdkSupport {
+    implements ProcessManagerSupport, SdkSupport, ToolsConfigurationSupport {
   final Map<int, _RunningApp> _runningApps = {};
 
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
-    registerTool(launchAppTool, _launchApp);
-    registerTool(stopAppTool, _stopApp);
-    registerTool(listDevicesTool, _listDevices);
-    registerTool(getAppLogsTool, _getAppLogs);
-    registerTool(listRunningAppsTool, _listRunningApps);
+    if (toolsConfig == ToolsConfiguration.all) {
+      registerTool(launchAppTool, _launchApp);
+      registerTool(stopAppTool, _stopApp);
+      registerTool(listDevicesTool, _listDevices);
+      registerTool(getAppLogsTool, _getAppLogs);
+      registerTool(listRunningAppsTool, _listRunningApps);
+    }
     return super.initialize(request);
   }
 

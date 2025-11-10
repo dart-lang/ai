@@ -711,6 +711,30 @@ void main() {
         });
       });
     });
+
+    test('Does not include flutter tools with --tools=dart', () async {
+      testHarness = await TestHarness.start(
+        inProcess: false,
+        cliArgs: ['--tools', 'dart'],
+      );
+      final connection = testHarness.serverConnectionPair.serverConnection;
+
+      final tools = (await connection.listTools()).tools;
+      final unexpectedTools = [
+        'take_screenshot',
+        'get_widget_tree',
+        'get_selected_widget',
+        'set_widget_selection_mode',
+        'flutter_driver',
+      ];
+      for (final name in unexpectedTools) {
+        expect(
+          tools,
+          isNot(contains(predicate<Tool>((tool) => tool.name == name))),
+        );
+      }
+      expect(tools, isNotEmpty);
+    });
   });
 
   group('ErrorLog', () {

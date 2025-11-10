@@ -14,8 +14,10 @@ import 'package:vm_service/vm_service.dart';
 import 'package:vm_service/vm_service_io.dart';
 import 'package:web_socket/web_socket.dart';
 
+import '../arg_parser.dart';
 import '../utils/analytics.dart';
 import '../utils/constants.dart';
+import '../utils/tools_configuration.dart';
 
 /// Mix this in to any MCPServer to add support for connecting to the Dart
 /// Tooling Daemon and all of its associated functionality (see
@@ -24,7 +26,7 @@ import '../utils/constants.dart';
 /// The MCPServer must already have the [ToolsSupport] mixin applied.
 base mixin DartToolingDaemonSupport
     on ToolsSupport, LoggingSupport, ResourcesSupport
-    implements AnalyticsSupport {
+    implements AnalyticsSupport, ToolsConfigurationSupport {
   DartToolingDaemon? _dtd;
 
   /// The last reported active location from the editor.
@@ -151,19 +153,17 @@ base mixin DartToolingDaemonSupport
   FutureOr<InitializeResult> initialize(InitializeRequest request) async {
     registerTool(connectTool, _connect);
     registerTool(getRuntimeErrorsTool, runtimeErrors);
-
-    // TODO: these tools should only be registered for Flutter applications, or
-    // they should return an error when used against a pure Dart app (or a
-    // Flutter app that does not support the operation, e.g. hot reload is not
-    // supported in profile mode).
-    if (enableScreenshots) registerTool(screenshotTool, takeScreenshot);
+    registerTool(getActiveLocationTool, _getActiveLocation);
     registerTool(hotRestartTool, hotRestart);
     registerTool(hotReloadTool, hotReload);
-    registerTool(getWidgetTreeTool, widgetTree);
-    registerTool(getSelectedWidgetTool, selectedWidget);
-    registerTool(setWidgetSelectionModeTool, _setWidgetSelectionMode);
-    registerTool(getActiveLocationTool, _getActiveLocation);
-    registerTool(flutterDriverTool, _callFlutterDriver);
+
+    if (toolsConfig == ToolsConfiguration.all) {
+      if (enableScreenshots) registerTool(screenshotTool, takeScreenshot);
+      registerTool(getWidgetTreeTool, widgetTree);
+      registerTool(getSelectedWidgetTool, selectedWidget);
+      registerTool(setWidgetSelectionModeTool, _setWidgetSelectionMode);
+      registerTool(flutterDriverTool, _callFlutterDriver);
+    }
 
     return super.initialize(request);
   }

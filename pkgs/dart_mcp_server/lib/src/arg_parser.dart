@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'package:args/args.dart';
+import 'package:collection/collection.dart';
 
 /// Creates an arg parser for th MCP server.
 ///
@@ -51,6 +52,16 @@ ArgParser createArgParser({
         ..addMultiOption(
           excludeToolOption,
           help: 'The names of tools to exclude from this run of the server.',
+        )
+        ..addOption(
+          toolsOption,
+          help: 'The set of tools to enable.',
+          allowed: ['all', 'dart'],
+          allowedHelp: {
+            'all': 'Enables all Dart and Flutter tools',
+            'dart': 'Enables only tools relevant to pure Dart projects',
+          },
+          defaultsTo: 'all',
         );
 
   if (includeHelp) parser.addFlag(helpFlag, abbr: 'h', help: 'Show usage text');
@@ -63,3 +74,13 @@ const flutterSdkOption = 'flutter-sdk';
 const forceRootsFallbackFlag = 'force-roots-fallback';
 const helpFlag = 'help';
 const logFileOption = 'log-file';
+const toolsOption = 'tools';
+
+enum ToolsConfiguration {
+  all,
+  dart;
+
+  static ToolsConfiguration? fromArgs(ArgResults args) => ToolsConfiguration
+      .values
+      .firstWhereOrNull((option) => option.name == args.option(toolsOption));
+}
