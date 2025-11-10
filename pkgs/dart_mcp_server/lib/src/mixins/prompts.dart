@@ -7,13 +7,17 @@ import 'dart:async';
 import 'package:dart_mcp/server.dart';
 import 'package:meta/meta.dart';
 
+import '../arg_parser.dart';
 import '../utils/constants.dart';
+import '../utils/tools_configuration.dart';
 
 /// A mixin which adds support for various dart and flutter specific prompts.
-base mixin DashPrompts on PromptsSupport {
+base mixin DashPrompts on PromptsSupport implements ToolsConfigurationSupport {
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
-    addPrompt(flutterDriverUserJourneyTest, _flutterDriverUserJourneyPrompt);
+    if (toolsConfig == ToolsConfiguration.all) {
+      addPrompt(flutterDriverUserJourneyTest, _flutterDriverUserJourneyPrompt);
+    }
     return super.initialize(request);
   }
 

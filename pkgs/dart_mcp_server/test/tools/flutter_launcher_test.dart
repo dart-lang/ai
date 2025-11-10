@@ -8,6 +8,7 @@ import 'dart:io';
 
 import 'package:collection/collection.dart';
 import 'package:dart_mcp/client.dart';
+import 'package:dart_mcp_server/src/arg_parser.dart';
 import 'package:dart_mcp_server/src/server.dart';
 import 'package:dart_mcp_server/src/utils/sdk.dart';
 import 'package:fake_async/fake_async.dart';
@@ -16,8 +17,10 @@ import 'package:process/process.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'package:test/test.dart';
 
+import '../test_harness.dart';
+
 void main() {
-  group('DartMCPServer', () {
+  group('Flutter App Tools', () {
     late MemoryFileSystem fileSystem;
     const projectRoot = '/project';
 
@@ -29,6 +32,7 @@ void main() {
       final channel = StreamChannelController<String>();
       final server = DartMCPServer(
         channel.local,
+        toolsConfig: ToolsConfiguration.all,
         sdk: Sdk(
           flutterSdkPath: Platform.isWindows
               ? r'C:\path\to\flutter\sdk'
@@ -118,10 +122,7 @@ void main() {
         ),
       ]);
       expect(result.isError, isNot(true));
-      expect(result.structuredContent, {
-        'dtdUri': dtdUri,
-        'pid': processPid,
-      });
+      expect(result.structuredContent, {'dtdUri': dtdUri, 'pid': processPid});
       await server.shutdown();
       await client.shutdown();
     });
@@ -199,10 +200,7 @@ void main() {
           ),
         ]);
         expect(result.isError, isNot(true));
-        expect(result.structuredContent, {
-          'dtdUri': dtdUri,
-          'pid': processPid,
-        });
+        expect(result.structuredContent, {'dtdUri': dtdUri, 'pid': processPid});
 
         await server.shutdown();
         await client.shutdown();
@@ -281,10 +279,7 @@ void main() {
         ),
       ]);
       expect(result.isError, isNot(true));
-      expect(result.structuredContent, {
-        'dtdUri': dtdUri,
-        'pid': processPid,
-      });
+      expect(result.structuredContent, {'dtdUri': dtdUri, 'pid': processPid});
       await server.shutdown();
       await client.shutdown();
     });
@@ -700,6 +695,31 @@ void main() {
       await server.shutdown();
       await client.shutdown();
     });
+  });
+
+  test('Does not register tools with --tools=dart', () async {
+    final testHarness = await TestHarness.start(
+      inProcess: false,
+      cliArgs: ['--tools', 'dart'],
+    );
+    final connection = testHarness.serverConnectionPair.serverConnection;
+
+    final tools = (await connection.listTools()).tools;
+    final unexpectedTools = [
+      'launch_app',
+      'stop_app',
+      'list_devices',
+      'get_app_logs',
+      'list_running_apps',
+      'flutter_driver',
+    ];
+    for (final name in unexpectedTools) {
+      expect(
+        tools,
+        isNot(contains(predicate<Tool>((tool) => tool.name == name))),
+      );
+    }
+    expect(tools, isNotEmpty);
   });
 }
 
