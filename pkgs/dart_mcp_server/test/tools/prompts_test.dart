@@ -11,72 +11,50 @@ import '../test_harness.dart';
 
 void main() {
   late TestHarness testHarness;
+  group('with all tools enabled', () {
+    // TODO: Use setUpAll, currently this fails due to an apparent TestProcess
+    // issue.
+    setUp(() async {
+      testHarness = await TestHarness.start();
+    });
 
-  // TODO: Use setUpAll, currently this fails due to an apparent TestProcess
-  // issue.
-  setUp(() async {
-    testHarness = await TestHarness.start();
-  });
-
-  test('can list prompts', () async {
-    final server = testHarness.mcpServerConnection;
-    final promptsResult = await server.listPrompts(ListPromptsRequest());
-    expect(
-      promptsResult.prompts,
-      equals([
-        isA<Prompt>()
-            .having(
-              (p) => p.name,
-              'name',
-              DashPrompts.flutterDriverUserJourneyTest.name,
-            )
-            .having(
-              (p) => p.arguments,
-              'arguments',
-              equals([
-                isA<PromptArgument>()
-                    .having(
-                      (arg) => arg.name,
-                      'name',
-                      ParameterNames.userJourney,
-                    )
-                    .having((arg) => arg.required, 'required', false),
-              ]),
-            ),
-      ]),
-    );
-  });
-
-  group('Can get the flutter driver user journey prompt ', () {
-    test(' with no arguments', () async {
+    test('can list prompts', () async {
       final server = testHarness.mcpServerConnection;
-      final prompt = await server.getPrompt(
-        GetPromptRequest(name: DashPrompts.flutterDriverUserJourneyTest.name),
-      );
+      final promptsResult = await server.listPrompts(ListPromptsRequest());
       expect(
-        prompt.messages.single,
-        isA<PromptMessage>()
-            .having((m) => m.role, 'role', Role.user)
-            .having(
-              (m) => m.content,
-              'content',
-              equals(DashPrompts.flutterDriverUserJourneyPromptContent),
-            ),
+        promptsResult.prompts,
+        equals([
+          isA<Prompt>()
+              .having(
+                (p) => p.name,
+                'name',
+                DashPrompts.flutterDriverUserJourneyTest.name,
+              )
+              .having(
+                (p) => p.arguments,
+                'arguments',
+                equals([
+                  isA<PromptArgument>()
+                      .having(
+                        (arg) => arg.name,
+                        'name',
+                        ParameterNames.userJourney,
+                      )
+                      .having((arg) => arg.required, 'required', false),
+                ]),
+              ),
+        ]),
       );
     });
 
-    test('with a user journey arguments', () async {
-      final server = testHarness.mcpServerConnection;
-      final userJourney = 'A really sick user journey';
-      final prompt = await server.getPrompt(
-        GetPromptRequest(
-          name: DashPrompts.flutterDriverUserJourneyTest.name,
-          arguments: {ParameterNames.userJourney: userJourney},
-        ),
-      );
-      expect(
-        prompt.messages,
-        equals([
+    group('Can get the flutter driver user journey prompt ', () {
+      test(' with no arguments', () async {
+        final server = testHarness.mcpServerConnection;
+        final prompt = await server.getPrompt(
+          GetPromptRequest(name: DashPrompts.flutterDriverUserJourneyTest.name),
+        );
+        expect(
+          prompt.messages.single,
           isA<PromptMessage>()
               .having((m) => m.role, 'role', Role.user)
               .having(
@@ -84,15 +62,66 @@ void main() {
                 'content',
                 equals(DashPrompts.flutterDriverUserJourneyPromptContent),
               ),
-          isA<PromptMessage>()
-              .having((m) => m.role, 'role', Role.user)
-              .having(
-                (m) => (m.content as TextContent).text,
-                'content.text',
-                contains(userJourney),
-              ),
-        ]),
+        );
+      });
+
+      test('with a user journey arguments', () async {
+        final server = testHarness.mcpServerConnection;
+        final userJourney = 'A really sick user journey';
+        final prompt = await server.getPrompt(
+          GetPromptRequest(
+            name: DashPrompts.flutterDriverUserJourneyTest.name,
+            arguments: {ParameterNames.userJourney: userJourney},
+          ),
+        );
+        expect(
+          prompt.messages,
+          equals([
+            isA<PromptMessage>()
+                .having((m) => m.role, 'role', Role.user)
+                .having(
+                  (m) => m.content,
+                  'content',
+                  equals(DashPrompts.flutterDriverUserJourneyPromptContent),
+                ),
+            isA<PromptMessage>()
+                .having((m) => m.role, 'role', Role.user)
+                .having(
+                  (m) => (m.content as TextContent).text,
+                  'content.text',
+                  contains(userJourney),
+                ),
+          ]),
+        );
+      });
+    });
+  });
+
+  group('with --tools=dart', () {
+    // TODO: Use setUpAll, currently this fails due to an apparent TestProcess
+    // issue.
+    setUp(() async {
+      testHarness = await TestHarness.start(
+        inProcess: false,
+        cliArgs: ['--tools', 'dart'],
       );
     });
+
+    test(
+      'can list prompts, does not include flutter user journey test',
+      () async {
+        final server = testHarness.mcpServerConnection;
+        final promptsResult = await server.listPrompts(ListPromptsRequest());
+        final unexpectedPrompts = [
+          DashPrompts.flutterDriverUserJourneyTest.name,
+        ];
+        for (final name in unexpectedPrompts) {
+          expect(
+            promptsResult.prompts,
+            isNot(contains(predicate<Prompt>((prompt) => prompt.name == name))),
+          );
+        }
+      },
+    );
   });
 }

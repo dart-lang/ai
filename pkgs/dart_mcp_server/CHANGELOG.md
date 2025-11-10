@@ -1,4 +1,9 @@
-# 0.1.1 (Dart SDK 3.10.0) - WIP
+# 0.1.2 (Dart SDK 3.11.0) - WIP
+
+- Add `--tools=dart|all` argument to allow enabling only vanilla Dart tools for
+  non-flutter projects.
+
+# 0.1.1 (Dart SDK 3.10.0)
 
 - Change tools that accept multiple roots to not return immediately on the first
   failure.

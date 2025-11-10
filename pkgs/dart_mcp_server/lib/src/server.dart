@@ -28,6 +28,7 @@ import 'utils/analytics.dart';
 import 'utils/file_system.dart';
 import 'utils/process_manager.dart';
 import 'utils/sdk.dart';
+import 'utils/tools_configuration.dart';
 
 /// An MCP server for Dart and Flutter tooling.
 final class DartMCPServer extends MCPServer
@@ -49,15 +50,20 @@ final class DartMCPServer extends MCPServer
         AnalyticsSupport,
         ProcessManagerSupport,
         FileSystemSupport,
-        SdkSupport {
+        SdkSupport,
+        ToolsConfigurationSupport {
   /// A list of tool names to exclude from this version of the server.
   ///
   /// Used in [registerTool] to skip registering these tools.
   final List<String> excludedTools;
 
+  @override
+  final ToolsConfiguration toolsConfig;
+
   DartMCPServer(
     super.channel, {
     required this.sdk,
+    required this.toolsConfig,
     this.analytics,
     this.excludedTools = const [],
     @visibleForTesting this.processManager = const LocalProcessManager(),
@@ -69,7 +75,7 @@ final class DartMCPServer extends MCPServer
   }) : super.fromStreamChannel(
          implementation: Implementation(
            name: 'dart and flutter tooling',
-           version: '0.1.1',
+           version: '0.1.2',
          ),
          instructions:
              'This server helps to connect Dart and Flutter developers to '
@@ -105,6 +111,8 @@ final class DartMCPServer extends MCPServer
         server = DartMCPServer(
           stdioChannel(input: io.stdin, output: io.stdout),
           excludedTools: parsedArgs.multiOption(excludeToolOption),
+          toolsConfig:
+              ToolsConfiguration.fromArgs(parsedArgs) ?? ToolsConfiguration.all,
           forceRootsFallback: parsedArgs.flag(forceRootsFallbackFlag),
           sdk: Sdk.find(
             dartSdkPath: dartSdkPath,
