@@ -22,6 +22,9 @@
 - Add extra log output to failed launches, and allow AI to specify the maxLines
   of log output.
 - Convert `launch_app` to use `--machine` output to capture the DTD URI.
+- Remove a reference to "screenshot" for a generic error that occurs for more
+  than just screenshots.
+- Mark the "root" parameter for `create_project` required.
 
 # 0.1.0 (Dart SDK 3.9.0)
 

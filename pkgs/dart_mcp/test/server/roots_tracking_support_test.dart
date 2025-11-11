@@ -64,7 +64,7 @@ final class TestMCPClientWithRoots extends TestMCPClient with RootsSupport {
   Future<void>? waitToRespond;
 
   @override
-  FutureOr<ListRootsResult> handleListRoots(ListRootsRequest request) async {
+  FutureOr<ListRootsResult> handleListRoots([ListRootsRequest? request]) async {
     await waitToRespond;
     return super.handleListRoots(request);
   }

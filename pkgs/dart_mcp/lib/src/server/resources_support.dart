@@ -148,9 +148,9 @@ base mixin ResourcesSupport on MCPServer {
   }
 
   /// Lists all the [ResourceTemplate]s currently available.
-  ListResourceTemplatesResult _listResourceTemplates(
-    ListResourceTemplatesRequest request,
-  ) {
+  ListResourceTemplatesResult _listResourceTemplates([
+    ListResourceTemplatesRequest? request,
+  ]) {
     return ListResourceTemplatesResult(
       resourceTemplates: [
         for (var descriptor in _resourceTemplates) descriptor.template,
@@ -191,7 +191,7 @@ base mixin ResourcesSupport on MCPServer {
   }
 
   /// Lists all the resources currently available.
-  ListResourcesResult _listResources(ListResourcesRequest request) {
+  ListResourcesResult _listResources(ListResourcesRequest? request) {
     return ListResourcesResult(resources: _resources.values.toList());
   }
 

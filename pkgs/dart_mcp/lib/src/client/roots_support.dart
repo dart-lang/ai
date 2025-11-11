@@ -62,6 +62,6 @@ base mixin RootsSupport on MCPClient {
   }
 
   /// Handler for [ListRootsRequest]s - returns the available [Root]s.
-  FutureOr<ListRootsResult> handleListRoots(ListRootsRequest request) =>
+  FutureOr<ListRootsResult> handleListRoots([ListRootsRequest? request]) =>
       ListRootsResult(roots: _roots.toList());
 }

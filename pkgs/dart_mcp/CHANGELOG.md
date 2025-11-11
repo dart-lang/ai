@@ -1,9 +1,9 @@
-## 0.3.4-wip
+## 0.4.0-wip
 
 - Update the tool calling example to include progress notifications.
-- Remove a reference to "screenshot" for a generic error that occurs for more
-  than just screenshots.
-- Mark the "root" parameter for create_project required.
+- **Breaking**: Update APIs to accept nullable parameters when the parameters
+  are not required for that method. This is only breaking if you override these
+  methods.
 
 ## 0.3.3
 
