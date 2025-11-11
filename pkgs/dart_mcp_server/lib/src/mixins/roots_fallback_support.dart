@@ -74,7 +74,7 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
   /// Delegates to the inherited implementation if fallback mode is not enabled,
   /// otherwise returns our own custom roots.
   @override
-  Future<ListRootsResult> listRoots(ListRootsRequest request) async =>
+  Future<ListRootsResult> listRoots([ListRootsRequest? request]) async =>
       _fallbackEnabled
       ? ListRootsResult(roots: _customRoots.toList())
       : super.listRoots(request);
