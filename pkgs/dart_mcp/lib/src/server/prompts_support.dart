@@ -33,7 +33,7 @@ base mixin PromptsSupport on MCPServer {
   }
 
   /// Lists the available prompts.
-  ListPromptsResult _listPrompts(ListPromptsRequest request) =>
+  ListPromptsResult _listPrompts([ListPromptsRequest? request]) =>
       ListPromptsResult(prompts: _prompts.values.toList());
 
   /// Gets the response for a given prompt.

@@ -46,14 +46,14 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
       _fallbackEnabled ? true : super.supportsRootsChanged;
 
   @override
-  Stream<RootsListChangedNotification>? get rootsListChanged =>
+  Stream<RootsListChangedNotification?>? get rootsListChanged =>
       // If the client supports roots, just use their stream (or lack thereof).
       // If they don't, use our own stream.
       _fallbackEnabled
       ? _rootsListChangedFallbackController?.stream
       : super.rootsListChanged;
 
-  StreamController<RootsListChangedNotification>?
+  StreamController<RootsListChangedNotification?>?
   _rootsListChangedFallbackController;
 
   @override
@@ -66,7 +66,7 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
         registerTool(removeRootsTool, _removeRoots);
         registerTool(addRootsTool, _addRoots);
         _rootsListChangedFallbackController =
-            StreamController<RootsListChangedNotification>.broadcast();
+            StreamController<RootsListChangedNotification?>.broadcast();
       }
     }
   }
@@ -74,7 +74,7 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
   /// Delegates to the inherited implementation if fallback mode is not enabled,
   /// otherwise returns our own custom roots.
   @override
-  Future<ListRootsResult> listRoots(ListRootsRequest request) async =>
+  Future<ListRootsResult> listRoots([ListRootsRequest? request]) async =>
       _fallbackEnabled
       ? ListRootsResult(roots: _customRoots.toList())
       : super.listRoots(request);

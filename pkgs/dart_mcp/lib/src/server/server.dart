@@ -26,8 +26,8 @@ part 'tools_support.dart';
 abstract base class MCPServer extends MCPBase {
   /// Completes when this server has finished initialization and gotten the
   /// final ack from the client.
-  Future<void> get initialized => _initialized.future;
-  final Completer<void> _initialized = Completer<void>();
+  Future<InitializedNotification?> get initialized => _initialized.future;
+  final Completer<InitializedNotification?> _initialized = Completer();
 
   /// Whether this server is still active and has completed initialization.
   bool get ready => isActive && _initialized.isCompleted;
@@ -65,9 +65,9 @@ abstract base class MCPServer extends MCPBase {
   ///
   /// This is a broadcast stream, events are not buffered and only future events
   /// are given.
-  Stream<RootsListChangedNotification>? get rootsListChanged =>
+  Stream<RootsListChangedNotification?>? get rootsListChanged =>
       _rootsListChangedController?.stream;
-  StreamController<RootsListChangedNotification>? _rootsListChangedController;
+  StreamController<RootsListChangedNotification?>? _rootsListChangedController;
 
   MCPServer.fromStreamChannel(
     super.channel, {
@@ -106,7 +106,7 @@ abstract base class MCPServer extends MCPBase {
     clientCapabilities = request.capabilities;
     if (clientCapabilities.roots?.listChanged == true) {
       _rootsListChangedController =
-          StreamController<RootsListChangedNotification>.broadcast();
+          StreamController<RootsListChangedNotification?>.broadcast();
       registerNotificationHandler(
         RootsListChangedNotification.methodName,
         _rootsListChangedController!.sink.add,
@@ -128,12 +128,12 @@ abstract base class MCPServer extends MCPBase {
   ///
   /// The server should not respond.
   @mustCallSuper
-  void handleInitialized(InitializedNotification notification) {
-    _initialized.complete();
+  void handleInitialized([InitializedNotification? notification]) {
+    _initialized.complete(notification);
   }
 
   /// Lists all the root URIs from the client.
-  Future<ListRootsResult> listRoots(ListRootsRequest request) =>
+  Future<ListRootsResult> listRoots([ListRootsRequest? request]) =>
       sendRequest(ListRootsRequest.methodName, request);
 
   /// A request to prompt the LLM owned by the client with a message.

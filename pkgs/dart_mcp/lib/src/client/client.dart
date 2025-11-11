@@ -136,30 +136,30 @@ base class ServerConnection extends MCPBase {
   ///
   /// This is a broadcast stream, events are not buffered and only future events
   /// are given.
-  Stream<PromptListChangedNotification> get promptListChanged =>
+  Stream<PromptListChangedNotification?> get promptListChanged =>
       _promptListChangedController.stream;
   final _promptListChangedController =
-      StreamController<PromptListChangedNotification>.broadcast();
+      StreamController<PromptListChangedNotification?>.broadcast();
 
   /// Emits an event any time the server notifies us of a change to the list of
   /// tools it supports.
   ///
   /// This is a broadcast stream, events are not buffered and only future events
   /// are given.
-  Stream<ToolListChangedNotification> get toolListChanged =>
+  Stream<ToolListChangedNotification?> get toolListChanged =>
       _toolListChangedController.stream;
   final _toolListChangedController =
-      StreamController<ToolListChangedNotification>.broadcast();
+      StreamController<ToolListChangedNotification?>.broadcast();
 
   /// Emits an event any time the server notifies us of a change to the list of
   /// resources it supports.
   ///
   /// This is a broadcast stream, events are not buffered and only future events
   /// are given.
-  Stream<ResourceListChangedNotification> get resourceListChanged =>
+  Stream<ResourceListChangedNotification?> get resourceListChanged =>
       _resourceListChangedController.stream;
   final _resourceListChangedController =
-      StreamController<ResourceListChangedNotification>.broadcast();
+      StreamController<ResourceListChangedNotification?>.broadcast();
 
   /// Emits an event any time the server notifies us of a change to a resource
   /// that this client has subscribed to.
@@ -291,7 +291,7 @@ base class ServerConnection extends MCPBase {
       sendRequest(CallToolRequest.methodName, request);
 
   /// Lists all the [Resource]s from this server.
-  Future<ListResourcesResult> listResources(ListResourcesRequest request) =>
+  Future<ListResourcesResult> listResources([ListResourcesRequest? request]) =>
       sendRequest(ListResourcesRequest.methodName, request);
 
   /// Reads a [Resource] returned from the [ListResourcesResult] or matching
@@ -300,12 +300,12 @@ base class ServerConnection extends MCPBase {
       sendRequest(ReadResourceRequest.methodName, request);
 
   /// Lists all the [ResourceTemplate]s from this server.
-  Future<ListResourceTemplatesResult> listResourceTemplates(
-    ListResourceTemplatesRequest request,
-  ) => sendRequest(ListResourceTemplatesRequest.methodName, request);
+  Future<ListResourceTemplatesResult> listResourceTemplates([
+    ListResourceTemplatesRequest? request,
+  ]) => sendRequest(ListResourceTemplatesRequest.methodName, request);
 
   /// Lists all the prompts from this server.
-  Future<ListPromptsResult> listPrompts(ListPromptsRequest request) =>
+  Future<ListPromptsResult> listPrompts([ListPromptsRequest? request]) =>
       sendRequest(ListPromptsRequest.methodName, request);
 
   /// Gets the requested [Prompt] from the server.

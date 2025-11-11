@@ -95,9 +95,7 @@ base class MCPBase {
     void Function(T) impl,
   ) => _peer.registerMethod(
     name,
-    (Parameters p) => impl(
-      (p.value as Map? ?? <String, Object?>{}).cast<String, Object?>() as T,
-    ),
+    (Parameters? p) => impl((p?.value as Map?)?.cast<String, Object?>() as T),
   );
 
   /// Sends a notification to the peer.
