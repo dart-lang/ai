@@ -24,9 +24,7 @@ void main() {
 
     final serverConnection = environment.serverConnection;
 
-    final promptsResult = await serverConnection.listPrompts(
-      ListPromptsRequest(),
-    );
+    final promptsResult = await serverConnection.listPrompts();
     expect(promptsResult.prompts, [TestMCPServerWithPrompts.greeting]);
 
     final greetingResult = await serverConnection.getPrompt(
@@ -58,6 +56,7 @@ void main() {
       emitsInOrder([
         PromptListChangedNotification(),
         PromptListChangedNotification(),
+        null,
       ]),
       reason: 'We should get a notification for new and removed prompts',
     );
@@ -68,6 +67,7 @@ void main() {
       (_) => GetPromptResult(messages: []),
     );
     server.removePrompt('new prompt');
+    server.sendNotification(PromptListChangedNotification.methodName);
     // Give the notifications a chance to propagate.
     await pumpEventQueue();
 

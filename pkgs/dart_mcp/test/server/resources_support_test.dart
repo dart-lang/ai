@@ -25,9 +25,7 @@ void main() {
 
     final serverConnection = environment.serverConnection;
 
-    final resourcesResult = await serverConnection.listResources(
-      ListResourcesRequest(),
-    );
+    final resourcesResult = await serverConnection.listResources();
     expect(resourcesResult.resources.length, 1);
 
     final resource = resourcesResult.resources.single;
@@ -127,6 +125,9 @@ void main() {
       ResourceListChangedNotification(),
     );
 
+    server.sendNotification(ResourceListChangedNotification.methodName);
+    expect(await resourceListChangedQueue.next, null);
+
     expect(resourceListChangedQueue.hasNext, completion(false));
 
     /// We need to manually shut down to so that the `hasNext` futures can
@@ -199,35 +200,36 @@ void main() {
     await environment.shutdown();
   });
 
-  test('Resource templates can be listed and queried', () async {
-    final environment = TestEnvironment(
-      TestMCPClient(),
-      (channel) => TestMCPServerWithResources(
-        channel,
-        fileContents: {'package:foo/foo.dart': 'hello world!'},
-      ),
-    );
-    await environment.initializeServer();
+  test(
+    'Resource templates can be listed, queried, and subscribed to',
+    () async {
+      final environment = TestEnvironment(
+        TestMCPClient(),
+        (channel) => TestMCPServerWithResources(
+          channel,
+          fileContents: {'package:foo/foo.dart': 'hello world!'},
+        ),
+      );
+      await environment.initializeServer();
 
-    final serverConnection = environment.serverConnection;
+      final serverConnection = environment.serverConnection;
 
-    final templatesResponse = await serverConnection.listResourceTemplates(
-      ListResourceTemplatesRequest(),
-    );
+      final templatesResponse = await serverConnection.listResourceTemplates();
 
-    expect(
-      templatesResponse.resourceTemplates.single,
-      TestMCPServerWithResources.packageUriTemplate,
-    );
+      expect(
+        templatesResponse.resourceTemplates.single,
+        TestMCPServerWithResources.packageUriTemplate,
+      );
 
-    final readResourceResponse = await serverConnection.readResource(
-      ReadResourceRequest(uri: 'package:foo/foo.dart'),
-    );
-    expect(
-      (readResourceResponse.contents.single as TextResourceContents).text,
-      'hello world!',
-    );
-  });
+      final readResourceResponse = await serverConnection.readResource(
+        ReadResourceRequest(uri: 'package:foo/foo.dart'),
+      );
+      expect(
+        (readResourceResponse.contents.single as TextResourceContents).text,
+        'hello world!',
+      );
+    },
+  );
 }
 
 final class TestMCPServerWithResources extends TestMCPServer

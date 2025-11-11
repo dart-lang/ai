@@ -65,9 +65,9 @@ abstract base class MCPServer extends MCPBase {
   ///
   /// This is a broadcast stream, events are not buffered and only future events
   /// are given.
-  Stream<RootsListChangedNotification>? get rootsListChanged =>
+  Stream<RootsListChangedNotification?>? get rootsListChanged =>
       _rootsListChangedController?.stream;
-  StreamController<RootsListChangedNotification>? _rootsListChangedController;
+  StreamController<RootsListChangedNotification?>? _rootsListChangedController;
 
   MCPServer.fromStreamChannel(
     super.channel, {
@@ -106,7 +106,7 @@ abstract base class MCPServer extends MCPBase {
     clientCapabilities = request.capabilities;
     if (clientCapabilities.roots?.listChanged == true) {
       _rootsListChangedController =
-          StreamController<RootsListChangedNotification>.broadcast();
+          StreamController<RootsListChangedNotification?>.broadcast();
       registerNotificationHandler(
         RootsListChangedNotification.methodName,
         _rootsListChangedController!.sink.add,

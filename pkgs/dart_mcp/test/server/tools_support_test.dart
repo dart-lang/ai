@@ -58,6 +58,7 @@ void main() {
       emitsInOrder([
         ToolListChangedNotification(),
         ToolListChangedNotification(),
+        null,
       ]),
     );
 
@@ -67,6 +68,7 @@ void main() {
     );
 
     server.unregisterTool('foo');
+    server.sendNotification(ToolListChangedNotification.methodName);
 
     // Give the notifications time to be received.
     await pumpEventQueue();
