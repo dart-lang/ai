@@ -309,27 +309,30 @@ void main() {
           ],
         },
       );
-      final result = await testHarness.callToolWithRetry(request, maxTries: 10);
-      expect(result.isError, isNot(true));
-      expect(result.content, hasLength(2));
-      expect(
-        result.content,
-        containsAll([
-          isA<TextContent>().having(
-            (t) => t.text,
-            'text',
-            contains(
-              "The argument type 'String' can't be assigned to the "
-              "parameter type 'num'.",
+      // It may take a bit for the errors to show up.
+      await callWithRetry(() async {
+        final result = await testHarness.callTool(request);
+        expect(result.isError, isNot(true));
+        expect(result.content, hasLength(2));
+        expect(
+          result.content,
+          containsAll([
+            isA<TextContent>().having(
+              (t) => t.text,
+              'text',
+              contains(
+                "The argument type 'String' can't be assigned to the "
+                "parameter type 'num'.",
+              ),
             ),
-          ),
-          isA<TextContent>().having(
-            (t) => t.text,
-            'text',
-            contains("Undefined name 'foo'"),
-          ),
-        ]),
-      );
+            isA<TextContent>().having(
+              (t) => t.text,
+              'text',
+              contains("Undefined name 'foo'"),
+            ),
+          ]),
+        );
+      }, maxTries: 10);
     });
 
     test('can look up symbols in a workspace', () async {
