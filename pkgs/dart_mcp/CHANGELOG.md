@@ -1,4 +1,4 @@
-## 0.4.0-wip
+## 0.4.0
 
 - Update the tool calling example to include progress notifications.
 - **Breaking**: Update APIs to accept nullable parameters when the parameters
