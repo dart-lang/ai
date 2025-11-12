@@ -3,6 +3,7 @@
 - Add `--tools=dart|all` argument to allow enabling only vanilla Dart tools for
   non-flutter projects.
 - Include the device name and target platform in the list_devices tool.
+- Fix analyze tool handling of invalid roots.
 - Fix erroneous SDK version error messages when connecting to a VM Service
   instead of DTD URI.
 

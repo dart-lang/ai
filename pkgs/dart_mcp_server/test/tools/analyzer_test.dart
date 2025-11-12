@@ -277,6 +277,45 @@ void main() {
       );
     });
 
+    test('handles invalid roots list', () async {
+      // We still need a root registered with the server so that the
+      // prerequisites check passes.
+      final example = d.dir('example', [
+        d.file('main.dart', 'void main() => 1;'),
+      ]);
+      await example.create();
+      final exampleRoot = testHarness.rootForPath(example.io.path);
+      testHarness.mcpClient.addRoot(exampleRoot);
+      await pumpEventQueue();
+
+      final request = CallToolRequest(
+        name: analyzeTool.name,
+        arguments: {
+          ParameterNames.roots: [
+            {'root': 'file:///invalid/root'},
+          ],
+        },
+      );
+      final result = await testHarness.callToolWithRetry(
+        request,
+        expectError: true,
+      );
+      expect(result.isError, isTrue);
+      expect(
+        result.content.single,
+        isA<TextContent>().having(
+          (t) => t.text,
+          'text',
+          allOf(
+            contains(
+              'Invalid root file:///invalid/root, must be under one of the registered project roots:',
+            ),
+            contains(example.io.uri.toString()),
+          ),
+        ),
+      );
+    });
+
     test('can analyze files in multiple roots', () async {
       final projectA = d.dir('project_a', [
         d.file('main.dart', 'void main() => 1 + "a";'),
