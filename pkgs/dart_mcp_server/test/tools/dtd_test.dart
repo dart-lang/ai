@@ -794,6 +794,25 @@ void main() {
       expect(log.characters, 10);
     });
   });
+
+  test('connect_to_dtd will reject a vm service URI', () async {
+    final testHarness = await TestHarness.start(inProcess: true);
+    final debugSession = await testHarness.startDebugSession(
+      dartCliAppsPath,
+      'bin/infinite_wait.dart',
+      isFlutter: false,
+    );
+    final connectResult = await testHarness.connectToDtd(
+      dtdUri: debugSession.vmServiceUri,
+      expectError: true,
+    );
+    expect(
+      (connectResult.content.first as TextContent).text,
+      contains('Connected to a VM Service'),
+    );
+    final retryResult = await testHarness.connectToDtd();
+    expect(retryResult.isError, isNot(true));
+  });
 }
 
 extension on Iterable<Resource> {

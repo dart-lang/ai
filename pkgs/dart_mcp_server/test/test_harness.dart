@@ -143,11 +143,16 @@ class TestHarness {
     await AppDebugSession.kill(session.appProcess, session.isFlutter);
   }
 
-  /// Connects the MCP server to the dart tooling daemon at the `dtdUri` from
-  /// [fakeEditorExtension] using the "connectDartToolingDaemon" tool function.
+  /// Connects the MCP server to the dart tooling daemon at the [dtdUri] using
+  /// the "connectDartToolingDaemon" tool function.
+  ///
+  /// By default the DTD Uri will come from the [fakeEditorExtension].
   ///
   /// This mimics a user using the "copy DTD Uri from clipboard" action.
-  Future<void> connectToDtd() async {
+  Future<CallToolResult> connectToDtd({
+    String? dtdUri,
+    bool expectError = false,
+  }) async {
     final tools = (await mcpServerConnection.listTools()).tools;
 
     final connectTool = tools.singleWhere(
@@ -157,11 +162,11 @@ class TestHarness {
     final result = await callToolWithRetry(
       CallToolRequest(
         name: connectTool.name,
-        arguments: {ParameterNames.uri: fakeEditorExtension.dtdUri},
+        arguments: {ParameterNames.uri: dtdUri ?? fakeEditorExtension.dtdUri},
       ),
+      expectError: expectError,
     );
-
-    expect(result.isError, isNot(true), reason: result.content.join('\n'));
+    return result;
   }
 
   /// Helper to send [request] to [mcpServerConnection].

@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'package:dart_mcp/server.dart';
 import 'package:dds_service_extensions/dds_service_extensions.dart';
 import 'package:dtd/dtd.dart';
+import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:meta/meta.dart';
 import 'package:unified_analytics/unified_analytics.dart' as ua;
 import 'package:vm_service/vm_service.dart';
@@ -231,9 +232,23 @@ base mixin DartToolingDaemonSupport
     }
 
     try {
-      _dtd = await DartToolingDaemon.connect(
+      final dtd = _dtd = await DartToolingDaemon.connect(
         Uri.parse(request.arguments![ParameterNames.uri] as String),
       );
+      try {
+        await dtd.call(null, 'getVM');
+        // If the call above succeeds, we were connected to the vm service, and
+        // should error.
+        await _resetDtd();
+        return _gotVmServiceUri;
+      } on RpcException catch (e) {
+        // Double check the failure was a method not found failure, if not
+        // rethrow it.
+        if (e.code != RpcErrorCodes.kMethodNotFound) {
+          await _resetDtd();
+          rethrow;
+        }
+      }
       unawaited(_dtd!.done.then((_) async => await _resetDtd()));
 
       await _listenForServices();
@@ -1097,6 +1112,20 @@ base mixin DartToolingDaemonSupport
     ],
     isError: true,
   )..failureReason = CallToolFailureReason.flutterDriverNotEnabled;
+
+  static final _gotVmServiceUri = CallToolResult(
+    content: [
+      Content.text(
+        text:
+            'Connected to a VM Service but expected to connect to a Dart '
+            'Tooling Daemon service. When launching apps from an IDE you '
+            'should have a "Copy DTD URI to clipboard" command pallete option, '
+            'or when directly launching apps from a terminal you can pass the '
+            '"--print-dtd" command line option in order to get the DTD URI.',
+      ),
+    ],
+    isError: true,
+  );
 
   static final runtimeErrorsScheme = 'runtime-errors';
 
