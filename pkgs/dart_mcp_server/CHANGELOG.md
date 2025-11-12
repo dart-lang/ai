@@ -4,6 +4,8 @@
   non-flutter projects.
 - Include the device name and target platform in the list_devices tool.
 - Fix analyze tool handling of invalid roots.
+- Fix erroneous SDK version error messages when connecting to a VM Service
+  instead of DTD URI.
 
 # 0.1.1 (Dart SDK 3.10.0)
 
