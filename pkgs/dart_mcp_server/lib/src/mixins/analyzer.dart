@@ -275,8 +275,8 @@ base mixin DartAnalyzerSupport
         fileSystem: fileSystem,
       );
 
-      if (validated.errorResult != null) {
-        return errorResult!;
+      if (validated.errorResult case final error?) {
+        return error;
       }
 
       final rootUri = Uri.parse(validated.root!.uri);
