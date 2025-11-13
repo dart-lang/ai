@@ -127,6 +127,7 @@ enum CallToolFailureReason {
   invalidRootPath,
   invalidRootScheme,
   noActiveDebugSession,
+  noPackageConfigFound,
   noRootGiven,
   noRootsSet,
   noSuchCommand,

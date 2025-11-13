@@ -155,6 +155,7 @@ For more information, see the official VS Code documentation for
 | `list_running_apps` |  | Returns the list of running app process IDs and associated DTD URIs for apps started by the launch_app tool. |
 | `pub` | pub | Runs a pub command for the given project roots, like `dart pub get` or `flutter pub add`. |
 | `pub_dev_search` | pub.dev search | Searches pub.dev for packages relevant to a given search query. The response will describe each result with its download count, package description, topics, license, and publisher. |
+| `read_package_uris` |  | Reads "package" scheme URIs which represent paths under the lib directory of Dart package dependencies. Package uris are always relative, and the first segment is the package name. For example, the URI "package:test/test.dart" represents the path "lib/test.dart" under the "test" package. This API supports both reading files and listing directories. |
 | `remove_roots` | Remove roots | Removes one or more project roots previously added via the add_roots tool. |
 | `resolve_workspace_symbol` | Project search | Look up a symbol or symbols in all workspaces by name. Can be used to validate that a symbol exists or discover small spelling mistakes, since the search is fuzzy. |
 | `run_tests` | Run tests | Run Dart or Flutter tests with an agent centric UX. ALWAYS use instead of `dart test` or `flutter test` shell commands. |

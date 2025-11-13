@@ -5,6 +5,7 @@
 // ignore_for_file: lines_longer_than_80_chars
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dart_mcp/server.dart';
 import 'package:test/test.dart';
@@ -1965,6 +1966,74 @@ void main() {
       final request = CallToolRequest(name: 'foo', arguments: {});
       final result = await serverConnection.callTool(request);
       expect(result.structuredContent, {'bar': 'baz'});
+    });
+
+    test('can return embedded resources', () async {
+      final environment = TestEnvironment(
+        TestMCPClient(),
+        (channel) => TestMCPServerWithTools(
+          channel,
+          tools: [Tool(name: 'foo', inputSchema: ObjectSchema())],
+          toolHandlers: {
+            'foo': (request) {
+              return CallToolResult(
+                content: [
+                  EmbeddedResource(
+                    resource: TextResourceContents(
+                      uri: 'file:///my_resource',
+                      text: 'Really awesome text',
+                    ),
+                  ),
+                  EmbeddedResource(
+                    resource: BlobResourceContents(
+                      uri: 'file:///my_resource',
+                      blob: base64Encode([1, 2, 3, 4, 5, 6, 7, 8]),
+                    ),
+                  ),
+                ],
+              );
+            },
+          },
+        ),
+      );
+      final serverConnection = environment.serverConnection;
+      await serverConnection.initialize(
+        InitializeRequest(
+          protocolVersion: ProtocolVersion.latestSupported,
+          capabilities: environment.client.capabilities,
+          clientInfo: environment.client.implementation,
+        ),
+      );
+      final request = CallToolRequest(name: 'foo', arguments: {});
+      final result = await serverConnection.callTool(request);
+      expect(result.content, hasLength(2));
+      expect(
+        result.content,
+        containsAll([
+          isA<EmbeddedResource>()
+              .having((r) => r.type, 'type', EmbeddedResource.expectedType)
+              .having(
+                (r) => r.resource,
+                'resource',
+                isA<TextResourceContents>().having(
+                  (r) => r.text,
+                  'text',
+                  'Really awesome text',
+                ),
+              ),
+          isA<EmbeddedResource>()
+              .having((r) => r.type, 'type', 'resource')
+              .having(
+                (r) => r.resource,
+                'resource',
+                isA<BlobResourceContents>().having(
+                  (r) => r.blob,
+                  'blob',
+                  base64Encode([1, 2, 3, 4, 5, 6, 7, 8]),
+                ),
+              ),
+        ]),
+      );
     });
   });
 }

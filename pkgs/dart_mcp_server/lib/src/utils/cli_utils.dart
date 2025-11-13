@@ -165,7 +165,7 @@ Future<CallToolResult> runCommandInRoot(
   }
 
   final root = knownRoots.firstWhereOrNull(
-    (root) => _isUnderRoot(root, rootUriString, fileSystem),
+    (root) => isUnderRoot(root, rootUriString, fileSystem),
   );
   if (root == null) {
     return CallToolResult(
@@ -203,7 +203,7 @@ Future<CallToolResult> runCommandInRoot(
       (rootConfig?[ParameterNames.paths] as List?)?.cast<String>() ??
       defaultPaths;
   final invalidPaths = paths.where(
-    (path) => !_isUnderRoot(root, path, fileSystem),
+    (path) => !isUnderRoot(root, path, fileSystem),
   );
   if (invalidPaths.isNotEmpty) {
     return CallToolResult(
@@ -306,7 +306,7 @@ validateRootConfig(
   }
 
   final knownRoot = knownRoots.firstWhereOrNull(
-    (root) => _isUnderRoot(root, rootUriString, fileSystem),
+    (root) => isUnderRoot(root, rootUriString, fileSystem),
   );
   if (knownRoot == null) {
     return (
@@ -331,7 +331,7 @@ validateRootConfig(
       defaultPaths;
   if (paths != null) {
     final invalidPaths = paths.where(
-      (path) => !_isUnderRoot(root, path, fileSystem),
+      (path) => !isUnderRoot(root, path, fileSystem),
     );
     if (invalidPaths.isNotEmpty) {
       return (
@@ -374,7 +374,7 @@ Future<String> defaultCommandForRoot(
 /// Returns whether [uri] is under or exactly equal to [root].
 ///
 /// Relative uris will always be under [root] unless they escape it with `../`.
-bool _isUnderRoot(Root root, String uri, FileSystem fileSystem) {
+bool isUnderRoot(Root root, String uri, FileSystem fileSystem) {
   // This normalizes the URI to ensure it is treated as a directory (for example
   // ensures it ends with a trailing slash).
   final rootUri = fileSystem.directory(Uri.parse(root.uri)).uri;

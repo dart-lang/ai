@@ -1,3 +1,12 @@
+## 0.4.1-wip
+
+- Fix the `resource` parameter type on `EmbeddedResource` to be
+  `ResourceContents` instead of `Contents`.
+  - **Note**: This is technically breaking but the previous API would not have
+    been possible to use in a functional manner, so it is assumed that it had
+    no usage previously.
+- Fix the `type` getter on `EmbeddedResource` to read the actual type field.
+
 ## 0.4.0
 
 - Update the tool calling example to include progress notifications.
