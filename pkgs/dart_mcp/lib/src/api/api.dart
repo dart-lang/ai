@@ -448,7 +448,7 @@ extension type EmbeddedResource.fromMap(Map<String, Object?> _value)
   static const expectedType = 'resource';
 
   factory EmbeddedResource({
-    required Content resource,
+    required ResourceContents resource,
     Annotations? annotations,
     Meta? meta,
   }) => EmbeddedResource.fromMap({
@@ -459,7 +459,7 @@ extension type EmbeddedResource.fromMap(Map<String, Object?> _value)
   });
 
   String get type {
-    final type = _value['resource'] as String;
+    final type = _value['type'] as String;
     assert(type == expectedType);
     return type;
   }
@@ -467,6 +467,7 @@ extension type EmbeddedResource.fromMap(Map<String, Object?> _value)
   /// Either [TextResourceContents] or [BlobResourceContents].
   ResourceContents get resource => _value['resource'] as ResourceContents;
 
+  @Deprecated('Use `.resource.mimeType`.')
   String? get mimeType => _value['mimeType'] as String?;
 }
 
