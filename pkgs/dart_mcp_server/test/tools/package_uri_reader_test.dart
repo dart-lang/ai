@@ -115,9 +115,9 @@ void main() {
         result.content,
         contains(
           isTextContent(
-            'The package "not_a_real_package" was not found in your package config, '
-            'make sure it is listed in your dependencies, or use `pub add` to '
-            'add it.',
+            'The package "not_a_real_package" was not found in your package '
+            'config, make sure it is listed in your dependencies, or use '
+            '`pub add` to add it.',
           ),
         ),
       );
