@@ -28,8 +28,6 @@ base mixin PackageUriSupport on ToolsSupport, RootsTrackingSupport
   }
 
   Future<CallToolResult> _readPackageUris(CallToolRequest request) async {
-    // Note that these are already validated based on the inputSchema, so these
-    // casts are safe.
     final args = request.arguments!;
     final validated = validateRootConfig(
       args,
@@ -137,7 +135,7 @@ base mixin PackageUriSupport on ToolsSupport, RootsTrackingSupport
     } else {
       final file = fileSystem.file(resolvedUri.path);
       if (!(await file.exists())) {
-        yield TextContent(text: 'File not found: ${file.uri}');
+        yield TextContent(text: 'File not found: $uri');
         return;
       }
 
