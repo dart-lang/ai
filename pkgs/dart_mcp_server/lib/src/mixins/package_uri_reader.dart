@@ -102,64 +102,69 @@ base mixin PackageUriSupport on ToolsSupport, RootsTrackingSupport
       return;
     }
 
-    // Checks complete, actually read the file.
-    if (await fileSystem.isDirectory(resolvedUri.path)) {
-      final dir = fileSystem.directory(resolvedUri.path);
-      yield Content.text(text: '## Directory "$uri":');
-      await for (final entry in dir.list(followLinks: false)) {
+    final osFriendlyPath = p.fromUri(resolvedUri);
+    final entityType = await fileSystem.type(osFriendlyPath, followLinks: false);
+    switch (entityType) {
+      case FileSystemEntityType.directory:
+        final dir = fileSystem.directory(osFriendlyPath);
+        yield Content.text(text: '## Directory "$uri":');
+        await for (final entry in dir.list(followLinks: false)) {
+          yield ResourceLink(
+            name: p.basename(osFriendlyPath),
+            description: entry is Directory ? 'A directory' : 'A file',
+            uri: packageConfig.toPackageUri(entry.uri)!.toString(),
+            mimeType: lookupMimeType(entry.path) ?? '',
+          );
+        }
+      case FileSystemEntityType.link:
+        // We are only returning a reference to the target, so it is ok to not
+        // check the path. The agent may have the permissions to read the linked
+        // path on its own, even if it is outside of the package root.
+        var targetUri = resolvedUri.resolve(
+          await fileSystem.link(osFriendlyPath).target(),
+        );
+        // If we can represent it as a package URI, do so.
+        final asPackageUri = packageConfig.toPackageUri(targetUri);
+        if (asPackageUri != null) {
+          targetUri = asPackageUri;
+        }
         yield ResourceLink(
-          name: p.basename(resolvedUri.path),
-          description: entry is Directory ? 'A directory' : 'A file',
-          uri: packageConfig.toPackageUri(entry.uri)!.toString(),
-          mimeType: lookupMimeType(entry.path) ?? '',
+          name: p.basename(targetUri.path),
+          description: 'Target of symlink at $uri',
+          uri: targetUri.toString(),
+          mimeType: lookupMimeType(targetUri.path) ?? '',
         );
-      }
-    } else if (await fileSystem.isLink(resolvedUri.path)) {
-      // We are only returning a reference to the target, so it is ok to not
-      // check the path. The agent may have the permissions to read the linked
-      // path on its own, even if it is outside of the package root.
-      var targetUri = resolvedUri.resolve(
-        await fileSystem.link(resolvedUri.path).target(),
-      );
-      // If we can represent it as a package URI, do so.
-      final asPackageUri = packageConfig.toPackageUri(targetUri);
-      if (asPackageUri != null) {
-        targetUri = asPackageUri;
-      }
-      yield ResourceLink(
-        name: p.basename(targetUri.path),
-        description: 'Target of symlink at $uri',
-        uri: targetUri.toString(),
-        mimeType: lookupMimeType(targetUri.path) ?? '',
-      );
-    } else {
-      final file = fileSystem.file(resolvedUri.path);
-      if (!(await file.exists())) {
-        yield TextContent(text: 'File not found: $uri');
-        return;
-      }
-
-      final mimeType = lookupMimeType(resolvedUri.path) ?? '';
-      final resourceUri = packageConfig.toPackageUri(resolvedUri)!.toString();
-      // Attempt to treat it as a utf8 String first, if that fails then just
-      // return it as bytes.
-      try {
-        yield Content.embeddedResource(
-          resource: TextResourceContents(
-            uri: resourceUri,
-            text: await file.readAsString(),
-            mimeType: mimeType,
-          ),
+      case FileSystemEntityType.file:
+        final file = fileSystem.file(osFriendlyPath);
+        final mimeType = lookupMimeType(resolvedUri.path) ?? '';
+        final resourceUri = packageConfig.toPackageUri(resolvedUri)!.toString();
+        // Attempt to treat it as a utf8 String first, if that fails then just
+        // return it as bytes.
+        try {
+          yield Content.embeddedResource(
+            resource: TextResourceContents(
+              uri: resourceUri,
+              text: await file.readAsString(),
+              mimeType: mimeType,
+            ),
+          );
+        } catch (_) {
+          yield Content.embeddedResource(
+            resource: BlobResourceContents(
+              uri: resourceUri,
+              mimeType: mimeType,
+              blob: base64Encode(await file.readAsBytes()),
+            ),
+          );
+        }
+      case FileSystemEntityType.notFound:
+        yield TextContent(
+          text: 'File not found: $uri',
         );
-      } catch (_) {
-        yield Content.embeddedResource(
-          resource: BlobResourceContents(
-            uri: resourceUri,
-            mimeType: mimeType,
-            blob: base64Encode(await file.readAsBytes()),
-          ),
+      default:
+        yield TextContent(
+          text: 'Unsupported file system entity type $entityType',
         );
-      }
     }
   }
 
