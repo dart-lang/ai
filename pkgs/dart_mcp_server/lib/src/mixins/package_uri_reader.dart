@@ -103,7 +103,10 @@ base mixin PackageUriSupport on ToolsSupport, RootsTrackingSupport
     }
 
     final osFriendlyPath = p.fromUri(resolvedUri);
-    final entityType = await fileSystem.type(osFriendlyPath, followLinks: false);
+    final entityType = await fileSystem.type(
+      osFriendlyPath,
+      followLinks: false,
+    );
     switch (entityType) {
       case FileSystemEntityType.directory:
         final dir = fileSystem.directory(osFriendlyPath);
@@ -158,9 +161,7 @@ base mixin PackageUriSupport on ToolsSupport, RootsTrackingSupport
           );
         }
       case FileSystemEntityType.notFound:
-        yield TextContent(
-          text: 'File not found: $uri',
-        );
+        yield TextContent(text: 'File not found: $uri');
       default:
         yield TextContent(
           text: 'Unsupported file system entity type $entityType',
