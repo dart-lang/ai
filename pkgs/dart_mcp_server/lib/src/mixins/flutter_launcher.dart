@@ -69,6 +69,7 @@ base mixin FlutterLauncherSupport
         ),
       },
       required: ['root', 'device'],
+      additionalProperties: false,
     ),
     outputSchema: Schema.object(
       properties: {
@@ -255,6 +256,7 @@ base mixin FlutterLauncherSupport
         ),
       },
       required: ['pid'],
+      additionalProperties: false,
     ),
     outputSchema: Schema.object(
       properties: {
@@ -325,6 +327,7 @@ base mixin FlutterLauncherSupport
         ),
       },
       required: ['devices'],
+      additionalProperties: false,
     ),
   );
 
@@ -410,6 +413,7 @@ base mixin FlutterLauncherSupport
         ),
       },
       required: ['pid'],
+      additionalProperties: false,
     ),
     outputSchema: Schema.object(
       properties: {
@@ -487,6 +491,7 @@ base mixin FlutterLauncherSupport
         ),
       },
       required: ['apps'],
+      additionalProperties: false,
     ),
   );
 

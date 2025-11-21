@@ -921,6 +921,7 @@ base mixin DartToolingDaemonSupport
     inputSchema: Schema.object(
       properties: {ParameterNames.uri: Schema.string()},
       required: const [ParameterNames.uri],
+      additionalProperties: false,
     ),
   );
 
@@ -944,6 +945,7 @@ base mixin DartToolingDaemonSupport
               'relevant before reading them again.',
         ),
       },
+      additionalProperties: false,
     ),
   );
 
@@ -955,7 +957,7 @@ base mixin DartToolingDaemonSupport
         'current state. Requires "${connectTool.name}" to be successfully '
         'called first.',
     annotations: ToolAnnotations(title: 'Take screenshot', readOnlyHint: true),
-    inputSchema: Schema.object(),
+    inputSchema: Schema.object(additionalProperties: false),
   );
 
   @visibleForTesting
@@ -977,7 +979,7 @@ base mixin DartToolingDaemonSupport
               'relevant.',
         ),
       },
-      required: [],
+      additionalProperties: false,
     ),
   );
 
@@ -992,7 +994,7 @@ base mixin DartToolingDaemonSupport
         "successfully called first. Doesn't work for Non-Flutter Dart CLI "
         'programs.',
     annotations: ToolAnnotations(title: 'Hot restart', destructiveHint: true),
-    inputSchema: Schema.object(properties: {}, required: []),
+    inputSchema: Schema.object(additionalProperties: false),
   );
 
   @visibleForTesting
@@ -1010,6 +1012,7 @@ base mixin DartToolingDaemonSupport
               'are returned.',
         ),
       },
+      additionalProperties: false,
     ),
   );
 
@@ -1023,7 +1026,7 @@ base mixin DartToolingDaemonSupport
       title: 'Get selected widget',
       readOnlyHint: true,
     ),
-    inputSchema: Schema.object(),
+    inputSchema: Schema.object(additionalProperties: false),
   );
 
   @visibleForTesting
@@ -1043,6 +1046,7 @@ base mixin DartToolingDaemonSupport
         'enabled': Schema.bool(title: 'Enable widget selection mode'),
       },
       required: const ['enabled'],
+      additionalProperties: false,
     ),
   );
 
@@ -1057,7 +1061,7 @@ base mixin DartToolingDaemonSupport
       title: 'Get Active Editor Location',
       readOnlyHint: true,
     ),
-    inputSchema: Schema.object(),
+    inputSchema: Schema.object(additionalProperties: false),
   );
 
   static final _connectedAppsNotSupported = CallToolResult(

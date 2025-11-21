@@ -147,6 +147,7 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
           ),
         ),
       },
+      additionalProperties: false,
     ),
   );
 
@@ -164,6 +165,7 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
           items: Schema.string(description: 'The URIs of the roots to remove.'),
         ),
       },
+      additionalProperties: false,
     ),
   );
 }
