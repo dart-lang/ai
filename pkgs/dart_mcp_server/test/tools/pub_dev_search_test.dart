@@ -33,7 +33,7 @@ void main() {
       await runWithHarness((testHarness, pubDevSearchTool) async {
         final request = CallToolRequest(
           name: pubDevSearchTool.name,
-          arguments: {'query': 'retry', 'latestVersion': '3.1.2'},
+          arguments: {'query': 'retry'},
         );
 
         final result = await testHarness.callToolWithRetry(
