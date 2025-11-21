@@ -103,6 +103,7 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
         ParameterNames.roots: rootsSchema(),
       },
       required: [ParameterNames.command],
+      additionalProperties: false,
     ),
   );
 }

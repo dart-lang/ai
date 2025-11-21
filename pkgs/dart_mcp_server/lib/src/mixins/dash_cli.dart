@@ -184,6 +184,7 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
     annotations: ToolAnnotations(title: 'Dart fix', destructiveHint: true),
     inputSchema: Schema.object(
       properties: {ParameterNames.roots: rootsSchema()},
+      additionalProperties: false,
     ),
   );
 
@@ -193,6 +194,7 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
     annotations: ToolAnnotations(title: 'Dart format', destructiveHint: true),
     inputSchema: Schema.object(
       properties: {ParameterNames.roots: rootsSchema(supportsPaths: true)},
+      additionalProperties: false,
     ),
   );
 
@@ -213,6 +215,7 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
           ParameterNames.roots: rootsSchema(supportsPaths: true),
           ParameterNames.testRunnerArgs: cliSchema,
         },
+        additionalProperties: false,
       ),
     );
   }();
@@ -258,6 +261,7 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
         ParameterNames.projectType,
         ParameterNames.root,
       ],
+      additionalProperties: false,
     ),
   );
 

@@ -464,6 +464,7 @@ base mixin DartAnalyzerSupport
     description: 'Analyzes specific paths, or the entire project, for errors.',
     inputSchema: Schema.object(
       properties: {ParameterNames.roots: rootsSchema(supportsPaths: true)},
+      additionalProperties: false,
     ),
     annotations: ToolAnnotations(title: 'Analyze projects', readOnlyHint: true),
   );
@@ -489,6 +490,7 @@ base mixin DartAnalyzerSupport
           'and locations. Be sure to check the name of the responses to ensure '
           'it looks like the thing you were searching for.',
       required: [ParameterNames.query],
+      additionalProperties: false,
     ),
     annotations: ToolAnnotations(title: 'Project search', readOnlyHint: true),
   );
@@ -542,6 +544,7 @@ final _locationSchema = Schema.object(
     ),
   },
   required: [ParameterNames.uri, ParameterNames.line, ParameterNames.column],
+  additionalProperties: false,
 );
 
 extension on Root {

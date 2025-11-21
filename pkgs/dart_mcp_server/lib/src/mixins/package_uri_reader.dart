@@ -199,6 +199,7 @@ base mixin PackageUriSupport on ToolsSupport, RootsTrackingSupport
         ParameterNames.root: rootSchema,
       },
       required: [ParameterNames.uris, ParameterNames.root],
+      additionalProperties: false,
     ),
   );
 }
