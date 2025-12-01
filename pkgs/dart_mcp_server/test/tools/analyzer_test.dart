@@ -288,32 +288,34 @@ void main() {
       testHarness.mcpClient.addRoot(exampleRoot);
       await pumpEventQueue();
 
-      final request = CallToolRequest(
-        name: analyzeTool.name,
-        arguments: {
-          ParameterNames.roots: [
-            {'root': 'file:///invalid/root'},
-          ],
-        },
-      );
-      final result = await testHarness.callToolWithRetry(
-        request,
-        expectError: true,
-      );
-      expect(result.isError, isTrue);
-      expect(
-        result.content.single,
-        isA<TextContent>().having(
-          (t) => t.text,
-          'text',
-          allOf(
-            contains(
-              'Invalid root file:///invalid/root, must be under one of the registered project roots:',
+      // We won't see the expected error until the roots notification
+      // propagates to the server.
+      await callWithRetry(() async {
+        final request = CallToolRequest(
+          name: analyzeTool.name,
+          arguments: {
+            ParameterNames.roots: [
+              {'root': 'file:///invalid/root'},
+            ],
+          },
+        );
+        final result = await testHarness.callTool(request, expectError: true);
+        expect(result.isError, isTrue);
+        expect(
+          result.content.single,
+          isA<TextContent>().having(
+            (t) => t.text,
+            'text',
+            allOf(
+              contains(
+                'Invalid root file:///invalid/root, must be under one of the '
+                'registered project roots:',
+              ),
+              contains(example.io.uri.toString()),
             ),
-            contains(example.io.uri.toString()),
           ),
-        ),
-      );
+        );
+      });
     });
 
     test('can analyze files in multiple roots', () async {
