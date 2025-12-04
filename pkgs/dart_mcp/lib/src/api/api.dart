@@ -298,6 +298,14 @@ extension type PaginatedResult._fromMap(Map<String, Object?> _value)
   Cursor? get nextCursor => _value['nextCursor'] as Cursor?;
 }
 
+/// A list of all the known content type strings.
+const contentTypes = [
+  TextContent.expectedType,
+  ImageContent.expectedType,
+  AudioContent.expectedType,
+  EmbeddedResource.expectedType,
+];
+
 /// Could be either [TextContent], [ImageContent], [AudioContent] or
 /// [EmbeddedResource].
 ///

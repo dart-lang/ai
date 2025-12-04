@@ -251,6 +251,7 @@ base mixin DartToolingDaemonSupport
       }
       unawaited(_dtd!.done.then((_) async => await _resetDtd()));
 
+      await _registerServices();
       await _listenForServices();
       return CallToolResult(
         content: [TextContent(text: 'Connection succeeded')],
@@ -270,6 +271,220 @@ base mixin DartToolingDaemonSupport
         content: [Content.text(text: 'Connection failed: $e')],
       );
     }
+  }
+
+  /// Registers all MCP server-provided services on the connected DTD instance.
+  Future<void> _registerServices() async {
+    final dtd = _dtd!;
+
+    await dtd.registerService(
+      McpServiceConstants.serviceName,
+      McpServiceConstants.samplingRequest,
+      _handleSamplingRequest,
+    );
+  }
+
+  Future<Map<String, Object?>> _handleSamplingRequest(Parameters params) async {
+    if (!params['maxTokens'].exists) {
+      RpcException.invalidParams('Parameter "maxTokens" is required.');
+    }
+    if (!params['messages'].exists) {
+      RpcException.invalidParams('Parameter "messages" is required.');
+    }
+    try {
+      final maxTokens = params['maxTokens'].asInt;
+      final messages = params['messages'].asList
+          .whereType<Map<String, Object?>>()
+          .map(_jsonToSamplingMessage)
+          .whereType<SamplingMessage>();
+
+      final request = CreateMessageRequest(
+        messages: messages.toList(),
+        maxTokens: maxTokens,
+      );
+
+      final result = await createMessage(request);
+      return {
+        'type': 'Success', // Type is required by DTD.
+        ...result.toJson(),
+      };
+    } catch (e) {
+      throw RpcException(-32000, e.toString());
+    }
+  }
+
+  SamplingMessage? _jsonToSamplingMessage(Map<String, Object?> json) {
+    final samplingMessage = switch (json) {
+      {
+        'role': final String role,
+        'content': final Map<String, Object?> content,
+      } =>
+        _createSamplingMessage(
+          role: _parseRole(role),
+          content: _jsonToContent(content),
+        ),
+      _ => null,
+    };
+    if (samplingMessage == null) {
+      _logSamplingRequestWarning('Unable to parse messsage: $json');
+    }
+    return samplingMessage;
+  }
+
+  SamplingMessage? _createSamplingMessage({
+    required Role? role,
+    required Content? content,
+  }) {
+    if (role == null || content == null) {
+      return null;
+    }
+    return SamplingMessage(role: role, content: content);
+  }
+
+  Role? _parseRole(String roleStr) {
+    final role = switch (roleStr) {
+      'user' => Role.user,
+      'assistant' => Role.assistant,
+      _ => null,
+    };
+    if (role == null) {
+      _logSamplingRequestWarning(
+        'Invalid role: $roleStr.'
+        'Expected either "user" or "assistant".',
+      );
+    }
+    return role;
+  }
+
+  Content? _jsonToContent(Map<String, Object?> json) {
+    final type = _contentType(json);
+    switch (type) {
+      case TextContent.expectedType:
+        return _textContent(json);
+      case ImageContent.expectedType:
+        return _imageContent(json);
+      case AudioContent.expectedType:
+        return _audioContent(json);
+      case EmbeddedResource.expectedType:
+        return _embeddedResource(json);
+      default:
+        return null;
+    }
+  }
+
+  String? _contentType(Map<String, Object?> json) {
+    final type = json['type'];
+    if (type is! String) {
+      return null;
+    }
+    if (!contentTypes.contains(type)) {
+      return null;
+    }
+    return type;
+  }
+
+  TextContent? _textContent(Map<String, Object?> json) {
+    final text = json['text'];
+    if (text is! String) {
+      _logSamplingRequestWarning(
+        'Invalid TextContent format. '
+        'Expected "text": String, but got: "text": $text.',
+      );
+      return null;
+    }
+    return TextContent.fromMap(json);
+  }
+
+  ImageContent? _imageContent(Map<String, Object?> json) {
+    final validatedJson = _validateMediaContent(
+      json,
+      mediaName: 'ImageContent',
+    );
+    if (validatedJson == null) {
+      return null;
+    }
+    return ImageContent.fromMap(validatedJson);
+  }
+
+  EmbeddedResource? _embeddedResource(Map<String, Object?> json) {
+    final resource = json['resource'];
+    if (resource is! Map<String, Object?>) {
+      _logSamplingRequestWarning(
+        'Invalid EmbeddedResource format. '
+        'Expected "resource": {"uri": String, "text": String}'
+        'but got: $resource.',
+      );
+      return null;
+    }
+    final uri = resource['uri'];
+    if (uri is! String) {
+      _logSamplingRequestWarning(
+        'Invalid EmbeddedResource format. '
+        'Expected "uri": String, but got: "uri": $uri.',
+      );
+      return null;
+    }
+    final text = resource['text'];
+    if (text is! String) {
+      _logSamplingRequestWarning(
+        'Invalid EmbeddedResource format. '
+        'Expected "text": String, but got: "text": $text.',
+      );
+      return null;
+    }
+    return EmbeddedResource.fromMap(json);
+  }
+
+  Content? _audioContent(Map<String, Object?> json) {
+    final validatedJson = _validateMediaContent(
+      json,
+      mediaName: 'AudioContent',
+    );
+    if (validatedJson == null) {
+      return null;
+    }
+    return AudioContent.fromMap(validatedJson);
+  }
+
+  Map<String, Object?>? _validateMediaContent(
+    Map<String, Object?> json, {
+    required String mediaName,
+  }) {
+    final data = json['data'];
+    if (data is! String) {
+      _logSamplingRequestWarning(
+        'Invalid $mediaName format. '
+        'Expected "data": String, but got: "data": $data.',
+      );
+      return null;
+    }
+    final mimeType = json['mimeType'];
+    if (mimeType is! String) {
+      _logSamplingRequestWarning(
+        'Invalid $mediaName format. '
+        'Expected "mimeType": String, but got: "mimeType": $mimeType.',
+      );
+      return null;
+    }
+    return json;
+  }
+
+  void _logSamplingRequestWarning(String warningMessage) {
+    _logForMethod(
+      logLevel: LoggingLevel.warning,
+      serviceName: McpServiceConstants.serviceName,
+      serviceMethod: McpServiceConstants.samplingRequest,
+      warningMessage: warningMessage,
+    );
+  }
+
+  void _logForMethod({
+    required LoggingLevel logLevel,
+    required String serviceName,
+    required String serviceMethod,
+    required String warningMessage,
+  }) {
+    log(logLevel, '[$serviceName.$serviceMethod] $warningMessage');
   }
 
   /// Listens to the `ConnectedApp` and `Editor` streams to get app and IDE

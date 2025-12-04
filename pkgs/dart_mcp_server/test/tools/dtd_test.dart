@@ -13,6 +13,7 @@ import 'package:dart_mcp_server/src/server.dart';
 import 'package:dart_mcp_server/src/utils/analytics.dart';
 import 'package:dart_mcp_server/src/utils/constants.dart';
 import 'package:devtools_shared/devtools_shared.dart';
+import 'package:dtd/dtd.dart';
 import 'package:test/test.dart';
 import 'package:unified_analytics/testing.dart';
 import 'package:unified_analytics/unified_analytics.dart' as ua;
@@ -94,6 +95,225 @@ void main() {
           expect(hotRestartResult.isError, isNot(true));
           expect(hotRestartResult.content, [
             TextContent(text: 'Hot restart succeeded.'),
+          ]);
+        });
+      });
+
+      group('sampling service extension', () {
+        List<String> extractResponse(DTDResponse response) {
+          final responseContent =
+              response.result['content'] as Map<String, Object?>;
+          return (responseContent['text'] as String).split('\n');
+        }
+
+        test('can make a sampling request with text', () async {
+          final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final response = await dtdClient.call(
+            McpServiceConstants.serviceName,
+            McpServiceConstants.samplingRequest,
+            params: {
+              'messages': [
+                {
+                  'role': 'user',
+                  'content': {'type': 'text', 'text': 'hello world'},
+                },
+              ],
+              'maxTokens': 512,
+            },
+          );
+          expect(extractResponse(response), [
+            'TOKENS: 512',
+            '[user] hello world',
+          ]);
+        });
+
+        test('can make a sampling request with an image', () async {
+          final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final response = await dtdClient.call(
+            McpServiceConstants.serviceName,
+            McpServiceConstants.samplingRequest,
+            params: {
+              'messages': [
+                {
+                  'role': 'user',
+                  'content': {
+                    'type': 'image',
+                    'data': 'fake-data',
+                    'mimeType': 'image/png',
+                  },
+                },
+              ],
+              'maxTokens': 256,
+            },
+          );
+          expect(extractResponse(response), [
+            'TOKENS: 256',
+            '[user] image/png',
+          ]);
+        });
+
+        test('can make a sampling request with audio', () async {
+          final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final response = await dtdClient.call(
+            McpServiceConstants.serviceName,
+            McpServiceConstants.samplingRequest,
+            params: {
+              'messages': [
+                {
+                  'role': 'user',
+                  'content': {
+                    'type': 'audio',
+                    'data': 'fake-data',
+                    'mimeType': 'audio',
+                  },
+                },
+              ],
+              'maxTokens': 256,
+            },
+          );
+          expect(extractResponse(response), ['TOKENS: 256', '[user] audio']);
+        });
+
+        test('can make a sampling request with an embedded resource', () async {
+          final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final response = await dtdClient.call(
+            McpServiceConstants.serviceName,
+            McpServiceConstants.samplingRequest,
+            params: {
+              'messages': [
+                {
+                  'role': 'user',
+                  'content': {
+                    'type': 'resource',
+                    'resource': {'uri': 'www.google.com', 'text': 'Google'},
+                  },
+                },
+              ],
+              'maxTokens': 256,
+            },
+          );
+          expect(extractResponse(response), [
+            'TOKENS: 256',
+            '[user] www.google.com',
+          ]);
+        });
+
+        test('can make a sampling request with mixed content', () async {
+          final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final response = await dtdClient.call(
+            McpServiceConstants.serviceName,
+            McpServiceConstants.samplingRequest,
+            params: {
+              'messages': [
+                {
+                  'role': 'user',
+                  'content': {'type': 'text', 'text': 'hello world'},
+                },
+                {
+                  'role': 'user',
+                  'content': {
+                    'type': 'image',
+                    'data': 'fake-data',
+                    'mimeType': 'image/jpeg',
+                  },
+                },
+              ],
+              'maxTokens': 128,
+            },
+          );
+          expect(extractResponse(response), [
+            'TOKENS: 128',
+            '[user] hello world',
+            '[user] image/jpeg',
+          ]);
+        });
+
+        test('can handle user and assistant messages', () async {
+          final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final response = await dtdClient.call(
+            McpServiceConstants.serviceName,
+            McpServiceConstants.samplingRequest,
+            params: {
+              'messages': [
+                {
+                  'role': 'user',
+                  'content': {'type': 'text', 'text': 'Hi! I have a question.'},
+                },
+                {
+                  'role': 'assistant',
+                  'content': {'type': 'text', 'text': 'What is your question?'},
+                },
+                {
+                  'role': 'user',
+                  'content': {'type': 'text', 'text': 'How big is the sun?'},
+                },
+              ],
+              'maxTokens': 512,
+            },
+          );
+          expect(extractResponse(response), [
+            'TOKENS: 512',
+            '[user] Hi! I have a question.',
+            '[assistant] What is your question?',
+            '[user] How big is the sun?',
+          ]);
+        });
+
+        test('ignores unknown message types', () async {
+          final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final response = await dtdClient.call(
+            McpServiceConstants.serviceName,
+            McpServiceConstants.samplingRequest,
+            params: {
+              'messages': [
+                {
+                  'role': 'user',
+                  'content': {'type': 'unknown', 'data': 'Hi there!'},
+                },
+                {
+                  'role': 'user',
+                  'content': {
+                    'type': 'image',
+                    'data': 'fake-data',
+                    'mimeType': 'image/png',
+                  },
+                },
+              ],
+              'maxTokens': 512,
+            },
+          );
+          expect(extractResponse(response), [
+            'TOKENS: 512',
+            '[user] image/png',
+          ]);
+        });
+
+        test('ignores messages with an invalid role', () async {
+          final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final response = await dtdClient.call(
+            McpServiceConstants.serviceName,
+            McpServiceConstants.samplingRequest,
+            params: {
+              'messages': [
+                {
+                  'role': 'dog',
+                  'content': {'type': 'text', 'text': 'Hi! I have a question.'},
+                },
+                {
+                  'role': 'user',
+                  'content': {
+                    'type': 'image',
+                    'data': 'fake-data',
+                    'mimeType': 'image/png',
+                  },
+                },
+              ],
+              'maxTokens': 512,
+            },
+          );
+          expect(extractResponse(response), [
+            'TOKENS: 512',
+            '[user] image/png',
           ]);
         });
       });
