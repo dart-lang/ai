@@ -20,6 +20,18 @@ import '../utils/analytics.dart';
 import '../utils/constants.dart';
 import '../utils/tools_configuration.dart';
 
+/// Constants used by the MCP server to register services on DTD.
+/// 
+/// TODO(elliette): Add these to package:dtd instead.
+extension McpServiceConstants on Never {
+  /// Service name for the Dart MCP Server.
+  static const serviceName = 'DartMcpServer';
+
+  /// Service method name for the method to send a sampling request to the MCP
+  /// client.
+  static const samplingRequest = 'samplingRequest';
+}
+
 /// Mix this in to any MCPServer to add support for connecting to the Dart
 /// Tooling Daemon and all of its associated functionality (see
 /// https://pub.dev/packages/dtd).
