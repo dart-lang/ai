@@ -260,7 +260,7 @@ void main() {
           ]);
         });
 
-        test('ignores unknown message types', () async {
+        test('forwards all messages, even those with unknown types', () async {
           final dtdClient = testHarness.fakeEditorExtension.dtd;
           final response = await dtdClient.call(
             McpServiceConstants.serviceName,
@@ -269,24 +269,18 @@ void main() {
               'messages': [
                 {
                   'role': 'user',
-                  'content': {'type': 'unknown', 'data': 'Hi there!'},
-                },
-                {
-                  'role': 'user',
                   'content': {
-                    'type': 'image',
-                    'data': 'fake-data',
-                    'mimeType': 'image/png',
+                    // Not of type text, image, audio, or resource.
+                    'type': 'unknown',
+                    'text': 'Hi there!',
+                    'data': 'Hi there!',
                   },
                 },
               ],
               'maxTokens': 512,
             },
           );
-          expect(extractResponse(response), [
-            'TOKENS: 512',
-            '[user] image/png',
-          ]);
+          expect(extractResponse(response), ['TOKENS: 512', 'UNKNOWN']);
         });
 
         test('throws for invalid requests', () async {
