@@ -10,7 +10,8 @@
   resources or resource links (when reading a directory).
 - Add `additionalProperties: false` to most schemas so they provide better
   errors when invoked with incorrect arguments.
-- Add `toJson` method to the `CreateMessageResult` of a sampling request. 
+- Add `DartMcpServer.samplingRequest` service extension method to send a sampling
+  request over DTD.
 
 # 0.1.1 (Dart SDK 3.10.0)
 

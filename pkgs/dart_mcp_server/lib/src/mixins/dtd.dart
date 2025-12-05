@@ -289,11 +289,13 @@ base mixin DartToolingDaemonSupport
   Future<void> _registerServices() async {
     final dtd = _dtd!;
 
-    await dtd.registerService(
-      McpServiceConstants.serviceName,
-      McpServiceConstants.samplingRequest,
-      _handleSamplingRequest,
-    );
+    if (clientCapabilities.sampling != null) {
+      await dtd.registerService(
+        McpServiceConstants.serviceName,
+        McpServiceConstants.samplingRequest,
+        _handleSamplingRequest,
+      );
+    }
   }
 
   Future<Map<String, Object?>> _handleSamplingRequest(Parameters params) async {
