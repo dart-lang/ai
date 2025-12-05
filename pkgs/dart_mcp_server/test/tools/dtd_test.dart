@@ -14,6 +14,7 @@ import 'package:dart_mcp_server/src/utils/analytics.dart';
 import 'package:dart_mcp_server/src/utils/constants.dart';
 import 'package:devtools_shared/devtools_shared.dart';
 import 'package:dtd/dtd.dart';
+import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:test/test.dart';
 import 'package:unified_analytics/testing.dart';
 import 'package:unified_analytics/unified_analytics.dart' as ua;
@@ -288,33 +289,29 @@ void main() {
           ]);
         });
 
-        test('ignores messages with an invalid role', () async {
+        test('throws for invalid requests', () async {
           final dtdClient = testHarness.fakeEditorExtension.dtd;
-          final response = await dtdClient.call(
-            McpServiceConstants.serviceName,
-            McpServiceConstants.samplingRequest,
-            params: {
-              'messages': [
-                {
-                  'role': 'dog',
-                  'content': {'type': 'text', 'text': 'Hi! I have a question.'},
-                },
-                {
-                  'role': 'user',
-                  'content': {
-                    'type': 'image',
-                    'data': 'fake-data',
-                    'mimeType': 'image/png',
+          try {
+            await dtdClient.call(
+              McpServiceConstants.serviceName,
+              McpServiceConstants.samplingRequest,
+              params: {
+                'messages': [
+                  {
+                    'role': 'dog', // Invalid role.
+                    'content': {
+                      'type': 'text',
+                      'text': 'Hi! I have a question.',
+                    },
                   },
-                },
-              ],
-              'maxTokens': 512,
-            },
-          );
-          expect(extractResponse(response), [
-            'TOKENS: 512',
-            '[user] image/png',
-          ]);
+                ],
+                'maxTokens': 512,
+              },
+            );
+            fail('Expected an RpcException to be thrown.');
+          } catch (e) {
+            expect(e, isA<RpcException>());
+          }
         });
       });
 
