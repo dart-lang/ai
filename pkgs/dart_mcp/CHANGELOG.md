@@ -6,6 +6,7 @@
     been possible to use in a functional manner, so it is assumed that it had
     no usage previously.
 - Fix the `type` getter on `EmbeddedResource` to read the actual type field.
+- Add `toJson` method to the `CreateMessageResult` of a sampling request. 
 
 ## 0.4.0
 

@@ -20,6 +20,18 @@ import '../utils/analytics.dart';
 import '../utils/constants.dart';
 import '../utils/tools_configuration.dart';
 
+/// Constants used by the MCP server to register services on DTD.
+///
+/// TODO(elliette): Add these to package:dtd instead.
+extension McpServiceConstants on Never {
+  /// Service name for the Dart MCP Server.
+  static const serviceName = 'DartMcpServer';
+
+  /// Service method name for the method to send a sampling request to the MCP
+  /// client.
+  static const samplingRequest = 'samplingRequest';
+}
+
 /// Mix this in to any MCPServer to add support for connecting to the Dart
 /// Tooling Daemon and all of its associated functionality (see
 /// https://pub.dev/packages/dtd).
@@ -251,6 +263,7 @@ base mixin DartToolingDaemonSupport
       }
       unawaited(_dtd!.done.then((_) async => await _resetDtd()));
 
+      await _registerServices();
       await _listenForServices();
       return CallToolResult(
         content: [TextContent(text: 'Connection succeeded')],
@@ -270,6 +283,36 @@ base mixin DartToolingDaemonSupport
         content: [Content.text(text: 'Connection failed: $e')],
       );
     }
+  }
+
+  /// Registers all MCP server-provided services on the connected DTD instance.
+  Future<void> _registerServices() async {
+    final dtd = _dtd!;
+
+    if (clientCapabilities.sampling != null) {
+      try {
+        await dtd.registerService(
+          McpServiceConstants.serviceName,
+          McpServiceConstants.samplingRequest,
+          _handleSamplingRequest,
+        );
+      } on RpcException catch (e) {
+        // It is expected for there to be an exception if the sampling service
+        // was already registered by another Dart MCP Server.
+        if (e.code != RpcErrorCodes.kServiceAlreadyRegistered) rethrow;
+      }
+    }
+  }
+
+  Future<Map<String, Object?>> _handleSamplingRequest(Parameters params) async {
+    final result = await createMessage(
+      CreateMessageRequest.fromMap(params.asMap.cast<String, Object?>()),
+    );
+
+    return {
+      'type': 'Success', // Type is required by DTD.
+      ...result.toJson(),
+    };
   }
 
   /// Listens to the `ConnectedApp` and `Editor` streams to get app and IDE
