@@ -290,11 +290,17 @@ base mixin DartToolingDaemonSupport
     final dtd = _dtd!;
 
     if (clientCapabilities.sampling != null) {
-      await dtd.registerService(
-        McpServiceConstants.serviceName,
-        McpServiceConstants.samplingRequest,
-        _handleSamplingRequest,
-      );
+      try {
+        await dtd.registerService(
+          McpServiceConstants.serviceName,
+          McpServiceConstants.samplingRequest,
+          _handleSamplingRequest,
+        );
+      } on RpcException catch (e) {
+        // It is expected for there to be an exception if the sampling service
+        // was already registered by another Dart MCP Server.
+        if (e.code != RpcErrorCodes.kServiceAlreadyRegistered) rethrow;
+      }
     }
   }
 
