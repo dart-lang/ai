@@ -117,6 +117,26 @@ void main() {
           return samplingService.name;
         }
 
+        test('is registered with correct name format', () async {
+          final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final services = await dtdClient.getRegisteredServices();
+          final samplingService = services.clientServices.first;
+          final sanitizedClientName =
+              'test-client-for-the-dart-tooling-mcp-server';
+          expect(
+            samplingService.name,
+            startsWith(
+              '${McpServiceConstants.serviceName}-$sanitizedClientName-',
+            ),
+          );
+          // Check that the service name ends with an 8-character ID.
+          expect(samplingService.name, matches(RegExp(r'[a-f0-9]{8}$')));
+          expect(
+            samplingService.methods,
+            contains(McpServiceConstants.samplingRequest),
+          );
+        });
+
         test('can make a sampling request with text', () async {
           final dtdClient = testHarness.fakeEditorExtension.dtd;
           final samplingServiceName = await getSamplingServiceName(dtdClient);

@@ -79,6 +79,21 @@ base mixin DartToolingDaemonSupport
   /// Whether or not to enable the screenshot tool.
   bool get enableScreenshots;
 
+  /// A unique identifier for this server instance.
+  ///
+  /// This is generated on first access and then cached. It is used to create
+  /// a unique service name when registering services on DTD.
+  ///
+  /// Can only be accessed after `initialize` has been called.
+  String get clientId {
+    if (_clientId != null) return _clientId!;
+    final sanitizedClientName = clientInfo.name.replaceAll(RegExp(r'\s+'), '-');
+    _clientId = '$sanitizedClientName-${generateShortUUID()}';
+    return _clientId!;
+  }
+
+  String? _clientId;
+
   /// Called when the DTD connection is lost, resets all associated state.
   Future<void> _resetDtd() async {
     _dtd = null;
@@ -292,16 +307,11 @@ base mixin DartToolingDaemonSupport
 
     if (clientCapabilities.sampling != null) {
       await dtd.registerService(
-        '${McpServiceConstants.serviceName}-${_generateUniqueClientId()}',
+        '${McpServiceConstants.serviceName}-$clientId',
         McpServiceConstants.samplingRequest,
         _handleSamplingRequest,
       );
     }
-  }
-
-  String _generateUniqueClientId() {
-    final sanitizedClientName = clientInfo.name.replaceAll(RegExp(r'\s+'), '-');
-    return '$sanitizedClientName-${generateShortUUID()}';
   }
 
   Future<Map<String, Object?>> _handleSamplingRequest(Parameters params) async {
