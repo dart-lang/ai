@@ -87,7 +87,8 @@ base mixin DartToolingDaemonSupport
   /// Can only be accessed after `initialize` has been called.
   String get clientId {
     if (_clientId != null) return _clientId!;
-    final sanitizedClientName = clientInfo.name.replaceAll(RegExp(r'\s+'), '-');
+    final clientName = clientInfo.title ?? clientInfo.name;
+    final sanitizedClientName = clientName.replaceAll(RegExp(r'\s+'), '-');
     _clientId = '$sanitizedClientName-${generateShortUUID()}';
     return _clientId!;
   }
