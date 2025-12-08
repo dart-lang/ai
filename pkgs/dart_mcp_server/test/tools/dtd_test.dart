@@ -107,10 +107,21 @@ void main() {
           return (responseContent['text'] as String).split('\n');
         }
 
+        Future<String> getSamplingServiceName(
+          DartToolingDaemon dtdClient,
+        ) async {
+          final services = await dtdClient.getRegisteredServices();
+          final samplingService = services.clientServices.firstWhere(
+            (s) => s.name.startsWith(McpServiceConstants.serviceName),
+          );
+          return samplingService.name;
+        }
+
         test('can make a sampling request with text', () async {
           final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final samplingServiceName = await getSamplingServiceName(dtdClient);
           final response = await dtdClient.call(
-            McpServiceConstants.serviceName,
+            samplingServiceName,
             McpServiceConstants.samplingRequest,
             params: {
               'messages': [
@@ -130,8 +141,9 @@ void main() {
 
         test('can make a sampling request with an image', () async {
           final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final samplingServiceName = await getSamplingServiceName(dtdClient);
           final response = await dtdClient.call(
-            McpServiceConstants.serviceName,
+            samplingServiceName,
             McpServiceConstants.samplingRequest,
             params: {
               'messages': [
@@ -155,8 +167,9 @@ void main() {
 
         test('can make a sampling request with audio', () async {
           final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final samplingServiceName = await getSamplingServiceName(dtdClient);
           final response = await dtdClient.call(
-            McpServiceConstants.serviceName,
+            samplingServiceName,
             McpServiceConstants.samplingRequest,
             params: {
               'messages': [
@@ -177,8 +190,9 @@ void main() {
 
         test('can make a sampling request with an embedded resource', () async {
           final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final samplingServiceName = await getSamplingServiceName(dtdClient);
           final response = await dtdClient.call(
-            McpServiceConstants.serviceName,
+            samplingServiceName,
             McpServiceConstants.samplingRequest,
             params: {
               'messages': [
@@ -201,8 +215,9 @@ void main() {
 
         test('can make a sampling request with mixed content', () async {
           final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final samplingServiceName = await getSamplingServiceName(dtdClient);
           final response = await dtdClient.call(
-            McpServiceConstants.serviceName,
+            samplingServiceName,
             McpServiceConstants.samplingRequest,
             params: {
               'messages': [
@@ -231,8 +246,9 @@ void main() {
 
         test('can handle user and assistant messages', () async {
           final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final samplingServiceName = await getSamplingServiceName(dtdClient);
           final response = await dtdClient.call(
-            McpServiceConstants.serviceName,
+            samplingServiceName,
             McpServiceConstants.samplingRequest,
             params: {
               'messages': [
@@ -262,8 +278,9 @@ void main() {
 
         test('forwards all messages, even those with unknown types', () async {
           final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final samplingServiceName = await getSamplingServiceName(dtdClient);
           final response = await dtdClient.call(
-            McpServiceConstants.serviceName,
+            samplingServiceName,
             McpServiceConstants.samplingRequest,
             params: {
               'messages': [
@@ -285,9 +302,10 @@ void main() {
 
         test('throws for invalid requests', () async {
           final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final samplingServiceName = await getSamplingServiceName(dtdClient);
           try {
             await dtdClient.call(
-              McpServiceConstants.serviceName,
+              samplingServiceName,
               McpServiceConstants.samplingRequest,
               params: {
                 'messages': [

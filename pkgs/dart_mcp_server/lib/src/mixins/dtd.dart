@@ -19,6 +19,7 @@ import '../arg_parser.dart';
 import '../utils/analytics.dart';
 import '../utils/constants.dart';
 import '../utils/tools_configuration.dart';
+import '../utils/uuid.dart';
 
 /// Constants used by the MCP server to register services on DTD.
 ///
@@ -290,18 +291,17 @@ base mixin DartToolingDaemonSupport
     final dtd = _dtd!;
 
     if (clientCapabilities.sampling != null) {
-      try {
-        await dtd.registerService(
-          McpServiceConstants.serviceName,
-          McpServiceConstants.samplingRequest,
-          _handleSamplingRequest,
-        );
-      } on RpcException catch (e) {
-        // It is expected for there to be an exception if the sampling service
-        // was already registered by another Dart MCP Server.
-        if (e.code != RpcErrorCodes.kServiceAlreadyRegistered) rethrow;
-      }
+      await dtd.registerService(
+        '${McpServiceConstants.serviceName}-${_generateUniqueClientId()}',
+        McpServiceConstants.samplingRequest,
+        _handleSamplingRequest,
+      );
     }
+  }
+
+  String _generateUniqueClientId() {
+    final sanitizedClientName = clientInfo.name.replaceAll(RegExp(r'\s+'), '-');
+    return '$sanitizedClientName-${generateShortUUID()}';
   }
 
   Future<Map<String, Object?>> _handleSamplingRequest(Parameters params) async {
