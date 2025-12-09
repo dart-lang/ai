@@ -88,12 +88,24 @@ base mixin DartToolingDaemonSupport
   String get clientId {
     if (_clientId != null) return _clientId!;
     final clientName = clientInfo.title ?? clientInfo.name;
-    final sanitizedClientName = clientName.replaceAll(RegExp(r'\s+'), '-');
-    _clientId = '$sanitizedClientName-${generateShortUUID()}';
+    _clientId = generateClientId(clientName);
     return _clientId!;
   }
 
   String? _clientId;
+
+  @visibleForTesting
+  String generateClientId(String clientName) {
+    // Sanitizes the client name by:
+    // 1. replacing whitespace, '-', and '.' with '_'
+    // 2. removing all non-alphanumeric characters except '_'
+    final sanitizedClientName = clientName
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[\s\.\-]+'), '_')
+        .replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '');
+    return '${sanitizedClientName}_${generateShortUUID()}';
+  }
 
   /// Called when the DTD connection is lost, resets all associated state.
   Future<void> _resetDtd() async {
@@ -308,7 +320,7 @@ base mixin DartToolingDaemonSupport
 
     if (clientCapabilities.sampling != null) {
       await dtd.registerService(
-        '${McpServiceConstants.serviceName}-$clientId',
+        '${McpServiceConstants.serviceName}_$clientId',
         McpServiceConstants.samplingRequest,
         _handleSamplingRequest,
       );

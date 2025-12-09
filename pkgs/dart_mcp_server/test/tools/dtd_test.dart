@@ -122,11 +122,11 @@ void main() {
           final services = await dtdClient.getRegisteredServices();
           final samplingService = services.clientServices.first;
           final sanitizedClientName =
-              'test-client-for-the-dart-tooling-mcp-server';
+              'test_client_for_the_dart_tooling_mcp_server';
           expect(
             samplingService.name,
             startsWith(
-              '${McpServiceConstants.serviceName}-$sanitizedClientName-',
+              '${McpServiceConstants.serviceName}_${sanitizedClientName}_',
             ),
           );
           // Check that the service name ends with an 8-character ID.
@@ -414,6 +414,65 @@ void main() {
         server = testHarness.serverConnectionPair.server!;
         analytics = server.analytics! as ua.FakeAnalytics;
         await testHarness.connectToDtd();
+      });
+
+      group('generateClientId creates ID from client name', () {
+        test('removes whitespaces', () {
+          // Single whitespace character.
+          expect(
+            server.generateClientId('Example Name'),
+            startsWith('example_name_'),
+          );
+          // Multiple whitespace characters.
+          expect(
+            server.generateClientId('Example   Name'),
+            startsWith('example_name_'),
+          );
+          // Newline and other whitespace.
+          expect(
+            server.generateClientId('Example\n\tName'),
+            startsWith('example_name_'),
+          );
+          // Whitespace at the end.
+          expect(
+            server.generateClientId('Example Name\n'),
+            startsWith('example_name_'),
+          );
+        });
+
+        test('replaces periods and dashes with underscores', () {
+          // Replaces periods.
+          expect(
+            server.generateClientId('Example.Client.Name'),
+            startsWith('example_client_name_'),
+          );
+          // Replaces dashes.
+          expect(
+            server.generateClientId('example-client-name'),
+            startsWith('example_client_name_'),
+          );
+        });
+
+        test('removes special characters', () {
+          expect(
+            server.generateClientId('Example!@#Client\$%^Name'),
+            startsWith('exampleclientname_'),
+          );
+        });
+
+        test('handles a mix of sanitization rules', () {
+          expect(
+            server.generateClientId('  Example Client.Name!@# '),
+            startsWith('example_client_name_'),
+          );
+        });
+
+        test('ends with an 8-character uuid', () {
+          expect(
+            server.generateClientId('Example name'),
+            matches(RegExp(r'[a-f0-9]{8}$')),
+          );
+        });
       });
 
       group('$VmService management', () {
