@@ -19,6 +19,7 @@ import '../arg_parser.dart';
 import '../utils/analytics.dart';
 import '../utils/constants.dart';
 import '../utils/tools_configuration.dart';
+import '../utils/uuid.dart';
 
 /// Constants used by the MCP server to register services on DTD.
 ///
@@ -77,6 +78,34 @@ base mixin DartToolingDaemonSupport
 
   /// Whether or not to enable the screenshot tool.
   bool get enableScreenshots;
+
+  /// A unique identifier for this server instance.
+  ///
+  /// This is generated on first access and then cached. It is used to create
+  /// a unique service name when registering services on DTD.
+  ///
+  /// Can only be accessed after `initialize` has been called.
+  String get clientId {
+    if (_clientId != null) return _clientId!;
+    final clientName = clientInfo.title ?? clientInfo.name;
+    _clientId = generateClientId(clientName);
+    return _clientId!;
+  }
+
+  String? _clientId;
+
+  @visibleForTesting
+  String generateClientId(String clientName) {
+    // Sanitizes the client name by:
+    // 1. replacing whitespace, '-', and '.' with '_'
+    // 2. removing all non-alphanumeric characters except '_'
+    final sanitizedClientName = clientName
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[\s\.\-]+'), '_')
+        .replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '');
+    return '${sanitizedClientName}_${generateShortUUID()}';
+  }
 
   /// Called when the DTD connection is lost, resets all associated state.
   Future<void> _resetDtd() async {
@@ -290,17 +319,11 @@ base mixin DartToolingDaemonSupport
     final dtd = _dtd!;
 
     if (clientCapabilities.sampling != null) {
-      try {
-        await dtd.registerService(
-          McpServiceConstants.serviceName,
-          McpServiceConstants.samplingRequest,
-          _handleSamplingRequest,
-        );
-      } on RpcException catch (e) {
-        // It is expected for there to be an exception if the sampling service
-        // was already registered by another Dart MCP Server.
-        if (e.code != RpcErrorCodes.kServiceAlreadyRegistered) rethrow;
-      }
+      await dtd.registerService(
+        '${McpServiceConstants.serviceName}_$clientId',
+        McpServiceConstants.samplingRequest,
+        _handleSamplingRequest,
+      );
     }
   }
 

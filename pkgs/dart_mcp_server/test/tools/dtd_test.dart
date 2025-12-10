@@ -107,10 +107,41 @@ void main() {
           return (responseContent['text'] as String).split('\n');
         }
 
+        Future<String> getSamplingServiceName(
+          DartToolingDaemon dtdClient,
+        ) async {
+          final services = await dtdClient.getRegisteredServices();
+          final samplingService = services.clientServices.firstWhere(
+            (s) => s.name.startsWith(McpServiceConstants.serviceName),
+          );
+          return samplingService.name;
+        }
+
+        test('is registered with correct name format', () async {
+          final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final services = await dtdClient.getRegisteredServices();
+          final samplingService = services.clientServices.first;
+          final sanitizedClientName =
+              'test_client_for_the_dart_tooling_mcp_server';
+          expect(
+            samplingService.name,
+            startsWith(
+              '${McpServiceConstants.serviceName}_${sanitizedClientName}_',
+            ),
+          );
+          // Check that the service name ends with an 8-character ID.
+          expect(samplingService.name, matches(RegExp(r'[a-f0-9]{8}$')));
+          expect(
+            samplingService.methods,
+            contains(McpServiceConstants.samplingRequest),
+          );
+        });
+
         test('can make a sampling request with text', () async {
           final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final samplingServiceName = await getSamplingServiceName(dtdClient);
           final response = await dtdClient.call(
-            McpServiceConstants.serviceName,
+            samplingServiceName,
             McpServiceConstants.samplingRequest,
             params: {
               'messages': [
@@ -130,8 +161,9 @@ void main() {
 
         test('can make a sampling request with an image', () async {
           final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final samplingServiceName = await getSamplingServiceName(dtdClient);
           final response = await dtdClient.call(
-            McpServiceConstants.serviceName,
+            samplingServiceName,
             McpServiceConstants.samplingRequest,
             params: {
               'messages': [
@@ -155,8 +187,9 @@ void main() {
 
         test('can make a sampling request with audio', () async {
           final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final samplingServiceName = await getSamplingServiceName(dtdClient);
           final response = await dtdClient.call(
-            McpServiceConstants.serviceName,
+            samplingServiceName,
             McpServiceConstants.samplingRequest,
             params: {
               'messages': [
@@ -177,8 +210,9 @@ void main() {
 
         test('can make a sampling request with an embedded resource', () async {
           final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final samplingServiceName = await getSamplingServiceName(dtdClient);
           final response = await dtdClient.call(
-            McpServiceConstants.serviceName,
+            samplingServiceName,
             McpServiceConstants.samplingRequest,
             params: {
               'messages': [
@@ -201,8 +235,9 @@ void main() {
 
         test('can make a sampling request with mixed content', () async {
           final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final samplingServiceName = await getSamplingServiceName(dtdClient);
           final response = await dtdClient.call(
-            McpServiceConstants.serviceName,
+            samplingServiceName,
             McpServiceConstants.samplingRequest,
             params: {
               'messages': [
@@ -231,8 +266,9 @@ void main() {
 
         test('can handle user and assistant messages', () async {
           final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final samplingServiceName = await getSamplingServiceName(dtdClient);
           final response = await dtdClient.call(
-            McpServiceConstants.serviceName,
+            samplingServiceName,
             McpServiceConstants.samplingRequest,
             params: {
               'messages': [
@@ -262,8 +298,9 @@ void main() {
 
         test('forwards all messages, even those with unknown types', () async {
           final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final samplingServiceName = await getSamplingServiceName(dtdClient);
           final response = await dtdClient.call(
-            McpServiceConstants.serviceName,
+            samplingServiceName,
             McpServiceConstants.samplingRequest,
             params: {
               'messages': [
@@ -285,9 +322,10 @@ void main() {
 
         test('throws for invalid requests', () async {
           final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final samplingServiceName = await getSamplingServiceName(dtdClient);
           try {
             await dtdClient.call(
-              McpServiceConstants.serviceName,
+              samplingServiceName,
               McpServiceConstants.samplingRequest,
               params: {
                 'messages': [
@@ -376,6 +414,65 @@ void main() {
         server = testHarness.serverConnectionPair.server!;
         analytics = server.analytics! as ua.FakeAnalytics;
         await testHarness.connectToDtd();
+      });
+
+      group('generateClientId creates ID from client name', () {
+        test('removes whitespaces', () {
+          // Single whitespace character.
+          expect(
+            server.generateClientId('Example Name'),
+            startsWith('example_name_'),
+          );
+          // Multiple whitespace characters.
+          expect(
+            server.generateClientId('Example   Name'),
+            startsWith('example_name_'),
+          );
+          // Newline and other whitespace.
+          expect(
+            server.generateClientId('Example\n\tName'),
+            startsWith('example_name_'),
+          );
+          // Whitespace at the end.
+          expect(
+            server.generateClientId('Example Name\n'),
+            startsWith('example_name_'),
+          );
+        });
+
+        test('replaces periods and dashes with underscores', () {
+          // Replaces periods.
+          expect(
+            server.generateClientId('Example.Client.Name'),
+            startsWith('example_client_name_'),
+          );
+          // Replaces dashes.
+          expect(
+            server.generateClientId('example-client-name'),
+            startsWith('example_client_name_'),
+          );
+        });
+
+        test('removes special characters', () {
+          expect(
+            server.generateClientId('Example!@#Client\$%^Name'),
+            startsWith('exampleclientname_'),
+          );
+        });
+
+        test('handles a mix of sanitization rules', () {
+          expect(
+            server.generateClientId('  Example Client.Name!@# '),
+            startsWith('example_client_name_'),
+          );
+        });
+
+        test('ends with an 8-character uuid', () {
+          expect(
+            server.generateClientId('Example name'),
+            matches(RegExp(r'[a-f0-9]{8}$')),
+          );
+        });
       });
 
       group('$VmService management', () {
