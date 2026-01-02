@@ -123,6 +123,9 @@ extension type CreateMessageResult.fromMap(Map<String, Object?> _value)
   /// Known reasons are "endTurn", "stopSequence", "maxTokens", or any other
   /// reason.
   String? get stopReason => _value['stopReason'] as String?;
+
+  /// The JSON representation of this object.
+  Map<String, Object?> toJson() => _value;
 }
 
 /// Describes a message issued to or received from an LLM API.

@@ -13,6 +13,8 @@ import 'package:dart_mcp_server/src/server.dart';
 import 'package:dart_mcp_server/src/utils/analytics.dart';
 import 'package:dart_mcp_server/src/utils/constants.dart';
 import 'package:devtools_shared/devtools_shared.dart';
+import 'package:dtd/dtd.dart';
+import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:test/test.dart';
 import 'package:unified_analytics/testing.dart';
 import 'package:unified_analytics/unified_analytics.dart' as ua;
@@ -98,6 +100,253 @@ void main() {
         });
       });
 
+      group('sampling service extension', () {
+        List<String> extractResponse(DTDResponse response) {
+          final responseContent =
+              response.result['content'] as Map<String, Object?>;
+          return (responseContent['text'] as String).split('\n');
+        }
+
+        Future<String> getSamplingServiceName(
+          DartToolingDaemon dtdClient,
+        ) async {
+          final services = await dtdClient.getRegisteredServices();
+          final samplingService = services.clientServices.firstWhere(
+            (s) => s.name.startsWith(McpServiceConstants.serviceName),
+          );
+          return samplingService.name;
+        }
+
+        test('is registered with correct name format', () async {
+          final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final services = await dtdClient.getRegisteredServices();
+          final samplingService = services.clientServices.first;
+          final sanitizedClientName =
+              'test_client_for_the_dart_tooling_mcp_server';
+          expect(
+            samplingService.name,
+            startsWith(
+              '${McpServiceConstants.serviceName}_${sanitizedClientName}_',
+            ),
+          );
+          // Check that the service name ends with an 8-character ID.
+          expect(samplingService.name, matches(RegExp(r'[a-f0-9]{8}$')));
+          expect(
+            samplingService.methods,
+            contains(McpServiceConstants.samplingRequest),
+          );
+        });
+
+        test('can make a sampling request with text', () async {
+          final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final samplingServiceName = await getSamplingServiceName(dtdClient);
+          final response = await dtdClient.call(
+            samplingServiceName,
+            McpServiceConstants.samplingRequest,
+            params: {
+              'messages': [
+                {
+                  'role': 'user',
+                  'content': {'type': 'text', 'text': 'hello world'},
+                },
+              ],
+              'maxTokens': 512,
+            },
+          );
+          expect(extractResponse(response), [
+            'TOKENS: 512',
+            '[user] hello world',
+          ]);
+        });
+
+        test('can make a sampling request with an image', () async {
+          final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final samplingServiceName = await getSamplingServiceName(dtdClient);
+          final response = await dtdClient.call(
+            samplingServiceName,
+            McpServiceConstants.samplingRequest,
+            params: {
+              'messages': [
+                {
+                  'role': 'user',
+                  'content': {
+                    'type': 'image',
+                    'data': 'fake-data',
+                    'mimeType': 'image/png',
+                  },
+                },
+              ],
+              'maxTokens': 256,
+            },
+          );
+          expect(extractResponse(response), [
+            'TOKENS: 256',
+            '[user] image/png',
+          ]);
+        });
+
+        test('can make a sampling request with audio', () async {
+          final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final samplingServiceName = await getSamplingServiceName(dtdClient);
+          final response = await dtdClient.call(
+            samplingServiceName,
+            McpServiceConstants.samplingRequest,
+            params: {
+              'messages': [
+                {
+                  'role': 'user',
+                  'content': {
+                    'type': 'audio',
+                    'data': 'fake-data',
+                    'mimeType': 'audio',
+                  },
+                },
+              ],
+              'maxTokens': 256,
+            },
+          );
+          expect(extractResponse(response), ['TOKENS: 256', '[user] audio']);
+        });
+
+        test('can make a sampling request with an embedded resource', () async {
+          final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final samplingServiceName = await getSamplingServiceName(dtdClient);
+          final response = await dtdClient.call(
+            samplingServiceName,
+            McpServiceConstants.samplingRequest,
+            params: {
+              'messages': [
+                {
+                  'role': 'user',
+                  'content': {
+                    'type': 'resource',
+                    'resource': {'uri': 'www.google.com', 'text': 'Google'},
+                  },
+                },
+              ],
+              'maxTokens': 256,
+            },
+          );
+          expect(extractResponse(response), [
+            'TOKENS: 256',
+            '[user] www.google.com',
+          ]);
+        });
+
+        test('can make a sampling request with mixed content', () async {
+          final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final samplingServiceName = await getSamplingServiceName(dtdClient);
+          final response = await dtdClient.call(
+            samplingServiceName,
+            McpServiceConstants.samplingRequest,
+            params: {
+              'messages': [
+                {
+                  'role': 'user',
+                  'content': {'type': 'text', 'text': 'hello world'},
+                },
+                {
+                  'role': 'user',
+                  'content': {
+                    'type': 'image',
+                    'data': 'fake-data',
+                    'mimeType': 'image/jpeg',
+                  },
+                },
+              ],
+              'maxTokens': 128,
+            },
+          );
+          expect(extractResponse(response), [
+            'TOKENS: 128',
+            '[user] hello world',
+            '[user] image/jpeg',
+          ]);
+        });
+
+        test('can handle user and assistant messages', () async {
+          final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final samplingServiceName = await getSamplingServiceName(dtdClient);
+          final response = await dtdClient.call(
+            samplingServiceName,
+            McpServiceConstants.samplingRequest,
+            params: {
+              'messages': [
+                {
+                  'role': 'user',
+                  'content': {'type': 'text', 'text': 'Hi! I have a question.'},
+                },
+                {
+                  'role': 'assistant',
+                  'content': {'type': 'text', 'text': 'What is your question?'},
+                },
+                {
+                  'role': 'user',
+                  'content': {'type': 'text', 'text': 'How big is the sun?'},
+                },
+              ],
+              'maxTokens': 512,
+            },
+          );
+          expect(extractResponse(response), [
+            'TOKENS: 512',
+            '[user] Hi! I have a question.',
+            '[assistant] What is your question?',
+            '[user] How big is the sun?',
+          ]);
+        });
+
+        test('forwards all messages, even those with unknown types', () async {
+          final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final samplingServiceName = await getSamplingServiceName(dtdClient);
+          final response = await dtdClient.call(
+            samplingServiceName,
+            McpServiceConstants.samplingRequest,
+            params: {
+              'messages': [
+                {
+                  'role': 'user',
+                  'content': {
+                    // Not of type text, image, audio, or resource.
+                    'type': 'unknown',
+                    'text': 'Hi there!',
+                    'data': 'Hi there!',
+                  },
+                },
+              ],
+              'maxTokens': 512,
+            },
+          );
+          expect(extractResponse(response), ['TOKENS: 512', 'UNKNOWN']);
+        });
+
+        test('throws for invalid requests', () async {
+          final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final samplingServiceName = await getSamplingServiceName(dtdClient);
+          try {
+            await dtdClient.call(
+              samplingServiceName,
+              McpServiceConstants.samplingRequest,
+              params: {
+                'messages': [
+                  {
+                    'role': 'dog', // Invalid role.
+                    'content': {
+                      'type': 'text',
+                      'text': 'Hi! I have a question.',
+                    },
+                  },
+                ],
+                'maxTokens': 512,
+              },
+            );
+            fail('Expected an RpcException to be thrown.');
+          } catch (e) {
+            expect(e, isA<RpcException>());
+          }
+        });
+      });
+
       group('dart cli tests', () {
         test('can perform a hot reload', () async {
           final exampleApp = await Directory.systemTemp.createTemp('dart_app');
@@ -165,6 +414,65 @@ void main() {
         server = testHarness.serverConnectionPair.server!;
         analytics = server.analytics! as ua.FakeAnalytics;
         await testHarness.connectToDtd();
+      });
+
+      group('generateClientId creates ID from client name', () {
+        test('removes whitespaces', () {
+          // Single whitespace character.
+          expect(
+            server.generateClientId('Example Name'),
+            startsWith('example_name_'),
+          );
+          // Multiple whitespace characters.
+          expect(
+            server.generateClientId('Example   Name'),
+            startsWith('example_name_'),
+          );
+          // Newline and other whitespace.
+          expect(
+            server.generateClientId('Example\n\tName'),
+            startsWith('example_name_'),
+          );
+          // Whitespace at the end.
+          expect(
+            server.generateClientId('Example Name\n'),
+            startsWith('example_name_'),
+          );
+        });
+
+        test('replaces periods and dashes with underscores', () {
+          // Replaces periods.
+          expect(
+            server.generateClientId('Example.Client.Name'),
+            startsWith('example_client_name_'),
+          );
+          // Replaces dashes.
+          expect(
+            server.generateClientId('example-client-name'),
+            startsWith('example_client_name_'),
+          );
+        });
+
+        test('removes special characters', () {
+          expect(
+            server.generateClientId('Example!@#Client\$%^Name'),
+            startsWith('exampleclientname_'),
+          );
+        });
+
+        test('handles a mix of sanitization rules', () {
+          expect(
+            server.generateClientId('  Example Client.Name!@# '),
+            startsWith('example_client_name_'),
+          );
+        });
+
+        test('ends with an 8-character uuid', () {
+          expect(
+            server.generateClientId('Example name'),
+            matches(RegExp(r'[a-f0-9]{8}$')),
+          );
+        });
       });
 
       group('$VmService management', () {

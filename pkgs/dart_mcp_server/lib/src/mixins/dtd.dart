@@ -19,6 +19,19 @@ import '../arg_parser.dart';
 import '../utils/analytics.dart';
 import '../utils/constants.dart';
 import '../utils/tools_configuration.dart';
+import '../utils/uuid.dart';
+
+/// Constants used by the MCP server to register services on DTD.
+///
+/// TODO(elliette): Add these to package:dtd instead.
+extension McpServiceConstants on Never {
+  /// Service name for the Dart MCP Server.
+  static const serviceName = 'DartMcpServer';
+
+  /// Service method name for the method to send a sampling request to the MCP
+  /// client.
+  static const samplingRequest = 'samplingRequest';
+}
 
 /// Mix this in to any MCPServer to add support for connecting to the Dart
 /// Tooling Daemon and all of its associated functionality (see
@@ -65,6 +78,34 @@ base mixin DartToolingDaemonSupport
 
   /// Whether or not to enable the screenshot tool.
   bool get enableScreenshots;
+
+  /// A unique identifier for this server instance.
+  ///
+  /// This is generated on first access and then cached. It is used to create
+  /// a unique service name when registering services on DTD.
+  ///
+  /// Can only be accessed after `initialize` has been called.
+  String get clientId {
+    if (_clientId != null) return _clientId!;
+    final clientName = clientInfo.title ?? clientInfo.name;
+    _clientId = generateClientId(clientName);
+    return _clientId!;
+  }
+
+  String? _clientId;
+
+  @visibleForTesting
+  String generateClientId(String clientName) {
+    // Sanitizes the client name by:
+    // 1. replacing whitespace, '-', and '.' with '_'
+    // 2. removing all non-alphanumeric characters except '_'
+    final sanitizedClientName = clientName
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[\s\.\-]+'), '_')
+        .replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '');
+    return '${sanitizedClientName}_${generateShortUUID()}';
+  }
 
   /// Called when the DTD connection is lost, resets all associated state.
   Future<void> _resetDtd() async {
@@ -251,6 +292,7 @@ base mixin DartToolingDaemonSupport
       }
       unawaited(_dtd!.done.then((_) async => await _resetDtd()));
 
+      await _registerServices();
       await _listenForServices();
       return CallToolResult(
         content: [TextContent(text: 'Connection succeeded')],
@@ -270,6 +312,30 @@ base mixin DartToolingDaemonSupport
         content: [Content.text(text: 'Connection failed: $e')],
       );
     }
+  }
+
+  /// Registers all MCP server-provided services on the connected DTD instance.
+  Future<void> _registerServices() async {
+    final dtd = _dtd!;
+
+    if (clientCapabilities.sampling != null) {
+      await dtd.registerService(
+        '${McpServiceConstants.serviceName}_$clientId',
+        McpServiceConstants.samplingRequest,
+        _handleSamplingRequest,
+      );
+    }
+  }
+
+  Future<Map<String, Object?>> _handleSamplingRequest(Parameters params) async {
+    final result = await createMessage(
+      CreateMessageRequest.fromMap(params.asMap.cast<String, Object?>()),
+    );
+
+    return {
+      'type': 'Success', // Type is required by DTD.
+      ...result.toJson(),
+    };
   }
 
   /// Listens to the `ConnectedApp` and `Editor` streams to get app and IDE
