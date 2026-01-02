@@ -931,10 +931,10 @@ base mixin DartToolingDaemonSupport
             'newline',
           ],
         ),
-        'timeout': Schema.int(
+        'timeout': Schema.string(
           description:
               'Maximum time in milliseconds to wait for the command to '
-              'complete. Defaults to $_defaultTimeoutMs.',
+              'complete. Defaults to "$_defaultTimeoutMs".',
         ),
         'offsetType': Schema.string(
           description: 'Required for get_offset, the offset type to get',
