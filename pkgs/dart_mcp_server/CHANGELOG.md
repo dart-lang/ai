@@ -10,6 +10,8 @@
   resources or resource links (when reading a directory).
 - Add `additionalProperties: false` to most schemas so they provide better
   errors when invoked with incorrect arguments.
+- Fix the `timeout` parameter for the flutter_driver tool to be a String,
+  matching the underlying expected type (issue #330).
 
 # 0.1.1 (Dart SDK 3.10.0)
 
