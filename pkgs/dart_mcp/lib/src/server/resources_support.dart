@@ -206,9 +206,7 @@ base mixin ResourcesSupport on MCPServer {
   /// Throws an [ArgumentError] if it does not exist (this gets translated into
   /// a generic JSON RPC2 error response).
   @mustCallSuper
-  FutureOr<ReadResourceResult> readResource(
-    ReadResourceRequest request,
-  ) async {
+  FutureOr<ReadResourceResult> readResource(ReadResourceRequest request) async {
     final impl = _resourceImpls[request.uri];
     if (impl == null) {
       // Check if it matches any resource template.

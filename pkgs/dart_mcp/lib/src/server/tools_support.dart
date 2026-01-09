@@ -94,7 +94,7 @@ base mixin ToolsSupport on MCPServer {
   }
 
   /// Returns the list of supported tools for this server.
-  /// 
+  ///
   /// This returns a [FutureOr] so that overrides may perform async work.
   @mustCallSuper
   FutureOr<ListToolsResult> listTools([ListToolsRequest? request]) =>
