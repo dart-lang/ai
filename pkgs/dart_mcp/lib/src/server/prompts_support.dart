@@ -23,9 +23,9 @@ base mixin PromptsSupport on MCPServer {
 
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) async {
-    registerRequestHandler(ListPromptsRequest.methodName, _listPrompts);
+    registerRequestHandler(ListPromptsRequest.methodName, listPrompts);
 
-    registerRequestHandler(GetPromptRequest.methodName, _getPrompt);
+    registerRequestHandler(GetPromptRequest.methodName, getPrompt);
 
     final result = await super.initialize(request);
     (result.capabilities.prompts ??= Prompts()).listChanged = true;
@@ -33,11 +33,13 @@ base mixin PromptsSupport on MCPServer {
   }
 
   /// Lists the available prompts.
-  ListPromptsResult _listPrompts([ListPromptsRequest? request]) =>
+  @mustCallSuper
+  FutureOr<ListPromptsResult> listPrompts([ListPromptsRequest? request]) =>
       ListPromptsResult(prompts: _prompts.values.toList());
 
   /// Gets the response for a given prompt.
-  FutureOr<GetPromptResult> _getPrompt(GetPromptRequest request) {
+  @mustCallSuper
+  FutureOr<GetPromptResult> getPrompt(GetPromptRequest request) {
     final impl = _promptImpls[request.name];
     if (impl == null) {
       throw ArgumentError.value(request.name, 'name', 'Prompt not found');

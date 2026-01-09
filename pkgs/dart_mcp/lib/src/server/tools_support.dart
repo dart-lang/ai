@@ -28,8 +28,8 @@ base mixin ToolsSupport on MCPServer {
   /// will notify the client
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) async {
-    registerRequestHandler(ListToolsRequest.methodName, _listTools);
-    registerRequestHandler(CallToolRequest.methodName, _callTool);
+    registerRequestHandler(ListToolsRequest.methodName, listTools);
+    registerRequestHandler(CallToolRequest.methodName, callTool);
 
     final result = await super.initialize(request);
     (result.capabilities.tools ??= Tools()).listChanged = true;
@@ -94,11 +94,15 @@ base mixin ToolsSupport on MCPServer {
   }
 
   /// Returns the list of supported tools for this server.
-  ListToolsResult _listTools([ListToolsRequest? request]) =>
+  /// 
+  /// This returns a [FutureOr] so that overrides may perform async work.
+  @mustCallSuper
+  FutureOr<ListToolsResult> listTools([ListToolsRequest? request]) =>
       ListToolsResult(tools: [for (var tool in _registeredTools.values) tool]);
 
   /// Invoked when one of the registered tools is called.
-  Future<CallToolResult> _callTool(CallToolRequest request) async {
+  @mustCallSuper
+  Future<CallToolResult> callTool(CallToolRequest request) async {
     final impl = _registeredToolImpls[request.name];
     if (impl == null) {
       return CallToolResult(

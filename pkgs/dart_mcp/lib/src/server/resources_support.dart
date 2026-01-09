@@ -61,16 +61,16 @@ base mixin ResourcesSupport on MCPServer {
   /// subscription preferences.
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) async {
-    registerRequestHandler(ListResourcesRequest.methodName, _listResources);
+    registerRequestHandler(ListResourcesRequest.methodName, listResources);
     registerRequestHandler(
       ListResourceTemplatesRequest.methodName,
-      _listResourceTemplates,
+      listResourceTemplates,
     );
 
-    registerRequestHandler(ReadResourceRequest.methodName, _readResource);
+    registerRequestHandler(ReadResourceRequest.methodName, readResource);
 
-    registerRequestHandler(SubscribeRequest.methodName, _subscribeResource);
-    registerRequestHandler(UnsubscribeRequest.methodName, _unsubscribeResource);
+    registerRequestHandler(SubscribeRequest.methodName, subscribeResource);
+    registerRequestHandler(UnsubscribeRequest.methodName, unsubscribeResource);
 
     final result = await super.initialize(request);
     (result.capabilities.resources ??= Resources())
@@ -148,7 +148,10 @@ base mixin ResourcesSupport on MCPServer {
   }
 
   /// Lists all the [ResourceTemplate]s currently available.
-  ListResourceTemplatesResult _listResourceTemplates([
+  ///
+  /// This returns a [FutureOr] so that overrides may perform async work.
+  @mustCallSuper
+  FutureOr<ListResourceTemplatesResult> listResourceTemplates([
     ListResourceTemplatesRequest? request,
   ]) {
     return ListResourceTemplatesResult(
@@ -191,7 +194,10 @@ base mixin ResourcesSupport on MCPServer {
   }
 
   /// Lists all the resources currently available.
-  ListResourcesResult _listResources(ListResourcesRequest? request) {
+  ///
+  /// This returns a [FutureOr] so that overrides may perform async work.
+  @mustCallSuper
+  FutureOr<ListResourcesResult> listResources(ListResourcesRequest? request) {
     return ListResourcesResult(resources: _resources.values.toList());
   }
 
@@ -199,7 +205,8 @@ base mixin ResourcesSupport on MCPServer {
   ///
   /// Throws an [ArgumentError] if it does not exist (this gets translated into
   /// a generic JSON RPC2 error response).
-  FutureOr<ReadResourceResult> _readResource(
+  @mustCallSuper
+  FutureOr<ReadResourceResult> readResource(
     ReadResourceRequest request,
   ) async {
     final impl = _resourceImpls[request.uri];
@@ -219,7 +226,8 @@ base mixin ResourcesSupport on MCPServer {
   }
 
   /// Subscribes the client to the resource at `request.uri`.
-  FutureOr<EmptyResult> _subscribeResource(SubscribeRequest request) {
+  @mustCallSuper
+  FutureOr<EmptyResult> subscribeResource(SubscribeRequest request) {
     if (!_resources.containsKey(request.uri)) {
       throw ArgumentError.value(request.uri, 'uri', 'Resource not found');
     }
@@ -242,7 +250,8 @@ base mixin ResourcesSupport on MCPServer {
   }
 
   /// Unsubscribes the client to the resource at `request.uri`.
-  Future<EmptyResult> _unsubscribeResource(UnsubscribeRequest request) async {
+  @mustCallSuper
+  Future<EmptyResult> unsubscribeResource(UnsubscribeRequest request) async {
     await _subscribedResources.remove(request.uri)?.close();
     return EmptyResult();
   }

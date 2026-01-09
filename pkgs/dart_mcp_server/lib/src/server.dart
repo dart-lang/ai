@@ -16,6 +16,7 @@ import 'package:process/process.dart';
 import 'package:unified_analytics/unified_analytics.dart';
 
 import 'arg_parser.dart';
+import 'mixins/analytics.dart';
 import 'mixins/analyzer.dart';
 import 'mixins/dash_cli.dart';
 import 'mixins/dtd.dart';
@@ -47,7 +48,8 @@ final class DartMCPServer extends MCPServer
         FlutterLauncherSupport,
         PromptsSupport,
         DashPrompts,
-        PackageUriSupport
+        PackageUriSupport,
+        AnalyticsEvents
     implements
         AnalyticsSupport,
         ProcessManagerSupport,
@@ -85,6 +87,25 @@ final class DartMCPServer extends MCPServer
              'IMPORTANT: Prefer using an MCP tool provided by this server '
              'over using tools directly in a shell.',
        );
+
+  @override
+  Future<InitializeResult> initialize(InitializeRequest request) async {
+    final result = await super.initialize(request);
+    analytics?.send(
+      Event.dartMCPEvent(
+        client: clientInfo.name,
+        clientVersion: clientInfo.version,
+        serverVersion: implementation.version,
+        type: AnalyticsEvent.initialize.name,
+        additionalData: InitializeMetrics(
+          supportsElicitation: request.capabilities.elicitation != null,
+          supportsRoots: request.capabilities.roots != null,
+          supportsSampling: request.capabilities.sampling != null,
+        ),
+      ),
+    );
+    return result;
+  }
 
   /// Runs the MCP server given command line arguments and an optional
   /// [Analytics] instance.
@@ -189,90 +210,7 @@ final class DartMCPServer extends MCPServer
     // Check manually excluded tools and skip them.
     if (excludedTools.contains(tool.name)) return;
 
-    // For type promotion.
-    final analytics = this.analytics;
-
-    super.registerTool(
-      tool,
-      analytics == null
-          ? impl
-          : (CallToolRequest request) async {
-              final watch = Stopwatch()..start();
-              CallToolResult? result;
-              try {
-                return result = await impl(request);
-              } finally {
-                watch.stop();
-                try {
-                  analytics.send(
-                    Event.dartMCPEvent(
-                      client: clientInfo.name,
-                      clientVersion: clientInfo.version,
-                      serverVersion: implementation.version,
-                      type: AnalyticsEvent.callTool.name,
-                      additionalData: CallToolMetrics(
-                        tool: request.name,
-                        success: result != null && result.isError != true,
-                        elapsedMilliseconds: watch.elapsedMilliseconds,
-                        failureReason: result?.failureReason,
-                      ),
-                    ),
-                  );
-                } catch (e) {
-                  log(
-                    LoggingLevel.warning,
-                    'Error sending analytics event: $e',
-                  );
-                }
-              }
-            },
-      validateArguments: validateArguments,
-    );
-  }
-
-  @override
-  void addPrompt(
-    Prompt prompt,
-    FutureOr<GetPromptResult> Function(GetPromptRequest) impl,
-  ) {
-    // For type promotion.
-    final analytics = this.analytics;
-
-    super.addPrompt(
-      prompt,
-      analytics == null
-          ? impl
-          : (request) async {
-              final watch = Stopwatch()..start();
-              GetPromptResult? result;
-              try {
-                return result = await impl(request);
-              } finally {
-                watch.stop();
-                try {
-                  analytics.send(
-                    Event.dartMCPEvent(
-                      client: clientInfo.name,
-                      clientVersion: clientInfo.version,
-                      serverVersion: implementation.version,
-                      type: AnalyticsEvent.getPrompt.name,
-                      additionalData: GetPromptMetrics(
-                        name: request.name,
-                        success: result != null && result.messages.isNotEmpty,
-                        elapsedMilliseconds: watch.elapsedMilliseconds,
-                        withArguments: request.arguments?.isNotEmpty == true,
-                      ),
-                    ),
-                  );
-                } catch (e) {
-                  log(
-                    LoggingLevel.warning,
-                    'Error sending analytics event: $e',
-                  );
-                }
-              }
-            },
-    );
+    super.registerTool(tool, impl, validateArguments: validateArguments);
   }
 }
 
