@@ -30,7 +30,108 @@ void main() {
       analytics = server.analytics as FakeAnalytics;
     });
 
-    test('sends analytics for successful tool calls', () async {
+    test('sends an initialize event', () {
+      expect(
+        analytics.sentEvents.first,
+        isA<Event>()
+            .having((e) => e.eventName, 'eventName', DashEvent.dartMCPEvent)
+            .having(
+              (e) => e.eventData,
+              'eventData',
+              equals({
+                'client': server.clientInfo.name,
+                'clientVersion': server.clientInfo.version,
+                'serverVersion': server.implementation.version,
+                'type': AnalyticsEvent.initialize.name,
+                'supportsElicitation': true,
+                'supportsRoots': true,
+                'supportsSampling': true,
+              }),
+            ),
+      );
+    });
+
+    test('are sent for listTools', () async {
+      await server.listTools();
+
+      expect(
+        analytics.sentEvents.last,
+        isA<Event>()
+            .having((e) => e.eventName, 'eventName', DashEvent.dartMCPEvent)
+            .having(
+              (e) => e.eventData,
+              'eventData',
+              equals({
+                'client': server.clientInfo.name,
+                'clientVersion': server.clientInfo.version,
+                'serverVersion': server.implementation.version,
+                'type': AnalyticsEvent.listTools.name,
+              }),
+            ),
+      );
+    });
+
+    test('are sent for listPrompts', () async {
+      await server.listPrompts();
+
+      expect(
+        analytics.sentEvents.last,
+        isA<Event>()
+            .having((e) => e.eventName, 'eventName', DashEvent.dartMCPEvent)
+            .having(
+              (e) => e.eventData,
+              'eventData',
+              equals({
+                'client': server.clientInfo.name,
+                'clientVersion': server.clientInfo.version,
+                'serverVersion': server.implementation.version,
+                'type': AnalyticsEvent.listPrompts.name,
+              }),
+            ),
+      );
+    });
+
+    test('are sent for listResources', () async {
+      await server.listResources();
+
+      expect(
+        analytics.sentEvents.last,
+        isA<Event>()
+            .having((e) => e.eventName, 'eventName', DashEvent.dartMCPEvent)
+            .having(
+              (e) => e.eventData,
+              'eventData',
+              equals({
+                'client': server.clientInfo.name,
+                'clientVersion': server.clientInfo.version,
+                'serverVersion': server.implementation.version,
+                'type': AnalyticsEvent.listResources.name,
+              }),
+            ),
+      );
+    });
+
+    test('are sent for listResourceTemplates', () async {
+      await server.listResourceTemplates();
+
+      expect(
+        analytics.sentEvents.last,
+        isA<Event>()
+            .having((e) => e.eventName, 'eventName', DashEvent.dartMCPEvent)
+            .having(
+              (e) => e.eventData,
+              'eventData',
+              equals({
+                'client': server.clientInfo.name,
+                'clientVersion': server.clientInfo.version,
+                'serverVersion': server.implementation.version,
+                'type': AnalyticsEvent.listResourceTemplates.name,
+              }),
+            ),
+      );
+    });
+
+    test('are sent for successful tool calls', () async {
       server.registerTool(
         Tool(name: 'hello', inputSchema: Schema.object()),
         (_) => CallToolResult(content: [Content.text(text: 'world')]),
@@ -40,7 +141,7 @@ void main() {
       );
       expect((result.content.single as TextContent).text, 'world');
       expect(
-        analytics.sentEvents.single,
+        analytics.sentEvents.last,
         isA<Event>()
             .having((e) => e.eventName, 'eventName', DashEvent.dartMCPEvent)
             .having(
@@ -59,7 +160,7 @@ void main() {
       );
     });
 
-    test('sends analytics for failed tool calls', () async {
+    test('are sent for failed tool calls', () async {
       analytics.sentEvents.clear();
 
       final tool = Tool(name: 'hello', inputSchema: Schema.object());
@@ -72,7 +173,7 @@ void main() {
       );
       expect(result.isError, true);
       expect(
-        analytics.sentEvents.single,
+        analytics.sentEvents.last,
         isA<Event>()
             .having((e) => e.eventName, 'eventName', DashEvent.dartMCPEvent)
             .having(
@@ -127,7 +228,7 @@ void main() {
         expect((result.messages.single.content as TextContent).text, 'hello');
         expect(result.messages.single.role, Role.user);
         expect(
-          analytics.sentEvents.single,
+          analytics.sentEvents.last,
           isA<Event>()
               .having((e) => e.eventName, 'eventName', DashEvent.dartMCPEvent)
               .having(
@@ -159,7 +260,7 @@ void main() {
         );
         expect(result.messages[1].role, Role.user);
         expect(
-          analytics.sentEvents.single,
+          analytics.sentEvents.last,
           isA<Event>()
               .having((e) => e.eventName, 'eventName', DashEvent.dartMCPEvent)
               .having(
@@ -189,7 +290,7 @@ void main() {
           );
         } catch (_) {}
         expect(
-          analytics.sentEvents.single,
+          analytics.sentEvents.last,
           isA<Event>()
               .having((e) => e.eventName, 'eventName', DashEvent.dartMCPEvent)
               .having(

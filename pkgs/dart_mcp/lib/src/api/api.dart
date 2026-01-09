@@ -87,7 +87,9 @@ extension type Cursor(String _) {}
 /// - Name: Unless empty, MUST begin and end with an alphanumeric character
 ///   (`[a-z0-9A-Z]`). MAY contain hyphens (`-`), underscores (`_`), dots
 ///   (`.`), and alphanumerics in between.
-extension type Meta.fromMap(Map<String, Object?> _value) {}
+extension type Meta.fromMap(Map<String, Object?> _value) {
+  Object? operator [](String key) => _value[key];
+}
 
 /// Basic metadata required by multiple types.
 ///

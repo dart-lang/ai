@@ -304,7 +304,7 @@ final class AppDebugSession {
 
 /// A basic MCP client which is started as a part of the harness.
 final class DartToolingMCPClient extends MCPClient
-    with RootsSupport, SamplingSupport {
+    with RootsSupport, SamplingSupport, ElicitationSupport {
   DartToolingMCPClient()
     : super(
         Implementation(
@@ -337,6 +337,18 @@ final class DartToolingMCPClient extends MCPClient
         text: 'TOKENS: ${request.maxTokens}\n$messageTexts',
       ),
       model: 'test-model',
+    );
+  }
+
+  /// Requests must attach the desired response action, and optional
+  /// response values in the meta field of the request.
+  @override
+  FutureOr<ElicitResult> handleElicitation(ElicitRequest request) {
+    return ElicitResult(
+      action: ElicitationAction.values.firstWhere(
+        (value) => value.name == request.meta!['action'] as String,
+      ),
+      content: request.meta?['values'] as Map<String, Object?>?,
     );
   }
 }

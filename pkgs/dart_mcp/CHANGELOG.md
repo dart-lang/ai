@@ -1,5 +1,8 @@
-## 0.4.1-wip
+## 0.4.1
 
+- Expose various private methods on MCP server mixins as public methods, with
+  `@mustCallSuper` annotations. This allows intercepting calls for logging,
+  metrics, or other purposes.
 - Fix the `resource` parameter type on `EmbeddedResource` to be
   `ResourceContents` instead of `Contents`.
   - **Note**: This is technically breaking but the previous API would not have
