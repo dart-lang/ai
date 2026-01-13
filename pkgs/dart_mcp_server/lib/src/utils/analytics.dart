@@ -14,7 +14,36 @@ abstract interface class AnalyticsSupport {
   Analytics? get analytics;
 }
 
-enum AnalyticsEvent { callTool, readResource, getPrompt }
+enum AnalyticsEvent {
+  callTool,
+  initialize,
+  listPrompts,
+  listResources,
+  listResourceTemplates,
+  listTools,
+  readResource,
+  getPrompt,
+}
+
+/// The metrics for an initialize MCP handler.
+final class InitializeMetrics extends CustomMetrics {
+  final bool supportsElicitation;
+  final bool supportsRoots;
+  final bool supportsSampling;
+
+  InitializeMetrics({
+    required this.supportsElicitation,
+    required this.supportsRoots,
+    required this.supportsSampling,
+  });
+
+  @override
+  Map<String, Object> toMap() => {
+    _supportsElicitation: supportsElicitation,
+    _supportsRoots: supportsRoots,
+    _supportsSampling: supportsSampling,
+  };
+}
 
 /// The metrics for a resources/read MCP handler.
 final class ReadResourceMetrics extends CustomMetrics {
@@ -142,3 +171,6 @@ const _name = 'name';
 const _success = 'success';
 const _tool = 'tool';
 const _withArguments = 'withArguments';
+const _supportsElicitation = 'supportsElicitation';
+const _supportsRoots = 'supportsRoots';
+const _supportsSampling = 'supportsSampling';
