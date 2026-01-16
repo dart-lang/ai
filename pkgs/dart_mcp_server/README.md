@@ -158,6 +158,7 @@ For more information, see the official VS Code documentation for
 | `read_package_uris` |  | Reads "package" scheme URIs which represent paths under the lib directory of Dart package dependencies. Package uris are always relative, and the first segment is the package name. For example, the URI "package:test/test.dart" represents the path "lib/test.dart" under the "test" package. This API supports both reading files and listing directories. |
 | `remove_roots` | Remove roots | Removes one or more project roots previously added via the add_roots tool. |
 | `resolve_workspace_symbol` | Project search | Look up a symbol or symbols in all workspaces by name. Can be used to validate that a symbol exists or discover small spelling mistakes, since the search is fuzzy. |
+| `rip_grep_packages` |  | Uses ripgrep to find patterns in package dependencies. Note that ripgrep must be installed already, see https://github.com/BurntSushi/ripgrep for instructions. |
 | `run_tests` | Run tests | Run Dart or Flutter tests with an agent centric UX. ALWAYS use instead of `dart test` or `flutter test` shell commands. |
 | `set_widget_selection_mode` | Set Widget Selection Mode | Enables or disables widget selection mode in the active Flutter application. Requires "connect_dart_tooling_daemon" to be successfully called first. This is not necessary when using flutter driver, only use it when you want the user to select a widget. |
 | `signature_help` | Signature help | Get signature help for an API being used at a given cursor position in a file. |

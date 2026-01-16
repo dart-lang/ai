@@ -87,9 +87,13 @@ class TestHarness {
   /// If [cliArgs] are passed, they will be given to the MCP server. This is
   /// only supported when [inProcess] is `false`, which is enforced via
   /// assertions.
+  ///
+  /// The [processManager] defaults to a [TestProcessManager], but you can
+  /// override it to use a real [ProcessManager].
   static Future<TestHarness> start({
     bool inProcess = false,
     FileSystem? fileSystem,
+    ProcessManager? processManager,
     List<String> cliArgs = const [],
   }) async {
     final sdk = Sdk.find(
@@ -97,6 +101,7 @@ class TestHarness {
       flutterSdkPath: Platform.environment['FLUTTER_SDK'],
     );
     fileSystem ??= const LocalFileSystem();
+    processManager ??= TestProcessManager();
 
     final mcpClient = DartToolingMCPClient();
     addTearDown(mcpClient.shutdown);
@@ -107,6 +112,7 @@ class TestHarness {
       fileSystem,
       sdk,
       cliArgs,
+      processManager,
     );
     final connection = serverConnectionPair.serverConnection;
     connection.onLog.listen((log) {
@@ -340,18 +346,38 @@ final class DartToolingMCPClient extends MCPClient
     );
   }
 
-  /// Requests must attach the desired response action, and optional
-  /// response values in the meta field of the request.
+  final List<ElicitationHandler> _elicitationHandlers = [];
+
+  /// Registers a handler for elicitation requests.
+  ///
+  /// The handler will be called with the elicitation request, and should return
+  /// a result or null. If null is returned, the next handler will be called.
+  void registerElicitationHandler(ElicitationHandler handler) {
+    _elicitationHandlers.add(handler);
+  }
+
+  /// Passes the [request] to all registered handlers, and returns the first
+  /// non-null result.
+  ///
+  /// If no handlers return a result, returns a result with the action set to
+  /// [ElicitationAction.cancel].
   @override
-  FutureOr<ElicitResult> handleElicitation(ElicitRequest request) {
+  Future<ElicitResult> handleElicitation(ElicitRequest request) async {
+    for (final handler in _elicitationHandlers) {
+      final result = await handler(request);
+      if (result != null) {
+        return result;
+      }
+    }
     return ElicitResult(
-      action: ElicitationAction.values.firstWhere(
-        (value) => value.name == request.meta!['action'] as String,
-      ),
-      content: request.meta?['values'] as Map<String, Object?>?,
+      action: ElicitationAction.cancel,
     );
   }
 }
+
+/// A handler for elicitation requests.
+typedef ElicitationHandler =
+    FutureOr<ElicitResult?> Function(ElicitRequest request);
 
 /// The dart tooling daemon currently expects to get vm service uris through
 /// the `Editor.getDebugSessions` DTD extension.
@@ -434,6 +460,7 @@ Future<ServerConnectionPair> _initializeMCPServer(
   FileSystem fileSystem,
   Sdk sdk,
   List<String> cliArgs,
+  ProcessManager processManager,
 ) async {
   ServerConnection connection;
   DartMCPServer? server;
@@ -479,7 +506,7 @@ Future<ServerConnectionPair> _initializeMCPServer(
     server = DartMCPServer(
       serverChannel,
       toolsConfig: ToolsConfiguration.all,
-      processManager: TestProcessManager(),
+      processManager: processManager,
       fileSystem: fileSystem,
       sdk: sdk,
       analytics: analytics,

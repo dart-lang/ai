@@ -47,7 +47,7 @@ base mixin PackageUriSupport on ToolsSupport, RootsTrackingSupport
       fileSystem.directory(Uri.parse(root.uri)),
     );
     if (packageConfig == null) {
-      return _noPackageConfigFound(root);
+      return noPackageConfigFound(root);
     }
 
     final resultContent = <Content>[];
@@ -74,12 +74,7 @@ base mixin PackageUriSupport on ToolsSupport, RootsTrackingSupport
       (package) => package.name == packageName,
     );
     if (package == null) {
-      yield TextContent(
-        text:
-            'The package "$packageName" was not found in your package config, '
-            'make sure it is listed in your dependencies, or use `pub add` to '
-            'add it.',
-      );
+      yield packageNotFoundText(packageName);
       return;
     }
 
@@ -169,17 +164,6 @@ base mixin PackageUriSupport on ToolsSupport, RootsTrackingSupport
     }
   }
 
-  CallToolResult _noPackageConfigFound(Root root) => CallToolResult(
-    isError: true,
-    content: [
-      TextContent(
-        text:
-            'No package config found for root ${root.uri}. Have you ran `pub '
-            'get` in this project?',
-      ),
-    ],
-  )..failureReason = CallToolFailureReason.noPackageConfigFound;
-
   @visibleForTesting
   static final readPackageUris = Tool(
     name: 'read_package_uris',
@@ -203,3 +187,22 @@ base mixin PackageUriSupport on ToolsSupport, RootsTrackingSupport
     ),
   );
 }
+
+/// Shared error result for when no package config is found.
+CallToolResult noPackageConfigFound(Root root) => CallToolResult(
+  isError: true,
+  content: [
+    TextContent(
+      text:
+          'No package config found for root ${root.uri}. Have you ran `pub '
+          'get` in this project?',
+    ),
+  ],
+)..failureReason = CallToolFailureReason.noPackageConfigFound;
+
+TextContent packageNotFoundText(String packageName) => TextContent(
+  text:
+      'The package "$packageName" was not found in your package config, '
+      'make sure it is listed in your dependencies, or use `pub add` to '
+      'add it.',
+);
