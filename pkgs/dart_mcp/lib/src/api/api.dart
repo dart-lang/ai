@@ -484,17 +484,17 @@ extension type ResourceLink.fromMap(Map<String, Object?> _value)
   factory ResourceLink({
     required String name,
     String? title,
-    required String description,
+    String? description,
     required String uri,
-    required String mimeType,
+    String? mimeType,
     Annotations? annotations,
     Meta? meta,
   }) => ResourceLink.fromMap({
     'name': name,
     if (title != null) 'title': title,
-    'description': description,
+    if (description != null) 'description': description,
     'uri': uri,
-    'mimeType': mimeType,
+    if (mimeType != null) 'mimeType': mimeType,
     'type': expectedType,
     if (annotations != null) 'annotations': annotations,
     if (meta != null) '_meta': meta,
@@ -507,13 +507,7 @@ extension type ResourceLink.fromMap(Map<String, Object?> _value)
   }
 
   /// The description of the resource.
-  String get description {
-    final description = _value['description'] as String?;
-    if (description == null) {
-      throw ArgumentError('Missing description field in $ResourceLink.');
-    }
-    return description;
-  }
+  String? get description => _value['description'] as String?;
 
   /// The URI of the resource.
   String get uri {
@@ -525,13 +519,13 @@ extension type ResourceLink.fromMap(Map<String, Object?> _value)
   }
 
   /// The MIME type of the resource.
-  String get mimeType {
-    final mimeType = _value['mimeType'] as String?;
-    if (mimeType == null) {
-      throw ArgumentError('Missing mimeType field in $ResourceLink.');
-    }
-    return mimeType;
-  }
+  String? get mimeType => _value['mimeType'] as String?;
+
+  /// The size of the resource in bytes.
+  int? get size => _value['size'] as int?;
+
+  /// List of icons for display in user interfaces
+  List<String>? get icons => (_value['icons'] as List?)?.cast<String>();
 }
 
 /// Base type for objects that include optional annotations for the client.
