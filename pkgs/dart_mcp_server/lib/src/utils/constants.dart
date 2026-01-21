@@ -6,6 +6,7 @@ import 'package:dart_mcp/server.dart';
 
 /// A namespace for all the parameter names.
 extension ParameterNames on Never {
+  static const arguments = 'arguments';
   static const column = 'column';
   static const command = 'command';
   static const directory = 'directory';
@@ -21,7 +22,6 @@ extension ParameterNames on Never {
   static const root = 'root';
   static const roots = 'roots';
   static const template = 'template';
-  static const testRunnerArgs = 'testRunnerArgs';
   static const uri = 'uri';
   static const uris = 'uris';
   static const userJourney = 'user_journey';

@@ -191,7 +191,7 @@ dependencies:
       final request = CallToolRequest(
         name: DashCliSupport.runTestsTool.name,
         arguments: {
-          ParameterNames.testRunnerArgs: {
+          ParameterNames.arguments: {
             'run-skipped': true,
             'platform': ['vm', 'chrome'],
             'reporter': 'json',
