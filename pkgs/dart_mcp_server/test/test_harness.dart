@@ -369,9 +369,7 @@ final class DartToolingMCPClient extends MCPClient
         return result;
       }
     }
-    return ElicitResult(
-      action: ElicitationAction.cancel,
-    );
+    return ElicitResult(action: ElicitationAction.cancel);
   }
 }
 

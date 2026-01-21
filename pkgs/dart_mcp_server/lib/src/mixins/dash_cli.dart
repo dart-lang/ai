@@ -69,8 +69,7 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
   /// Implementation of the [runTestsTool].
   Future<CallToolResult> _runTests(CallToolRequest request) async {
     final testRunnerArguments =
-        request.arguments?[ParameterNames.arguments]
-            as Map<String, Object?>?;
+        request.arguments?[ParameterNames.arguments] as Map<String, Object?>?;
     final hasReporterArg =
         testRunnerArguments?.containsKey('reporter') ?? false;
     return runCommandInRoots(
