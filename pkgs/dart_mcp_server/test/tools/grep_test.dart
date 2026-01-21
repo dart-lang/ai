@@ -35,6 +35,10 @@ void main() {
       inProcess: true,
       processManager: const LocalProcessManager(),
     );
+    // Allow it to install ripgrep if necessary.
+    testHarness.mcpClient.registerElicitationHandler(
+      (_) => ElicitResult(action: ElicitationAction.accept),
+    );
     counterAppRoot = testHarness.rootForPath(counterAppPath);
     testHarness.mcpClient.addRoot(counterAppRoot);
   });
@@ -115,9 +119,6 @@ void main() {
 
   test('Can install ripgrep', () async {
     final server = testHarness.serverConnectionPair.server!;
-    testHarness.mcpClient.registerElicitationHandler(
-      (_) => ElicitResult(action: ElicitationAction.accept),
-    );
     final tmpDir = server.fileSystem.systemTempDirectory.createTempSync(
       'rip-grep-test',
     );
