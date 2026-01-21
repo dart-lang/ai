@@ -101,7 +101,14 @@ base mixin GrepSupport
     String ripGrepExecutable,
     List<String> args,
   ) async {
-    final packagePath = package.packageUriRoot.path;
+    var packagePath = package.packageUriRoot.path;
+    // On windows, we get paths like "/C:/Users/...", and need to strip out the
+    // leading slash.
+    if (Platform.isWindows &&
+        packagePath.startsWith('/') &&
+        packagePath.contains(':')) {
+      packagePath = packagePath.substring(1);
+    }
     final result = await processManager.run([
       ripGrepExecutable,
       ...args,
