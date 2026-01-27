@@ -1,3 +1,9 @@
+## 0.5.0-wip
+
+- **BREAKING**:
+  - Change many fields of `ResourceLink` to be nullable, and their associated
+    parameters to be optional. This brings us in line with the specification.
+
 ## 0.4.1
 
 - Expose various private methods on MCP server mixins as public methods, with
