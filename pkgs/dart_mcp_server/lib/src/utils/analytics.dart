@@ -147,11 +147,14 @@ extension WithFailureReason on CallToolResult {
 
 /// Known reasons for failed tool calls.
 enum CallToolFailureReason {
+  applicationNotFound,
   argumentError,
   connectedAppServiceNotSupported,
   dtdAlreadyConnected,
   dtdNotConnected,
   flutterDriverNotEnabled,
+  givenVmServiceUri,
+  httpClientException,
   invalidPath,
   invalidRootPath,
   invalidRootScheme,
@@ -162,7 +165,9 @@ enum CallToolFailureReason {
   noSuchCommand,
   processException,
   timeout,
+  unhandledError,
   webSocketException,
+  wrappedServiceIssue,
 }
 
 const _elapsedMilliseconds = 'elapsedMilliseconds';

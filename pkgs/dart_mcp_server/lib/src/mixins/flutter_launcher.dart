@@ -287,7 +287,7 @@ base mixin FlutterLauncherSupport
       return CallToolResult(
         isError: true,
         content: [TextContent(text: 'Application with PID $pid not found.')],
-      );
+      )..failureReason = CallToolFailureReason.applicationNotFound;
     }
 
     final success = processManager.killPid(pid);
@@ -362,7 +362,7 @@ base mixin FlutterLauncherSupport
               text: 'Failed to list Flutter devices: ${result.stderr}',
             ),
           ],
-        );
+        )..failureReason = CallToolFailureReason.wrappedServiceIssue;
       }
 
       final stdout = result.stdout as String;
@@ -398,7 +398,7 @@ base mixin FlutterLauncherSupport
       return CallToolResult(
         isError: true,
         content: [TextContent(text: 'Failed to list Flutter devices: $e')],
-      );
+      )..failureReason = CallToolFailureReason.unhandledError;
     }
   }
 
@@ -444,16 +444,16 @@ base mixin FlutterLauncherSupport
     if (logs == null) {
       log(
         LoggingLevel.error,
-        'Application with PID $pid not found or has no logs.',
+        'Application with PID $pid not found.',
       );
       return CallToolResult(
         isError: true,
         content: [
           TextContent(
-            text: 'Application with PID $pid not found or has no logs.',
+            text: 'Application with PID $pid not found.',
           ),
         ],
-      );
+      )..failureReason = CallToolFailureReason.applicationNotFound;
     }
 
     if (maxLines == -1) {

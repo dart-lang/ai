@@ -310,7 +310,7 @@ base mixin DartToolingDaemonSupport
       return CallToolResult(
         isError: true,
         content: [Content.text(text: 'Connection failed: $e')],
-      );
+      )..failureReason = CallToolFailureReason.unhandledError;
     }
   }
 
@@ -427,7 +427,7 @@ base mixin DartToolingDaemonSupport
                     '${result.json}',
               ),
             ],
-          );
+          )..failureReason = CallToolFailureReason.wrappedServiceIssue;
         }
       },
     );
@@ -464,7 +464,7 @@ base mixin DartToolingDaemonSupport
           return CallToolResult(
             isError: true,
             content: [TextContent(text: 'Hot restart failed: $e')],
-          );
+          )..failureReason = CallToolFailureReason.unhandledError;
         }
         return CallToolResult(
           isError: !success ? true : null,
@@ -521,17 +521,20 @@ base mixin DartToolingDaemonSupport
           return CallToolResult(
             isError: true,
             content: [TextContent(text: 'Hot reload failed: $e')],
-          );
+          )..failureReason = CallToolFailureReason.unhandledError;
         }
         final success = report.success == true;
         return CallToolResult(
-          isError: !success ? true : null,
-          content: [
-            TextContent(
-              text: 'Hot reload ${success ? 'succeeded' : 'failed'}.',
-            ),
-          ],
-        );
+            isError: !success ? true : null,
+            content: [
+              TextContent(
+                text: 'Hot reload ${success ? 'succeeded' : 'failed'}.',
+              ),
+            ],
+          )
+          ..failureReason = !success
+              ? CallToolFailureReason.wrappedServiceIssue
+              : null;
       },
     );
   }
@@ -572,7 +575,7 @@ base mixin DartToolingDaemonSupport
           return CallToolResult(
             isError: true,
             content: [TextContent(text: 'Failed to get runtime errors: $e')],
-          );
+          )..failureReason = CallToolFailureReason.unhandledError;
         }
       },
     );
@@ -622,7 +625,7 @@ base mixin DartToolingDaemonSupport
                 text: 'Unknown error or bad response getting widget tree:\n$e',
               ),
             ],
-          );
+          )..failureReason = CallToolFailureReason.unhandledError;
         }
       },
     );
@@ -658,7 +661,7 @@ base mixin DartToolingDaemonSupport
           return CallToolResult(
             isError: true,
             content: [TextContent(text: 'Failed to get selected widget: $e')],
-          );
+          )..failureReason = CallToolFailureReason.unhandledError;
         }
       },
     );
@@ -719,14 +722,14 @@ base mixin DartToolingDaemonSupport
                     '${result.json}',
               ),
             ],
-          );
+          )..failureReason = CallToolFailureReason.wrappedServiceIssue;
         } catch (e) {
           return CallToolResult(
             isError: true,
             content: [
               TextContent(text: 'Failed to set widget selection mode: $e'),
             ],
-          );
+          )..failureReason = CallToolFailureReason.unhandledError;
         }
       },
     );
@@ -1195,7 +1198,7 @@ base mixin DartToolingDaemonSupport
       ),
     ],
     isError: true,
-  );
+  )..failureReason = CallToolFailureReason.givenVmServiceUri;
 
   static final runtimeErrorsScheme = 'runtime-errors';
 

@@ -32,13 +32,7 @@ base mixin PubDevSupport on ToolsSupport {
 
   /// Implementation of the [pubDevTool].
   Future<CallToolResult> _runPubDevSearch(CallToolRequest request) async {
-    final query = request.arguments?['query'] as String?;
-    if (query == null) {
-      return CallToolResult(
-        content: [TextContent(text: 'Missing required argument `query`.')],
-        isError: true,
-      )..failureReason = CallToolFailureReason.argumentError;
-    }
+    final query = request.arguments?['query'] as String;
     final searchUrl = Uri.https('pub.dev', 'api/search', {'q': query});
     final Object? result;
     try {
@@ -167,7 +161,11 @@ base mixin PubDevSupport on ToolsSupport {
       return CallToolResult(
         content: [TextContent(text: 'Failed searching pub.dev: $e')],
         isError: true,
-      );
+        )
+        ..failureReason = switch (e) {
+          ClientException() => CallToolFailureReason.httpClientException,
+          _ => CallToolFailureReason.unhandledError,
+        };
     }
   }
 
