@@ -8,14 +8,14 @@ import 'dart:io';
 
 import 'package:collection/collection.dart';
 import 'package:dart_mcp/client.dart';
-import 'package:dart_mcp_server/src/arg_parser.dart';
 import 'package:dart_mcp_server/src/server.dart';
+import 'package:dart_mcp_server/src/utils/analytics.dart';
 import 'package:dart_mcp_server/src/utils/sdk.dart';
-import 'package:fake_async/fake_async.dart';
 import 'package:file/memory.dart';
 import 'package:process/process.dart';
-import 'package:stream_channel/stream_channel.dart';
 import 'package:test/test.dart';
+import 'package:unified_analytics/testing.dart';
+import 'package:unified_analytics/unified_analytics.dart';
 
 import '../test_harness.dart';
 
@@ -23,92 +23,80 @@ void main() {
   group('Flutter App Tools', () {
     late MemoryFileSystem fileSystem;
     const projectRoot = '/project';
+    final dtdUri = 'ws://127.0.0.1:12345/abcdefg=';
+    final processPid = 54321;
+    late TestHarness testHarness;
+    late DartMCPServer server;
+    late ServerConnection client;
+    late MockProcessManager mockProcessManager;
+    final sdk = Sdk(
+      flutterSdkPath: Platform.isWindows
+          ? r'C:\path\to\flutter\sdk'
+          : '/path/to/flutter/sdk',
+      dartSdkPath: Platform.isWindows
+          ? r'C:\path\to\flutter\sdk\bin\cache\dart-sdk'
+          : '/path/to/flutter/sdk/bin/cache/dart-sdk',
+    );
 
-    Future<({DartMCPServer server, ServerConnection client})>
-    createServerAndClient({
-      required ProcessManager processManager,
-      required MemoryFileSystem fileSystem,
-    }) async {
-      final channel = StreamChannelController<String>();
-      final server = DartMCPServer(
-        channel.local,
-        toolsConfig: ToolsConfiguration.all,
-        sdk: Sdk(
-          flutterSdkPath: Platform.isWindows
-              ? r'C:\path\to\flutter\sdk'
-              : '/path/to/flutter/sdk',
-          dartSdkPath: Platform.isWindows
-              ? r'C:\path\to\flutter\sdk\bin\cache\dart-sdk'
-              : '/path/to/flutter/sdk/bin/cache/dart-sdk',
-        ),
-        processManager: processManager,
-        fileSystem: fileSystem,
-      );
-      final client = ServerConnection.fromStreamChannel(channel.foreign);
-      return (server: server, client: client);
-    }
-
-    setUp(() {
-      fileSystem = MemoryFileSystem();
-      fileSystem.directory(projectRoot).createSync(recursive: true);
-    });
-
-    test('launch_app tool returns DTD URI and PID on success', () async {
-      final dtdUri = 'ws://127.0.0.1:12345/abcdefg=';
-      final processPid = 54321;
-      final mockProcessManager = MockProcessManager();
+    // Sets up a flutter run mock call, with success case defaults.
+    void mockFlutterRun({String? stdout, String? stderr, int? exitCode}) {
       mockProcessManager.addCommand(
         Command(
           [
-            Platform.isWindows
-                ? r'C:\path\to\flutter\sdk\bin\cache\dart-sdk\bin\dart.exe'
-                : '/path/to/flutter/sdk/bin/cache/dart-sdk/bin/dart',
-            'language-server',
-            '--protocol',
-            'lsp',
-          ],
-          stdout:
-              '''Content-Length: 145\r\n\r\n{"jsonrpc":"2.0","id":0,"result":{"capabilities":{"workspace":{"workspaceFolders":{"supported":true,"changeNotifications":true}},"workspaceSymbolProvider":true}}}''',
-        ),
-      );
-      mockProcessManager.addCommand(
-        Command(
-          [
-            Platform.isWindows
-                ? r'C:\path\to\flutter\sdk\bin\flutter.bat'
-                : '/path/to/flutter/sdk/bin/flutter',
+            sdk.flutterExecutablePath,
             'run',
             '--print-dtd',
             '--machine',
             '--device-id',
             'test-device',
           ],
+          stderr: stderr,
           stdout:
+              stdout ??
               '[{"event":"app.dtd","params":{'
-              '"appId":"cd6c66eb-35e9-4ac1-96df-727540138346",'
-              '"uri":"$dtdUri"}}]',
+                  '"appId":"cd6c66eb-35e9-4ac1-96df-727540138346",'
+                  '"uri":"$dtdUri"}}]',
+          exitCode: exitCode != null ? Future.value(exitCode) : null,
           pid: processPid,
         ),
       );
-      final serverAndClient = await createServerAndClient(
-        processManager: mockProcessManager,
-        fileSystem: fileSystem,
-      );
-      final server = serverAndClient.server;
-      final client = serverAndClient.client;
+    }
 
-      // Initialize
-      final initResult = await client.initialize(
-        InitializeRequest(
-          protocolVersion: ProtocolVersion.latestSupported,
-          capabilities: ClientCapabilities(),
-          clientInfo: Implementation(name: 'test_client', version: '1.0.0'),
+    setUp(() async {
+      fileSystem = MemoryFileSystem();
+      fileSystem.directory(projectRoot).createSync(recursive: true);
+      mockProcessManager = MockProcessManager();
+      mockProcessManager.addCommand(
+        Command(
+          [sdk.dartExecutablePath, 'language-server', '--protocol', 'lsp'],
+          stdout:
+              '''Content-Length: 145\r\n\r\n{"jsonrpc":"2.0","id":0,"result":{"capabilities":{"workspace":{"workspaceFolders":{"supported":true,"changeNotifications":true}},"workspaceSymbolProvider":true}}}''',
         ),
       );
-      expect(initResult.serverInfo.name, 'dart and flutter tooling');
-      client.notifyInitialized();
+      mockProcessManager.addCommand(
+        Command(
+          [sdk.dartExecutablePath, 'tooling-daemon', '--machine'],
+          stdout: jsonEncode({
+            'tooling_daemon_details': {
+              'uri': dtdUri,
+              'trusted_client_secret': 'abcdefg',
+            },
+          }),
+        ),
+      );
+      testHarness = await TestHarness.start(
+        inProcess: true,
+        processManager: mockProcessManager,
+        fileSystem: fileSystem,
+        sdk: sdk,
+        startFakeEditorExtension: false,
+      );
+      server = testHarness.serverConnectionPair.server!;
+      client = testHarness.serverConnectionPair.serverConnection;
+    });
 
-      // Call the tool
+    test('launch_app tool returns DTD URI and PID on success', () async {
+      mockFlutterRun();
       final result = await client.callTool(
         CallToolRequest(
           name: 'launch_app',
@@ -127,71 +115,16 @@ void main() {
       await client.shutdown();
     });
 
-    test('launch_app tool returns DTD URI and PID on success from '
-        'stdout', () {
-      fakeAsync((async) async {
-        final dtdUri = 'ws://127.0.0.1:12345/abcdefg=';
-        final processPid = 54321;
-        final mockProcessManager = MockProcessManager();
-        mockProcessManager.addCommand(
-          Command(
-            [
-              Platform.isWindows
-                  ? r'C:\path\to\flutter\sdk\bin\cache\dart-sdk\bin\dart.exe'
-                  : '/path/to/flutter/sdk/bin/cache/dart-sdk/bin/dart',
-              'language-server',
-              '--protocol',
-              'lsp',
-            ],
-            stdout:
-                '''Content-Length: 145\r\n\r\n{"jsonrpc":"2.0","id":0,"result":{"capabilities":{"workspace":{"workspaceFolders":{"supported":true,"changeNotifications":true}},"workspaceSymbolProvider":true}}}''',
-          ),
-        );
-        mockProcessManager.addCommand(
-          Command(
-            [
-              Platform.isWindows
-                  ? r'C:\path\to\flutter\sdk\bin\flutter.bat'
-                  : '/path/to/flutter/sdk/bin/flutter',
-              'run',
-              '--print-dtd',
-              '--machine',
-              '--device-id',
-              'test-device',
-            ],
-            stdout: 'The Dart Tooling Daemon is available at: $dtdUri\n',
-            pid: processPid,
-          ),
-        );
-
-        final serverAndClient = await createServerAndClient(
-          processManager: mockProcessManager,
-          fileSystem: fileSystem,
-        );
-        final server = serverAndClient.server;
-        final client = serverAndClient.client;
-        async.flushMicrotasks();
-
-        // Initialize
-        final initResult = await client.initialize(
-          InitializeRequest(
-            protocolVersion: ProtocolVersion.latestSupported,
-            capabilities: ClientCapabilities(),
-            clientInfo: Implementation(name: 'test_client', version: '1.0.0'),
-          ),
-        );
-        expect(initResult.serverInfo.name, 'dart and flutter tooling');
-        client.notifyInitialized();
-        async.flushMicrotasks();
-
-        // Call the tool
+    test(
+      'launch_app tool returns DTD URI and PID on success from  stdout',
+      () async {
+        mockFlutterRun();
         final result = await client.callTool(
           CallToolRequest(
             name: 'launch_app',
             arguments: {'root': projectRoot, 'device': 'test-device'},
           ),
         );
-        async.flushMicrotasks();
 
         expect(result.content, <Content>[
           Content.text(
@@ -201,70 +134,12 @@ void main() {
         ]);
         expect(result.isError, isNot(true));
         expect(result.structuredContent, {'dtdUri': dtdUri, 'pid': processPid});
-
-        await server.shutdown();
-        await client.shutdown();
-        async.flushMicrotasks();
-      });
-    });
+      },
+    );
 
     test('launch_app tool returns DTD URI and PID on success from '
         '--machine output', () async {
-      final dtdUri = 'ws://127.0.0.1:12345/abcdefg=';
-      final processPid = 54321;
-      final mockProcessManager = MockProcessManager();
-      mockProcessManager.addCommand(
-        Command(
-          [
-            Platform.isWindows
-                ? r'C:\path\to\flutter\sdk\bin\cache\dart-sdk\bin\dart.exe'
-                : '/path/to/flutter/sdk/bin/cache/dart-sdk/bin/dart',
-            'language-server',
-            '--protocol',
-            'lsp',
-          ],
-          stdout:
-              '''Content-Length: 145\r\n\r\n{"jsonrpc":"2.0","id":0,"result":{"capabilities":{"workspace":{"workspaceFolders":{"supported":true,"changeNotifications":true}},"workspaceSymbolProvider":true}}}''',
-        ),
-      );
-      mockProcessManager.addCommand(
-        Command(
-          [
-            Platform.isWindows
-                ? r'C:\path\to\flutter\sdk\bin\flutter.bat'
-                : '/path/to/flutter/sdk/bin/flutter',
-            'run',
-            '--print-dtd',
-            '--machine',
-            '--device-id',
-            'test-device',
-          ],
-          stdout:
-              '[{"event":"app.dtd","params":{'
-              '"appId":"cd6c66eb-35e9-4ac1-96df-727540138346",'
-              '"uri":"$dtdUri"}}]',
-          pid: processPid,
-        ),
-      );
-      final serverAndClient = await createServerAndClient(
-        processManager: mockProcessManager,
-        fileSystem: fileSystem,
-      );
-      final server = serverAndClient.server;
-      final client = serverAndClient.client;
-
-      // Initialize
-      final initResult = await client.initialize(
-        InitializeRequest(
-          protocolVersion: ProtocolVersion.latestSupported,
-          capabilities: ClientCapabilities(),
-          clientInfo: Implementation(name: 'test_client', version: '1.0.0'),
-        ),
-      );
-      expect(initResult.serverInfo.name, 'dart and flutter tooling');
-      client.notifyInitialized();
-
-      // Call the tool
+      mockFlutterRun();
       final result = await client.callTool(
         CallToolRequest(
           name: 'launch_app',
@@ -280,60 +155,11 @@ void main() {
       ]);
       expect(result.isError, isNot(true));
       expect(result.structuredContent, {'dtdUri': dtdUri, 'pid': processPid});
-      await server.shutdown();
-      await client.shutdown();
     });
 
     test('launch_app tool fails when process exits early', () async {
-      final mockProcessManager = MockProcessManager();
-      mockProcessManager.addCommand(
-        Command(
-          [
-            Platform.isWindows
-                ? r'C:\path\to\flutter\sdk\bin\cache\dart-sdk\bin\dart.exe'
-                : '/path/to/flutter/sdk/bin/cache/dart-sdk/bin/dart',
-            'language-server',
-            '--protocol',
-            'lsp',
-          ],
-          stdout:
-              '''Content-Length: 145\r\n\r\n{"jsonrpc":"2.0","id":0,"result":{"capabilities":{"workspace":{"workspaceFolders":{"supported":true,"changeNotifications":true}},"workspaceSymbolProvider":true}}}''',
-        ),
-      );
-      mockProcessManager.addCommand(
-        Command(
-          [
-            Platform.isWindows
-                ? r'C:\path\to\flutter\sdk\bin\flutter.bat'
-                : '/path/to/flutter/sdk/bin/flutter',
-            'run',
-            '--print-dtd',
-            '--machine',
-            '--device-id',
-            'test-device',
-          ],
-          stderr: 'Something went wrong',
-          exitCode: Future.value(1),
-        ),
-      );
-      final serverAndClient = await createServerAndClient(
-        processManager: mockProcessManager,
-        fileSystem: fileSystem,
-      );
-      final server = serverAndClient.server;
-      final client = serverAndClient.client;
+      mockFlutterRun(exitCode: 1, stderr: 'Something went wrong', stdout: '');
 
-      // Initialize
-      await client.initialize(
-        InitializeRequest(
-          protocolVersion: ProtocolVersion.latestSupported,
-          capabilities: ClientCapabilities(),
-          clientInfo: Implementation(name: 'test_client', version: '1.0.0'),
-        ),
-      );
-      client.notifyInitialized();
-
-      // Call the tool
       final result = await client.callTool(
         CallToolRequest(
           name: 'launch_app',
@@ -351,171 +177,55 @@ void main() {
           'Something went wrong',
         ]),
       );
-      await server.shutdown();
-      await client.shutdown();
     });
 
-    test('launch_app tool times out if DTD URI is not found', () {
-      fakeAsync((async) {
-        // Setup mocks
-        final mockProcessManager = MockProcessManager();
-        mockProcessManager.addCommand(
-          Command(
-            [
-              Platform.isWindows
-                  ? r'C:\path\to\flutter\sdk\bin\cache\dart-sdk\bin\dart.exe'
-                  : '/path/to/flutter/sdk/bin/cache/dart-sdk/bin/dart',
-              'language-server',
-              '--protocol',
-              'lsp',
-            ],
-            stdout:
-                '''Content-Length: 145\r\n\r\n{"jsonrpc":"2.0","id":0,"result":{"capabilities":{"workspace":{"workspaceFolders":{"supported":true,"changeNotifications":true}},"workspaceSymbolProvider":true}}}''',
-          ),
-        );
-        final processPid = 54321;
-        mockProcessManager.addCommand(
-          Command(
-            [
-              Platform.isWindows
-                  ? r'C:\path\to\flutter\sdk\bin\flutter.bat'
-                  : '/path/to/flutter/sdk/bin/flutter',
-              'run',
-              '--print-dtd',
-              '--machine',
-              '--device-id',
-              'test-device',
-            ],
-            stdout: 'Some output without DTD URI',
-            pid: processPid,
-          ),
-        );
+    test('launch_app tool times out if DTD URI is not found', () async {
+      mockFlutterRun(stdout: 'Some output without a DTD uri');
+      final result = await client.callTool(
+        CallToolRequest(
+          name: 'launch_app',
+          arguments: {
+            'root': projectRoot,
+            'device': 'test-device',
+            'timeout': 1,
+          },
+        ),
+      );
 
-        // Create server and client
-        late DartMCPServer server;
-        late ServerConnection client;
-        var serverAndClientReady = false;
-        createServerAndClient(
-          processManager: mockProcessManager,
-          fileSystem: fileSystem,
-        ).then((sc) {
-          server = sc.server;
-          client = sc.client;
-          serverAndClientReady = true;
-        });
-        async.flushMicrotasks();
-        expect(serverAndClientReady, true);
+      expect(result.isError, true);
+      final textOutput = result.content as List<TextContent>;
+      expect(
+        textOutput.first.text,
+        stringContainsInOrder([
+          'Failed to launch Flutter application',
+          'TimeoutException',
+        ]),
+      );
+      expect(mockProcessManager.killedPids, [processPid]);
 
-        // Initialize
-        var initialized = false;
-        client
-            .initialize(
-              InitializeRequest(
-                protocolVersion: ProtocolVersion.latestSupported,
-                capabilities: ClientCapabilities(),
-                clientInfo: Implementation(
-                  name: 'test_client',
-                  version: '1.0.0',
-                ),
-              ),
-            )
-            .then((_) {
-              client.notifyInitialized();
-              initialized = true;
-            });
-        async.flushMicrotasks();
-        expect(initialized, true);
-
-        // Call the tool
-        late CallToolResult result;
-        var completed = false;
-        client
-            .callTool(
-              CallToolRequest(
-                name: 'launch_app',
-                arguments: {'root': projectRoot, 'device': 'test-device'},
-              ),
-            )
-            .then((res) {
-              result = res;
-              completed = true;
-            });
-
-        // Elapse time to trigger timeout
-        async.elapse(const Duration(seconds: 91));
-        async.flushMicrotasks();
-
-        expect(completed, true);
-        expect(result.isError, true);
-        final textOutput = result.content as List<TextContent>;
-        expect(
-          textOutput.first.text,
-          stringContainsInOrder([
-            'Failed to launch Flutter application',
-            'TimeoutException',
-          ]),
-        );
-        expect(mockProcessManager.killedPids, [processPid]);
-
-        server.shutdown();
-        client.shutdown();
-        async.flushMicrotasks();
-      });
+      expect(
+        (server.analytics! as FakeAnalytics).sentEvents.last,
+        isA<Event>()
+            .having((e) => e.eventName, 'eventName', DashEvent.dartMCPEvent)
+            .having(
+              (e) => e.eventData,
+              'eventData',
+              equals({
+                'client': server.clientInfo.name,
+                'clientVersion': server.clientInfo.version,
+                'serverVersion': server.implementation.version,
+                'type': AnalyticsEvent.callTool.name,
+                'tool': 'launch_app',
+                'success': false,
+                'failureReason': CallToolFailureReason.timeout.name,
+                'elapsedMilliseconds': isA<int>(),
+              }),
+            ),
+      );
     });
 
     test('stop_app tool stops a running app', () async {
-      final dtdUri = 'ws://127.0.0.1:12345/abcdefg=';
-      final processPid = 54321;
-      final mockProcessManager = MockProcessManager();
-      mockProcessManager.addCommand(
-        Command(
-          [
-            Platform.isWindows
-                ? r'C:\path\to\flutter\sdk\bin\cache\dart-sdk\bin\dart.exe'
-                : '/path/to/flutter/sdk/bin/cache/dart-sdk/bin/dart',
-            'language-server',
-            '--protocol',
-            'lsp',
-          ],
-          stdout:
-              '''Content-Length: 145\r\n\r\n{"jsonrpc":"2.0","id":0,"result":{"capabilities":{"workspace":{"workspaceFolders":{"supported":true,"changeNotifications":true}},"workspaceSymbolProvider":true}}}''',
-        ),
-      );
-      mockProcessManager.addCommand(
-        Command(
-          [
-            Platform.isWindows
-                ? r'C:\path\to\flutter\sdk\bin\flutter.bat'
-                : '/path/to/flutter/sdk/bin/flutter',
-            'run',
-            '--print-dtd',
-            '--machine',
-            '--device-id',
-            'test-device',
-          ],
-          stdout:
-              '[{"event":"app.dtd","params":{'
-              '"appId":"cd6c66eb-35e9-4ac1-96df-727540138346",'
-              '"uri":"$dtdUri"}}]',
-          pid: processPid,
-        ),
-      );
-      final serverAndClient = await createServerAndClient(
-        processManager: mockProcessManager,
-        fileSystem: fileSystem,
-      );
-      final server = serverAndClient.server;
-      final client = serverAndClient.client;
-
-      // Initialize and launch the app
-      await client.initialize(
-        InitializeRequest(
-          protocolVersion: ProtocolVersion.latestSupported,
-          capabilities: ClientCapabilities(),
-          clientInfo: Implementation(name: 'test_client', version: '1.0.0'),
-        ),
-      );
-      client.notifyInitialized();
+      mockFlutterRun();
       await client.callTool(
         CallToolRequest(
           name: 'launch_app',
@@ -523,7 +233,6 @@ void main() {
         ),
       );
 
-      // Stop the app
       final result = await client.callTool(
         CallToolRequest(name: 'stop_app', arguments: {'pid': processPid}),
       );
@@ -531,64 +240,16 @@ void main() {
       expect(result.isError, isNot(true));
       expect(result.structuredContent, {'success': true});
       expect(mockProcessManager.killedPids, [processPid]);
-      await server.shutdown();
-      await client.shutdown();
     });
 
     test('get_app_logs tool respects maxLines', () async {
-      final dtdUri = 'ws://127.0.0.1:12345/abcdefg=';
-      final processPid = 54321;
-      final mockProcessManager = MockProcessManager();
-      mockProcessManager.addCommand(
-        Command(
-          [
-            Platform.isWindows
-                ? r'C:\path\to\flutter\sdk\bin\cache\dart-sdk\bin\dart.exe'
-                : '/path/to/flutter/sdk/bin/cache/dart-sdk/bin/dart',
-            'language-server',
-            '--protocol',
-            'lsp',
-          ],
-          stdout:
-              '''Content-Length: 145\r\n\r\n{"jsonrpc":"2.0","id":0,"result":{"capabilities":{"workspace":{"workspaceFolders":{"supported":true,"changeNotifications":true}},"workspaceSymbolProvider":true}}}''',
-        ),
+      mockFlutterRun(
+        stdout:
+            'line 1\nline 2\nline 3\n'
+            '[{"event":"app.dtd","params":{'
+            '"appId":"cd6c66eb-35e9-4ac1-96df-727540138346",'
+            '"uri":"$dtdUri"}}]',
       );
-      mockProcessManager.addCommand(
-        Command(
-          [
-            Platform.isWindows
-                ? r'C:\path\to\flutter\sdk\bin\flutter.bat'
-                : '/path/to/flutter/sdk/bin/flutter',
-            'run',
-            '--print-dtd',
-            '--machine',
-            '--device-id',
-            'test-device',
-          ],
-          stdout:
-              'line 1\nline 2\nline 3\n'
-              '[{"event":"app.dtd","params":{'
-              '"appId":"cd6c66eb-35e9-4ac1-96df-727540138346",'
-              '"uri":"$dtdUri"}}]',
-          pid: processPid,
-        ),
-      );
-      final serverAndClient = await createServerAndClient(
-        processManager: mockProcessManager,
-        fileSystem: fileSystem,
-      );
-      final server = serverAndClient.server;
-      final client = serverAndClient.client;
-
-      // Initialize and launch the app
-      await client.initialize(
-        InitializeRequest(
-          protocolVersion: ProtocolVersion.latestSupported,
-          capabilities: ClientCapabilities(),
-          clientInfo: Implementation(name: 'test_client', version: '1.0.0'),
-        ),
-      );
-      client.notifyInitialized();
       await client.callTool(
         CallToolRequest(
           name: 'launch_app',
@@ -596,7 +257,6 @@ void main() {
         ),
       );
 
-      // Get the logs
       final result = await client.callTool(
         CallToolRequest(
           name: 'get_app_logs',
@@ -612,35 +272,12 @@ void main() {
           '[stdout] [{"event":"app.dtd","params":{"appId":"cd6c66eb-35e9-4ac1-96df-727540138346","uri":"ws://127.0.0.1:12345/abcdefg="}}]',
         ],
       });
-      await server.shutdown();
-      await client.shutdown();
     });
 
     test('list_devices tool returns available devices', () async {
-      final mockProcessManager = MockProcessManager();
       mockProcessManager.addCommand(
         Command(
-          [
-            Platform.isWindows
-                ? r'C:\path\to\flutter\sdk\bin\cache\dart-sdk\bin\dart.exe'
-                : '/path/to/flutter/sdk/bin/cache/dart-sdk/bin/dart',
-            'language-server',
-            '--protocol',
-            'lsp',
-          ],
-          stdout:
-              '''Content-Length: 145\r\n\r\n{"jsonrpc":"2.0","id":0,"result":{"capabilities":{"workspace":{"workspaceFolders":{"supported":true,"changeNotifications":true}},"workspaceSymbolProvider":true}}}''',
-        ),
-      );
-      mockProcessManager.addCommand(
-        Command(
-          [
-            Platform.isWindows
-                ? r'C:\path\to\flutter\sdk\bin\flutter.bat'
-                : '/path/to/flutter/sdk/bin/flutter',
-            'devices',
-            '--machine',
-          ],
+          [sdk.flutterExecutablePath, 'devices', '--machine'],
           stdout: jsonEncode([
             {
               'id': 'test-device-1',
@@ -655,24 +292,7 @@ void main() {
           ]),
         ),
       );
-      final serverAndClient = await createServerAndClient(
-        processManager: mockProcessManager,
-        fileSystem: fileSystem,
-      );
-      final server = serverAndClient.server;
-      final client = serverAndClient.client;
 
-      // Initialize
-      await client.initialize(
-        InitializeRequest(
-          protocolVersion: ProtocolVersion.latestSupported,
-          capabilities: ClientCapabilities(),
-          clientInfo: Implementation(name: 'test_client', version: '1.0.0'),
-        ),
-      );
-      client.notifyInitialized();
-
-      // List devices
       final result = await client.callTool(
         CallToolRequest(name: 'list_devices', arguments: {}),
       );
@@ -692,8 +312,6 @@ void main() {
           },
         ],
       });
-      await server.shutdown();
-      await client.shutdown();
     });
   });
 
