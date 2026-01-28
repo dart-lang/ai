@@ -1,9 +1,10 @@
 # 0.1.3 (Dart SDK 3.12.0) - WIP
 
-- Add additional analytics for initialization events, and various list* method
+- Add additional analytics for initialization events, and various list\* method
   calls. This will help understand how the server is being used by different
   clients, and what features clients support.
 - Add a tool for running ripgrep on package dependencies.
+- Add `timeout` option to `launch_app`.
 
 # 0.1.2 (Dart SDK 3.11.0)
 

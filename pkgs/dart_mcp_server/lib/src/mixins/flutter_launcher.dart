@@ -13,6 +13,7 @@ import 'dart:math' as math;
 import 'package:dart_mcp/server.dart';
 
 import '../arg_parser.dart';
+import '../utils/analytics.dart';
 import '../utils/process_manager.dart';
 import '../utils/sdk.dart';
 import '../utils/tools_configuration.dart';
@@ -67,6 +68,9 @@ base mixin FlutterLauncherSupport
               'available devices to present as choices, use the '
               'list_devices tool.',
         ),
+        'timeout': Schema.int(
+          description: 'Timeout in milliseconds, defaults to 90000.',
+        ),
       },
       required: ['root', 'device'],
       additionalProperties: false,
@@ -88,6 +92,7 @@ base mixin FlutterLauncherSupport
     final root = request.arguments!['root'] as String;
     final target = request.arguments!['target'] as String?;
     final device = request.arguments!['device'] as String;
+    final timeout = request.arguments!['timeout'] as int? ?? 90000;
     final completer = Completer<({Uri dtdUri, int pid})>();
 
     log(
@@ -105,8 +110,7 @@ base mixin FlutterLauncherSupport
           '--machine',
           '--device-id',
           device,
-          if (target != null) '--target',
-          if (target != null) target,
+          if (target != null) ...['--target', target],
         ],
         workingDirectory: root,
         mode: ProcessStartMode.normal,
@@ -212,7 +216,7 @@ base mixin FlutterLauncherSupport
       );
 
       final result = await completer.future.timeout(
-        const Duration(seconds: 90),
+        Duration(milliseconds: timeout),
       );
       _runningApps[result.pid]?.dtdUri = result.dtdUri.toString();
 
@@ -236,11 +240,16 @@ base mixin FlutterLauncherSupport
         // The exitCode handler will perform the rest of the cleanup.
       }
       return CallToolResult(
-        isError: true,
-        content: [
-          TextContent(text: 'Failed to launch Flutter application: $e'),
-        ],
-      );
+          isError: true,
+          content: [
+            TextContent(text: 'Failed to launch Flutter application: $e'),
+          ],
+        )
+        ..failureReason = switch (e) {
+          ProcessException() => CallToolFailureReason.processException,
+          TimeoutException() => CallToolFailureReason.timeout,
+          _ => null,
+        };
     }
   }
 

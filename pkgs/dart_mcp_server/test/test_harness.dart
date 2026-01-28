@@ -51,7 +51,7 @@ Future<T> callWithRetry<T>(
 ///   allow for breakpoints, but the default mode is to run the server in a
 ///   separate process.
 class TestHarness {
-  final FakeEditorExtension fakeEditorExtension;
+  final FakeEditorExtension? fakeEditorExtension;
   final DartToolingMCPClient mcpClient;
   final ServerConnectionPair serverConnectionPair;
   final FileSystem fileSystem;
@@ -95,8 +95,10 @@ class TestHarness {
     FileSystem? fileSystem,
     ProcessManager? processManager,
     List<String> cliArgs = const [],
+    Sdk? sdk,
+    bool startFakeEditorExtension = true,
   }) async {
-    final sdk = Sdk.find(
+    sdk ??= Sdk.find(
       dartSdkPath: Platform.environment['DART_SDK'],
       flutterSdkPath: Platform.environment['FLUTTER_SDK'],
     );
@@ -110,17 +112,21 @@ class TestHarness {
       mcpClient,
       inProcess,
       fileSystem,
+      processManager,
       sdk,
       cliArgs,
-      processManager,
     );
     final connection = serverConnectionPair.serverConnection;
     connection.onLog.listen((log) {
       printOnFailure('MCP Server Log: $log');
     });
 
-    final fakeEditorExtension = await FakeEditorExtension.connect(sdk);
-    addTearDown(fakeEditorExtension.shutdown);
+    final fakeEditorExtension = startFakeEditorExtension
+        ? await FakeEditorExtension.connect(sdk)
+        : null;
+    if (fakeEditorExtension != null) {
+      addTearDown(fakeEditorExtension.shutdown);
+    }
 
     return TestHarness._(
       mcpClient,
@@ -145,7 +151,7 @@ class TestHarness {
       args: args,
       sdk: sdk,
     );
-    await fakeEditorExtension.addDebugSession(session);
+    await fakeEditorExtension?.addDebugSession(session);
     final root = rootForPath(projectRoot);
     final roots = (await mcpClient.handleListRoots(ListRootsRequest())).roots;
     if (!roots.any((r) => r.uri == root.uri)) {
@@ -160,7 +166,7 @@ class TestHarness {
 
   /// Stops an app debug session.
   Future<void> stopDebugSession(AppDebugSession session) async {
-    await fakeEditorExtension.removeDebugSession(session);
+    await fakeEditorExtension?.removeDebugSession(session);
     await AppDebugSession.kill(session.appProcess, session.isFlutter);
   }
 
@@ -183,7 +189,7 @@ class TestHarness {
     final result = await callToolWithRetry(
       CallToolRequest(
         name: connectTool.name,
-        arguments: {ParameterNames.uri: dtdUri ?? fakeEditorExtension.dtdUri},
+        arguments: {ParameterNames.uri: dtdUri ?? fakeEditorExtension?.dtdUri},
       ),
       expectError: expectError,
     );
@@ -456,9 +462,9 @@ Future<ServerConnectionPair> _initializeMCPServer(
   MCPClient client,
   bool inProcess,
   FileSystem fileSystem,
+  ProcessManager processManager,
   Sdk sdk,
   List<String> cliArgs,
-  ProcessManager processManager,
 ) async {
   ServerConnection connection;
   DartMCPServer? server;

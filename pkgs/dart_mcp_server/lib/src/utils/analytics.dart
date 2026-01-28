@@ -160,6 +160,8 @@ enum CallToolFailureReason {
   noRootGiven,
   noRootsSet,
   noSuchCommand,
+  processException,
+  timeout,
   webSocketException,
 }
 

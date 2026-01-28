@@ -118,7 +118,7 @@ void main() {
         }
 
         test('is registered with correct name format', () async {
-          final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final dtdClient = testHarness.fakeEditorExtension!.dtd;
           final services = await dtdClient.getRegisteredServices();
           final samplingService = services.clientServices.first;
           final sanitizedClientName =
@@ -138,7 +138,7 @@ void main() {
         });
 
         test('can make a sampling request with text', () async {
-          final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final dtdClient = testHarness.fakeEditorExtension!.dtd;
           final samplingServiceName = await getSamplingServiceName(dtdClient);
           final response = await dtdClient.call(
             samplingServiceName,
@@ -160,7 +160,7 @@ void main() {
         });
 
         test('can make a sampling request with an image', () async {
-          final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final dtdClient = testHarness.fakeEditorExtension!.dtd;
           final samplingServiceName = await getSamplingServiceName(dtdClient);
           final response = await dtdClient.call(
             samplingServiceName,
@@ -186,7 +186,7 @@ void main() {
         });
 
         test('can make a sampling request with audio', () async {
-          final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final dtdClient = testHarness.fakeEditorExtension!.dtd;
           final samplingServiceName = await getSamplingServiceName(dtdClient);
           final response = await dtdClient.call(
             samplingServiceName,
@@ -209,7 +209,7 @@ void main() {
         });
 
         test('can make a sampling request with an embedded resource', () async {
-          final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final dtdClient = testHarness.fakeEditorExtension!.dtd;
           final samplingServiceName = await getSamplingServiceName(dtdClient);
           final response = await dtdClient.call(
             samplingServiceName,
@@ -234,7 +234,7 @@ void main() {
         });
 
         test('can make a sampling request with mixed content', () async {
-          final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final dtdClient = testHarness.fakeEditorExtension!.dtd;
           final samplingServiceName = await getSamplingServiceName(dtdClient);
           final response = await dtdClient.call(
             samplingServiceName,
@@ -265,7 +265,7 @@ void main() {
         });
 
         test('can handle user and assistant messages', () async {
-          final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final dtdClient = testHarness.fakeEditorExtension!.dtd;
           final samplingServiceName = await getSamplingServiceName(dtdClient);
           final response = await dtdClient.call(
             samplingServiceName,
@@ -297,7 +297,7 @@ void main() {
         });
 
         test('forwards all messages, even those with unknown types', () async {
-          final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final dtdClient = testHarness.fakeEditorExtension!.dtd;
           final samplingServiceName = await getSamplingServiceName(dtdClient);
           final response = await dtdClient.call(
             samplingServiceName,
@@ -321,7 +321,7 @@ void main() {
         });
 
         test('throws for invalid requests', () async {
-          final dtdClient = testHarness.fakeEditorExtension.dtd;
+          final dtdClient = testHarness.fakeEditorExtension!.dtd;
           final samplingServiceName = await getSamplingServiceName(dtdClient);
           try {
             await dtdClient.call(
@@ -882,7 +882,7 @@ void main() {
 
           // Simulate activeLocationChanged event
           final fakeEvent = {'someData': 'isHere'};
-          await fakeEditor.dtd.postEvent(
+          await fakeEditor!.dtd.postEvent(
             'Editor',
             'activeLocationChanged',
             fakeEvent,
