@@ -442,17 +442,10 @@ base mixin FlutterLauncherSupport
     var logs = _runningApps[pid]?.logs;
 
     if (logs == null) {
-      log(
-        LoggingLevel.error,
-        'Application with PID $pid not found.',
-      );
+      log(LoggingLevel.error, 'Application with PID $pid not found.');
       return CallToolResult(
         isError: true,
-        content: [
-          TextContent(
-            text: 'Application with PID $pid not found.',
-          ),
-        ],
+        content: [TextContent(text: 'Application with PID $pid not found.')],
       )..failureReason = CallToolFailureReason.applicationNotFound;
     }
 

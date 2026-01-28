@@ -13,7 +13,6 @@ import '../utils/analytics.dart';
 base mixin AnalyticsEvents
     on ToolsSupport, PromptsSupport, ResourcesSupport, LoggingSupport
     implements AnalyticsSupport {
-      
   @override
   /// Tracks [initialize] calls, so we can detect clients that connect but
   /// never interact with the server directly.

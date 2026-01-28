@@ -14,8 +14,6 @@ import 'package:test_descriptor/test_descriptor.dart' as d;
 import 'test_harness.dart';
 
 void main() {
-
-
   group('--log-file', () {
     late d.FileDescriptor logDescriptor;
     late TestHarness testHarness;

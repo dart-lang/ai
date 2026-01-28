@@ -159,8 +159,8 @@ base mixin PubDevSupport on ToolsSupport {
       return CallToolResult(content: results);
     } on Exception catch (e) {
       return CallToolResult(
-        content: [TextContent(text: 'Failed searching pub.dev: $e')],
-        isError: true,
+          content: [TextContent(text: 'Failed searching pub.dev: $e')],
+          isError: true,
         )
         ..failureReason = switch (e) {
           ClientException() => CallToolFailureReason.httpClientException,
