@@ -14,6 +14,27 @@ base mixin AnalyticsEvents
     on ToolsSupport, PromptsSupport, ResourcesSupport, LoggingSupport
     implements AnalyticsSupport {
   @override
+  /// Tracks [initialize] calls, so we can detect clients that connect but
+  /// never interact with the server directly.
+  Future<InitializeResult> initialize(InitializeRequest request) async {
+    final result = await super.initialize(request);
+    analytics?.send(
+      Event.dartMCPEvent(
+        client: clientInfo.name,
+        clientVersion: clientInfo.version,
+        serverVersion: implementation.version,
+        type: AnalyticsEvent.initialize.name,
+        additionalData: InitializeMetrics(
+          supportsElicitation: request.capabilities.elicitation != null,
+          supportsRoots: request.capabilities.roots != null,
+          supportsSampling: request.capabilities.sampling != null,
+        ),
+      ),
+    );
+    return result;
+  }
+
+  @override
   FutureOr<ListPromptsResult> listPrompts([ListPromptsRequest? request]) {
     trySendAnalyticsEvent(
       Event.dartMCPEvent(
@@ -90,6 +111,38 @@ base mixin AnalyticsEvents
       ),
     );
     return super.listTools(request);
+  }
+
+  @override
+  /// We override this to do our own validation - this is mostly a copy of the
+  /// normal implementation except we also attach a failure reason for
+  /// analytics purposes.
+  void registerTool(
+    Tool tool,
+    FutureOr<CallToolResult> Function(CallToolRequest) impl, {
+    bool validateArguments = true,
+  }) {
+    super.registerTool(
+      tool,
+      validateArguments
+          ? (request) {
+              final errors = tool.inputSchema.validate(
+                request.arguments ?? const <String, Object?>{},
+              );
+              if (errors.isNotEmpty) {
+                return CallToolResult(
+                  content: [
+                    for (final error in errors)
+                      Content.text(text: error.toErrorString()),
+                  ],
+                  isError: true,
+                )..failureReason = CallToolFailureReason.argumentError;
+              }
+              return impl(request);
+            }
+          : impl,
+      validateArguments: false,
+    );
   }
 
   @override

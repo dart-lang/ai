@@ -32,7 +32,13 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
         registerTool(dartFixTool, _runDartFixTool);
         registerTool(dartFormatTool, _runDartFormatTool);
         registerTool(runTestsTool, _runTests);
-        registerTool(createProjectTool, _runCreateProjectTool);
+        registerTool(
+          createProjectTool,
+          _runCreateProjectTool,
+          // This function does its own validation, as it validates other
+          // things and collects all the errors.
+          validateArguments: false,
+        );
       }
     }
   }

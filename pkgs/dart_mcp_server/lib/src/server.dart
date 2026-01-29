@@ -91,25 +91,6 @@ final class DartMCPServer extends MCPServer
              'over using tools directly in a shell.',
        );
 
-  @override
-  Future<InitializeResult> initialize(InitializeRequest request) async {
-    final result = await super.initialize(request);
-    analytics?.send(
-      Event.dartMCPEvent(
-        client: clientInfo.name,
-        clientVersion: clientInfo.version,
-        serverVersion: implementation.version,
-        type: AnalyticsEvent.initialize.name,
-        additionalData: InitializeMetrics(
-          supportsElicitation: request.capabilities.elicitation != null,
-          supportsRoots: request.capabilities.roots != null,
-          supportsSampling: request.capabilities.sampling != null,
-        ),
-      ),
-    );
-    return result;
-  }
-
   /// Runs the MCP server given command line arguments and an optional
   /// [Analytics] instance.
   ///
@@ -203,8 +184,7 @@ final class DartMCPServer extends MCPServer
   final bool enableScreenshots;
 
   @override
-  /// Automatically logs all tool calls via analytics by wrapping the [impl],
-  /// if [analytics] is not `null`.
+  /// Does not actually register tools in [excludedTools].
   void registerTool(
     Tool tool,
     FutureOr<CallToolResult> Function(CallToolRequest) impl, {
