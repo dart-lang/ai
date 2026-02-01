@@ -34,14 +34,14 @@ jobs:
           - ubuntu-latest
           - windows-latest
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - name: Cache Pub hosted dependencies
-        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306
         with:
           path: "~/.pub-cache/hosted"
           key: "pub-cache-hosted;${{ matrix.flutterSdk }};${{ matrix.os }}"
       - name: Cache Pub sdk git dependency
-        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306
         with:
           path: "~/.pub-cache/git/sdk-b0838eac58308fc4e6654ca99eda75b30649c08f/"
           key: "pub-cache-git;${{ matrix.flutterSdk }};${{ matrix.os }}"
