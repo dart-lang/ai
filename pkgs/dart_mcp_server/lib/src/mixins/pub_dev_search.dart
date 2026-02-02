@@ -102,34 +102,26 @@ base mixin PubDevSupport on ToolsSupport {
                   'latest',
                   'version',
                 ]),
-                if (dig<String?>(versionListing, [
-                      'latest',
-                      'pubspec',
-                      'description',
-                    ])
-                    case final description?)
-                  'description': description,
-                if (dig<String?>(versionListing, [
-                      'latest',
-                      'pubspec',
-                      'homepage',
-                    ])
-                    case final homepage?)
-                  'homepage': homepage,
-                if (dig<String?>(versionListing, [
-                      'latest',
-                      'pubspec',
-                      'repository',
-                    ])
-                    case final repository?)
-                  'repository': repository,
-                if (dig<String?>(versionListing, [
-                      'latest',
-                      'pubspec',
-                      'documentation',
-                    ])
-                    case final documentation?)
-                  'documentation': documentation,
+                'description': ?dig<String?>(versionListing, [
+                  'latest',
+                  'pubspec',
+                  'description',
+                ]),
+                'homepage': ?dig<String?>(versionListing, [
+                  'latest',
+                  'pubspec',
+                  'homepage',
+                ]),
+                'repository': ?dig<String?>(versionListing, [
+                  'latest',
+                  'pubspec',
+                  'repository',
+                ]),
+                'documentation': ?dig<String?>(versionListing, [
+                  'latest',
+                  'pubspec',
+                  'documentation',
+                ]),
               },
               if (libraryDocs.isNotEmpty) ...{'libraries': libraryDocs},
               if (scoreResult != null) ...{
