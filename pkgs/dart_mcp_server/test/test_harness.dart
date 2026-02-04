@@ -4,13 +4,13 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' hide File;
 import 'dart:io' as io show File;
+import 'dart:io' hide File;
 
 import 'package:async/async.dart';
 import 'package:dart_mcp/client.dart';
 import 'package:dart_mcp/stdio.dart';
-import 'package:dart_mcp_server/src/arg_parser.dart';
+import 'package:dart_mcp_server/src/features_configuration.dart';
 import 'package:dart_mcp_server/src/mixins/dtd.dart';
 import 'package:dart_mcp_server/src/server.dart';
 import 'package:dart_mcp_server/src/utils/constants.dart';
@@ -509,7 +509,7 @@ Future<ServerConnectionPair> _initializeMCPServer(
 
     server = DartMCPServer(
       serverChannel,
-      toolsConfig: ToolsConfiguration.all,
+      featuresConfig: FeaturesConfiguration(),
       processManager: processManager,
       fileSystem: fileSystem,
       sdk: sdk,

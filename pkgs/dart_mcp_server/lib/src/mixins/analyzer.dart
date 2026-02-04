@@ -12,6 +12,7 @@ import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:language_server_protocol/protocol_generated.dart' as lsp;
 import 'package:meta/meta.dart';
 
+import '../features_configuration.dart';
 import '../lsp/wire_format.dart';
 import '../utils/analytics.dart';
 import '../utils/cli_utils.dart';
@@ -88,6 +89,14 @@ base mixin DartAnalyzerSupport
 
     return result;
   }
+
+  /// Used by the arg parser to list the valid tools.
+  static final List<Tool> allTools = [
+    analyzeFilesTool,
+    resolveWorkspaceSymbolTool,
+    signatureHelpTool,
+    hoverTool,
+  ];
 
   /// Initializes the analyzer lsp server.
   ///
@@ -459,65 +468,101 @@ base mixin DartAnalyzerSupport
   }
 
   @visibleForTesting
-  static final analyzeFilesTool = Tool(
-    name: 'analyze_files',
-    description: 'Analyzes specific paths, or the entire project, for errors.',
-    inputSchema: Schema.object(
-      properties: {ParameterNames.roots: rootsSchema(supportsPaths: true)},
-      additionalProperties: false,
-    ),
-    annotations: ToolAnnotations(title: 'Analyze projects', readOnlyHint: true),
-  );
-
-  @visibleForTesting
-  static final resolveWorkspaceSymbolTool = Tool(
-    name: 'resolve_workspace_symbol',
-    description:
-        'Look up a symbol or symbols in all workspaces by name. Can be used '
-        'to validate that a symbol exists or discover small spelling '
-        'mistakes, since the search is fuzzy.',
-    inputSchema: Schema.object(
-      properties: {
-        ParameterNames.query: Schema.string(
+  static final analyzeFilesTool =
+      Tool(
+          name: 'analyze_files',
           description:
-              'Queries are matched based on a case-insensitive partial name '
-              'match, and do not support complex pattern matching, regexes, '
-              'or scoped lookups.',
-        ),
-      },
-      description:
-          'Returns all close matches to the query, with their names '
-          'and locations. Be sure to check the name of the responses to ensure '
-          'it looks like the thing you were searching for.',
-      required: [ParameterNames.query],
-      additionalProperties: false,
-    ),
-    annotations: ToolAnnotations(title: 'Project search', readOnlyHint: true),
-  );
+              'Analyzes specific paths, or the entire project, for errors.',
+          inputSchema: Schema.object(
+            properties: {
+              ParameterNames.roots: rootsSchema(supportsPaths: true),
+            },
+            additionalProperties: false,
+          ),
+          annotations: ToolAnnotations(
+            title: 'Analyze projects',
+            readOnlyHint: true,
+          ),
+        )
+        ..categories = [
+          FeatureCategory.dart,
+          FeatureCategory.flutter,
+          FeatureCategory.lsp,
+        ];
 
   @visibleForTesting
-  static final signatureHelpTool = Tool(
-    name: 'signature_help',
-    description:
-        'Get signature help for an API being used at a given cursor '
-        'position in a file.',
-    inputSchema: _locationSchema,
-    annotations: ToolAnnotations(title: 'Signature help', readOnlyHint: true),
-  );
+  static final resolveWorkspaceSymbolTool =
+      Tool(
+          name: 'resolve_workspace_symbol',
+          description:
+              'Look up a symbol or symbols in all workspaces by name. Can be '
+              'used to validate that a symbol exists or discover small '
+              'spelling mistakes, since the search is fuzzy.',
+          inputSchema: Schema.object(
+            properties: {
+              ParameterNames.query: Schema.string(
+                description:
+                    'Queries are matched based on a case-insensitive '
+                    'partial name match, and do not support complex '
+                    'pattern matching, regexes, or scoped lookups.',
+              ),
+            },
+            description:
+                'Returns all close matches to the query, with their names '
+                'and locations. Be sure to check the name of the responses '
+                'to ensure it looks like the thing you were searching for.',
+            required: [ParameterNames.query],
+            additionalProperties: false,
+          ),
+          annotations: ToolAnnotations(
+            title: 'Project search',
+            readOnlyHint: true,
+          ),
+        )
+        ..categories = [
+          FeatureCategory.dart,
+          FeatureCategory.flutter,
+          FeatureCategory.lsp,
+        ];
 
   @visibleForTesting
-  static final hoverTool = Tool(
-    name: 'hover',
-    description:
-        'Get hover information at a given cursor position in a file. This can '
-        'include documentation, type information, etc for the text at that '
-        'position.',
-    inputSchema: _locationSchema,
-    annotations: ToolAnnotations(
-      title: 'Hover information',
-      readOnlyHint: true,
-    ),
-  );
+  static final signatureHelpTool =
+      Tool(
+          name: 'signature_help',
+          description:
+              'Get signature help for an API being used at a given cursor '
+              'position in a file.',
+          inputSchema: _locationSchema,
+          annotations: ToolAnnotations(
+            title: 'Signature help',
+            readOnlyHint: true,
+          ),
+        )
+        ..categories = [
+          FeatureCategory.dart,
+          FeatureCategory.flutter,
+          FeatureCategory.lsp,
+        ];
+
+  @visibleForTesting
+  static final hoverTool =
+      Tool(
+          name: 'hover',
+          description:
+              'Get hover information at a given cursor position in a file. '
+              'This can include documentation, type information, etc for the '
+              'text at that position.',
+          inputSchema: _locationSchema,
+          annotations: ToolAnnotations(
+            title: 'Hover information',
+            readOnlyHint: true,
+          ),
+        )
+        ..categories = [
+          FeatureCategory.dart,
+          FeatureCategory.flutter,
+          FeatureCategory.lsp,
+        ];
 
   @visibleForTesting
   static final noRootsSetResponse = CallToolResult(

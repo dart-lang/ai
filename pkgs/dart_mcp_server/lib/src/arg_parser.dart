@@ -4,6 +4,34 @@
 
 import 'package:args/args.dart';
 
+import 'features_configuration.dart';
+import 'mixins/analyzer.dart';
+import 'mixins/dash_cli.dart';
+import 'mixins/dtd.dart';
+import 'mixins/flutter_launcher.dart';
+import 'mixins/grep_packages.dart';
+import 'mixins/package_uri_reader.dart';
+import 'mixins/prompts.dart';
+import 'mixins/pub.dart';
+import 'mixins/pub_dev_search.dart';
+import 'mixins/roots_fallback_support.dart';
+
+/// All features that can be enabled/disabled by name or category in the MCP
+/// server.
+final allFeatureAndCategoryNames = <String>{
+  ...DartAnalyzerSupport.allTools.map((e) => e.name),
+  ...DashCliSupport.allTools.map((e) => e.name),
+  ...DashPrompts.allPrompts.map((e) => e.name),
+  ...DartToolingDaemonSupport.allTools.map((e) => e.name),
+  ...FlutterLauncherSupport.allTools.map((e) => e.name),
+  ...GrepSupport.allTools.map((e) => e.name),
+  ...PackageUriSupport.allTools.map((e) => e.name),
+  ...PubSupport.allTools.map((e) => e.name),
+  ...PubDevSupport.allTools.map((e) => e.name),
+  ...RootsFallbackSupport.allTools.map((e) => e.name),
+  ...FeatureCategory.values.map((e) => e.name),
+};
+
 /// Creates an arg parser for th MCP server.
 ///
 /// The `--help` option is only included if [includeHelp] is `true`.
@@ -49,18 +77,24 @@ ArgParser createArgParser({
               'overwritten if it exists.',
         )
         ..addMultiOption(
-          excludeToolOption,
-          help: 'The names of tools to exclude from this run of the server.',
+          disabledFeaturesOption,
+          aliases: ['exclude-tool'],
+          abbr: 'x',
+          help:
+              'The names or categories of features to disable. Disabled '
+              'features by name take precedence over enabled features by name '
+              'and category, and disabled features by category take precedence '
+              'over enabled features by category, but not name.',
+          allowed: allFeatureAndCategoryNames,
         )
-        ..addOption(
-          toolsOption,
-          help: 'The set of tools to enable.',
-          allowed: ['all', 'dart'],
-          allowedHelp: {
-            'all': 'Enables all Dart and Flutter tools',
-            'dart': 'Enables only tools relevant to pure Dart projects',
-          },
-          defaultsTo: 'all',
+        ..addMultiOption(
+          enabledFeaturesOption,
+          aliases: ['tools'],
+          help:
+              'The names or categories of features to enable, defaults to all '
+              'features. If any value is passed, only those features will be '
+              'enabled.',
+          allowed: allFeatureAndCategoryNames,
         );
 
   if (includeHelp) parser.addFlag(helpFlag, abbr: 'h', help: 'Show usage text');
@@ -68,22 +102,9 @@ ArgParser createArgParser({
 }
 
 const dartSdkOption = 'dart-sdk';
-const excludeToolOption = 'exclude-tool';
+const disabledFeaturesOption = 'disable';
+const enabledFeaturesOption = 'enable';
 const flutterSdkOption = 'flutter-sdk';
 const forceRootsFallbackFlag = 'force-roots-fallback';
 const helpFlag = 'help';
 const logFileOption = 'log-file';
-const toolsOption = 'tools';
-
-enum ToolsConfiguration {
-  all,
-  dart;
-
-  static ToolsConfiguration? fromArgs(ArgResults args) {
-    final option = args.option(toolsOption);
-    for (var value in ToolsConfiguration.values) {
-      if (value.name == option) return value;
-    }
-    return null;
-  }
-}

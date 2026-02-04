@@ -13,6 +13,7 @@ import 'package:mime/mime.dart';
 import 'package:package_config/package_config.dart';
 import 'package:path/path.dart' as p;
 
+import '../features_configuration.dart';
 import '../utils/analytics.dart';
 import '../utils/cli_utils.dart';
 import '../utils/constants.dart';
@@ -26,6 +27,9 @@ base mixin PackageUriSupport on ToolsSupport, RootsTrackingSupport
     registerTool(readPackageUris, _readPackageUris);
     return super.initialize(request);
   }
+
+  /// Used by the arg parser to list the valid tools.
+  static final List<Tool> allTools = [readPackageUris];
 
   Future<CallToolResult> _readPackageUris(CallToolRequest request) async {
     final args = request.arguments!;
@@ -185,7 +189,7 @@ base mixin PackageUriSupport on ToolsSupport, RootsTrackingSupport
       required: [ParameterNames.uris, ParameterNames.root],
       additionalProperties: false,
     ),
-  );
+  )..categories = [FeatureCategory.dart, FeatureCategory.flutter];
 }
 
 /// Shared error result for when no package config is found.

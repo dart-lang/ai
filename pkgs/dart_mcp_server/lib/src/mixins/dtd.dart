@@ -15,10 +15,9 @@ import 'package:vm_service/vm_service.dart';
 import 'package:vm_service/vm_service_io.dart';
 import 'package:web_socket/web_socket.dart';
 
-import '../arg_parser.dart';
+import '../features_configuration.dart';
 import '../utils/analytics.dart';
 import '../utils/constants.dart';
-import '../utils/tools_configuration.dart';
 import '../utils/uuid.dart';
 
 /// Constants used by the MCP server to register services on DTD.
@@ -40,7 +39,7 @@ extension McpServiceConstants on Never {
 /// The MCPServer must already have the [ToolsSupport] mixin applied.
 base mixin DartToolingDaemonSupport
     on ToolsSupport, LoggingSupport, ResourcesSupport
-    implements AnalyticsSupport, ToolsConfigurationSupport {
+    implements AnalyticsSupport {
   DartToolingDaemon? _dtd;
 
   /// The last reported active location from the editor.
@@ -199,16 +198,28 @@ base mixin DartToolingDaemonSupport
     registerTool(hotRestartTool, hotRestart);
     registerTool(hotReloadTool, hotReload);
 
-    if (toolsConfig == ToolsConfiguration.all) {
-      if (enableScreenshots) registerTool(screenshotTool, takeScreenshot);
-      registerTool(getWidgetTreeTool, widgetTree);
-      registerTool(getSelectedWidgetTool, selectedWidget);
-      registerTool(setWidgetSelectionModeTool, _setWidgetSelectionMode);
-      registerTool(flutterDriverTool, _callFlutterDriver);
-    }
+    if (enableScreenshots) registerTool(screenshotTool, takeScreenshot);
+    registerTool(getWidgetTreeTool, widgetTree);
+    registerTool(getSelectedWidgetTool, selectedWidget);
+    registerTool(setWidgetSelectionModeTool, _setWidgetSelectionMode);
+    registerTool(flutterDriverTool, _callFlutterDriver);
 
     return super.initialize(request);
   }
+
+  /// Used by the arg parser to list the valid tools.
+  static final List<Tool> allTools = [
+    connectTool,
+    getRuntimeErrorsTool,
+    getActiveLocationTool,
+    hotRestartTool,
+    hotReloadTool,
+    screenshotTool,
+    getWidgetTreeTool,
+    getSelectedWidgetTool,
+    setWidgetSelectionModeTool,
+    flutterDriverTool,
+  ];
 
   @override
   Future<void> shutdown() async {
@@ -975,7 +986,7 @@ base mixin DartToolingDaemonSupport
       },
       required: ['command'],
     ),
-  );
+  )..categories = [FeatureCategory.flutter, FeatureCategory.flutterDriver];
 
   @visibleForTesting
   static final connectTool = Tool(
@@ -992,7 +1003,7 @@ base mixin DartToolingDaemonSupport
       required: const [ParameterNames.uri],
       additionalProperties: false,
     ),
-  );
+  )..categories = [FeatureCategory.dart, FeatureCategory.flutter];
 
   @visibleForTesting
   static final getRuntimeErrorsTool = Tool(
@@ -1016,7 +1027,7 @@ base mixin DartToolingDaemonSupport
       },
       additionalProperties: false,
     ),
-  );
+  )..categories = [FeatureCategory.dart, FeatureCategory.flutter];
 
   @visibleForTesting
   static final screenshotTool = Tool(
@@ -1027,7 +1038,7 @@ base mixin DartToolingDaemonSupport
         'called first.',
     annotations: ToolAnnotations(title: 'Take screenshot', readOnlyHint: true),
     inputSchema: Schema.object(additionalProperties: false),
-  );
+  )..categories = [FeatureCategory.flutter, FeatureCategory.flutterDriver];
 
   @visibleForTesting
   static final hotReloadTool = Tool(
@@ -1050,7 +1061,7 @@ base mixin DartToolingDaemonSupport
       },
       additionalProperties: false,
     ),
-  );
+  )..categories = [FeatureCategory.flutter];
 
   @visibleForTesting
   static final hotRestartTool = Tool(
@@ -1064,7 +1075,7 @@ base mixin DartToolingDaemonSupport
         'programs.',
     annotations: ToolAnnotations(title: 'Hot restart', destructiveHint: true),
     inputSchema: Schema.object(additionalProperties: false),
-  );
+  )..categories = [FeatureCategory.flutter];
 
   @visibleForTesting
   static final getWidgetTreeTool = Tool(
@@ -1083,7 +1094,7 @@ base mixin DartToolingDaemonSupport
       },
       additionalProperties: false,
     ),
-  );
+  )..categories = [FeatureCategory.flutter];
 
   @visibleForTesting
   static final getSelectedWidgetTool = Tool(
@@ -1096,7 +1107,7 @@ base mixin DartToolingDaemonSupport
       readOnlyHint: true,
     ),
     inputSchema: Schema.object(additionalProperties: false),
-  );
+  )..categories = [FeatureCategory.flutter, FeatureCategory.widgetInspector];
 
   @visibleForTesting
   static final setWidgetSelectionModeTool = Tool(
@@ -1117,21 +1128,27 @@ base mixin DartToolingDaemonSupport
       required: const ['enabled'],
       additionalProperties: false,
     ),
-  );
+  )..categories = [FeatureCategory.flutter, FeatureCategory.widgetInspector];
 
   @visibleForTesting
-  static final getActiveLocationTool = Tool(
-    name: 'get_active_location',
-    description:
-        'Retrieves the current active location (e.g., cursor position) in the '
-        'connected editor. Requires "${connectTool.name}" to be successfully '
-        'called first.',
-    annotations: ToolAnnotations(
-      title: 'Get Active Editor Location',
-      readOnlyHint: true,
-    ),
-    inputSchema: Schema.object(additionalProperties: false),
-  );
+  static final getActiveLocationTool =
+      Tool(
+          name: 'get_active_location',
+          description:
+              'Retrieves the current active location (e.g., cursor position) '
+              'in the connected editor. Requires "${connectTool.name}" to be '
+              'successfully called first.',
+          annotations: ToolAnnotations(
+            title: 'Get Active Editor Location',
+            readOnlyHint: true,
+          ),
+          inputSchema: Schema.object(additionalProperties: false),
+        )
+        ..categories = [
+          FeatureCategory.dart,
+          FeatureCategory.flutter,
+          FeatureCategory.lsp,
+        ];
 
   static final _connectedAppsNotSupported = CallToolResult(
     isError: true,

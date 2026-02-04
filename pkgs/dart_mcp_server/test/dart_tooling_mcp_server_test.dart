@@ -50,9 +50,9 @@ void main() {
   test('Tools can be disabled with --exclude-tool', () async {
     final testHarness = await TestHarness.start(
       cliArgs: [
-        '--$excludeToolOption',
+        '--$disabledFeaturesOption',
         DartAnalyzerSupport.analyzeFilesTool.name,
-        '--$excludeToolOption',
+        '--$disabledFeaturesOption',
         DartToolingDaemonSupport.connectTool.name,
       ],
     );

@@ -12,11 +12,10 @@ import 'dart:math' as math;
 
 import 'package:dart_mcp/server.dart';
 
-import '../arg_parser.dart';
+import '../features_configuration.dart';
 import '../utils/analytics.dart';
 import '../utils/process_manager.dart';
 import '../utils/sdk.dart';
-import '../utils/tools_configuration.dart';
 
 class _RunningApp {
   final Process process;
@@ -34,23 +33,30 @@ class _RunningApp {
 /// launches.
 base mixin FlutterLauncherSupport
     on ToolsSupport, LoggingSupport, RootsTrackingSupport
-    implements ProcessManagerSupport, SdkSupport, ToolsConfigurationSupport {
+    implements ProcessManagerSupport, SdkSupport {
   final Map<int, _RunningApp> _runningApps = {};
 
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
-    if (toolsConfig == ToolsConfiguration.all) {
-      registerTool(launchAppTool, _launchApp);
-      registerTool(stopAppTool, _stopApp);
-      registerTool(listDevicesTool, _listDevices);
-      registerTool(getAppLogsTool, _getAppLogs);
-      registerTool(listRunningAppsTool, _listRunningApps);
-    }
+    registerTool(launchAppTool, _launchApp);
+    registerTool(stopAppTool, _stopApp);
+    registerTool(listDevicesTool, _listDevices);
+    registerTool(getAppLogsTool, _getAppLogs);
+    registerTool(listRunningAppsTool, _listRunningApps);
     return super.initialize(request);
   }
 
+  /// Used by the arg parser to list the valid tools.
+  static final List<Tool> allTools = [
+    launchAppTool,
+    stopAppTool,
+    listDevicesTool,
+    getAppLogsTool,
+    listRunningAppsTool,
+  ];
+
   /// A tool to launch a Flutter application.
-  final launchAppTool = Tool(
+  static final launchAppTool = Tool(
     name: 'launch_app',
     description: 'Launches a Flutter application and returns its DTD URI.',
     inputSchema: Schema.object(
@@ -86,7 +92,7 @@ base mixin FlutterLauncherSupport
       },
       required: ['dtdUri', 'pid'],
     ),
-  );
+  )..categories = [FeatureCategory.flutter];
 
   Future<CallToolResult> _launchApp(CallToolRequest request) async {
     final root = request.arguments!['root'] as String;
@@ -254,7 +260,7 @@ base mixin FlutterLauncherSupport
   }
 
   /// A tool to stop a running Flutter application.
-  final stopAppTool = Tool(
+  static final stopAppTool = Tool(
     name: 'stop_app',
     description:
         'Kills a running Flutter process started by the launch_app tool.',
@@ -275,7 +281,7 @@ base mixin FlutterLauncherSupport
       },
       required: ['success'],
     ),
-  );
+  )..categories = [FeatureCategory.flutter];
 
   Future<CallToolResult> _stopApp(CallToolRequest request) async {
     final pid = request.arguments!['pid'] as int;
@@ -317,7 +323,7 @@ base mixin FlutterLauncherSupport
   }
 
   /// A tool to list available Flutter devices.
-  final listDevicesTool = Tool(
+  static final listDevicesTool = Tool(
     name: 'list_devices',
     description: 'Lists available Flutter devices.',
     inputSchema: Schema.object(),
@@ -338,7 +344,7 @@ base mixin FlutterLauncherSupport
       required: ['devices'],
       additionalProperties: false,
     ),
-  );
+  )..categories = [FeatureCategory.flutter, FeatureCategory.cli];
 
   Future<CallToolResult> _listDevices(CallToolRequest request) async {
     try {
@@ -403,7 +409,7 @@ base mixin FlutterLauncherSupport
   }
 
   /// A tool to get the logs for a running Flutter application.
-  final getAppLogsTool = Tool(
+  static final getAppLogsTool = Tool(
     name: 'get_app_logs',
     description:
         'Returns the collected logs for a given flutter run process '
@@ -433,7 +439,7 @@ base mixin FlutterLauncherSupport
       },
       required: ['logs'],
     ),
-  );
+  )..categories = [FeatureCategory.flutter];
 
   Future<CallToolResult> _getAppLogs(CallToolRequest request) async {
     final pid = request.arguments!['pid'] as int;
@@ -467,7 +473,7 @@ base mixin FlutterLauncherSupport
   }
 
   /// A tool to list all running Flutter applications.
-  final listRunningAppsTool = Tool(
+  static final listRunningAppsTool = Tool(
     name: 'list_running_apps',
     description:
         'Returns the list of running app process IDs and associated '
@@ -495,7 +501,7 @@ base mixin FlutterLauncherSupport
       required: ['apps'],
       additionalProperties: false,
     ),
-  );
+  )..categories = [FeatureCategory.flutter];
 
   Future<CallToolResult> _listRunningApps(CallToolRequest request) async {
     final apps = _runningApps.entries

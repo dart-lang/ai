@@ -30,6 +30,9 @@ base mixin PubDevSupport on ToolsSupport {
     return super.initialize(request);
   }
 
+  /// Used by the arg parser to list the valid tools.
+  static final List<Tool> allTools = [pubDevTool];
+
   /// Implementation of the [pubDevTool].
   Future<CallToolResult> _runPubDevSearch(CallToolRequest request) async {
     final query = request.arguments?['query'] as String;

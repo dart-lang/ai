@@ -7,19 +7,18 @@ import 'dart:async';
 import 'package:dart_mcp/server.dart';
 import 'package:meta/meta.dart';
 
-import '../arg_parser.dart';
+import '../features_configuration.dart';
 import '../utils/constants.dart';
-import '../utils/tools_configuration.dart';
 
 /// A mixin which adds support for various dart and flutter specific prompts.
-base mixin DashPrompts on PromptsSupport implements ToolsConfigurationSupport {
+base mixin DashPrompts on PromptsSupport {
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
-    if (toolsConfig == ToolsConfiguration.all) {
-      addPrompt(flutterDriverUserJourneyTest, _flutterDriverUserJourneyPrompt);
-    }
+    addPrompt(flutterDriverUserJourneyTest, _flutterDriverUserJourneyPrompt);
     return super.initialize(request);
   }
+
+  static final List<Prompt> allPrompts = [flutterDriverUserJourneyTest];
 
   /// Creates the flutter driver user journey prompt based on a request.
   GetPromptResult _flutterDriverUserJourneyPrompt(GetPromptRequest request) {
@@ -57,7 +56,7 @@ a flutter driver test and write that to disk.
         required: false,
       ),
     ],
-  );
+  )..categories = [FeatureCategory.flutter, FeatureCategory.flutterDriver];
 
   @visibleForTesting
   static final flutterDriverUserJourneyPromptContent = Content.text(

@@ -71,6 +71,9 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
     }
   }
 
+  /// Used by the arg parser to list the valid tools.
+  static final List<Tool> allTools = [removeRootsTool, addRootsTool];
+
   /// Delegates to the inherited implementation if fallback mode is not enabled,
   /// otherwise returns our own custom roots.
   @override
