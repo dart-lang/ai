@@ -16,8 +16,8 @@ import '../features_configuration.dart';
 import '../lsp/wire_format.dart';
 import '../utils/analytics.dart';
 import '../utils/cli_utils.dart';
-import '../utils/constants.dart';
 import '../utils/file_system.dart';
+import '../utils/names.dart';
 import '../utils/process_manager.dart';
 import '../utils/sdk.dart';
 
@@ -470,7 +470,7 @@ base mixin DartAnalyzerSupport
   @visibleForTesting
   static final analyzeFilesTool =
       Tool(
-          name: 'analyze_files',
+          name: ToolNames.analyzeFiles.name,
           description:
               'Analyzes specific paths, or the entire project, for errors.',
           inputSchema: Schema.object(
@@ -493,7 +493,7 @@ base mixin DartAnalyzerSupport
   @visibleForTesting
   static final resolveWorkspaceSymbolTool =
       Tool(
-          name: 'resolve_workspace_symbol',
+          name: ToolNames.resolveWorkspaceSymbol.name,
           description:
               'Look up a symbol or symbols in all workspaces by name. Can be '
               'used to validate that a symbol exists or discover small '
@@ -528,7 +528,7 @@ base mixin DartAnalyzerSupport
   @visibleForTesting
   static final signatureHelpTool =
       Tool(
-          name: 'signature_help',
+          name: ToolNames.signatureHelp.name,
           description:
               'Get signature help for an API being used at a given cursor '
               'position in a file.',
@@ -547,7 +547,7 @@ base mixin DartAnalyzerSupport
   @visibleForTesting
   static final hoverTool =
       Tool(
-          name: 'hover',
+          name: ToolNames.hover.name,
           description:
               'Get hover information at a given cursor position in a file. '
               'This can include documentation, type information, etc for the '

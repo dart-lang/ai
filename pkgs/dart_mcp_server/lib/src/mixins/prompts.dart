@@ -8,7 +8,7 @@ import 'package:dart_mcp/server.dart';
 import 'package:meta/meta.dart';
 
 import '../features_configuration.dart';
-import '../utils/constants.dart';
+import '../utils/names.dart';
 
 /// A mixin which adds support for various dart and flutter specific prompts.
 base mixin DashPrompts on PromptsSupport {
@@ -41,7 +41,7 @@ base mixin DashPrompts on PromptsSupport {
 
   @visibleForTesting
   static final flutterDriverUserJourneyTest = Prompt(
-    name: 'flutter_driver_user_journey_test',
+    name: PromptNames.flutterDriverUserJourneyTest.name,
     title: 'User journey flutter driver test',
     description: '''
 Prompts the LLM to attempt to accomplish a user journey in the running app using

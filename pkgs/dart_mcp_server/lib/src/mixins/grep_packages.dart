@@ -15,8 +15,8 @@ import 'package:package_config/package_config.dart';
 
 import '../features_configuration.dart';
 import '../utils/cli_utils.dart';
-import '../utils/constants.dart';
 import '../utils/file_system.dart';
+import '../utils/names.dart';
 import '../utils/process_manager.dart';
 import 'package_uri_reader.dart';
 

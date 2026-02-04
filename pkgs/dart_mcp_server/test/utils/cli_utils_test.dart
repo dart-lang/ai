@@ -4,7 +4,7 @@
 
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp_server/src/utils/cli_utils.dart';
-import 'package:dart_mcp_server/src/utils/constants.dart';
+import 'package:dart_mcp_server/src/utils/names.dart';
 import 'package:dart_mcp_server/src/utils/sdk.dart';
 import 'package:file/memory.dart';
 import 'package:process/process.dart';

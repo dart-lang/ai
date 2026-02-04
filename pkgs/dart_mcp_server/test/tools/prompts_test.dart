@@ -4,7 +4,7 @@
 
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp_server/src/mixins/prompts.dart';
-import 'package:dart_mcp_server/src/utils/constants.dart';
+import 'package:dart_mcp_server/src/utils/names.dart';
 import 'package:test/test.dart';
 
 import '../test_harness.dart';

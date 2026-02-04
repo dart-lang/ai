@@ -11,8 +11,8 @@ import 'package:path/path.dart' as p;
 import '../features_configuration.dart';
 import '../utils/analytics.dart';
 import '../utils/cli_utils.dart';
-import '../utils/constants.dart';
 import '../utils/file_system.dart';
+import '../utils/names.dart';
 import '../utils/process_manager.dart';
 import '../utils/sdk.dart';
 
@@ -194,7 +194,7 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
 
   static final dartFixTool =
       Tool(
-          name: 'dart_fix',
+          name: ToolNames.dartFix.name,
           description: 'Runs `dart fix --apply` for the given project roots.',
           annotations: ToolAnnotations(
             title: 'Dart fix',
@@ -213,7 +213,7 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
 
   static final dartFormatTool =
       Tool(
-          name: 'dart_format',
+          name: ToolNames.dartFormat.name,
           description: 'Runs `dart format .` for the given project roots.',
           annotations: ToolAnnotations(
             title: 'Dart format',
@@ -239,7 +239,7 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
     cliSchemaJson.removeWhere((argument, _) => blocklist.contains(argument));
     final cliSchema = Schema.fromMap(cliSchemaJson);
     return Tool(
-        name: 'run_tests',
+        name: ToolNames.runTests.name,
         description:
             'Run Dart or Flutter tests with an agent centric UX. '
             'ALWAYS use instead of `dart test` or `flutter test` shell '
@@ -262,7 +262,7 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
 
   static final createProjectTool =
       Tool(
-          name: 'create_project',
+          name: ToolNames.createProject.name,
           description: 'Creates a new Dart or Flutter project.',
           annotations: ToolAnnotations(
             title: 'Create project',

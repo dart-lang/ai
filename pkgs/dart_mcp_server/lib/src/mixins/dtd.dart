@@ -17,7 +17,7 @@ import 'package:web_socket/web_socket.dart';
 
 import '../features_configuration.dart';
 import '../utils/analytics.dart';
-import '../utils/constants.dart';
+import '../utils/names.dart';
 import '../utils/uuid.dart';
 
 /// Constants used by the MCP server to register services on DTD.
@@ -782,7 +782,7 @@ base mixin DartToolingDaemonSupport
 
   @visibleForTesting
   static final flutterDriverTool = Tool(
-    name: 'flutter_driver',
+    name: ToolNames.flutterDriver.name,
     description: 'Run a flutter driver command',
     annotations: ToolAnnotations(title: 'Flutter Driver', readOnlyHint: true),
     inputSchema: Schema.object(
@@ -990,7 +990,7 @@ base mixin DartToolingDaemonSupport
 
   @visibleForTesting
   static final connectTool = Tool(
-    name: 'connect_dart_tooling_daemon',
+    name: ToolNames.connectDartToolingDaemon.name,
     description:
         'Connects to the Dart Tooling Daemon. You should get the uri either '
         'from available tools or the user, do not just make up a random URI to '
@@ -1007,7 +1007,7 @@ base mixin DartToolingDaemonSupport
 
   @visibleForTesting
   static final getRuntimeErrorsTool = Tool(
-    name: 'get_runtime_errors',
+    name: ToolNames.getRuntimeErrors.name,
     description:
         'Retrieves the most recent runtime errors that have occurred in the '
         'active Dart or Flutter application. Requires "${connectTool.name}" to '
@@ -1031,7 +1031,7 @@ base mixin DartToolingDaemonSupport
 
   @visibleForTesting
   static final screenshotTool = Tool(
-    name: 'take_screenshot',
+    name: ToolNames.takeScreenshot.name,
     description:
         'Takes a screenshot of the active Flutter application in its '
         'current state. Requires "${connectTool.name}" to be successfully '
@@ -1042,7 +1042,7 @@ base mixin DartToolingDaemonSupport
 
   @visibleForTesting
   static final hotReloadTool = Tool(
-    name: 'hot_reload',
+    name: ToolNames.hotReload.name,
     description:
         'Performs a hot reload of the active Flutter application. '
         'This will apply the latest code changes to the running application, '
@@ -1065,7 +1065,7 @@ base mixin DartToolingDaemonSupport
 
   @visibleForTesting
   static final hotRestartTool = Tool(
-    name: 'hot_restart',
+    name: ToolNames.hotRestart.name,
     description:
         'Performs a hot restart of the active Flutter application. '
         'This applies the latest code changes to the running application, '
@@ -1079,7 +1079,7 @@ base mixin DartToolingDaemonSupport
 
   @visibleForTesting
   static final getWidgetTreeTool = Tool(
-    name: 'get_widget_tree',
+    name: ToolNames.getWidgetTree.name,
     description:
         'Retrieves the widget tree from the active Flutter application. '
         'Requires "${connectTool.name}" to be successfully called first.',
@@ -1098,7 +1098,7 @@ base mixin DartToolingDaemonSupport
 
   @visibleForTesting
   static final getSelectedWidgetTool = Tool(
-    name: 'get_selected_widget',
+    name: ToolNames.getSelectedWidget.name,
     description:
         'Retrieves the selected widget from the active Flutter application. '
         'Requires "${connectTool.name}" to be successfully called first.',
@@ -1111,7 +1111,7 @@ base mixin DartToolingDaemonSupport
 
   @visibleForTesting
   static final setWidgetSelectionModeTool = Tool(
-    name: 'set_widget_selection_mode',
+    name: ToolNames.setWidgetSelectionMode.name,
     description:
         'Enables or disables widget selection mode in the active Flutter '
         'application. Requires "${connectTool.name}" to be successfully called '
@@ -1133,7 +1133,7 @@ base mixin DartToolingDaemonSupport
   @visibleForTesting
   static final getActiveLocationTool =
       Tool(
-          name: 'get_active_location',
+          name: ToolNames.getActiveLocation.name,
           description:
               'Retrieves the current active location (e.g., cursor position) '
               'in the connected editor. Requires "${connectTool.name}" to be '

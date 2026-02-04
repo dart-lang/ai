@@ -14,6 +14,7 @@ import 'package:dart_mcp/server.dart';
 
 import '../features_configuration.dart';
 import '../utils/analytics.dart';
+import '../utils/names.dart';
 import '../utils/process_manager.dart';
 import '../utils/sdk.dart';
 
@@ -57,7 +58,7 @@ base mixin FlutterLauncherSupport
 
   /// A tool to launch a Flutter application.
   static final launchAppTool = Tool(
-    name: 'launch_app',
+    name: ToolNames.launchApp.name,
     description: 'Launches a Flutter application and returns its DTD URI.',
     inputSchema: Schema.object(
       properties: {
@@ -261,7 +262,7 @@ base mixin FlutterLauncherSupport
 
   /// A tool to stop a running Flutter application.
   static final stopAppTool = Tool(
-    name: 'stop_app',
+    name: ToolNames.stopApp.name,
     description:
         'Kills a running Flutter process started by the launch_app tool.',
     inputSchema: Schema.object(
@@ -324,7 +325,7 @@ base mixin FlutterLauncherSupport
 
   /// A tool to list available Flutter devices.
   static final listDevicesTool = Tool(
-    name: 'list_devices',
+    name: ToolNames.listDevices.name,
     description: 'Lists available Flutter devices.',
     inputSchema: Schema.object(),
     outputSchema: Schema.object(
@@ -410,7 +411,7 @@ base mixin FlutterLauncherSupport
 
   /// A tool to get the logs for a running Flutter application.
   static final getAppLogsTool = Tool(
-    name: 'get_app_logs',
+    name: ToolNames.getAppLogs.name,
     description:
         'Returns the collected logs for a given flutter run process '
         'id. Can only retrieve logs started by the launch_app tool.',
@@ -474,7 +475,7 @@ base mixin FlutterLauncherSupport
 
   /// A tool to list all running Flutter applications.
   static final listRunningAppsTool = Tool(
-    name: 'list_running_apps',
+    name: ToolNames.listRunningApps.name,
     description:
         'Returns the list of running app process IDs and associated '
         'DTD URIs for apps started by the launch_app tool.',

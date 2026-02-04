@@ -12,7 +12,7 @@ import 'package:process/process.dart';
 import 'package:yaml/yaml.dart';
 
 import 'analytics.dart';
-import 'constants.dart';
+import 'names.dart';
 import 'sdk.dart';
 
 /// The supported kinds of projects.

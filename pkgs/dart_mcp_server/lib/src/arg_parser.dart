@@ -5,30 +5,13 @@
 import 'package:args/args.dart';
 
 import 'features_configuration.dart';
-import 'mixins/analyzer.dart';
-import 'mixins/dash_cli.dart';
-import 'mixins/dtd.dart';
-import 'mixins/flutter_launcher.dart';
-import 'mixins/grep_packages.dart';
-import 'mixins/package_uri_reader.dart';
-import 'mixins/prompts.dart';
-import 'mixins/pub.dart';
-import 'mixins/pub_dev_search.dart';
-import 'mixins/roots_fallback_support.dart';
+import 'utils/names.dart';
 
 /// All features that can be enabled/disabled by name or category in the MCP
 /// server.
 final allFeatureAndCategoryNames = <String>{
-  ...DartAnalyzerSupport.allTools.map((e) => e.name),
-  ...DashCliSupport.allTools.map((e) => e.name),
-  ...DashPrompts.allPrompts.map((e) => e.name),
-  ...DartToolingDaemonSupport.allTools.map((e) => e.name),
-  ...FlutterLauncherSupport.allTools.map((e) => e.name),
-  ...GrepSupport.allTools.map((e) => e.name),
-  ...PackageUriSupport.allTools.map((e) => e.name),
-  ...PubSupport.allTools.map((e) => e.name),
-  ...PubDevSupport.allTools.map((e) => e.name),
-  ...RootsFallbackSupport.allTools.map((e) => e.name),
+  ...ToolNames.values.map((e) => e.name),
+  ...PromptNames.values.map((e) => e.name),
   ...FeatureCategory.values.map((e) => e.name),
 };
 

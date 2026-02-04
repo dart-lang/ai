@@ -4,7 +4,7 @@
 
 import 'package:dart_mcp/client.dart';
 import 'package:dart_mcp_server/src/mixins/package_uri_reader.dart';
-import 'package:dart_mcp_server/src/utils/constants.dart';
+import 'package:dart_mcp_server/src/utils/names.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
 
