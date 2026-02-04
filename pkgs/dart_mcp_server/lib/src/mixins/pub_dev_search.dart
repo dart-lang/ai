@@ -9,6 +9,7 @@ import 'package:dart_mcp/server.dart';
 import 'package:http/http.dart';
 import 'package:pool/pool.dart';
 
+import '../features_configuration.dart';
 import '../utils/analytics.dart';
 import '../utils/json.dart';
 
@@ -212,5 +213,5 @@ To search for alternatives do multiple searches. There is no "or" operator.
       required: ['query'],
       additionalProperties: false,
     ),
-  );
+  )..categories = [FeatureCategory.dart, FeatureCategory.flutter];
 }

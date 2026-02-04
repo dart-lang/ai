@@ -8,6 +8,7 @@ import 'dart:collection';
 import 'package:dart_mcp/server.dart';
 import 'package:meta/meta.dart';
 
+import '../features_configuration.dart';
 import '../utils/constants.dart';
 
 /// Adds a fallback mode for roots when they aren't supported.
@@ -152,7 +153,7 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
       },
       additionalProperties: false,
     ),
-  );
+  )..categories = [FeatureCategory.dart, FeatureCategory.flutter];
 
   @visibleForTesting
   static final removeRootsTool = Tool(
@@ -170,5 +171,5 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
       },
       additionalProperties: false,
     ),
-  );
+  )..categories = [FeatureCategory.dart, FeatureCategory.flutter];
 }
