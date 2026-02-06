@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'package:args/args.dart';
-import 'package:dart_mcp/server.dart';
 
 import 'arg_parser.dart';
 
@@ -77,14 +76,14 @@ extension Categorized on Object? {
   static final Expando<List<FeatureCategory>> _categories = Expando();
 
   List<FeatureCategory> get categories {
-    assert(this is Tool || this is Prompt);
+    assert(this is Map<String, Object?>);
     // Every tool should have categories set.
     assert(_categories[this as Object] != null);
     return _categories[this as Object] ?? <FeatureCategory>[];
   }
 
   set categories(List<FeatureCategory> value) {
-    assert(this is Tool || this is Prompt);
+    assert(this is Map<String, Object?>);
     // Categories should only get set once.
     assert(_categories[this as Object] == null);
     _categories[this as Object] = value;
