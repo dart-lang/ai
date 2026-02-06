@@ -485,9 +485,7 @@ base mixin DartAnalyzerSupport
           ),
         )
         ..categories = [
-          FeatureCategory.dart,
-          FeatureCategory.flutter,
-          FeatureCategory.lsp,
+          FeatureCategory.analysis,
         ];
 
   @visibleForTesting
@@ -520,9 +518,7 @@ base mixin DartAnalyzerSupport
           ),
         )
         ..categories = [
-          FeatureCategory.dart,
-          FeatureCategory.flutter,
-          FeatureCategory.lsp,
+          FeatureCategory.analysis,
         ];
 
   @visibleForTesting
@@ -539,9 +535,7 @@ base mixin DartAnalyzerSupport
           ),
         )
         ..categories = [
-          FeatureCategory.dart,
-          FeatureCategory.flutter,
-          FeatureCategory.lsp,
+          FeatureCategory.analysis,
         ];
 
   @visibleForTesting
@@ -559,9 +553,7 @@ base mixin DartAnalyzerSupport
           ),
         )
         ..categories = [
-          FeatureCategory.dart,
-          FeatureCategory.flutter,
-          FeatureCategory.lsp,
+          FeatureCategory.analysis,
         ];
 
   @visibleForTesting

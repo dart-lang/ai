@@ -171,7 +171,7 @@ base mixin GrepSupport
         ParameterNames.root,
       ],
     ),
-  )..categories = [FeatureCategory.dart, FeatureCategory.flutter];
+  )..categories = [FeatureCategory.packageDeps];
 
   /// Checks if ripgrep is installed and returns the path to the executable if
   /// so.

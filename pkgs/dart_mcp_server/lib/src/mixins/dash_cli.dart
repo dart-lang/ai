@@ -207,8 +207,6 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
           ),
         )
         ..categories = [
-          FeatureCategory.dart,
-          FeatureCategory.flutter,
           FeatureCategory.cli,
         ];
 
@@ -228,8 +226,6 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
           ),
         )
         ..categories = [
-          FeatureCategory.dart,
-          FeatureCategory.flutter,
           FeatureCategory.cli,
         ];
 
@@ -255,8 +251,6 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
         ),
       )
       ..categories = [
-        FeatureCategory.dart,
-        FeatureCategory.flutter,
         FeatureCategory.cli,
       ];
   }();
@@ -308,8 +302,6 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
           ),
         )
         ..categories = [
-          FeatureCategory.dart,
-          FeatureCategory.flutter,
           FeatureCategory.cli,
         ];
 

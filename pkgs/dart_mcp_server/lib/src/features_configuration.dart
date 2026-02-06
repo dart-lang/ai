@@ -2,6 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:collection';
+
 import 'package:args/args.dart';
 
 import 'arg_parser.dart';
@@ -10,23 +12,37 @@ import 'arg_parser.dart';
 ///
 /// Features may have multiple categories.
 enum FeatureCategory {
-  /// Features for interacting with the Dart SDK and Dart projects.
-  dart,
-
-  /// Features for interacting with the Flutter SDK and Flutter projects.
-  flutter,
-
-  /// Features that require use of flutter_driver to interact with the app.
-  flutterDriver,
+  /// The highest level category, can be used to disable all features
+  /// and then only enable the desired ones.
+  all(null),
 
   /// Features for interacting with the Dart Language Server.
-  lsp,
+  analysis(all),
+
+  /// Features which translate directly to a CLI command.
+  cli(all),
+
+  /// Features that are specific to Dart projects only.
+  dart(all),
+
+  /// Features that are specific to Flutter projects only.
+  flutter(all),
+
+  /// Features that require use of flutter_driver to interact with the app.
+  flutterDriver(flutter),
 
   /// Features for interacting with the widget inspector.
-  widgetInspector,
+  widgetInspector(flutter),
 
-  /// Features which translate directly to a dart or flutter CLI command.
-  cli,
+  /// Features for interacting with running apps via the Dart Tooling Daemon.
+  dartToolingDaemon(all),
+
+  /// Features for interacting with package dependencies, pub and/or pub.dev
+  packageDeps(all);
+
+  const FeatureCategory(this.parent);
+
+  final FeatureCategory? parent;
 }
 
 /// Controls which features are enabled for a given configuration.
@@ -35,9 +51,11 @@ class FeaturesConfiguration {
   final Set<String> disabledNames;
 
   FeaturesConfiguration({
-    this.enabledNames = const {},
+    this.enabledNames = const {'all'},
     this.disabledNames = const {},
-  });
+  }) : // Enum names are not constant, we have to hard code it and then assert
+       // the name is correct instead as a workaround.
+       assert(FeatureCategory.all.name == 'all');
 
   static FeaturesConfiguration fromArgs(ArgResults args) {
     return FeaturesConfiguration(
@@ -53,17 +71,52 @@ class FeaturesConfiguration {
   ///
   ///   - Disabled by name
   ///   - Enabled by name
-  ///   - Disabled by category
-  ///   - Enabled by category
+  ///   - For each transitive category, in order of their distance from the
+  ///     given [categories]:
+  ///     - Disabled by category
+  ///     - Enabled by category
   bool isEnabled(String name, List<FeatureCategory> categories) {
     if (disabledNames.contains(name)) return false;
     if (enabledNames.contains(name)) return true;
-    if (disabledNames.isNotEmpty &&
-        categories.any((c) => disabledNames.contains(c.name))) {
-      return false;
+    for (var category in _categoriesInPrecedenceOrder(categories)) {
+      if (disabledNames.contains(category.name)) return false;
+      if (enabledNames.contains(category.name)) return true;
     }
-    return enabledNames.isEmpty ||
-        categories.any((c) => enabledNames.contains(c.name));
+    // Should never reach here, this assert will get tripped up by tests.
+    assert(false, 'Unreachable, should reach the `all` category');
+    // If we do reach here in production, just return true (default is enabled).
+    return true;
+  }
+
+  /// Returns all the transitive categories from a list of categories in
+  /// precedence order.
+  ///
+  /// The precedence implementation is a breadth first traversal of the
+  /// [categories] and their transitive parents. This results in the following
+  /// properties:
+  ///
+  /// - Child categories are higher precedence than their parent categories,
+  ///   since they are more specific.
+  /// - Parent categories are prioritized based on their closest proximity to
+  ///   any category in [categories].
+  /// - Earlier entries in [categories] are higher precedence than later
+  ///   entries.
+  /// - When parent categories are the same distance away, the ones whose
+  ///   children were earlier in [categories] are higher precedence.
+  Iterable<FeatureCategory> _categoriesInPrecedenceOrder(
+    List<FeatureCategory> categories,
+  ) sync* {
+    final seen = <FeatureCategory>{...categories};
+    final queue = Queue.of(categories);
+    while (queue.isNotEmpty) {
+      final category = queue.removeFirst();
+      yield category;
+      if (category.parent != null) {
+        if (seen.add(category.parent!)) {
+          queue.addLast(category.parent!);
+        }
+      }
+    }
   }
 }
 
@@ -86,6 +139,8 @@ extension Categorized on Object? {
     assert(this is Map<String, Object?>);
     // Categories should only get set once.
     assert(_categories[this as Object] == null);
+    // Every tool should have at least one category (can be `all`).
+    assert(value.isNotEmpty);
     _categories[this as Object] = value;
   }
 }

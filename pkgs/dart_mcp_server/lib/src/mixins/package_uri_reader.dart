@@ -189,7 +189,7 @@ base mixin PackageUriSupport on ToolsSupport, RootsTrackingSupport
       required: [ParameterNames.uris, ParameterNames.root],
       additionalProperties: false,
     ),
-  )..categories = [FeatureCategory.dart, FeatureCategory.flutter];
+  )..categories = [FeatureCategory.packageDeps];
 }
 
 /// Shared error result for when no package config is found.

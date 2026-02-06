@@ -56,7 +56,7 @@ a flutter driver test and write that to disk.
         required: false,
       ),
     ],
-  )..categories = [FeatureCategory.flutter, FeatureCategory.flutterDriver];
+  )..categories = [FeatureCategory.flutterDriver];
 
   @visibleForTesting
   static final flutterDriverUserJourneyPromptContent = Content.text(

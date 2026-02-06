@@ -154,7 +154,7 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
       },
       additionalProperties: false,
     ),
-  )..categories = [FeatureCategory.dart, FeatureCategory.flutter];
+  )..categories = [FeatureCategory.all];
 
   @visibleForTesting
   static final removeRootsTool = Tool(
@@ -172,5 +172,5 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
       },
       additionalProperties: false,
     ),
-  )..categories = [FeatureCategory.dart, FeatureCategory.flutter];
+  )..categories = [FeatureCategory.all];
 }

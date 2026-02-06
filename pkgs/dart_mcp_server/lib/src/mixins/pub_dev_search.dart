@@ -215,5 +215,5 @@ To search for alternatives do multiple searches. There is no "or" operator.
       required: ['query'],
       additionalProperties: false,
     ),
-  )..categories = [FeatureCategory.dart, FeatureCategory.flutter];
+  )..categories = [FeatureCategory.packageDeps];
 }

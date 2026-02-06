@@ -986,7 +986,7 @@ base mixin DartToolingDaemonSupport
       },
       required: ['command'],
     ),
-  )..categories = [FeatureCategory.flutter, FeatureCategory.flutterDriver];
+  )..categories = [FeatureCategory.flutterDriver];
 
   @visibleForTesting
   static final connectTool = Tool(
@@ -1003,7 +1003,7 @@ base mixin DartToolingDaemonSupport
       required: const [ParameterNames.uri],
       additionalProperties: false,
     ),
-  )..categories = [FeatureCategory.dart, FeatureCategory.flutter];
+  )..categories = [FeatureCategory.all];
 
   @visibleForTesting
   static final getRuntimeErrorsTool = Tool(
@@ -1027,7 +1027,7 @@ base mixin DartToolingDaemonSupport
       },
       additionalProperties: false,
     ),
-  )..categories = [FeatureCategory.dart, FeatureCategory.flutter];
+  )..categories = [FeatureCategory.dartToolingDaemon];
 
   @visibleForTesting
   static final screenshotTool = Tool(
@@ -1147,7 +1147,7 @@ base mixin DartToolingDaemonSupport
         ..categories = [
           FeatureCategory.dart,
           FeatureCategory.flutter,
-          FeatureCategory.lsp,
+          FeatureCategory.analysis,
         ];
 
   static final _connectedAppsNotSupported = CallToolResult(

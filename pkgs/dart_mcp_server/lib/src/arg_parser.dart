@@ -78,6 +78,7 @@ ArgParser createArgParser({
               'features. If any value is passed, only those features will be '
               'enabled.',
           allowed: allFeatureAndCategoryNames,
+          defaultsTo: [FeatureCategory.all.name],
         );
 
   if (includeHelp) parser.addFlag(helpFlag, abbr: 'h', help: 'Show usage text');

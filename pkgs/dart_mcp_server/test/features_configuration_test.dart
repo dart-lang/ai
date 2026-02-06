@@ -24,7 +24,7 @@ import 'package:test/test.dart';
 import 'test_harness.dart';
 
 void main() {
-  group('Feature Completeness', () {
+  group('Features configuration', () {
     // Collect all tools and prompts from mixins
     final allTools = [
       ...DartAnalyzerSupport.allTools,
