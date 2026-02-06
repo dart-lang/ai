@@ -30,7 +30,7 @@ base mixin GrepSupport
     return super.initialize(request);
   }
 
-  /// Used by the arg parser to list the valid tools.
+  @visibleForTesting
   static final List<Tool> allTools = [ripGrepPackagesTool];
 
   /// Grep files in the project and its dependencies using ripgrep, see the

@@ -7,6 +7,7 @@ import 'dart:convert';
 
 import 'package:dart_mcp/server.dart';
 import 'package:http/http.dart';
+import 'package:meta/meta.dart';
 import 'package:pool/pool.dart';
 
 import '../features_configuration.dart';
@@ -32,7 +33,7 @@ base mixin PubDevSupport on ToolsSupport {
     return super.initialize(request);
   }
 
-  /// Used by the arg parser to list the valid tools.
+  @visibleForTesting
   static final List<Tool> allTools = [pubDevTool];
 
   /// Implementation of the [pubDevTool].

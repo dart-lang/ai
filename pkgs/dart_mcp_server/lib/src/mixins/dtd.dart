@@ -207,7 +207,7 @@ base mixin DartToolingDaemonSupport
     return super.initialize(request);
   }
 
-  /// Used by the arg parser to list the valid tools.
+  @visibleForTesting
   static final List<Tool> allTools = [
     connectTool,
     getRuntimeErrorsTool,

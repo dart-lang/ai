@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:dart_mcp/server.dart';
+import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 
 import '../features_configuration.dart';
@@ -44,7 +45,7 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
     }
   }
 
-  /// Used by the arg parser to list the valid tools.
+  @visibleForTesting
   static final List<Tool> allTools = [
     dartFixTool,
     dartFormatTool,

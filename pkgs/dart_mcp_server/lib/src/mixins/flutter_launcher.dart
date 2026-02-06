@@ -11,6 +11,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:dart_mcp/server.dart';
+import 'package:meta/meta.dart';
 
 import '../features_configuration.dart';
 import '../utils/analytics.dart';
@@ -47,7 +48,7 @@ base mixin FlutterLauncherSupport
     return super.initialize(request);
   }
 
-  /// Used by the arg parser to list the valid tools.
+  @visibleForTesting
   static final List<Tool> allTools = [
     launchAppTool,
     stopAppTool,

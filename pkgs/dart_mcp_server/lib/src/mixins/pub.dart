@@ -5,6 +5,7 @@
 import 'dart:async';
 
 import 'package:dart_mcp/server.dart';
+import 'package:meta/meta.dart';
 
 import '../features_configuration.dart';
 import '../utils/analytics.dart';
@@ -34,7 +35,7 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
     }
   }
 
-  /// Used by the arg parser to list the valid tools.
+  @visibleForTesting
   static final List<Tool> allTools = [pubTool];
 
   /// Implementation of the [pubTool].

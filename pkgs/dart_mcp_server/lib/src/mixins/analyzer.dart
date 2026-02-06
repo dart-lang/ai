@@ -90,7 +90,7 @@ base mixin DartAnalyzerSupport
     return result;
   }
 
-  /// Used by the arg parser to list the valid tools.
+  @visibleForTesting
   static final List<Tool> allTools = [
     analyzeFilesTool,
     resolveWorkspaceSymbolTool,

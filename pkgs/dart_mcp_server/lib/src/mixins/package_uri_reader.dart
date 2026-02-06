@@ -28,7 +28,7 @@ base mixin PackageUriSupport on ToolsSupport, RootsTrackingSupport
     return super.initialize(request);
   }
 
-  /// Used by the arg parser to list the valid tools.
+  @visibleForTesting
   static final List<Tool> allTools = [readPackageUris];
 
   Future<CallToolResult> _readPackageUris(CallToolRequest request) async {
