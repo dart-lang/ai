@@ -193,41 +193,25 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
     );
   }
 
-  static final dartFixTool =
-      Tool(
-          name: ToolNames.dartFix.name,
-          description: 'Runs `dart fix --apply` for the given project roots.',
-          annotations: ToolAnnotations(
-            title: 'Dart fix',
-            destructiveHint: true,
-          ),
-          inputSchema: Schema.object(
-            properties: {ParameterNames.roots: rootsSchema()},
-            additionalProperties: false,
-          ),
-        )
-        ..categories = [
-          FeatureCategory.cli,
-        ];
+  static final dartFixTool = Tool(
+    name: ToolNames.dartFix.name,
+    description: 'Runs `dart fix --apply` for the given project roots.',
+    annotations: ToolAnnotations(title: 'Dart fix', destructiveHint: true),
+    inputSchema: Schema.object(
+      properties: {ParameterNames.roots: rootsSchema()},
+      additionalProperties: false,
+    ),
+  )..categories = [FeatureCategory.cli];
 
-  static final dartFormatTool =
-      Tool(
-          name: ToolNames.dartFormat.name,
-          description: 'Runs `dart format .` for the given project roots.',
-          annotations: ToolAnnotations(
-            title: 'Dart format',
-            destructiveHint: true,
-          ),
-          inputSchema: Schema.object(
-            properties: {
-              ParameterNames.roots: rootsSchema(supportsPaths: true),
-            },
-            additionalProperties: false,
-          ),
-        )
-        ..categories = [
-          FeatureCategory.cli,
-        ];
+  static final dartFormatTool = Tool(
+    name: ToolNames.dartFormat.name,
+    description: 'Runs `dart format .` for the given project roots.',
+    annotations: ToolAnnotations(title: 'Dart format', destructiveHint: true),
+    inputSchema: Schema.object(
+      properties: {ParameterNames.roots: rootsSchema(supportsPaths: true)},
+      additionalProperties: false,
+    ),
+  )..categories = [FeatureCategory.cli];
 
   static final Tool runTestsTool = () {
     final cliSchemaJson =
@@ -236,74 +220,67 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
     cliSchemaJson.removeWhere((argument, _) => blocklist.contains(argument));
     final cliSchema = Schema.fromMap(cliSchemaJson);
     return Tool(
-        name: ToolNames.runTests.name,
-        description:
-            'Run Dart or Flutter tests with an agent centric UX. '
-            'ALWAYS use instead of `dart test` or `flutter test` shell '
-            'commands.',
-        annotations: ToolAnnotations(title: 'Run tests', readOnlyHint: true),
-        inputSchema: Schema.object(
-          properties: {
-            ParameterNames.roots: rootsSchema(supportsPaths: true),
-            ParameterNames.arguments: cliSchema,
-          },
-          additionalProperties: false,
-        ),
-      )
-      ..categories = [
-        FeatureCategory.cli,
-      ];
+      name: ToolNames.runTests.name,
+      description:
+          'Run Dart or Flutter tests with an agent centric UX. '
+          'ALWAYS use instead of `dart test` or `flutter test` shell '
+          'commands.',
+      annotations: ToolAnnotations(title: 'Run tests', readOnlyHint: true),
+      inputSchema: Schema.object(
+        properties: {
+          ParameterNames.roots: rootsSchema(supportsPaths: true),
+          ParameterNames.arguments: cliSchema,
+        },
+        additionalProperties: false,
+      ),
+    )..categories = [FeatureCategory.cli];
   }();
 
-  static final createProjectTool =
-      Tool(
-          name: ToolNames.createProject.name,
-          description: 'Creates a new Dart or Flutter project.',
-          annotations: ToolAnnotations(
-            title: 'Create project',
-            destructiveHint: true,
-          ),
-          inputSchema: Schema.object(
-            properties: {
-              ParameterNames.root: rootSchema,
-              ParameterNames.directory: Schema.string(
-                description:
-                    'The subdirectory in which to create the project, must '
-                    'be a relative path.',
-              ),
-              ParameterNames.projectType: Schema.string(
-                description: "The type of project: 'dart' or 'flutter'.",
-              ),
-              ParameterNames.template: Schema.string(
-                description:
-                    'The project template to use (e.g., "console-full", '
-                    '"app").',
-              ),
-              ParameterNames.platform: Schema.list(
-                items: Schema.string(),
-                description:
-                    'The list of platforms this project supports. Only valid '
-                    'for Flutter projects. The allowed values are '
-                    '${_allowedFlutterPlatforms.map((e) => '`$e`').join(', ')}.'
-                    ' Defaults to creating a project for all platforms.',
-              ),
-              ParameterNames.empty: Schema.bool(
-                description:
-                    'Whether or not to create an "empty" project with '
-                    'minimized boilerplate and example code. Defaults to true.',
-              ),
-            },
-            required: [
-              ParameterNames.directory,
-              ParameterNames.projectType,
-              ParameterNames.root,
-            ],
-            additionalProperties: false,
-          ),
-        )
-        ..categories = [
-          FeatureCategory.cli,
-        ];
+  static final createProjectTool = Tool(
+    name: ToolNames.createProject.name,
+    description: 'Creates a new Dart or Flutter project.',
+    annotations: ToolAnnotations(
+      title: 'Create project',
+      destructiveHint: true,
+    ),
+    inputSchema: Schema.object(
+      properties: {
+        ParameterNames.root: rootSchema,
+        ParameterNames.directory: Schema.string(
+          description:
+              'The subdirectory in which to create the project, must '
+              'be a relative path.',
+        ),
+        ParameterNames.projectType: Schema.string(
+          description: "The type of project: 'dart' or 'flutter'.",
+        ),
+        ParameterNames.template: Schema.string(
+          description:
+              'The project template to use (e.g., "console-full", '
+              '"app").',
+        ),
+        ParameterNames.platform: Schema.list(
+          items: Schema.string(),
+          description:
+              'The list of platforms this project supports. Only valid '
+              'for Flutter projects. The allowed values are '
+              '${_allowedFlutterPlatforms.map((e) => '`$e`').join(', ')}.'
+              ' Defaults to creating a project for all platforms.',
+        ),
+        ParameterNames.empty: Schema.bool(
+          description:
+              'Whether or not to create an "empty" project with '
+              'minimized boilerplate and example code. Defaults to true.',
+        ),
+      },
+      required: [
+        ParameterNames.directory,
+        ParameterNames.projectType,
+        ParameterNames.root,
+      ],
+      additionalProperties: false,
+    ),
+  )..categories = [FeatureCategory.cli];
 
   static const _allowedFlutterPlatforms = {
     'web',

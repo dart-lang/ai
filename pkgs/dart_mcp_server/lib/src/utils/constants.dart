@@ -4,7 +4,5 @@
 
 import 'package:dart_mcp/server.dart';
 
-
-
 /// A shared success response for tools.
 final success = CallToolResult(content: [Content.text(text: 'Success')]);

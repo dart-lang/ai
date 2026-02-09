@@ -83,39 +83,35 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
     );
   }
 
-  static final pubTool =
-      Tool(
-          name: ToolNames.pub.name,
+  static final pubTool = Tool(
+    name: ToolNames.pub.name,
+    description:
+        'Runs a pub command for the given project roots, like `dart pub '
+        'get` or `flutter pub add`.',
+    annotations: ToolAnnotations(title: 'pub', readOnlyHint: false),
+    inputSchema: Schema.object(
+      properties: {
+        ParameterNames.command: Schema.string(
+          title: 'The pub subcommand to run.',
+          enumValues: SupportedPubCommand.values
+              .map<String>((e) => e.name)
+              .toList(),
+          description: SupportedPubCommand.commandDescriptions,
+        ),
+        ParameterNames.packageNames: Schema.list(
+          title: 'The package names to run the command for.',
           description:
-              'Runs a pub command for the given project roots, like `dart pub '
-              'get` or `flutter pub add`.',
-          annotations: ToolAnnotations(title: 'pub', readOnlyHint: false),
-          inputSchema: Schema.object(
-            properties: {
-              ParameterNames.command: Schema.string(
-                title: 'The pub subcommand to run.',
-                enumValues: SupportedPubCommand.values
-                    .map<String>((e) => e.name)
-                    .toList(),
-                description: SupportedPubCommand.commandDescriptions,
-              ),
-              ParameterNames.packageNames: Schema.list(
-                title: 'The package names to run the command for.',
-                description:
-                    'This is required for the '
-                    '${SupportedPubCommand.listAllThatRequirePackageName} '
-                    'commands.',
-                items: Schema.string(
-                  title: 'A package to run the command for.',
-                ),
-              ),
-              ParameterNames.roots: rootsSchema(),
-            },
-            required: [ParameterNames.command],
-            additionalProperties: false,
-          ),
-        )
-        ..categories = [FeatureCategory.cli, FeatureCategory.packageDeps];
+              'This is required for the '
+              '${SupportedPubCommand.listAllThatRequirePackageName} '
+              'commands.',
+          items: Schema.string(title: 'A package to run the command for.'),
+        ),
+        ParameterNames.roots: rootsSchema(),
+      },
+      required: [ParameterNames.command],
+      additionalProperties: false,
+    ),
+  )..categories = [FeatureCategory.cli, FeatureCategory.packageDeps];
 }
 
 /// The set of supported `dart pub` subcommands.
