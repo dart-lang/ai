@@ -782,7 +782,7 @@ base mixin DartToolingDaemonSupport
 
   @visibleForTesting
   static final flutterDriverTool = Tool(
-    name: ToolNames.flutterDriver.name,
+    name: ToolNames.flutterDriverCommand.name,
     description: 'Run a flutter driver command',
     annotations: ToolAnnotations(title: 'Flutter Driver', readOnlyHint: true),
     inputSchema: Schema.object(
