@@ -4,6 +4,12 @@
   calls. This will help understand how the server is being used by different
   clients, and what features clients support.
 - Add a tool for running ripgrep on package dependencies.
+- Add `categories` for MCP features, allowing enabling/disabling tools by
+  category or name.
+  - This replaces the now deprecated `--tools` and `--exclude-tool` flags, but
+    both are still supported for backward compatibility. `--tools=dart` now
+    becomes `--disable=flutter` and `--exclude-tool` is just an alias for
+    `--disable`.
 - Add `timeout` option to `launch_app`.
 
 # 0.1.2 (Dart SDK 3.11.0)

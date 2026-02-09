@@ -4,16 +4,16 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' hide File;
 import 'dart:io' as io show File;
+import 'dart:io' hide File;
 
 import 'package:async/async.dart';
 import 'package:dart_mcp/client.dart';
 import 'package:dart_mcp/stdio.dart';
-import 'package:dart_mcp_server/src/arg_parser.dart';
+import 'package:dart_mcp_server/src/features_configuration.dart';
 import 'package:dart_mcp_server/src/mixins/dtd.dart';
 import 'package:dart_mcp_server/src/server.dart';
-import 'package:dart_mcp_server/src/utils/constants.dart';
+import 'package:dart_mcp_server/src/utils/names.dart';
 import 'package:dart_mcp_server/src/utils/sdk.dart';
 import 'package:dtd/dtd.dart';
 import 'package:file/file.dart';
@@ -95,6 +95,7 @@ class TestHarness {
     FileSystem? fileSystem,
     ProcessManager? processManager,
     List<String> cliArgs = const [],
+    bool forceRootsFallback = false,
     Sdk? sdk,
     bool startFakeEditorExtension = true,
   }) async {
@@ -115,6 +116,7 @@ class TestHarness {
       processManager,
       sdk,
       cliArgs,
+      forceRootsFallback,
     );
     final connection = serverConnectionPair.serverConnection;
     connection.onLog.listen((log) {
@@ -465,6 +467,7 @@ Future<ServerConnectionPair> _initializeMCPServer(
   ProcessManager processManager,
   Sdk sdk,
   List<String> cliArgs,
+  bool forceRootsFallback,
 ) async {
   ServerConnection connection;
   DartMCPServer? server;
@@ -509,17 +512,23 @@ Future<ServerConnectionPair> _initializeMCPServer(
 
     server = DartMCPServer(
       serverChannel,
-      toolsConfig: ToolsConfiguration.all,
+      featuresConfig: FeaturesConfiguration(),
       processManager: processManager,
       fileSystem: fileSystem,
       sdk: sdk,
       analytics: analytics,
       // So we can test them.
       enableScreenshots: true,
+      forceRootsFallback: forceRootsFallback,
     );
     addTearDown(server.shutdown);
     connection = client.connectServer(clientChannel);
   } else {
+    assert(
+      !forceRootsFallback,
+      'forceRootsFallback is not supported when running in process, pass the '
+      '--force-roots-fallback clie arg instead',
+    );
     final process = await Process.start(sdk.dartExecutablePath, [
       'pub', // Using `pub` gives us incremental compilation
       'run',

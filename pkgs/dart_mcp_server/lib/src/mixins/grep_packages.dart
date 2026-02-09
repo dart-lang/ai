@@ -13,9 +13,10 @@ import 'package:http/http.dart' as http;
 import 'package:meta/meta.dart';
 import 'package:package_config/package_config.dart';
 
+import '../features_configuration.dart';
 import '../utils/cli_utils.dart';
-import '../utils/constants.dart';
 import '../utils/file_system.dart';
+import '../utils/names.dart';
 import '../utils/process_manager.dart';
 import 'package_uri_reader.dart';
 
@@ -28,6 +29,9 @@ base mixin GrepSupport
     registerTool(ripGrepPackagesTool, _ripGrepPackages);
     return super.initialize(request);
   }
+
+  @visibleForTesting
+  static final List<Tool> allTools = [ripGrepPackagesTool];
 
   /// Grep files in the project and its dependencies using ripgrep, see the
   /// [ripGrepPackagesTool] tool definition.
@@ -167,7 +171,7 @@ base mixin GrepSupport
         ParameterNames.root,
       ],
     ),
-  );
+  )..categories = [FeatureCategory.packageDeps];
 
   /// Checks if ripgrep is installed and returns the path to the executable if
   /// so.

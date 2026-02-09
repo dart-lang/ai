@@ -5,11 +5,13 @@
 import 'dart:async';
 
 import 'package:dart_mcp/server.dart';
+import 'package:meta/meta.dart';
 
+import '../features_configuration.dart';
 import '../utils/analytics.dart';
 import '../utils/cli_utils.dart';
-import '../utils/constants.dart';
 import '../utils/file_system.dart';
+import '../utils/names.dart';
 import '../utils/process_manager.dart';
 import '../utils/sdk.dart';
 
@@ -32,6 +34,9 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
       }
     }
   }
+
+  @visibleForTesting
+  static final List<Tool> allTools = [pubTool];
 
   /// Implementation of the [pubTool].
   Future<CallToolResult> _runDartPubTool(CallToolRequest request) async {
@@ -79,7 +84,7 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
   }
 
   static final pubTool = Tool(
-    name: 'pub',
+    name: ToolNames.pub.name,
     description:
         'Runs a pub command for the given project roots, like `dart pub '
         'get` or `flutter pub add`.',
@@ -97,7 +102,8 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
           title: 'The package names to run the command for.',
           description:
               'This is required for the '
-              '${SupportedPubCommand.listAllThatRequirePackageName} commands. ',
+              '${SupportedPubCommand.listAllThatRequirePackageName} '
+              'commands.',
           items: Schema.string(title: 'A package to run the command for.'),
         ),
         ParameterNames.roots: rootsSchema(),
@@ -105,7 +111,7 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
       required: [ParameterNames.command],
       additionalProperties: false,
     ),
-  );
+  )..categories = [FeatureCategory.cli, FeatureCategory.packageDeps];
 }
 
 /// The set of supported `dart pub` subcommands.

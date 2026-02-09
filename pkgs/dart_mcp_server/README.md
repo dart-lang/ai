@@ -141,7 +141,7 @@ For more information, see the official VS Code documentation for
 | `create_project` | Create project | Creates a new Dart or Flutter project. |
 | `dart_fix` | Dart fix | Runs `dart fix --apply` for the given project roots. |
 | `dart_format` | Dart format | Runs `dart format .` for the given project roots. |
-| `flutter_driver` | Flutter Driver | Run a flutter driver command |
+| `flutter_driver_command` | Flutter Driver | Run a flutter driver command |
 | `get_active_location` | Get Active Editor Location | Retrieves the current active location (e.g., cursor position) in the connected editor. Requires "connect_dart_tooling_daemon" to be successfully called first. |
 | `get_app_logs` |  | Returns the collected logs for a given flutter run process id. Can only retrieve logs started by the launch_app tool. |
 | `get_runtime_errors` | Get runtime errors | Retrieves the most recent runtime errors that have occurred in the active Dart or Flutter application. Requires "connect_dart_tooling_daemon" to be successfully called first. |

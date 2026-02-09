@@ -7,7 +7,7 @@ import 'dart:io' as io show File;
 
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp_server/src/mixins/pub.dart';
-import 'package:dart_mcp_server/src/utils/constants.dart';
+import 'package:dart_mcp_server/src/utils/names.dart';
 import 'package:file/file.dart';
 import 'package:file/memory.dart';
 import 'package:path/path.dart' as p;

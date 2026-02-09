@@ -8,7 +8,9 @@ import 'dart:collection';
 import 'package:dart_mcp/server.dart';
 import 'package:meta/meta.dart';
 
+import '../features_configuration.dart';
 import '../utils/constants.dart';
+import '../utils/names.dart';
 
 /// Adds a fallback mode for roots when they aren't supported.
 ///
@@ -71,6 +73,9 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
     }
   }
 
+  @visibleForTesting
+  static final List<Tool> allTools = [removeRootsTool, addRootsTool];
+
   /// Delegates to the inherited implementation if fallback mode is not enabled,
   /// otherwise returns our own custom roots.
   @override
@@ -124,7 +129,7 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
 
   @visibleForTesting
   static final addRootsTool = Tool(
-    name: 'add_roots',
+    name: ToolNames.addRoots.name,
     description:
         'Adds one or more project roots. Tools are only allowed to run under '
         'these roots, so you must call this function before passing any roots '
@@ -149,11 +154,11 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
       },
       additionalProperties: false,
     ),
-  );
+  )..categories = [FeatureCategory.all];
 
   @visibleForTesting
   static final removeRootsTool = Tool(
-    name: 'remove_roots',
+    name: ToolNames.removeRoots.name,
     description:
         'Removes one or more project roots previously added via '
         'the add_roots tool.',
@@ -167,5 +172,5 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
       },
       additionalProperties: false,
     ),
-  );
+  )..categories = [FeatureCategory.all];
 }

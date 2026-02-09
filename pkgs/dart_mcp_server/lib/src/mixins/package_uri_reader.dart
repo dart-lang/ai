@@ -13,10 +13,11 @@ import 'package:mime/mime.dart';
 import 'package:package_config/package_config.dart';
 import 'package:path/path.dart' as p;
 
+import '../features_configuration.dart';
 import '../utils/analytics.dart';
 import '../utils/cli_utils.dart';
-import '../utils/constants.dart';
 import '../utils/file_system.dart';
+import '../utils/names.dart';
 
 /// Adds a tool for reading package URIs to an MCP server.
 base mixin PackageUriSupport on ToolsSupport, RootsTrackingSupport
@@ -26,6 +27,9 @@ base mixin PackageUriSupport on ToolsSupport, RootsTrackingSupport
     registerTool(readPackageUris, _readPackageUris);
     return super.initialize(request);
   }
+
+  @visibleForTesting
+  static final List<Tool> allTools = [readPackageUris];
 
   Future<CallToolResult> _readPackageUris(CallToolRequest request) async {
     final args = request.arguments!;
@@ -166,7 +170,7 @@ base mixin PackageUriSupport on ToolsSupport, RootsTrackingSupport
 
   @visibleForTesting
   static final readPackageUris = Tool(
-    name: 'read_package_uris',
+    name: ToolNames.readPackageUris.name,
     description:
         'Reads "package" scheme URIs which represent paths under the lib '
         'directory of Dart package dependencies. Package uris are always '
@@ -185,7 +189,7 @@ base mixin PackageUriSupport on ToolsSupport, RootsTrackingSupport
       required: [ParameterNames.uris, ParameterNames.root],
       additionalProperties: false,
     ),
-  );
+  )..categories = [FeatureCategory.packageDeps];
 }
 
 /// Shared error result for when no package config is found.

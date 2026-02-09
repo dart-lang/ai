@@ -4,7 +4,7 @@ description: >-
   models.
 publish_to: none
 environment:
-  sdk: ^3.9.0-163.0.dev
+  sdk: ^3.10.0
 
 executables:
   dart_mcp_server: main

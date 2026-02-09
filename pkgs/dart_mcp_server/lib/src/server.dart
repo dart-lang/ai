@@ -16,6 +16,7 @@ import 'package:process/process.dart';
 import 'package:unified_analytics/unified_analytics.dart';
 
 import 'arg_parser.dart';
+import 'features_configuration.dart';
 import 'mixins/analytics.dart';
 import 'mixins/analyzer.dart';
 import 'mixins/dash_cli.dart';
@@ -31,7 +32,6 @@ import 'utils/analytics.dart';
 import 'utils/file_system.dart';
 import 'utils/process_manager.dart';
 import 'utils/sdk.dart';
-import 'utils/tools_configuration.dart';
 
 /// An MCP server for Dart and Flutter tooling.
 final class DartMCPServer extends MCPServer
@@ -57,22 +57,36 @@ final class DartMCPServer extends MCPServer
         AnalyticsSupport,
         ProcessManagerSupport,
         FileSystemSupport,
-        SdkSupport,
-        ToolsConfigurationSupport {
-  /// A list of tool names to exclude from this version of the server.
-  ///
-  /// Used in [registerTool] to skip registering these tools.
-  final List<String> excludedTools;
+        SdkSupport {
+  /// Controls which features are enabled for this run.
+  final FeaturesConfiguration featuresConfig;
+
+  /// The default arg parser for the MCP Server.
+  static final argParser = createArgParser();
 
   @override
-  final ToolsConfiguration toolsConfig;
+  final ProcessManager processManager;
+
+  @override
+  final FileSystem fileSystem;
+
+  @override
+  final bool forceRootsFallback;
+
+  @override
+  final Sdk sdk;
+
+  @override
+  final Analytics? analytics;
+
+  @override
+  final bool enableScreenshots;
 
   DartMCPServer(
     super.channel, {
     required this.sdk,
-    required this.toolsConfig,
+    required this.featuresConfig,
     this.analytics,
-    this.excludedTools = const [],
     @visibleForTesting this.processManager = const LocalProcessManager(),
     @visibleForTesting this.fileSystem = const LocalFileSystem(),
     this.forceRootsFallback = false,
@@ -117,9 +131,7 @@ final class DartMCPServer extends MCPServer
       () {
         server = DartMCPServer(
           stdioChannel(input: io.stdin, output: io.stdout),
-          excludedTools: parsedArgs.multiOption(excludeToolOption),
-          toolsConfig:
-              ToolsConfiguration.fromArgs(parsedArgs) ?? ToolsConfiguration.all,
+          featuresConfig: FeaturesConfiguration.fromArgs(parsedArgs),
           forceRootsFallback: parsedArgs.flag(forceRootsFallbackFlag),
           sdk: Sdk.find(
             dartSdkPath: dartSdkPath,
@@ -162,38 +174,29 @@ final class DartMCPServer extends MCPServer
     }
   }
 
-  /// The default arg parser for the MCP Server.
-  static final argParser = createArgParser();
-
   @override
-  final ProcessManager processManager;
-
-  @override
-  final FileSystem fileSystem;
-
-  @override
-  final bool forceRootsFallback;
-
-  @override
-  final Sdk sdk;
-
-  @override
-  final Analytics? analytics;
-
-  @override
-  final bool enableScreenshots;
-
-  @override
-  /// Does not actually register tools in [excludedTools].
+  // Only actually registers the tools enabled by [toolsConfig].
   void registerTool(
     Tool tool,
     FutureOr<CallToolResult> Function(CallToolRequest) impl, {
     bool validateArguments = true,
   }) {
-    // Check manually excluded tools and skip them.
-    if (excludedTools.contains(tool.name)) return;
-
+    if (!featuresConfig.isEnabled(tool.name, tool.categories)) {
+      return;
+    }
     super.registerTool(tool, impl, validateArguments: validateArguments);
+  }
+
+  @override
+  // Only actually registers the tools enabled by [toolsConfig].
+  void addPrompt(
+    Prompt prompt,
+    FutureOr<GetPromptResult> Function(GetPromptRequest) impl,
+  ) {
+    if (!featuresConfig.isEnabled(prompt.name, prompt.categories)) {
+      return;
+    }
+    super.addPrompt(prompt, impl);
   }
 }
 

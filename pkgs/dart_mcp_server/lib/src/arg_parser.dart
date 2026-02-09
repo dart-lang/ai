@@ -4,6 +4,17 @@
 
 import 'package:args/args.dart';
 
+import 'features_configuration.dart';
+import 'utils/names.dart';
+
+/// All features that can be enabled/disabled by name or category in the MCP
+/// server.
+final allFeatureAndCategoryNames = <String>{
+  ...ToolNames.values.map((e) => e.name),
+  ...PromptNames.values.map((e) => e.name),
+  ...FeatureCategory.values.map((e) => e.name),
+};
+
 /// Creates an arg parser for th MCP server.
 ///
 /// The `--help` option is only included if [includeHelp] is `true`.
@@ -49,16 +60,35 @@ ArgParser createArgParser({
               'overwritten if it exists.',
         )
         ..addMultiOption(
-          excludeToolOption,
-          help: 'The names of tools to exclude from this run of the server.',
+          disabledFeaturesOption,
+          aliases: ['exclude-tool'],
+          abbr: 'x',
+          help:
+              'The names or categories of features to disable. Disabled '
+              'features by name take precedence over enabled features by name '
+              'and category, and disabled features by category take precedence '
+              'over enabled features by category, but not name.',
+          allowed: allFeatureAndCategoryNames,
+        )
+        ..addMultiOption(
+          enabledFeaturesOption,
+          help:
+              'The names or categories of features to enable. All features are '
+              'always enabled by default, but this can be used to override a '
+              'disabled category to re-enable more specific features under '
+              'that category.',
+          allowed: allFeatureAndCategoryNames,
+          defaultsTo: [FeatureCategory.all.name],
         )
         ..addOption(
           toolsOption,
-          help: 'The set of tools to enable.',
+          help: '[Deprecated] Use `--enable` and `--disable` instead.',
           allowed: ['all', 'dart'],
           allowedHelp: {
             'all': 'Enables all Dart and Flutter tools',
-            'dart': 'Enables only tools relevant to pure Dart projects',
+            'dart':
+                'Enables only tools relevant to pure Dart projects. '
+                'Replace with `--disable flutter`.',
           },
           defaultsTo: 'all',
         );
@@ -68,22 +98,10 @@ ArgParser createArgParser({
 }
 
 const dartSdkOption = 'dart-sdk';
-const excludeToolOption = 'exclude-tool';
+const disabledFeaturesOption = 'disable';
+const enabledFeaturesOption = 'enable';
 const flutterSdkOption = 'flutter-sdk';
 const forceRootsFallbackFlag = 'force-roots-fallback';
 const helpFlag = 'help';
 const logFileOption = 'log-file';
 const toolsOption = 'tools';
-
-enum ToolsConfiguration {
-  all,
-  dart;
-
-  static ToolsConfiguration? fromArgs(ArgResults args) {
-    final option = args.option(toolsOption);
-    for (var value in ToolsConfiguration.values) {
-      if (value.name == option) return value;
-    }
-    return null;
-  }
-}

@@ -5,6 +5,7 @@
 import 'dart:io';
 
 import 'package:dart_mcp/server.dart';
+import 'package:dart_mcp_server/src/features_configuration.dart';
 import 'package:dart_mcp_server/src/server.dart';
 import 'package:dart_mcp_server/src/utils/analytics.dart';
 import 'package:test/test.dart';
@@ -128,7 +129,8 @@ void main() {
 
     test('are sent for successful tool calls', () async {
       server.registerTool(
-        Tool(name: 'hello', inputSchema: Schema.object()),
+        Tool(name: 'hello', inputSchema: Schema.object())
+          ..categories = [FeatureCategory.cli],
         (_) => CallToolResult(content: [Content.text(text: 'world')]),
       );
       final result = await testHarness.callToolWithRetry(
@@ -158,7 +160,8 @@ void main() {
     test('are sent for failed tool calls', () async {
       analytics.sentEvents.clear();
 
-      final tool = Tool(name: 'hello', inputSchema: Schema.object());
+      final tool = Tool(name: 'hello', inputSchema: Schema.object())
+        ..categories = [FeatureCategory.cli];
       server.registerTool(
         tool,
         (_) => CallToolResult(isError: true, content: [])..failureReason = null,
@@ -196,7 +199,7 @@ void main() {
           properties: {'name': Schema.string()},
           required: ['name'],
         ),
-      );
+      )..categories = [FeatureCategory.cli];
       server.registerTool(
         tool,
         (_) => CallToolResult(content: [Content.text(text: 'world')]),
@@ -230,7 +233,7 @@ void main() {
       final helloPrompt = Prompt(
         name: 'hello',
         arguments: [PromptArgument(name: 'name', required: false)],
-      );
+      )..categories = [FeatureCategory.cli];
       GetPromptResult getHelloPrompt(GetPromptRequest request) {
         assert(request.name == helloPrompt.name);
         if (request.arguments?['throw'] == true) {

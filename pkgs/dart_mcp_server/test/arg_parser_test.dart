@@ -5,44 +5,99 @@
 @TestOn('!windows')
 library;
 
-import 'dart:isolate';
+import 'dart:io';
 
 import 'package:analyzer/dart/analysis/features.dart';
 import 'package:analyzer/dart/analysis/utilities.dart';
 import 'package:analyzer/dart/ast/ast.dart';
+import 'package:package_config/package_config.dart';
 import 'package:pub_semver/pub_semver.dart';
 import 'package:test/test.dart';
 
-void main() {
-  test('public arg parser library only exports lib/src/arg_parser.dart', () {
-    checkDependencies('package:dart_mcp_server/arg_parser.dart', const [
-      'src/arg_parser.dart',
-    ]);
-  });
+void main() async {
+  final packageConfig = (await findPackageConfig(Directory.current))!;
 
-  test('arg parser implementation only depends on package:args', () {
-    checkDependencies('package:dart_mcp_server/src/arg_parser.dart', const [
-      'package:args/args.dart',
-    ]);
+  test(
+    'public arg parser library depends on package:args and internal utils',
+    () {
+      checkTransitiveDependencies(
+        packageConfig,
+        Uri.parse('package:dart_mcp_server/arg_parser.dart'),
+        const ['args', 'dart_mcp_server'],
+      );
+    },
+  );
+
+  test('checkTransitiveDependencies', () {
+    expect(
+      () => checkTransitiveDependencies(
+        packageConfig,
+        Uri.parse('package:test/test.dart'),
+        const ['test_api'],
+      ),
+      throwsA(
+        isA<TestFailure>().having(
+          (e) => e.message,
+          'message',
+          allOf(
+            contains(
+              'Library package:test/test.dart references disallowed packages',
+            ),
+            contains('test_core'),
+          ),
+        ),
+      ),
+    );
   });
 }
 
-/// Checks that [libraryUri] only has directives referencing [allowedUris].
-///
-/// The [allowedUris] are matched based on the exact string, not a resolved
-/// URI.
-void checkDependencies(String libraryUri, Iterable<String> allowedUris) {
+/// Checks that [libraryUri] and all its transitive dependencies only have
+/// directives referencing [allowedPackages].
+void checkTransitiveDependencies(
+  PackageConfig packageConfig,
+  Uri libraryUri,
+  Iterable<String> allowedPackages, {
+  Set<Uri>? visited,
+}) {
+  visited ??= {};
+  if (!visited.add(libraryUri)) {
+    return;
+  }
+  final languageVersion =
+      packageConfig[libraryUri.pathSegments.first]!.languageVersion!;
   final parsed = parseFile(
-    path: Isolate.resolvePackageUriSync(Uri.parse(libraryUri))!.path,
+    path: packageConfig.resolve(libraryUri)!.path,
     featureSet: FeatureSet.fromEnableFlags2(
-      sdkLanguageVersion: Version.parse('3.9.0'),
+      sdkLanguageVersion: Version(
+        languageVersion.major,
+        languageVersion.minor,
+        0,
+      ),
       flags: const [],
     ),
   );
   final uriDirectives = parsed.unit.directives.whereType<UriBasedDirective>();
+  final resolvedUris = uriDirectives
+      .map((d) => d.uri.stringValue!)
+      .where((uriString) => !uriString.startsWith('dart:'))
+      .map((uriString) => libraryUri.resolve(uriString));
+  final referencedPackages = {
+    for (final uri in resolvedUris) uri.pathSegments.first,
+  };
 
   expect(
-    uriDirectives.map((d) => d.uri.stringValue),
-    unorderedEquals(allowedUris),
+    allowedPackages,
+    containsAll(referencedPackages),
+    reason:
+        'Library $libraryUri references disallowed packages '
+        '$referencedPackages',
   );
+  for (final uri in resolvedUris) {
+    checkTransitiveDependencies(
+      packageConfig,
+      uri,
+      allowedPackages,
+      visited: visited,
+    );
+  }
 }

@@ -11,7 +11,7 @@ import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp_server/src/mixins/dtd.dart';
 import 'package:dart_mcp_server/src/server.dart';
 import 'package:dart_mcp_server/src/utils/analytics.dart';
-import 'package:dart_mcp_server/src/utils/constants.dart';
+import 'package:dart_mcp_server/src/utils/names.dart';
 import 'package:devtools_shared/devtools_shared.dart';
 import 'package:dtd/dtd.dart';
 import 'package:json_rpc_2/json_rpc_2.dart';

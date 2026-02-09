@@ -7,10 +7,13 @@ import 'dart:convert';
 
 import 'package:dart_mcp/server.dart';
 import 'package:http/http.dart';
+import 'package:meta/meta.dart';
 import 'package:pool/pool.dart';
 
+import '../features_configuration.dart';
 import '../utils/analytics.dart';
 import '../utils/json.dart';
+import '../utils/names.dart';
 
 /// Limit the number of concurrent requests.
 final _pool = Pool(10);
@@ -29,6 +32,9 @@ base mixin PubDevSupport on ToolsSupport {
     registerTool(pubDevTool, _runPubDevSearch);
     return super.initialize(request);
   }
+
+  @visibleForTesting
+  static final List<Tool> allTools = [pubDevTool];
 
   /// Implementation of the [pubDevTool].
   Future<CallToolResult> _runPubDevSearch(CallToolRequest request) async {
@@ -162,7 +168,7 @@ base mixin PubDevSupport on ToolsSupport {
   }
 
   static final pubDevTool = Tool(
-    name: 'pub_dev_search',
+    name: ToolNames.pubDevSearch.name,
     description:
         'Searches pub.dev for packages relevant to a given search query. '
         'The response will describe each result with its download count, '
@@ -209,5 +215,5 @@ To search for alternatives do multiple searches. There is no "or" operator.
       required: ['query'],
       additionalProperties: false,
     ),
-  );
+  )..categories = [FeatureCategory.packageDeps];
 }

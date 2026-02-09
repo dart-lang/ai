@@ -6,7 +6,7 @@ import 'dart:io';
 
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp_server/src/mixins/dash_cli.dart';
-import 'package:dart_mcp_server/src/utils/constants.dart';
+import 'package:dart_mcp_server/src/utils/names.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
 

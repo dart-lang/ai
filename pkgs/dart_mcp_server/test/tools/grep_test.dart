@@ -6,7 +6,7 @@ import 'package:dart_mcp/client.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp_server/src/mixins/grep_packages.dart';
 import 'package:dart_mcp_server/src/mixins/package_uri_reader.dart';
-import 'package:dart_mcp_server/src/utils/constants.dart';
+import 'package:dart_mcp_server/src/utils/names.dart';
 import 'package:process/process.dart';
 import 'package:test/test.dart';
 
