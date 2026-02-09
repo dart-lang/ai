@@ -121,4 +121,175 @@ void main() {
       expect(allFeatureAndCategoryNames, containsAll(runtimeNames));
     });
   });
+
+  group('isEnabled', () {
+    test('default is enabled', () {
+      final config = FeaturesConfiguration();
+      expect(config.isEnabled('foo', [FeatureCategory.cli]), isTrue);
+    });
+
+    test('disabled by name takes precedence over everything', () {
+      final config = FeaturesConfiguration(
+        disabledNames: {'foo'},
+        enabledNames: {
+          'foo',
+          FeatureCategory.cli.name,
+          FeatureCategory.all.name,
+        },
+      );
+      expect(
+        config.isEnabled('foo', [FeatureCategory.cli]),
+        isFalse,
+        reason: 'foo is disabled by name, which takes precedence over category',
+      );
+    });
+
+    test('enabled by name takes precedence over category disable', () {
+      final config = FeaturesConfiguration(
+        enabledNames: {'foo'},
+        disabledNames: {FeatureCategory.cli.name, FeatureCategory.all.name},
+      );
+      expect(
+        config.isEnabled('foo', [FeatureCategory.cli]),
+        isTrue,
+        reason: 'foo is enabled by name, which takes precedence over category',
+      );
+    });
+
+    test('child category takes precedence over parent category', () {
+      var config = FeaturesConfiguration(
+        disabledNames: {FeatureCategory.flutterDriver.name},
+        enabledNames: {FeatureCategory.flutter.name},
+      );
+      expect(
+        config.isEnabled('foo', [FeatureCategory.flutterDriver]),
+        isFalse,
+        reason: 'flutterDriver is disabled and higher category precedence',
+      );
+
+      config = FeaturesConfiguration(
+        enabledNames: {FeatureCategory.flutterDriver.name},
+        disabledNames: {FeatureCategory.flutter.name},
+      );
+      expect(
+        config.isEnabled('foo', [FeatureCategory.flutterDriver]),
+        isTrue,
+        reason: 'flutterDriver is enabled and higher category precedence',
+      );
+    });
+
+    test('category distance precedence in BFS order', () {
+      var config = FeaturesConfiguration(
+        disabledNames: {FeatureCategory.cli.name},
+        enabledNames: {FeatureCategory.flutter.name},
+      );
+      expect(
+        config.isEnabled('foo', [
+          FeatureCategory.flutterDriver,
+          FeatureCategory.cli,
+        ]),
+        isFalse,
+        reason: 'cli is disabled and higher category precedence',
+      );
+
+      config = FeaturesConfiguration(
+        enabledNames: {FeatureCategory.cli.name},
+        disabledNames: {FeatureCategory.flutter.name},
+      );
+      expect(
+        config.isEnabled('foo', [
+          FeatureCategory.flutterDriver,
+          FeatureCategory.cli,
+        ]),
+        isTrue,
+        reason: 'cli is enabled and higher category precedence',
+      );
+    });
+
+    test('order of input categories matters for same distance', () {
+      var config = FeaturesConfiguration(
+        disabledNames: {FeatureCategory.flutterDriver.name},
+        enabledNames: {FeatureCategory.cli.name},
+      );
+      expect(
+        config.isEnabled('foo', [
+          FeatureCategory.flutterDriver,
+          FeatureCategory.cli,
+        ]),
+        isFalse,
+        reason: 'flutterDriver is disabled and higher category precedence',
+      );
+
+      config = FeaturesConfiguration(
+        enabledNames: {FeatureCategory.flutterDriver.name},
+        disabledNames: {FeatureCategory.cli.name},
+      );
+      expect(
+        config.isEnabled('foo', [
+          FeatureCategory.flutterDriver,
+          FeatureCategory.cli,
+        ]),
+        isTrue,
+        reason: 'flutterDriver is enabled and higher category precedence',
+      );
+    });
+
+    test('parent category takes precedence over grandparent', () {
+      var config = FeaturesConfiguration(
+        disabledNames: {FeatureCategory.flutter.name},
+        enabledNames: {FeatureCategory.all.name},
+      );
+      expect(
+        config.isEnabled('foo', [FeatureCategory.flutterDriver]),
+        isFalse,
+        reason: 'flutter is disabled and higher category precedence',
+      );
+
+      config = FeaturesConfiguration(
+        enabledNames: {FeatureCategory.flutter.name},
+        disabledNames: {FeatureCategory.all.name},
+      );
+      expect(
+        config.isEnabled('foo', [FeatureCategory.flutterDriver]),
+        isTrue,
+        reason: 'flutter is enabled and higher category precedence',
+      );
+    });
+
+    test('categories are prioritized based on depth', () {
+      var config = FeaturesConfiguration(
+        disabledNames: {FeatureCategory.flutter.name},
+        enabledNames: {FeatureCategory.all.name},
+      );
+
+      // all is encountered first, but flutterDriver is a child category
+      // so it should be prioritized, including prioritizing its own parents
+      // which are also children of `all` (flutter).
+      expect(
+        config.isEnabled('foo', [
+          FeatureCategory.all,
+          FeatureCategory.flutterDriver,
+        ]),
+        isFalse,
+        reason:
+            'flutterDriver config has higher precedence since it is a child of '
+            '`all`, even though it is listed second',
+      );
+
+      config = FeaturesConfiguration(
+        enabledNames: {FeatureCategory.flutter.name},
+        disabledNames: {FeatureCategory.all.name},
+      );
+      expect(
+        config.isEnabled('foo', [
+          FeatureCategory.all,
+          FeatureCategory.flutterDriver,
+        ]),
+        isTrue,
+        reason:
+            'flutterDriver config has higher precedence since it is a child of '
+            '`all`, even though it is listed second',
+      );
+    });
+  });
 }

@@ -2,8 +2,6 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'dart:collection';
-
 import 'package:args/args.dart';
 
 import 'arg_parser.dart';
@@ -59,7 +57,9 @@ class FeaturesConfiguration {
 
   static FeaturesConfiguration fromArgs(ArgResults args) {
     return FeaturesConfiguration(
-      enabledNames: args.multiOption(enabledFeaturesOption).toSet(),
+      enabledNames: args.multiOption(enabledFeaturesOption).toSet()
+        // We always enable `all`, this is the lowest precedence category.
+        ..add(FeatureCategory.all.name),
       disabledNames: args.multiOption(disabledFeaturesOption).toSet(),
     );
   }
@@ -71,8 +71,8 @@ class FeaturesConfiguration {
   ///
   ///   - Disabled by name
   ///   - Enabled by name
-  ///   - For each transitive category, in order of their distance from the
-  ///     given [categories]:
+  ///   - For each transitive category, in order of their category depth and
+  ///     then their given order:
   ///     - Disabled by category
   ///     - Enabled by category
   bool isEnabled(String name, List<FeatureCategory> categories) {
@@ -91,14 +91,10 @@ class FeaturesConfiguration {
   /// Returns all the transitive categories from a list of categories in
   /// precedence order.
   ///
-  /// The precedence implementation is a breadth first traversal of the
-  /// [categories] and their transitive parents. This results in the following
-  /// properties:
+  /// The precedence implementation is mostly a breadth first traversal of the
+  /// [categories] and their transitive parents, but with the following rules:
   ///
-  /// - Child categories are higher precedence than their parent categories,
-  ///   since they are more specific.
-  /// - Parent categories are prioritized based on their closest proximity to
-  ///   any category in [categories].
+  /// - More specific ("deeper") categories are higher precedence.
   /// - Earlier entries in [categories] are higher precedence than later
   ///   entries.
   /// - When parent categories are the same distance away, the ones whose
@@ -107,16 +103,44 @@ class FeaturesConfiguration {
     List<FeatureCategory> categories,
   ) sync* {
     final seen = <FeatureCategory>{...categories};
-    final queue = Queue.of(categories);
-    while (queue.isNotEmpty) {
-      final category = queue.removeFirst();
-      yield category;
-      if (category.parent != null) {
-        if (seen.add(category.parent!)) {
-          queue.addLast(category.parent!);
+    final queue = <FeatureCategory>[];
+
+    // Inserts `category` into queue ahead of any lower priority categories,
+    // categories are prioritized based on their distance to the top level
+    // category.
+    void insert(FeatureCategory category) {
+      final priority = distanceToTop(category);
+      for (var i = 0; i < queue.length; i++) {
+        final item = queue[i];
+        if (distanceToTop(item) < priority) {
+          queue.insert(i, category);
+          return;
         }
       }
+      queue.add(category);
+      return;
     }
+
+    categories.forEach(insert);
+    while (queue.isNotEmpty) {
+      final category = queue.removeAt(0);
+      yield category;
+      if (category.parent case final parent?) {
+        if (seen.add(parent)) insert(parent);
+      }
+    }
+  }
+
+  /// Returns the distance from [category] to the top of its `parent`
+  /// chain (ie: a `null` parent).
+  int distanceToTop(FeatureCategory category) {
+    var parent = category.parent;
+    var result = 0;
+    while (parent != null) {
+      result++;
+      parent = parent.parent;
+    }
+    return result;
   }
 }
 
