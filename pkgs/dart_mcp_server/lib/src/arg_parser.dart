@@ -74,9 +74,10 @@ ArgParser createArgParser({
           enabledFeaturesOption,
           aliases: ['tools'],
           help:
-              'The names or categories of features to enable, defaults to all '
-              'features. If any value is passed, only those features will be '
-              'enabled.',
+              'The names or categories of features to enable. All features are '
+              'always enabled by default, but this can be used to override a '
+              'disabled category to re-enable more specific features under '
+              'that category.',
           allowed: allFeatureAndCategoryNames,
           defaultsTo: [FeatureCategory.all.name],
         );
