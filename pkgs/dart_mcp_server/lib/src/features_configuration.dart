@@ -27,20 +27,24 @@ enum FeatureCategory {
   flutter(all),
 
   /// Features that require use of flutter_driver to interact with the app.
-  flutterDriver(flutter),
+  flutterDriver(flutter, 'flutter_driver'),
 
   /// Features for interacting with the widget inspector.
-  widgetInspector(flutter),
+  widgetInspector(flutter, 'widget_inspector'),
 
   /// Features for interacting with running apps via the Dart Tooling Daemon.
-  dartToolingDaemon(all),
+  dartToolingDaemon(all, 'dart_tooling_daemon'),
 
   /// Features for interacting with package dependencies, pub and/or pub.dev
-  packageDeps(all);
+  packageDeps(all, 'package_deps');
 
-  const FeatureCategory(this.parent);
+  const FeatureCategory(this.parent, [this._optionName]);
 
   final FeatureCategory? parent;
+
+  final String? _optionName;
+
+  String get name => _optionName ?? EnumName(this).name;
 }
 
 /// Controls which features are enabled for a given configuration.

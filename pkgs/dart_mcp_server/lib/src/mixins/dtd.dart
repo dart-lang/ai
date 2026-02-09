@@ -1038,7 +1038,7 @@ base mixin DartToolingDaemonSupport
         'called first.',
     annotations: ToolAnnotations(title: 'Take screenshot', readOnlyHint: true),
     inputSchema: Schema.object(additionalProperties: false),
-  )..categories = [FeatureCategory.flutter, FeatureCategory.flutterDriver];
+  )..categories = [FeatureCategory.flutter];
 
   @visibleForTesting
   static final hotReloadTool = Tool(
