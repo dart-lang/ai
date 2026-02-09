@@ -56,11 +56,17 @@ class FeaturesConfiguration {
        assert(FeatureCategory.all.name == 'all');
 
   static FeaturesConfiguration fromArgs(ArgResults args) {
+    final disabled = args.multiOption(disabledFeaturesOption).toSet();
+    if (args.option(toolsOption) == 'dart') {
+      // This is the equivalent of the deprecated --tools=dart option,
+      // just disable all flutter tools.
+      disabled.add(FeatureCategory.flutter.name);
+    }
     return FeaturesConfiguration(
       enabledNames: args.multiOption(enabledFeaturesOption).toSet()
         // We always enable `all`, this is the lowest precedence category.
         ..add(FeatureCategory.all.name),
-      disabledNames: args.multiOption(disabledFeaturesOption).toSet(),
+      disabledNames: disabled,
     );
   }
 

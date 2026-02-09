@@ -72,7 +72,6 @@ ArgParser createArgParser({
         )
         ..addMultiOption(
           enabledFeaturesOption,
-          aliases: ['tools'],
           help:
               'The names or categories of features to enable. All features are '
               'always enabled by default, but this can be used to override a '
@@ -80,6 +79,18 @@ ArgParser createArgParser({
               'that category.',
           allowed: allFeatureAndCategoryNames,
           defaultsTo: [FeatureCategory.all.name],
+        )
+        ..addOption(
+          toolsOption,
+          help: '[Deprecated] Use `--enable` and `--disable` instead.',
+          allowed: ['all', 'dart'],
+          allowedHelp: {
+            'all': 'Enables all Dart and Flutter tools',
+            'dart':
+                'Enables only tools relevant to pure Dart projects. '
+                'Replace with `--disable flutter`.',
+          },
+          defaultsTo: 'all',
         );
 
   if (includeHelp) parser.addFlag(helpFlag, abbr: 'h', help: 'Show usage text');
@@ -93,3 +104,4 @@ const flutterSdkOption = 'flutter-sdk';
 const forceRootsFallbackFlag = 'force-roots-fallback';
 const helpFlag = 'help';
 const logFileOption = 'log-file';
+const toolsOption = 'tools';
