@@ -31,40 +31,61 @@ void main() {
   });
 
   group('$PackageUriSupport', () {
-    test('can read package: uris for the root package', () async {
-      final result = await readUris([
-        'package:counter_app/images/add_to_vs_code.png',
-        'package:counter_app/main.dart',
-        'package:counter_app/',
-      ]);
-      expect(
-        result.content,
-        containsAll([
-          matchesEmbeddedTextResource(
-            contains('void main('),
-            'package:counter_app/main.dart',
-          ),
-          matchesEmbeddedBlobResource(
-            isA<String>(),
-            'package:counter_app/images/add_to_vs_code.png',
-            'image/png',
-          ),
-          matchesResourceLink('package:counter_app/driver_main.dart'),
-          matchesResourceLink('package:counter_app/main.dart'),
-          matchesResourceLink('package:counter_app/images/'),
-        ]),
-      );
-    });
+    test(
+      'can read package: and package-root: uris for the root package',
+      () async {
+        final server = testHarness.serverConnectionPair.server!;
+        final exampleDir = server.fileSystem.directory(
+          Uri.parse(counterAppRoot.uri).resolve('example/').toFilePath(),
+        );
+        addTearDown(() => exampleDir.delete(recursive: true));
+        exampleDir.createSync(recursive: true);
+        final result = await readUris([
+          'package:counter_app/images/add_to_vs_code.png',
+          'package:counter_app/main.dart',
+          'package:counter_app/',
+          'package-root:counter_app/pubspec.yaml',
+          'package-root:counter_app/example/',
+        ]);
+        expect(
+          result.content,
+          containsAll([
+            // package:counter_app/images/add_to_vs_code.png
+            isTextContent(
+              '## File "package:counter_app/images/add_to_vs_code.png":\n',
+            ),
+            isImageContent(isA<String>(), 'image/png'),
+            // package:counter_app/main.dart
+            isTextContent('## File "package:counter_app/main.dart":\n'),
+            isTextContent(contains('void main(')),
+            // package:counter_app/
+            isTextContent('## Directory "package:counter_app/":\n'),
+            isTextContent(
+              contains('  - File: package:counter_app/main.dart\n'),
+            ),
+            isTextContent(
+              contains('  - Directory: package:counter_app/images/\n'),
+            ),
+            isTextContent(
+              contains('  - File: package:counter_app/driver_main.dart\n'),
+            ),
+            isTextContent('## File "package-root:counter_app/pubspec.yaml":\n'),
+            isTextContent(contains('name: counter_app')),
+            isTextContent(
+              '## Directory "package-root:counter_app/example/":\n',
+            ),
+          ]),
+        );
+      },
+    );
 
     test('can read package: uris for other packages', () async {
       final result = await readUris(['package:flutter/material.dart']);
       expect(
         result.content,
         containsAll([
-          matchesEmbeddedTextResource(
-            contains('library material;'),
-            'package:flutter/material.dart',
-          ),
+          isTextContent('## File "package:flutter/material.dart":\n'),
+          isTextContent(contains('library material;')),
         ]),
       );
     });
@@ -97,13 +118,13 @@ void main() {
       );
     });
 
-    test('returns an error for non-package uris', () async {
+    test('returns an error for non-package or package-root uris', () async {
       final result = await readUris(['file:///foo/bar.dart']);
       expect(
         result.content,
         contains(
           isTextContent(
-            'The URI "file:///foo/bar.dart" was not a "package:" URI.',
+            'The URI "file:///foo/bar.dart" was not a "package:" or "package-root:" URI.',
           ),
         ),
       );
@@ -150,7 +171,7 @@ void main() {
         result.content,
         contains(
           isTextContent(
-            'File not found: package:counter_app/not_a_real_file.dart',
+            '## File not found: "package:counter_app/not_a_real_file.dart":\n',
           ),
         ),
       );
@@ -161,54 +182,9 @@ void main() {
 TypeMatcher<TextContent> isTextContent(dynamic textMatcher) =>
     isA<TextContent>().having((c) => c.text, 'text', textMatcher);
 
-TypeMatcher<EmbeddedResource> isEmbeddedResource() =>
-    isA<EmbeddedResource>().having(
-      (content) => content.type,
-      'type',
-      equals(EmbeddedResource.expectedType),
-    );
-
-TypeMatcher<TextResourceContents> isTextResource() =>
-    isA<TextResourceContents>().having(
-      (resource) => resource.isText,
-      'isText',
-      isTrue,
-    );
-
-Matcher matchesEmbeddedTextResource(dynamic contentMatcher, dynamic uri) =>
-    isEmbeddedResource().having(
-      (content) => content.resource,
-      'resource',
-      isTextResource()
-          .having((resource) => resource.text, 'text', contentMatcher)
-          .having((resource) => resource.uri, 'uri', uri),
-    );
-
-TypeMatcher<BlobResourceContents> isBlobResource() =>
-    isA<BlobResourceContents>().having(
-      (resource) => resource.isBlob,
-      'isBlob',
-      isTrue,
-    );
-
-Matcher matchesEmbeddedBlobResource(
-  dynamic contentMatcher,
-  dynamic uri,
+TypeMatcher<ImageContent> isImageContent(
+  Matcher contentMatcher,
   dynamic mimeType,
-) => isEmbeddedResource().having(
-  (content) => content.resource,
-  'resource',
-  isBlobResource()
-      .having((resource) => resource.blob, 'blob', contentMatcher)
-      .having((resource) => resource.uri, 'uri', uri)
-      .having((resource) => resource.mimeType, 'mimeType', mimeType),
-);
-
-TypeMatcher<ResourceLink> isResourceLink() => isA<ResourceLink>().having(
-  (content) => content.type,
-  'type',
-  equals(ResourceLink.expectedType),
-);
-
-Matcher matchesResourceLink(String uri) =>
-    isResourceLink().having((link) => link.uri, 'uri', uri);
+) => isA<ImageContent>()
+    .having((content) => content.data, 'blob', contentMatcher)
+    .having((content) => content.mimeType, 'mimeType', mimeType);

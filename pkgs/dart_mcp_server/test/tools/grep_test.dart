@@ -19,16 +19,23 @@ void main() {
   Future<CallToolResult> grep({
     required List<String> packageNames,
     required List<String> arguments,
-  }) => testHarness.callTool(
-    CallToolRequest(
-      name: GrepSupport.ripGrepPackagesTool.name,
-      arguments: {
-        ParameterNames.root: counterAppRoot.uri,
-        ParameterNames.packageNames: packageNames,
-        ParameterNames.arguments: arguments,
-      },
-    ),
-  );
+    String? searchDir,
+  }) {
+    final args = <String, Object?>{
+      ParameterNames.root: counterAppRoot.uri,
+      ParameterNames.packageNames: packageNames,
+      ParameterNames.arguments: arguments,
+    };
+    if (searchDir != null) {
+      args[ParameterNames.searchDir] = searchDir;
+    }
+    return testHarness.callTool(
+      CallToolRequest(
+        name: GrepSupport.ripGrepPackagesTool.name,
+        arguments: args,
+      ),
+    );
+  }
 
   setUpAll(() async {
     testHarness = await TestHarness.start(
@@ -114,6 +121,46 @@ void main() {
       expect(result.isError, isNot(isTrue));
       final content = result.content.first as TextContent;
       expect(content.text, contains('No matches in package `counter_app`'));
+    });
+
+    test('can search outside of lib/ when searchDir is empty string', () async {
+      final result = await grep(
+        packageNames: ['counter_app'],
+        arguments: ['name: counter_app'],
+        searchDir: '',
+      );
+      expect(result.isError, isNot(isTrue));
+      final content = result.content.first as TextContent;
+
+      expect(content.text, contains('package-root:counter_app/pubspec.yaml'));
+    });
+
+    test('can search in specific directory', () async {
+      final server = testHarness.serverConnectionPair.server!;
+      final testDir = server.fileSystem.directory(
+        Uri.parse(counterAppRoot.uri).resolve('test/').toFilePath(),
+      );
+      addTearDown(() => testDir.delete(recursive: true));
+      testDir.createSync(recursive: true);
+      final testFile = server.fileSystem.file(
+        testDir.uri.resolve('dummy_test.dart').toFilePath(),
+      );
+      testFile.writeAsStringSync('void main() { print("dummy test"); }');
+
+      final result = await grep(
+        packageNames: ['counter_app'],
+        arguments: ['dummy test'],
+        searchDir: 'test', // search specifically in "test"
+      );
+      expect(result.isError, isNot(isTrue));
+      final content = result.content.first as TextContent;
+
+      // Results outside lib use package-root:
+      expect(
+        content.text,
+        contains('package-root:counter_app/test/dummy_test.dart'),
+      );
+      expect(content.text, contains('dummy test'));
     });
   });
 

@@ -18,6 +18,7 @@ import '../utils/analytics.dart';
 import '../utils/cli_utils.dart';
 import '../utils/file_system.dart';
 import '../utils/names.dart';
+import '../utils/package_uris.dart';
 
 /// Adds a tool for reading package URIs to an MCP server.
 base mixin PackageUriSupport on ToolsSupport, RootsTrackingSupport
@@ -68,8 +69,10 @@ base mixin PackageUriSupport on ToolsSupport, RootsTrackingSupport
   }
 
   Stream<Content> _readPackageUri(Uri uri, PackageConfig packageConfig) async* {
-    if (uri.scheme != 'package') {
-      yield TextContent(text: 'The URI "$uri" was not a "package:" URI.');
+    if (uri.scheme != 'package' && uri.scheme != 'package-root') {
+      yield TextContent(
+        text: 'The URI "$uri" was not a "package:" or "package-root:" URI.',
+      );
       return;
     }
     final packageName = uri.pathSegments.first;
@@ -93,7 +96,12 @@ base mixin PackageUriSupport on ToolsSupport, RootsTrackingSupport
     }
 
     final packageRoot = Root(uri: package.root.toString());
-    final resolvedUri = package.packageUriRoot.resolve(path);
+    final Uri resolvedUri;
+    if (uri.scheme == 'package-root') {
+      resolvedUri = package.root.resolve(path);
+    } else {
+      resolvedUri = package.packageUriRoot.resolve(path);
+    }
     if (!isUnderRoot(packageRoot, resolvedUri.toString(), fileSystem)) {
       yield TextContent(
         text: 'The uri "$uri" attempted to escape it\'s package root.',
@@ -109,61 +117,65 @@ base mixin PackageUriSupport on ToolsSupport, RootsTrackingSupport
     switch (entityType) {
       case FileSystemEntityType.directory:
         final dir = fileSystem.directory(osFriendlyPath);
-        yield Content.text(text: '## Directory "$uri":');
+        yield Content.text(text: '## Directory "$uri":\n');
         await for (final entry in dir.list(followLinks: false)) {
-          yield ResourceLink(
-            name: p.basename(osFriendlyPath),
-            description: entry is Directory ? 'A directory' : 'A file',
-            uri: packageConfig.toPackageUri(entry.uri)!.toString(),
-            mimeType: lookupMimeType(entry.path) ?? '',
-          );
+          final packageUri = substitutePackageUris(entry.uri.path, package);
+          switch (entry) {
+            case Directory():
+              yield Content.text(text: '  - Directory: $packageUri\n');
+            case Link():
+              yield Content.text(text: '  - Link: $packageUri\n');
+            case File():
+              yield Content.text(text: '  - File: $packageUri\n');
+          }
         }
       case FileSystemEntityType.link:
         // We are only returning a reference to the target, so it is ok to not
         // check the path. The agent may have the permissions to read the linked
         // path on its own, even if it is outside of the package root.
-        var targetUri = resolvedUri.resolve(
-          await fileSystem.link(osFriendlyPath).target(),
-        );
-        // If we can represent it as a package URI, do so.
-        final asPackageUri = packageConfig.toPackageUri(targetUri);
-        if (asPackageUri != null) {
-          targetUri = asPackageUri;
+        var targetUri = resolvedUri
+            .resolve(await fileSystem.link(osFriendlyPath).target())
+            .toString();
+        if (isUnderRoot(packageRoot, targetUri, fileSystem)) {
+          targetUri = substitutePackageUris(targetUri, package);
         }
-        yield ResourceLink(
-          name: p.basename(targetUri.path),
-          description: 'Target of symlink at $uri',
-          uri: targetUri.toString(),
-          mimeType: lookupMimeType(targetUri.path) ?? '',
-        );
+        yield Content.text(text: '## Link "$uri": $targetUri\n');
       case FileSystemEntityType.file:
+        yield Content.text(text: '## File "$uri":\n');
         final file = fileSystem.file(osFriendlyPath);
         final mimeType = lookupMimeType(resolvedUri.path) ?? '';
-        final resourceUri = packageConfig.toPackageUri(resolvedUri)!.toString();
-        // Attempt to treat it as a utf8 String first, if that fails then just
-        // return it as bytes.
-        try {
-          yield Content.embeddedResource(
-            resource: TextResourceContents(
-              uri: resourceUri,
-              text: await file.readAsString(),
-              mimeType: mimeType,
-            ),
+
+        if (mimeType.startsWith('image/')) {
+          yield Content.image(
+            mimeType: mimeType,
+            data: base64Encode(await file.readAsBytes()),
           );
-        } catch (_) {
-          yield Content.embeddedResource(
-            resource: BlobResourceContents(
-              uri: resourceUri,
-              mimeType: mimeType,
-              blob: base64Encode(await file.readAsBytes()),
-            ),
+        } else if (mimeType.startsWith('audio/')) {
+          yield Content.audio(
+            mimeType: mimeType,
+            data: base64Encode(await file.readAsBytes()),
           );
+        } else {
+          // Attempt to treat it as a utf8 String first, if that fails then just
+          // return it as bytes.
+          try {
+            yield Content.text(text: await file.readAsString());
+            yield Content.text(text: '\n');
+          } catch (_) {
+            yield Content.text(
+              text:
+                  'Unable to read file as text, audio, or image content. '
+                  'It may be some other form of binary file.',
+            );
+          }
         }
       case FileSystemEntityType.notFound:
-        yield TextContent(text: 'File not found: $uri');
+        yield Content.text(text: '## File not found: "$uri":\n');
       default:
-        yield TextContent(
-          text: 'Unsupported file system entity type $entityType',
+        yield Content.text(
+          text:
+              '## Unsupported file system entity type: "$uri"\n'
+              '$entityType\n',
         );
     }
   }
@@ -172,12 +184,14 @@ base mixin PackageUriSupport on ToolsSupport, RootsTrackingSupport
   static final readPackageUris = Tool(
     name: ToolNames.readPackageUris.name,
     description:
-        'Reads "package" scheme URIs which represent paths under the lib '
-        'directory of Dart package dependencies. Package uris are always '
-        'relative, and the first segment is the package name. For example, the '
+        'Reads "package" and "package-root" scheme URIs which represent paths '
+        'under Dart package dependencies. "package" uris are always relative '
+        'to the "lib" directory and "package-root" uris are relative to the '
+        'true root directory of the package. For example, the '
         'URI "package:test/test.dart" represents the path "lib/test.dart" under '
-        'the "test" package. This API supports both reading files and listing '
-        'directories.',
+        'the "test" package. "package-root:test/example/test.dart" represents '
+        'the path "example/test.dart". This API supports both reading '
+        'files and listing directories.',
     inputSchema: Schema.object(
       properties: {
         ParameterNames.uris: Schema.list(
