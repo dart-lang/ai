@@ -50,15 +50,12 @@ void main() {
         expect(
           result.content,
           containsAll([
-            // package:counter_app/images/add_to_vs_code.png
             isTextContent(
               '## File "package:counter_app/images/add_to_vs_code.png":\n',
             ),
             isImageContent(isA<String>(), 'image/png'),
-            // package:counter_app/main.dart
             isTextContent('## File "package:counter_app/main.dart":\n'),
             isTextContent(contains('void main(')),
-            // package:counter_app/
             isTextContent('## Directory "package:counter_app/":\n'),
             isTextContent(
               contains('  - File: package:counter_app/main.dart\n'),
