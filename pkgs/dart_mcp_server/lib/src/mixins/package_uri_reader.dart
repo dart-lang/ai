@@ -119,7 +119,10 @@ base mixin PackageUriSupport on ToolsSupport, RootsTrackingSupport
         final dir = fileSystem.directory(osFriendlyPath);
         yield Content.text(text: '## Directory "$uri":\n');
         await for (final entry in dir.list(followLinks: false)) {
-          final packageUri = substitutePackageUris(entry.uri.path, package);
+          final packageUri = substitutePackageUris(
+            cleanFilePath(entry.uri.path),
+            package,
+          );
           switch (entry) {
             case Directory():
               yield Content.text(text: '  - Directory: $packageUri\n');
@@ -137,7 +140,7 @@ base mixin PackageUriSupport on ToolsSupport, RootsTrackingSupport
             .resolve(await fileSystem.link(osFriendlyPath).target())
             .toString();
         if (isUnderRoot(packageRoot, targetUri, fileSystem)) {
-          targetUri = substitutePackageUris(targetUri, package);
+          targetUri = substitutePackageUris(cleanFilePath(targetUri), package);
         }
         yield Content.text(text: '## Link "$uri": $targetUri\n');
       case FileSystemEntityType.file:
