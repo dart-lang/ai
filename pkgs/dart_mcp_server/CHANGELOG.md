@@ -11,6 +11,11 @@
     becomes `--disable=flutter` and `--exclude-tool` is just an alias for
     `--disable`.
 - Add `timeout` option to `launch_app`.
+- The `read_package_uris` tool now supports resolving the `package-root:` scheme
+  to read package structure beyond the `lib/` directory.
+- The `read_package_uris` tool now returns flattened text and image `Content`
+  payloads when traversing directories and symlinks rather than `ResourceLink`s
+  or embedded resources. This has better support across all clients.
 
 # 0.1.2 (Dart SDK 3.11.0)
 
