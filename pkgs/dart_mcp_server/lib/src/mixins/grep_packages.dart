@@ -17,6 +17,7 @@ import '../features_configuration.dart';
 import '../utils/cli_utils.dart';
 import '../utils/file_system.dart';
 import '../utils/names.dart';
+import '../utils/package_uris.dart';
 import '../utils/process_manager.dart';
 import 'package_uri_reader.dart';
 
@@ -85,9 +86,15 @@ base mixin GrepSupport
         resultContent.add(packageNotFoundText(name));
         continue;
       }
+      final searchDir = args[ParameterNames.searchDir] as String? ?? 'lib';
       try {
         resultContent.add(
-          await runRipGrep(package, ripGrepExecutable, grepArgs),
+          await runRipGrep(
+            package,
+            ripGrepExecutable,
+            grepArgs,
+            searchDir: searchDir,
+          ),
         );
       } catch (e) {
         resultContent.add(
@@ -103,16 +110,18 @@ base mixin GrepSupport
   Future<Content> runRipGrep(
     Package package,
     String ripGrepExecutable,
-    List<String> args,
-  ) async {
-    var packagePath = package.packageUriRoot.path;
-    // On windows, we get paths like "/C:/Users/...", and need to strip out the
-    // leading slash.
-    if (Platform.isWindows &&
-        packagePath.startsWith('/') &&
-        packagePath.contains(':')) {
-      packagePath = packagePath.substring(1);
+    List<String> args, {
+    required String searchDir,
+  }) async {
+    Uri searchUri;
+    if (searchDir.isEmpty) {
+      searchUri = package.root;
+    } else {
+      searchUri = package.root.resolve(
+        searchDir.endsWith('/') ? searchDir : '$searchDir/',
+      );
     }
+    final packagePath = cleanFilePath(searchUri.path);
     final result = await processManager.run([
       ripGrepExecutable,
       ...args,
@@ -121,10 +130,9 @@ base mixin GrepSupport
     ]);
 
     if (result.exitCode == 0) {
-      final text = (result.stdout as String).replaceAll(
-        packagePath,
-        'package:${package.name}/',
-      );
+      var text = result.stdout as String;
+      text = substitutePackageUris(text, package);
+
       return TextContent(text: text);
     } else if (result.exitCode == 1) {
       // Exit code 1 means no matches were found, which is not an error.
@@ -159,9 +167,15 @@ base mixin GrepSupport
           description:
               'The arguments to pass to ripgrep. Note that two arguments '
               'will be added to the command: `--path-separator=/` and the '
-              'package URI root as the search path.',
+              'search path based on the package and search dir..',
           items: Schema.string(),
           minItems: 1,
+        ),
+        ParameterNames.searchDir: Schema.string(
+          description:
+              'The directory to search within the package. Defaults to "lib". '
+              'Pass an empty string to search the entire package root '
+              '(e.g. for searching "example" or "test" directories).',
         ),
         ParameterNames.root: rootSchema,
       },
