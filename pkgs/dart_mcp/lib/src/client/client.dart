@@ -5,6 +5,8 @@
 import 'dart:async';
 import 'dart:collection';
 
+import 'package:async/async.dart';
+import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_channel/stream_channel.dart';
 
@@ -93,7 +95,8 @@ base class MCPClient {
       protocolLogSink: protocolLogSink,
       rootsSupport: self is RootsSupport ? self : null,
       samplingSupport: self is SamplingSupport ? self : null,
-      elicitationSupport: self is ElicitationSupport ? self : null,
+      elicitationFormSupport: self is ElicitationFormSupport ? self : null,
+      elicitationUrlSupport: self is ElicitationUrlSupport ? self : null,
     );
     connections.add(connection);
     channel.sink.done.then((_) => connections.remove(connection));
@@ -127,6 +130,9 @@ base class ServerConnection extends MCPBase {
   ///
   /// Only assigned after [initialize] has successfully completed.
   late ServerCapabilities serverCapabilities;
+
+  /// The [ElicitationUrlSupport] for this connection, if any.
+  final ElicitationUrlSupport? _elicitationUrlSupport;
 
   @override
   String get name => serverInfo?.name ?? super.name;
@@ -178,6 +184,16 @@ base class ServerConnection extends MCPBase {
   Stream<LoggingMessageNotification> get onLog => _logController.stream;
   final _logController =
       StreamController<LoggingMessageNotification>.broadcast();
+  
+  /// Emits an event any time the server sends an elicitation complete
+  /// notification.
+  ///
+  /// This is a broadcast stream, events are not buffered and only future events
+  /// are given.
+  Stream<ElicitationCompleteNotification> get onElicitationComplete =>
+      _elicitationCompleteController.stream;
+  final _elicitationCompleteController =
+      StreamController<ElicitationCompleteNotification>.broadcast();
 
   /// A 1:1 connection from a client to a server using [channel].
   ///
@@ -191,8 +207,12 @@ base class ServerConnection extends MCPBase {
     super.protocolLogSink,
     RootsSupport? rootsSupport,
     SamplingSupport? samplingSupport,
+    @Deprecated('Use elicitationFormSupport instead')
     ElicitationSupport? elicitationSupport,
-  }) {
+    ElicitationFormSupport? elicitationFormSupport,
+    ElicitationUrlSupport? elicitationUrlSupport,
+  }) : _elicitationUrlSupport = elicitationUrlSupport {
+    elicitationFormSupport ??= elicitationSupport;
     if (rootsSupport != null) {
       registerRequestHandler(
         ListRootsRequest.methodName,
@@ -208,9 +228,22 @@ base class ServerConnection extends MCPBase {
       );
     }
 
-    if (elicitationSupport != null) {
+    if (elicitationFormSupport != null || elicitationUrlSupport != null) {
       registerRequestHandler(ElicitRequest.methodName, (ElicitRequest request) {
-        return elicitationSupport.handleElicitation(request);
+        switch (request.mode) {
+          case ElicitationMode.form:
+            if (elicitationFormSupport != null) {
+              return elicitationFormSupport.handleElicitation(request, this);
+            } else {
+              return ElicitResult(action: ElicitationAction.decline);
+            }
+          case ElicitationMode.url:
+            if (elicitationUrlSupport != null) {
+              return elicitationUrlSupport.handleElicitation(request, this);
+            } else {
+              return ElicitResult(action: ElicitationAction.decline);
+            }
+        }
       });
     }
 
@@ -237,6 +270,11 @@ base class ServerConnection extends MCPBase {
     registerNotificationHandler(
       LoggingMessageNotification.methodName,
       _logController.sink.add,
+    );
+
+    registerNotificationHandler(
+      ElicitationCompleteNotification.methodName,
+      _elicitationCompleteController.sink.add,
     );
   }
 
@@ -287,8 +325,30 @@ base class ServerConnection extends MCPBase {
       sendRequest(ListToolsRequest.methodName, request);
 
   /// Invokes a [Tool] returned from the [ListToolsResult].
-  Future<CallToolResult> callTool(CallToolRequest request) =>
-      sendRequest(CallToolRequest.methodName, request);
+  Future<CallToolResult> callTool(CallToolRequest request) async {
+    try {
+      return await sendRequest(CallToolRequest.methodName, request);
+    } on RpcException catch (e) {
+      // If we are set up to try and auto handle url elicitation and we get
+      // an error that the url elicitation is required, we will try and handle
+      // it and then retry the request a single time.
+      if (_elicitationUrlSupport?.autoHandleUrlElicitationRequired == true &&
+          e.code == McpErrorCodes.urlElicitationRequired) {
+        final elicitRequest = e.data as ElicitRequest;
+        final elicitationComplete =
+            elicitRequest.onElicitationComplete(this).firstOrNull;
+        final elicitResult = await _elicitationUrlSupport!.handleElicitation(
+          elicitRequest,
+          this,
+        );
+        if (elicitResult.action == ElicitationAction.accept) {
+          await elicitationComplete;
+        }
+        return await sendRequest(CallToolRequest.methodName, request);
+      }
+      rethrow;
+    }
+  }
 
   /// Lists all the [Resource]s from this server.
   Future<ListResourcesResult> listResources([ListResourcesRequest? request]) =>
@@ -340,4 +400,19 @@ base class ServerConnection extends MCPBase {
   // TODO: Implement automatic debouncing.
   Future<CompleteResult> requestCompletions(CompleteRequest request) =>
       sendRequest(CompleteRequest.methodName, request);
+}
+
+extension ElicitationServerConnection on ElicitRequest {
+  /// Broadcast stream of notifications for this elicitation ID. Events are not
+  /// buffered so you must listen to this stream prior to opening the URL or
+  /// you may miss the notification.
+  ///
+  /// Typically you should call `.take(1)` or `.first` on this stream to
+  /// automatically cancel the subscription after receiving the first
+  /// notification.
+  Stream<void> onElicitationComplete(ServerConnection connection) {
+    return connection.onElicitationComplete.where(
+      (notification) => notification.elicitationId == elicitationId,
+    );
+  }
 }

@@ -13,6 +13,8 @@ import 'package:json_rpc_2/json_rpc_2.dart';
 
 part 'completions.dart';
 part 'elicitation.dart';
+part 'error_codes.dart';
+part 'icons.dart';
 part 'initialization.dart';
 part 'logging.dart';
 part 'prompts.dart';
@@ -25,7 +27,8 @@ part 'tools.dart';
 enum ProtocolVersion {
   v2024_11_05('2024-11-05'),
   v2025_03_26('2025-03-26'),
-  v2025_06_18('2025-06-18');
+  v2025_06_18('2025-06-18'),
+  v2025_11_05('2025-11-05');
 
   const ProtocolVersion(this.versionString);
 
@@ -38,7 +41,7 @@ enum ProtocolVersion {
   static const oldestSupported = ProtocolVersion.v2024_11_05;
 
   /// The most recent version supported by the current API.
-  static const latestSupported = ProtocolVersion.v2025_06_18;
+  static const latestSupported = ProtocolVersion.v2025_11_05;
 
   /// The version string used over the wire to identify this version.
   final String versionString;
@@ -95,8 +98,7 @@ extension type Meta.fromMap(Map<String, Object?> _value) {
 ///
 /// Not to be confused with the `_meta` property in the spec, which has a
 /// different purpose.
-extension type BaseMetadata.fromMap(Map<String, Object?> _value)
-    implements Meta {
+extension type BaseMetadata.fromMap(Map<String, Object?> _value) {
   factory BaseMetadata({required String name, String? title}) =>
       BaseMetadata.fromMap({'name': name, 'title': title});
 
@@ -559,7 +561,7 @@ extension type Annotations.fromMap(Map<String, Object?> _value) {
     final audience = _value['audience'] as List?;
     if (audience == null) return null;
     return [
-      for (var role in audience) Role.values.firstWhere((e) => e.name == role),
+      for (var role in audience) Role.values.byName(role as String),
     ];
   }
 

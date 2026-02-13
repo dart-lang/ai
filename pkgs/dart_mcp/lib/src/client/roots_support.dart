@@ -8,7 +8,7 @@ part of 'client.dart';
 ///
 /// Supports "listChanged" notifications.
 ///
-/// See https://spec.modelcontextprotocol.io/specification/2025-03-26/client/roots/.
+/// See https://spec.modelcontextprotocol.io/specification/2025-11-05/client/roots/.
 base mixin RootsSupport on MCPClient {
   /// The known roots by URI.
   ///

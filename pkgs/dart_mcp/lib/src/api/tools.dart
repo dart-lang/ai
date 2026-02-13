@@ -139,6 +139,7 @@ extension type Tool.fromMap(Map<String, Object?> _value)
     ToolAnnotations? annotations,
     // Only supported since version `ProtocolVersion.v2025_03_26`.
     Meta? meta,
+    List<Icon>? icons,
   }) => Tool.fromMap({
     'name': name,
     if (title != null) 'title': title,
@@ -147,7 +148,12 @@ extension type Tool.fromMap(Map<String, Object?> _value)
     if (outputSchema != null) 'outputSchema': outputSchema,
     if (annotations != null) 'annotations': annotations,
     if (meta != null) '_meta': meta,
+    if (icons != null) 'icons': icons,
   });
+
+  /// Optional set of sized icons that the client can display in a user
+  /// interface.
+  List<Icon>? get icons => (_value['icons'] as List?)?.cast<Icon>();
 
   /// Optional additional tool information.
   ///
@@ -333,7 +339,7 @@ extension type ValidationError.fromMap(Map<String, Object?> _value) {
 
   /// The type of validation error that occurred.
   ValidationErrorType get error =>
-      ValidationErrorType.values.firstWhere((t) => t.name == _value['error']);
+      ValidationErrorType.values.byName(_value['error'] as String);
 
   /// The path to the object that had the error.
   List<String> get path => (_value['path'] as List).cast<String>();

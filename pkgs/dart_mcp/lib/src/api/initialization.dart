@@ -179,7 +179,31 @@ extension type RootsCapabilities.fromMap(Map<String, Object?> _value) {
 
 /// Whether the client supports elicitation.
 extension type ElicitationCapability.fromMap(Map<String, Object?> _value) {
-  factory ElicitationCapability() => ElicitationCapability.fromMap({});
+  factory ElicitationCapability({
+    Map<String, Object?>? form,
+    Map<String, Object?>? url,
+  }) => ElicitationCapability.fromMap({
+    if (form != null) 'form': form,
+    if (url != null) 'url': url,
+  });
+
+  /// Whether form-based elicitation is supported.
+  Map<String, Object?>? get form => _value['form'] as Map<String, Object?>?;
+
+  /// Sets whether [form] is supported.
+  set form(Map<String, Object?>? value) {
+    assert(form == null);
+    _value['form'] = value;
+  }
+
+  /// Whether URL-based elicitation is supported.
+  Map<String, Object?>? get url => _value['url'] as Map<String, Object?>?;
+
+  /// Sets whether [url] is supported.
+  set url(Map<String, Object?>? value) {
+    assert(url == null);
+    _value['url'] = value;
+  }
 }
 
 /// Capabilities that a server may support.
@@ -348,10 +372,16 @@ extension type Implementation.fromMap(Map<String, Object?> _value)
     required String name,
     required String version,
     String? title,
+    String? description,
+    List<Icon>? icons,
+    String? websiteUrl,
   }) => Implementation.fromMap({
     'name': name,
     'version': version,
     if (title != null) 'title': title,
+    if (description != null) 'description': description,
+    if (icons != null) 'icons': icons,
+    if (websiteUrl != null) 'websiteUrl': websiteUrl,
   });
 
   String get version {
@@ -361,6 +391,16 @@ extension type Implementation.fromMap(Map<String, Object?> _value)
     }
     return version;
   }
+
+  /// A human-readable description of what this implementation does.
+  String? get description => _value['description'] as String?;
+
+  /// Optional set of sized icons that the client can display in a user
+  /// interface.
+  List<Icon>? get icons => (_value['icons'] as List?)?.cast<Icon>();
+
+  /// Optional URL to the website of the implementation.
+  String? get websiteUrl => _value['websiteUrl'] as String?;
 }
 
 @Deprecated('Use Implementation instead.')

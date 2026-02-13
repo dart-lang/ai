@@ -87,17 +87,21 @@ extension type GetPromptResult.fromMap(Map<String, Object?> _value)
 
 /// A prompt or prompt template that the server offers.
 extension type Prompt.fromMap(Map<String, Object?> _value)
-    implements BaseMetadata {
+    implements BaseMetadata, WithMetadata {
   factory Prompt({
     required String name,
     String? title,
     String? description,
     List<PromptArgument>? arguments,
+    List<Icon>? icons,
+    Meta? meta,
   }) => Prompt.fromMap({
     'name': name,
     if (title != null) 'title': title,
     if (description != null) 'description': description,
     if (arguments != null) 'arguments': arguments,
+    if (icons != null) 'icons': icons,
+    if (meta != null) '_meta': meta,
   });
 
   /// An optional description of what this prompt provides.
@@ -105,6 +109,10 @@ extension type Prompt.fromMap(Map<String, Object?> _value)
 
   /// A list of arguments to use for templating the prompt.
   List<PromptArgument>? get arguments => (_value['arguments'] as List?)?.cast();
+
+  /// Optional set of sized icons that the client can display in a user
+  /// interface.
+  List<Icon>? get icons => (_value['icons'] as List?)?.cast<Icon>();
 }
 
 /// Describes an argument that a prompt can accept.
@@ -142,8 +150,7 @@ extension type PromptMessage.fromMap(Map<String, Object?> _value) {
 
   /// The expected [Role] for this message in the prompt (multi-message
   /// prompt flows may outline a back and forth between users and assistants).
-  Role get role =>
-      Role.values.firstWhere((role) => role.name == _value['role']);
+  Role get role => Role.values.byName(_value['role'] as String);
 
   /// The content of the message, see [Content] docs for the possible types.
   Content get content => _value['content'] as Content;

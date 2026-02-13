@@ -24,6 +24,7 @@ extension type CreateMessageRequest.fromMap(Map<String, Object?> _value)
     int? temperature,
     required int maxTokens,
     List<String>? stopSequences,
+    ToolChoice? toolChoice,
     Map<String, Object?>? metadata,
     MetaWithProgressToken? meta,
   }) => CreateMessageRequest.fromMap({
@@ -34,6 +35,7 @@ extension type CreateMessageRequest.fromMap(Map<String, Object?> _value)
     if (temperature != null) 'temperature': temperature,
     'maxTokens': maxTokens,
     if (stopSequences != null) 'stopSequences': stopSequences,
+    if (toolChoice != null) 'toolChoice': toolChoice,
     if (metadata != null) 'metadata': metadata,
     if (meta != null) '_meta': meta,
   });
@@ -65,7 +67,7 @@ extension type CreateMessageRequest.fromMap(Map<String, Object?> _value)
   IncludeContext? get includeContext {
     final includeContext = _value['includeContext'] as String?;
     if (includeContext == null) return null;
-    return IncludeContext.values.firstWhere((c) => c.name == includeContext);
+    return IncludeContext.values.byName(includeContext);
   }
 
   /// The temperature to use for sampling.
@@ -85,6 +87,9 @@ extension type CreateMessageRequest.fromMap(Map<String, Object?> _value)
   /// Note: This has no documentation in the specification or schema.
   List<String>? get stopSequences =>
       (_value['stopSequences'] as List?)?.cast<String>();
+
+  /// Controls how the model uses tools (if available).
+  ToolChoice? get toolChoice => _value['toolChoice'] as ToolChoice?;
 
   /// Optional metadata to pass through to the LLM provider.
   ///
@@ -134,8 +139,7 @@ extension type SamplingMessage.fromMap(Map<String, Object?> _value) {
       SamplingMessage.fromMap({'role': role.name, 'content': content});
 
   /// The role of the message.
-  Role get role =>
-      Role.values.firstWhere((role) => role.name == _value['role']);
+  Role get role => Role.values.byName(_value['role'] as String);
 
   /// The content of the message.
   Content get content => _value['content'] as Content;
@@ -219,4 +223,40 @@ extension type ModelHint.fromMap(Map<String, Object?> _value) {
   /// example:
   ///  - `gemini-1.5-flash` could match `claude-3-haiku-20240307`
   String? get name => _value['name'] as String?;
+}
+
+/// Controls tool selection behavior for sampling requests.
+extension type ToolChoice.fromMap(Map<String, Object?> _value) {
+  factory ToolChoice({required ToolChoiceMode mode}) =>
+      ToolChoice.fromMap({'mode': mode.name});
+
+  /// Controls the tool use ability of the model:
+  ToolChoiceMode get mode {
+    final mode = _value['mode'] as String?;
+    if (mode == null) {
+      throw ArgumentError('Missing required mode field in $ToolChoice');
+    }
+    return ToolChoiceMode.values.byName(mode);
+  }
+}
+
+/// The tool selection mode for sampling requests.
+enum ToolChoiceMode {
+  /// Model decides whether to use tools (default).
+  auto,
+
+  /// Model MUST use at least one tool before completing.
+  ///
+  /// On the wire, this is represented as "required", but that is a reserved
+  /// keyword in Dart, so we use "require" instead.
+  require('required'),
+
+  /// Model MUST NOT use any tools.
+  none;
+
+  const ToolChoiceMode([this._name]);
+
+  final String? _name;
+
+  String get name => _name ?? EnumName(this).name;
 }

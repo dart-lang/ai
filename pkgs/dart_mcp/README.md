@@ -76,6 +76,7 @@ from `ServerConnection.initialize`.
 [2024-11-05](https://spec.modelcontextprotocol.io/specification/2024-11-05/)
 [2025-03-26](https://spec.modelcontextprotocol.io/specification/2025-03-26/)
 [2025-06-18](https://spec.modelcontextprotocol.io/specification/2025-06-18/)
+[2025-11-05](https://spec.modelcontextprotocol.io/specification/2025-11-05/)
 
 If support for a given protocol version is dropped, that will be released as a
 breaking change in this package.
@@ -85,28 +86,28 @@ However, we will strive to maintain backwards compatibility where possible.
 ## Base Utilities
 
 This table describes the state of implementation for the base protocol
-[utilities](https://spec.modelcontextprotocol.io/specification/2024-11-05/basic/utilities).
+[utilities](https://spec.modelcontextprotocol.io/specification/2025-11-05/basic/utilities).
 
 Both the `MCPServer` and `MCPClient` support these.
 
 | Utility | Support | Notes |
 | --- | --- | --- |
-| [Ping](https://spec.modelcontextprotocol.io/specification/2024-11-05/basic/utilities/ping) | :heavy_check_mark: |  |
-| [Cancellation](https://spec.modelcontextprotocol.io/specification/2024-11-05/basic/utilities/cancellation/) | :x: | https://github.com/dart-lang/ai/issues/37 |
-| [Progress](https://spec.modelcontextprotocol.io/specification/2024-11-05/basic/utilities/progress/) | :heavy_check_mark: |  |
+| [Ping](https://spec.modelcontextprotocol.io/specification/2025-11-05/basic/utilities/ping) | :heavy_check_mark: |  |
+| [Cancellation](https://spec.modelcontextprotocol.io/specification/2025-11-05/basic/utilities/cancellation/) | :x: | https://github.com/dart-lang/ai/issues/37 |
+| [Progress](https://spec.modelcontextprotocol.io/specification/2025-11-05/basic/utilities/progress/) | :heavy_check_mark: |  |
 
 ## Transport Mechanisms
 
 This table describes the supported
-[transport mechanisms](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports).
+[transport mechanisms](https://modelcontextprotocol.io/specification/2025-11-05/basic/transports).
 
 At its core this package is just built on streams, so any transport mechanism
 can be used, but some are directly supported out of the box.
 
 | Transport | Support | Notes |
 | --- | --- | --- |
-| [Stdio](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#stdio) | :heavy_check_mark: |  |
-| [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) | :x: | Unsupported at this time, may come in the future. |
+| [Stdio](https://modelcontextprotocol.io/specification/2025-11-05/basic/transports#stdio) | :heavy_check_mark: |  |
+| [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-11-05/basic/transports#streamable-http) | :x: | Unsupported at this time, may come in the future. |
 
 ## Batching Requests
 
@@ -121,32 +122,32 @@ at local MCP server usage for now.
 ## Server Capabilities
 
 This table describes the state of implementation for the
-[server capabilities](https://spec.modelcontextprotocol.io/specification/2024-11-05/server/).
+[server capabilities](https://spec.modelcontextprotocol.io/specification/2025-11-05/server/).
 
 **Note:** Servers can also invoke all [client capabilities](#client-capabilities),
 see [Invoking Client Capabilities](#invoking-client-capabilities).
 
 | Capability | Support | Notes |
 | --- | --- | --- |
-| [Prompts](https://spec.modelcontextprotocol.io/specification/2024-11-05/server/prompts/) | :heavy_check_mark: |  |
-| [Resources](https://spec.modelcontextprotocol.io/specification/2024-11-05/server/resources/) | :heavy_check_mark: |  |
-| [Tools](https://spec.modelcontextprotocol.io/specification/2024-11-05/server/tools/) | :heavy_check_mark: |  |
+| [Prompts](https://spec.modelcontextprotocol.io/specification/2025-11-05/server/prompts/) | :heavy_check_mark: |  |
+| [Resources](https://spec.modelcontextprotocol.io/specification/2025-11-05/server/resources/) | :heavy_check_mark: |  |
+| [Tools](https://spec.modelcontextprotocol.io/specification/2025-11-05/server/tools/) | :heavy_check_mark: |  |
 
 ## Server Utilities
 
 This table describes the state of implementation for the
-[server utilities](https://spec.modelcontextprotocol.io/specification/2024-11-05/server/utilities/).
+[server utilities](https://spec.modelcontextprotocol.io/specification/2025-11-05/server/utilities/).
 
 | Utility | Support | Notes |
 | --- | --- | --- |
-| [Completion](https://spec.modelcontextprotocol.io/specification/2024-11-05/server/utilities/completion/) | :heavy_check_mark: |  |
-| [Logging](https://spec.modelcontextprotocol.io/specification/2024-11-05/server/utilities/logging/) | :heavy_check_mark: |  |
-| [Pagination](https://spec.modelcontextprotocol.io/specification/2024-11-05/server/utilities/pagination/) | :construction: | https://github.com/dart-lang/ai/issues/28 |
+| [Completion](https://spec.modelcontextprotocol.io/specification/2025-11-05/server/utilities/completion/) | :heavy_check_mark: |  |
+| [Logging](https://spec.modelcontextprotocol.io/specification/2025-11-05/server/utilities/logging/) | :heavy_check_mark: |  |
+| [Pagination](https://spec.modelcontextprotocol.io/specification/2025-11-05/server/utilities/pagination/) | :construction: | https://github.com/dart-lang/ai/issues/28 |
 
 ## Client Capabilities
 
 This table describes the state of implementation for the client
-[capabilities](https://spec.modelcontextprotocol.io/specification/2024-11-05/client/).
+[capabilities](https://spec.modelcontextprotocol.io/specification/2025-11-05/client/).
 
 **Note:** Clients can also invoke all [server capabilities](#server-capabilities)
 and [server utilities](#server-utilities),
@@ -154,5 +155,5 @@ see [Invoking Server Capabilities and Utilities](#invoking-server-capabilities-a
 
 | Capability | Support | Notes |
 | --- | --- | --- |
-| [Roots](https://spec.modelcontextprotocol.io/specification/2024-11-05/client/roots/)| :heavy_check_mark: | |
-| [Sampling](https://spec.modelcontextprotocol.io/specification/2024-11-05/client/sampling/)| :heavy_check_mark: | |
+| [Roots](https://spec.modelcontextprotocol.io/specification/2025-11-05/client/roots/)| :heavy_check_mark: | |
+| [Sampling](https://spec.modelcontextprotocol.io/specification/2025-11-05/client/sampling/)| :heavy_check_mark: | |

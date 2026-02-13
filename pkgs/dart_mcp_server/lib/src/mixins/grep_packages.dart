@@ -198,7 +198,7 @@ base mixin GrepSupport
     // because we can't get consent.
     if (clientCapabilities.elicitation == null) return null;
     final elicitResult = await elicit(
-      ElicitRequest(
+      ElicitRequest.form(
         message: 'Ripgrep is required to run this tool, can I install it?',
         requestedSchema: Schema.object(),
       ),
