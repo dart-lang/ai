@@ -1017,6 +1017,40 @@ void main() {
           // Clean up
           await testHarness.stopDebugSession(debugSession);
         });
+
+        test('can use Descendant finder', () async {
+          final debugSession = await testHarness.startDebugSession(
+            counterAppPath,
+            'lib/driver_main.dart',
+            isFlutter: true,
+          );
+          final result = await testHarness.callToolWithRetry(
+            CallToolRequest(
+              name: DartToolingDaemonSupport.flutterDriverTool.name,
+              arguments: {
+                'command': 'get_text',
+                'finderType': 'Descendant',
+                'of': {'finderType': 'ByType', 'type': 'Column'},
+                'matching': {
+                  'finderType': 'ByValueKey',
+                  'keyValueString': 'counter',
+                  'keyValueType': 'String',
+                },
+                'firstMatchOnly': 'true',
+                'matchRoot': 'false',
+              },
+            ),
+          );
+          expect(
+            result.content.first,
+            isA<TextContent>().having(
+              (c) => c.text,
+              'text',
+              contains('"text":"0"'),
+            ),
+          );
+          await testHarness.stopDebugSession(debugSession);
+        });
       });
     });
 

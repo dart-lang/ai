@@ -242,6 +242,12 @@ base mixin DartToolingDaemonSupport
         if (isScreenshot) {
           request.arguments?.putIfAbsent('format', () => '4' /*png*/);
         }
+        // jsonEncode nested finder maps for Ancestor/Descendant finders.
+        for (final key in const ['of', 'matching']) {
+          if (request.arguments?[key] is Map) {
+            request.arguments![key] = jsonEncode(request.arguments![key]);
+          }
+        }
         final result = await vmService
             .callServiceExtension(
               _flutterDriverService,
