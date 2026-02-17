@@ -11,6 +11,8 @@
     becomes `--disable=flutter` and `--exclude-tool` is just an alias for
     `--disable`.
 - Add `timeout` option to `launch_app`.
+- Fix nested finder JSON serialization for Ancestor/Descendant finders in the
+  `flutter_driver` tool ([issue #345](https://github.com/dart-lang/ai/issues/345)).
 
 # 0.1.2 (Dart SDK 3.11.0)
 
