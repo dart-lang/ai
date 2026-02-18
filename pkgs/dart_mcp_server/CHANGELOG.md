@@ -11,6 +11,10 @@
     becomes `--disable=flutter` and `--exclude-tool` is just an alias for
     `--disable`.
 - Add `timeout` option to `launch_app`.
+- Add `args` parameter to `launch_app` to support passing additional flags to
+  `flutter run` (e.g. `--flavor`, `--dart-define`, `--dart-define-from-file`).
+  Managed flags (`--print-dtd`, `--machine`, `--device-id`, `--target`, `-d`,
+  `-t`) are blocked and must be passed via their dedicated parameters instead.
 - The `read_package_uris` tool now supports resolving the `package-root:` scheme
   to read package structure beyond the `lib/` directory.
 - The `read_package_uris` tool now returns flattened text and image `Content`
