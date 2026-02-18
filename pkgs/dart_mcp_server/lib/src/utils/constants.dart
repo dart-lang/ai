@@ -6,3 +6,9 @@ import 'package:dart_mcp/server.dart';
 
 /// A shared success response for tools.
 final success = CallToolResult(content: [Content.text(text: 'Success')]);
+
+/// Namespace for our custom scheme constants.
+extension Schemes on Never {
+  static const packageRoot = 'package-root';
+  static const package = 'package';
+}

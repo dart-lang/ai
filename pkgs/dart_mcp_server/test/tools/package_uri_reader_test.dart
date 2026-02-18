@@ -32,7 +32,7 @@ void main() {
 
   group('$PackageUriSupport', () {
     test(
-      'can read package: and package-root: uris for the root package',
+      'can read package: and package-root: URIs for the root package',
       () async {
         final server = testHarness.serverConnectionPair.server!;
         final exampleDir = server.fileSystem.directory(
@@ -76,7 +76,7 @@ void main() {
       },
     );
 
-    test('can read package: uris for other packages', () async {
+    test('can read package: URIs for other packages', () async {
       final result = await readUris(['package:flutter/material.dart']);
       expect(
         result.content,
@@ -115,7 +115,7 @@ void main() {
       );
     });
 
-    test('returns an error for non-package or package-root uris', () async {
+    test('returns an error for non-package or package-root URIs', () async {
       final result = await readUris(['file:///foo/bar.dart']);
       expect(
         result.content,
@@ -142,7 +142,7 @@ void main() {
     });
 
     test(
-      'returns an error for uris that try to escape the package root',
+      'returns an error for URIs that try to escape the package root',
       () async {
         final result = await readUris(['package:counter_app/../main.dart']);
         expect(

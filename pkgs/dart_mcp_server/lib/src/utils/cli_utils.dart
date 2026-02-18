@@ -186,7 +186,7 @@ Future<CallToolResult> runCommandInRoot(
       content: [
         TextContent(
           text:
-              'Only file scheme uris are allowed for roots, but got '
+              'Only file scheme URIs are allowed for roots, but got '
               '$rootUri',
         ),
       ],
@@ -296,7 +296,7 @@ validateRootConfig(
         content: [
           TextContent(
             text:
-                'Only file scheme uris are allowed for roots, but got '
+                'Only file scheme URIs are allowed for roots, but got '
                 '$rootUri',
           ),
         ],
@@ -373,7 +373,7 @@ Future<String> defaultCommandForRoot(
 
 /// Returns whether [uri] is under or exactly equal to [root].
 ///
-/// Relative uris will always be under [root] unless they escape it with `../`.
+/// Relative URIs will always be under [root] unless they escape it with `../`.
 bool isUnderRoot(Root root, String uri, FileSystem fileSystem) {
   // This normalizes the URI to ensure it is treated as a directory (for example
   // ensures it ends with a trailing slash).

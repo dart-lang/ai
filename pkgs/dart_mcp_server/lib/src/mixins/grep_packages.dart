@@ -15,6 +15,7 @@ import 'package:package_config/package_config.dart';
 
 import '../features_configuration.dart';
 import '../utils/cli_utils.dart';
+import '../utils/extensions.dart';
 import '../utils/file_system.dart';
 import '../utils/names.dart';
 import '../utils/package_uris.dart';
@@ -113,14 +114,9 @@ base mixin GrepSupport
     List<String> args, {
     required String searchDir,
   }) async {
-    Uri searchUri;
-    if (searchDir.isEmpty) {
-      searchUri = package.root;
-    } else {
-      searchUri = package.root.resolve(
-        searchDir.endsWith('/') ? searchDir : '$searchDir/',
-      );
-    }
+    final searchUri = searchDir.isEmpty
+        ? package.root
+        : package.root.resolve(searchDir.withTrailingSlash);
     final packagePath = cleanFilePath(searchUri.path);
     final result = await processManager.run([
       ripGrepExecutable,
@@ -160,14 +156,14 @@ base mixin GrepSupport
             description:
                 'The names of the packages to run ripgrep in. Each package '
                 'will run a separate ripgrep command with the given '
-                'arguments and the package URI root search path.',
+                'arguments.',
           ),
         ),
         ParameterNames.arguments: Schema.list(
           description:
               'The arguments to pass to ripgrep. Note that two arguments '
               'will be added to the command: `--path-separator=/` and the '
-              'search path based on the package and search dir..',
+              'search path based on the package and search dir.',
           items: Schema.string(),
           minItems: 1,
         ),

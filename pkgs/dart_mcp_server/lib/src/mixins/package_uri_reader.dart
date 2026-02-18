@@ -16,6 +16,7 @@ import 'package:path/path.dart' as p;
 import '../features_configuration.dart';
 import '../utils/analytics.dart';
 import '../utils/cli_utils.dart';
+import '../utils/constants.dart';
 import '../utils/file_system.dart';
 import '../utils/names.dart';
 import '../utils/package_uris.dart';
@@ -69,7 +70,7 @@ base mixin PackageUriSupport on ToolsSupport, RootsTrackingSupport
   }
 
   Stream<Content> _readPackageUri(Uri uri, PackageConfig packageConfig) async* {
-    if (uri.scheme != 'package' && uri.scheme != 'package-root') {
+    if (uri.scheme != Schemes.package && uri.scheme != Schemes.packageRoot) {
       yield TextContent(
         text: 'The URI "$uri" was not a "package:" or "package-root:" URI.',
       );
@@ -96,12 +97,12 @@ base mixin PackageUriSupport on ToolsSupport, RootsTrackingSupport
     }
 
     final packageRoot = Root(uri: package.root.toString());
-    final Uri resolvedUri;
-    if (uri.scheme == 'package-root') {
-      resolvedUri = package.root.resolve(path);
-    } else {
-      resolvedUri = package.packageUriRoot.resolve(path);
-    }
+    final resolvedUri = switch (uri.scheme) {
+      Schemes.packageRoot => package.root.resolve(path),
+      Schemes.package => package.packageUriRoot.resolve(path),
+      // Checked at the top of the function.
+      _ => throw StateError('Unexpected scheme: ${uri.scheme}'),
+    };
     if (!isUnderRoot(packageRoot, resolvedUri.toString(), fileSystem)) {
       yield TextContent(
         text: 'The uri "$uri" attempted to escape it\'s package root.',
@@ -188,8 +189,8 @@ base mixin PackageUriSupport on ToolsSupport, RootsTrackingSupport
     name: ToolNames.readPackageUris.name,
     description:
         'Reads "package" and "package-root" scheme URIs which represent paths '
-        'under Dart package dependencies. "package" uris are always relative '
-        'to the "lib" directory and "package-root" uris are relative to the '
+        'under Dart package dependencies. "package" URIs are always relative '
+        'to the "lib" directory and "package-root" URIs are relative to the '
         'true root directory of the package. For example, the '
         'URI "package:test/test.dart" represents the path "lib/test.dart" under '
         'the "test" package. "package-root:test/example/test.dart" represents '

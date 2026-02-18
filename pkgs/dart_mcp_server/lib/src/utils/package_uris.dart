@@ -18,8 +18,21 @@ String cleanFilePath(String path) {
 /// Replaces all occurrences of [prefixUri] in [content] with a URI defined by
 /// [scheme] and [packageName].
 ///
-/// Example: `replaceUriPrefix(content, libUri, 'package', 'foo')` will replace
-/// all occurrences of the absolute path to `lib/` with `package:foo/`.
+/// Example:
+///
+///   replaceUriPrefix(
+///     content,
+///     Uri.parse('/path/to/lib/'),
+///     'package',
+///     'foo',
+///   )
+///
+/// This will replace all occurrences of the absolute path `/path/to/lib/`
+/// with `package:foo/`.
+///
+/// There is some additional logic to handle Windows paths, where `toFilePath()`
+/// might return paths like `/C:/Users/...`. This function will remove the
+/// leading slash in that case.
 String replaceUriPrefix(
   String content,
   Uri prefixUri,

@@ -416,7 +416,7 @@ void main() {
       expect(result.errorResult!.isError, isTrue);
       expect(
         (result.errorResult!.content.single as TextContent).text,
-        contains('Only file scheme uris are allowed'),
+        contains('Only file scheme URIs are allowed'),
       );
     });
 
