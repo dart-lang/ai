@@ -58,6 +58,7 @@ This package is a concrete implementation of an MCP server that exposes a rich s
 - **`lib/dart_mcp_server.dart`**: Exports the main `DartMCPServer` class.
 - **`lib/src/server.dart`**: This is the core of the `dart_mcp_server` package. The `DartMCPServer` class extends `MCPServer` from the `dart_mcp` package and uses a series of mixins to add a wide range of tools. It also handles command-line argument parsing, logging, and analytics.
 - **`lib/src/mixins/`**: This directory is where the implementations of the various tools are located. Each file is a mixin that adds a specific set of capabilities to the `DartMCPServer`. This is a great place to look to understand how a specific tool is implemented.
+  - **`flutter_launcher.dart`**: Provides tools for launching and managing Flutter applications (`launch_app`, `stop_app`, `list_devices`, `get_app_logs`, `list_running_apps`). The `launch_app` tool accepts an `args` list for passing extra `flutter run` flags such as `--flavor`, `--dart-define`, and `--dart-define-from-file`. Managed flags (`--print-dtd`, `--machine`, `--device-id`, `--target`) are blocked and must be provided via their dedicated parameters.
   - **`analyzer.dart`**: Provides tools for static analysis of Dart code.
   - **`dash_cli.dart`**: Provides tools related to the `dash` command-line tool.
   - **`dtd.dart`**: Implements support for the Dart Tooling Daemon (DTD), which allows the server to interact with running Dart and Flutter applications. This is used for features like hot reload and inspecting the widget tree.
