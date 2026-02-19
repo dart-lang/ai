@@ -89,8 +89,9 @@ base mixin FlutterLauncherSupport
           description:
               'Additional arguments to pass to the `flutter run` command. '
               'For example: ["--flavor", "dev", "--dart-define-from-file", '
-              '"env.json"]. Do not include --print-dtd, --machine, '
-              '--device-id, or --target as these are managed automatically.',
+              '"env.json"]. Do not include '
+              '${_managedFlutterRunFlags.join(', ')} '
+              'as these are managed automatically.',
         ),
         'timeout': Schema.int(
           description: 'Timeout in milliseconds, defaults to 90000.',
