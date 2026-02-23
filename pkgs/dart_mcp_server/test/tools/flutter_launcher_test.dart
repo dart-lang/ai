@@ -39,7 +39,13 @@ void main() {
     );
 
     // Sets up a flutter run mock call, with success case defaults.
-    void mockFlutterRun({String? stdout, String? stderr, int? exitCode}) {
+    void mockFlutterRun({
+      String? stdout,
+      String? stderr,
+      int? exitCode,
+      List<String> args = const <String>[],
+      String? target,
+    }) {
       mockProcessManager.addCommand(
         Command(
           [
@@ -49,6 +55,8 @@ void main() {
             '--machine',
             '--device-id',
             'test-device',
+            ...args,
+            if (target != null) ...['--target', target],
           ],
           stderr: stderr,
           stdout:
@@ -113,6 +121,165 @@ void main() {
       expect(result.structuredContent, {'dtdUri': dtdUri, 'pid': processPid});
       await server.shutdown();
       await client.shutdown();
+    });
+
+    test('launch_app forwards additional args to flutter run', () async {
+      const extraArgs = [
+        '--flavor',
+        'dev',
+        '--dart-define-from-file',
+        'env.json',
+      ];
+      mockFlutterRun(args: extraArgs);
+      final result = await client.callTool(
+        CallToolRequest(
+          name: 'launch_app',
+          arguments: {
+            'root': projectRoot,
+            'device': 'test-device',
+            'args': extraArgs,
+          },
+        ),
+      );
+
+      expect(result.isError, isNot(true));
+      final flutterRunCommand = mockProcessManager.commands
+          .where(
+            (command) =>
+                command.length > 1 &&
+                command.first == sdk.flutterExecutablePath &&
+                command[1] == 'run',
+          )
+          .single;
+      expect(flutterRunCommand, [
+        sdk.flutterExecutablePath,
+        'run',
+        '--print-dtd',
+        '--machine',
+        '--device-id',
+        'test-device',
+        ...extraArgs,
+      ]);
+    });
+
+    test('launch_app works when args is an empty list', () async {
+      mockFlutterRun(args: const <String>[]);
+      final result = await client.callTool(
+        CallToolRequest(
+          name: 'launch_app',
+          arguments: {
+            'root': projectRoot,
+            'device': 'test-device',
+            'args': const <String>[],
+          },
+        ),
+      );
+
+      expect(result.isError, isNot(true));
+      final flutterRunCommand = mockProcessManager.commands
+          .where(
+            (command) =>
+                command.length > 1 &&
+                command.first == sdk.flutterExecutablePath &&
+                command[1] == 'run',
+          )
+          .single;
+      expect(flutterRunCommand, [
+        sdk.flutterExecutablePath,
+        'run',
+        '--print-dtd',
+        '--machine',
+        '--device-id',
+        'test-device',
+      ]);
+    });
+
+    test('launch_app forwards flavor args', () async {
+      const flavorArgs = ['--flavor', 'dev'];
+      mockFlutterRun(args: flavorArgs);
+      final result = await client.callTool(
+        CallToolRequest(
+          name: 'launch_app',
+          arguments: {
+            'root': projectRoot,
+            'device': 'test-device',
+            'args': flavorArgs,
+          },
+        ),
+      );
+
+      expect(result.isError, isNot(true));
+      final flutterRunCommand = mockProcessManager.commands
+          .where(
+            (command) =>
+                command.length > 1 &&
+                command.first == sdk.flutterExecutablePath &&
+                command[1] == 'run',
+          )
+          .single;
+      expect(flutterRunCommand, [
+        sdk.flutterExecutablePath,
+        'run',
+        '--print-dtd',
+        '--machine',
+        '--device-id',
+        'test-device',
+        ...flavorArgs,
+      ]);
+    });
+
+    test('launch_app rejects managed args in args list', () async {
+      final result = await client.callTool(
+        CallToolRequest(
+          name: 'launch_app',
+          arguments: {
+            'root': projectRoot,
+            'device': 'test-device',
+            'args': ['--device-id', 'other-device'],
+          },
+        ),
+      );
+
+      expect(result.isError, isTrue);
+      final flutterRunCommands = mockProcessManager.commands.where(
+        (command) =>
+            command.length > 1 &&
+            command.first == sdk.flutterExecutablePath &&
+            command[1] == 'run',
+      );
+      expect(flutterRunCommands, isEmpty);
+      final textOutput = result.content as List<TextContent>;
+      expect(
+        textOutput.first.text,
+        allOf(
+          contains('managed flutter run options'),
+          contains('`--device-id`'),
+        ),
+      );
+    });
+
+    test('launch_app rejects managed args with equals syntax', () async {
+      final result = await client.callTool(
+        CallToolRequest(
+          name: 'launch_app',
+          arguments: {
+            'root': projectRoot,
+            'device': 'test-device',
+            'args': ['--target=lib/alt_main.dart'],
+          },
+        ),
+      );
+
+      expect(result.isError, isTrue);
+      final flutterRunCommands = mockProcessManager.commands.where(
+        (command) =>
+            command.length > 1 &&
+            command.first == sdk.flutterExecutablePath &&
+            command[1] == 'run',
+      );
+      expect(flutterRunCommands, isEmpty);
+      final textOutput = result.content as List<TextContent>;
+      expect(textOutput.first.text, contains('`--target=lib/alt_main.dart`'));
     });
 
     test(

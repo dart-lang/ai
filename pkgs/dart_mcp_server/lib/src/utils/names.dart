@@ -19,6 +19,7 @@ extension ParameterNames on Never {
   static const query = 'query';
   static const root = 'root';
   static const roots = 'roots';
+  static const searchDir = 'searchDir';
   static const template = 'template';
   static const uri = 'uri';
   static const uris = 'uris';

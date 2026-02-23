@@ -37,6 +37,14 @@ base mixin FlutterLauncherSupport
     on ToolsSupport, LoggingSupport, RootsTrackingSupport
     implements ProcessManagerSupport, SdkSupport {
   final Map<int, _RunningApp> _runningApps = {};
+  static const Set<String> _managedFlutterRunFlags = {
+    '--print-dtd',
+    '--machine',
+    '--device-id',
+    '--target',
+    '-d',
+    '-t',
+  };
 
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) {
@@ -76,6 +84,15 @@ base mixin FlutterLauncherSupport
               'available devices to present as choices, use the '
               'list_devices tool.',
         ),
+        'args': Schema.list(
+          items: Schema.string(),
+          description:
+              'Additional arguments to pass to the `flutter run` command. '
+              'For example: ["--flavor", "dev", "--dart-define-from-file", '
+              '"env.json"]. Do not include '
+              '${_managedFlutterRunFlags.join(', ')} '
+              'as these are managed automatically.',
+        ),
         'timeout': Schema.int(
           description: 'Timeout in milliseconds, defaults to 90000.',
         ),
@@ -100,6 +117,35 @@ base mixin FlutterLauncherSupport
     final root = request.arguments!['root'] as String;
     final target = request.arguments!['target'] as String?;
     final device = request.arguments!['device'] as String;
+    final args =
+        (request.arguments!['args'] as List<Object?>?)?.cast<String>() ??
+        <String>[];
+    final blockedArgs = args
+        .where(
+          (arg) => _managedFlutterRunFlags.any(
+            (flag) => arg == flag || arg.startsWith('$flag='),
+          ),
+        )
+        .toList();
+    if (blockedArgs.isNotEmpty) {
+      log(
+        LoggingLevel.warning,
+        'launch_app called with managed flutter run flags in args: '
+        '${blockedArgs.join(', ')}',
+      );
+      return CallToolResult(
+        isError: true,
+        content: [
+          TextContent(
+            text:
+                'The `args` parameter contains managed flutter run options: '
+                '${blockedArgs.map((arg) => '`$arg`').join(', ')}. Remove '
+                'these from `args`; use the `device` and `target` parameters '
+                'instead.',
+          ),
+        ],
+      )..failureReason = CallToolFailureReason.argumentError;
+    }
     final timeout = request.arguments!['timeout'] as int? ?? 90000;
     final completer = Completer<({Uri dtdUri, int pid})>();
 
@@ -118,6 +164,7 @@ base mixin FlutterLauncherSupport
           '--machine',
           '--device-id',
           device,
+          ...args,
           if (target != null) ...['--target', target],
         ],
         workingDirectory: root,

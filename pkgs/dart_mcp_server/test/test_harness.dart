@@ -385,7 +385,7 @@ final class DartToolingMCPClient extends MCPClient
 typedef ElicitationHandler =
     FutureOr<ElicitResult?> Function(ElicitRequest request);
 
-/// The dart tooling daemon currently expects to get vm service uris through
+/// The dart tooling daemon currently expects to get vm service URIs through
 /// the `Editor.getDebugSessions` DTD extension.
 ///
 /// This class registers a similar extension for a normal `flutter run` process,
