@@ -150,7 +150,8 @@ extension type PromptMessage.fromMap(Map<String, Object?> _value) {
 
   /// The expected [Role] for this message in the prompt (multi-message
   /// prompt flows may outline a back and forth between users and assistants).
-  Role get role => Role.values.byName(_value['role'] as String);
+  Role get role =>
+      Role.values.firstWhere((value) => value.name == _value['role']);
 
   /// The content of the message, see [Content] docs for the possible types.
   Content get content => _value['content'] as Content;

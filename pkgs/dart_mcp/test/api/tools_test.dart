@@ -113,6 +113,8 @@ void main() {
         minLength: 1,
         maxLength: 10,
         pattern: r'^[a-z]+$',
+        defaultValue: 'test',
+        format: StringFormat.dateTime,
       );
       expect(schema, {
         'type': 'string',
@@ -121,7 +123,11 @@ void main() {
         'minLength': 1,
         'maxLength': 10,
         'pattern': r'^[a-z]+$',
+        'default': 'test',
+        'format': 'date-time',
       });
+      // Ensure enum value uses the custom name.
+      expect(schema.format, StringFormat.dateTime);
     });
 
     test('NumberSchema', () {
@@ -205,18 +211,81 @@ void main() {
       });
     });
 
-    test('EnumSchema', () {
-      // ignore: deprecated_member_use_from_same_package
-      final schema = EnumSchema(
-        title: 'Foo',
-        description: 'Bar',
-        values: {'a', 'b', 'c'},
-      );
-      expect(schema, {
-        'type': 'enum',
-        'title': 'Foo',
-        'description': 'Bar',
-        'enum': ['a', 'b', 'c'],
+    group('EnumSchema', () {
+      test('UntitledSingleSelect', () {
+        final schema = EnumSchema.untitledSingleSelect(
+          title: 'Foo',
+          description: 'Bar',
+          values: {'a', 'b', 'c'},
+        );
+        expect(schema, {
+          'type': 'string',
+          'title': 'Foo',
+          'description': 'Bar',
+          'enum': ['a', 'b', 'c'],
+        });
+      });
+
+      test('TitledSingleSelect', () {
+        final schema = EnumSchema.titledSingleSelect(
+          title: 'Foo',
+          description: 'Bar',
+          values: [
+            EnumValueWithTitle(constValue: 'a', title: 'A'),
+            EnumValueWithTitle(constValue: 'b', title: 'B'),
+            EnumValueWithTitle(constValue: 'c', title: 'C'),
+          ],
+        );
+        expect(schema, {
+          'type': 'string',
+          'title': 'Foo',
+          'description': 'Bar',
+          'oneOf': [
+            {'const': 'a', 'title': 'A'},
+            {'const': 'b', 'title': 'B'},
+            {'const': 'c', 'title': 'C'},
+          ],
+        });
+      });
+
+      test('UntitledMultiSelect', () {
+        final schema = EnumSchema.untitledMultiSelect(
+          title: 'Foo',
+          description: 'Bar',
+          values: {'a', 'b', 'c'},
+        );
+        expect(schema, {
+          'type': 'array',
+          'title': 'Foo',
+          'description': 'Bar',
+          'items': {
+            'enum': ['a', 'b', 'c'],
+          },
+        });
+      });
+
+      test('TitledMultiSelect', () {
+        final schema = EnumSchema.titledMultiSelect(
+          title: 'Foo',
+          description: 'Bar',
+          values: [
+            EnumValueWithTitle(constValue: 'a', title: 'A'),
+            EnumValueWithTitle(constValue: 'b', title: 'B'),
+            EnumValueWithTitle(constValue: 'c', title: 'C'),
+          ],
+        );
+        expect(schema, {
+          'type': 'array',
+          'title': 'Foo',
+          'description': 'Bar',
+          'items': {
+            'anyOf': [
+              {'const': 'a', 'title': 'A'},
+              {'const': 'b', 'title': 'B'},
+              {'const': 'c', 'title': 'C'},
+            ],
+          },
+        });
       });
     });
 
@@ -1509,6 +1578,100 @@ void main() {
       });
     });
 
+    group('EnumSchemas', () {
+      test('UntitledSingleSelect', () {
+        final schema = EnumSchema.untitledSingleSelect(values: ['a']);
+        expectFailuresMatch(schema, 'a', []);
+        expectFailuresMatch(schema, 'b', [
+          ValidationError(
+            ValidationErrorType.enumValueNotAllowed,
+            path: const [],
+          ),
+        ]);
+      });
+
+      test('TitledSingleSelect', () {
+        final schema = EnumSchema.titledSingleSelect(
+          values: [EnumValueWithTitle(title: 'A', constValue: 'a')],
+        );
+        expectFailuresMatch(schema, 'a', []);
+        expectFailuresMatch(schema, 'b', [
+          ValidationError(
+            ValidationErrorType.enumValueNotAllowed,
+            path: const [],
+          ),
+        ]);
+      });
+
+      test('UntitledMultiSelect', () {
+        final schema = EnumSchema.untitledMultiSelect(
+          values: ['a', 'b', 'c', 'd'],
+          minItems: 2,
+          maxItems: 3,
+        );
+        expectFailuresMatch(schema, ['a', 'b'], []);
+        expectFailuresMatch(
+          schema,
+          ['a', 'e'],
+          [
+            ValidationError(
+              ValidationErrorType.enumValueNotAllowed,
+              path: const [],
+            ),
+          ],
+        );
+        expectFailuresMatch(
+          schema,
+          ['a'],
+          [ValidationError(ValidationErrorType.minItemsNotMet, path: const [])],
+        );
+        expectFailuresMatch(
+          schema,
+          ['a', 'b', 'c', 'd'],
+          [
+            ValidationError(
+              ValidationErrorType.maxItemsExceeded,
+              path: const [],
+            ),
+          ],
+        );
+      });
+
+      test('TitledMultiSelect', () {
+        final schema = EnumSchema.titledMultiSelect(
+          values: [
+            EnumValueWithTitle(title: 'A', constValue: 'a'),
+            EnumValueWithTitle(title: 'B', constValue: 'b'),
+            EnumValueWithTitle(title: 'C', constValue: 'c'),
+            EnumValueWithTitle(title: 'D', constValue: 'd'),
+          ],
+          minItems: 2,
+          maxItems: 3,
+        );
+        expectFailuresMatch(schema, ['a', 'b'], []);
+        expectFailuresMatch(
+          schema,
+          ['a', 'e'],
+          [ValidationError(ValidationErrorType.anyOfNotMet, path: const [])],
+        );
+        expectFailuresMatch(
+          schema,
+          ['a'],
+          [ValidationError(ValidationErrorType.minItemsNotMet, path: const [])],
+        );
+        expectFailuresMatch(
+          schema,
+          ['a', 'b', 'c', 'd'],
+          [
+            ValidationError(
+              ValidationErrorType.maxItemsExceeded,
+              path: const [],
+            ),
+          ],
+        );
+      });
+    });
+
     group('Schema Combinators - Advanced', () {
       test('empty combinator lists', () {
         // Per JSON Schema spec, allOf, anyOf, oneOf arrays must be non-empty.
@@ -1544,6 +1707,14 @@ void main() {
           reason: 'not:[] means no forbidden schemas, so it passes validation',
         );
       });
+    });
+
+    test('const', () {
+      final schema = {'const': 'hello'} as Schema;
+      expectFailuresMatch(schema, 'hello', []);
+      expectFailuresMatch(schema, 'world', [
+        ValidationError(ValidationErrorType.wrongConstValue, path: const []),
+      ]);
     });
 
     group('Complex scenarios and interactions', () {

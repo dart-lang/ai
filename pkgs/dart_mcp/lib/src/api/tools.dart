@@ -312,6 +312,9 @@ enum ValidationErrorType {
   exclusiveMinimumNotMet,
   exclusiveMaximumExceeded,
   multipleOfInvalid,
+
+  // Constant values
+  wrongConstValue,
 }
 
 /// A validation error with detailed information about the location of the
@@ -338,8 +341,9 @@ extension type ValidationError.fromMap(Map<String, Object?> _value) {
   );
 
   /// The type of validation error that occurred.
-  ValidationErrorType get error =>
-      ValidationErrorType.values.byName(_value['error'] as String);
+  ValidationErrorType get error => ValidationErrorType.values.firstWhere(
+    (value) => value.name == _value['error'],
+  );
 
   /// The path to the object that had the error.
   List<String> get path => (_value['path'] as List).cast<String>();
@@ -410,10 +414,6 @@ extension type Schema.fromMap(Map<String, Object?> _value) {
 
   /// Alias for [ObjectSchema.new].
   static const object = ObjectSchema.new;
-
-  /// Alias for [EnumSchema.new].
-  @Deprecated('Use Schema.string instead')
-  static const enumeration = EnumSchema.new;
 
   /// Alias for [NullSchema.new].
   static const nil = NullSchema.new;
@@ -530,6 +530,16 @@ extension SchemaValidation on Schema {
             );
           }
       }
+    }
+    if (_value['const'] case final constValue? when data != constValue) {
+      isValid = false;
+      accumulatedFailures.add(
+        ValidationError(
+          ValidationErrorType.wrongConstValue,
+          path: currentPath,
+          details: 'Value $data does not match constant $constValue',
+        ),
+      );
     }
     return isValid;
   }
@@ -1081,6 +1091,9 @@ extension type const StringSchema.fromMap(Map<String, Object?> _value)
     int? minLength,
     int? maxLength,
     String? pattern,
+    String? defaultValue,
+    StringFormat? format,
+    @Deprecated('Use UntitledSingleSelectEnumSchema instead.')
     Iterable<String>? enumValues,
   }) => StringSchema.fromMap({
     'type': JsonType.string.typeName,
@@ -1089,6 +1102,8 @@ extension type const StringSchema.fromMap(Map<String, Object?> _value)
     if (minLength != null) 'minLength': minLength,
     if (maxLength != null) 'maxLength': maxLength,
     if (pattern != null) 'pattern': pattern,
+    if (defaultValue != null) 'default': defaultValue,
+    if (format != null) 'format': format.name,
     if (enumValues != null) 'enum': enumValues,
   });
 
@@ -1100,6 +1115,16 @@ extension type const StringSchema.fromMap(Map<String, Object?> _value)
 
   /// A regular expression pattern that the String must match.
   String? get pattern => _value['pattern'] as String?;
+
+  /// The default value for this schema.
+  String? get defaultValue => _value['default'] as String?;
+
+  /// The format of this String, corresponds to the `format` key.
+  StringFormat? get format {
+    final format = _value['format'] as String?;
+    if (format == null) return null;
+    return StringFormat.values.firstWhere((value) => value.name == format);
+  }
 
   /// The allowed values for this String, corresponds to the `enum` key.
   Iterable<String>? get enumValues {
@@ -1174,21 +1199,36 @@ extension type const StringSchema.fromMap(Map<String, Object?> _value)
   }
 }
 
-/// A JSON Schema definition for a set of allowed string values.
-@Deprecated('Use StringSchema instead')
+/// The valid string formats.
+enum StringFormat {
+  email,
+  uri,
+  date,
+  dateTime('date-time');
+
+  const StringFormat([this._name]);
+  final String? _name;
+
+  String get name => _name ?? EnumName(this).name;
+}
+
+/// Union type for all enum schemas.
+///
+/// Includes [UntitledSingleSelectEnumSchema], [TitledSingleSelectEnumSchema],
+/// [UntitledMultiSelectEnumSchema], and [TitledMultiSelectEnumSchema].
 extension type EnumSchema.fromMap(Map<String, Object?> _value)
     implements Schema {
-  @Deprecated('Use StringSchema instead')
-  factory EnumSchema({
-    String? title,
-    String? description,
-    required Iterable<String> values,
-  }) => EnumSchema.fromMap({
-    'type': JsonType.enumeration.typeName,
-    if (title != null) 'title': title,
-    if (description != null) 'description': description,
-    'enum': values,
-  });
+  /// Alias for [UntitledSingleSelectEnumSchema.new].
+  static const untitledSingleSelect = UntitledSingleSelectEnumSchema.new;
+
+  /// Alias for [TitledSingleSelectEnumSchema.new].
+  static const titledSingleSelect = TitledSingleSelectEnumSchema.new;
+
+  /// Alias for [UntitledMultiSelectEnumSchema.new].
+  static const untitledMultiSelect = UntitledMultiSelectEnumSchema.new;
+
+  /// Alias for [TitledMultiSelectEnumSchema.new].
+  static const titledMultiSelect = TitledMultiSelectEnumSchema.new;
 
   /// A title for this schema, should be short.
   String? get title => _value['title'] as String?;
@@ -1196,18 +1236,193 @@ extension type EnumSchema.fromMap(Map<String, Object?> _value)
   /// A description of this schema.
   String? get description => _value['description'] as String?;
 
+  /// Whether or not this schema looks like an untitled single-select enum.
+  bool get isUntitledSingleSelect =>
+      type == JsonType.string && _value['enum'] != null;
+
+  /// Whether or not this schema looks like a titled single-select enum.
+  bool get isTitledSingleSelect =>
+      type == JsonType.string && _value['oneOf'] != null;
+
+  /// Whether or not this schema looks like an untitled multi-select enum.
+  bool get isUntitledMultiSelect =>
+      type == JsonType.list && (_value['items'] as Map?)?['enum'] != null;
+
+  /// Whether or not this schema looks like a titled multi-select enum.
+  bool get isTitledMultiSelect =>
+      type == JsonType.list && (_value['items'] as Map?)?['anyOf'] != null;
+}
+
+/// Common properties for single-select enum schemas.
+extension type SingleSelectEnumSchema.fromMap(Map<String, Object?> _value)
+    implements EnumSchema {
+  /// The default value for this schema.
+  String? get defaultValue => _value['default'] as String?;
+}
+
+/// Schema for single-selection enumeration without display titles for options.
+extension type UntitledSingleSelectEnumSchema.fromMap(
+  Map<String, Object?> _value
+)
+    implements SingleSelectEnumSchema {
+  factory UntitledSingleSelectEnumSchema({
+    String? title,
+    String? description,
+    String? defaultValue,
+    required Iterable<String> values,
+  }) => UntitledSingleSelectEnumSchema.fromMap({
+    'type': JsonType.string.typeName,
+    if (title != null) 'title': title,
+    if (description != null) 'description': description,
+    if (defaultValue != null) 'default': defaultValue,
+    'enum': values,
+  });
+
   /// The allowed enum values.
   Iterable<String> get values {
     final values = (_value['enum'] as Iterable?)?.cast<String>();
     if (values == null) {
-      throw ArgumentError('Missing required property "values"');
+      throw ArgumentError('Missing required property "enum"');
     }
     assert(
       values.toSet().length == values.length,
-      "The 'values' property has duplicate entries.",
+      'The "enum" property has duplicate entries.',
     );
     return values;
   }
+}
+
+/// Schema for single-selection enumeration with display titles for each option.
+extension type TitledSingleSelectEnumSchema.fromMap(Map<String, Object?> _value)
+    implements SingleSelectEnumSchema {
+  factory TitledSingleSelectEnumSchema({
+    String? title,
+    String? description,
+    String? defaultValue,
+    required Iterable<EnumValueWithTitle> values,
+  }) => TitledSingleSelectEnumSchema.fromMap({
+    'type': JsonType.string.typeName,
+    if (title != null) 'title': title,
+    if (description != null) 'description': description,
+    if (defaultValue != null) 'default': defaultValue,
+    'oneOf': values,
+  });
+
+  Iterable<EnumValueWithTitle> get values {
+    final values = (_value['oneOf'] as Iterable?)?.cast<EnumValueWithTitle>();
+    if (values == null) {
+      throw ArgumentError('Missing required property "oneOf"');
+    }
+    assert(
+      values.toSet().length == values.length,
+      'The "oneOf" property has duplicate entries.',
+    );
+    return values;
+  }
+}
+
+/// Common properties for multi-select enum schemas.
+extension type MultiSelectEnumSchema._fromMap(Map<String, Object?> _value)
+    implements EnumSchema {
+  /// Optional default value.
+  Iterable<String>? get defaultValue =>
+      (_value['default'] as Iterable?)?.cast<String>();
+
+  /// The minimum number of items to select.
+  int? get minItems => _value['minItems'] as int?;
+
+  /// The maximum number of items to select.
+  int? get maxItems => _value['maxItems'] as int?;
+}
+
+/// Schema for multiple-selection enumeration without display titles for options.
+extension type UntitledMultiSelectEnumSchema.fromMap(
+  Map<String, Object?> _value
+)
+    implements MultiSelectEnumSchema {
+  factory UntitledMultiSelectEnumSchema({
+    String? title,
+    String? description,
+    Iterable<String>? defaultValue,
+    int? minItems,
+    int? maxItems,
+    required Iterable<String> values,
+  }) => UntitledMultiSelectEnumSchema.fromMap({
+    'type': JsonType.list.typeName,
+    if (title != null) 'title': title,
+    if (description != null) 'description': description,
+    if (defaultValue != null) 'default': defaultValue,
+    if (minItems != null) 'minItems': minItems,
+    if (maxItems != null) 'maxItems': maxItems,
+    'items': {'enum': values, 'type': JsonType.string.typeName},
+  });
+
+  /// The allowed enum values.
+  Iterable<String> get values {
+    final values =
+        ((_value['items'] as Map?)?['enum'] as Iterable?)?.cast<String>();
+    if (values == null) {
+      throw ArgumentError('Missing required property "enum"');
+    }
+    assert(
+      values.toSet().length == values.length,
+      "The 'enum' property has duplicate entries.",
+    );
+    return values;
+  }
+}
+
+/// Schema for multiple-selection enumeration with display titles for each option.
+extension type TitledMultiSelectEnumSchema.fromMap(Map<String, Object?> _value)
+    implements MultiSelectEnumSchema {
+  factory TitledMultiSelectEnumSchema({
+    String? title,
+    String? description,
+    Iterable<String>? defaultValue,
+    int? minItems,
+    int? maxItems,
+    required Iterable<EnumValueWithTitle> values,
+  }) => TitledMultiSelectEnumSchema.fromMap({
+    'type': JsonType.list.typeName,
+    if (title != null) 'title': title,
+    if (description != null) 'description': description,
+    if (defaultValue != null) 'default': defaultValue,
+    if (minItems != null) 'minItems': minItems,
+    if (maxItems != null) 'maxItems': maxItems,
+    'items': {'anyOf': values},
+  });
+
+  /// The allowed enum values.
+  Iterable<EnumValueWithTitle> get values {
+    final values =
+        ((_value['items'] as Map?)?['anyOf'] as Iterable?)
+            ?.cast<EnumValueWithTitle>();
+    if (values == null) {
+      throw ArgumentError('Missing required property "anyOf"');
+    }
+    assert(
+      values.toSet().length == values.length,
+      "The 'anyOf' property has duplicate entries.",
+    );
+    return values;
+  }
+}
+
+/// A const value for an enum schema with an attached title.
+extension type EnumValueWithTitle.fromMap(Map<String, Object?> _value)
+    implements Schema {
+  factory EnumValueWithTitle({
+    required String title,
+    required String constValue,
+  }) => EnumValueWithTitle.fromMap({'title': title, 'const': constValue});
+
+  /// The title for this enum entry.
+  String get title => _value['title'] as String;
+
+  /// The constant value for this enum entry.
+  ///
+  /// Cannot be called `const` since this is a reserved keyword in Dart.
+  String get constValue => _value['const'] as String;
 }
 
 /// A JSON Schema definition for a [num].

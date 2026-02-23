@@ -50,7 +50,7 @@ extension type ElicitRequest._fromMap(Map<String, Object?> _value)
     final mode = _value['mode'] as String?;
     // Default to form for backward compatibility unless specified.
     if (mode == null) return ElicitationMode.form;
-    return ElicitationMode.values.byName(mode);
+    return ElicitationMode.values.firstWhere((value) => value.name == mode);
   }
 
   /// A message to display to the user when collecting the response.
@@ -147,7 +147,7 @@ extension type ElicitResult.fromMap(Map<String, Object?> _value)
     // case some clients use the old name.
     if (action == 'reject') action = 'decline';
 
-    return ElicitationAction.values.byName(action);
+    return ElicitationAction.values.firstWhere((value) => value.name == action);
   }
 
   /// The content of the response, if the user accepted the request.

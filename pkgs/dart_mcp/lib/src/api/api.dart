@@ -561,7 +561,8 @@ extension type Annotations.fromMap(Map<String, Object?> _value) {
     final audience = _value['audience'] as List?;
     if (audience == null) return null;
     return [
-      for (var role in audience) Role.values.byName(role as String),
+      for (var role in audience)
+        Role.values.firstWhere((value) => value.name == role),
     ];
   }
 

@@ -62,7 +62,7 @@ extension type LoggingMessageNotification.fromMap(Map<String, Object?> _value)
 
   /// The severity of this log message.
   LoggingLevel get level =>
-      LoggingLevel.values.byName(_value['level'] as String);
+      LoggingLevel.values.firstWhere((value) => value.name == _value['level']);
 
   /// An optional name of the logger issuing this message.
   String? get logger => _value['logger'] as String?;

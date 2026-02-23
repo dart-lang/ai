@@ -40,7 +40,7 @@ extension type Icon.fromMap(Map<String, Object?> _value) {
   IconTheme? get theme {
     final theme = _value['theme'] as String?;
     if (theme == null) return null;
-    return IconTheme.values.byName(theme);
+    return IconTheme.values.firstWhere((value) => value.name == theme);
   }
 }
 

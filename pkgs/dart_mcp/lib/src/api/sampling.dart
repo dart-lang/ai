@@ -67,7 +67,9 @@ extension type CreateMessageRequest.fromMap(Map<String, Object?> _value)
   IncludeContext? get includeContext {
     final includeContext = _value['includeContext'] as String?;
     if (includeContext == null) return null;
-    return IncludeContext.values.byName(includeContext);
+    return IncludeContext.values.firstWhere(
+      (value) => value.name == includeContext,
+    );
   }
 
   /// The temperature to use for sampling.
@@ -139,7 +141,8 @@ extension type SamplingMessage.fromMap(Map<String, Object?> _value) {
       SamplingMessage.fromMap({'role': role.name, 'content': content});
 
   /// The role of the message.
-  Role get role => Role.values.byName(_value['role'] as String);
+  Role get role =>
+      Role.values.firstWhere((value) => value.name == _value['role']);
 
   /// The content of the message.
   Content get content => _value['content'] as Content;
@@ -236,7 +239,7 @@ extension type ToolChoice.fromMap(Map<String, Object?> _value) {
     if (mode == null) {
       throw ArgumentError('Missing required mode field in $ToolChoice');
     }
-    return ToolChoiceMode.values.byName(mode);
+    return ToolChoiceMode.values.firstWhere((value) => value.name == mode);
   }
 }
 

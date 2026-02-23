@@ -20,6 +20,9 @@
     `urlElicitationRequired` errors.
   - Added `description` field to `Implementation`.
   - Does **not** add support for Tasks yet.
+  - Added support for `EnumSchema` subtypes, matching the spec. This includes
+    multi select enums and enums with titles. Validation is also supported.
+  - Added support for validating `const` fields in schemas.
 - **BREAKING**:
   - Change many fields of `ResourceLink` to be nullable, and their associated
     parameters to be optional. This brings us in line with the specification.
@@ -28,6 +31,7 @@
   - Added a required `ServerConnection server` parameter to the
     `ElicitationSupport.handleElicitation` method.
   - `ElicitRequest.requestedSchema` is now nullable (for url mode).
+  - `EnumSchema` is now a union type with 4 subtypes, matching the spec changes.
 
 ## 0.4.1
 
