@@ -343,8 +343,8 @@ base class ServerConnection extends MCPBase {
         );
         if (elicitResult.action == ElicitationAction.accept) {
           await elicitationComplete;
+          return await sendRequest(CallToolRequest.methodName, request);
         }
-        return await sendRequest(CallToolRequest.methodName, request);
       }
       rethrow;
     }
