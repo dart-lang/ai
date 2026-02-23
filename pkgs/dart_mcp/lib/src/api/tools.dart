@@ -1335,7 +1335,7 @@ extension type MultiSelectEnumSchema._fromMap(Map<String, Object?> _value)
   int? get maxItems => _value['maxItems'] as int?;
 }
 
-/// Schema for multiple-selection enumeration without display titles for options.
+/// Schema for multiple-selection enumeration without display titles.
 extension type UntitledMultiSelectEnumSchema.fromMap(
   Map<String, Object?> _value
 )
@@ -1372,7 +1372,7 @@ extension type UntitledMultiSelectEnumSchema.fromMap(
   }
 }
 
-/// Schema for multiple-selection enumeration with display titles for each option.
+/// Schema for multiple-selection enumeration with display titles.
 extension type TitledMultiSelectEnumSchema.fromMap(Map<String, Object?> _value)
     implements MultiSelectEnumSchema {
   factory TitledMultiSelectEnumSchema({
