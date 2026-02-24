@@ -252,7 +252,7 @@ void main() {
         final schema = EnumSchema.untitledMultiSelect(
           title: 'Foo',
           description: 'Bar',
-          values: {'a', 'b', 'c'},
+          values: ['a', 'b', 'c'],
         );
         expect(schema, {
           'type': 'array',
@@ -260,6 +260,7 @@ void main() {
           'description': 'Bar',
           'items': {
             'enum': ['a', 'b', 'c'],
+            'type': 'string',
           },
         });
       });
@@ -1597,7 +1598,7 @@ void main() {
         expectFailuresMatch(schema, 'a', []);
         expectFailuresMatch(schema, 'b', [
           ValidationError(
-            ValidationErrorType.enumValueNotAllowed,
+            ValidationErrorType.oneOfNotMet,
             path: const [],
           ),
         ]);
