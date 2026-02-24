@@ -804,6 +804,7 @@ base mixin DartToolingDaemonSupport
         'command': Schema.string(
           // Commented out values are flutter_driver commands that are not
           // supported, but may be in the future.
+          // ignore: deprecated_member_use
           enumValues: [
             'get_health',
             // 'get_layer_tree',
@@ -862,6 +863,7 @@ base mixin DartToolingDaemonSupport
               'Required for get_text, scroll, scroll_into_view, tap, waitFor, '
               'waitForAbsent, waitForTappable, get_offset, and '
               'get_diagnostics_tree. The kind of finder to use.',
+          // ignore: deprecated_member_use
           enumValues: [
             'ByType',
             'ByValueKey',
@@ -878,6 +880,7 @@ base mixin DartToolingDaemonSupport
               'Required for the ByValueKey finder, the String value of the key',
         ),
         'keyValueType': Schema.string(
+          // ignore: deprecated_member_use
           enumValues: ['int', 'String'],
           description:
               'Required for the ByValueKey finder, the type of the key',
@@ -886,6 +889,7 @@ base mixin DartToolingDaemonSupport
           description:
               'Used by the BySemanticsLabel finder, indicates whether '
               'the value should be treated as a regex',
+          // ignore: deprecated_member_use
           enumValues: ['true', 'false'],
         ),
         'label': Schema.string(
@@ -922,6 +926,7 @@ base mixin DartToolingDaemonSupport
               'Required by the Descendent and Ancestor finders. '
               'Whether the widget matching `of` will be considered for a '
               'match',
+          // ignore: deprecated_member_use
           enumValues: ['true', 'false'],
         ),
         // This is a boolean but uses the `true` and `false` strings.
@@ -930,11 +935,13 @@ base mixin DartToolingDaemonSupport
               'Required by the Descendent and Ancestor finders. '
               'If true then only the first ancestor or descendent matching '
               '`matching` will be returned.',
+          // ignore: deprecated_member_use
           enumValues: ['true', 'false'],
         ),
         'action': Schema.string(
           description:
               'Required for send_text_input_action, the input action to send',
+          // ignore: deprecated_member_use
           enumValues: [
             'none',
             'unspecified',
@@ -958,6 +965,7 @@ base mixin DartToolingDaemonSupport
         ),
         'offsetType': Schema.string(
           description: 'Required for get_offset, the offset type to get',
+          // ignore: deprecated_member_use
           enumValues: [
             'topLeft',
             'topRight',
@@ -970,6 +978,7 @@ base mixin DartToolingDaemonSupport
           description:
               'Required for get_diagnostics_tree, the type of diagnostics tree '
               'to request',
+          // ignore: deprecated_member_use
           enumValues: ['renderObject', 'widget'],
         ),
         'subtreeDepth': Schema.string(
@@ -981,12 +990,14 @@ base mixin DartToolingDaemonSupport
           description:
               'Whether the properties of a diagnostics node should be included '
               'in get_diagnostics_tree results',
+          // ignore: deprecated_member_use
           enumValues: const ['true', 'false'],
         ),
         'enabled': Schema.string(
           description:
               'Used by set_text_entry_emulation, defaults to '
               'false',
+          // ignore: deprecated_member_use
           enumValues: const ['true', 'false'],
         ),
       },
