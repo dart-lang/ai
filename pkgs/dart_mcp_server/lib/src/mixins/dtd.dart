@@ -5,6 +5,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:collection/collection.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:dds_service_extensions/dds_service_extensions.dart';
 import 'package:dtd/dtd.dart';
@@ -41,18 +42,10 @@ base mixin DartToolingDaemonSupport
     on ToolsSupport, LoggingSupport, ResourcesSupport
     implements AnalyticsSupport {
   /// The DTD instances that this server is connected to.
-  final Map<Uri, DartToolingDaemon> _dtds = {};
+  final List<DartToolingDaemon> _dtds = [];
 
   @visibleForTesting
-  Iterable<DartToolingDaemon> get dtds => _dtds.values;
-
-  /// Tracks which DTD instance provided which VM Service.
-  ///
-  /// The Map key is the DTD Uri, and the value is a Set of VmService Uris.
-  final _vmServicesByDtd = <Uri, Set<String>>{};
-
-  /// The last reported active location from the editor.
-  Map<String, Object?>? _activeLocation;
+  Iterable<DartToolingDaemon> get dtds => _dtds;
 
   /// A Map of [VmService] object [Future]s by their VM Service URI.
   ///
@@ -60,9 +53,6 @@ base mixin DartToolingDaemonSupport
   /// are unregistered via DTD or when the VM service shuts down.
   @visibleForTesting
   final activeVmServices = <String, Future<VmService>>{};
-
-  /// The set of DTD Uris that support the connected app service.
-  final _dtdsWithConnectedAppSupport = <Uri>{};
 
   /// Whether to await the disposal of all [VmService] objects in
   /// [activeVmServices] upon server shutdown or loss of DTD connection.
@@ -113,16 +103,13 @@ base mixin DartToolingDaemonSupport
     return '${sanitizedClientName}_${generateShortUUID()}';
   }
 
-  /// Called when the DTD connection is lost, resets all associated state.
-  ///
-  /// If [uri] is provided, only resets state associated with that DTD
-  /// connection.
-  Future<void> _resetDtd(Uri uri) async {
-    await _dtds.remove(uri)?.close();
-    _activeLocation = null; // Maybe we shouldn't clear this if others exist?
+  /// Called when the DTD connection is lost or explicitly disconnected, resets
+  /// all associated state.
+  Future<void> _resetDtd(DartToolingDaemon dtd) async {
+    _dtds.remove(dtd);
+    await dtd.close();
 
-    final vmServiceUris = _vmServicesByDtd.remove(uri) ?? {};
-    _dtdsWithConnectedAppSupport.remove(uri);
+    final vmServiceUris = dtd.vmServiceUris;
 
     final future = Future.wait(
       vmServiceUris.map((uri) async {
@@ -139,17 +126,7 @@ base mixin DartToolingDaemonSupport
 
   @visibleForTesting
   Future<void> updateActiveVmServices(DartToolingDaemon dtd) async {
-    // Check if this DTD supports connected apps
-    Uri? dtdUri;
-    for (final entry in _dtds.entries) {
-      if (entry.value == dtd) {
-        dtdUri = entry.key;
-        break;
-      }
-    }
-    if (dtdUri == null) return;
-
-    if (!_dtdsWithConnectedAppSupport.contains(dtdUri)) return;
+    if (!dtd.supportsConnectedApps) return;
 
     final vmServiceInfos = (await dtd.getVmServices()).vmServicesInfos;
     if (vmServiceInfos.isEmpty) return;
@@ -160,7 +137,7 @@ base mixin DartToolingDaemonSupport
         continue;
       }
 
-      (_vmServicesByDtd[dtdUri] ??= {}).add(vmServiceUri);
+      dtd.vmServiceUris.add(vmServiceUri);
 
       final vmServiceFuture = activeVmServices[vmServiceUri] =
           vmServiceConnectUri(vmServiceUri);
@@ -251,7 +228,7 @@ base mixin DartToolingDaemonSupport
 
   @override
   Future<void> shutdown() async {
-    await Future.wait(_dtds.keys.map(_resetDtd));
+    await Future.wait(_dtds.toList().map(_resetDtd));
     await super.shutdown();
   }
 
@@ -317,7 +294,7 @@ base mixin DartToolingDaemonSupport
   FutureOr<CallToolResult> _connect(CallToolRequest request) async {
     final uriString = request.arguments![ParameterNames.uri] as String;
     final uri = Uri.parse(uriString);
-    if (_dtds.containsKey(uri)) {
+    if (_dtds.any((dtd) => dtd.uri == uri)) {
       return _dtdAlreadyConnected;
     }
 
@@ -340,8 +317,9 @@ base mixin DartToolingDaemonSupport
         }
       }
 
-      _dtds[uri] = dtd;
-      unawaited(dtd.done.then((_) async => await _resetDtd(uri)));
+      _dtds.add(dtd);
+      dtd.uri = uri;
+      unawaited(dtd.done.then((_) async => await _resetDtd(dtd)));
 
       await _registerServices(dtd);
       await _listenForServices(dtd);
@@ -396,7 +374,7 @@ base mixin DartToolingDaemonSupport
     if (_dtds.isEmpty) return _dtdNotConnected;
 
     // Ensure lists are up to date
-    for (final dtd in _dtds.values) {
+    for (final dtd in _dtds) {
       await updateActiveVmServices(dtd);
     }
 
@@ -415,7 +393,7 @@ base mixin DartToolingDaemonSupport
   }
 
   Future<CallToolResult> _disconnect(CallToolRequest request) async {
-    final uriString = request.arguments?[ParameterNames.uri] as String?;
+    var uriString = request.arguments?[ParameterNames.uri] as String?;
     if (uriString == null) {
       if (_dtds.isEmpty) {
         return CallToolResult(
@@ -432,21 +410,20 @@ base mixin DartToolingDaemonSupport
                   'to disconnect.',
             ),
           ],
-        );
+        )..failureReason = CallToolFailureReason.mustSpecifyDtdUri;
       }
-      // exactly 1
-      await _resetDtd(_dtds.keys.first);
-      return CallToolResult(content: [TextContent(text: 'Disconnected.')]);
+      uriString = _dtds.first.uri.toString();
     }
 
     final uri = Uri.parse(uriString);
-    if (!_dtds.containsKey(uri)) {
+    final dtd = _dtds.firstWhereOrNull((dtd) => dtd.uri == uri);
+    if (dtd == null) {
       return CallToolResult(
         isError: true,
         content: [TextContent(text: 'Not connected to DTD at $uri')],
-      );
+      )..failureReason = CallToolFailureReason.dtdNotConnected;
     }
-    await _resetDtd(uri);
+    await _resetDtd(dtd);
     return CallToolResult(content: [TextContent(text: 'Disconnected.')]);
   }
 
@@ -477,27 +454,18 @@ base mixin DartToolingDaemonSupport
   ///
   /// The dart tooling daemon must be connected prior to calling this function.
   Future<void> _listenForServices(DartToolingDaemon dtd) async {
-    Uri? dtdUri;
-    for (final entry in _dtds.entries) {
-      if (entry.value == dtd) {
-        dtdUri = entry.key;
-        break;
-      }
-    }
-    if (dtdUri == null) return;
-
-    _dtdsWithConnectedAppSupport.remove(dtdUri);
+    dtd.supportsConnectedApps = false;
     try {
       final registeredServices = await dtd.getRegisteredServices();
       if (registeredServices.dtdServices.contains(
         '${ConnectedAppServiceConstants.serviceName}.'
         '${ConnectedAppServiceConstants.getVmServices}',
       )) {
-        _dtdsWithConnectedAppSupport.add(dtdUri);
+        dtd.supportsConnectedApps = true;
       }
     } catch (_) {}
 
-    if (_dtdsWithConnectedAppSupport.contains(dtdUri)) {
+    if (dtd.supportsConnectedApps) {
       await _listenForConnectedAppServiceEvents(dtd);
     }
     await _listenForEditorEvents(dtd);
@@ -529,7 +497,7 @@ base mixin DartToolingDaemonSupport
       log(LoggingLevel.debug, e.toString());
       switch (e.kind) {
         case 'activeLocationChanged':
-          _activeLocation = e.data;
+          dtd.activeLocation = e.data;
         default:
       }
     });
@@ -898,7 +866,9 @@ base mixin DartToolingDaemonSupport
     String? appUri,
   }) async {
     if (_dtds.isEmpty) return _dtdNotConnected;
-    if (_dtdsWithConnectedAppSupport.isEmpty) return _connectedAppsNotSupported;
+    if (!_dtds.any((dtd) => dtd.supportsConnectedApps)) {
+      return _connectedAppsNotSupported;
+    }
 
     // We update active vm services for all connected DTDs
     // But we can't easily iterate activeVmServices map if we don't know which
@@ -908,7 +878,7 @@ base mixin DartToolingDaemonSupport
     // Just ensure we have updated services? They are updated via stream events.
     if (activeVmServices.isEmpty) {
       // Try forcing update from all DTDs just in case?
-      for (final dtd in _dtds.values) {
+      for (final dtd in _dtds) {
         await updateActiveVmServices(dtd);
       }
     }
@@ -927,7 +897,7 @@ base mixin DartToolingDaemonSupport
                   '${ToolNames.listConnectedApps.name} to see available apps.',
             ),
           ],
-        );
+        )..failureReason = CallToolFailureReason.applicationNotFound;
       }
       selectedAppUri = appUri;
     } else {
@@ -942,7 +912,7 @@ base mixin DartToolingDaemonSupport
                   '${ToolNames.listConnectedApps.name} to see available apps.',
             ),
           ],
-        );
+        )..failureReason = CallToolFailureReason.mustSpecifyDtdUri;
       }
       selectedAppUri = activeVmServices.keys.first;
     }
@@ -954,17 +924,20 @@ base mixin DartToolingDaemonSupport
   Future<CallToolResult> _getActiveLocation(CallToolRequest request) async {
     if (_dtds.isEmpty) return _dtdNotConnected;
 
-    final activeLocation = _activeLocation;
-    if (activeLocation == null) {
-      return CallToolResult(
-        content: [
-          TextContent(text: 'No active location reported by the editor yet.'),
-        ],
-      );
+    Map<String, Object?>? activeLocation;
+    for (final dtd in _dtds) {
+      activeLocation = dtd.activeLocation;
+      if (activeLocation != null) break;
     }
 
+    if (activeLocation == null) {
+      return CallToolResult(
+        content: [TextContent(text: 'No active location found.')],
+      );
+    }
     return CallToolResult(
-      content: [TextContent(text: jsonEncode(_activeLocation))],
+      content: [TextContent(text: jsonEncode(activeLocation))],
+      structuredContent: activeLocation,
     );
   }
 
@@ -1712,4 +1685,24 @@ extension on VmService {
   static final _ids = Expando<String>();
   static int _nextId = 0;
   String get id => _ids[this] ??= '${_nextId++}';
+}
+
+/// Extensions to attach extra metadata to [DartToolingDaemon] instances.
+extension _DartToolingDaemonMetadata on DartToolingDaemon {
+  static final _dtdUris = Expando<Uri>();
+  static final _vmServiceUris = Expando<Set<String>>();
+  static final _supportsConnectedApps = Expando<bool>();
+  static final _activeLocations = Expando<Map<String, Object?>>();
+
+  Uri? get uri => _dtdUris[this];
+  set uri(Uri? value) => _dtdUris[this] = value;
+
+  Set<String> get vmServiceUris => _vmServiceUris[this] ??= {};
+
+  bool get supportsConnectedApps => _supportsConnectedApps[this] ?? false;
+  set supportsConnectedApps(bool value) => _supportsConnectedApps[this] = value;
+
+  Map<String, Object?>? get activeLocation => _activeLocations[this];
+  set activeLocation(Map<String, Object?>? value) =>
+      _activeLocations[this] = value;
 }

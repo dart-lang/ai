@@ -163,6 +163,7 @@ enum CallToolFailureReason {
   noRootGiven,
   noRootsSet,
   noSuchCommand,
+  mustSpecifyDtdUri,
   processException,
   timeout,
   unhandledError,
