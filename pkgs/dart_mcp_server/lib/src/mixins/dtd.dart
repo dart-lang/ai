@@ -390,7 +390,7 @@ base mixin DartToolingDaemonSupport
       },
       required: [ParameterNames.apps],
     ),
-  )..categories = [FeatureCategory.all];
+  )..categories = [FeatureCategory.dartToolingDaemon];
 
   Future<CallToolResult> _listConnectedApps(CallToolRequest request) async {
     if (_dtds.isEmpty) return _dtdNotConnected;
@@ -1212,7 +1212,7 @@ base mixin DartToolingDaemonSupport
       properties: {ParameterNames.uri: Schema.string()},
       additionalProperties: false,
     ),
-  )..categories = [FeatureCategory.all];
+  )..categories = [FeatureCategory.dartToolingDaemon];
 
   @visibleForTesting
   static final getRuntimeErrorsTool = Tool(
