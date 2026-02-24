@@ -1597,10 +1597,7 @@ void main() {
         );
         expectFailuresMatch(schema, 'a', []);
         expectFailuresMatch(schema, 'b', [
-          ValidationError(
-            ValidationErrorType.oneOfNotMet,
-            path: const [],
-          ),
+          ValidationError(ValidationErrorType.oneOfNotMet, path: const []),
         ]);
       });
 
