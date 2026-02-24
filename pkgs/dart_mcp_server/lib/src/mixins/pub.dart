@@ -93,6 +93,7 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
       properties: {
         ParameterNames.command: Schema.string(
           title: 'The pub subcommand to run.',
+          // ignore: deprecated_member_use
           enumValues: SupportedPubCommand.values
               .map<String>((e) => e.name)
               .toList(),
