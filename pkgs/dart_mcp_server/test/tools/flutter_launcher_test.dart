@@ -10,6 +10,7 @@ import 'package:collection/collection.dart';
 import 'package:dart_mcp/client.dart';
 import 'package:dart_mcp_server/src/server.dart';
 import 'package:dart_mcp_server/src/utils/analytics.dart';
+import 'package:dart_mcp_server/src/utils/names.dart';
 import 'package:dart_mcp_server/src/utils/sdk.dart';
 import 'package:file/memory.dart';
 import 'package:process/process.dart';
@@ -118,7 +119,10 @@ void main() {
         ),
       ]);
       expect(result.isError, isNot(true));
-      expect(result.structuredContent, {'dtdUri': dtdUri, 'pid': processPid});
+      expect(result.structuredContent, {
+        ParameterNames.dtdUri: dtdUri,
+        ParameterNames.pid: processPid,
+      });
       await server.shutdown();
       await client.shutdown();
     });
@@ -300,7 +304,10 @@ void main() {
           ),
         ]);
         expect(result.isError, isNot(true));
-        expect(result.structuredContent, {'dtdUri': dtdUri, 'pid': processPid});
+        expect(result.structuredContent, {
+          ParameterNames.dtdUri: dtdUri,
+          ParameterNames.pid: processPid,
+        });
       },
     );
 
@@ -321,7 +328,10 @@ void main() {
         ),
       ]);
       expect(result.isError, isNot(true));
-      expect(result.structuredContent, {'dtdUri': dtdUri, 'pid': processPid});
+      expect(result.structuredContent, {
+        ParameterNames.dtdUri: dtdUri,
+        ParameterNames.pid: processPid,
+      });
     });
 
     test('launch_app tool fails when process exits early', () async {
@@ -401,7 +411,10 @@ void main() {
       );
 
       final result = await client.callTool(
-        CallToolRequest(name: 'stop_app', arguments: {'pid': processPid}),
+        CallToolRequest(
+          name: 'stop_app',
+          arguments: {ParameterNames.pid: processPid},
+        ),
       );
 
       expect(result.isError, isNot(true));
@@ -427,7 +440,7 @@ void main() {
       final result = await client.callTool(
         CallToolRequest(
           name: 'get_app_logs',
-          arguments: {'pid': processPid, 'maxLines': 2},
+          arguments: {ParameterNames.pid: processPid, 'maxLines': 2},
         ),
       );
 

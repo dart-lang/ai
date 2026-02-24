@@ -102,14 +102,14 @@ base mixin FlutterLauncherSupport
     ),
     outputSchema: Schema.object(
       properties: {
-        'dtdUri': Schema.string(
+        ParameterNames.dtdUri: Schema.string(
           description: 'The DTD URI of the launched Flutter application.',
         ),
-        'pid': Schema.int(
+        ParameterNames.pid: Schema.int(
           description: 'The process ID of the launched Flutter application.',
         ),
       },
-      required: ['dtdUri', 'pid'],
+      required: [ParameterNames.dtdUri, ParameterNames.pid],
     ),
   )..categories = [FeatureCategory.flutter];
 
@@ -284,8 +284,8 @@ base mixin FlutterLauncherSupport
           ),
         ],
         structuredContent: {
-          'dtdUri': result.dtdUri.toString(),
-          'pid': result.pid,
+          ParameterNames.dtdUri: result.dtdUri.toString(),
+          ParameterNames.pid: result.pid,
         },
       );
     } catch (e, s) {
@@ -315,11 +315,11 @@ base mixin FlutterLauncherSupport
         'Kills a running Flutter process started by the launch_app tool.',
     inputSchema: Schema.object(
       properties: {
-        'pid': Schema.int(
+        ParameterNames.pid: Schema.int(
           description: 'The process ID of the process to kill.',
         ),
       },
-      required: ['pid'],
+      required: [ParameterNames.pid],
       additionalProperties: false,
     ),
     outputSchema: Schema.object(
@@ -465,7 +465,7 @@ base mixin FlutterLauncherSupport
         'id. Can only retrieve logs started by the launch_app tool.',
     inputSchema: Schema.object(
       properties: {
-        'pid': Schema.int(
+        ParameterNames.pid: Schema.int(
           description:
               'The process ID of the flutter run process running the '
               'application.',
@@ -476,7 +476,7 @@ base mixin FlutterLauncherSupport
               'logs. Defaults to 500. If set to -1, all logs will be returned.',
         ),
       },
-      required: ['pid'],
+      required: [ParameterNames.pid],
       additionalProperties: false,
     ),
     outputSchema: Schema.object(
@@ -530,24 +530,24 @@ base mixin FlutterLauncherSupport
     inputSchema: Schema.object(),
     outputSchema: Schema.object(
       properties: {
-        'apps': Schema.list(
+        ParameterNames.apps: Schema.list(
           description:
               'A list of running applications started by the '
               'launch_app tool.',
           items: Schema.object(
             properties: {
-              'pid': Schema.int(
+              ParameterNames.pid: Schema.int(
                 description: 'The process ID of the application.',
               ),
-              'dtdUri': Schema.string(
+              ParameterNames.dtdUri: Schema.string(
                 description: 'The DTD URI of the application.',
               ),
             },
-            required: ['pid', 'dtdUri'],
+            required: [ParameterNames.pid, ParameterNames.dtdUri],
           ),
         ),
       },
-      required: ['apps'],
+      required: [ParameterNames.apps],
       additionalProperties: false,
     ),
   )..categories = [FeatureCategory.flutter];
@@ -556,7 +556,10 @@ base mixin FlutterLauncherSupport
     final apps = _runningApps.entries
         .where((entry) => entry.value.dtdUri != null)
         .map((entry) {
-          return {'pid': entry.key, 'dtdUri': entry.value.dtdUri!};
+          return {
+            ParameterNames.pid: entry.key,
+            ParameterNames.dtdUri: entry.value.dtdUri!,
+          };
         })
         .toList();
 
@@ -567,11 +570,11 @@ base mixin FlutterLauncherSupport
               'Found ${apps.length} running application'
               '${apps.length == 1 ? '' : 's'}.\n'
               '${apps.map<String>((e) {
-                return 'PID: ${e['pid']}, DTD URI: ${e['dtdUri']}';
+                return 'PID: ${e[ParameterNames.pid]}, DTD URI: ${e[ParameterNames.dtdUri]}';
               }).toList().join('\n')}',
         ),
       ],
-      structuredContent: {'apps': apps},
+      structuredContent: {ParameterNames.apps: apps},
     );
   }
 
