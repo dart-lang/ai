@@ -184,7 +184,7 @@ base class ServerConnection extends MCPBase {
   Stream<LoggingMessageNotification> get onLog => _logController.stream;
   final _logController =
       StreamController<LoggingMessageNotification>.broadcast();
-  
+
   /// Emits an event any time the server sends an elicitation complete
   /// notification.
   ///

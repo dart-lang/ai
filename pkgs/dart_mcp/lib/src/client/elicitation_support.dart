@@ -18,7 +18,6 @@ abstract interface class _WithElicitationHandler {
   );
 }
 
-
 /// A mixin that adds support for the `elicitation.forms` capability to an
 /// [MCPClient], and will delegate all such calls to [handleElicitation].
 base mixin ElicitationFormSupport on MCPClient
@@ -38,7 +37,7 @@ base mixin ElicitationUrlSupport on MCPClient
   /// Whether or not tool calls which fail due to a `urlElicitationRequired`
   /// error should be automatically retried after a successful elicitation
   /// using the provided URL.
-  /// 
+  ///
   /// This requires servers to send elicitation complete notifications or else
   /// the tool call will never complete.
   bool get autoHandleUrlElicitationRequired => true;
