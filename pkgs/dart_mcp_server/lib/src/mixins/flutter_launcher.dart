@@ -570,7 +570,8 @@ base mixin FlutterLauncherSupport
               'Found ${apps.length} running application'
               '${apps.length == 1 ? '' : 's'}.\n'
               '${apps.map<String>((e) {
-                return 'PID: ${e[ParameterNames.pid]}, DTD URI: ${e[ParameterNames.dtdUri]}';
+                return 'PID: ${e[ParameterNames.pid]}, '
+                    'DTD URI: ${e[ParameterNames.dtdUri]}';
               }).toList().join('\n')}',
         ),
       ],
