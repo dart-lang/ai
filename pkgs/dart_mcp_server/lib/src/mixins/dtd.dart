@@ -869,14 +869,10 @@ base mixin DartToolingDaemonSupport
       return _connectedAppsNotSupported;
     }
 
-    // We update active vm services for all connected DTDs
-    // But we can't easily iterate activeVmServices map if we don't know which
-    // one to pick?
-    // updateActiveVmServices is called on events.
-
-    // Just ensure we have updated services? They are updated via stream events.
-    if (activeVmServices.isEmpty) {
-      // Try forcing update from all DTDs just in case?
+    // Update active vm services for all connected DTDs, if we no active ones
+    // or if the requested appUri is not in the active vm services.
+    if (activeVmServices.isEmpty ||
+        (appUri != null && !activeVmServices.containsKey(appUri))) {
       for (final dtd in _dtds) {
         await updateActiveVmServices(dtd);
       }
