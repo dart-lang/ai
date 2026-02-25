@@ -25,9 +25,9 @@ extension type ElicitRequest._fromMap(Map<String, Object?> _value)
       'Invalid requestedSchema. Must be a flat object of primitive values.',
     );
     return ElicitRequest._fromMap({
-      'mode': ElicitationMode.form.name,
-      'message': message,
-      'requestedSchema': requestedSchema,
+      Keys.mode: ElicitationMode.form.name,
+      Keys.message: message,
+      Keys.requestedSchema: requestedSchema,
     });
   }
 
@@ -38,16 +38,16 @@ extension type ElicitRequest._fromMap(Map<String, Object?> _value)
     required String elicitationId,
   }) {
     return ElicitRequest._fromMap({
-      'mode': ElicitationMode.url.name,
-      'message': message,
-      'url': url,
-      'elicitationId': elicitationId,
+      Keys.mode: ElicitationMode.url.name,
+      Keys.message: message,
+      Keys.url: url,
+      Keys.elicitationId: elicitationId,
     });
   }
 
   /// The mode of this elicitation.
   ElicitationMode get mode {
-    final mode = _value['mode'] as String?;
+    final mode = _value[Keys.mode] as String?;
     // Default to form for backward compatibility unless specified.
     if (mode == null) return ElicitationMode.form;
     return ElicitationMode.values.firstWhere((value) => value.name == mode);
@@ -55,7 +55,7 @@ extension type ElicitRequest._fromMap(Map<String, Object?> _value)
 
   /// A message to display to the user when collecting the response.
   String get message {
-    final message = _value['message'] as String?;
+    final message = _value[Keys.message] as String?;
     if (message == null) {
       throw ArgumentError('Missing required message field in $ElicitRequest');
     }
@@ -65,18 +65,18 @@ extension type ElicitRequest._fromMap(Map<String, Object?> _value)
   /// A unique identifier for the elicitation.
   ///
   /// Required for [ElicitationMode.url].
-  String? get elicitationId => _value['elicitationId'] as String?;
+  String? get elicitationId => _value[Keys.elicitationId] as String?;
 
   /// The URL that the user should navigate to.
   ///
   /// Required for [ElicitationMode.url].
-  String? get url => _value['url'] as String?;
+  String? get url => _value[Keys.url] as String?;
 
   /// A JSON schema that describes the expected response.
   ///
   /// Required for [ElicitationMode.form].
   ObjectSchema? get requestedSchema =>
-      _value['requestedSchema'] as ObjectSchema?;
+      _value[Keys.requestedSchema] as ObjectSchema?;
 
   /// Validates the [schema] to make sure that it conforms to the
   /// limitations of the spec.
@@ -128,7 +128,7 @@ extension type ElicitResult.fromMap(Map<String, Object?> _value)
   factory ElicitResult({
     required ElicitationAction action,
     Map<String, Object?>? content,
-  }) => ElicitResult.fromMap({'action': action.name, 'content': content});
+  }) => ElicitResult.fromMap({Keys.action: action.name, Keys.content: content});
 
   /// The action taken by the user in response to an elicitation request.
   ///
@@ -138,14 +138,14 @@ extension type ElicitResult.fromMap(Map<String, Object?> _value)
   /// - [ElicitationAction.cancel]: The user dismissed without making an
   ///   explicit choice.
   ElicitationAction get action {
-    var action = _value['action'] as String?;
+    var action = _value[Keys.action] as String?;
     if (action == null) {
       throw ArgumentError('Missing required action field in $ElicitResult');
     }
     // There was a bug in the initial schema, where the `decline` action was
     // named `reject` instead. Handle using that as an alias for `decline` in
     // case some clients use the old name.
-    if (action == 'reject') action = 'decline';
+    if (action == 'reject') action = Keys.decline;
 
     return ElicitationAction.values.firstWhere((value) => value.name == action);
   }
@@ -158,7 +158,7 @@ extension type ElicitResult.fromMap(Map<String, Object?> _value)
   /// The content must conform to the [ElicitRequest]'s `requestedSchema` in
   /// form mode.
   Map<String, Object?>? get content =>
-      _value['content'] as Map<String, Object?>?;
+      _value[Keys.content] as Map<String, Object?>?;
 }
 
 /// The action taken by the user in response to an elicitation request.
@@ -188,13 +188,13 @@ extension type ElicitationCompleteNotification.fromMap(
     required String elicitationId,
     Meta? meta,
   }) => ElicitationCompleteNotification.fromMap({
-    'elicitationId': elicitationId,
-    if (meta != null) '_meta': meta,
+    Keys.elicitationId: elicitationId,
+    if (meta != null) Keys.meta: meta,
   });
 
   /// The identifier of the completed elicitation.
   String get elicitationId {
-    final id = _value['elicitationId'] as String?;
+    final id = _value[Keys.elicitationId] as String?;
     if (id == null) {
       throw ArgumentError(
         'Missing elicitationId in $ElicitationCompleteNotification',
