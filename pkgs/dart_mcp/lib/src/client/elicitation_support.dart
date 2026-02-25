@@ -4,27 +4,48 @@
 
 part of 'client.dart';
 
-@Deprecated(
-  'This interface is going away, the method will exist directly on the '
-  'ElicitationSupport mixin instead',
-)
-abstract interface class WithElicitationHandler {
-  FutureOr<ElicitResult> handleElicitation(ElicitRequest request);
+@Deprecated('Use ElicitationFormSupport or ElicitationUrlSupport instead')
+typedef ElicitationSupport = ElicitationFormSupport;
+
+/// A shared interface for both [ElicitationFormSupport] and
+/// [ElicitationUrlSupport].
+abstract interface class _WithElicitationHandler {
+  /// Clients must implement this function, which will be called whenever
+  /// the [connection] sends an elicitation [request].
+  FutureOr<ElicitResult> handleElicitation(
+    ElicitRequest request,
+    ServerConnection connection,
+  );
 }
 
-/// A mixin that adds support for the `elicitation` capability to an
-/// [MCPClient].
-// ignore: deprecated_member_use_from_same_package
-base mixin ElicitationSupport on MCPClient implements WithElicitationHandler {
+/// A mixin that adds support for the `elicitation.forms` capability to an
+/// [MCPClient], and will delegate all such calls to [handleElicitation].
+base mixin ElicitationFormSupport on MCPClient
+    implements _WithElicitationHandler {
   @override
   void initialize() {
-    capabilities.elicitation ??= ElicitationCapability();
+    final capability = capabilities.elicitation ??= ElicitationCapability();
+    capability.form ??= {};
     super.initialize();
   }
+}
 
-  /// The method for handling elicitation requests.
+/// A mixin that adds support for the `elicitation.urls` capability to an
+/// [MCPClient], and will delegate all such calls to [handleElicitation].
+base mixin ElicitationUrlSupport on MCPClient
+    implements _WithElicitationHandler {
+  /// Whether or not tool calls which fail due to a `urlElicitationRequired`
+  /// error should be automatically retried after a successful elicitation
+  /// using the provided URL.
   ///
-  /// Any client using [ElicitationSupport] must implement this interface.
+  /// This requires servers to send elicitation complete notifications or else
+  /// the tool call will never complete.
+  bool get autoHandleUrlElicitationRequired => true;
+
   @override
-  FutureOr<ElicitResult> handleElicitation(ElicitRequest request);
+  void initialize() {
+    final capability = capabilities.elicitation ??= ElicitationCapability();
+    capability.url ??= {};
+    super.initialize();
+  }
 }

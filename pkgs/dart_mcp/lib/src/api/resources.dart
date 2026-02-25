@@ -200,6 +200,7 @@ extension type Resource.fromMap(Map<String, Object?> _value)
     String? mimeType,
     int? size,
     Meta? meta,
+    List<Icon>? icons,
   }) => Resource.fromMap({
     'uri': uri,
     'name': name,
@@ -208,6 +209,7 @@ extension type Resource.fromMap(Map<String, Object?> _value)
     if (mimeType != null) 'mimeType': mimeType,
     if (size != null) 'size': size,
     if (meta != null) '_meta': meta,
+    if (icons != null) 'icons': icons,
   });
 
   /// The URI of this resource.
@@ -228,6 +230,10 @@ extension type Resource.fromMap(Map<String, Object?> _value)
   /// This can be used by Hosts to display file sizes and estimate context
   /// window usage.
   int? get size => _value['size'] as int;
+
+  /// Optional set of sized icons that the client can display in a user
+  /// interface.
+  List<Icon>? get icons => (_value['icons'] as List?)?.cast<Icon>();
 }
 
 /// A template description for resources available on the server.
@@ -241,6 +247,7 @@ extension type ResourceTemplate.fromMap(Map<String, Object?> _value)
     Annotations? annotations,
     String? mimeType,
     Meta? meta,
+    List<Icon>? icons,
   }) => ResourceTemplate.fromMap({
     'uriTemplate': uriTemplate,
     'name': name,
@@ -249,6 +256,7 @@ extension type ResourceTemplate.fromMap(Map<String, Object?> _value)
     if (annotations != null) 'annotations': annotations,
     if (mimeType != null) 'mimeType': mimeType,
     if (meta != null) '_meta': meta,
+    if (icons != null) 'icons': icons,
   });
 
   /// A URI template (according to RFC 6570) that can be used to construct
@@ -266,6 +274,10 @@ extension type ResourceTemplate.fromMap(Map<String, Object?> _value)
   /// This should only be included if all resources matching this template have
   /// the same type.
   String? get mimeType => _value['mimeType'] as String?;
+
+  /// Optional set of sized icons that the client can display in a user
+  /// interface.
+  List<Icon>? get icons => (_value['icons'] as List?)?.cast<Icon>();
 }
 
 /// Base class for the contents of a specific resource or sub-resource.

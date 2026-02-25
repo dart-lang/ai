@@ -33,7 +33,7 @@ void main() {
       );
 
       final elicitationRequest = server.elicit(
-        ElicitRequest(
+        ElicitRequest.form(
           message: 'What is your name?',
           requestedSchema: ObjectSchema(
             properties: {'name': StringSchema(description: 'Your name')},
@@ -63,7 +63,7 @@ final class TestMCPClientWithElicitationSupport extends TestMCPClient
   FutureOr<ElicitResult> Function(ElicitRequest request) elicitationHandler;
 
   @override
-  FutureOr<ElicitResult> handleElicitation(ElicitRequest request) {
+  FutureOr<ElicitResult> handleElicitation(ElicitRequest request, _) {
     return elicitationHandler(request);
   }
 }

@@ -138,7 +138,7 @@ abstract base class MCPServer extends MCPBase {
 
   /// A request to prompt the LLM owned by the client with a message.
   ///
-  /// See https://spec.modelcontextprotocol.io/specification/2024-11-05/client/sampling/.
+  /// See https://spec.modelcontextprotocol.io/specification/2025-11-05/client/sampling/.
   Future<CreateMessageResult> createMessage(CreateMessageRequest request) =>
       sendRequest(CreateMessageRequest.methodName, request);
 }

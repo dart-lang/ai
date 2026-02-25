@@ -318,7 +318,7 @@ final class AppDebugSession {
 
 /// A basic MCP client which is started as a part of the harness.
 final class DartToolingMCPClient extends MCPClient
-    with RootsSupport, SamplingSupport, ElicitationSupport {
+    with RootsSupport, SamplingSupport, ElicitationFormSupport {
   DartToolingMCPClient()
     : super(
         Implementation(
@@ -370,7 +370,7 @@ final class DartToolingMCPClient extends MCPClient
   /// If no handlers return a result, returns a result with the action set to
   /// [ElicitationAction.cancel].
   @override
-  Future<ElicitResult> handleElicitation(ElicitRequest request) async {
+  Future<ElicitResult> handleElicitation(ElicitRequest request, _) async {
     for (final handler in _elicitationHandlers) {
       final result = await handler(request);
       if (result != null) {

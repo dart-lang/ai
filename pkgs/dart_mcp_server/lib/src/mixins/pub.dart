@@ -74,7 +74,7 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
 
     return runCommandInRoots(
       request,
-      arguments: ['pub', command, if (packageNames != null) ...packageNames],
+      arguments: ['pub', command, ...?packageNames],
       commandDescription: 'dart|flutter pub $command',
       processManager: processManager,
       knownRoots: await roots,
@@ -93,6 +93,7 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
       properties: {
         ParameterNames.command: Schema.string(
           title: 'The pub subcommand to run.',
+          // ignore: deprecated_member_use
           enumValues: SupportedPubCommand.values
               .map<String>((e) => e.name)
               .toList(),
