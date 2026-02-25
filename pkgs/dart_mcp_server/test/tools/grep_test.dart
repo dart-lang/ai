@@ -150,7 +150,7 @@ void main() {
       final result = await grep(
         packageNames: ['counter_app'],
         arguments: ['dummy test'],
-        searchDir: 'grep_test', // search specifically in "test"
+        searchDir: 'grep_test', // search specifically in "grep_test"
       );
       expect(result.isError, isNot(isTrue));
       final content = result.content.first as TextContent;

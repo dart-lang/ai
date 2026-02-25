@@ -109,16 +109,15 @@ base mixin DartToolingDaemonSupport
     _dtds.remove(dtd);
     await dtd.close();
 
+    // TODO: determine whether we need to dispose the [inspectorObjectGroup] on
+    // the Flutter Widget Inspector for each VM service instance.
     final vmServiceUris = dtd.vmServiceUris;
 
     final future = Future.wait(
       vmServiceUris.map((uri) async {
-        final serviceFuture = activeVmServices.remove(uri);
-        if (serviceFuture != null) {
-          try {
-            await (await serviceFuture).dispose();
-          } catch (_) {}
-        }
+        try {
+          await (await activeVmServices.remove(uri))?.dispose();
+        } catch (_) {}
       }),
     );
     debugAwaitVmServiceDisposal ? await future : unawaited(future);
@@ -421,7 +420,7 @@ base mixin DartToolingDaemonSupport
       return CallToolResult(
         isError: true,
         content: [TextContent(text: 'Not connected to DTD at $uri')],
-      )..failureReason = CallToolFailureReason.dtdNotConnected;
+      )..failureReason = CallToolFailureReason.alreadyDisconnected;
     }
     await _resetDtd(dtd);
     return CallToolResult(content: [TextContent(text: 'Disconnected.')]);

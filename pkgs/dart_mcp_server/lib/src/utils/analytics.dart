@@ -147,6 +147,7 @@ extension WithFailureReason on CallToolResult {
 
 /// Known reasons for failed tool calls.
 enum CallToolFailureReason {
+  alreadyDisconnected,
   applicationNotFound,
   argumentError,
   connectedAppServiceNotSupported,
