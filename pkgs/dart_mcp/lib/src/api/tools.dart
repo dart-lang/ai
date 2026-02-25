@@ -11,8 +11,8 @@ extension type ListToolsRequest.fromMap(Map<String, Object?> _value)
 
   factory ListToolsRequest({Cursor? cursor, MetaWithProgressToken? meta}) =>
       ListToolsRequest.fromMap({
-        if (cursor != null) 'cursor': cursor,
-        if (meta != null) '_meta': meta,
+        if (cursor != null) Keys.cursor: cursor,
+        if (meta != null) Keys.meta: meta,
       });
 }
 
@@ -24,15 +24,15 @@ extension type ListToolsResult.fromMap(Map<String, Object?> _value)
     Cursor? nextCursor,
     Meta? meta,
   }) => ListToolsResult.fromMap({
-    'tools': tools,
-    if (nextCursor != null) 'nextCursor': nextCursor,
-    if (meta != null) '_meta': meta,
+    Keys.tools: tools,
+    if (nextCursor != null) Keys.nextCursor: nextCursor,
+    if (meta != null) Keys.meta: meta,
   });
 
   List<Tool> get tools {
-    final tools = (_value['tools'] as List?)?.cast<Tool>();
+    final tools = (_value[Keys.tools] as List?)?.cast<Tool>();
     if (tools == null) {
-      throw ArgumentError('Missing tools field in $ListToolsResult');
+      throw ArgumentError('Missing ${Keys.tools} field in $ListToolsResult');
     }
     return tools;
   }
@@ -56,18 +56,18 @@ extension type CallToolResult.fromMap(Map<String, Object?> _value)
     Map<String, Object?>? structuredContent,
     bool? isError,
   }) => CallToolResult.fromMap({
-    'content': content,
-    if (structuredContent != null) 'structuredContent': structuredContent,
-    if (isError != null) 'isError': isError,
-    if (meta != null) '_meta': meta,
+    Keys.content: content,
+    if (structuredContent != null) Keys.structuredContent: structuredContent,
+    if (isError != null) Keys.isError: isError,
+    if (meta != null) Keys.meta: meta,
   });
 
   /// The returned content, either [TextContent], [ImageContent],
   /// [AudioContent], [ResourceLink] or [EmbeddedResource].
   List<Content> get content {
-    final content = (_value['content'] as List?)?.cast<Content>();
+    final content = (_value[Keys.content] as List?)?.cast<Content>();
     if (content == null) {
-      throw ArgumentError('Missing content field in $CallToolResult');
+      throw ArgumentError('Missing ${Keys.content} field in $CallToolResult');
     }
     return content;
   }
@@ -75,12 +75,12 @@ extension type CallToolResult.fromMap(Map<String, Object?> _value)
   /// The content as structured output, if the [Tool] declared an
   /// `outputSchema`.
   Map<String, Object?>? get structuredContent =>
-      _value['structuredContent'] as Map<String, Object?>?;
+      _value[Keys.structuredContent] as Map<String, Object?>?;
 
   /// Whether the tool call ended in an error.
   ///
   /// If not set, this is assumed to be false (the call was successful).
-  bool? get isError => _value['isError'] as bool?;
+  bool? get isError => _value[Keys.isError] as bool?;
 }
 
 /// Used by the client to invoke a tool provided by the server.
@@ -93,23 +93,23 @@ extension type CallToolRequest._fromMap(Map<String, Object?> _value)
     Map<String, Object?>? arguments,
     MetaWithProgressToken? meta,
   }) => CallToolRequest._fromMap({
-    'name': name,
-    if (arguments != null) 'arguments': arguments,
-    if (meta != null) '_meta': meta,
+    Keys.name: name,
+    if (arguments != null) Keys.arguments: arguments,
+    if (meta != null) Keys.meta: meta,
   });
 
   /// The name of the method to invoke.
   String get name {
-    final name = _value['name'] as String?;
+    final name = _value[Keys.name] as String?;
     if (name == null) {
-      throw ArgumentError('Missing name field in $CallToolRequest');
+      throw ArgumentError('Missing ${Keys.name} field in $CallToolRequest');
     }
     return name;
   }
 
   /// The arguments to pass to the method.
   Map<String, Object?>? get arguments =>
-      (_value['arguments'] as Map?)?.cast<String, Object?>();
+      (_value[Keys.arguments] as Map?)?.cast<String, Object?>();
 }
 
 /// An optional notification from the server to the client, informing it that
@@ -122,7 +122,7 @@ extension type ToolListChangedNotification.fromMap(Map<String, Object?> _value)
   static const methodName = 'notifications/tools/list_changed';
 
   factory ToolListChangedNotification({Meta? meta}) =>
-      ToolListChangedNotification.fromMap({if (meta != null) '_meta': meta});
+      ToolListChangedNotification.fromMap({if (meta != null) Keys.meta: meta});
 }
 
 /// Definition for a tool the client can call.
@@ -141,36 +141,36 @@ extension type Tool.fromMap(Map<String, Object?> _value)
     Meta? meta,
     List<Icon>? icons,
   }) => Tool.fromMap({
-    'name': name,
-    if (title != null) 'title': title,
-    if (description != null) 'description': description,
-    'inputSchema': inputSchema,
-    if (outputSchema != null) 'outputSchema': outputSchema,
-    if (annotations != null) 'annotations': annotations,
-    if (meta != null) '_meta': meta,
-    if (icons != null) 'icons': icons,
+    Keys.name: name,
+    if (title != null) Keys.title: title,
+    if (description != null) Keys.description: description,
+    Keys.inputSchema: inputSchema,
+    if (outputSchema != null) Keys.outputSchema: outputSchema,
+    if (annotations != null) Keys.annotations: annotations,
+    if (meta != null) Keys.meta: meta,
+    if (icons != null) Keys.icons: icons,
   });
 
   /// Optional set of sized icons that the client can display in a user
   /// interface.
-  List<Icon>? get icons => (_value['icons'] as List?)?.cast<Icon>();
+  List<Icon>? get icons => (_value[Keys.icons] as List?)?.cast<Icon>();
 
   /// Optional additional tool information.
   ///
   /// Only supported since version [ProtocolVersion.v2025_03_26].
   ToolAnnotations? get toolAnnotations =>
-      (_value['annotations'] as Map?)?.cast<String, Object?>()
+      (_value[Keys.annotations] as Map?)?.cast<String, Object?>()
           as ToolAnnotations?;
 
   /// A human-readable description of the tool.
-  String? get description => _value['description'] as String?;
+  String? get description => _value[Keys.description] as String?;
 
   /// A JSON [ObjectSchema] object defining the expected parameters for the
   /// tool.
   ObjectSchema get inputSchema {
-    final inputSchema = _value['inputSchema'] as ObjectSchema?;
+    final inputSchema = _value[Keys.inputSchema] as ObjectSchema?;
     if (inputSchema == null) {
-      throw ArgumentError('Missing inputSchema field in $Tool');
+      throw ArgumentError('Missing ${Keys.inputSchema} field in $Tool');
     }
     return inputSchema;
   }
@@ -180,7 +180,7 @@ extension type Tool.fromMap(Map<String, Object?> _value)
   ///
   /// If the `outputSchema` is specified, then the output from the tool must
   /// conform to the schema.
-  ObjectSchema? get outputSchema => _value['outputSchema'] as ObjectSchema?;
+  ObjectSchema? get outputSchema => _value[Keys.outputSchema] as ObjectSchema?;
 }
 
 /// Additional properties describing a Tool to clients.
@@ -199,11 +199,11 @@ extension type ToolAnnotations.fromMap(Map<String, Object?> _value) {
     bool? readOnlyHint,
     String? title,
   }) => ToolAnnotations.fromMap({
-    if (destructiveHint != null) 'destructiveHint': destructiveHint,
-    if (idempotentHint != null) 'idempotentHint': idempotentHint,
-    if (openWorldHint != null) 'openWorldHint': openWorldHint,
-    if (readOnlyHint != null) 'readOnlyHint': readOnlyHint,
-    if (title != null) 'title': title,
+    if (destructiveHint != null) Keys.destructiveHint: destructiveHint,
+    if (idempotentHint != null) Keys.idempotentHint: idempotentHint,
+    if (openWorldHint != null) Keys.openWorldHint: openWorldHint,
+    if (readOnlyHint != null) Keys.readOnlyHint: readOnlyHint,
+    if (title != null) Keys.title: title,
   });
 
   /// If true, the tool may perform destructive updates to its environment.
@@ -211,25 +211,25 @@ extension type ToolAnnotations.fromMap(Map<String, Object?> _value) {
   /// If false, the tool performs only additive updates.
   ///
   /// (This property is meaningful only when `readOnlyHint == false`)
-  bool? get destructiveHint => _value['destructiveHint'] as bool?;
+  bool? get destructiveHint => _value[Keys.destructiveHint] as bool?;
 
   /// If true, calling the tool repeatedly with the same arguments will have no
   /// additional effect on the its environment.
   ///
   /// (This property is meaningful only when `readOnlyHint == false`)
-  bool? get idempotentHint => _value['idempotentHint'] as bool?;
+  bool? get idempotentHint => _value[Keys.idempotentHint] as bool?;
 
   /// If true, this tool may interact with an "open world" of external entities.
   ///
   /// If false, the tool's domain of interaction is closed. For example, the
   /// world of a web search tool is open, whereas that of a memory tool is not.
-  bool? get openWorldHint => _value['openWorldHint'] as bool?;
+  bool? get openWorldHint => _value[Keys.openWorldHint] as bool?;
 
   /// If true, the tool does not modify its environment.
-  bool? get readOnlyHint => _value['readOnlyHint'] as bool?;
+  bool? get readOnlyHint => _value[Keys.readOnlyHint] as bool?;
 
   /// A human-readable title for the tool.
-  String? get title => _value['title'] as String?;
+  String? get title => _value[Keys.title] as String?;
 }
 
 /// The valid types for properties in a JSON-RCP2 schema.
@@ -325,9 +325,9 @@ extension type ValidationError.fromMap(Map<String, Object?> _value) {
     required List<String> path,
     String? details,
   }) => ValidationError.fromMap({
-    'error': error.name,
-    'path': path.toList(),
-    if (details != null) 'details': details,
+    Keys.error: error.name,
+    Keys.path: path.toList(),
+    if (details != null) Keys.details: details,
   });
 
   factory ValidationError.typeMismatch({
@@ -342,14 +342,14 @@ extension type ValidationError.fromMap(Map<String, Object?> _value) {
 
   /// The type of validation error that occurred.
   ValidationErrorType get error => ValidationErrorType.values.firstWhere(
-    (value) => value.name == _value['error'],
+    (value) => value.name == _value[Keys.error],
   );
 
   /// The path to the object that had the error.
-  List<String> get path => (_value['path'] as List).cast<String>();
+  List<String> get path => (_value[Keys.path] as List).cast<String>();
 
   /// Additional details about the error (optional).
-  String? get details => _value['details'] as String?;
+  String? get details => _value[Keys.details] as String?;
 
   String toErrorString() {
     return '${details != null ? '$details' : error.name} at path '
@@ -388,13 +388,13 @@ extension type Schema.fromMap(Map<String, Object?> _value) {
     List<Schema>? oneOf,
     List<Schema>? not,
   }) => Schema.fromMap({
-    if (type != null) 'type': type.typeName,
-    if (title != null) 'title': title,
-    if (description != null) 'description': description,
-    if (allOf != null) 'allOf': allOf,
-    if (anyOf != null) 'anyOf': anyOf,
-    if (oneOf != null) 'oneOf': oneOf,
-    if (not != null) 'not': not,
+    if (type != null) Keys.type: type.typeName,
+    if (title != null) Keys.title: title,
+    if (description != null) Keys.description: description,
+    if (allOf != null) Keys.allOf: allOf,
+    if (anyOf != null) Keys.anyOf: anyOf,
+    if (oneOf != null) Keys.oneOf: oneOf,
+    if (not != null) Keys.not: not,
   });
 
   /// Alias for [StringSchema.new].
@@ -429,26 +429,26 @@ extension type Schema.fromMap(Map<String, Object?> _value) {
   /// This is not required, and commonly won't be present if one of the schema
   /// combinators ([allOf], [anyOf], [oneOf], or [not]) are used.
   JsonType? get type => JsonType.values.firstWhereOrNull(
-    (t) => (_value['type'] as String? ?? '') == t.typeName,
+    (t) => (_value[Keys.type] as String? ?? '') == t.typeName,
   );
 
   /// A title for this schema, should be short.
-  String? get title => _value['title'] as String?;
+  String? get title => _value[Keys.title] as String?;
 
   /// A description of this schema.
-  String? get description => _value['description'] as String?;
+  String? get description => _value[Keys.description] as String?;
 
   /// Schema combinator that requires all sub-schemas to match.
-  List<Schema>? get allOf => (_value['allOf'] as List?)?.cast<Schema>();
+  List<Schema>? get allOf => (_value[Keys.allOf] as List?)?.cast<Schema>();
 
   /// Schema combinator that requires at least one of the sub-schemas to match.
-  List<Schema>? get anyOf => (_value['anyOf'] as List?)?.cast<Schema>();
+  List<Schema>? get anyOf => (_value[Keys.anyOf] as List?)?.cast<Schema>();
 
   /// Schema combinator that requires exactly one of the sub-schemas to match.
-  List<Schema>? get oneOf => (_value['oneOf'] as List?)?.cast<Schema>();
+  List<Schema>? get oneOf => (_value[Keys.oneOf] as List?)?.cast<Schema>();
 
   /// Schema combinator that requires none of the sub-schemas to match.
-  List<Schema>? get not => (_value['not'] as List?)?.cast<Schema>();
+  List<Schema>? get not => (_value[Keys.not] as List?)?.cast<Schema>();
 }
 
 extension SchemaValidation on Schema {
@@ -531,7 +531,7 @@ extension SchemaValidation on Schema {
           }
       }
     }
-    if (_value['const'] case final constValue? when data != constValue) {
+    if (_value[Keys.const_] case final constValue? when data != constValue) {
       isValid = false;
       accumulatedFailures.add(
         ValidationError(
@@ -564,10 +564,10 @@ extension SchemaValidation on Schema {
     // excluding combinator keywords. This base schema's constraints are
     // effectively ANDed with each sub-schema in combinators.
     final baseSchemaMapForCombinators = Map<String, Object?>.from(_value);
-    baseSchemaMapForCombinators.remove('allOf');
-    baseSchemaMapForCombinators.remove('anyOf');
-    baseSchemaMapForCombinators.remove('oneOf');
-    baseSchemaMapForCombinators.remove('not');
+    baseSchemaMapForCombinators.remove(Keys.allOf);
+    baseSchemaMapForCombinators.remove(Keys.anyOf);
+    baseSchemaMapForCombinators.remove(Keys.oneOf);
+    baseSchemaMapForCombinators.remove(Keys.not);
     final baseSchemaForCombinators = Schema.fromMap(
       baseSchemaMapForCombinators,
     );
@@ -787,25 +787,25 @@ extension type ObjectSchema.fromMap(Map<String, Object?> _value)
     int? minProperties,
     int? maxProperties,
   }) => ObjectSchema.fromMap({
-    'type': JsonType.object.typeName,
-    if (title != null) 'title': title,
-    if (description != null) 'description': description,
-    if (properties != null) 'properties': properties,
-    if (patternProperties != null) 'patternProperties': patternProperties,
-    if (required != null) 'required': required,
+    Keys.type: JsonType.object.typeName,
+    if (title != null) Keys.title: title,
+    if (description != null) Keys.description: description,
+    if (properties != null) Keys.properties: properties,
+    if (patternProperties != null) Keys.patternProperties: patternProperties,
+    if (required != null) Keys.required: required,
     if (additionalProperties != null)
-      'additionalProperties': additionalProperties,
+      Keys.additionalProperties: additionalProperties,
     if (unevaluatedProperties != null)
-      'unevaluatedProperties': unevaluatedProperties,
-    if (propertyNames != null) 'propertyNames': propertyNames,
-    if (minProperties != null) 'minProperties': minProperties,
-    if (maxProperties != null) 'maxProperties': maxProperties,
+      Keys.unevaluatedProperties: unevaluatedProperties,
+    if (propertyNames != null) Keys.propertyNames: propertyNames,
+    if (minProperties != null) Keys.minProperties: minProperties,
+    if (maxProperties != null) Keys.maxProperties: maxProperties,
   });
 
   /// A map of the properties of the object to the nested [Schema]s for those
   /// properties.
   Map<String, Schema>? get properties =>
-      (_value['properties'] as Map?)?.cast<String, Schema>();
+      (_value[Keys.properties] as Map?)?.cast<String, Schema>();
 
   /// A map of the property patterns of the object to the nested [Schema]s for
   /// those properties.
@@ -818,7 +818,7 @@ extension type ObjectSchema.fromMap(Map<String, Object?> _value)
   /// ```
   ///
   Map<String, Schema>? get patternProperties =>
-      (_value['patternProperties'] as Map?)?.cast<String, Schema>();
+      (_value[Keys.patternProperties] as Map?)?.cast<String, Schema>();
 
   /// A list of the required properties by name.
   ///
@@ -841,7 +841,8 @@ extension type ObjectSchema.fromMap(Map<String, Object?> _value)
   /// any value is accepted).
   ///
   /// Properties in this list must be set in the object.
-  List<String>? get required => (_value['required'] as List?)?.cast<String>();
+  List<String>? get required =>
+      (_value[Keys.required] as List?)?.cast<String>();
 
   /// Rules for additional properties that don't match the
   /// [properties] or [patternProperties] schemas.
@@ -863,7 +864,7 @@ extension type ObjectSchema.fromMap(Map<String, Object?> _value)
   /// valid, but `{'name': 'John', 'age': 'thirty'}` would be invalid because
   /// `age` is not a defined property and its value is not an integer as
   /// required by `additionalProperties`.
-  Object? get additionalProperties => _value['additionalProperties'];
+  Object? get additionalProperties => _value[Keys.additionalProperties];
 
   /// Similar to [additionalProperties] but more flexible, see
   /// https://json-schema.org/understanding-json-schema/reference/object#unevaluatedproperties
@@ -884,7 +885,8 @@ extension type ObjectSchema.fromMap(Map<String, Object?> _value)
   /// valid, but `{'name': 'John', 'age': 30}` would be invalid because `age` is
   /// neither a defined property nor matches the pattern, and
   /// `unevaluatedProperties` is set to `false`.
-  bool? get unevaluatedProperties => _value['unevaluatedProperties'] as bool?;
+  bool? get unevaluatedProperties =>
+      _value[Keys.unevaluatedProperties] as bool?;
 
   /// A list of valid patterns for all property names.
   ///
@@ -901,18 +903,18 @@ extension type ObjectSchema.fromMap(Map<String, Object?> _value)
   /// valid, but `{'Name': 'John', 'Age': 30}` would be invalid because the
   /// property names do not start with a lowercase letter.
   StringSchema? get propertyNames =>
-      (_value['propertyNames'] as Map?)?.cast<String, Object?>()
+      (_value[Keys.propertyNames] as Map?)?.cast<String, Object?>()
           as StringSchema?;
 
   /// The minimum number of properties in this object.
   ///
   /// If the object has less than this many properties, it will be invalid.
-  int? get minProperties => _value['minProperties'] as int?;
+  int? get minProperties => _value[Keys.minProperties] as int?;
 
   /// The maximum number of properties in this object.
   ///
   /// If the object has more than this many properties, it will be invalid.
-  int? get maxProperties => _value['maxProperties'] as int?;
+  int? get maxProperties => _value[Keys.maxProperties] as int?;
 
   bool _validateObject(
     Object? data,
@@ -952,7 +954,7 @@ extension type ObjectSchema.fromMap(Map<String, Object?> _value)
           ValidationErrorType.maxPropertiesExceeded,
           path: currentPath,
           details:
-              'Exceeded maxProperties limit of $maxProperties '
+              'Exceeded ${Keys.maxProperties} limit of $maxProperties '
               '(${data.keys.length})',
         ),
       );
@@ -1096,42 +1098,42 @@ extension type const StringSchema.fromMap(Map<String, Object?> _value)
     @Deprecated('Use UntitledSingleSelectEnumSchema instead.')
     Iterable<String>? enumValues,
   }) => StringSchema.fromMap({
-    'type': JsonType.string.typeName,
-    if (title != null) 'title': title,
-    if (description != null) 'description': description,
-    if (minLength != null) 'minLength': minLength,
-    if (maxLength != null) 'maxLength': maxLength,
-    if (pattern != null) 'pattern': pattern,
-    if (defaultValue != null) 'default': defaultValue,
-    if (format != null) 'format': format.name,
-    if (enumValues != null) 'enum': enumValues,
+    Keys.type: JsonType.string.typeName,
+    if (title != null) Keys.title: title,
+    if (description != null) Keys.description: description,
+    if (minLength != null) Keys.minLength: minLength,
+    if (maxLength != null) Keys.maxLength: maxLength,
+    if (pattern != null) Keys.pattern: pattern,
+    if (defaultValue != null) Keys.default_: defaultValue,
+    if (format != null) Keys.format: format.name,
+    if (enumValues != null) Keys.enum_: enumValues,
   });
 
   /// The minimum allowed length of this String.
-  int? get minLength => _value['minLength'] as int?;
+  int? get minLength => _value[Keys.minLength] as int?;
 
   /// The maximum allowed length of this String.
-  int? get maxLength => _value['maxLength'] as int?;
+  int? get maxLength => _value[Keys.maxLength] as int?;
 
   /// A regular expression pattern that the String must match.
-  String? get pattern => _value['pattern'] as String?;
+  String? get pattern => _value[Keys.pattern] as String?;
 
   /// The default value for this schema.
-  String? get defaultValue => _value['default'] as String?;
+  String? get defaultValue => _value[Keys.default_] as String?;
 
   /// The format of this String, corresponds to the `format` key.
   StringFormat? get format {
-    final format = _value['format'] as String?;
+    final format = _value[Keys.format] as String?;
     if (format == null) return null;
     return StringFormat.values.firstWhere((value) => value.name == format);
   }
 
   /// The allowed values for this String, corresponds to the `enum` key.
   Iterable<String>? get enumValues {
-    final values = (_value['enum'] as Iterable?)?.cast<String>();
+    final values = (_value[Keys.enum_] as Iterable?)?.cast<String>();
     assert(
       values?.toSet().length == values?.length,
-      "The 'enum' property has duplicate entries.",
+      "The '${Keys.enum_}' property has duplicate entries.",
     );
     return values;
   }
@@ -1231,33 +1233,35 @@ extension type EnumSchema.fromMap(Map<String, Object?> _value)
   static const titledMultiSelect = TitledMultiSelectEnumSchema.new;
 
   /// A title for this schema, should be short.
-  String? get title => _value['title'] as String?;
+  String? get title => _value[Keys.title] as String?;
 
   /// A description of this schema.
-  String? get description => _value['description'] as String?;
+  String? get description => _value[Keys.description] as String?;
 
   /// Whether or not this schema looks like an untitled single-select enum.
   bool get isUntitledSingleSelect =>
-      type == JsonType.string && _value['enum'] != null;
+      type == JsonType.string && _value[Keys.enum_] != null;
 
   /// Whether or not this schema looks like a titled single-select enum.
   bool get isTitledSingleSelect =>
-      type == JsonType.string && _value['oneOf'] != null;
+      type == JsonType.string && _value[Keys.oneOf] != null;
 
   /// Whether or not this schema looks like an untitled multi-select enum.
   bool get isUntitledMultiSelect =>
-      type == JsonType.list && (_value['items'] as Map?)?['enum'] != null;
+      type == JsonType.list &&
+      (_value[Keys.items] as Map?)?[Keys.enum_] != null;
 
   /// Whether or not this schema looks like a titled multi-select enum.
   bool get isTitledMultiSelect =>
-      type == JsonType.list && (_value['items'] as Map?)?['anyOf'] != null;
+      type == JsonType.list &&
+      (_value[Keys.items] as Map?)?[Keys.anyOf] != null;
 }
 
 /// Common properties for single-select enum schemas.
 extension type SingleSelectEnumSchema.fromMap(Map<String, Object?> _value)
     implements EnumSchema {
   /// The default value for this schema.
-  String? get defaultValue => _value['default'] as String?;
+  String? get defaultValue => _value[Keys.default_] as String?;
 }
 
 /// Schema for single-selection enumeration without display titles for options.
@@ -1274,13 +1278,13 @@ extension type UntitledSingleSelectEnumSchema.fromMap(
     'type': JsonType.string.typeName,
     if (title != null) 'title': title,
     if (description != null) 'description': description,
-    if (defaultValue != null) 'default': defaultValue,
-    'enum': values,
+    if (defaultValue != null) Keys.default_: defaultValue,
+    Keys.enum_: values,
   });
 
   /// The allowed enum values.
   Iterable<String> get values {
-    final values = (_value['enum'] as Iterable?)?.cast<String>();
+    final values = (_value[Keys.enum_] as Iterable?)?.cast<String>();
     if (values == null) {
       throw ArgumentError('Missing required property "enum"');
     }
@@ -1304,12 +1308,13 @@ extension type TitledSingleSelectEnumSchema.fromMap(Map<String, Object?> _value)
     'type': JsonType.string.typeName,
     if (title != null) 'title': title,
     if (description != null) 'description': description,
-    if (defaultValue != null) 'default': defaultValue,
-    'oneOf': values,
+    if (defaultValue != null) Keys.default_: defaultValue,
+    Keys.oneOf: values,
   });
 
   Iterable<EnumValueWithTitle> get values {
-    final values = (_value['oneOf'] as Iterable?)?.cast<EnumValueWithTitle>();
+    final values =
+        (_value[Keys.oneOf] as Iterable?)?.cast<EnumValueWithTitle>();
     if (values == null) {
       throw ArgumentError('Missing required property "oneOf"');
     }
@@ -1326,13 +1331,13 @@ extension type MultiSelectEnumSchema._fromMap(Map<String, Object?> _value)
     implements EnumSchema {
   /// Optional default value.
   Iterable<String>? get defaultValue =>
-      (_value['default'] as Iterable?)?.cast<String>();
+      (_value[Keys.default_] as Iterable?)?.cast<String>();
 
   /// The minimum number of items to select.
-  int? get minItems => _value['minItems'] as int?;
+  int? get minItems => _value[Keys.minItems] as int?;
 
   /// The maximum number of items to select.
-  int? get maxItems => _value['maxItems'] as int?;
+  int? get maxItems => _value[Keys.maxItems] as int?;
 }
 
 /// Schema for multiple-selection enumeration without display titles.
@@ -1353,20 +1358,21 @@ extension type UntitledMultiSelectEnumSchema.fromMap(
     if (description != null) 'description': description,
     if (defaultValue != null) 'default': defaultValue,
     if (minItems != null) 'minItems': minItems,
-    if (maxItems != null) 'maxItems': maxItems,
-    'items': {'enum': values, 'type': JsonType.string.typeName},
+    if (maxItems != null) Keys.maxItems: maxItems,
+    Keys.items: {Keys.enum_: values, Keys.type: JsonType.string.typeName},
   });
 
   /// The allowed enum values.
   Iterable<String> get values {
     final values =
-        ((_value['items'] as Map?)?['enum'] as Iterable?)?.cast<String>();
+        ((_value[Keys.items] as Map?)?[Keys.enum_] as Iterable?)
+            ?.cast<String>();
     if (values == null) {
-      throw ArgumentError('Missing required property "enum"');
+      throw ArgumentError('Missing required property "${Keys.enum_}"');
     }
     assert(
       values.toSet().length == values.length,
-      "The 'enum' property has duplicate entries.",
+      "The '${Keys.enum_}' property has duplicate entries.",
     );
     return values;
   }
@@ -1383,26 +1389,26 @@ extension type TitledMultiSelectEnumSchema.fromMap(Map<String, Object?> _value)
     int? maxItems,
     required Iterable<EnumValueWithTitle> values,
   }) => TitledMultiSelectEnumSchema.fromMap({
-    'type': JsonType.list.typeName,
-    if (title != null) 'title': title,
-    if (description != null) 'description': description,
-    if (defaultValue != null) 'default': defaultValue,
-    if (minItems != null) 'minItems': minItems,
-    if (maxItems != null) 'maxItems': maxItems,
-    'items': {'anyOf': values},
+    Keys.type: JsonType.list.typeName,
+    if (title != null) Keys.title: title,
+    if (description != null) Keys.description: description,
+    if (defaultValue != null) Keys.default_: defaultValue,
+    if (minItems != null) Keys.minItems: minItems,
+    if (maxItems != null) Keys.maxItems: maxItems,
+    Keys.items: {Keys.anyOf: values},
   });
 
   /// The allowed enum values.
   Iterable<EnumValueWithTitle> get values {
     final values =
-        ((_value['items'] as Map?)?['anyOf'] as Iterable?)
+        ((_value[Keys.items] as Map?)?[Keys.anyOf] as Iterable?)
             ?.cast<EnumValueWithTitle>();
     if (values == null) {
-      throw ArgumentError('Missing required property "anyOf"');
+      throw ArgumentError('Missing required property "${Keys.anyOf}"');
     }
     assert(
       values.toSet().length == values.length,
-      "The 'anyOf' property has duplicate entries.",
+      "The '${Keys.anyOf}' property has duplicate entries.",
     );
     return values;
   }
@@ -1414,15 +1420,16 @@ extension type EnumValueWithTitle.fromMap(Map<String, Object?> _value)
   factory EnumValueWithTitle({
     required String title,
     required String constValue,
-  }) => EnumValueWithTitle.fromMap({'title': title, 'const': constValue});
+  }) =>
+      EnumValueWithTitle.fromMap({Keys.title: title, Keys.const_: constValue});
 
   /// The title for this enum entry.
-  String get title => _value['title'] as String;
+  String get title => _value[Keys.title] as String;
 
   /// The constant value for this enum entry.
   ///
   /// Cannot be called `const` since this is a reserved keyword in Dart.
-  String get constValue => _value['const'] as String;
+  String get constValue => _value[Keys.const_] as String;
 }
 
 /// A JSON Schema definition for a [num].
@@ -1437,30 +1444,30 @@ extension type NumberSchema.fromMap(Map<String, Object?> _value)
     num? exclusiveMaximum,
     num? multipleOf,
   }) => NumberSchema.fromMap({
-    'type': JsonType.num.typeName,
-    if (title != null) 'title': title,
-    if (description != null) 'description': description,
-    if (minimum != null) 'minimum': minimum,
-    if (maximum != null) 'maximum': maximum,
-    if (exclusiveMinimum != null) 'exclusiveMinimum': exclusiveMinimum,
-    if (exclusiveMaximum != null) 'exclusiveMaximum': exclusiveMaximum,
-    if (multipleOf != null) 'multipleOf': multipleOf,
+    Keys.type: JsonType.num.typeName,
+    if (title != null) Keys.title: title,
+    if (description != null) Keys.description: description,
+    if (minimum != null) Keys.minimum: minimum,
+    if (maximum != null) Keys.maximum: maximum,
+    if (exclusiveMinimum != null) Keys.exclusiveMinimum: exclusiveMinimum,
+    if (exclusiveMaximum != null) Keys.exclusiveMaximum: exclusiveMaximum,
+    if (multipleOf != null) Keys.multipleOf: multipleOf,
   });
 
   /// The minimum value (inclusive) for this number.
-  num? get minimum => _value['minimum'] as num?;
+  num? get minimum => _value[Keys.minimum] as num?;
 
   /// The maximum value (inclusive) for this number.
-  num? get maximum => _value['maximum'] as num?;
+  num? get maximum => _value[Keys.maximum] as num?;
 
   /// The minimum value (exclusive) for this number.
-  num? get exclusiveMinimum => _value['exclusiveMinimum'] as num?;
+  num? get exclusiveMinimum => _value[Keys.exclusiveMinimum] as num?;
 
   /// The maximum value (exclusive) for this number.
-  num? get exclusiveMaximum => _value['exclusiveMaximum'] as num?;
+  num? get exclusiveMaximum => _value[Keys.exclusiveMaximum] as num?;
 
   /// The value must be a multiple of this number.
-  num? get multipleOf => _value['multipleOf'] as num?;
+  num? get multipleOf => _value[Keys.multipleOf] as num?;
 
   bool _validateNumber(
     Object? data,
@@ -1549,30 +1556,30 @@ extension type IntegerSchema.fromMap(Map<String, Object?> _value)
     int? exclusiveMaximum,
     num? multipleOf,
   }) => IntegerSchema.fromMap({
-    'type': JsonType.int.typeName,
-    if (title != null) 'title': title,
-    if (description != null) 'description': description,
-    if (minimum != null) 'minimum': minimum,
-    if (maximum != null) 'maximum': maximum,
-    if (exclusiveMinimum != null) 'exclusiveMinimum': exclusiveMinimum,
-    if (exclusiveMaximum != null) 'exclusiveMaximum': exclusiveMaximum,
-    if (multipleOf != null) 'multipleOf': multipleOf,
+    Keys.type: JsonType.int.typeName,
+    if (title != null) Keys.title: title,
+    if (description != null) Keys.description: description,
+    if (minimum != null) Keys.minimum: minimum,
+    if (maximum != null) Keys.maximum: maximum,
+    if (exclusiveMinimum != null) Keys.exclusiveMinimum: exclusiveMinimum,
+    if (exclusiveMaximum != null) Keys.exclusiveMaximum: exclusiveMaximum,
+    if (multipleOf != null) Keys.multipleOf: multipleOf,
   });
 
   /// The minimum value (inclusive) for this integer.
-  int? get minimum => _value['minimum'] as int?;
+  int? get minimum => _value[Keys.minimum] as int?;
 
   /// The maximum value (inclusive) for this integer.
-  int? get maximum => _value['maximum'] as int?;
+  int? get maximum => _value[Keys.maximum] as int?;
 
   /// The minimum value (exclusive) for this integer.
-  int? get exclusiveMinimum => _value['exclusiveMinimum'] as int?;
+  int? get exclusiveMinimum => _value[Keys.exclusiveMinimum] as int?;
 
   /// The maximum value (exclusive) for this integer.
-  int? get exclusiveMaximum => _value['exclusiveMaximum'] as int?;
+  int? get exclusiveMaximum => _value[Keys.exclusiveMaximum] as int?;
 
   /// The value must be a multiple of this number.
-  num? get multipleOf => _value['multipleOf'] as num?;
+  num? get multipleOf => _value[Keys.multipleOf] as num?;
 
   bool _validateInteger(
     Object? data,
@@ -1666,9 +1673,9 @@ extension type BooleanSchema.fromMap(Map<String, Object?> _value)
     implements Schema {
   factory BooleanSchema({String? title, String? description}) =>
       BooleanSchema.fromMap({
-        'type': JsonType.bool.typeName,
-        if (title != null) 'title': title,
-        if (description != null) 'description': description,
+        Keys.type: JsonType.bool.typeName,
+        if (title != null) Keys.title: title,
+        if (description != null) Keys.description: description,
       });
 }
 
@@ -1677,9 +1684,9 @@ extension type NullSchema.fromMap(Map<String, Object?> _value)
     implements Schema {
   factory NullSchema({String? title, String? description}) =>
       NullSchema.fromMap({
-        'type': JsonType.nil.typeName,
-        if (title != null) 'title': title,
-        if (description != null) 'description': description,
+        Keys.type: JsonType.nil.typeName,
+        if (title != null) Keys.title: title,
+        if (description != null) Keys.description: description,
       });
 }
 
@@ -1696,15 +1703,15 @@ extension type ListSchema.fromMap(Map<String, Object?> _value)
     int? maxItems,
     bool? uniqueItems,
   }) => ListSchema.fromMap({
-    'type': JsonType.list.typeName,
-    if (title != null) 'title': title,
-    if (description != null) 'description': description,
-    if (items != null) 'items': items,
-    if (prefixItems != null) 'prefixItems': prefixItems,
-    if (unevaluatedItems != null) 'unevaluatedItems': unevaluatedItems,
-    if (minItems != null) 'minItems': minItems,
-    if (maxItems != null) 'maxItems': maxItems,
-    if (uniqueItems != null) 'uniqueItems': uniqueItems,
+    Keys.type: JsonType.list.typeName,
+    if (title != null) Keys.title: title,
+    if (description != null) Keys.description: description,
+    if (items != null) Keys.items: items,
+    if (prefixItems != null) Keys.prefixItems: prefixItems,
+    if (unevaluatedItems != null) Keys.unevaluatedItems: unevaluatedItems,
+    if (minItems != null) Keys.minItems: minItems,
+    if (maxItems != null) Keys.maxItems: maxItems,
+    if (uniqueItems != null) Keys.uniqueItems: uniqueItems,
   });
 
   /// The schema for all the items in this list, or all those after
@@ -1733,7 +1740,7 @@ extension type ListSchema.fromMap(Map<String, Object?> _value)
   ///   items: Schema.bool(),
   /// );
   /// ```
-  Schema? get items => _value['items'] as Schema?;
+  Schema? get items => _value[Keys.items] as Schema?;
 
   /// The schema for the initial items in this list, if specified.
   ///
@@ -1762,7 +1769,7 @@ extension type ListSchema.fromMap(Map<String, Object?> _value)
   /// );
   /// ```
   List<Schema>? get prefixItems =>
-      (_value['prefixItems'] as List?)?.cast<Schema>();
+      (_value[Keys.prefixItems] as List?)?.cast<Schema>();
 
   /// Whether or not  additional items in the list are allowed that don't
   /// match the [items] or [prefixItems] schemas.
@@ -1784,13 +1791,13 @@ extension type ListSchema.fromMap(Map<String, Object?> _value)
   /// beyond those covered by `prefixItems`), and `unevaluatedItems` is set
   /// to `false`, disallowing any items not explicitly matched by the
   /// schema.
-  bool? get unevaluatedItems => _value['unevaluatedItems'] as bool?;
+  bool? get unevaluatedItems => _value[Keys.unevaluatedItems] as bool?;
 
   /// The minimum number of items in this list.
-  int? get minItems => _value['minItems'] as int?;
+  int? get minItems => _value[Keys.minItems] as int?;
 
   /// The maximum number of items in this list.
-  int? get maxItems => _value['maxItems'] as int?;
+  int? get maxItems => _value[Keys.maxItems] as int?;
 
   /// Whether or not all the items in this list must be unique.
   ///
@@ -1810,7 +1817,7 @@ extension type ListSchema.fromMap(Map<String, Object?> _value)
   /// defined using the `items` property; `uniqueItems` only enforces the
   /// uniqueness of the items, not their type or value, which are handled by
   /// the corresponding schema in the `items` property.
-  bool? get uniqueItems => _value['uniqueItems'] as bool?;
+  bool? get uniqueItems => _value[Keys.uniqueItems] as bool?;
 
   bool _validateList(
     Object? data,

@@ -13,32 +13,32 @@ extension type Icon.fromMap(Map<String, Object?> _value) {
     IconTheme? theme,
   }) {
     return Icon.fromMap({
-      'src': src,
-      if (mimeType != null) 'mimeType': mimeType,
-      if (sizes != null) 'sizes': sizes,
-      if (theme != null) 'theme': theme.name,
+      Keys.src: src,
+      if (mimeType != null) Keys.mimeType: mimeType,
+      if (sizes != null) Keys.sizes: sizes,
+      if (theme != null) Keys.theme: theme.name,
     });
   }
 
   /// A standard URI pointing to an icon resource.
   String get src {
-    final src = _value['src'] as String?;
+    final src = _value[Keys.src] as String?;
     if (src == null) {
-      throw ArgumentError('Missing required src field in $Icon');
+      throw ArgumentError('Missing required ${Keys.src} field in $Icon');
     }
     return src;
   }
 
   /// Optional MIME type override if the source MIME type is missing or generic.
-  String? get mimeType => _value['mimeType'] as String?;
+  String? get mimeType => _value[Keys.mimeType] as String?;
 
   /// Optional array of strings that specify sizes at which the icon can be
   /// used.
-  List<String>? get sizes => (_value['sizes'] as List?)?.cast<String>();
+  List<String>? get sizes => (_value[Keys.sizes] as List?)?.cast<String>();
 
   /// Optional specifier for the theme this icon is designed for.
   IconTheme? get theme {
-    final theme = _value['theme'] as String?;
+    final theme = _value[Keys.theme] as String?;
     if (theme == null) return null;
     return IconTheme.values.firstWhere((value) => value.name == theme);
   }

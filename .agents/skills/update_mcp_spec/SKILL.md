@@ -41,6 +41,7 @@ This skill guides you through the process of updating the `dart_mcp` package to 
 4.  **Implement Schema Changes**:
     -   Review the schema for new types or fields by comparing the various part files included by `lib/src/api/api.dart` against the schema. If you cannot find the schema, pause and ask the user for guidance. All changes must be backed by the real schema.
     -   Update `lib/src/api/api.dart` as needed, for new features typically you should add a new part file to keep the codebase organized.
+    -   Whenever referencing map keys, use constant values from `lib/src/utils/names.dart`, adding any new constants that you need. Do not use string literals for map keys.
     -   **Important**: When implementing numeric fields from the schema, use `num` (or `num?` for optional fields) instead of `int` or `double`, unless the schema explicitly constraints the value to be an integer. The JSON schema `number` type can be either an integer or floating-point value.
 
 5.  **Update Client/Server Implementations**:

@@ -16,10 +16,10 @@ extension type InitializeRequest._fromMap(Map<String, Object?> _value)
     required Implementation clientInfo,
     MetaWithProgressToken? meta,
   }) => InitializeRequest._fromMap({
-    'protocolVersion': protocolVersion.versionString,
-    'capabilities': capabilities,
-    'clientInfo': clientInfo,
-    if (meta != null) '_meta': meta,
+    Keys.protocolVersion: protocolVersion.versionString,
+    Keys.capabilities: capabilities,
+    Keys.clientInfo: clientInfo,
+    if (meta != null) Keys.meta: meta,
   });
 
   /// The latest version of the Model Context Protocol that the client supports.
@@ -28,10 +28,10 @@ extension type InitializeRequest._fromMap(Map<String, Object?> _value)
   ///
   /// May be `null` if the version is not recognized.
   ProtocolVersion? get protocolVersion =>
-      ProtocolVersion.tryParse(_value['protocolVersion'] as String? ?? '');
+      ProtocolVersion.tryParse(_value[Keys.protocolVersion] as String? ?? '');
 
   ClientCapabilities get capabilities {
-    final capabilities = _value['capabilities'] as ClientCapabilities?;
+    final capabilities = _value[Keys.capabilities] as ClientCapabilities?;
     if (capabilities == null) {
       throw ArgumentError('Missing capabilities field in $InitializeRequest.');
     }
@@ -39,7 +39,7 @@ extension type InitializeRequest._fromMap(Map<String, Object?> _value)
   }
 
   Implementation get clientInfo {
-    final clientInfo = _value['clientInfo'] as Implementation?;
+    final clientInfo = _value[Keys.clientInfo] as Implementation?;
     if (clientInfo == null) {
       throw ArgumentError('Missing clientInfo field in $InitializeRequest.');
     }
@@ -57,10 +57,10 @@ extension type InitializeResult.fromMap(Map<String, Object?> _value)
     required Implementation serverInfo,
     String? instructions,
   }) => InitializeResult.fromMap({
-    'protocolVersion': protocolVersion.versionString,
-    'capabilities': serverCapabilities,
-    'serverInfo': serverInfo,
-    if (instructions != null) 'instructions': instructions,
+    Keys.protocolVersion: protocolVersion.versionString,
+    Keys.capabilities: serverCapabilities,
+    Keys.serverInfo: serverInfo,
+    if (instructions != null) Keys.instructions: instructions,
   });
 
   /// The version of the Model Context Protocol that the server wants to use.
@@ -70,7 +70,7 @@ extension type InitializeResult.fromMap(Map<String, Object?> _value)
   ///
   /// May be `null` if the version is not recognized.
   ProtocolVersion? get protocolVersion =>
-      ProtocolVersion.tryParse(_value['protocolVersion'] as String);
+      ProtocolVersion.tryParse(_value[Keys.protocolVersion] as String);
 
   /// Sets the protocol version, by default this is set for you, but you can
   /// override it to a specific version if desired.
@@ -78,20 +78,20 @@ extension type InitializeResult.fromMap(Map<String, Object?> _value)
   /// While this API is typed as nullable, `null` is not an allowed value.
   set protocolVersion(ProtocolVersion? value) {
     assert(value != null);
-    _value['protocolVersion'] = value!.versionString;
+    _value[Keys.protocolVersion] = value!.versionString;
   }
 
   ServerCapabilities get capabilities =>
-      _value['capabilities'] as ServerCapabilities;
+      _value[Keys.capabilities] as ServerCapabilities;
 
-  Implementation get serverInfo => _value['serverInfo'] as Implementation;
+  Implementation get serverInfo => _value[Keys.serverInfo] as Implementation;
 
   /// Instructions describing how to use the server and its features.
   ///
   /// This can be used by clients to improve the LLM's understanding of
   /// available tools, resources, etc. It can be thought of like a "hint" to the
   /// model. For example, this information MAY be added to the system prompt.
-  String? get instructions => _value['instructions'] as String?;
+  String? get instructions => _value[Keys.instructions] as String?;
 }
 
 /// This notification is sent from the client to the server after initialization
@@ -101,7 +101,7 @@ extension type InitializedNotification.fromMap(Map<String, Object?> _value)
   static const methodName = 'notifications/initialized';
 
   factory InitializedNotification({Meta? meta}) =>
-      InitializedNotification.fromMap({if (meta != null) '_meta': meta});
+      InitializedNotification.fromMap({if (meta != null) Keys.meta: meta});
 }
 
 /// Capabilities a client may support.
@@ -115,65 +115,65 @@ extension type ClientCapabilities.fromMap(Map<String, Object?> _value) {
     Map<String, Object?>? sampling,
     ElicitationCapability? elicitation,
   }) => ClientCapabilities.fromMap({
-    if (experimental != null) 'experimental': experimental,
-    if (roots != null) 'roots': roots,
-    if (sampling != null) 'sampling': sampling,
-    if (elicitation != null) 'elicitation': elicitation,
+    if (experimental != null) Keys.experimental: experimental,
+    if (roots != null) Keys.roots: roots,
+    if (sampling != null) Keys.sampling: sampling,
+    if (elicitation != null) Keys.elicitation: elicitation,
   });
 
   /// Experimental, non-standard capabilities that the client supports.
   Map<String, Object?>? get experimental =>
-      _value['experimental'] as Map<String, Object?>?;
+      _value[Keys.experimental] as Map<String, Object?>?;
 
   /// Sets [experimental] asserting it is non-null first.
   set experimental(Map<String, Object?>? value) {
     assert(experimental == null);
-    _value['experimental'] = value;
+    _value[Keys.experimental] = value;
   }
 
   /// Present if the client supports any capabilities regarding roots.
-  RootsCapabilities? get roots => _value['roots'] as RootsCapabilities?;
+  RootsCapabilities? get roots => _value[Keys.roots] as RootsCapabilities?;
 
   /// Sets [roots] asserting it is non-null first.
   set roots(RootsCapabilities? value) {
     assert(roots == null);
-    _value['roots'] = value;
+    _value[Keys.roots] = value;
   }
 
   /// Present if the client supports sampling from an LLM.
   Map<String, Object?>? get sampling =>
-      (_value['sampling'] as Map?)?.cast<String, Object?>();
+      (_value[Keys.sampling] as Map?)?.cast<String, Object?>();
 
   /// Sets [sampling] asserting it is non-null first.
   set sampling(Map<String, Object?>? value) {
     assert(sampling == null);
-    _value['sampling'] = value;
+    _value[Keys.sampling] = value;
   }
 
   /// Present if the client supports elicitation.
   ElicitationCapability? get elicitation =>
-      _value['elicitation'] as ElicitationCapability?;
+      _value[Keys.elicitation] as ElicitationCapability?;
 
   /// Sets [elicitation], asserting it is null first.
   set elicitation(ElicitationCapability? value) {
     assert(elicitation == null);
-    _value['elicitation'] = value;
+    _value[Keys.elicitation] = value;
   }
 }
 
 /// Whether the client supports notifications for changes to the roots list.
 extension type RootsCapabilities.fromMap(Map<String, Object?> _value) {
   factory RootsCapabilities({bool? listChanged}) => RootsCapabilities.fromMap({
-    if (listChanged != null) 'listChanged': listChanged,
+    if (listChanged != null) Keys.listChanged: listChanged,
   });
 
   /// Present if the client supports listing roots.
-  bool? get listChanged => _value['listChanged'] as bool?;
+  bool? get listChanged => _value[Keys.listChanged] as bool?;
 
   /// Sets whether [listChanged] is supported.
   set listChanged(bool? value) {
     assert(listChanged == null);
-    _value['listChanged'] = value;
+    _value[Keys.listChanged] = value;
   }
 }
 
@@ -183,26 +183,26 @@ extension type ElicitationCapability.fromMap(Map<String, Object?> _value) {
     Map<String, Object?>? form,
     Map<String, Object?>? url,
   }) => ElicitationCapability.fromMap({
-    if (form != null) 'form': form,
-    if (url != null) 'url': url,
+    if (form != null) Keys.form: form,
+    if (url != null) Keys.url: url,
   });
 
   /// Whether form-based elicitation is supported.
-  Map<String, Object?>? get form => _value['form'] as Map<String, Object?>?;
+  Map<String, Object?>? get form => _value[Keys.form] as Map<String, Object?>?;
 
   /// Sets whether [form] is supported.
   set form(Map<String, Object?>? value) {
     assert(form == null);
-    _value['form'] = value;
+    _value[Keys.form] = value;
   }
 
   /// Whether URL-based elicitation is supported.
-  Map<String, Object?>? get url => _value['url'] as Map<String, Object?>?;
+  Map<String, Object?>? get url => _value[Keys.url] as Map<String, Object?>?;
 
   /// Sets whether [url] is supported.
   set url(Map<String, Object?>? value) {
     assert(url == null);
-    _value['url'] = value;
+    _value[Keys.url] = value;
   }
 }
 
@@ -221,79 +221,79 @@ extension type ServerCapabilities.fromMap(Map<String, Object?> _value) {
     @Deprecated('Do not use, only clients have this capability')
     Elicitation? elicitation,
   }) => ServerCapabilities.fromMap({
-    if (experimental != null) 'experimental': experimental,
-    if (logging != null) 'logging': logging,
-    if (prompts != null) 'prompts': prompts,
-    if (resources != null) 'resources': resources,
-    if (tools != null) 'tools': tools,
-    if (elicitation != null) 'elicitation': elicitation,
+    if (experimental != null) Keys.experimental: experimental,
+    if (logging != null) Keys.logging: logging,
+    if (prompts != null) Keys.prompts: prompts,
+    if (resources != null) Keys.resources: resources,
+    if (tools != null) Keys.tools: tools,
+    if (elicitation != null) Keys.elicitation: elicitation,
   });
 
   /// Experimental, non-standard capabilities that the server supports.
   Map<String, Object?>? get experimental =>
-      (_value['experimental'] as Map?)?.cast<String, Object?>();
+      (_value[Keys.experimental] as Map?)?.cast<String, Object?>();
 
   /// Sets [experimental] if it is null, otherwise throws.
   set experimental(Map<String, Object?>? value) {
     assert(experimental == null);
-    _value['experimental'] = value;
+    _value[Keys.experimental] = value;
   }
 
   /// Present if the server supports sending completion requests to the client.
-  Completions? get completions => _value['completions'] as Completions?;
+  Completions? get completions => _value[Keys.completions] as Completions?;
 
   /// Sets [completions] if it is null, otherwise throws.
   set completions(Completions? value) {
     assert(completions == null);
-    _value['completions'] = value;
+    _value[Keys.completions] = value;
   }
 
   /// Present if the server supports sending log messages to the client.
   Logging? get logging =>
-      (_value['logging'] as Map?)?.cast<String, Object?>() as Logging?;
+      (_value[Keys.logging] as Map?)?.cast<String, Object?>() as Logging?;
 
   /// Sets [logging] if it is null, otherwise throws.
   set logging(Logging? value) {
     assert(logging == null);
-    _value['logging'] = value;
+    _value[Keys.logging] = value;
   }
 
   /// Present if the server offers any prompt templates.
-  Prompts? get prompts => _value['prompts'] as Prompts?;
+  Prompts? get prompts => _value[Keys.prompts] as Prompts?;
 
   /// Sets [prompts] if it is null, otherwise throws.
   set prompts(Prompts? value) {
     assert(prompts == null);
-    _value['prompts'] = value;
+    _value[Keys.prompts] = value;
   }
 
   /// Whether this server supports subscribing to resource updates.
-  Resources? get resources => _value['resources'] as Resources?;
+  Resources? get resources => _value[Keys.resources] as Resources?;
 
   /// Sets [resources] if it is null, otherwise throws.
   set resources(Resources? value) {
     assert(resources == null);
-    _value['resources'] = value;
+    _value[Keys.resources] = value;
   }
 
   /// Present if the server offers any tools to call.
-  Tools? get tools => _value['tools'] as Tools?;
+  Tools? get tools => _value[Keys.tools] as Tools?;
 
   /// Sets [tools] if it is null, otherwise throws.
   set tools(Tools? value) {
     assert(tools == null);
-    _value['tools'] = value;
+    _value[Keys.tools] = value;
   }
 
   /// Present if the server supports elicitation.
   @Deprecated('Do not use, only clients have this capability')
-  Elicitation? get elicitation => _value['elicitation'] as Elicitation?;
+  Elicitation? get elicitation => _value[Keys.elicitation] as Elicitation?;
 
   /// Sets [elicitation] if it is null, otherwise asserts.
   @Deprecated('Do not use, only clients have this capability')
   set elicitation(Elicitation? value) {
     assert(elicitation == null);
-    _value['elicitation'] = value;
+    _value[Keys.elicitation] = value;
   }
 }
 
@@ -305,57 +305,57 @@ extension type Completions.fromMap(Map<String, Object?> _value) {
 /// Prompts parameter for [ServerCapabilities].
 extension type Prompts.fromMap(Map<String, Object?> _value) {
   factory Prompts({bool? listChanged}) =>
-      Prompts.fromMap({if (listChanged != null) 'listChanged': listChanged});
+      Prompts.fromMap({if (listChanged != null) Keys.listChanged: listChanged});
 
   /// Whether this server supports notifications for changes to the prompt list.
-  bool? get listChanged => _value['listChanged'] as bool?;
+  bool? get listChanged => _value[Keys.listChanged] as bool?;
 
   /// Sets whether [listChanged] is supported.
   set listChanged(bool? value) {
     assert(listChanged == null);
-    _value['listChanged'] = value;
+    _value[Keys.listChanged] = value;
   }
 }
 
 /// Resources parameter for [ServerCapabilities].
 extension type Resources.fromMap(Map<String, Object?> _value) {
   factory Resources({bool? listChanged, bool? subscribe}) => Resources.fromMap({
-    if (listChanged != null) 'listChanged': listChanged,
-    if (subscribe != null) 'subscribe': subscribe,
+    if (listChanged != null) Keys.listChanged: listChanged,
+    if (subscribe != null) Keys.subscribe: subscribe,
   });
 
   /// Whether this server supports notifications for changes to the resource
   /// list.
-  bool? get listChanged => _value['listChanged'] as bool?;
+  bool? get listChanged => _value[Keys.listChanged] as bool?;
 
   /// Sets whether [listChanged] is supported.
   set listChanged(bool? value) {
     assert(listChanged == null);
-    _value['listChanged'] = value;
+    _value[Keys.listChanged] = value;
   }
 
   /// Present if the server offers any resources to read.
-  bool? get subscribe => _value['subscribe'] as bool?;
+  bool? get subscribe => _value[Keys.subscribe] as bool?;
 
   /// Sets whether [subscribe] is supported.
   set subscribe(bool? value) {
     assert(subscribe == null);
-    _value['subscribe'] = value;
+    _value[Keys.subscribe] = value;
   }
 }
 
 /// Tools parameter for [ServerCapabilities].
 extension type Tools.fromMap(Map<String, Object?> _value) {
   factory Tools({bool? listChanged}) =>
-      Tools.fromMap({if (listChanged != null) 'listChanged': listChanged});
+      Tools.fromMap({if (listChanged != null) Keys.listChanged: listChanged});
 
   /// Whether this server supports notifications for changes to the tool list.
-  bool? get listChanged => _value['listChanged'] as bool?;
+  bool? get listChanged => _value[Keys.listChanged] as bool?;
 
   /// Sets whether [listChanged] is supported.
   set listChanged(bool? value) {
     assert(listChanged == null);
-    _value['listChanged'] = value;
+    _value[Keys.listChanged] = value;
   }
 }
 
@@ -376,16 +376,16 @@ extension type Implementation.fromMap(Map<String, Object?> _value)
     List<Icon>? icons,
     String? websiteUrl,
   }) => Implementation.fromMap({
-    'name': name,
-    'version': version,
-    if (title != null) 'title': title,
-    if (description != null) 'description': description,
-    if (icons != null) 'icons': icons,
-    if (websiteUrl != null) 'websiteUrl': websiteUrl,
+    Keys.name: name,
+    Keys.version: version,
+    if (title != null) Keys.title: title,
+    if (description != null) Keys.description: description,
+    if (icons != null) Keys.icons: icons,
+    if (websiteUrl != null) Keys.websiteUrl: websiteUrl,
   });
 
   String get version {
-    final version = _value['version'] as String?;
+    final version = _value[Keys.version] as String?;
     if (version == null) {
       throw ArgumentError('Missing version field in $Implementation.');
     }
@@ -393,14 +393,14 @@ extension type Implementation.fromMap(Map<String, Object?> _value)
   }
 
   /// A human-readable description of what this implementation does.
-  String? get description => _value['description'] as String?;
+  String? get description => _value[Keys.description] as String?;
 
   /// Optional set of sized icons that the client can display in a user
   /// interface.
-  List<Icon>? get icons => (_value['icons'] as List?)?.cast<Icon>();
+  List<Icon>? get icons => (_value[Keys.icons] as List?)?.cast<Icon>();
 
   /// Optional URL to the website of the implementation.
-  String? get websiteUrl => _value['websiteUrl'] as String?;
+  String? get websiteUrl => _value[Keys.websiteUrl] as String?;
 }
 
 @Deprecated('Use Implementation instead.')
