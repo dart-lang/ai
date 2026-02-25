@@ -61,9 +61,10 @@ base class MCPServerWithElicitation extends MCPServer
         server.listen((HttpRequest request) async {
           switch (request.method) {
             case 'GET':
-              request.response.statusCode = 200;
-              request.response.headers.contentType = ContentType.html;
-              request.response.write(_permissionWebPage);
+              request.response
+                ..statusCode = 200
+                ..headers.contentType = ContentType.html
+                ..write(_permissionWebPage);
               break;
             case 'POST':
               // Read the permission radio button value from the form.
@@ -164,13 +165,13 @@ base class MCPServerWithElicitation extends MCPServer
       server.listen((HttpRequest request) async {
         switch (request.method) {
           case 'GET':
-            request.response.statusCode = 200;
-            request.response.headers.contentType = ContentType.html;
-            request.response.write(_apiKeyWebPage);
+            request.response
+              ..statusCode = 200
+              ..headers.contentType = ContentType.html
+              ..write(_apiKeyWebPage);
             break;
           case 'POST':
-
-            /// Read the posted api key from the form.
+            // Read the posted api key from the form.
             final formContents =
                 Uri(
                   query:
