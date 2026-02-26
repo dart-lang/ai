@@ -498,12 +498,12 @@ void main() {
             appPath,
             isFlutter: false,
           );
-          await server.updateActiveVmServices();
+          await server.updateActiveVmServices(server.dtds.single);
           expect(server.activeVmServices.length, 1);
 
           // Re-uses existing VM Service when available.
           final originalVmService = server.activeVmServices.values.single;
-          await server.updateActiveVmServices();
+          await server.updateActiveVmServices(server.dtds.single);
           expect(server.activeVmServices.length, 1);
           expect(originalVmService, server.activeVmServices.values.single);
 
@@ -512,7 +512,7 @@ void main() {
             appPath,
             isFlutter: false,
           );
-          await server.updateActiveVmServices();
+          await server.updateActiveVmServices(server.dtds.single);
           expect(server.activeVmServices.length, 2);
         });
 
@@ -589,7 +589,7 @@ void main() {
             'lib/main.dart',
             isFlutter: true,
           );
-          await server.updateActiveVmServices();
+          await server.updateActiveVmServices(server.dtds.single);
 
           final getWidgetTreeResult = await testHarness.callToolWithRetry(
             CallToolRequest(
@@ -872,7 +872,7 @@ void main() {
             );
             expect(
               (result.content.first as TextContent).text,
-              'No active location reported by the editor yet.',
+              'No active location found.',
             );
           },
         );

@@ -116,6 +116,11 @@ base mixin ToolsSupport on MCPServer {
     try {
       return await impl(request);
     } catch (e, s) {
+      if (e is RpcException) {
+        // These exceptions should bubble up as proper RPC errors and not be
+        // converted into failed tool call responses.
+        rethrow;
+      }
       return CallToolResult(
         isError: true,
         content: [TextContent(text: '$e\n$s')],

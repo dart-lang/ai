@@ -11,8 +11,12 @@ import 'dart:collection';
 import 'package:collection/collection.dart';
 import 'package:json_rpc_2/json_rpc_2.dart';
 
+import '../utils/constants.dart';
+
 part 'completions.dart';
 part 'elicitation.dart';
+part 'error_codes.dart';
+part 'icons.dart';
 part 'initialization.dart';
 part 'logging.dart';
 part 'prompts.dart';
@@ -25,7 +29,8 @@ part 'tools.dart';
 enum ProtocolVersion {
   v2024_11_05('2024-11-05'),
   v2025_03_26('2025-03-26'),
-  v2025_06_18('2025-06-18');
+  v2025_06_18('2025-06-18'),
+  v2025_11_05('2025-11-05');
 
   const ProtocolVersion(this.versionString);
 
@@ -38,7 +43,7 @@ enum ProtocolVersion {
   static const oldestSupported = ProtocolVersion.v2024_11_05;
 
   /// The most recent version supported by the current API.
-  static const latestSupported = ProtocolVersion.v2025_06_18;
+  static const latestSupported = ProtocolVersion.v2025_11_05;
 
   /// The version string used over the wire to identify this version.
   final String versionString;
@@ -95,15 +100,14 @@ extension type Meta.fromMap(Map<String, Object?> _value) {
 ///
 /// Not to be confused with the `_meta` property in the spec, which has a
 /// different purpose.
-extension type BaseMetadata.fromMap(Map<String, Object?> _value)
-    implements Meta {
+extension type BaseMetadata.fromMap(Map<String, Object?> _value) {
   factory BaseMetadata({required String name, String? title}) =>
-      BaseMetadata.fromMap({'name': name, 'title': title});
+      BaseMetadata.fromMap({Keys.name: name, Keys.title: title});
 
   /// Intended for programmatic or logical use, but used as a display name in
   /// past specs for fallback (if title isn't present).
   String get name {
-    final name = _value['name'] as String?;
+    final name = _value[Keys.name] as String?;
     if (name == null) {
       throw ArgumentError('Missing name field in $runtimeType');
     }
@@ -119,7 +123,7 @@ extension type BaseMetadata.fromMap(Map<String, Object?> _value)
   /// If not provided, the name should be used for display (except for Tool,
   /// where `annotations.title` should be given precedence over using `name`, if
   /// present).
-  String? get title => _value['title'] as String?;
+  String? get title => _value[Keys.title] as String?;
 }
 
 /// A "mixin"-like extension type for any extension type that might contain a
@@ -127,7 +131,8 @@ extension type BaseMetadata.fromMap(Map<String, Object?> _value)
 ///
 /// Should be "mixed in" by implementing this type from other extension types.
 extension type WithProgressToken.fromMap(Map<String, Object?> _value) {
-  ProgressToken? get progressToken => _value['progressToken'] as ProgressToken?;
+  ProgressToken? get progressToken =>
+      _value[Keys.progressToken] as ProgressToken?;
 }
 
 /// A [Meta] object with a known progress token key.
@@ -136,7 +141,7 @@ extension type WithProgressToken.fromMap(Map<String, Object?> _value) {
 extension type MetaWithProgressToken.fromMap(Map<String, Object?> _value)
     implements Meta, WithProgressToken {
   factory MetaWithProgressToken({ProgressToken? progressToken}) =>
-      MetaWithProgressToken.fromMap({'progressToken': progressToken});
+      MetaWithProgressToken.fromMap({Keys.progressToken: progressToken});
 }
 
 /// Base interface for all types that can have arbitrary metadata attached.
@@ -147,7 +152,7 @@ extension type WithMetadata._fromMap(Map<String, Object?> _value) {
   /// servers to attach additional metadata to their interactions.
   ///
   /// See [Meta] for more information about the format of these values.
-  Meta? get meta => _value['_meta'] as Meta?;
+  Meta? get meta => _value[Keys.meta] as Meta?;
 }
 
 /// Base interface for all request types.
@@ -161,19 +166,20 @@ extension type Request._fromMap(Map<String, Object?> _value)
   /// The value of this parameter is an opaque token that will be attached to
   /// any subsequent notifications. The receiver is not obligated to provide
   /// these notifications.
-  MetaWithProgressToken? get meta => _value['_meta'] as MetaWithProgressToken?;
+  MetaWithProgressToken? get meta =>
+      _value[Keys.meta] as MetaWithProgressToken?;
 }
 
 /// Base interface for all notifications.
 extension type Notification(Map<String, Object?> _value) {
   /// This parameter name is reserved by MCP to allow clients and servers to
   /// attach additional metadata to their notifications.
-  Meta? get meta => _value['_meta'] as Meta?;
+  Meta? get meta => _value[Keys.meta] as Meta?;
 }
 
 /// Base interface for all responses to requests.
 extension type Result._(Map<String, Object?> _value) {
-  Meta? get meta => _value['_meta'] as Meta?;
+  Meta? get meta => _value[Keys.meta] as Meta?;
 }
 
 /// A response that indicates success but carries no data.
@@ -202,9 +208,9 @@ extension type CancelledNotification.fromMap(Map<String, Object?> _value)
     Meta? meta,
   }) {
     return CancelledNotification.fromMap({
-      'requestId': requestId,
-      if (reason != null) 'reason': reason,
-      if (meta != null) '_meta': meta,
+      Keys.requestId: requestId,
+      if (reason != null) Keys.reason: reason,
+      if (meta != null) Keys.meta: meta,
     });
   }
 
@@ -212,11 +218,11 @@ extension type CancelledNotification.fromMap(Map<String, Object?> _value)
   ///
   /// This MUST correspond to the ID of a request previously issued in the same
   /// direction.
-  RequestId? get requestId => _value['requestId'] as RequestId?;
+  RequestId? get requestId => _value[Keys.requestId] as RequestId?;
 
   /// An optional string describing the reason for the cancellation. This MAY be
   /// logged or presented to the user.
-  String? get reason => _value['reason'] as String?;
+  String? get reason => _value[Keys.reason] as String?;
 }
 
 /// An opaque request ID.
@@ -232,7 +238,7 @@ extension type PingRequest._(Map<String, Object?> _) implements Request {
   static const methodName = 'ping';
 
   factory PingRequest({MetaWithProgressToken? meta}) =>
-      PingRequest._({if (meta != null) '_meta': meta});
+      PingRequest._({if (meta != null) Keys.meta: meta});
 }
 
 /// An out-of-band notification used to inform the receiver of a progress
@@ -248,29 +254,30 @@ extension type ProgressNotification.fromMap(Map<String, Object?> _value)
     Meta? meta,
     String? message,
   }) => ProgressNotification.fromMap({
-    'progressToken': progressToken,
-    'progress': progress,
-    if (total != null) 'total': total,
-    if (meta != null) '_meta': meta,
-    if (message != null) 'message': message,
+    Keys.progressToken: progressToken,
+    Keys.progress: progress,
+    if (total != null) Keys.total: total,
+    if (meta != null) Keys.meta: meta,
+    if (message != null) Keys.message: message,
   });
 
   /// The progress token which was given in the initial request, used to
   /// associate this notification with the request that is proceeding.
-  ProgressToken get progressToken => _value['progressToken'] as ProgressToken;
+  ProgressToken get progressToken =>
+      _value[Keys.progressToken] as ProgressToken;
 
   /// The progress thus far.
   ///
   /// This should increase every time progress is made, even if the total is
   /// unknown.
-  num get progress => _value['progress'] as num;
+  num get progress => _value[Keys.progress] as num;
 
   /// Total number of items to process (or total progress required), if
   /// known.
-  num? get total => _value['total'] as num?;
+  num? get total => _value[Keys.total] as num?;
 
   /// An optional message describing the current progress.
-  String? get message => _value['message'] as String?;
+  String? get message => _value[Keys.message] as String?;
 }
 
 /// A "mixin"-like extension type for any request that contains a [Cursor] at
@@ -285,7 +292,7 @@ extension type PaginatedRequest._fromMap(Map<String, Object?> _value)
   /// An opaque token representing the current pagination position.
   ///
   /// If provided, the server should return results starting after this cursor.
-  Cursor? get cursor => _value['cursor'] as Cursor?;
+  Cursor? get cursor => _value[Keys.cursor] as Cursor?;
 }
 
 /// A "mixin"-like extension type for any result type that contains a [Cursor]
@@ -297,7 +304,7 @@ extension type PaginatedRequest._fromMap(Map<String, Object?> _value)
 /// constructor.
 extension type PaginatedResult._fromMap(Map<String, Object?> _value)
     implements Result {
-  Cursor? get nextCursor => _value['nextCursor'] as Cursor?;
+  Cursor? get nextCursor => _value[Keys.nextCursor] as Cursor?;
 }
 
 /// Could be either [TextContent], [ImageContent], [AudioContent] or
@@ -310,7 +317,7 @@ extension type PaginatedResult._fromMap(Map<String, Object?> _value)
 /// all have the same runtime type (`Map<String, Object?>`).
 extension type Content._(Map<String, Object?> _value) {
   factory Content.fromMap(Map<String, Object?> value) {
-    assert(value.containsKey('type'));
+    assert(value.containsKey(Keys.type));
     return Content._(value);
   }
 
@@ -327,24 +334,24 @@ extension type Content._(Map<String, Object?> _value) {
   static const embeddedResource = EmbeddedResource.new;
 
   /// Whether or not this is a [TextContent].
-  bool get isText => _value['type'] == TextContent.expectedType;
+  bool get isText => _value[Keys.type] == TextContent.expectedType;
 
   /// Whether or not this is an [ImageContent].
-  bool get isImage => _value['type'] == ImageContent.expectedType;
+  bool get isImage => _value[Keys.type] == ImageContent.expectedType;
 
   /// Whether or not this is an [AudioContent].
-  bool get isAudio => _value['type'] == AudioContent.expectedType;
+  bool get isAudio => _value[Keys.type] == AudioContent.expectedType;
 
   /// Whether or not this is an [EmbeddedResource].
   bool get isEmbeddedResource =>
-      _value['type'] == EmbeddedResource.expectedType;
+      _value[Keys.type] == EmbeddedResource.expectedType;
 
   /// The type of content.
   ///
   /// You can use this in a switch to handle the various types (see the static
   /// `expectedType` getters), or you can use [isText], [isImage], [isAudio] and
   /// [isEmbeddedResource] to determine the type and then do the cast.
-  String get type => _value['type'] as String;
+  String get type => _value[Keys.type] as String;
 }
 
 /// Text provided to or from an LLM.
@@ -357,20 +364,20 @@ extension type TextContent.fromMap(Map<String, Object?> _value)
     Annotations? annotations,
     Meta? meta,
   }) => TextContent.fromMap({
-    'text': text,
-    'type': expectedType,
-    if (annotations != null) 'annotations': annotations,
-    if (meta != null) '_meta': meta,
+    Keys.text: text,
+    Keys.type: expectedType,
+    if (annotations != null) Keys.annotations: annotations,
+    if (meta != null) Keys.meta: meta,
   });
 
   String get type {
-    final type = _value['type'] as String;
+    final type = _value[Keys.type] as String;
     assert(type == expectedType);
     return type;
   }
 
   /// The text content.
-  String get text => _value['text'] as String;
+  String get text => _value[Keys.text] as String;
 }
 
 /// An image provided to or from an LLM.
@@ -384,26 +391,26 @@ extension type ImageContent.fromMap(Map<String, Object?> _value)
     Annotations? annotations,
     Meta? meta,
   }) => ImageContent.fromMap({
-    'data': data,
-    'mimeType': mimeType,
-    'type': expectedType,
-    if (annotations != null) 'annotations': annotations,
-    if (meta != null) '_meta': meta,
+    Keys.data: data,
+    Keys.mimeType: mimeType,
+    Keys.type: expectedType,
+    if (annotations != null) Keys.annotations: annotations,
+    if (meta != null) Keys.meta: meta,
   });
 
   String get type {
-    final type = _value['type'] as String;
+    final type = _value[Keys.type] as String;
     assert(type == expectedType);
     return type;
   }
 
   /// The base64 encoded image data.
-  String get data => _value['data'] as String;
+  String get data => _value[Keys.data] as String;
 
   /// The MIME type of the image.
   ///
   /// Different providers may support different image types.
-  String get mimeType => _value['mimeType'] as String;
+  String get mimeType => _value[Keys.mimeType] as String;
 }
 
 /// Audio provided to or from an LLM.
@@ -419,26 +426,26 @@ extension type AudioContent.fromMap(Map<String, Object?> _value)
     Annotations? annotations,
     Meta? meta,
   }) => AudioContent.fromMap({
-    'data': data,
-    'mimeType': mimeType,
-    'type': expectedType,
-    if (annotations != null) 'annotations': annotations,
-    if (meta != null) '_meta': meta,
+    Keys.data: data,
+    Keys.mimeType: mimeType,
+    Keys.type: expectedType,
+    if (annotations != null) Keys.annotations: annotations,
+    if (meta != null) Keys.meta: meta,
   });
 
   String get type {
-    final type = _value['type'] as String;
+    final type = _value[Keys.type] as String;
     assert(type == expectedType);
     return type;
   }
 
   /// The base64 encoded audio data.
-  String get data => _value['data'] as String;
+  String get data => _value[Keys.data] as String;
 
   /// The MIME type of the audio.
   ///
   /// Different providers may support different audio types.
-  String get mimeType => _value['mimeType'] as String;
+  String get mimeType => _value[Keys.mimeType] as String;
 }
 
 /// The contents of a resource, embedded into a prompt or tool call result.
@@ -454,23 +461,23 @@ extension type EmbeddedResource.fromMap(Map<String, Object?> _value)
     Annotations? annotations,
     Meta? meta,
   }) => EmbeddedResource.fromMap({
-    'resource': resource,
-    'type': expectedType,
-    if (annotations != null) 'annotations': annotations,
-    if (meta != null) '_meta': meta,
+    Keys.resource: resource,
+    Keys.type: expectedType,
+    if (annotations != null) Keys.annotations: annotations,
+    if (meta != null) Keys.meta: meta,
   });
 
   String get type {
-    final type = _value['type'] as String;
+    final type = _value[Keys.type] as String;
     assert(type == expectedType);
     return type;
   }
 
   /// Either [TextResourceContents] or [BlobResourceContents].
-  ResourceContents get resource => _value['resource'] as ResourceContents;
+  ResourceContents get resource => _value[Keys.resource] as ResourceContents;
 
   @Deprecated('Use `.resource.mimeType`.')
-  String? get mimeType => _value['mimeType'] as String?;
+  String? get mimeType => _value[Keys.mimeType] as String?;
 }
 
 /// A resource link returned from a tool.
@@ -490,28 +497,28 @@ extension type ResourceLink.fromMap(Map<String, Object?> _value)
     Annotations? annotations,
     Meta? meta,
   }) => ResourceLink.fromMap({
-    'name': name,
-    if (title != null) 'title': title,
-    if (description != null) 'description': description,
-    'uri': uri,
-    if (mimeType != null) 'mimeType': mimeType,
-    'type': expectedType,
-    if (annotations != null) 'annotations': annotations,
-    if (meta != null) '_meta': meta,
+    Keys.name: name,
+    if (title != null) Keys.title: title,
+    if (description != null) Keys.description: description,
+    Keys.uri: uri,
+    if (mimeType != null) Keys.mimeType: mimeType,
+    Keys.type: expectedType,
+    if (annotations != null) Keys.annotations: annotations,
+    if (meta != null) Keys.meta: meta,
   });
 
   String get type {
-    final type = _value['type'] as String;
+    final type = _value[Keys.type] as String;
     assert(type == expectedType);
     return type;
   }
 
   /// The description of the resource.
-  String? get description => _value['description'] as String?;
+  String? get description => _value[Keys.description] as String?;
 
   /// The URI of the resource.
   String get uri {
-    final uri = _value['uri'] as String?;
+    final uri = _value[Keys.uri] as String?;
     if (uri == null) {
       throw ArgumentError('Missing uri field in $ResourceLink.');
     }
@@ -519,13 +526,13 @@ extension type ResourceLink.fromMap(Map<String, Object?> _value)
   }
 
   /// The MIME type of the resource.
-  String? get mimeType => _value['mimeType'] as String?;
+  String? get mimeType => _value[Keys.mimeType] as String?;
 
   /// The size of the resource in bytes.
-  int? get size => _value['size'] as int?;
+  int? get size => _value[Keys.size] as int?;
 
   /// List of icons for display in user interfaces
-  List<String>? get icons => (_value['icons'] as List?)?.cast<String>();
+  List<String>? get icons => (_value[Keys.icons] as List?)?.cast<String>();
 }
 
 /// Base type for objects that include optional annotations for the client.
@@ -533,7 +540,7 @@ extension type ResourceLink.fromMap(Map<String, Object?> _value)
 /// The client can use annotations to inform how objects are used or displayed.
 extension type Annotated._fromMap(Map<String, Object?> _value) {
   /// Annotations for this object.
-  Annotations? get annotations => _value['annotations'] as Annotations?;
+  Annotations? get annotations => _value[Keys.annotations] as Annotations?;
 }
 
 /// The annotations for an [Annotated] object.
@@ -545,9 +552,11 @@ extension type Annotations.fromMap(Map<String, Object?> _value) {
   }) {
     assert(priority == null || (priority >= 0 && priority <= 1));
     return Annotations.fromMap({
-      if (audience != null) 'audience': [for (var role in audience) role.name],
-      if (lastModified != null) 'lastModified': lastModified.toIso8601String(),
-      if (priority != null) 'priority': priority,
+      if (audience != null)
+        Keys.audience: [for (var role in audience) role.name],
+      if (lastModified != null)
+        Keys.lastModified: lastModified.toIso8601String(),
+      if (priority != null) Keys.priority: priority,
     });
   }
 
@@ -556,10 +565,11 @@ extension type Annotations.fromMap(Map<String, Object?> _value) {
   /// It can include multiple entries to indicate content useful for
   /// multiple audiences (e.g., `[Role.user, Role.assistant]`).
   List<Role>? get audience {
-    final audience = _value['audience'] as List?;
+    final audience = _value[Keys.audience] as List?;
     if (audience == null) return null;
     return [
-      for (var role in audience) Role.values.firstWhere((e) => e.name == role),
+      for (var role in audience)
+        Role.values.firstWhere((value) => value.name == role),
     ];
   }
 
@@ -570,7 +580,7 @@ extension type Annotations.fromMap(Map<String, Object?> _value) {
   /// Examples: last activity timestamp in an open file, timestamp when the
   /// resource was attached, etc.
   DateTime? get lastModified {
-    final lastModified = _value['lastModified'] as String?;
+    final lastModified = _value[Keys.lastModified] as String?;
     if (lastModified == null) return null;
     return DateTime.parse(lastModified);
   }
@@ -582,5 +592,5 @@ extension type Annotations.fromMap(Map<String, Object?> _value) {
   /// that the data is entirely optional.
   ///
   /// Must be between 0 and 1.
-  double? get priority => _value['priority'] as double?;
+  double? get priority => _value[Keys.priority] as double?;
 }

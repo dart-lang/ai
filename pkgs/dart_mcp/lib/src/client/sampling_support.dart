@@ -6,7 +6,7 @@ part of 'client.dart';
 
 /// Adds support for "sampling" to an [MCPClient].
 ///
-/// See https://spec.modelcontextprotocol.io/specification/2024-11-05/client/sampling/.
+/// See https://spec.modelcontextprotocol.io/specification/2025-11-05/client/sampling/.
 base mixin SamplingSupport on MCPClient {
   @override
   void initialize() {
@@ -20,7 +20,7 @@ base mixin SamplingSupport on MCPClient {
   /// request approval from a human before sending this prompt to the LLM,
   /// as well as before sending the response back to the server.
   ///
-  /// See https://spec.modelcontextprotocol.io/specification/2024-11-05/client/sampling/#message-flow
+  /// See https://spec.modelcontextprotocol.io/specification/2025-11-05/client/sampling/#message-flow
   ///
   /// The [serverInfo] is the description that the server initiating this
   /// request gave when it was initialized.

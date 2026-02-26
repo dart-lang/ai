@@ -18,7 +18,7 @@ extension type ListRootsRequest.fromMap(Map<String, Object?> _value)
   static const methodName = 'roots/list';
 
   factory ListRootsRequest({MetaWithProgressToken? meta}) =>
-      ListRootsRequest.fromMap({if (meta != null) '_meta': meta});
+      ListRootsRequest.fromMap({if (meta != null) Keys.meta: meta});
 }
 
 /// The client's response to a roots/list request from the server.
@@ -29,14 +29,14 @@ extension type ListRootsResult.fromMap(Map<String, Object?> _value)
     implements Result {
   factory ListRootsResult({required List<Root> roots, Meta? meta}) =>
       ListRootsResult.fromMap({
-        'roots': roots,
-        if (meta != null) '_meta': meta,
+        Keys.roots: roots,
+        if (meta != null) Keys.meta: meta,
       });
 
   List<Root> get roots {
-    final roots = _value['roots'] as List?;
+    final roots = _value[Keys.roots] as List?;
     if (roots == null) {
-      throw ArgumentError('Missing roots field in $ListRootsResult.');
+      throw ArgumentError('Missing ${Keys.roots} field in $ListRootsResult.');
     }
     return roots.cast<Root>();
   }
@@ -47,9 +47,9 @@ extension type Root.fromMap(Map<String, Object?> _value)
     implements WithMetadata {
   factory Root({required String uri, String? name, Meta? meta}) =>
       Root.fromMap({
-        'uri': uri,
-        if (name != null) 'name': name,
-        if (meta != null) '_meta': meta,
+        Keys.uri: uri,
+        if (name != null) Keys.name: name,
+        if (meta != null) Keys.meta: meta,
       });
 
   /// The URI identifying the root.
@@ -57,9 +57,9 @@ extension type Root.fromMap(Map<String, Object?> _value)
   /// This *must* start with file:// for now. This restriction may be relaxed
   /// in future versions of the protocol to allow other URI schemes.
   String get uri {
-    final uri = _value['uri'] as String?;
+    final uri = _value[Keys.uri] as String?;
     if (uri == null) {
-      throw ArgumentError('Missing uri field in $Root.');
+      throw ArgumentError('Missing ${Keys.uri} field in $Root.');
     }
     return uri;
   }
@@ -69,7 +69,7 @@ extension type Root.fromMap(Map<String, Object?> _value)
   /// This can be used to provide a human-readable identifier for the root,
   /// which may be useful for display purposes or for referencing the root in
   /// other parts of the application.
-  String? get name => _value['name'] as String?;
+  String? get name => _value[Keys.name] as String?;
 }
 
 /// A notification from the client to the server, informing it that the list
@@ -84,5 +84,5 @@ extension type RootsListChangedNotification.fromMap(Map<String, Object?> _value)
   static const methodName = 'notifications/roots/list_changed';
 
   factory RootsListChangedNotification({Meta? meta}) =>
-      RootsListChangedNotification.fromMap({if (meta != null) '_meta': meta});
+      RootsListChangedNotification.fromMap({if (meta != null) Keys.meta: meta});
 }

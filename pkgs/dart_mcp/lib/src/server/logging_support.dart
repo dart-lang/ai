@@ -6,7 +6,7 @@ part of 'server.dart';
 
 /// A mixin for MCP servers which support the `logging` capability.
 ///
-/// See https://spec.modelcontextprotocol.io/specification/2025-03-26/server/utilities/logging/.
+/// See https://spec.modelcontextprotocol.io/specification/2025-11-05/server/utilities/logging/.
 base mixin LoggingSupport on MCPServer {
   /// The current logging level, defaults to [LoggingLevel.warning].
   LoggingLevel loggingLevel = LoggingLevel.warning;

@@ -49,7 +49,14 @@ void main() async {
   server.notifyInitialized();
   print('sent initialized notification');
 
-  print('waiting for elicitation requests');
+  print('calling tool that needs permission, but we haven\'t gotten it yet');
+  final result = await server.callTool(
+    CallToolRequest(name: 'needs_permission'),
+  );
+  print('tool result: $result');
+
+  print('done!');
+  await client.shutdown();
 }
 
 /// A client that supports elicitation requests using the [ElicitationSupport]
@@ -57,12 +64,18 @@ void main() async {
 ///
 /// Prompts the user for values on stdin.
 final class TestMCPClientWithElicitationSupport extends MCPClient
-    with ElicitationSupport {
+    with ElicitationFormSupport, ElicitationUrlSupport {
+  @override
+  bool get autoHandleUrlElicitationRequired => true;
+
   TestMCPClientWithElicitationSupport(super.implementation);
 
   @override
   /// Handle the actual elicitation from the server by reading from stdin.
-  FutureOr<ElicitResult> handleElicitation(ElicitRequest request) {
+  Future<ElicitResult> handleElicitation(
+    ElicitRequest request,
+    ServerConnection connection,
+  ) async {
     // Ask the user if they are willing to provide the information first.
     print('''
 Elicitation received from server: ${request.message}
@@ -82,50 +95,69 @@ Do you want to accept (a), decline (d), or cancel (c) the elicitation?
       return ElicitResult(action: action);
     }
 
-    // User has accepted the elicitation, prompt them for each value.
+    // User has accepted the elicitation.
+    switch (request.mode) {
+      case ElicitationMode.url:
+        print('Please visit the following URL: ${request.url}');
+        print('waiting for you to visit the url...');
+        // Note that this will block until the server sends an elicitation
+        // complete notification, which they aren't guaranteed to do.
+        await request.onElicitationComplete(connection).first;
+        print('Hooray, you visited the url!');
+        return ElicitResult(action: ElicitationAction.accept);
+      case ElicitationMode.form:
+        return _handleFormElicitation(request);
+    }
+  }
+
+  Future<ElicitResult> _handleFormElicitation(ElicitRequest request) async {
+    // Otherwise it must be a schema elicitation.
+    final schema = request.requestedSchema!;
     final arguments = <String, Object?>{};
-    for (final property in request.requestedSchema.properties!.entries) {
-      final name = property.key;
-      final type = property.value.type;
-      final allowedValues =
-          // ignore: deprecated_member_use_from_same_package
-          (type == JsonType.enumeration || type == JsonType.string) &&
-                  (property.value as StringSchema).enumValues != null
-              ? ' (${(property.value as StringSchema).enumValues!.join(', ')})'
-              : '';
-      // Ask the user in a loop until the value provided matches the schema,
-      // at which point we will `break` from the loop.
-      while (true) {
-        stdout.write('$name$allowedValues: ');
-        final userValue = stdin.readLineSync()!;
-        try {
-          // Convert the value to the correct type.
-          final convertedValue = switch (type) {
-            // ignore: deprecated_member_use_from_same_package
-            JsonType.string || JsonType.enumeration => userValue,
-            JsonType.num => num.parse(userValue),
-            JsonType.int => int.parse(userValue),
-            JsonType.bool => bool.parse(userValue),
-            JsonType.object ||
-            JsonType.list ||
-            JsonType.nil ||
-            null => throw StateError('Unsupported field type $type'),
-          };
-          // Actually validate the value based on the schema.
-          final errors = property.value.validate(convertedValue);
-          if (errors.isEmpty) {
-            // No errors, we can assign the value and exit the loop.
-            arguments[name] = convertedValue;
-            break;
-          } else {
-            print('Invalid value, got the following errors:');
-            for (final error in errors) {
-              print('  - $error');
+    if (schema.properties case final properties?) {
+      for (final property in properties.entries) {
+        final name = property.key;
+        final type = property.value.type;
+        final allowedValues =
+            (type == JsonType.enumeration || type == JsonType.string) &&
+                    (property.value as StringSchema).enumValues != null
+                ? ' ('
+                    '${(property.value as StringSchema).enumValues!.join(', ')}'
+                    ')'
+                : '';
+        // Ask the user in a loop until the value provided matches the schema,
+        // at which point we will `break` from the loop.
+        while (true) {
+          stdout.write('$name$allowedValues: ');
+          final userValue = stdin.readLineSync()!;
+          try {
+            // Convert the value to the correct type.
+            final convertedValue = switch (type) {
+              JsonType.string || JsonType.enumeration => userValue,
+              JsonType.num => num.parse(userValue),
+              JsonType.int => int.parse(userValue),
+              JsonType.bool => bool.parse(userValue),
+              JsonType.object ||
+              JsonType.list ||
+              JsonType.nil ||
+              null => throw StateError('Unsupported field type $type'),
+            };
+            // Actually validate the value based on the schema.
+            final errors = property.value.validate(convertedValue);
+            if (errors.isEmpty) {
+              // No errors, we can assign the value and exit the loop.
+              arguments[name] = convertedValue;
+              break;
+            } else {
+              print('Invalid value, got the following errors:');
+              for (final error in errors) {
+                print('  - $error');
+              }
             }
+          } catch (e) {
+            // Handles parse errors etc.
+            print('Invalid value, got the following errors:\n  - $e');
           }
-        } catch (e) {
-          // Handles parse errors etc.
-          print('Invalid value, got the following errors:\n  - $e');
         }
       }
     }

@@ -5,6 +5,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:collection/collection.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:dds_service_extensions/dds_service_extensions.dart';
 import 'package:dtd/dtd.dart';
@@ -40,10 +41,11 @@ extension McpServiceConstants on Never {
 base mixin DartToolingDaemonSupport
     on ToolsSupport, LoggingSupport, ResourcesSupport
     implements AnalyticsSupport {
-  DartToolingDaemon? _dtd;
+  /// The DTD instances that this server is connected to.
+  final List<DartToolingDaemon> _dtds = [];
 
-  /// The last reported active location from the editor.
-  Map<String, Object?>? _activeLocation;
+  @visibleForTesting
+  Iterable<DartToolingDaemon> get dtds => _dtds;
 
   /// A Map of [VmService] object [Future]s by their VM Service URI.
   ///
@@ -51,11 +53,6 @@ base mixin DartToolingDaemonSupport
   /// are unregistered via DTD or when the VM service shuts down.
   @visibleForTesting
   final activeVmServices = <String, Future<VmService>>{};
-
-  /// Whether or not the connected app service is supported.
-  ///
-  /// Once we connect to dtd, this may be toggled to `true`.
-  bool _connectedAppServiceIsSupported = false;
 
   /// Whether to await the disposal of all [VmService] objects in
   /// [activeVmServices] upon server shutdown or loss of DTD connection.
@@ -106,30 +103,29 @@ base mixin DartToolingDaemonSupport
     return '${sanitizedClientName}_${generateShortUUID()}';
   }
 
-  /// Called when the DTD connection is lost, resets all associated state.
-  Future<void> _resetDtd() async {
-    _dtd = null;
-    _activeLocation = null;
-    _connectedAppServiceIsSupported = false;
+  /// Called when the DTD connection is lost or explicitly disconnected, resets
+  /// all associated state.
+  Future<void> _resetDtd(DartToolingDaemon dtd) async {
+    _dtds.remove(dtd);
+    await dtd.close();
 
     // TODO: determine whether we need to dispose the [inspectorObjectGroup] on
     // the Flutter Widget Inspector for each VM service instance.
+    final vmServiceUris = dtd.vmServiceUris;
 
     final future = Future.wait(
-      activeVmServices.values.map(
-        (vmService) => vmService.then((service) => service.dispose()),
-      ),
+      vmServiceUris.map((uri) async {
+        try {
+          await (await activeVmServices.remove(uri))?.dispose();
+        } catch (_) {}
+      }),
     );
     debugAwaitVmServiceDisposal ? await future : unawaited(future);
-
-    activeVmServices.clear();
   }
 
   @visibleForTesting
-  Future<void> updateActiveVmServices() async {
-    final dtd = _dtd;
-    if (dtd == null) return;
-    if (!_connectedAppServiceIsSupported) return;
+  Future<void> updateActiveVmServices(DartToolingDaemon dtd) async {
+    if (!dtd.supportsConnectedApps) return;
 
     final vmServiceInfos = (await dtd.getVmServices()).vmServicesInfos;
     if (vmServiceInfos.isEmpty) return;
@@ -139,6 +135,9 @@ base mixin DartToolingDaemonSupport
       if (activeVmServices.containsKey(vmServiceUri)) {
         continue;
       }
+
+      dtd.vmServiceUris.add(vmServiceUri);
+
       final vmServiceFuture = activeVmServices[vmServiceUri] =
           vmServiceConnectUri(vmServiceUri);
       final vmService = await vmServiceFuture;
@@ -193,10 +192,13 @@ base mixin DartToolingDaemonSupport
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) async {
     registerTool(connectTool, _connect);
+    registerTool(disconnectTool, _disconnect);
     registerTool(getRuntimeErrorsTool, runtimeErrors);
     registerTool(getActiveLocationTool, _getActiveLocation);
     registerTool(hotRestartTool, hotRestart);
+
     registerTool(hotReloadTool, hotReload);
+    registerTool(listConnectedAppsTool, _listConnectedApps);
 
     if (enableScreenshots) registerTool(screenshotTool, takeScreenshot);
     registerTool(getWidgetTreeTool, widgetTree);
@@ -210,10 +212,12 @@ base mixin DartToolingDaemonSupport
   @visibleForTesting
   static final List<Tool> allTools = [
     connectTool,
+    disconnectTool,
     getRuntimeErrorsTool,
     getActiveLocationTool,
     hotRestartTool,
     hotReloadTool,
+    listConnectedAppsTool,
     screenshotTool,
     getWidgetTreeTool,
     getSelectedWidgetTool,
@@ -223,12 +227,14 @@ base mixin DartToolingDaemonSupport
 
   @override
   Future<void> shutdown() async {
-    await _resetDtd();
+    await Future.wait(_dtds.toList().map(_resetDtd));
     await super.shutdown();
   }
 
   Future<CallToolResult> _callFlutterDriver(CallToolRequest request) async {
+    final appUri = request.arguments?[ParameterNames.appUri] as String?;
     return _callOnVmService(
+      appUri: appUri,
       callback: (vmService) async {
         final appListener = await _AppListener.forVmService(vmService, this);
         if (!appListener.registeredServices.containsKey(
@@ -285,34 +291,48 @@ base mixin DartToolingDaemonSupport
 
   /// Connects to the Dart Tooling Daemon.
   FutureOr<CallToolResult> _connect(CallToolRequest request) async {
-    if (_dtd != null) {
+    final uriString = request.arguments![ParameterNames.uri] as String;
+    final uri = Uri.parse(uriString);
+    if (_dtds.any((dtd) => dtd.uri == uri)) {
       return _dtdAlreadyConnected;
     }
 
     try {
-      final dtd = _dtd = await DartToolingDaemon.connect(
-        Uri.parse(request.arguments![ParameterNames.uri] as String),
-      );
+      final dtd = await DartToolingDaemon.connect(uri);
+
+      // Verification step (check if it's VM service instead of DTD)
       try {
         await dtd.call(null, 'getVM');
         // If the call above succeeds, we were connected to the vm service, and
         // should error.
-        await _resetDtd();
+        await dtd.close();
         return _gotVmServiceUri;
       } on RpcException catch (e) {
         // Double check the failure was a method not found failure, if not
         // rethrow it.
         if (e.code != RpcErrorCodes.kMethodNotFound) {
-          await _resetDtd();
+          await dtd.close();
           rethrow;
         }
       }
-      unawaited(_dtd!.done.then((_) async => await _resetDtd()));
 
-      await _registerServices();
-      await _listenForServices();
+      _dtds.add(dtd);
+      dtd.uri = uri;
+      unawaited(dtd.done.then((_) async => await _resetDtd(dtd)));
+
+      await _registerServices(dtd);
+      await _listenForServices(dtd);
+
+      // Try to get the initial list of apps.
+      await updateActiveVmServices(dtd);
+
+      final connectedApps = activeVmServices.keys.toList();
+      final appListString = connectedApps.isEmpty
+          ? 'No apps currently connected.'
+          : 'Connected apps:\n${connectedApps.map((id) => '- $id').join('\n')}';
+
       return CallToolResult(
-        content: [TextContent(text: 'Connection succeeded')],
+        content: [TextContent(text: 'Connection succeeded. $appListString')],
       );
     } on WebSocketException catch (_) {
       return CallToolResult(
@@ -331,10 +351,83 @@ base mixin DartToolingDaemonSupport
     }
   }
 
-  /// Registers all MCP server-provided services on the connected DTD instance.
-  Future<void> _registerServices() async {
-    final dtd = _dtd!;
+  /// A tool to list all connected applications (VM Services).
+  static final listConnectedAppsTool = Tool(
+    name: ToolNames.listConnectedApps.name,
+    description:
+        'Lists all connected applications (VM Services) available via DTD.',
+    inputSchema: Schema.object(),
+    outputSchema: Schema.object(
+      properties: {
+        ParameterNames.apps: Schema.list(
+          items: Schema.string(
+            description: 'The unique VmService URI of the app.',
+          ),
+        ),
+      },
+      required: [ParameterNames.apps],
+    ),
+  )..categories = [FeatureCategory.dartToolingDaemon];
 
+  Future<CallToolResult> _listConnectedApps(CallToolRequest request) async {
+    if (_dtds.isEmpty) return _dtdNotConnected;
+
+    // Ensure lists are up to date
+    for (final dtd in _dtds) {
+      await updateActiveVmServices(dtd);
+    }
+
+    final appUris = activeVmServices.keys.toList();
+    return CallToolResult(
+      content: [
+        TextContent(
+          text: appUris.isEmpty
+              ? 'No connected apps found.'
+              : 'Connected apps:\n'
+                    '${appUris.map((a) => '- $a').join('\n')}',
+        ),
+      ],
+      structuredContent: {ParameterNames.apps: appUris},
+    );
+  }
+
+  Future<CallToolResult> _disconnect(CallToolRequest request) async {
+    var uriString = request.arguments?[ParameterNames.uri] as String?;
+    if (uriString == null) {
+      if (_dtds.isEmpty) {
+        return CallToolResult(
+          content: [TextContent(text: 'No active DTD connections.')],
+        );
+      }
+      if (_dtds.length > 1) {
+        return CallToolResult(
+          isError: true,
+          content: [
+            TextContent(
+              text:
+                  'Multiple DTD connections active. You must specify which one '
+                  'to disconnect.',
+            ),
+          ],
+        )..failureReason = CallToolFailureReason.mustSpecifyDtdUri;
+      }
+      uriString = _dtds.first.uri.toString();
+    }
+
+    final uri = Uri.parse(uriString);
+    final dtd = _dtds.firstWhereOrNull((dtd) => dtd.uri == uri);
+    if (dtd == null) {
+      return CallToolResult(
+        isError: true,
+        content: [TextContent(text: 'Not connected to DTD at $uri')],
+      )..failureReason = CallToolFailureReason.alreadyDisconnected;
+    }
+    await _resetDtd(dtd);
+    return CallToolResult(content: [TextContent(text: 'Disconnected.')]);
+  }
+
+  /// Registers all MCP server-provided services on the connected DTD instance.
+  Future<void> _registerServices(DartToolingDaemon dtd) async {
     if (clientCapabilities.sampling != null) {
       await dtd.registerService(
         '${McpServiceConstants.serviceName}_$clientId',
@@ -359,34 +452,35 @@ base mixin DartToolingDaemonSupport
   /// state information.
   ///
   /// The dart tooling daemon must be connected prior to calling this function.
-  Future<void> _listenForServices() async {
-    final dtd = _dtd!;
-
-    _connectedAppServiceIsSupported = false;
+  Future<void> _listenForServices(DartToolingDaemon dtd) async {
+    dtd.supportsConnectedApps = false;
     try {
       final registeredServices = await dtd.getRegisteredServices();
       if (registeredServices.dtdServices.contains(
         '${ConnectedAppServiceConstants.serviceName}.'
         '${ConnectedAppServiceConstants.getVmServices}',
       )) {
-        _connectedAppServiceIsSupported = true;
+        dtd.supportsConnectedApps = true;
       }
     } catch (_) {}
 
-    if (_connectedAppServiceIsSupported) {
-      await _listenForConnectedAppServiceEvents();
+    if (dtd.supportsConnectedApps) {
+      await _listenForConnectedAppServiceEvents(dtd);
     }
-    await _listenForEditorEvents();
+    await _listenForEditorEvents(dtd);
   }
 
-  Future<void> _listenForConnectedAppServiceEvents() async {
-    final dtd = _dtd!;
+  Future<void> _listenForConnectedAppServiceEvents(
+    DartToolingDaemon dtd,
+  ) async {
     dtd.onVmServiceUpdate().listen((e) async {
       log(LoggingLevel.debug, e.toString());
       switch (e.kind) {
         case ConnectedAppServiceConstants.vmServiceRegistered:
-          await updateActiveVmServices();
+          await updateActiveVmServices(dtd);
         case ConnectedAppServiceConstants.vmServiceUnregistered:
+          // We can remove it regardless of which DTD it came from since the URI
+          //is unique
           await activeVmServices
               .remove(e.data['uri'] as String)
               ?.then((service) => service.dispose());
@@ -397,13 +491,12 @@ base mixin DartToolingDaemonSupport
   }
 
   /// Listens for editor specific events.
-  Future<void> _listenForEditorEvents() async {
-    final dtd = _dtd!;
+  Future<void> _listenForEditorEvents(DartToolingDaemon dtd) async {
     dtd.onEvent('Editor').listen((e) async {
       log(LoggingLevel.debug, e.toString());
       switch (e.kind) {
         case 'activeLocationChanged':
-          _activeLocation = e.data;
+          dtd.activeLocation = e.data;
         default:
       }
     });
@@ -417,7 +510,9 @@ base mixin DartToolingDaemonSupport
   // TODO: support passing a debug session id when there is more than one debug
   // session.
   Future<CallToolResult> takeScreenshot(CallToolRequest request) async {
+    final appUri = request.arguments?[ParameterNames.appUri] as String?;
     return _callOnVmService(
+      appUri: appUri,
       callback: (vmService) async {
         final vm = await vmService.getVM();
         final result = await vmService.callServiceExtension(
@@ -457,7 +552,9 @@ base mixin DartToolingDaemonSupport
   // TODO: support passing a debug session id when there is more than one
   // debug session.
   Future<CallToolResult> hotRestart(CallToolRequest request) async {
+    final appUri = request.arguments?[ParameterNames.appUri] as String?;
     return _callOnVmService(
+      appUri: appUri,
       callback: (vmService) async {
         final appListener = await _AppListener.forVmService(vmService, this);
         appListener.errorLog.clear();
@@ -502,7 +599,9 @@ base mixin DartToolingDaemonSupport
   // TODO: support passing a debug session id when there is more than one debug
   // session.
   Future<CallToolResult> hotReload(CallToolRequest request) async {
+    final appUri = request.arguments?[ParameterNames.appUri] as String?;
     return _callOnVmService(
+      appUri: appUri,
       callback: (vmService) async {
         final appListener = await _AppListener.forVmService(vmService, this);
         if (request.arguments?['clearRuntimeErrors'] == true) {
@@ -563,7 +662,9 @@ base mixin DartToolingDaemonSupport
   // TODO: support passing a debug session id when there is more than one debug
   // session.
   Future<CallToolResult> runtimeErrors(CallToolRequest request) async {
+    final appUri = request.arguments?[ParameterNames.appUri] as String?;
     return _callOnVmService(
+      appUri: appUri,
       callback: (vmService) async {
         try {
           final errorService = await _AppListener.forVmService(vmService, this);
@@ -605,7 +706,9 @@ base mixin DartToolingDaemonSupport
   // TODO: support passing a debug session id when there is more than one debug
   // session.
   Future<CallToolResult> widgetTree(CallToolRequest request) async {
+    final appUri = request.arguments?[ParameterNames.appUri] as String?;
     return _callOnVmService(
+      appUri: appUri,
       callback: (vmService) async {
         final vm = await vmService.getVM();
         final isolateId = vm.isolates!.first.id;
@@ -654,7 +757,9 @@ base mixin DartToolingDaemonSupport
   // TODO: support passing a debug session id when there is more than one debug
   // session.
   Future<CallToolResult> selectedWidget(CallToolRequest request) async {
+    final appUri = request.arguments?[ParameterNames.appUri] as String?;
     return _callOnVmService(
+      appUri: appUri,
       callback: (vmService) async {
         final vm = await vmService.getVM();
         final isolateId = vm.isolates!.first.id;
@@ -707,7 +812,9 @@ base mixin DartToolingDaemonSupport
       )..failureReason = CallToolFailureReason.argumentError;
     }
 
+    final appUri = request.arguments?[ParameterNames.appUri] as String?;
     return _callOnVmService(
+      appUri: appUri,
       callback: (vmService) async {
         final vm = await vmService.getVM();
         final isolateId = vm.isolates!.first.id;
@@ -755,34 +862,77 @@ base mixin DartToolingDaemonSupport
   /// Calls [callback] on the first active debug session, if available.
   Future<CallToolResult> _callOnVmService({
     required Future<CallToolResult> Function(VmService) callback,
+    String? appUri,
   }) async {
-    final dtd = _dtd;
-    if (dtd == null) return _dtdNotConnected;
-    if (!_connectedAppServiceIsSupported) return _connectedAppsNotSupported;
+    if (_dtds.isEmpty) return _dtdNotConnected;
+    if (!_dtds.any((dtd) => dtd.supportsConnectedApps)) {
+      return _connectedAppsNotSupported;
+    }
 
-    await updateActiveVmServices();
+    // Update active vm services for all connected DTDs, if we no active ones
+    // or if the requested appUri is not in the active vm services.
+    if (activeVmServices.isEmpty ||
+        (appUri != null && !activeVmServices.containsKey(appUri))) {
+      for (final dtd in _dtds) {
+        await updateActiveVmServices(dtd);
+      }
+    }
+
     if (activeVmServices.isEmpty) return _noActiveDebugSession;
 
-    // TODO: support selecting a VM Service if more than one are available.
-    final vmService = activeVmServices.values.first;
-    return await callback(await vmService);
+    final String selectedAppUri;
+    if (appUri != null) {
+      if (!activeVmServices.containsKey(appUri)) {
+        return CallToolResult(
+          isError: true,
+          content: [
+            TextContent(
+              text:
+                  'App with URI "$appUri" not found. Use '
+                  '${ToolNames.listConnectedApps.name} to see available apps.',
+            ),
+          ],
+        )..failureReason = CallToolFailureReason.applicationNotFound;
+      }
+      selectedAppUri = appUri;
+    } else {
+      if (activeVmServices.length > 1) {
+        return CallToolResult(
+          isError: true,
+          content: [
+            TextContent(
+              text:
+                  'Multiple apps connected. You must provide an '
+                  '"${ParameterNames.appUri}". Use '
+                  '${ToolNames.listConnectedApps.name} to see available apps.',
+            ),
+          ],
+        )..failureReason = CallToolFailureReason.mustSpecifyDtdUri;
+      }
+      selectedAppUri = activeVmServices.keys.first;
+    }
+
+    return await callback(await activeVmServices[selectedAppUri]!);
   }
 
   /// Retrieves the active location from the editor.
   Future<CallToolResult> _getActiveLocation(CallToolRequest request) async {
-    if (_dtd == null) return _dtdNotConnected;
+    if (_dtds.isEmpty) return _dtdNotConnected;
 
-    final activeLocation = _activeLocation;
-    if (activeLocation == null) {
-      return CallToolResult(
-        content: [
-          TextContent(text: 'No active location reported by the editor yet.'),
-        ],
-      );
+    Map<String, Object?>? activeLocation;
+    for (final dtd in _dtds) {
+      activeLocation = dtd.activeLocation;
+      if (activeLocation != null) break;
     }
 
+    if (activeLocation == null) {
+      return CallToolResult(
+        content: [TextContent(text: 'No active location found.')],
+      );
+    }
     return CallToolResult(
-      content: [TextContent(text: jsonEncode(_activeLocation))],
+      content: [TextContent(text: jsonEncode(activeLocation))],
+      structuredContent: activeLocation,
     );
   }
 
@@ -801,9 +951,15 @@ base mixin DartToolingDaemonSupport
           'guess at how to select widgets, use the real text, tooltips, and '
           'widget types that you see present in the tree.',
       properties: {
+        ParameterNames.appUri: Schema.string(
+          description:
+              'The app URI to execute the driver command on. Required if '
+              'multiple apps are connected.',
+        ),
         'command': Schema.string(
           // Commented out values are flutter_driver commands that are not
           // supported, but may be in the future.
+          // ignore: deprecated_member_use
           enumValues: [
             'get_health',
             // 'get_layer_tree',
@@ -862,6 +1018,7 @@ base mixin DartToolingDaemonSupport
               'Required for get_text, scroll, scroll_into_view, tap, waitFor, '
               'waitForAbsent, waitForTappable, get_offset, and '
               'get_diagnostics_tree. The kind of finder to use.',
+          // ignore: deprecated_member_use
           enumValues: [
             'ByType',
             'ByValueKey',
@@ -878,6 +1035,7 @@ base mixin DartToolingDaemonSupport
               'Required for the ByValueKey finder, the String value of the key',
         ),
         'keyValueType': Schema.string(
+          // ignore: deprecated_member_use
           enumValues: ['int', 'String'],
           description:
               'Required for the ByValueKey finder, the type of the key',
@@ -886,6 +1044,7 @@ base mixin DartToolingDaemonSupport
           description:
               'Used by the BySemanticsLabel finder, indicates whether '
               'the value should be treated as a regex',
+          // ignore: deprecated_member_use
           enumValues: ['true', 'false'],
         ),
         'label': Schema.string(
@@ -922,6 +1081,7 @@ base mixin DartToolingDaemonSupport
               'Required by the Descendent and Ancestor finders. '
               'Whether the widget matching `of` will be considered for a '
               'match',
+          // ignore: deprecated_member_use
           enumValues: ['true', 'false'],
         ),
         // This is a boolean but uses the `true` and `false` strings.
@@ -930,11 +1090,13 @@ base mixin DartToolingDaemonSupport
               'Required by the Descendent and Ancestor finders. '
               'If true then only the first ancestor or descendent matching '
               '`matching` will be returned.',
+          // ignore: deprecated_member_use
           enumValues: ['true', 'false'],
         ),
         'action': Schema.string(
           description:
               'Required for send_text_input_action, the input action to send',
+          // ignore: deprecated_member_use
           enumValues: [
             'none',
             'unspecified',
@@ -958,6 +1120,7 @@ base mixin DartToolingDaemonSupport
         ),
         'offsetType': Schema.string(
           description: 'Required for get_offset, the offset type to get',
+          // ignore: deprecated_member_use
           enumValues: [
             'topLeft',
             'topRight',
@@ -970,6 +1133,7 @@ base mixin DartToolingDaemonSupport
           description:
               'Required for get_diagnostics_tree, the type of diagnostics tree '
               'to request',
+          // ignore: deprecated_member_use
           enumValues: ['renderObject', 'widget'],
         ),
         'subtreeDepth': Schema.string(
@@ -981,12 +1145,14 @@ base mixin DartToolingDaemonSupport
           description:
               'Whether the properties of a diagnostics node should be included '
               'in get_diagnostics_tree results',
+          // ignore: deprecated_member_use
           enumValues: const ['true', 'false'],
         ),
         'enabled': Schema.string(
           description:
               'Used by set_text_entry_emulation, defaults to '
               'false',
+          // ignore: deprecated_member_use
           enumValues: const ['true', 'false'],
         ),
       },
@@ -1012,6 +1178,22 @@ base mixin DartToolingDaemonSupport
   )..categories = [FeatureCategory.all];
 
   @visibleForTesting
+  static final disconnectTool = Tool(
+    name: ToolNames.disconnectDartToolingDaemon.name,
+    description:
+        'Disconnects from the Dart Tooling Daemon. If multiple '
+        'connections exist, you must provide the uri to disconnect from.',
+    annotations: ToolAnnotations(
+      title: 'Disconnect from DTD',
+      destructiveHint: true,
+    ),
+    inputSchema: Schema.object(
+      properties: {ParameterNames.uri: Schema.string()},
+      additionalProperties: false,
+    ),
+  )..categories = [FeatureCategory.dartToolingDaemon];
+
+  @visibleForTesting
   static final getRuntimeErrorsTool = Tool(
     name: ToolNames.getRuntimeErrors.name,
     description:
@@ -1030,6 +1212,11 @@ base mixin DartToolingDaemonSupport
               'This is useful to clear out old errors that may no longer be '
               'relevant before reading them again.',
         ),
+        ParameterNames.appUri: Schema.string(
+          description:
+              'The app URI to get runtime errors from. Required if '
+              'multiple apps are connected.',
+        ),
       },
       additionalProperties: false,
     ),
@@ -1043,7 +1230,16 @@ base mixin DartToolingDaemonSupport
         'current state. Requires "${connectTool.name}" to be successfully '
         'called first.',
     annotations: ToolAnnotations(title: 'Take screenshot', readOnlyHint: true),
-    inputSchema: Schema.object(additionalProperties: false),
+    inputSchema: Schema.object(
+      properties: {
+        ParameterNames.appUri: Schema.string(
+          description:
+              'The app URI to take the screenshot from. Required if multiple '
+              'apps are connected.',
+        ),
+      },
+      additionalProperties: false,
+    ),
   )..categories = [FeatureCategory.flutter];
 
   @visibleForTesting
@@ -1064,6 +1260,11 @@ base mixin DartToolingDaemonSupport
               'This is useful to clear out old errors that may no longer be '
               'relevant.',
         ),
+        ParameterNames.appUri: Schema.string(
+          description:
+              'The app URI to perform the hot reload on. Required if '
+              'multiple apps are connected.',
+        ),
       },
       additionalProperties: false,
     ),
@@ -1080,7 +1281,16 @@ base mixin DartToolingDaemonSupport
         "successfully called first. Doesn't work for Non-Flutter Dart CLI "
         'programs.',
     annotations: ToolAnnotations(title: 'Hot restart', destructiveHint: true),
-    inputSchema: Schema.object(additionalProperties: false),
+    inputSchema: Schema.object(
+      properties: {
+        ParameterNames.appUri: Schema.string(
+          description:
+              'The app URI to perform the hot restart on. Required if multiple '
+              'apps are connected.',
+        ),
+      },
+      additionalProperties: false,
+    ),
   )..categories = [FeatureCategory.flutter];
 
   @visibleForTesting
@@ -1097,6 +1307,11 @@ base mixin DartToolingDaemonSupport
               'Defaults to false. If true, only widgets created by user code '
               'are returned.',
         ),
+        ParameterNames.appUri: Schema.string(
+          description:
+              'The app URI to get the widget tree from. Required if '
+              'multiple apps are connected.',
+        ),
       },
       additionalProperties: false,
     ),
@@ -1112,7 +1327,16 @@ base mixin DartToolingDaemonSupport
       title: 'Get selected widget',
       readOnlyHint: true,
     ),
-    inputSchema: Schema.object(additionalProperties: false),
+    inputSchema: Schema.object(
+      properties: {
+        ParameterNames.appUri: Schema.string(
+          description:
+              'The app URI to get the selected widget from. Required if '
+              'multiple apps are connected.',
+        ),
+      },
+      additionalProperties: false,
+    ),
   )..categories = [FeatureCategory.flutter, FeatureCategory.widgetInspector];
 
   @visibleForTesting
@@ -1130,6 +1354,11 @@ base mixin DartToolingDaemonSupport
     inputSchema: Schema.object(
       properties: {
         'enabled': Schema.bool(title: 'Enable widget selection mode'),
+        ParameterNames.appUri: Schema.string(
+          description:
+              'The app URI to set the selection mode on. Required if '
+              'multiple apps are connected.',
+        ),
       },
       required: const ['enabled'],
       additionalProperties: false,
@@ -1462,4 +1691,24 @@ extension on VmService {
   static final _ids = Expando<String>();
   static int _nextId = 0;
   String get id => _ids[this] ??= '${_nextId++}';
+}
+
+/// Extensions to attach extra metadata to [DartToolingDaemon] instances.
+extension _DartToolingDaemonMetadata on DartToolingDaemon {
+  static final _dtdUris = Expando<Uri>();
+  static final _vmServiceUris = Expando<Set<String>>();
+  static final _supportsConnectedApps = Expando<bool>();
+  static final _activeLocations = Expando<Map<String, Object?>>();
+
+  Uri? get uri => _dtdUris[this];
+  set uri(Uri? value) => _dtdUris[this] = value;
+
+  Set<String> get vmServiceUris => _vmServiceUris[this] ??= {};
+
+  bool get supportsConnectedApps => _supportsConnectedApps[this] ?? false;
+  set supportsConnectedApps(bool value) => _supportsConnectedApps[this] = value;
+
+  Map<String, Object?>? get activeLocation => _activeLocations[this];
+  set activeLocation(Map<String, Object?>? value) =>
+      _activeLocations[this] = value;
 }

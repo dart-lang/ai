@@ -4,11 +4,18 @@
 
 part of 'api.dart';
 
+/// The mode of an elicitation request.
+enum ElicitationMode { form, url }
+
 /// The parameters for an `elicitation/create` request.
 extension type ElicitRequest._fromMap(Map<String, Object?> _value)
     implements Request {
   static const methodName = 'elicitation/create';
 
+  /// Creates a form-mode elicitation request.
+  static const form = ElicitRequest.new;
+
+  @Deprecated('Use `ElicitRequest.form` instead.')
   factory ElicitRequest({
     required String message,
     required ObjectSchema requestedSchema,
@@ -18,36 +25,58 @@ extension type ElicitRequest._fromMap(Map<String, Object?> _value)
       'Invalid requestedSchema. Must be a flat object of primitive values.',
     );
     return ElicitRequest._fromMap({
-      'message': message,
-      'requestedSchema': requestedSchema,
+      Keys.mode: ElicitationMode.form.name,
+      Keys.message: message,
+      Keys.requestedSchema: requestedSchema,
     });
+  }
+
+  /// Creates a URL-mode elicitation request.
+  factory ElicitRequest.url({
+    required String message,
+    required String url,
+    required String elicitationId,
+  }) {
+    return ElicitRequest._fromMap({
+      Keys.mode: ElicitationMode.url.name,
+      Keys.message: message,
+      Keys.url: url,
+      Keys.elicitationId: elicitationId,
+    });
+  }
+
+  /// The mode of this elicitation.
+  ElicitationMode get mode {
+    final mode = _value[Keys.mode] as String?;
+    // Default to form for backward compatibility unless specified.
+    if (mode == null) return ElicitationMode.form;
+    return ElicitationMode.values.firstWhere((value) => value.name == mode);
   }
 
   /// A message to display to the user when collecting the response.
   String get message {
-    final message = _value['message'] as String?;
+    final message = _value[Keys.message] as String?;
     if (message == null) {
       throw ArgumentError('Missing required message field in $ElicitRequest');
     }
     return message;
   }
 
+  /// A unique identifier for the elicitation.
+  ///
+  /// Required for [ElicitationMode.url].
+  String? get elicitationId => _value[Keys.elicitationId] as String?;
+
+  /// The URL that the user should navigate to.
+  ///
+  /// Required for [ElicitationMode.url].
+  String? get url => _value[Keys.url] as String?;
+
   /// A JSON schema that describes the expected response.
   ///
-  /// The content may only consist of a flat object (no nested maps or lists)
-  /// with primitive values (`String`, `num`, `bool`, `enum`).
-  ///
-  /// You can use [validateRequestedSchema] to validate that a schema conforms
-  /// to these limitations.
-  ObjectSchema get requestedSchema {
-    final requestedSchema = _value['requestedSchema'] as ObjectSchema?;
-    if (requestedSchema == null) {
-      throw ArgumentError(
-        'Missing required requestedSchema field in $ElicitRequest',
-      );
-    }
-    return requestedSchema;
-  }
+  /// Required for [ElicitationMode.form].
+  ObjectSchema? get requestedSchema =>
+      _value[Keys.requestedSchema] as ObjectSchema?;
 
   /// Validates the [schema] to make sure that it conforms to the
   /// limitations of the spec.
@@ -99,7 +128,7 @@ extension type ElicitResult.fromMap(Map<String, Object?> _value)
   factory ElicitResult({
     required ElicitationAction action,
     Map<String, Object?>? content,
-  }) => ElicitResult.fromMap({'action': action.name, 'content': content});
+  }) => ElicitResult.fromMap({Keys.action: action.name, Keys.content: content});
 
   /// The action taken by the user in response to an elicitation request.
   ///
@@ -109,25 +138,27 @@ extension type ElicitResult.fromMap(Map<String, Object?> _value)
   /// - [ElicitationAction.cancel]: The user dismissed without making an
   ///   explicit choice.
   ElicitationAction get action {
-    var action = _value['action'] as String?;
+    var action = _value[Keys.action] as String?;
     if (action == null) {
       throw ArgumentError('Missing required action field in $ElicitResult');
     }
     // There was a bug in the initial schema, where the `decline` action was
     // named `reject` instead. Handle using that as an alias for `decline` in
     // case some clients use the old name.
-    if (action == 'reject') action = 'decline';
+    if (action == 'reject') action = Keys.decline;
 
-    return ElicitationAction.values.byName(action);
+    return ElicitationAction.values.firstWhere((value) => value.name == action);
   }
 
   /// The content of the response, if the user accepted the request.
   ///
-  /// Must be `null` if the user didn't accept the request.
+  /// Must be `null` if the user didn't accept the request, or if it was a
+  /// URL-mode elicitation.
   ///
-  /// The content must conform to the [ElicitRequest]'s `requestedSchema`.
+  /// The content must conform to the [ElicitRequest]'s `requestedSchema` in
+  /// form mode.
   Map<String, Object?>? get content =>
-      _value['content'] as Map<String, Object?>?;
+      _value[Keys.content] as Map<String, Object?>?;
 }
 
 /// The action taken by the user in response to an elicitation request.
@@ -143,4 +174,32 @@ enum ElicitationAction {
 
   @Deprecated('Use `ElicitationAction.decline` instead.')
   static const reject = decline;
+}
+
+/// A notification from the server to the client that a URL elicitation has
+/// completed.
+extension type ElicitationCompleteNotification.fromMap(
+  Map<String, Object?> _value
+)
+    implements Notification {
+  static const methodName = 'notifications/elicitation/complete';
+
+  factory ElicitationCompleteNotification({
+    required String elicitationId,
+    Meta? meta,
+  }) => ElicitationCompleteNotification.fromMap({
+    Keys.elicitationId: elicitationId,
+    if (meta != null) Keys.meta: meta,
+  });
+
+  /// The identifier of the completed elicitation.
+  String get elicitationId {
+    final id = _value[Keys.elicitationId] as String?;
+    if (id == null) {
+      throw ArgumentError(
+        'Missing elicitationId in $ElicitationCompleteNotification',
+      );
+    }
+    return id;
+  }
 }

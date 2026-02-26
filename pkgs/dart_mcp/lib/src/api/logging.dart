@@ -18,8 +18,8 @@ extension type SetLevelRequest.fromMap(Map<String, Object?> _value)
     required LoggingLevel level,
     MetaWithProgressToken? meta,
   }) => SetLevelRequest.fromMap({
-    'level': level.name,
-    if (meta != null) '_meta': meta,
+    Keys.level: level.name,
+    if (meta != null) Keys.meta: meta,
   });
 
   /// The level of logging that the client wants to receive from the server.
@@ -27,7 +27,7 @@ extension type SetLevelRequest.fromMap(Map<String, Object?> _value)
   /// The server should send all logs at this level and higher (i.e., more
   /// severe) to the client as notifications/message.
   LoggingLevel get level {
-    final levelName = _value['level'];
+    final levelName = _value[Keys.level];
     final foundLevel = LoggingLevel.values.firstWhereOrNull(
       (level) => level.name == levelName,
     );
@@ -54,23 +54,24 @@ extension type LoggingMessageNotification.fromMap(Map<String, Object?> _value)
     required Object data,
     Meta? meta,
   }) => LoggingMessageNotification.fromMap({
-    'level': level.name,
-    if (logger != null) 'logger': logger,
-    'data': data,
-    if (meta != null) '_meta': meta,
+    Keys.level: level.name,
+    if (logger != null) Keys.logger: logger,
+    Keys.data: data,
+    if (meta != null) Keys.meta: meta,
   });
 
   /// The severity of this log message.
-  LoggingLevel get level =>
-      LoggingLevel.values.firstWhere((level) => level.name == _value['level']);
+  LoggingLevel get level => LoggingLevel.values.firstWhere(
+    (value) => value.name == _value[Keys.level],
+  );
 
   /// An optional name of the logger issuing this message.
-  String? get logger => _value['logger'] as String?;
+  String? get logger => _value[Keys.logger] as String?;
 
   /// The data to be logged, such as a string message or an object.
   ///
   /// Any JSON serializable type is allowed here.
-  Object get data => _value['data'] as Object;
+  Object get data => _value[Keys.data] as Object;
 }
 
 /// The severity of a log message.

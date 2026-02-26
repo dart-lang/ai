@@ -33,4 +33,12 @@ base mixin ElicitationRequestSupport on LoggingSupport {
     }
     return sendRequest(ElicitRequest.methodName, request);
   }
+
+  /// Notifies the client that a URL elicitation has completed.
+  void notifyElicitationComplete(
+    ElicitationCompleteNotification notification,
+  ) => sendNotification(
+    ElicitationCompleteNotification.methodName,
+    notification,
+  );
 }

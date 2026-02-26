@@ -24,23 +24,25 @@ extension type CreateMessageRequest.fromMap(Map<String, Object?> _value)
     int? temperature,
     required int maxTokens,
     List<String>? stopSequences,
+    ToolChoice? toolChoice,
     Map<String, Object?>? metadata,
     MetaWithProgressToken? meta,
   }) => CreateMessageRequest.fromMap({
-    'messages': messages,
-    if (modelPreferences != null) 'modelPreferences': modelPreferences,
-    if (systemPrompt != null) 'systemPrompt': systemPrompt,
-    if (includeContext != null) 'includeContext': includeContext.name,
-    if (temperature != null) 'temperature': temperature,
-    'maxTokens': maxTokens,
-    if (stopSequences != null) 'stopSequences': stopSequences,
-    if (metadata != null) 'metadata': metadata,
-    if (meta != null) '_meta': meta,
+    Keys.messages: messages,
+    if (modelPreferences != null) Keys.modelPreferences: modelPreferences,
+    if (systemPrompt != null) Keys.systemPrompt: systemPrompt,
+    if (includeContext != null) Keys.includeContext: includeContext.name,
+    if (temperature != null) Keys.temperature: temperature,
+    Keys.maxTokens: maxTokens,
+    if (stopSequences != null) Keys.stopSequences: stopSequences,
+    if (toolChoice != null) Keys.toolChoice: toolChoice,
+    if (metadata != null) Keys.metadata: metadata,
+    if (meta != null) Keys.meta: meta,
   });
 
   /// The messages to send to the LLM.
   List<SamplingMessage> get messages {
-    final messages = _value['messages'] as List?;
+    final messages = _value[Keys.messages] as List?;
     if (messages == null) {
       throw ArgumentError('Missing messages field in $CreateMessageRequest.');
     }
@@ -51,46 +53,53 @@ extension type CreateMessageRequest.fromMap(Map<String, Object?> _value)
   ///
   /// The client MAY ignore these preferences.
   ModelPreferences? get modelPreferences =>
-      _value['modelPreferences'] as ModelPreferences?;
+      _value[Keys.modelPreferences] as ModelPreferences?;
 
   /// An optional system prompt the server wants to use for sampling.
   ///
   /// The client MAY modify or omit this prompt.
-  String? get systemPrompt => _value['systemPrompt'] as String?;
+  String? get systemPrompt => _value[Keys.systemPrompt] as String?;
 
   /// A request to include context from one or more MCP servers (including
   /// the caller), to be attached to the prompt.
   ///
   /// The client MAY ignore this request.
   IncludeContext? get includeContext {
-    final includeContext = _value['includeContext'] as String?;
+    final includeContext = _value[Keys.includeContext] as String?;
     if (includeContext == null) return null;
-    return IncludeContext.values.firstWhere((c) => c.name == includeContext);
+    return IncludeContext.values.firstWhere(
+      (value) => value.name == includeContext,
+    );
   }
 
   /// The temperature to use for sampling.
-  double? get temperature => _value['temperature'] as double?;
+  double? get temperature => _value[Keys.temperature] as double?;
 
   /// The maximum number of tokens to sample, as requested by the server.
   ///
   /// The client MAY choose to sample fewer tokens than requested.
   int get maxTokens {
-    final maxTokens = _value['maxTokens'] as int?;
+    final maxTokens = _value[Keys.maxTokens] as int?;
     if (maxTokens == null) {
-      throw ArgumentError('Missing maxTokens field in $CreateMessageRequest.');
+      throw ArgumentError(
+        'Missing ${Keys.maxTokens} field in $CreateMessageRequest.',
+      );
     }
     return maxTokens;
   }
 
   /// Note: This has no documentation in the specification or schema.
   List<String>? get stopSequences =>
-      (_value['stopSequences'] as List?)?.cast<String>();
+      (_value[Keys.stopSequences] as List?)?.cast<String>();
+
+  /// Controls how the model uses tools (if available).
+  ToolChoice? get toolChoice => _value[Keys.toolChoice] as ToolChoice?;
 
   /// Optional metadata to pass through to the LLM provider.
   ///
   /// The format of this metadata is provider-specific.
   Map<String, Object?>? get metadata =>
-      (_value['metadata'] as Map?)?.cast<String, Object?>();
+      (_value[Keys.metadata] as Map?)?.cast<String, Object?>();
 }
 
 /// The client's response to a sampling/create_message request from the
@@ -108,21 +117,21 @@ extension type CreateMessageResult.fromMap(Map<String, Object?> _value)
     String? stopReason,
     Meta? meta,
   }) => CreateMessageResult.fromMap({
-    'role': role.name,
-    'content': content,
-    'model': model,
-    if (stopReason != null) 'stopReason': stopReason,
-    if (meta != null) '_meta': meta,
+    Keys.role: role.name,
+    Keys.content: content,
+    Keys.model: model,
+    if (stopReason != null) Keys.stopReason: stopReason,
+    if (meta != null) Keys.meta: meta,
   });
 
   /// The name of the model that generated the message.
-  String get model => _value['model'] as String;
+  String get model => _value[Keys.model] as String;
 
   /// The reason why sampling stopped, if known.
   ///
   /// Known reasons are "endTurn", "stopSequence", "maxTokens", or any other
   /// reason.
-  String? get stopReason => _value['stopReason'] as String?;
+  String? get stopReason => _value[Keys.stopReason] as String?;
 
   /// The JSON representation of this object.
   Map<String, Object?> toJson() => _value;
@@ -131,14 +140,14 @@ extension type CreateMessageResult.fromMap(Map<String, Object?> _value)
 /// Describes a message issued to or received from an LLM API.
 extension type SamplingMessage.fromMap(Map<String, Object?> _value) {
   factory SamplingMessage({required Role role, required Content content}) =>
-      SamplingMessage.fromMap({'role': role.name, 'content': content});
+      SamplingMessage.fromMap({Keys.role: role.name, Keys.content: content});
 
   /// The role of the message.
   Role get role =>
-      Role.values.firstWhere((role) => role.name == _value['role']);
+      Role.values.firstWhere((value) => value.name == _value[Keys.role]);
 
   /// The content of the message.
-  Content get content => _value['content'] as Content;
+  Content get content => _value[Keys.content] as Content;
 }
 
 /// The server's preferences for model selection, requested of the client
@@ -161,11 +170,11 @@ extension type ModelPreferences.fromMap(Map<String, Object?> _value) {
     double? speedPriority,
     double? intelligencePriority,
   }) => ModelPreferences.fromMap({
-    if (hints != null) 'hints': hints,
-    if (costPriority != null) 'costPriority': costPriority,
-    if (speedPriority != null) 'speedPriority': speedPriority,
+    if (hints != null) Keys.hints: hints,
+    if (costPriority != null) Keys.costPriority: costPriority,
+    if (speedPriority != null) Keys.speedPriority: speedPriority,
     if (intelligencePriority != null)
-      'intelligencePriority': intelligencePriority,
+      Keys.intelligencePriority: intelligencePriority,
   });
 
   /// Optional hints to use for model selection.
@@ -175,26 +184,28 @@ extension type ModelPreferences.fromMap(Map<String, Object?> _value) {
   ///
   /// The client SHOULD prioritize these hints over the numeric priorities,
   /// but MAY still use the priorities to select from ambiguous matches.
-  List<ModelHint>? get hints => (_value['hints'] as List?)?.cast<ModelHint>();
+  List<ModelHint>? get hints =>
+      (_value[Keys.hints] as List?)?.cast<ModelHint>();
 
   /// How much to prioritize cost when selecting a model.
   ///
   /// A value of 0 means cost is not important, while a value of 1 means cost
   /// is the most important factor.
-  double? get costPriority => _value['costPriority'] as double?;
+  double? get costPriority => _value[Keys.costPriority] as double?;
 
   /// How much to prioritize sampling speed (latency) when selecting a model.
   ///
   /// A value of 0 means speed is not important, while a value of 1 means speed
   /// is the most important factor.
-  double? get speedPriority => _value['speedPriority'] as double?;
+  double? get speedPriority => _value[Keys.speedPriority] as double?;
 
   /// How much to prioritize intelligence and capabilities when selecting a
   /// model.
   ///
   /// A value of 0 means intelligence is not important, while a value of 1
   /// means intelligence is the most important factor.
-  double? get intelligencePriority => _value['intelligencePriority'] as double?;
+  double? get intelligencePriority =>
+      _value[Keys.intelligencePriority] as double?;
 }
 
 /// Hints to use for model selection.
@@ -203,7 +214,7 @@ extension type ModelPreferences.fromMap(Map<String, Object?> _value) {
 /// up to the client to interpret.
 extension type ModelHint.fromMap(Map<String, Object?> _value) {
   factory ModelHint({String? name}) =>
-      ModelHint.fromMap({if (name != null) 'name': name});
+      ModelHint.fromMap({if (name != null) Keys.name: name});
 
   /// A hint for a model name.
   ///
@@ -218,5 +229,41 @@ extension type ModelHint.fromMap(Map<String, Object?> _value) {
   /// or a different model family, as long as it fills a similar niche; for
   /// example:
   ///  - `gemini-1.5-flash` could match `claude-3-haiku-20240307`
-  String? get name => _value['name'] as String?;
+  String? get name => _value[Keys.name] as String?;
+}
+
+/// Controls tool selection behavior for sampling requests.
+extension type ToolChoice.fromMap(Map<String, Object?> _value) {
+  factory ToolChoice({required ToolChoiceMode mode}) =>
+      ToolChoice.fromMap({Keys.mode: mode.name});
+
+  /// Controls the tool use ability of the model:
+  ToolChoiceMode get mode {
+    final mode = _value[Keys.mode] as String?;
+    if (mode == null) {
+      throw ArgumentError('Missing ${Keys.mode} field in $ToolChoice');
+    }
+    return ToolChoiceMode.values.firstWhere((value) => value.name == mode);
+  }
+}
+
+/// The tool selection mode for sampling requests.
+enum ToolChoiceMode {
+  /// Model decides whether to use tools (default).
+  auto,
+
+  /// Model MUST use at least one tool before completing.
+  ///
+  /// On the wire, this is represented as "required", but that is a reserved
+  /// keyword in Dart, so we use "require" instead.
+  require(Keys.required),
+
+  /// Model MUST NOT use any tools.
+  none;
+
+  const ToolChoiceMode([this._name]);
+
+  final String? _name;
+
+  String get name => _name ?? EnumName(this).name;
 }

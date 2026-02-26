@@ -145,6 +145,7 @@ class TestHarness {
     String appPath, {
     required bool isFlutter,
     List<String> args = const [],
+    FakeEditorExtension? editorExtension,
   }) async {
     final session = await AppDebugSession._start(
       projectRoot,
@@ -153,7 +154,7 @@ class TestHarness {
       args: args,
       sdk: sdk,
     );
-    await fakeEditorExtension?.addDebugSession(session);
+    await (editorExtension ?? fakeEditorExtension)?.addDebugSession(session);
     final root = rootForPath(projectRoot);
     final roots = (await mcpClient.handleListRoots(ListRootsRequest())).roots;
     if (!roots.any((r) => r.uri == root.uri)) {
@@ -167,8 +168,11 @@ class TestHarness {
       Root(uri: fileSystem.directory(projectPath).absolute.uri.toString());
 
   /// Stops an app debug session.
-  Future<void> stopDebugSession(AppDebugSession session) async {
-    await fakeEditorExtension?.removeDebugSession(session);
+  Future<void> stopDebugSession(
+    AppDebugSession session, {
+    FakeEditorExtension? editorExtension,
+  }) async {
+    await (editorExtension ?? fakeEditorExtension)?.removeDebugSession(session);
     await AppDebugSession.kill(session.appProcess, session.isFlutter);
   }
 
@@ -318,7 +322,7 @@ final class AppDebugSession {
 
 /// A basic MCP client which is started as a part of the harness.
 final class DartToolingMCPClient extends MCPClient
-    with RootsSupport, SamplingSupport, ElicitationSupport {
+    with RootsSupport, SamplingSupport, ElicitationFormSupport {
   DartToolingMCPClient()
     : super(
         Implementation(
@@ -370,7 +374,7 @@ final class DartToolingMCPClient extends MCPClient
   /// If no handlers return a result, returns a result with the action set to
   /// [ElicitationAction.cancel].
   @override
-  Future<ElicitResult> handleElicitation(ElicitRequest request) async {
+  Future<ElicitResult> handleElicitation(ElicitRequest request, _) async {
     for (final handler in _elicitationHandlers) {
       final result = await handler(request);
       if (result != null) {

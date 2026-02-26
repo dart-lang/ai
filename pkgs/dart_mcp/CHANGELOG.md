@@ -1,8 +1,37 @@
 ## 0.5.0-wip
 
+- Initial support for protocol version [2025-11-05](https://spec.modelcontextprotocol.io/specification/2025-11-05/).
+  - Added support for `Icon`s in `Implementation`, `Tool`, `Resource`, `ResourceTemplate`, and `Prompt`.
+  - Added support for `ToolChoice` in sampling `CreateMessageRequest`.
+  - Added support for URL-based elicitations in `ElicitRequest`.
+    - Separated `ElicitationSupport` into `ElicitationFormSupport` and
+      `ElicitationUrlSupport` mixins, which will affect which capabilities
+      your server advertises. The original `ElicitationSupport` mixin is now
+      deprecated (and is an alias for `ElicitationFormSupport`).
+    - Added `onElicitationComplete` extension getter to `ElicitRequest`, which
+      will listen for `notifications/elicitation/complete` notifications.
+    - If a tool call fails with the `urlElicitationRequired` error code, and
+      the client supports URL based elicitations, the client will automatically
+      handle the elicitation and retry the tool call if the elicitation
+      succeeds.
+  - Added an `McpErrorCodes` namespace for MCP error codes. For now only
+    contains the `urlElicitationRequired` error code.
+  - Added examples for URL based elicitations, including handling
+    `urlElicitationRequired` errors.
+  - Added `description` field to `Implementation`.
+  - Does **not** add support for Tasks yet.
+  - Added support for `EnumSchema` subtypes, matching the spec. This includes
+    multi select enums and enums with titles. Validation is also supported.
+  - Added support for validating `const` fields in schemas.
 - **BREAKING**:
   - Change many fields of `ResourceLink` to be nullable, and their associated
     parameters to be optional. This brings us in line with the specification.
+  - The `WithElicitationHandler` interface is now private and implemented by
+    the `ElicitationFormSupport` and `ElicitationUrlSupport` mixins.
+  - Added a required `ServerConnection server` parameter to the
+    `ElicitationSupport.handleElicitation` method.
+  - `ElicitRequest.requestedSchema` is now nullable (for url mode).
+  - `EnumSchema` is now a union type with 4 subtypes, matching the spec changes.
 
 ## 0.4.1
 
@@ -15,7 +44,7 @@
     been possible to use in a functional manner, so it is assumed that it had
     no usage previously.
 - Fix the `type` getter on `EmbeddedResource` to read the actual type field.
-- Add `toJson` method to the `CreateMessageResult` of a sampling request. 
+- Add `toJson` method to the `CreateMessageResult` of a sampling request.
 
 ## 0.4.0
 

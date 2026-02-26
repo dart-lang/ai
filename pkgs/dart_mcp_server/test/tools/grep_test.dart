@@ -138,7 +138,7 @@ void main() {
     test('can search in specific directory', () async {
       final server = testHarness.serverConnectionPair.server!;
       final testDir = server.fileSystem.directory(
-        Uri.parse(counterAppRoot.uri).resolve('test/').toFilePath(),
+        Uri.parse(counterAppRoot.uri).resolve('grep_test/').toFilePath(),
       );
       addTearDown(() => testDir.delete(recursive: true));
       testDir.createSync(recursive: true);
@@ -150,7 +150,7 @@ void main() {
       final result = await grep(
         packageNames: ['counter_app'],
         arguments: ['dummy test'],
-        searchDir: 'test', // search specifically in "test"
+        searchDir: 'grep_test', // search specifically in "grep_test"
       );
       expect(result.isError, isNot(isTrue));
       final content = result.content.first as TextContent;
@@ -158,7 +158,7 @@ void main() {
       // Results outside lib use package-root:
       expect(
         content.text,
-        contains('package-root:counter_app/test/dummy_test.dart'),
+        contains('package-root:counter_app/grep_test/dummy_test.dart'),
       );
       expect(content.text, contains('dummy test'));
     });
