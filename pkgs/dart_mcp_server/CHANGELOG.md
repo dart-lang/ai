@@ -22,6 +22,7 @@
   or embedded resources. This has better support across all clients.
 - Fix nested finder JSON serialization for Ancestor/Descendant finders in the
   `flutter_driver` tool ([issue #345](https://github.com/dart-lang/ai/issues/345)).
+- Fix `analyze_files` returning false "No errors" when `paths` parameter is specified.
 
 # 0.1.2 (Dart SDK 3.11.0)
 
