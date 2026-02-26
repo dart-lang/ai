@@ -91,6 +91,10 @@ ArgParser createArgParser({
                 'Replace with `--disable flutter`.',
           },
           defaultsTo: 'all',
+        )
+        ..addFlag(
+          versionFlag,
+          help: 'Show the version of the MCP server and then exit',
         );
 
   if (includeHelp) parser.addFlag(helpFlag, abbr: 'h', help: 'Show usage text');
@@ -105,3 +109,4 @@ const forceRootsFallbackFlag = 'force-roots-fallback';
 const helpFlag = 'help';
 const logFileOption = 'log-file';
 const toolsOption = 'tools';
+const versionFlag = 'version';
