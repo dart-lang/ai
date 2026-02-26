@@ -3,14 +3,18 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dart_mcp/server.dart';
+import 'package:file/file.dart';
+import 'package:mime/mime.dart';
 import 'package:mustache_template/mustache_template.dart';
 import 'package:package_config/package_config.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
 import '../features_configuration.dart';
+import '../utils/cli_utils.dart';
 import '../utils/file_system.dart';
 import 'roots_fallback_support.dart';
 
@@ -22,7 +26,14 @@ import 'roots_fallback_support.dart';
 base mixin PackagedAiAssetsSupport
     on ResourcesSupport, PromptsSupport, RootsFallbackSupport
     implements FileSystemSupport {
-  Completer<void>? _assetsDiscoveryCompleter = Completer();
+  /// Completer for the assets discovery process.
+  Completer<void>? _assetsDiscoveryCompleter;
+
+  /// The set of resources that were dynamically added from packaged AI assets.
+  final Set<String> _dynamicallyAddedResources = {};
+
+  /// The set of prompts that were dynamically added from packaged AI assets.
+  final Set<String> _dynamicallyAddedPrompts = {};
 
   @override
   Future<void> updateRoots() async {
@@ -42,188 +53,277 @@ base mixin PackagedAiAssetsSupport
   /// Discover resources and prompts from `extensions/mcp/config.yaml` of the
   /// workspace roots and their dependencies.
   Future<void> _discoverAssets() async {
-    // TODO: If we are currently discovering assets, wait for the current
-    // discovery to complete before doing it again.
-    _assetsDiscoveryCompleter ??= Completer();
-    final allPackages = <String, Package>{};
-    final knownRoots = await roots;
-
-    for (final root in knownRoots) {
-      // TODO: Handle packages in subdirectories.
-      final rootDir = fileSystem.directory(Uri.parse(root.uri));
-      if (!rootDir.existsSync()) continue;
-
-      // TODO: Make sure we haven't already read this package config.
-      // TODO: Elicit for permission to load resources from this package.
-      // TODO: Only load resources from immediate dependencies.
-      final packageConfig = await findPackageConfig(rootDir);
-      if (packageConfig != null) {
-        for (final package in packageConfig.packages) {
-          // TODO: If we have already read this package config,
-          // then only overwrite it if this version is newer.
-          allPackages[package.name] = package;
-        }
-      }
+    // TODO: Elicit for permission to load AI assets from packages.
+    if (_assetsDiscoveryCompleter != null &&
+        !_assetsDiscoveryCompleter!.isCompleted) {
+      return _assetsDiscoveryCompleter!.future;
     }
+    _assetsDiscoveryCompleter = Completer<void>();
+    try {
+      final allPackages = <String, Package>{};
+      final knownRoots = await roots;
 
-    // TODO: Only update the resources and prompts that have changed.
-    _dynamicallyAddedResources.forEach(removeResource);
-    _dynamicallyAddedResources.clear();
-    _dynamicallyAddedPrompts.forEach(removePrompt);
-    _dynamicallyAddedPrompts.clear();
+      for (final root in knownRoots) {
+        final rootDir = fileSystem.directory(Uri.parse(root.uri));
+        if (!rootDir.existsSync()) continue;
 
-    for (final package in allPackages.values) {
-      if (package.root.scheme != 'file') {
-        log(
-          LoggingLevel.warning,
-          'Package ${package.name} has a non-file root: ${package.root}',
-        );
-        continue;
-      }
-
-      final packageRootDir = fileSystem.directory(package.root.toFilePath());
-      final mcpExtensionsDir = fileSystem.path.join(
-        packageRootDir.path,
-        'extensions',
-        'mcp',
-      );
-      final configPath = fileSystem.path.join(mcpExtensionsDir, 'config.yaml');
-      final configFile = fileSystem.file(configPath);
-
-      if (!configFile.existsSync()) continue;
-
-      try {
-        final content = await configFile.readAsString();
-        final yaml = loadYaml(content);
-
-        if (yaml is! YamlMap) continue;
-
-        final resources = yaml['resources'];
-        if (resources is YamlList) {
-          for (final resourceObj in resources) {
-            if (resourceObj is! YamlMap) continue;
-
-            // TODO: Do add private resources if they are under a known root.
-            final isPrivate = resourceObj['visibility'] == 'private';
-            if (isPrivate) continue;
-
-            final rawPath = resourceObj['path'] as String;
-            final fullPath = fileSystem.path.join(mcpExtensionsDir, rawPath);
-            final name = resourceObj['name'] as String? ?? p.basename(rawPath);
-            final title = resourceObj['title'] as String?;
-            final description = resourceObj['description'] as String?;
-
-            final relativeToRoot = p.relative(
-              fullPath,
-              from: packageRootDir.path,
-            );
-            final osNeutralRelativePath = relativeToRoot.replaceAll(
-              p.separator,
-              '/',
-            );
-            final uri = 'package-root://${package.name}/$osNeutralRelativePath';
-
-            final resource = Resource(
-              uri: uri,
-              name: name,
-              description: title != null
-                  ? '$title: ${description ?? ''}'
-                  : description,
-            );
-
-            addResource(resource, (request) async {
-              final targetFile = fileSystem.file(fullPath);
-              if (!targetFile.existsSync()) {
-                throw ArgumentError('Resource file not found: $uri');
-              }
-              final contents = await targetFile.readAsString();
-              return ReadResourceResult(
-                contents: [
-                  // TODO: Support other kinds of content like images etc.
-                  TextResourceContents(uri: uri, text: contents),
-                ],
-              );
-            });
-            _dynamicallyAddedResources.add(uri);
-          }
-        }
-
-        final prompts = yaml['prompts'];
-        if (prompts is YamlList) {
-          for (final promptObj in prompts) {
-            if (promptObj is! YamlMap) {
-              log(
-                LoggingLevel.warning,
-                'Invalid prompt object from package '
-                '${package.name}: $promptObj',
-              );
-              continue;
+        final pubspecDirs = _findPubspecDirectories(rootDir, fileSystem);
+        await for (final dir in pubspecDirs) {
+          final packageConfig = await findPackageConfig(dir);
+          if (packageConfig == null) continue;
+          // TODO: Only load resources and prompts from immediate dependencies.
+          for (final package in packageConfig.packages) {
+            // Only overwrite if this version is newer (for now, just add if
+            // not present).
+            // We also load all resources rather than just immediate dependencies,
+            // because transient dependencies might have important tools too.
+            if (!allPackages.containsKey(package.name)) {
+              allPackages[package.name] = package;
             }
-
-            final isPrivate = promptObj['visibility'] == 'private';
-            if (isPrivate) continue;
-
-            final rawPath = promptObj['path'] as String;
-            final fullPath = p.join(mcpExtensionsDir, rawPath);
-            final name = promptObj['name'] as String;
-            final title = promptObj['title'] as String?;
-            final description = promptObj['description'] as String?;
-            final argumentsList = promptObj['arguments'] as YamlList?;
-
-            final promptArguments =
-                argumentsList
-                    ?.map(
-                      (e) => PromptArgument(name: e.toString(), required: true),
-                    )
-                    .toList() ??
-                [];
-
-            final prompt = Prompt(
-              name: name,
-              title: title,
-              description: description,
-              arguments: promptArguments,
-            )..categories = [FeatureCategory.packageDeps];
-
-            addPrompt(prompt, (request) async {
-              final targetFile = fileSystem.file(fullPath);
-              if (!targetFile.existsSync()) {
-                throw ArgumentError('Prompt file not found');
-              }
-              final templateContent = await targetFile.readAsString();
-              final template = Template(templateContent, name: name);
-
-              final mapArgs = request.arguments ?? <String, dynamic>{};
-              final rendered = template.renderString(mapArgs);
-
-              return GetPromptResult(
-                description: description,
-                messages: [
-                  PromptMessage(
-                    role: Role.user,
-                    content: TextContent(text: rendered),
-                  ),
-                ],
-              );
-            });
-            _dynamicallyAddedPrompts.add(name);
           }
         }
-      } catch (e, s) {
-        log(
-          LoggingLevel.error,
-          'Error loading packaged AI assets from package '
-          '${package.name}: $e\n$s',
-        );
       }
+
+      final newResources = <String>{};
+      final newPrompts = <String>{};
+
+      for (final package in allPackages.values) {
+        if (package.root.scheme != 'file') {
+          log(
+            LoggingLevel.warning,
+            'Package ${package.name} has a non-file root: ${package.root}',
+          );
+          continue;
+        }
+
+        final packageRootDir = fileSystem.directory(package.root.toFilePath());
+        final mcpExtensionsDir = fileSystem.path.join(
+          packageRootDir.path,
+          'extensions',
+          'mcp',
+        );
+        final configPath = fileSystem.path.join(
+          mcpExtensionsDir,
+          'config.yaml',
+        );
+        final configFile = fileSystem.file(configPath);
+
+        if (!configFile.existsSync()) continue;
+
+        try {
+          final content = await configFile.readAsString();
+          final yaml = loadYaml(content);
+
+          if (yaml is! YamlMap) continue;
+
+          final resources = yaml['resources'];
+          if (resources is YamlList) {
+            for (final resourceObj in resources) {
+              if (resourceObj is! YamlMap) continue;
+
+              final isPrivate = resourceObj['visibility'] == 'private';
+              final rawPath = resourceObj['path'] as String;
+              final fullPath = fileSystem.path.join(mcpExtensionsDir, rawPath);
+              if (isPrivate &&
+                  !knownRoots.any(
+                    (r) => isUnderRoot(r, fullPath, fileSystem),
+                  )) {
+                continue;
+              }
+
+              final name =
+                  resourceObj['name'] as String? ?? p.basename(rawPath);
+              final title = resourceObj['title'] as String?;
+              final description = resourceObj['description'] as String?;
+
+              final relativeToRoot = p.relative(
+                fullPath,
+                from: packageRootDir.path,
+              );
+              final osNeutralRelativePath = relativeToRoot.replaceAll(
+                p.separator,
+                '/',
+              );
+              final uri =
+                  'package-root://${package.name}/$osNeutralRelativePath';
+
+              final resource = Resource(
+                uri: uri,
+                name: name,
+                description: title != null
+                    ? '$title: ${description ?? ''}'
+                    : description,
+              );
+
+              newResources.add(uri);
+              if (_dynamicallyAddedResources.add(uri)) {
+                addResource(resource, (request) async {
+                  final targetFile = fileSystem.file(fullPath);
+                  if (!targetFile.existsSync()) {
+                    throw ArgumentError('Resource file not found: $uri');
+                  }
+
+                  final mimeType = lookupMimeType(fullPath) ?? '';
+                  ResourceContents contentResult;
+                  try {
+                    // Try to read as text first, then fall back on a
+                    // binary blob if that fails.
+                    final contents = await targetFile.readAsString();
+                    contentResult = TextResourceContents(
+                      uri: uri,
+                      text: contents,
+                      mimeType: mimeType.isEmpty ? null : mimeType,
+                    );
+                  } catch (_) {
+                    final bytes = await targetFile.readAsBytes();
+                    contentResult = BlobResourceContents(
+                      uri: uri,
+                      blob: base64Encode(bytes),
+                      mimeType: mimeType.isEmpty ? null : mimeType,
+                    );
+                  }
+                  return ReadResourceResult(contents: [contentResult]);
+                });
+              } else {
+                updateResource(resource);
+              }
+            }
+          }
+
+          final prompts = yaml['prompts'];
+          if (prompts is YamlList) {
+            for (final promptObj in prompts) {
+              if (promptObj is! YamlMap) {
+                log(
+                  LoggingLevel.warning,
+                  'Invalid prompt object from package '
+                  '${package.name}: $promptObj',
+                );
+                continue;
+              }
+
+              final isPrivate = promptObj['visibility'] == 'private';
+              if (isPrivate &&
+                  !knownRoots.any(
+                    (r) => packageRootDir.path.startsWith(
+                      Uri.parse(r.uri).toFilePath(),
+                    ),
+                  )) {
+                continue;
+              }
+
+              final rawPath = promptObj['path'] as String;
+              final fullPath = p.join(mcpExtensionsDir, rawPath);
+              final name = promptObj['name'] as String;
+              final title = promptObj['title'] as String?;
+              final description = promptObj['description'] as String?;
+              final argumentsList = promptObj['arguments'] as YamlList?;
+
+              final promptArguments =
+                  argumentsList
+                      ?.map(
+                        (e) =>
+                            PromptArgument(name: e.toString(), required: true),
+                      )
+                      .toList() ??
+                  [];
+
+              final prompt = Prompt(
+                name: name,
+                title: title,
+                description: description,
+                arguments: promptArguments,
+              )..categories = [FeatureCategory.packageDeps];
+
+              newPrompts.add(name);
+              if (_dynamicallyAddedPrompts.add(name)) {
+                addPrompt(prompt, (request) async {
+                  final targetFile = fileSystem.file(fullPath);
+                  if (!targetFile.existsSync()) {
+                    throw ArgumentError('Prompt file not found');
+                  }
+                  final templateContent = await targetFile.readAsString();
+                  final template = Template(templateContent, name: name);
+
+                  final mapArgs = request.arguments ?? <String, dynamic>{};
+                  final rendered = template.renderString(mapArgs);
+
+                  return GetPromptResult(
+                    description: description,
+                    messages: [
+                      PromptMessage(
+                        role: Role.user,
+                        content: TextContent(text: rendered),
+                      ),
+                    ],
+                  );
+                });
+              } else {
+                // TODO: If the prompt changed, remove it and add it back.
+                // Prompts do not support change notifications.
+              }
+            }
+          }
+        } catch (e, s) {
+          log(
+            LoggingLevel.error,
+            'Error loading packaged AI assets from package '
+            '${package.name}: $e\n$s',
+          );
+        }
+      }
+      final resourcesToRemove = _dynamicallyAddedResources.difference(
+        newResources,
+      );
+      for (final uri in resourcesToRemove) {
+        removeResource(uri);
+      }
+      _dynamicallyAddedResources.removeAll(resourcesToRemove);
+
+      final promptsToRemove = _dynamicallyAddedPrompts.difference(newPrompts);
+      for (final name in promptsToRemove) {
+        removePrompt(name);
+      }
+      _dynamicallyAddedPrompts.removeAll(promptsToRemove);
+    } finally {
+      _assetsDiscoveryCompleter?.complete();
+      _assetsDiscoveryCompleter = null;
     }
-    _assetsDiscoveryCompleter?.complete();
-    _assetsDiscoveryCompleter = null;
   }
 
-  /// The set of resources that were dynamically added from packaged AI assets.
-  final Set<String> _dynamicallyAddedResources = {};
+  /// Recursively find all directories containing a `pubspec.yaml` file.
+  Stream<Directory> _findPubspecDirectories(
+    Directory dir,
+    FileSystem fileSystem, {
+    int depth = 0,
+    int maxDepth = 5,
+  }) async* {
+    if (depth > maxDepth) return;
+    try {
+      final hasPubspec = fileSystem
+          .file(p.join(dir.path, 'pubspec.yaml'))
+          .existsSync();
+      if (hasPubspec) yield dir;
 
-  /// The set of prompts that were dynamically added from packaged AI assets.
-  final Set<String> _dynamicallyAddedPrompts = {};
+      await for (final entity in dir.list(followLinks: false)) {
+        if (entity is Directory) {
+          final name = p.basename(entity.path);
+          if (name.startsWith('.') ||
+              name == 'build' ||
+              name == 'ios' ||
+              name == 'android') {
+            continue;
+          }
+          yield* _findPubspecDirectories(
+            entity,
+            fileSystem,
+            depth: depth + 1,
+            maxDepth: maxDepth,
+          );
+        }
+      }
+    } catch (e, s) {
+      log(LoggingLevel.error, 'Error finding pubspec.yaml files: $e\n$s');
+    }
+  }
 }
