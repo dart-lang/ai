@@ -31,6 +31,7 @@ dependencies:
       ref: b0838eac58308fc4e6654ca99eda75b30649c08f
   meta: ^1.16.0
   mime: ^2.0.0
+  mustache_template: ^2.0.3
   package_config: ^2.2.0
   path: ^1.9.1
   pool: ^1.5.1

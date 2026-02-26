@@ -24,6 +24,7 @@ import 'mixins/dtd.dart';
 import 'mixins/flutter_launcher.dart';
 import 'mixins/grep_packages.dart';
 import 'mixins/package_uri_reader.dart';
+import 'mixins/packaged_ai_assets.dart';
 import 'mixins/prompts.dart';
 import 'mixins/pub.dart';
 import 'mixins/pub_dev_search.dart';
@@ -50,6 +51,7 @@ final class DartMCPServer extends MCPServer
         PromptsSupport,
         DashPrompts,
         PackageUriSupport,
+        PackagedAiAssetsSupport,
         ElicitationRequestSupport,
         GrepSupport,
         AnalyticsEvents
