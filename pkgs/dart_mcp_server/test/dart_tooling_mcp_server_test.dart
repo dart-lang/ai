@@ -75,7 +75,7 @@ void main() {
     final exitCode = await runZoned(
       () => DartMCPServer.run(['--version']),
       zoneSpecification: ZoneSpecification(
-        print: (Zone zone, ZoneDelegate parent, Zone parentZone, String line) {
+        print: (_, _, _, String line) {
           printedLines.add(line);
         },
       ),
