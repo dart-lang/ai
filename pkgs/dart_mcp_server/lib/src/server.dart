@@ -105,8 +105,9 @@ final class DartMCPServer extends MCPServer
              'over using tools directly in a shell.',
        );
 
-  /// The version of the MCP server. Should match the version in the
-  /// CHANGELOG.md.
+  /// The version of the MCP server.
+  ///
+  /// Should match the version in the CHANGELOG.md.
   static final version = '0.1.3';
 
   /// Runs the MCP server given command line arguments and an optional
