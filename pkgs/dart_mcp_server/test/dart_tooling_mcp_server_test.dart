@@ -5,6 +5,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:dart_mcp_server/dart_mcp_server.dart';
 import 'package:dart_mcp_server/src/arg_parser.dart';
 import 'package:dart_mcp_server/src/mixins/analyzer.dart';
 import 'package:dart_mcp_server/src/mixins/dtd.dart';
@@ -67,6 +68,20 @@ void main() {
       isNot(contains(equals(DartToolingDaemonSupport.connectTool))),
     );
     expect(tools, contains(equals(DartAnalyzerSupport.hoverTool)));
+  });
+
+  test('Version is printed to stdout', () async {
+    final printedLines = <String>[];
+    final exitCode = await runZoned(
+      () => DartMCPServer.run(['--version']),
+      zoneSpecification: ZoneSpecification(
+        print: (_, _, _, String line) {
+          printedLines.add(line);
+        },
+      ),
+    );
+    expect(exitCode, 0);
+    expect(printedLines, contains(equals(DartMCPServer.version)));
   });
 }
 
