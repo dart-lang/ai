@@ -141,6 +141,7 @@ For more information, see the official VS Code documentation for
 | `create_project` | Create project | Creates a new Dart or Flutter project. |
 | `dart_fix` | Dart fix | Runs `dart fix --apply` for the given project roots. |
 | `dart_format` | Dart format | Runs `dart format .` for the given project roots. |
+| `disconnect_dart_tooling_daemon` | Disconnect from DTD | Disconnects from the Dart Tooling Daemon. If multiple connections exist, you must provide the uri to disconnect from. |
 | `flutter_driver_command` | Flutter Driver | Run a flutter driver command |
 | `get_active_location` | Get Active Editor Location | Retrieves the current active location (e.g., cursor position) in the connected editor. Requires "connect_dart_tooling_daemon" to be successfully called first. |
 | `get_app_logs` |  | Returns the collected logs for a given flutter run process id. Can only retrieve logs started by the launch_app tool. |
@@ -151,6 +152,7 @@ For more information, see the official VS Code documentation for
 | `hot_restart` | Hot restart | Performs a hot restart of the active Flutter application. This applies the latest code changes to the running application, including changes to global const values, while resetting application state. Requires "connect_dart_tooling_daemon" to be successfully called first. Doesn't work for Non-Flutter Dart CLI programs. |
 | `hover` | Hover information | Get hover information at a given cursor position in a file. This can include documentation, type information, etc for the text at that position. |
 | `launch_app` |  | Launches a Flutter application and returns its DTD URI. |
+| `list_connected_apps` |  | Lists all connected applications (VM Services) available via DTD. |
 | `list_devices` |  | Lists available Flutter devices. |
 | `list_running_apps` |  | Returns the list of running app process IDs and associated DTD URIs for apps started by the launch_app tool. |
 | `pub` | pub | Runs a pub command for the given project roots, like `dart pub get` or `flutter pub add`. |

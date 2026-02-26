@@ -5,14 +5,18 @@
 /// A namespace for all the parameter names.
 extension ParameterNames on Never {
   static const arguments = 'arguments';
+  static const apps = 'apps';
+  static const appUri = 'appUri';
   static const column = 'column';
   static const command = 'command';
   static const directory = 'directory';
+  static const dtdUri = 'dtdUri';
   static const empty = 'empty';
   static const line = 'line';
   static const name = 'name';
   static const packageNames = 'packageNames';
   static const paths = 'paths';
+  static const pid = 'pid';
   static const platform = 'platform';
   static const position = 'position';
   static const projectType = 'projectType';
@@ -31,6 +35,7 @@ enum ToolNames {
   addRoots('add_roots'),
   analyzeFiles('analyze_files'),
   connectDartToolingDaemon('connect_dart_tooling_daemon'),
+  disconnectDartToolingDaemon('disconnect_dart_tooling_daemon'),
   createProject('create_project'),
   dartFix('dart_fix'),
   dartFormat('dart_format'),
@@ -44,6 +49,7 @@ enum ToolNames {
   hotRestart('hot_restart'),
   hover('hover'),
   launchApp('launch_app'),
+  listConnectedApps('list_connected_apps'),
   listDevices('list_devices'),
   listRunningApps('list_running_apps'),
   pub('pub'),
