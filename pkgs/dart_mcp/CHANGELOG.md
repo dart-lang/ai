@@ -1,6 +1,6 @@
 ## 0.5.0-wip
 
-- Initial support for protocol version [2025-11-05](https://spec.modelcontextprotocol.io/specification/2025-11-05/).
+- Initial support for protocol version [2025-11-25](https://modelcontextprotocol.io/specification/2025-11-25/).
   - Added support for `Icon`s in `Implementation`, `Tool`, `Resource`, `ResourceTemplate`, and `Prompt`.
   - Added support for `ToolChoice` in sampling `CreateMessageRequest`.
   - Added support for URL-based elicitations in `ElicitRequest`.
