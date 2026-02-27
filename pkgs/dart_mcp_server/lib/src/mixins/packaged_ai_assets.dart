@@ -217,16 +217,24 @@ base mixin PackagedAiAssetsSupport
               final name = promptObj['name'] as String;
               final title = promptObj['title'] as String?;
               final description = promptObj['description'] as String?;
-              final argumentsList = promptObj['arguments'] as YamlList?;
-
-              final promptArguments =
-                  argumentsList
-                      ?.map(
-                        (e) =>
-                            PromptArgument(name: e.toString(), required: true),
-                      )
-                      .toList() ??
-                  [];
+              final promptArguments = (promptObj['arguments'] as YamlList?)
+                  ?.map((entry) {
+                    if (entry is! YamlMap) {
+                      log(
+                        LoggingLevel.warning,
+                        'Invalid prompt argument object from package '
+                        '${package.name}: $entry',
+                      );
+                      return null;
+                    }
+                    return PromptArgument.fromMap(
+                      entry.cast<String, Object?>(),
+                    );
+                  })
+                  // Can't use .nonNulls because PromptArgument technically is
+                  // an Object?, and we just get Iterable<Object?> back.
+                  .whereType<PromptArgument>()
+                  .toList();
 
               final prompt = Prompt(
                 name: name,
@@ -243,7 +251,11 @@ base mixin PackagedAiAssetsSupport
                     throw ArgumentError('Prompt file not found');
                   }
                   final templateContent = await targetFile.readAsString();
-                  final template = Template(templateContent, name: name);
+                  final template = Template(
+                    templateContent,
+                    name: name,
+                    lenient: true,
+                  );
 
                   final mapArgs = request.arguments ?? <String, dynamic>{};
                   final rendered = template.renderString(mapArgs);

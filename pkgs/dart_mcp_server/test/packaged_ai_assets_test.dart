@@ -50,7 +50,10 @@ prompts:
     description: "My prompt description"
     path: "my_prompt.md"
     arguments:
-      - "arg1"
+      - name: "arg1"
+        title: "Argument 1"
+        description: "Argument 1 description"
+        required: true
 '''),
           d.file('my_resource.md', 'Hello Resource'),
           d.file('my_prompt.md', 'Hello Prompt {{arg1}}'),
