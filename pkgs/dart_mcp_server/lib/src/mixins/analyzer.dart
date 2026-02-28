@@ -300,13 +300,9 @@ base mixin DartAnalyzerSupport
     }
 
     final entries = diagnostics.entries.where((entry) {
-      final entryPath = fileSystem.path.canonicalize(
-        entry.key.toFilePath(),
-      );
+      final entryPath = fileSystem.path.canonicalize(entry.key.toFilePath());
       return requestedUris.any((uri) {
-        final requestedPath = fileSystem.path.canonicalize(
-          uri.toFilePath(),
-        );
+        final requestedPath = fileSystem.path.canonicalize(uri.toFilePath());
         return fileSystem.path.equals(requestedPath, entryPath) ||
             fileSystem.path.isWithin(requestedPath, entryPath);
       });
