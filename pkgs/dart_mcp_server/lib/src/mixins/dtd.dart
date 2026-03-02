@@ -1354,7 +1354,7 @@ base mixin DartToolingDaemonSupport
               'widgets created by user code are returned.',
         ),
         ParameterNames.enabled: Schema.bool(
-          title: 'Enable widget selection mode',
+          title: 'New widget selection mode enabled state',
           description: 'Required for "set_widget_selection_mode".',
         ),
         ParameterNames.appUri: Schema.string(
