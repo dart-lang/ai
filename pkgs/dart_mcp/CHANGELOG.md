@@ -1,4 +1,4 @@
-## 0.5.0-wip
+## 0.5.0
 
 - Initial support for protocol version [2025-11-25](https://modelcontextprotocol.io/specification/2025-11-25/).
   - Added support for `Icon`s in `Implementation`, `Tool`, `Resource`, `ResourceTemplate`, and `Prompt`.
@@ -22,7 +22,8 @@
   - Does **not** add support for Tasks yet.
   - Added support for `EnumSchema` subtypes, matching the spec. This includes
     multi select enums and enums with titles. Validation is also supported.
-  - Added support for validating `const` fields in schemas.
+  - Added `Meta? meta` param to `ElicitRequest`.
+- Added `ConstSchema` type for constant values, with validation.
 - **BREAKING**:
   - Change many fields of `ResourceLink` to be nullable, and their associated
     parameters to be optional. This brings us in line with the specification.
