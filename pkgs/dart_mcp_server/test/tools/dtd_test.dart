@@ -41,13 +41,14 @@ void main() {
             'lib/main.dart',
             isFlutter: true,
           );
-          final tools =
-              (await testHarness.mcpServerConnection.listTools()).tools;
-          final getWidgetTreeTool = tools.singleWhere(
-            (t) => t.name == DartToolingDaemonSupport.getWidgetTreeTool.name,
-          );
           final getWidgetTreeResult = await testHarness.callToolWithRetry(
-            CallToolRequest(name: getWidgetTreeTool.name),
+            CallToolRequest(
+              name: DartToolingDaemonSupport.widgetInspectorTool.name,
+              arguments: {
+                ParameterNames.command: WidgetInspectorCommand.getWidgetTree,
+                ParameterNames.summaryOnly: true,
+              },
+            ),
           );
 
           expect(getWidgetTreeResult.isError, isNot(true));
@@ -593,8 +594,11 @@ void main() {
 
           final getWidgetTreeResult = await testHarness.callToolWithRetry(
             CallToolRequest(
-              name: DartToolingDaemonSupport.getWidgetTreeTool.name,
-              arguments: {'summaryOnly': true},
+              name: DartToolingDaemonSupport.widgetInspectorTool.name,
+              arguments: {
+                ParameterNames.command: WidgetInspectorCommand.getWidgetTree,
+                ParameterNames.summaryOnly: true,
+              },
             ),
           );
 
@@ -621,7 +625,11 @@ void main() {
           // Confirm we can get the selected widget from the MCP tool.
           final getSelectedWidgetResult = await testHarness.callTool(
             CallToolRequest(
-              name: DartToolingDaemonSupport.getSelectedWidgetTool.name,
+              name: DartToolingDaemonSupport.widgetInspectorTool.name,
+              arguments: {
+                ParameterNames.command:
+                    WidgetInspectorCommand.getSelectedWidget,
+              },
             ),
           );
           expect(getSelectedWidgetResult.isError, isNot(true));
@@ -639,7 +647,11 @@ void main() {
           );
           final getSelectedWidgetResult = await testHarness.callToolWithRetry(
             CallToolRequest(
-              name: DartToolingDaemonSupport.getSelectedWidgetTool.name,
+              name: DartToolingDaemonSupport.widgetInspectorTool.name,
+              arguments: {
+                ParameterNames.command:
+                    WidgetInspectorCommand.getSelectedWidget,
+              },
             ),
           );
 
@@ -907,18 +919,17 @@ void main() {
           'lib/main.dart',
           isFlutter: true,
         );
-        final tools = (await testHarness.mcpServerConnection.listTools()).tools;
-        final setSelectionModeTool = tools.singleWhere(
-          (t) =>
-              t.name ==
-              DartToolingDaemonSupport.setWidgetSelectionModeTool.name,
-        );
+        final toolName = DartToolingDaemonSupport.widgetInspectorTool.name;
 
         // Enable selection mode
         final enableResult = await testHarness.callToolWithRetry(
           CallToolRequest(
-            name: setSelectionModeTool.name,
-            arguments: {'enabled': true},
+            name: toolName,
+            arguments: {
+              ParameterNames.command:
+                  WidgetInspectorCommand.setWidgetSelectionMode,
+              ParameterNames.enabled: true,
+            },
           ),
         );
 
@@ -930,8 +941,12 @@ void main() {
         // Disable selection mode
         final disableResult = await testHarness.callToolWithRetry(
           CallToolRequest(
-            name: setSelectionModeTool.name,
-            arguments: {'enabled': false},
+            name: toolName,
+            arguments: {
+              ParameterNames.command:
+                  WidgetInspectorCommand.setWidgetSelectionMode,
+              ParameterNames.enabled: false,
+            },
           ),
         );
 
@@ -942,13 +957,19 @@ void main() {
 
         // Test missing 'enabled' argument
         final missingArgResult = await testHarness.callTool(
-          CallToolRequest(name: setSelectionModeTool.name),
+          CallToolRequest(
+            name: toolName,
+            arguments: {
+              ParameterNames.command:
+                  WidgetInspectorCommand.setWidgetSelectionMode,
+            },
+          ),
           expectError: true,
         );
         expect(missingArgResult.isError, isTrue);
         expect(
           (missingArgResult.content.first as TextContent).text,
-          'Required property "enabled" is missing at path #root',
+          'Required parameter "enabled" was not provided or is not a boolean.',
         );
 
         // Clean up
@@ -1064,9 +1085,7 @@ void main() {
       final tools = (await connection.listTools()).tools;
       final unexpectedTools = [
         'take_screenshot',
-        'get_widget_tree',
-        'get_selected_widget',
-        'set_widget_selection_mode',
+        'widget_inspector',
         'flutter_driver',
       ];
       for (final name in unexpectedTools) {

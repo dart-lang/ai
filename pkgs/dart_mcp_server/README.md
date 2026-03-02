@@ -146,8 +146,6 @@ For more information, see the official VS Code documentation for
 | `get_active_location` | Get Active Editor Location | Retrieves the current active location (e.g., cursor position) in the connected editor. Requires "connect_dart_tooling_daemon" to be successfully called first. |
 | `get_app_logs` |  | Returns the collected logs for a given flutter run process id. Can only retrieve logs started by the launch_app tool. |
 | `get_runtime_errors` | Get runtime errors | Retrieves the most recent runtime errors that have occurred in the active Dart or Flutter application. Requires "connect_dart_tooling_daemon" to be successfully called first. |
-| `get_selected_widget` | Get selected widget | Retrieves the selected widget from the active Flutter application. Requires "connect_dart_tooling_daemon" to be successfully called first. |
-| `get_widget_tree` | Get widget tree | Retrieves the widget tree from the active Flutter application. Requires "connect_dart_tooling_daemon" to be successfully called first. |
 | `hot_reload` | Hot reload | Performs a hot reload of the active Flutter application. This will apply the latest code changes to the running application, while maintaining application state.  Reload will not update const definitions of global values. Requires "connect_dart_tooling_daemon" to be successfully called first. |
 | `hot_restart` | Hot restart | Performs a hot restart of the active Flutter application. This applies the latest code changes to the running application, including changes to global const values, while resetting application state. Requires "connect_dart_tooling_daemon" to be successfully called first. Doesn't work for Non-Flutter Dart CLI programs. |
 | `hover` | Hover information | Get hover information at a given cursor position in a file. This can include documentation, type information, etc for the text at that position. |
@@ -162,8 +160,8 @@ For more information, see the official VS Code documentation for
 | `resolve_workspace_symbol` | Project search | Look up a symbol or symbols in all workspaces by name. Can be used to validate that a symbol exists or discover small spelling mistakes, since the search is fuzzy. |
 | `rip_grep_packages` |  | Uses ripgrep to find patterns in package dependencies. Note that ripgrep must be installed already, see https://github.com/BurntSushi/ripgrep for instructions. |
 | `run_tests` | Run tests | Run Dart or Flutter tests with an agent centric UX. ALWAYS use instead of `dart test` or `flutter test` shell commands. |
-| `set_widget_selection_mode` | Set Widget Selection Mode | Enables or disables widget selection mode in the active Flutter application. Requires "connect_dart_tooling_daemon" to be successfully called first. This is not necessary when using flutter driver, only use it when you want the user to select a widget. |
 | `signature_help` | Signature help | Get signature help for an API being used at a given cursor position in a file. |
 | `stop_app` |  | Kills a running Flutter process started by the launch_app tool. |
+| `widget_inspector` | Widget Inspector | Interact with the Flutter widget inspector in the active Flutter application. Requires "connect_dart_tooling_daemon" to be successfully called first. |
 
 <!-- generated -->

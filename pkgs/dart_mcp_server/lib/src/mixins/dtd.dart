@@ -201,9 +201,7 @@ base mixin DartToolingDaemonSupport
     registerTool(listConnectedAppsTool, _listConnectedApps);
 
     if (enableScreenshots) registerTool(screenshotTool, takeScreenshot);
-    registerTool(getWidgetTreeTool, widgetTree);
-    registerTool(getSelectedWidgetTool, selectedWidget);
-    registerTool(setWidgetSelectionModeTool, _setWidgetSelectionMode);
+    registerTool(widgetInspectorTool, _widgetInspector);
     registerTool(flutterDriverTool, _callFlutterDriver);
 
     return super.initialize(request);
@@ -219,9 +217,7 @@ base mixin DartToolingDaemonSupport
     hotReloadTool,
     listConnectedAppsTool,
     screenshotTool,
-    getWidgetTreeTool,
-    getSelectedWidgetTool,
-    setWidgetSelectionModeTool,
+    widgetInspectorTool,
     flutterDriverTool,
   ];
 
@@ -244,7 +240,8 @@ base mixin DartToolingDaemonSupport
         }
         final vm = await vmService.getVM();
         final timeout = request.arguments?['timeout'] as String?;
-        final isScreenshot = request.arguments?['command'] == 'screenshot';
+        final isScreenshot =
+            request.arguments?[ParameterNames.command] == 'screenshot';
         if (isScreenshot) {
           request.arguments?.putIfAbsent('format', () => '4' /*png*/);
         }
@@ -699,20 +696,49 @@ base mixin DartToolingDaemonSupport
     );
   }
 
+  /// Dispatches to the appropriate widget inspector command.
+  Future<CallToolResult> _widgetInspector(CallToolRequest request) async {
+    final command = request.arguments?[ParameterNames.command] as String?;
+    return switch (command) {
+      WidgetInspectorCommand.getWidgetTree => _widgetTree(request),
+      WidgetInspectorCommand.getSelectedWidget => _selectedWidget(request),
+      WidgetInspectorCommand.setWidgetSelectionMode => _setWidgetSelectionMode(
+        request,
+      ),
+      _ => CallToolResult(
+        isError: true,
+        content: [
+          TextContent(
+            text:
+                'Unknown command "$command". Must be one of: '
+                '${WidgetInspectorCommand.getWidgetTree}, '
+                '${WidgetInspectorCommand.getSelectedWidget}, '
+                '${WidgetInspectorCommand.setWidgetSelectionMode}.',
+          ),
+        ],
+      )..failureReason = CallToolFailureReason.argumentError,
+    };
+  }
+
   /// Retrieves the Flutter widget tree from the currently running app.
   ///
   /// If more than one debug session is active, then it just uses the first one.
   ///
   // TODO: support passing a debug session id when there is more than one debug
   // session.
-  Future<CallToolResult> widgetTree(CallToolRequest request) async {
+  @visibleForTesting
+  Future<CallToolResult> widgetTree(CallToolRequest request) =>
+      _widgetTree(request);
+
+  Future<CallToolResult> _widgetTree(CallToolRequest request) async {
     final appUri = request.arguments?[ParameterNames.appUri] as String?;
     return _callOnVmService(
       appUri: appUri,
       callback: (vmService) async {
         final vm = await vmService.getVM();
         final isolateId = vm.isolates!.first.id;
-        final summaryOnly = request.arguments?['summaryOnly'] as bool? ?? false;
+        final summaryOnly =
+            request.arguments?[ParameterNames.summaryOnly] as bool? ?? false;
         try {
           final result = await vmService.callServiceExtension(
             '$_inspectorServiceExtensionPrefix.getRootWidgetTree',
@@ -752,11 +778,7 @@ base mixin DartToolingDaemonSupport
   }
 
   /// Retrieves the selected widget from the currently running app.
-  ///
-  /// If more than one debug session is active, then it just uses the first one.
-  // TODO: support passing a debug session id when there is more than one debug
-  // session.
-  Future<CallToolResult> selectedWidget(CallToolRequest request) async {
+  Future<CallToolResult> _selectedWidget(CallToolRequest request) async {
     final appUri = request.arguments?[ParameterNames.appUri] as String?;
     return _callOnVmService(
       appUri: appUri,
@@ -792,13 +814,10 @@ base mixin DartToolingDaemonSupport
   /// Enables or disables widget selection mode in the currently running app.
   ///
   /// If more than one debug session is active, then it just uses the first one.
-  //
-  // TODO: support passing a debug session id when there is more than one debug
-  // session.
   Future<CallToolResult> _setWidgetSelectionMode(
     CallToolRequest request,
   ) async {
-    final enabled = request.arguments?['enabled'] as bool?;
+    final enabled = request.arguments?[ParameterNames.enabled] as bool?;
     if (enabled == null) {
       return CallToolResult(
         isError: true,
@@ -946,7 +965,8 @@ base mixin DartToolingDaemonSupport
       description:
           'Command arguments are passed as additional properties to this map.'
           'To specify a widget to interact with, you must first use the '
-          '"${getWidgetTreeTool.name}" tool to get the widget tree of the '
+          '"${widgetInspectorTool.name}" tool (with "get_widget_tree" command) '
+          'to get the widget tree of the '
           'current page so that you can see the available widgets. Do not '
           'guess at how to select widgets, use the real text, tooltips, and '
           'widget types that you see present in the tree.',
@@ -956,7 +976,7 @@ base mixin DartToolingDaemonSupport
               'The app URI to execute the driver command on. Required if '
               'multiple apps are connected.',
         ),
-        'command': Schema.string(
+        ParameterNames.command: Schema.string(
           // Commented out values are flutter_driver commands that are not
           // supported, but may be in the future.
           // ignore: deprecated_member_use
@@ -1148,7 +1168,7 @@ base mixin DartToolingDaemonSupport
           // ignore: deprecated_member_use
           enumValues: const ['true', 'false'],
         ),
-        'enabled': Schema.string(
+        ParameterNames.enabled: Schema.string(
           description:
               'Used by set_text_entry_emulation, defaults to '
               'false',
@@ -1156,7 +1176,7 @@ base mixin DartToolingDaemonSupport
           enumValues: const ['true', 'false'],
         ),
       },
-      required: ['command'],
+      required: [ParameterNames.command],
     ),
   )..categories = [FeatureCategory.flutterDriver];
 
@@ -1294,76 +1314,44 @@ base mixin DartToolingDaemonSupport
   )..categories = [FeatureCategory.flutter];
 
   @visibleForTesting
-  static final getWidgetTreeTool = Tool(
-    name: ToolNames.getWidgetTree.name,
+  static final widgetInspectorTool = Tool(
+    name: ToolNames.widgetInspector.name,
     description:
-        'Retrieves the widget tree from the active Flutter application. '
-        'Requires "${connectTool.name}" to be successfully called first.',
-    annotations: ToolAnnotations(title: 'Get widget tree', readOnlyHint: true),
+        'Interact with the Flutter widget inspector in the active Flutter '
+        'application. Requires "${connectTool.name}" to be successfully called '
+        'first.',
+    annotations: ToolAnnotations(title: 'Widget Inspector', readOnlyHint: true),
     inputSchema: Schema.object(
       properties: {
-        'summaryOnly': Schema.bool(
+        ParameterNames.command: EnumSchema.untitledSingleSelect(
+          description: 'The widget inspector command to run.',
+          values: [
+            WidgetInspectorCommand.getWidgetTree,
+            WidgetInspectorCommand.getSelectedWidget,
+            WidgetInspectorCommand.setWidgetSelectionMode,
+          ],
+        ),
+        ParameterNames.summaryOnly: Schema.bool(
           description:
-              'Defaults to false. If true, only widgets created by user code '
-              'are returned.',
+              'Only for "${WidgetInspectorCommand.getWidgetTree}". Defaults to '
+              'false. If true, only widgets created by user code are '
+              'returned.',
+        ),
+        ParameterNames.enabled: Schema.bool(
+          title: 'New widget selection mode state',
+          description:
+              'Required for "${WidgetInspectorCommand.setWidgetSelectionMode}"'
+              '.',
         ),
         ParameterNames.appUri: Schema.string(
           description:
-              'The app URI to get the widget tree from. Required if '
-              'multiple apps are connected.',
+              'The app URI to use. Required if multiple apps are connected.',
         ),
       },
+      required: const [ParameterNames.command],
       additionalProperties: false,
     ),
   )..categories = [FeatureCategory.flutter];
-
-  @visibleForTesting
-  static final getSelectedWidgetTool = Tool(
-    name: ToolNames.getSelectedWidget.name,
-    description:
-        'Retrieves the selected widget from the active Flutter application. '
-        'Requires "${connectTool.name}" to be successfully called first.',
-    annotations: ToolAnnotations(
-      title: 'Get selected widget',
-      readOnlyHint: true,
-    ),
-    inputSchema: Schema.object(
-      properties: {
-        ParameterNames.appUri: Schema.string(
-          description:
-              'The app URI to get the selected widget from. Required if '
-              'multiple apps are connected.',
-        ),
-      },
-      additionalProperties: false,
-    ),
-  )..categories = [FeatureCategory.flutter, FeatureCategory.widgetInspector];
-
-  @visibleForTesting
-  static final setWidgetSelectionModeTool = Tool(
-    name: ToolNames.setWidgetSelectionMode.name,
-    description:
-        'Enables or disables widget selection mode in the active Flutter '
-        'application. Requires "${connectTool.name}" to be successfully called '
-        'first. This is not necessary when using flutter driver, only use it '
-        'when you want the user to select a widget.',
-    annotations: ToolAnnotations(
-      title: 'Set Widget Selection Mode',
-      readOnlyHint: true,
-    ),
-    inputSchema: Schema.object(
-      properties: {
-        'enabled': Schema.bool(title: 'Enable widget selection mode'),
-        ParameterNames.appUri: Schema.string(
-          description:
-              'The app URI to set the selection mode on. Required if '
-              'multiple apps are connected.',
-        ),
-      },
-      required: const ['enabled'],
-      additionalProperties: false,
-    ),
-  )..categories = [FeatureCategory.flutter, FeatureCategory.widgetInspector];
 
   @visibleForTesting
   static final getActiveLocationTool =
@@ -1711,4 +1699,10 @@ extension _DartToolingDaemonMetadata on DartToolingDaemon {
   Map<String, Object?>? get activeLocation => _activeLocations[this];
   set activeLocation(Map<String, Object?>? value) =>
       _activeLocations[this] = value;
+}
+
+extension WidgetInspectorCommand on Never {
+  static const getWidgetTree = 'get_widget_tree';
+  static const getSelectedWidget = 'get_selected_widget';
+  static const setWidgetSelectionMode = 'set_widget_selection_mode';
 }
