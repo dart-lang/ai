@@ -29,9 +29,6 @@ enum FeatureCategory {
   /// Features that require use of flutter_driver to interact with the app.
   flutterDriver(flutter, 'flutter_driver'),
 
-  /// Features for interacting with the widget inspector.
-  widgetInspector(flutter, 'widget_inspector'),
-
   /// Features for interacting with running apps via the Dart Tooling Daemon.
   dartToolingDaemon(all, 'dart_tooling_daemon'),
 

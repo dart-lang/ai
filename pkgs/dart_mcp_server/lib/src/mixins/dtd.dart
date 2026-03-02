@@ -1357,7 +1357,7 @@ base mixin DartToolingDaemonSupport
       required: const ['action'],
       additionalProperties: false,
     ),
-  )..categories = [FeatureCategory.flutter, FeatureCategory.widgetInspector];
+  )..categories = [FeatureCategory.flutter];
 
   @visibleForTesting
   static final getActiveLocationTool =
