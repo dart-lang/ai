@@ -43,8 +43,6 @@ enum ToolNames {
   getActiveLocation('get_active_location'),
   getAppLogs('get_app_logs'),
   getRuntimeErrors('get_runtime_errors'),
-  getSelectedWidget('get_selected_widget'),
-  getWidgetTree('get_widget_tree'),
   hotReload('hot_reload'),
   hotRestart('hot_restart'),
   hover('hover'),
@@ -59,10 +57,10 @@ enum ToolNames {
   resolveWorkspaceSymbol('resolve_workspace_symbol'),
   ripGrepPackages('rip_grep_packages'),
   runTests('run_tests'),
-  setWidgetSelectionMode('set_widget_selection_mode'),
   signatureHelp('signature_help'),
   stopApp('stop_app'),
-  takeScreenshot('take_screenshot');
+  takeScreenshot('take_screenshot'),
+  widgetInspector('widget_inspector');
 
   final String name;
   const ToolNames(this.name);
