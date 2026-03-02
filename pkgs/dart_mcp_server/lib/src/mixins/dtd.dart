@@ -778,14 +778,6 @@ base mixin DartToolingDaemonSupport
   }
 
   /// Retrieves the selected widget from the currently running app.
-  ///
-  /// If more than one debug session is active, then it just uses the first one.
-  // TODO: support passing a debug session id when there is more than one debug
-  // session.
-  @visibleForTesting
-  Future<CallToolResult> selectedWidget(CallToolRequest request) =>
-      _selectedWidget(request);
-
   Future<CallToolResult> _selectedWidget(CallToolRequest request) async {
     final appUri = request.arguments?[ParameterNames.appUri] as String?;
     return _callOnVmService(
@@ -822,9 +814,6 @@ base mixin DartToolingDaemonSupport
   /// Enables or disables widget selection mode in the currently running app.
   ///
   /// If more than one debug session is active, then it just uses the first one.
-  //
-  // TODO: support passing a debug session id when there is more than one debug
-  // session.
   Future<CallToolResult> _setWidgetSelectionMode(
     CallToolRequest request,
   ) async {

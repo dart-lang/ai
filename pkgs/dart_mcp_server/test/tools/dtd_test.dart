@@ -44,7 +44,10 @@ void main() {
           final getWidgetTreeResult = await testHarness.callToolWithRetry(
             CallToolRequest(
               name: DartToolingDaemonSupport.widgetInspectorTool.name,
-              arguments: {'command': 'get_widget_tree'},
+              arguments: {
+                ParameterNames.command: WidgetInspectorCommand.getWidgetTree,
+                ParameterNames.summaryOnly: true,
+              },
             ),
           );
 
@@ -592,7 +595,10 @@ void main() {
           final getWidgetTreeResult = await testHarness.callToolWithRetry(
             CallToolRequest(
               name: DartToolingDaemonSupport.widgetInspectorTool.name,
-              arguments: {'command': 'get_widget_tree', 'summaryOnly': true},
+              arguments: {
+                ParameterNames.command: WidgetInspectorCommand.getWidgetTree,
+                ParameterNames.summaryOnly: true,
+              },
             ),
           );
 
@@ -620,7 +626,10 @@ void main() {
           final getSelectedWidgetResult = await testHarness.callTool(
             CallToolRequest(
               name: DartToolingDaemonSupport.widgetInspectorTool.name,
-              arguments: {'command': 'get_selected_widget'},
+              arguments: {
+                ParameterNames.command:
+                    WidgetInspectorCommand.getSelectedWidget,
+              },
             ),
           );
           expect(getSelectedWidgetResult.isError, isNot(true));
@@ -639,7 +648,10 @@ void main() {
           final getSelectedWidgetResult = await testHarness.callToolWithRetry(
             CallToolRequest(
               name: DartToolingDaemonSupport.widgetInspectorTool.name,
-              arguments: {'command': 'get_selected_widget'},
+              arguments: {
+                ParameterNames.command:
+                    WidgetInspectorCommand.getSelectedWidget,
+              },
             ),
           );
 
@@ -914,8 +926,9 @@ void main() {
           CallToolRequest(
             name: toolName,
             arguments: {
-              'command': 'set_widget_selection_mode',
-              'enabled': true,
+              ParameterNames.command:
+                  WidgetInspectorCommand.setWidgetSelectionMode,
+              ParameterNames.enabled: true,
             },
           ),
         );
@@ -930,8 +943,9 @@ void main() {
           CallToolRequest(
             name: toolName,
             arguments: {
-              'command': 'set_widget_selection_mode',
-              'enabled': false,
+              ParameterNames.command:
+                  WidgetInspectorCommand.setWidgetSelectionMode,
+              ParameterNames.enabled: false,
             },
           ),
         );
@@ -945,7 +959,10 @@ void main() {
         final missingArgResult = await testHarness.callTool(
           CallToolRequest(
             name: toolName,
-            arguments: {'command': 'set_widget_selection_mode'},
+            arguments: {
+              ParameterNames.command:
+                  WidgetInspectorCommand.setWidgetSelectionMode,
+            },
           ),
           expectError: true,
         );
