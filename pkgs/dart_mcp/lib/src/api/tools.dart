@@ -1938,6 +1938,34 @@ extension type ListSchema.fromMap(Map<String, Object?> _value)
   }
 }
 
+/// A JSON Schema definition for a constant value.
+extension type ConstSchema.fromMap(Map<String, Object?> _value)
+    implements Schema {
+  factory ConstSchema({
+    String? title,
+    String? description,
+    required Object? constValue,
+  }) => ConstSchema.fromMap({
+    Keys.const_: constValue,
+    if (title != null) Keys.title: title,
+    if (description != null) Keys.description: description,
+  });
+
+  /// The constant value for this schema.
+  Object? get constValue {
+    if (!_value.containsKey(Keys.const_)) {
+      throw ArgumentError('Missing ${Keys.const_} field in $ConstSchema');
+    }
+    return _value[Keys.const_];
+  }
+
+  /// The human readable title for this constant value.
+  String? get title => _value[Keys.title] as String?;
+
+  /// The description for this constant value.
+  String? get description => _value[Keys.description] as String?;
+}
+
 HashSet<ValidationError> _createHashSet() {
   return HashSet<ValidationError>(
     equals: (ValidationError a, ValidationError b) {
