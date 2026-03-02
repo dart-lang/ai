@@ -1,4 +1,4 @@
-## 0.5.0-wip
+## 0.5.0
 
 - Initial support for protocol version [2025-11-25](https://modelcontextprotocol.io/specification/2025-11-25/).
   - Added support for `Icon`s in `Implementation`, `Tool`, `Resource`, `ResourceTemplate`, and `Prompt`.

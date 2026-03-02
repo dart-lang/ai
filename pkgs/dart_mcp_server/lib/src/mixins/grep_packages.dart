@@ -49,7 +49,8 @@ base mixin GrepSupport
     }
 
     final ripGrepExecutable =
-        await _checkForRipGrep() ?? await tryInstallRipGrep();
+        await _checkForRipGrep() ??
+        await tryInstallRipGrep(progressToken: request.meta?.progressToken);
     if (ripGrepExecutable == null) {
       return CallToolResult(
         content: [
@@ -202,15 +203,26 @@ base mixin GrepSupport
   ///
   /// [installDir] is the directory to install ripgrep to. If null, the default
   /// install directory will be used.
+  ///
+  /// If [progressToken] is passed, it will be added to the [ElicitRequest]
+  /// metadata. This is primarily used to forward on progress tokens, which is
+  /// required by some clients (it links the elicitation to a tool call).
   @visibleForTesting
-  Future<String?> tryInstallRipGrep({Directory? installDir}) async {
+  Future<String?> tryInstallRipGrep({
+    Directory? installDir,
+    ProgressToken? progressToken,
+  }) async {
     // If the client does not support elicitation, we cannot install ripgrep
     // because we can't get consent.
     if (clientCapabilities.elicitation == null) return null;
+    final meta = progressToken != null
+        ? MetaWithProgressToken(progressToken: progressToken)
+        : null;
     final elicitResult = await elicit(
       ElicitRequest.form(
         message: 'Ripgrep is required to run this tool, can I install it?',
         requestedSchema: Schema.object(),
+        meta: meta,
       ),
     );
     // The user did not approve the installation.
