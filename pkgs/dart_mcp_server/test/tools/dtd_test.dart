@@ -44,7 +44,7 @@ void main() {
           final getWidgetTreeResult = await testHarness.callToolWithRetry(
             CallToolRequest(
               name: DartToolingDaemonSupport.widgetInspectorTool.name,
-              arguments: {'action': 'get_widget_tree'},
+              arguments: {'command': 'get_widget_tree'},
             ),
           );
 
@@ -592,7 +592,7 @@ void main() {
           final getWidgetTreeResult = await testHarness.callToolWithRetry(
             CallToolRequest(
               name: DartToolingDaemonSupport.widgetInspectorTool.name,
-              arguments: {'action': 'get_widget_tree', 'summaryOnly': true},
+              arguments: {'command': 'get_widget_tree', 'summaryOnly': true},
             ),
           );
 
@@ -620,7 +620,7 @@ void main() {
           final getSelectedWidgetResult = await testHarness.callTool(
             CallToolRequest(
               name: DartToolingDaemonSupport.widgetInspectorTool.name,
-              arguments: {'action': 'get_selected_widget'},
+              arguments: {'command': 'get_selected_widget'},
             ),
           );
           expect(getSelectedWidgetResult.isError, isNot(true));
@@ -639,7 +639,7 @@ void main() {
           final getSelectedWidgetResult = await testHarness.callToolWithRetry(
             CallToolRequest(
               name: DartToolingDaemonSupport.widgetInspectorTool.name,
-              arguments: {'action': 'get_selected_widget'},
+              arguments: {'command': 'get_selected_widget'},
             ),
           );
 
@@ -914,7 +914,7 @@ void main() {
           CallToolRequest(
             name: toolName,
             arguments: {
-              'action': 'set_widget_selection_mode',
+              'command': 'set_widget_selection_mode',
               'enabled': true,
             },
           ),
@@ -930,7 +930,7 @@ void main() {
           CallToolRequest(
             name: toolName,
             arguments: {
-              'action': 'set_widget_selection_mode',
+              'command': 'set_widget_selection_mode',
               'enabled': false,
             },
           ),
@@ -945,7 +945,7 @@ void main() {
         final missingArgResult = await testHarness.callTool(
           CallToolRequest(
             name: toolName,
-            arguments: {'action': 'set_widget_selection_mode'},
+            arguments: {'command': 'set_widget_selection_mode'},
           ),
           expectError: true,
         );

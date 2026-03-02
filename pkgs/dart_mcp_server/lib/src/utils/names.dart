@@ -12,6 +12,7 @@ extension ParameterNames on Never {
   static const directory = 'directory';
   static const dtdUri = 'dtdUri';
   static const empty = 'empty';
+  static const enabled = 'enabled';
   static const line = 'line';
   static const name = 'name';
   static const packageNames = 'packageNames';
@@ -24,6 +25,7 @@ extension ParameterNames on Never {
   static const root = 'root';
   static const roots = 'roots';
   static const searchDir = 'searchDir';
+  static const summaryOnly = 'summaryOnly';
   static const template = 'template';
   static const uri = 'uri';
   static const uris = 'uris';

@@ -240,7 +240,8 @@ base mixin DartToolingDaemonSupport
         }
         final vm = await vmService.getVM();
         final timeout = request.arguments?['timeout'] as String?;
-        final isScreenshot = request.arguments?['command'] == 'screenshot';
+        final isScreenshot =
+            request.arguments?[ParameterNames.command] == 'screenshot';
         if (isScreenshot) {
           request.arguments?.putIfAbsent('format', () => '4' /*png*/);
         }
@@ -695,10 +696,10 @@ base mixin DartToolingDaemonSupport
     );
   }
 
-  /// Dispatches to the appropriate widget inspector action.
+  /// Dispatches to the appropriate widget inspector command.
   Future<CallToolResult> _widgetInspector(CallToolRequest request) async {
-    final action = request.arguments?['action'] as String?;
-    return switch (action) {
+    final command = request.arguments?[ParameterNames.command] as String?;
+    return switch (command) {
       'get_widget_tree' => _widgetTree(request),
       'get_selected_widget' => _selectedWidget(request),
       'set_widget_selection_mode' => _setWidgetSelectionMode(request),
@@ -707,8 +708,9 @@ base mixin DartToolingDaemonSupport
         content: [
           TextContent(
             text:
-                'Unknown action "$action". Must be one of: '
-                'get_widget_tree, get_selected_widget, set_widget_selection_mode.',
+                'Unknown command "$command". Must be one of: '
+                'get_widget_tree, get_selected_widget, '
+                'set_widget_selection_mode.',
           ),
         ],
       )..failureReason = CallToolFailureReason.argumentError,
@@ -732,7 +734,8 @@ base mixin DartToolingDaemonSupport
       callback: (vmService) async {
         final vm = await vmService.getVM();
         final isolateId = vm.isolates!.first.id;
-        final summaryOnly = request.arguments?['summaryOnly'] as bool? ?? false;
+        final summaryOnly =
+            request.arguments?[ParameterNames.summaryOnly] as bool? ?? false;
         try {
           final result = await vmService.callServiceExtension(
             '$_inspectorServiceExtensionPrefix.getRootWidgetTree',
@@ -822,7 +825,7 @@ base mixin DartToolingDaemonSupport
   Future<CallToolResult> _setWidgetSelectionMode(
     CallToolRequest request,
   ) async {
-    final enabled = request.arguments?['enabled'] as bool?;
+    final enabled = request.arguments?[ParameterNames.enabled] as bool?;
     if (enabled == null) {
       return CallToolResult(
         isError: true,
@@ -970,7 +973,8 @@ base mixin DartToolingDaemonSupport
       description:
           'Command arguments are passed as additional properties to this map.'
           'To specify a widget to interact with, you must first use the '
-          '"${widgetInspectorTool.name}" tool (with "get_widget_tree" action) to get the widget tree of the '
+          '"${widgetInspectorTool.name}" tool (with "get_widget_tree" command) '
+          'to get the widget tree of the '
           'current page so that you can see the available widgets. Do not '
           'guess at how to select widgets, use the real text, tooltips, and '
           'widget types that you see present in the tree.',
@@ -980,7 +984,7 @@ base mixin DartToolingDaemonSupport
               'The app URI to execute the driver command on. Required if '
               'multiple apps are connected.',
         ),
-        'command': Schema.string(
+        ParameterNames.command: Schema.string(
           // Commented out values are flutter_driver commands that are not
           // supported, but may be in the future.
           // ignore: deprecated_member_use
@@ -1172,7 +1176,7 @@ base mixin DartToolingDaemonSupport
           // ignore: deprecated_member_use
           enumValues: const ['true', 'false'],
         ),
-        'enabled': Schema.string(
+        ParameterNames.enabled: Schema.string(
           description:
               'Used by set_text_entry_emulation, defaults to '
               'false',
@@ -1180,7 +1184,7 @@ base mixin DartToolingDaemonSupport
           enumValues: const ['true', 'false'],
         ),
       },
-      required: ['command'],
+      required: [ParameterNames.command],
     ),
   )..categories = [FeatureCategory.flutterDriver];
 
@@ -1323,29 +1327,33 @@ base mixin DartToolingDaemonSupport
     description:
         'Interact with the Flutter widget inspector in the active Flutter '
         'application. Requires "${connectTool.name}" to be successfully called '
-        'first. Available actions: '
-        '"get_widget_tree" retrieves the widget tree; '
-        '"get_selected_widget" retrieves the currently selected widget; '
-        '"set_widget_selection_mode" enables or disables widget selection mode '
-        '(not necessary when using flutter driver, only use it when you want '
-        'the user to tap a widget to select it).',
+        'first.',
     annotations: ToolAnnotations(title: 'Widget Inspector', readOnlyHint: true),
     inputSchema: Schema.object(
       properties: {
-        'action': Schema.string(
-          description: 'The widget inspector action to perform.',
-          enumValues: const [
-            'get_widget_tree',
-            'get_selected_widget',
-            'set_widget_selection_mode',
+        ParameterNames.command: EnumSchema.titledSingleSelect(
+          description: 'The widget inspector command to run.',
+          values: [
+            EnumValueWithTitle(
+              title: 'Get Widget Tree',
+              constValue: 'get_widget_tree',
+            ),
+            EnumValueWithTitle(
+              title: 'Get Selected Widget',
+              constValue: 'get_selected_widget',
+            ),
+            EnumValueWithTitle(
+              title: 'Set Widget Selection Mode',
+              constValue: 'set_widget_selection_mode',
+            ),
           ],
         ),
-        'summaryOnly': Schema.bool(
+        ParameterNames.summaryOnly: Schema.bool(
           description:
               'Only for "get_widget_tree". Defaults to false. If true, only '
               'widgets created by user code are returned.',
         ),
-        'enabled': Schema.bool(
+        ParameterNames.enabled: Schema.bool(
           title: 'Enable widget selection mode',
           description: 'Required for "set_widget_selection_mode".',
         ),
@@ -1354,7 +1362,7 @@ base mixin DartToolingDaemonSupport
               'The app URI to use. Required if multiple apps are connected.',
         ),
       },
-      required: const ['action'],
+      required: const [ParameterNames.command],
       additionalProperties: false,
     ),
   )..categories = [FeatureCategory.flutter];
