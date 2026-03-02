@@ -98,7 +98,7 @@ final class DartMCPServer extends MCPServer
   }) : super.fromStreamChannel(
          implementation: Implementation(
            name: 'dart and flutter tooling',
-           version: '0.1.3',
+           version: version,
          ),
          instructions:
              'This server helps to connect Dart and Flutter developers to '
@@ -107,6 +107,11 @@ final class DartMCPServer extends MCPServer
              'on. Always list the resources from this server up front and '
              'use them the same as you would any other skills.',
        );
+
+  /// The version of the MCP server.
+  ///
+  /// Should match the version in the CHANGELOG.md.
+  static final version = '0.1.3';
 
   /// Runs the MCP server given command line arguments and an optional
   /// [Analytics] instance.
@@ -117,6 +122,11 @@ final class DartMCPServer extends MCPServer
     final parsedArgs = argParser.parse(args);
     if (parsedArgs.flag(helpFlag)) {
       print(argParser.usage);
+      return 0;
+    }
+
+    if (parsedArgs.flag(versionFlag)) {
+      print(version);
       return 0;
     }
 
