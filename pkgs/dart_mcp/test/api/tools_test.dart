@@ -321,6 +321,22 @@ void main() {
         ],
       });
     });
+
+    test('ConstSchema', () {
+      final schema = ConstSchema(
+        constValue: 12,
+        title: 'twelve',
+        description: 'its the number 12!',
+      );
+      expect(schema, {
+        'const': 12,
+        'title': 'twelve',
+        'description': 'its the number 12!',
+      });
+      expect(schema.constValue, 12);
+      expect(schema.title, 'twelve');
+      expect(schema.description, 'its the number 12!');
+    });
   });
 
   group('Schema Validation Tests (Paths Ignored)', () {
@@ -1708,7 +1724,7 @@ void main() {
     });
 
     test('const', () {
-      final schema = {'const': 'hello'} as Schema;
+      final schema = ConstSchema(constValue: 'hello');
       expectFailuresMatch(schema, 'hello', []);
       expectFailuresMatch(schema, 'world', [
         ValidationError(ValidationErrorType.wrongConstValue, path: const []),
@@ -1759,24 +1775,28 @@ void main() {
         final schema = ObjectSchema(
           properties: {
             'user': ObjectSchema(
-              properties: {'name': StringSchema(minLength: 5)},
+              properties: {
+                'name': StringSchema(minLength: 5),
+                'isUser': ConstSchema(constValue: true),
+              },
             ),
           },
         );
-        // 'user.name' is "hi" which fails minLength: 5
-        // _validate(StringSchema(minLength:5), "hi") -> [minLengthNotMet]
-        // This becomes propertyValueInvalid for 'name'
-        // Then this becomes propertyValueInvalid for 'user'
         expectFailuresExact(
           schema,
           {
-            'user': {'name': 'hi'},
+            'user': {'name': 'hi', 'isUser': false},
           },
           [
             ValidationError(
               ValidationErrorType.minLengthNotMet,
               path: ['user', 'name'],
               details: 'String "hi" is not at least 5 characters long',
+            ),
+            ValidationError(
+              ValidationErrorType.wrongConstValue,
+              path: ['user', 'isUser'],
+              details: 'Value false does not match constant true',
             ),
           ],
         );
