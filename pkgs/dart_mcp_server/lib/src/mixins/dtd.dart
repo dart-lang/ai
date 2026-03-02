@@ -700,17 +700,20 @@ base mixin DartToolingDaemonSupport
   Future<CallToolResult> _widgetInspector(CallToolRequest request) async {
     final command = request.arguments?[ParameterNames.command] as String?;
     return switch (command) {
-      'get_widget_tree' => _widgetTree(request),
-      'get_selected_widget' => _selectedWidget(request),
-      'set_widget_selection_mode' => _setWidgetSelectionMode(request),
+      WidgetInspectorCommand.getWidgetTree => _widgetTree(request),
+      WidgetInspectorCommand.getSelectedWidget => _selectedWidget(request),
+      WidgetInspectorCommand.setWidgetSelectionMode => _setWidgetSelectionMode(
+        request,
+      ),
       _ => CallToolResult(
         isError: true,
         content: [
           TextContent(
             text:
                 'Unknown command "$command". Must be one of: '
-                'get_widget_tree, get_selected_widget, '
-                'set_widget_selection_mode.',
+                '${WidgetInspectorCommand.getWidgetTree}, '
+                '${WidgetInspectorCommand.getSelectedWidget}, '
+                '${WidgetInspectorCommand.setWidgetSelectionMode}.',
           ),
         ],
       )..failureReason = CallToolFailureReason.argumentError,
@@ -1331,31 +1334,25 @@ base mixin DartToolingDaemonSupport
     annotations: ToolAnnotations(title: 'Widget Inspector', readOnlyHint: true),
     inputSchema: Schema.object(
       properties: {
-        ParameterNames.command: EnumSchema.titledSingleSelect(
+        ParameterNames.command: EnumSchema.untitledSingleSelect(
           description: 'The widget inspector command to run.',
           values: [
-            EnumValueWithTitle(
-              title: 'Get Widget Tree',
-              constValue: 'get_widget_tree',
-            ),
-            EnumValueWithTitle(
-              title: 'Get Selected Widget',
-              constValue: 'get_selected_widget',
-            ),
-            EnumValueWithTitle(
-              title: 'Set Widget Selection Mode',
-              constValue: 'set_widget_selection_mode',
-            ),
+            WidgetInspectorCommand.getWidgetTree,
+            WidgetInspectorCommand.getSelectedWidget,
+            WidgetInspectorCommand.setWidgetSelectionMode,
           ],
         ),
         ParameterNames.summaryOnly: Schema.bool(
           description:
-              'Only for "get_widget_tree". Defaults to false. If true, only '
-              'widgets created by user code are returned.',
+              'Only for "${WidgetInspectorCommand.getWidgetTree}". Defaults to '
+              'false. If true, only widgets created by user code are '
+              'returned.',
         ),
         ParameterNames.enabled: Schema.bool(
-          title: 'New widget selection mode enabled state',
-          description: 'Required for "set_widget_selection_mode".',
+          title: 'New widget selection mode state',
+          description:
+              'Required for "${WidgetInspectorCommand.setWidgetSelectionMode}"'
+              '.',
         ),
         ParameterNames.appUri: Schema.string(
           description:
@@ -1713,4 +1710,10 @@ extension _DartToolingDaemonMetadata on DartToolingDaemon {
   Map<String, Object?>? get activeLocation => _activeLocations[this];
   set activeLocation(Map<String, Object?>? value) =>
       _activeLocations[this] = value;
+}
+
+extension WidgetInspectorCommand on Never {
+  static const getWidgetTree = 'get_widget_tree';
+  static const getSelectedWidget = 'get_selected_widget';
+  static const setWidgetSelectionMode = 'set_widget_selection_mode';
 }
