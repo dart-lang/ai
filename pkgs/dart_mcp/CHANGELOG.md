@@ -23,6 +23,7 @@
   - Added support for `EnumSchema` subtypes, matching the spec. This includes
     multi select enums and enums with titles. Validation is also supported.
   - Added support for validating `const` fields in schemas.
+  - Added `Meta? meta` param to `ElicitRequest`.
 - **BREAKING**:
   - Change many fields of `ResourceLink` to be nullable, and their associated
     parameters to be optional. This brings us in line with the specification.
