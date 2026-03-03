@@ -63,10 +63,7 @@ void main() {
       tools,
       isNot(contains(equals(DartAnalyzerSupport.analyzeFilesTool))),
     );
-    expect(
-      tools,
-      isNot(contains(equals(DartToolingDaemonSupport.dtdTool))),
-    );
+    expect(tools, isNot(contains(equals(DartToolingDaemonSupport.dtdTool))));
     expect(tools, contains(equals(DartAnalyzerSupport.hoverTool)));
   });
 
