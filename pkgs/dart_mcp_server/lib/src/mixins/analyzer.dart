@@ -502,9 +502,9 @@ base mixin DartAnalyzerSupport
         'Requires: query.',
     inputSchema: Schema.object(
       properties: {
-        ParameterNames.command: Schema.string(
+        ParameterNames.command: EnumSchema.untitledSingleSelect(
           description: 'The LSP command to execute.',
-          enumValues: ['hover', 'signatureHelp', 'resolveWorkspaceSymbol'],
+          values: ['hover', 'signatureHelp', 'resolveWorkspaceSymbol'],
         ),
         ParameterNames.uri: Schema.string(
           description:
