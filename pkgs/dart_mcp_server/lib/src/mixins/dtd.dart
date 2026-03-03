@@ -1210,8 +1210,8 @@ base mixin DartToolingDaemonSupport
     name: ToolNames.getRuntimeErrors.name,
     description:
         'Retrieves the most recent runtime errors that have occurred in the '
-        'active Dart or Flutter application. Requires "${dtdTool.name}" with '
-        'command "${DtdCommand.connect}" to be successfully called first.',
+        'active Dart or Flutter application. '
+        'Requires an active DTD connection.',
     annotations: ToolAnnotations(
       title: 'Get runtime errors',
       readOnlyHint: true,
