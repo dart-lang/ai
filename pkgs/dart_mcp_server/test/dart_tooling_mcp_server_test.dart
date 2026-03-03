@@ -67,7 +67,7 @@ void main() {
       tools,
       isNot(contains(equals(DartToolingDaemonSupport.connectTool))),
     );
-    expect(tools, contains(equals(DartAnalyzerSupport.hoverTool)));
+    expect(tools, contains(equals(DartAnalyzerSupport.lspTool)));
   });
 
   test('Version is printed to stdout', () async {

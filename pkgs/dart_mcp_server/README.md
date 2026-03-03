@@ -148,19 +148,21 @@ For more information, see the official VS Code documentation for
 | `get_runtime_errors` | Get runtime errors | Retrieves the most recent runtime errors that have occurred in the active Dart or Flutter application. Requires "connect_dart_tooling_daemon" to be successfully called first. |
 | `hot_reload` | Hot reload | Performs a hot reload of the active Flutter application. This will apply the latest code changes to the running application, while maintaining application state.  Reload will not update const definitions of global values. Requires "connect_dart_tooling_daemon" to be successfully called first. |
 | `hot_restart` | Hot restart | Performs a hot restart of the active Flutter application. This applies the latest code changes to the running application, including changes to global const values, while resetting application state. Requires "connect_dart_tooling_daemon" to be successfully called first. Doesn't work for Non-Flutter Dart CLI programs. |
-| `hover` | Hover information | Get hover information at a given cursor position in a file. This can include documentation, type information, etc for the text at that position. |
 | `launch_app` |  | Launches a Flutter application and returns its DTD URI. |
 | `list_connected_apps` |  | Lists all connected applications (VM Services) available via DTD. |
 | `list_devices` |  | Lists available Flutter devices. |
 | `list_running_apps` |  | Returns the list of running app process IDs and associated DTD URIs for apps started by the launch_app tool. |
+| `lsp` | Language Server Protocol | Interacts with the Dart Language Server Protocol (LSP) to provide code intelligence features like hover, signature help, and symbol resolution.
+Commands:
+- hover: Get hover information (docs, types) at a position. Requires: uri, line, column.
+- signatureHelp: Get signature help at a position. Requires: uri, line, column.
+- resolveWorkspaceSymbol: Fuzzy search for symbols by name. Requires: query. |
 | `pub` | pub | Runs a pub command for the given project roots, like `dart pub get` or `flutter pub add`. |
 | `pub_dev_search` | pub.dev search | Searches pub.dev for packages relevant to a given search query. The response will describe each result with its download count, package description, topics, license, and publisher. |
 | `read_package_uris` |  | Reads "package" and "package-root" scheme URIs which represent paths under Dart package dependencies. "package" URIs are always relative to the "lib" directory and "package-root" URIs are relative to the true root directory of the package. For example, the URI "package:test/test.dart" represents the path "lib/test.dart" under the "test" package. "package-root:test/example/test.dart" represents the path "example/test.dart". This API supports both reading files and listing directories. |
 | `remove_roots` | Remove roots | Removes one or more project roots previously added via the add_roots tool. |
-| `resolve_workspace_symbol` | Project search | Look up a symbol or symbols in all workspaces by name. Can be used to validate that a symbol exists or discover small spelling mistakes, since the search is fuzzy. |
 | `rip_grep_packages` |  | Uses ripgrep to find patterns in package dependencies. Note that ripgrep must be installed already, see https://github.com/BurntSushi/ripgrep for instructions. |
 | `run_tests` | Run tests | Run Dart or Flutter tests with an agent centric UX. ALWAYS use instead of `dart test` or `flutter test` shell commands. |
-| `signature_help` | Signature help | Get signature help for an API being used at a given cursor position in a file. |
 | `stop_app` |  | Kills a running Flutter process started by the launch_app tool. |
 | `widget_inspector` | Widget Inspector | Interact with the Flutter widget inspector in the active Flutter application. Requires "connect_dart_tooling_daemon" to be successfully called first. |
 
