@@ -352,9 +352,9 @@ base mixin DartToolingDaemonSupport
         'Dart Tooling Daemon.',
     inputSchema: Schema.object(
       properties: {
-        ParameterNames.command: Schema.string(
+        ParameterNames.command: EnumSchema.untitledSingleSelect(
           description: 'The command to execute.',
-          enumValues: [
+          values: [
             DtdCommand.connect,
             DtdCommand.disconnect,
             DtdCommand.listConnectedApps,
@@ -930,8 +930,9 @@ base mixin DartToolingDaemonSupport
           content: [
             TextContent(
               text:
-                  'App with URI "$appUri" not found. Use '
-                  '"${dtdTool.name}" with command "${DtdCommand.listConnectedApps}" to see available apps.',
+                  'App with URI "$appUri" not found. Use "${dtdTool.name}" '
+                  'with command "${DtdCommand.listConnectedApps}" to see '
+                  'available apps.',
             ),
           ],
         )..failureReason = CallToolFailureReason.applicationNotFound;
@@ -945,8 +946,9 @@ base mixin DartToolingDaemonSupport
             TextContent(
               text:
                   'Multiple apps connected. You must provide an '
-                  '"${ParameterNames.appUri}". Use '
-                  '"${dtdTool.name}" with command "${DtdCommand.listConnectedApps}" to see available apps.',
+                  '"${ParameterNames.appUri}". Use "${dtdTool.name}" with '
+                  'command "${DtdCommand.listConnectedApps}" to see available '
+                  'apps.',
             ),
           ],
         )..failureReason = CallToolFailureReason.mustSpecifyDtdUri;
