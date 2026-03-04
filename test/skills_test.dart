@@ -1,8 +1,7 @@
-import 'package:skills/skills.dart';
-import 'package:test/test.dart';
+// Tests are organized in subdirectories. See:
+// - test/models/
+// - test/core/
+// - test/ide/
+// - test/commands/
 
-void main() {
-  test('calculate', () {
-    expect(calculate(), 42);
-  });
-}
+void main() {}

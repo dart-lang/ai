@@ -1,0 +1,187 @@
+import '../ide/ide.dart';
+import '../ide/ide_adapter_factory.dart';
+import '../models/skill_manifest.dart';
+import 'skill_scanner.dart';
+
+/// Result of installing skills for an IDE.
+class SkillInstallResult {
+  /// The updated manifest after installation.
+  final SkillManifest manifest;
+
+  /// Info for each installed skill (for logging).
+  final List<InstalledSkillInfo> installed;
+
+  const SkillInstallResult({required this.manifest, required this.installed});
+}
+
+/// Info about a single installed skill.
+class InstalledSkillInfo {
+  final String ideName;
+  final String skillName;
+  final String packageName;
+
+  const InstalledSkillInfo({
+    required this.ideName,
+    required this.skillName,
+    required this.packageName,
+  });
+}
+
+/// Result of removing skills for an IDE.
+class SkillRemoveResult {
+  /// The updated manifest after removal.
+  final SkillManifest manifest;
+
+  /// Number of skills removed.
+  final int removedCount;
+
+  /// Info for each removed skill (for logging).
+  final List<RemovedSkillInfo> removed;
+
+  const SkillRemoveResult({
+    required this.manifest,
+    required this.removedCount,
+    required this.removed,
+  });
+}
+
+/// Info about a single removed skill.
+class RemovedSkillInfo {
+  final String ideName;
+  final String skillName;
+
+  const RemovedSkillInfo({required this.ideName, required this.skillName});
+}
+
+/// Service for installing and removing skills across IDEs.
+class SkillInstaller {
+  const SkillInstaller();
+
+  /// Installs [skills] for the given [ide] at [rootPath], updating [manifest].
+  /// Removes existing skills for each package before reinstalling.
+  Future<SkillInstallResult> installSkillsForIde({
+    required Ide ide,
+    required String rootPath,
+    required List<ScannedSkill> skills,
+    required SkillManifest manifest,
+  }) async {
+    final adapter = createIdeAdapter(ide, rootPath);
+    await adapter.ensureSkillsDirectory();
+
+    final skillsByPackage = <String, List<ScannedSkill>>{};
+    for (final skill in skills) {
+      skillsByPackage.putIfAbsent(skill.packageName, () => []).add(skill);
+    }
+
+    var updated = manifest;
+    final installed = <InstalledSkillInfo>[];
+
+    for (final entry in skillsByPackage.entries) {
+      final pkgName = entry.key;
+      final pkgSkills = entry.value;
+
+      final existingPkgs = updated.packagesForIde(ide.cliName);
+      final existingEntry = existingPkgs[pkgName];
+      if (existingEntry != null) {
+        for (final existing in existingEntry.skills) {
+          await adapter.removeSkill(existing.name);
+        }
+      }
+
+      final installedSkills = <InstalledSkillEntry>[];
+      for (final skill in pkgSkills) {
+        final installedName = await adapter.installSkill(skill);
+        installedSkills.add(
+          InstalledSkillEntry(
+            name: installedName,
+            installedAt: DateTime.now().toUtc(),
+          ),
+        );
+        installed.add(
+          InstalledSkillInfo(
+            ideName: ide.cliName,
+            skillName: skill.skillName,
+            packageName: pkgName,
+          ),
+        );
+      }
+
+      updated = updated.withPackage(
+        ide.cliName,
+        pkgName,
+        PackageSkillsEntry(skills: installedSkills),
+      );
+    }
+
+    return SkillInstallResult(manifest: updated, installed: installed);
+  }
+
+  /// Removes skills for [ide] from [manifest].
+  /// If [packageName] is set, only that package is removed; otherwise all.
+  Future<SkillRemoveResult> removeSkillsForIde({
+    required Ide ide,
+    required String rootPath,
+    required SkillManifest manifest,
+    String? packageName,
+  }) async {
+    final adapter = createIdeAdapter(ide, rootPath);
+    final removed = <RemovedSkillInfo>[];
+
+    if (packageName != null) {
+      final pkgEntry = manifest.packagesForIde(ide.cliName)[packageName];
+      if (pkgEntry == null) {
+        return SkillRemoveResult(
+          manifest: manifest,
+          removedCount: 0,
+          removed: [],
+        );
+      }
+      for (final skill in pkgEntry.skills) {
+        await adapter.removeSkill(skill.name);
+        removed.add(
+          RemovedSkillInfo(ideName: ide.cliName, skillName: skill.name),
+        );
+      }
+      return SkillRemoveResult(
+        manifest: manifest.withoutPackage(ide.cliName, packageName),
+        removedCount: removed.length,
+        removed: removed,
+      );
+    }
+
+    final pkgs = manifest.packagesForIde(ide.cliName);
+    for (final entry in pkgs.entries) {
+      for (final skill in entry.value.skills) {
+        await adapter.removeSkill(skill.name);
+        removed.add(
+          RemovedSkillInfo(ideName: ide.cliName, skillName: skill.name),
+        );
+      }
+    }
+    return SkillRemoveResult(
+      manifest: manifest.withoutIde(ide.cliName),
+      removedCount: removed.length,
+      removed: removed,
+    );
+  }
+
+  /// Removes all skills for all IDEs in [manifest].
+  /// Returns the updated (empty) manifest.
+  Future<SkillManifest> removeAllSkills({
+    required String rootPath,
+    required SkillManifest manifest,
+  }) async {
+    var updated = manifest;
+    for (final ideName in manifest.allIdes.toList()) {
+      final ide = Ide.fromCliName(ideName);
+      if (ide == null) continue;
+      final result = await removeSkillsForIde(
+        ide: ide,
+        rootPath: rootPath,
+        manifest: updated,
+      );
+      updated = result.manifest;
+    }
+    return updated;
+  }
+}
