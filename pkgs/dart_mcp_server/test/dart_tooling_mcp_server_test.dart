@@ -54,7 +54,7 @@ void main() {
         '--$disabledFeaturesOption',
         DartAnalyzerSupport.analyzeFilesTool.name,
         '--$disabledFeaturesOption',
-        DartToolingDaemonSupport.connectTool.name,
+        DartToolingDaemonSupport.dtdTool.name,
       ],
     );
     final connection = testHarness.serverConnectionPair.serverConnection;
@@ -63,11 +63,8 @@ void main() {
       tools,
       isNot(contains(equals(DartAnalyzerSupport.analyzeFilesTool))),
     );
-    expect(
-      tools,
-      isNot(contains(equals(DartToolingDaemonSupport.connectTool))),
-    );
-    expect(tools, contains(equals(DartAnalyzerSupport.hoverTool)));
+    expect(tools, isNot(contains(equals(DartToolingDaemonSupport.dtdTool))));
+    expect(tools, contains(equals(DartAnalyzerSupport.lspTool)));
   });
 
   test('Version is printed to stdout', () async {

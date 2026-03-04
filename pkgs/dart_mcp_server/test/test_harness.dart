@@ -190,14 +190,17 @@ class TestHarness {
   }) async {
     final tools = (await mcpServerConnection.listTools()).tools;
 
-    final connectTool = tools.singleWhere(
-      (t) => t.name == DartToolingDaemonSupport.connectTool.name,
+    final dtdTool = tools.singleWhere(
+      (t) => t.name == DartToolingDaemonSupport.dtdTool.name,
     );
 
     final result = await callToolWithRetry(
       CallToolRequest(
-        name: connectTool.name,
-        arguments: {ParameterNames.uri: dtdUri ?? fakeEditorExtension?.dtdUri},
+        name: dtdTool.name,
+        arguments: {
+          ParameterNames.command: DtdCommand.connect,
+          ParameterNames.uri: dtdUri ?? fakeEditorExtension?.dtdUri,
+        },
       ),
       expectError: expectError,
     );
