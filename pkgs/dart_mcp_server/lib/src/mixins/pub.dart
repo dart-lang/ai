@@ -83,35 +83,38 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
     );
   }
 
-  static final pubTool = Tool(
-    name: ToolNames.pub.name,
-    description:
-        'Runs a pub command for the given project roots, like `dart pub '
-        'get` or `flutter pub add`.',
-    annotations: ToolAnnotations(title: 'pub', readOnlyHint: false),
-    inputSchema: Schema.object(
-      properties: {
-        ParameterNames.command: Schema.string(
-          title: 'The pub subcommand to run.',
-          // ignore: deprecated_member_use
-          enumValues: SupportedPubCommand.values
-              .map<String>((e) => e.name)
-              .toList(),
-          description: SupportedPubCommand.commandDescriptions,
-        ),
-        ParameterNames.packageNames: Schema.list(
-          title: 'The package names to run the command for.',
+  static final pubTool =
+      Tool(
+          name: ToolNames.pub.name,
           description:
-              'This is required for the '
-              '${SupportedPubCommand.listAllThatRequirePackageName} '
-              'commands.',
-          items: Schema.string(title: 'A package to run the command for.'),
-        ),
-        ParameterNames.roots: rootsSchema(),
-      },
-      required: [ParameterNames.command],
-      additionalProperties: false,
-    ),
+              'Runs a pub command for the given project roots, like `dart pub '
+              'get` or `flutter pub add`.',
+          annotations: ToolAnnotations(title: 'pub', readOnlyHint: false),
+          inputSchema: Schema.object(
+            properties: {
+              ParameterNames.command: Schema.string(
+                title: 'The pub subcommand to run.',
+                // ignore: deprecated_member_use
+                enumValues: SupportedPubCommand.values
+                    .map<String>((e) => e.name)
+                    .toList(),
+                description: SupportedPubCommand.commandDescriptions,
+              ),
+              ParameterNames.packageNames: Schema.list(
+                title: 'The package names to run the command for.',
+                description:
+                    'This is required for the '
+                    '${SupportedPubCommand.listAllThatRequirePackageName} '
+                    'commands.',
+                items: Schema.string(
+                  title: 'A package to run the command for.',
+                ),
+              ),
+              ParameterNames.roots: rootsSchema(),
+            },
+            required: [ParameterNames.command],
+            additionalProperties: false,
+          ),
         )
         ..categories = [FeatureCategory.cli, FeatureCategory.packageDeps]
         ..enabledByDefault = false;

@@ -108,7 +108,7 @@ final class DartMCPServer extends MCPServer
 
   /// Runs the MCP server given command line arguments and an optional
   /// [Analytics] instance.
-  /// 
+  ///
   /// If [channel] is provided, then it will be used for communication,
   /// otherwise a stdio channel will be used.
   ///

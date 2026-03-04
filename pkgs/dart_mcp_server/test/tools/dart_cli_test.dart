@@ -14,7 +14,6 @@ import 'package:test_descriptor/test_descriptor.dart' as d;
 import '../test_harness.dart';
 
 void main() {
-
   test('cli tools are disabled by default', () async {
     final featureConfig = const FeaturesConfiguration();
     for (var tool in DashCliSupport.allTools) {

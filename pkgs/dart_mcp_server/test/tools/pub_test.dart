@@ -42,7 +42,6 @@ void main() {
                   : '.bat'
             : ''}';
     group('$appKind app', () {
-
       late TestHarness testHarness;
       late TestProcessManager testProcessManager;
       late Root testRoot;

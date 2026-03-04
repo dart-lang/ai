@@ -82,7 +82,7 @@ base mixin FlutterLauncherSupport
           description:
               'The device ID to launch the application on. To get a list of '
               'available devices with IDs to present as choices, run '
-              '`flutter devices --machine`.'
+              '`flutter devices --machine`.',
         ),
         'args': Schema.list(
           items: Schema.string(),
@@ -372,27 +372,28 @@ base mixin FlutterLauncherSupport
   }
 
   /// A tool to list available Flutter devices.
-  static final listDevicesTool = Tool(
-    name: ToolNames.listDevices.name,
-    description: 'Lists available Flutter devices.',
-    inputSchema: Schema.object(),
-    outputSchema: Schema.object(
-      properties: {
-        'devices': Schema.list(
-          description: 'A list of available device IDs.',
-          items: ObjectSchema(
+  static final listDevicesTool =
+      Tool(
+          name: ToolNames.listDevices.name,
+          description: 'Lists available Flutter devices.',
+          inputSchema: Schema.object(),
+          outputSchema: Schema.object(
             properties: {
-              'id': Schema.string(),
-              'name': Schema.string(),
-              'targetPlatform': Schema.string(),
+              'devices': Schema.list(
+                description: 'A list of available device IDs.',
+                items: ObjectSchema(
+                  properties: {
+                    'id': Schema.string(),
+                    'name': Schema.string(),
+                    'targetPlatform': Schema.string(),
+                  },
+                  additionalProperties: true,
+                ),
+              ),
             },
-            additionalProperties: true,
+            required: ['devices'],
+            additionalProperties: false,
           ),
-        ),
-      },
-      required: ['devices'],
-      additionalProperties: false,
-    ),
         )
         ..categories = [FeatureCategory.flutter, FeatureCategory.cli]
         ..enabledByDefault = false;
