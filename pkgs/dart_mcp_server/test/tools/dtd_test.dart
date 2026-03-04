@@ -8,6 +8,7 @@ import 'dart:io';
 
 import 'package:async/async.dart';
 import 'package:dart_mcp/server.dart';
+import 'package:dart_mcp_server/src/features_configuration.dart';
 import 'package:dart_mcp_server/src/mixins/dtd.dart';
 import 'package:dart_mcp_server/src/server.dart';
 import 'package:dart_mcp_server/src/utils/analytics.dart';
@@ -30,7 +31,11 @@ void main() {
       // TODO: Use setUpAll, currently this fails due to an apparent TestProcess
       // issue.
       setUp(() async {
-        testHarness = await TestHarness.start();
+        testHarness = await TestHarness.start(
+          featuresConfig: FeaturesConfiguration(
+            enabledNames: {FeatureCategory.dartToolingDaemon.name},
+          ),
+        );
         await testHarness.connectToDtd();
       });
 
@@ -411,7 +416,12 @@ void main() {
           () => DartToolingDaemonSupport.debugAwaitVmServiceDisposal = false,
         );
 
-        testHarness = await TestHarness.start(inProcess: true);
+        testHarness = await TestHarness.start(
+          inProcess: true,
+          featuresConfig: FeaturesConfiguration(
+            enabledNames: {FeatureCategory.dartToolingDaemon.name},
+          ),
+        );
         server = testHarness.serverConnectionPair.server!;
         analytics = server.analytics! as ua.FakeAnalytics;
         await testHarness.connectToDtd();

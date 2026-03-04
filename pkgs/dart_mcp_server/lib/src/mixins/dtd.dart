@@ -1300,9 +1300,7 @@ base mixin DartToolingDaemonSupport
           inputSchema: Schema.object(additionalProperties: false),
         )
         ..categories = [
-          FeatureCategory.dart,
-          FeatureCategory.flutter,
-          FeatureCategory.analysis,
+          FeatureCategory.dartToolingDaemon,
         ]
         ..enabledByDefault = false;
 

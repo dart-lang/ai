@@ -534,16 +534,13 @@ Future<ServerConnectionPair> _initializeMCPServer(
       'forceRootsFallback is not supported when running in process, pass the '
       '--force-roots-fallback clie arg instead',
     );
-    assert(
-      featuresConfig.enabledNames.isEmpty &&
-          featuresConfig.disabledNames.isEmpty,
-      'featuresConfig is not supported when running in process',
-    );
     final process = await Process.start(sdk.dartExecutablePath, [
       'pub', // Using `pub` gives us incremental compilation
       'run',
       'bin/main.dart',
       ...cliArgs,
+      for (var enabled in featuresConfig.enabledNames) '--enable=$enabled',
+      for (var disabled in featuresConfig.disabledNames) '--disable=$disabled',
     ]);
     addTearDown(process.kill);
     connection = client.connectServer(
