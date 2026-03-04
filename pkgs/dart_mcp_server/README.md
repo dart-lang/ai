@@ -137,19 +137,17 @@ For more information, see the official VS Code documentation for
 | --- | --- | --- |
 | `add_roots` | Add roots | Adds one or more project roots. Tools are only allowed to run under these roots, so you must call this function before passing any roots to any other tools. |
 | `analyze_files` | Analyze projects | Analyzes specific paths, or the entire project, for errors. |
-| `connect_dart_tooling_daemon` | Connect to DTD | Connects to the Dart Tooling Daemon. You should get the uri either from available tools or the user, do not just make up a random URI to pass. When asking the user for the uri, you should suggest the "Copy DTD Uri to clipboard" action. When reconnecting after losing a connection, always request a new uri first. |
 | `create_project` | Create project | Creates a new Dart or Flutter project. |
 | `dart_fix` | Dart fix | Runs `dart fix --apply` for the given project roots. |
 | `dart_format` | Dart format | Runs `dart format .` for the given project roots. |
-| `disconnect_dart_tooling_daemon` | Disconnect from DTD | Disconnects from the Dart Tooling Daemon. If multiple connections exist, you must provide the uri to disconnect from. |
+| `dtd` | Dart Tooling Daemon | Connects to, disconnects from, or lists apps connected to the Dart Tooling Daemon. |
 | `flutter_driver_command` | Flutter Driver | Run a flutter driver command |
-| `get_active_location` | Get Active Editor Location | Retrieves the current active location (e.g., cursor position) in the connected editor. Requires "connect_dart_tooling_daemon" to be successfully called first. |
+| `get_active_location` | Get Active Editor Location | Retrieves the current active location (e.g., cursor position) in the connected editor. Requires an active DTD connection. |
 | `get_app_logs` |  | Returns the collected logs for a given flutter run process id. Can only retrieve logs started by the launch_app tool. |
-| `get_runtime_errors` | Get runtime errors | Retrieves the most recent runtime errors that have occurred in the active Dart or Flutter application. Requires "connect_dart_tooling_daemon" to be successfully called first. |
-| `hot_reload` | Hot reload | Performs a hot reload of the active Flutter application. This will apply the latest code changes to the running application, while maintaining application state.  Reload will not update const definitions of global values. Requires "connect_dart_tooling_daemon" to be successfully called first. |
-| `hot_restart` | Hot restart | Performs a hot restart of the active Flutter application. This applies the latest code changes to the running application, including changes to global const values, while resetting application state. Requires "connect_dart_tooling_daemon" to be successfully called first. Doesn't work for Non-Flutter Dart CLI programs. |
+| `get_runtime_errors` | Get runtime errors | Retrieves the most recent runtime errors that have occurred in the active Dart or Flutter application. Requires an active DTD connection. |
+| `hot_reload` | Hot reload | Performs a hot reload of the active Flutter application. This will apply the latest code changes to the running application, while maintaining application state.  Reload will not update const definitions of global values. Requires an active DTD connection. |
+| `hot_restart` | Hot restart | Performs a hot restart of the active Flutter application. This applies the latest code changes to the running application, including changes to global const values, while resetting application state. Requires an active DTD connection. Doesn't work for Non-Flutter Dart CLI programs. |
 | `launch_app` |  | Launches a Flutter application and returns its DTD URI. |
-| `list_connected_apps` |  | Lists all connected applications (VM Services) available via DTD. |
 | `list_devices` |  | Lists available Flutter devices. |
 | `list_running_apps` |  | Returns the list of running app process IDs and associated DTD URIs for apps started by the launch_app tool. |
 | `lsp` | Language Server Protocol | Interacts with the Dart Language Server Protocol (LSP) to provide code intelligence features like hover, signature help, and symbol resolution.
@@ -164,6 +162,6 @@ Commands:
 | `rip_grep_packages` |  | Uses ripgrep to find patterns in package dependencies. Note that ripgrep must be installed already, see https://github.com/BurntSushi/ripgrep for instructions. |
 | `run_tests` | Run tests | Run Dart or Flutter tests with an agent centric UX. ALWAYS use instead of `dart test` or `flutter test` shell commands. |
 | `stop_app` |  | Kills a running Flutter process started by the launch_app tool. |
-| `widget_inspector` | Widget Inspector | Interact with the Flutter widget inspector in the active Flutter application. Requires "connect_dart_tooling_daemon" to be successfully called first. |
+| `widget_inspector` | Widget Inspector | Interact with the Flutter widget inspector in the active Flutter application. Requires an active DTD connection. |
 
 <!-- generated -->

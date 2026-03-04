@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'package:dart_mcp/server.dart';
+import 'package:dart_mcp_server/src/mixins/dtd.dart';
 
 import 'package:dart_mcp_server/src/utils/names.dart';
 import 'package:test/test.dart';
@@ -47,8 +48,9 @@ void main() {
 
       final result = await testHarness.callTool(
         CallToolRequest(
-          name: ToolNames.disconnectDartToolingDaemon.name,
+          name: ToolNames.dtd.name,
           arguments: {
+            ParameterNames.command: DtdCommand.disconnect,
             ParameterNames.uri: testHarness.fakeEditorExtension!.dtdUri,
           },
         ),
@@ -101,7 +103,10 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 500));
 
       final listResult = await testHarness.callTool(
-        CallToolRequest(name: ToolNames.listConnectedApps.name, arguments: {}),
+        CallToolRequest(
+          name: ToolNames.dtd.name,
+          arguments: {ParameterNames.command: DtdCommand.listConnectedApps},
+        ),
       );
       expect(listResult.isError, isNot(true));
       final structured = listResult.structuredContent;

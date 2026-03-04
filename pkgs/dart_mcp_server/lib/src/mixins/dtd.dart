@@ -191,14 +191,12 @@ base mixin DartToolingDaemonSupport
 
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) async {
-    registerTool(connectTool, _connect);
-    registerTool(disconnectTool, _disconnect);
+    registerTool(dtdTool, _dtd);
     registerTool(getRuntimeErrorsTool, runtimeErrors);
     registerTool(getActiveLocationTool, _getActiveLocation);
     registerTool(hotRestartTool, hotRestart);
 
     registerTool(hotReloadTool, hotReload);
-    registerTool(listConnectedAppsTool, _listConnectedApps);
 
     if (enableScreenshots) registerTool(screenshotTool, takeScreenshot);
     registerTool(widgetInspectorTool, _widgetInspector);
@@ -209,13 +207,11 @@ base mixin DartToolingDaemonSupport
 
   @visibleForTesting
   static final List<Tool> allTools = [
-    connectTool,
-    disconnectTool,
+    dtdTool,
     getRuntimeErrorsTool,
     getActiveLocationTool,
     hotRestartTool,
     hotReloadTool,
-    listConnectedAppsTool,
     screenshotTool,
     widgetInspectorTool,
     flutterDriverTool,
@@ -348,23 +344,50 @@ base mixin DartToolingDaemonSupport
     }
   }
 
-  /// A tool to list all connected applications (VM Services).
-  static final listConnectedAppsTool = Tool(
-    name: ToolNames.listConnectedApps.name,
+  /// The [dtdTool] for managing DTD connections.
+  static final dtdTool = Tool(
+    name: ToolNames.dtd.name,
     description:
-        'Lists all connected applications (VM Services) available via DTD.',
-    inputSchema: Schema.object(),
-    outputSchema: Schema.object(
+        'Connects to, disconnects from, or lists apps connected to the '
+        'Dart Tooling Daemon.',
+    inputSchema: Schema.object(
       properties: {
-        ParameterNames.apps: Schema.list(
-          items: Schema.string(
-            description: 'The unique VmService URI of the app.',
-          ),
+        ParameterNames.command: EnumSchema.untitledSingleSelect(
+          description: 'The command to execute.',
+          values: [
+            DtdCommand.connect,
+            DtdCommand.disconnect,
+            DtdCommand.listConnectedApps,
+          ],
+        ),
+        ParameterNames.uri: Schema.string(
+          description:
+              'The DTD URI to connect to or disconnect from. '
+              'Required for "connect", optional for "disconnect".',
         ),
       },
-      required: [ParameterNames.apps],
+      required: [ParameterNames.command],
+      additionalProperties: false,
     ),
+    annotations: ToolAnnotations(title: 'Dart Tooling Daemon'),
   )..categories = [FeatureCategory.dartToolingDaemon];
+
+  Future<CallToolResult> _dtd(CallToolRequest request) async {
+    final command = request.arguments![ParameterNames.command] as String;
+    switch (command) {
+      case DtdCommand.connect:
+        return _connect(request);
+      case DtdCommand.disconnect:
+        return _disconnect(request);
+      case DtdCommand.listConnectedApps:
+        return _listConnectedApps(request);
+      default:
+        return CallToolResult(
+          isError: true,
+          content: [TextContent(text: 'Unknown command: $command')],
+        );
+    }
+  }
 
   Future<CallToolResult> _listConnectedApps(CallToolRequest request) async {
     if (_dtds.isEmpty) return _dtdNotConnected;
@@ -907,8 +930,9 @@ base mixin DartToolingDaemonSupport
           content: [
             TextContent(
               text:
-                  'App with URI "$appUri" not found. Use '
-                  '${ToolNames.listConnectedApps.name} to see available apps.',
+                  'App with URI "$appUri" not found. Use "${dtdTool.name}" '
+                  'with command "${DtdCommand.listConnectedApps}" to see '
+                  'available apps.',
             ),
           ],
         )..failureReason = CallToolFailureReason.applicationNotFound;
@@ -922,8 +946,9 @@ base mixin DartToolingDaemonSupport
             TextContent(
               text:
                   'Multiple apps connected. You must provide an '
-                  '"${ParameterNames.appUri}". Use '
-                  '${ToolNames.listConnectedApps.name} to see available apps.',
+                  '"${ParameterNames.appUri}". Use "${dtdTool.name}" with '
+                  'command "${DtdCommand.listConnectedApps}" to see available '
+                  'apps.',
             ),
           ],
         )..failureReason = CallToolFailureReason.mustSpecifyDtdUri;
@@ -1181,45 +1206,12 @@ base mixin DartToolingDaemonSupport
   )..categories = [FeatureCategory.flutterDriver];
 
   @visibleForTesting
-  static final connectTool = Tool(
-    name: ToolNames.connectDartToolingDaemon.name,
-    description:
-        'Connects to the Dart Tooling Daemon. You should get the uri either '
-        'from available tools or the user, do not just make up a random URI to '
-        'pass. When asking the user for the uri, you should suggest the "Copy '
-        'DTD Uri to clipboard" action. When reconnecting after losing a '
-        'connection, always request a new uri first.',
-    annotations: ToolAnnotations(title: 'Connect to DTD', readOnlyHint: true),
-    inputSchema: Schema.object(
-      properties: {ParameterNames.uri: Schema.string()},
-      required: const [ParameterNames.uri],
-      additionalProperties: false,
-    ),
-  )..categories = [FeatureCategory.all];
-
-  @visibleForTesting
-  static final disconnectTool = Tool(
-    name: ToolNames.disconnectDartToolingDaemon.name,
-    description:
-        'Disconnects from the Dart Tooling Daemon. If multiple '
-        'connections exist, you must provide the uri to disconnect from.',
-    annotations: ToolAnnotations(
-      title: 'Disconnect from DTD',
-      destructiveHint: true,
-    ),
-    inputSchema: Schema.object(
-      properties: {ParameterNames.uri: Schema.string()},
-      additionalProperties: false,
-    ),
-  )..categories = [FeatureCategory.dartToolingDaemon];
-
-  @visibleForTesting
   static final getRuntimeErrorsTool = Tool(
     name: ToolNames.getRuntimeErrors.name,
     description:
         'Retrieves the most recent runtime errors that have occurred in the '
-        'active Dart or Flutter application. Requires "${connectTool.name}" to '
-        'be successfully called first.',
+        'active Dart or Flutter application. '
+        'Requires an active DTD connection.',
     annotations: ToolAnnotations(
       title: 'Get runtime errors',
       readOnlyHint: true,
@@ -1247,8 +1239,7 @@ base mixin DartToolingDaemonSupport
     name: ToolNames.takeScreenshot.name,
     description:
         'Takes a screenshot of the active Flutter application in its '
-        'current state. Requires "${connectTool.name}" to be successfully '
-        'called first.',
+        'current state. Requires an active DTD connection.',
     annotations: ToolAnnotations(title: 'Take screenshot', readOnlyHint: true),
     inputSchema: Schema.object(
       properties: {
@@ -1269,8 +1260,7 @@ base mixin DartToolingDaemonSupport
         'Performs a hot reload of the active Flutter application. '
         'This will apply the latest code changes to the running application, '
         'while maintaining application state.  Reload will not update const '
-        'definitions of global values. Requires "${connectTool.name}" to be '
-        'successfully called first.',
+        'definitions of global values. Requires an active DTD connection.',
     annotations: ToolAnnotations(title: 'Hot reload', destructiveHint: true),
     inputSchema: Schema.object(
       properties: {
@@ -1297,9 +1287,8 @@ base mixin DartToolingDaemonSupport
         'Performs a hot restart of the active Flutter application. '
         'This applies the latest code changes to the running application, '
         'including changes to global const values, while resetting '
-        'application state. Requires "${connectTool.name}" to be '
-        "successfully called first. Doesn't work for Non-Flutter Dart CLI "
-        'programs.',
+        'application state. Requires an active DTD connection. Doesn\'t work '
+        'for Non-Flutter Dart CLI programs.',
     annotations: ToolAnnotations(title: 'Hot restart', destructiveHint: true),
     inputSchema: Schema.object(
       properties: {
@@ -1318,8 +1307,7 @@ base mixin DartToolingDaemonSupport
     name: ToolNames.widgetInspector.name,
     description:
         'Interact with the Flutter widget inspector in the active Flutter '
-        'application. Requires "${connectTool.name}" to be successfully called '
-        'first.',
+        'application. Requires an active DTD connection.',
     annotations: ToolAnnotations(title: 'Widget Inspector', readOnlyHint: true),
     inputSchema: Schema.object(
       properties: {
@@ -1359,8 +1347,7 @@ base mixin DartToolingDaemonSupport
           name: ToolNames.getActiveLocation.name,
           description:
               'Retrieves the current active location (e.g., cursor position) '
-              'in the connected editor. Requires "${connectTool.name}" to be '
-              'successfully called first.',
+              'in the connected editor. Requires an active DTD connection.',
           annotations: ToolAnnotations(
             title: 'Get Active Editor Location',
             readOnlyHint: true,
@@ -1390,7 +1377,7 @@ base mixin DartToolingDaemonSupport
       TextContent(
         text:
             'The dart tooling daemon is not connected, you need to call '
-            '"${connectTool.name}" first.',
+            '"${dtdTool.name}" with command "${DtdCommand.connect}" first.',
       ),
     ],
   )..failureReason = CallToolFailureReason.dtdNotConnected;
@@ -1400,8 +1387,8 @@ base mixin DartToolingDaemonSupport
     content: [
       TextContent(
         text:
-            'The dart tooling daemon is already connected, you cannot call '
-            '"${connectTool.name}" again.',
+            'The dart tooling daemon is already connected to this URI, you '
+            'cannot connect again.',
       ),
     ],
   )..failureReason = CallToolFailureReason.dtdAlreadyConnected;
@@ -1705,4 +1692,10 @@ extension WidgetInspectorCommand on Never {
   static const getWidgetTree = 'get_widget_tree';
   static const getSelectedWidget = 'get_selected_widget';
   static const setWidgetSelectionMode = 'set_widget_selection_mode';
+}
+
+extension DtdCommand on Never {
+  static const connect = 'connect';
+  static const disconnect = 'disconnect';
+  static const listConnectedApps = 'listConnectedApps';
 }
