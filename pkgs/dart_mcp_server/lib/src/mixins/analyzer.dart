@@ -72,9 +72,7 @@ base mixin DartAnalyzerSupport
 
     if (unsupportedReasons.isEmpty) {
       registerTool(analyzeFilesTool, _analyzeFiles);
-      registerTool(resolveWorkspaceSymbolTool, _resolveWorkspaceSymbol);
-      registerTool(signatureHelpTool, _signatureHelp);
-      registerTool(hoverTool, _hover);
+      registerTool(lspTool, _lsp);
     }
 
     // Don't call any methods on the client until we are fully initialized
@@ -91,12 +89,7 @@ base mixin DartAnalyzerSupport
   }
 
   @visibleForTesting
-  static final List<Tool> allTools = [
-    analyzeFilesTool,
-    resolveWorkspaceSymbolTool,
-    signatureHelpTool,
-    hoverTool,
-  ];
+  static final List<Tool> allTools = [analyzeFilesTool, lspTool];
 
   /// Initializes the analyzer lsp server.
   ///
@@ -322,14 +315,35 @@ base mixin DartAnalyzerSupport
     return CallToolResult(content: messages);
   }
 
-  /// Implementation of the [resolveWorkspaceSymbolTool], resolves a given
-  /// symbol or symbols in a workspace.
-  Future<CallToolResult> _resolveWorkspaceSymbol(
-    CallToolRequest request,
-  ) async {
+  /// Implementation of the [lspTool].
+  ///
+  /// Dispatches the request to the appropriate handler based on the `command`
+  /// argument.
+  Future<CallToolResult> _lsp(CallToolRequest request) async {
     final errorResult = await _ensurePrerequisites(request);
     if (errorResult != null) return errorResult;
 
+    final command = request.arguments![ParameterNames.command] as String;
+    switch (command) {
+      case LspCommands.hover:
+        return _hover(request);
+      case LspCommands.signatureHelp:
+        return _signatureHelp(request);
+      case LspCommands.resolveWorkspaceSymbol:
+        return _resolveWorkspaceSymbol(request);
+      default:
+        return CallToolResult(
+          isError: true,
+          content: [TextContent(text: 'Unknown LSP command: $command')],
+        );
+    }
+  }
+
+  /// Implementation of the [LspCommands.resolveWorkspaceSymbol] command,
+  /// resolves a given symbol or symbols in a workspace.
+  Future<CallToolResult> _resolveWorkspaceSymbol(
+    CallToolRequest request,
+  ) async {
     final query = request.arguments![ParameterNames.query] as String;
     final result = await _lspConnection!.sendRequest(
       lsp.Method.workspace_symbol.toString(),
@@ -338,12 +352,9 @@ base mixin DartAnalyzerSupport
     return CallToolResult(content: [TextContent(text: jsonEncode(result))]);
   }
 
-  /// Implementation of the [signatureHelpTool], get signature help for a given
-  /// position in a file.
+  /// Implementation of the [LspCommands.signatureHelp] command, get signature
+  /// help for a given position in a file.
   Future<CallToolResult> _signatureHelp(CallToolRequest request) async {
-    final errorResult = await _ensurePrerequisites(request);
-    if (errorResult != null) return errorResult;
-
     final uri = Uri.parse(request.arguments![ParameterNames.uri] as String);
     final position = lsp.Position(
       line: request.arguments![ParameterNames.line] as int,
@@ -359,12 +370,9 @@ base mixin DartAnalyzerSupport
     return CallToolResult(content: [TextContent(text: jsonEncode(result))]);
   }
 
-  /// Implementation of the [hoverTool], get hover information for a given
-  /// position in a file.
+  /// Implementation of the [LspCommands.hover] command, get hover information
+  /// for a given position in a file.
   Future<CallToolResult> _hover(CallToolRequest request) async {
-    final errorResult = await _ensurePrerequisites(request);
-    if (errorResult != null) return errorResult;
-
     final uri = Uri.parse(request.arguments![ParameterNames.uri] as String);
     final position = lsp.Position(
       line: request.arguments![ParameterNames.line] as int,
@@ -479,51 +487,50 @@ base mixin DartAnalyzerSupport
   )..categories = [FeatureCategory.analysis];
 
   @visibleForTesting
-  static final resolveWorkspaceSymbolTool = Tool(
-    name: ToolNames.resolveWorkspaceSymbol.name,
+  static final lspTool = Tool(
+    name: ToolNames.lsp.name,
     description:
-        'Look up a symbol or symbols in all workspaces by name. Can be '
-        'used to validate that a symbol exists or discover small '
-        'spelling mistakes, since the search is fuzzy.',
+        'Interacts with the Dart Language Server Protocol (LSP) to '
+        'provide code intelligence features like hover, signature help, '
+        'and symbol resolution.\n'
+        'Commands:\n'
+        '- hover: Get hover information (docs, types) at a position. '
+        'Requires: uri, line, column.\n'
+        '- signatureHelp: Get signature help at a position. '
+        'Requires: uri, line, column.\n'
+        '- resolveWorkspaceSymbol: Fuzzy search for symbols by name. '
+        'Requires: query.',
     inputSchema: Schema.object(
       properties: {
+        ParameterNames.command: EnumSchema.untitledSingleSelect(
+          description: 'The LSP command to execute.',
+          values: ['hover', 'signatureHelp', 'resolveWorkspaceSymbol'],
+        ),
+        ParameterNames.uri: Schema.string(
+          description:
+              'The URI of the file. Required for "hover" and '
+              '"signatureHelp".',
+        ),
+        ParameterNames.line: Schema.int(
+          description:
+              'The zero-based line number. Required for "hover" '
+              'and "signatureHelp".',
+        ),
+        ParameterNames.column: Schema.int(
+          description:
+              'The zero-based column number. Required for "hover" '
+              'and "signatureHelp".',
+        ),
         ParameterNames.query: Schema.string(
           description:
-              'Queries are matched based on a case-insensitive '
-              'partial name match, and do not support complex '
-              'pattern matching, regexes, or scoped lookups.',
+              'The search query. Required for "resolveWorkspaceSymbol".',
         ),
       },
-      description:
-          'Returns all close matches to the query, with their names '
-          'and locations. Be sure to check the name of the responses '
-          'to ensure it looks like the thing you were searching for.',
-      required: [ParameterNames.query],
+      required: [ParameterNames.command],
       additionalProperties: false,
     ),
-    annotations: ToolAnnotations(title: 'Project search', readOnlyHint: true),
-  )..categories = [FeatureCategory.analysis];
-
-  @visibleForTesting
-  static final signatureHelpTool = Tool(
-    name: ToolNames.signatureHelp.name,
-    description:
-        'Get signature help for an API being used at a given cursor '
-        'position in a file.',
-    inputSchema: _locationSchema,
-    annotations: ToolAnnotations(title: 'Signature help', readOnlyHint: true),
-  )..categories = [FeatureCategory.analysis];
-
-  @visibleForTesting
-  static final hoverTool = Tool(
-    name: ToolNames.hover.name,
-    description:
-        'Get hover information at a given cursor position in a file. '
-        'This can include documentation, type information, etc for the '
-        'text at that position.',
-    inputSchema: _locationSchema,
     annotations: ToolAnnotations(
-      title: 'Hover information',
+      title: 'Language Server Protocol',
       readOnlyHint: true,
     ),
   )..categories = [FeatureCategory.analysis];
@@ -541,23 +548,14 @@ base mixin DartAnalyzerSupport
   )..failureReason = CallToolFailureReason.noRootsSet;
 }
 
-/// Common schema for tools that require a file URI, line, and column.
-final _locationSchema = Schema.object(
-  properties: {
-    ParameterNames.uri: Schema.string(description: 'The URI of the file.'),
-    ParameterNames.line: Schema.int(
-      description: 'The zero-based line number of the cursor position.',
-    ),
-    ParameterNames.column: Schema.int(
-      description: 'The zero-based column number of the cursor position.',
-    ),
-  },
-  required: [ParameterNames.uri, ParameterNames.line, ParameterNames.column],
-  additionalProperties: false,
-);
-
 extension on Root {
   /// Converts a [Root] to an [lsp.WorkspaceFolder].
   lsp.WorkspaceFolder get asWorkspaceFolder =>
       lsp.WorkspaceFolder(name: name ?? '', uri: Uri.parse(uri));
+}
+
+extension LspCommands on Never {
+  static const hover = 'hover';
+  static const signatureHelp = 'signatureHelp';
+  static const resolveWorkspaceSymbol = 'resolveWorkspaceSymbol';
 }

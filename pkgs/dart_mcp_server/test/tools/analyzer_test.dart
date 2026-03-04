@@ -387,8 +387,11 @@ void main() {
 
       final result = await testHarness.callToolWithRetry(
         CallToolRequest(
-          name: DartAnalyzerSupport.resolveWorkspaceSymbolTool.name,
-          arguments: {ParameterNames.query: 'MyAwesomeClass'},
+          name: DartAnalyzerSupport.lspTool.name,
+          arguments: {
+            ParameterNames.command: LspCommands.resolveWorkspaceSymbol,
+            ParameterNames.query: 'MyAwesomeClass',
+          },
         ),
       );
       expect(result.isError, isNot(true));
@@ -424,8 +427,9 @@ void printIt({required int x}) {
 
       final result = await testHarness.callToolWithRetry(
         CallToolRequest(
-          name: DartAnalyzerSupport.signatureHelpTool.name,
+          name: DartAnalyzerSupport.lspTool.name,
           arguments: {
+            ParameterNames.command: LspCommands.signatureHelp,
             ParameterNames.uri: p.join(exampleRoot.uri, 'main.dart'),
             ParameterNames.line: 1,
             ParameterNames.column: 12,
@@ -467,8 +471,9 @@ void printIt({required int x}) {
 
       final result = await testHarness.callToolWithRetry(
         CallToolRequest(
-          name: DartAnalyzerSupport.hoverTool.name,
+          name: DartAnalyzerSupport.lspTool.name,
           arguments: {
+            ParameterNames.command: LspCommands.hover,
             ParameterNames.uri: p.join(exampleRoot.uri, 'main.dart'),
             ParameterNames.line: 1,
             ParameterNames.column: 4,
@@ -509,8 +514,11 @@ void printIt({required int x}) {
     test('cannot look up symbols without roots set', () async {
       final result = await testHarness.callTool(
         CallToolRequest(
-          name: DartAnalyzerSupport.resolveWorkspaceSymbolTool.name,
-          arguments: {ParameterNames.query: 'DartAnalyzerSupport'},
+          name: DartAnalyzerSupport.lspTool.name,
+          arguments: {
+            ParameterNames.command: LspCommands.resolveWorkspaceSymbol,
+            ParameterNames.query: 'DartAnalyzerSupport',
+          },
         ),
         expectError: true,
       );
@@ -527,8 +535,9 @@ void printIt({required int x}) {
     test('cannot get hover information without roots set', () async {
       final result = await testHarness.callTool(
         CallToolRequest(
-          name: DartAnalyzerSupport.hoverTool.name,
+          name: DartAnalyzerSupport.lspTool.name,
           arguments: {
+            ParameterNames.command: LspCommands.hover,
             ParameterNames.uri: 'file:///any/file.dart',
             ParameterNames.line: 0,
             ParameterNames.column: 0,
