@@ -9,7 +9,6 @@ import 'dart:io';
 import 'package:collection/collection.dart';
 import 'package:dart_mcp/client.dart';
 import 'package:dart_mcp_server/src/features_configuration.dart';
-import 'package:dart_mcp_server/src/mixins/flutter_launcher.dart';
 import 'package:dart_mcp_server/src/server.dart';
 import 'package:dart_mcp_server/src/utils/analytics.dart';
 import 'package:dart_mcp_server/src/utils/names.dart';
