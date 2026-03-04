@@ -12,7 +12,7 @@ When you add a Dart package to your project, your AI coding assistant has no ide
 
 Package authors ship skills alongside their code. You run one command, and your AI assistant knows how to work with every package in your project.
 
-```
+```bash
 skills get
 ```
 
@@ -56,7 +56,7 @@ The CLI will automatically run `pub get` if needed, scan your dependency package
 The CLI auto-detects your IDE from project directory markers. If multiple IDEs are detected, it installs to all of them. You can also pass `--ide` explicitly or set the `SKILLS_IDE` environment variable to target a single IDE.
 
 | IDE | Flag | Install location | Format |
-|-----|------|------------------|--------|
+| --- | ---- | ---------------- | ------ |
 | Cursor | `--ide cursor` | `.cursor/skills/` | Agent Skills (full directory) |
 | Antigravity | `--ide antigravity` | `.agent/skills/` | Agent Skills (full directory) |
 | Claude Code | `--ide claude` | `.claude/rules/` | Markdown rule file |
@@ -99,7 +99,7 @@ Every skill directory name **must** start with your package name followed by a h
 For a package named `serverpod`:
 
 | Directory name | Valid? |
-|---|---|
+| -------------- | ------ |
 | `serverpod-code-generation` | Yes |
 | `serverpod-api-design` | Yes |
 | `code-generation` | No -- missing package prefix |
@@ -165,19 +165,6 @@ To maximize compatibility:
 5. A `.skills.json` tracking file records which skills were installed from which package and IDE.
 
 Users can update skills by running `skills get` again -- existing skills from your package are replaced with the latest versions.
-
-## How it works
-
-```
-skills get [--ide cursor] [package_name]
-     │
-     ├── 1. Run pub get (if needed)
-     ├── 2. Parse .dart_tool/package_config.json
-     ├── 3. For each package, check for skills/ directory
-     ├── 4. Validate skill names match package prefix
-     ├── 5. Copy/transform skills into IDE location(s)
-     └── 6. Update .skills.json manifest
-```
 
 The `.skills.json` file tracks managed skills so `skills remove` knows what to clean up without touching skills you created manually.
 
