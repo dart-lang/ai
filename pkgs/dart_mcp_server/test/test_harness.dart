@@ -98,6 +98,7 @@ class TestHarness {
     bool forceRootsFallback = false,
     Sdk? sdk,
     bool startFakeEditorExtension = true,
+    FeaturesConfiguration featuresConfig = const FeaturesConfiguration(),
   }) async {
     sdk ??= Sdk.find(
       dartSdkPath: Platform.environment['DART_SDK'],
@@ -117,6 +118,7 @@ class TestHarness {
       sdk,
       cliArgs,
       forceRootsFallback,
+      featuresConfig,
     );
     final connection = serverConnectionPair.serverConnection;
     connection.onLog.listen((log) {
@@ -472,6 +474,7 @@ Future<ServerConnectionPair> _initializeMCPServer(
   Sdk sdk,
   List<String> cliArgs,
   bool forceRootsFallback,
+  FeaturesConfiguration featuresConfig,
 ) async {
   ServerConnection connection;
   DartMCPServer? server;
@@ -516,13 +519,11 @@ Future<ServerConnectionPair> _initializeMCPServer(
 
     server = DartMCPServer(
       serverChannel,
-      featuresConfig: FeaturesConfiguration(),
+      featuresConfig: featuresConfig,
       processManager: processManager,
       fileSystem: fileSystem,
       sdk: sdk,
       analytics: analytics,
-      // So we can test them.
-      enableScreenshots: true,
       forceRootsFallback: forceRootsFallback,
     );
     addTearDown(server.shutdown);
@@ -532,6 +533,11 @@ Future<ServerConnectionPair> _initializeMCPServer(
       !forceRootsFallback,
       'forceRootsFallback is not supported when running in process, pass the '
       '--force-roots-fallback clie arg instead',
+    );
+    assert(
+      featuresConfig.enabledNames.isEmpty &&
+          featuresConfig.disabledNames.isEmpty,
+      'featuresConfig is not supported when running in process',
     );
     final process = await Process.start(sdk.dartExecutablePath, [
       'pub', // Using `pub` gives us incremental compilation

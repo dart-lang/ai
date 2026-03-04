@@ -49,12 +49,10 @@ class FeaturesConfiguration {
   final Set<String> enabledNames;
   final Set<String> disabledNames;
 
-  FeaturesConfiguration({
-    this.enabledNames = const {'all'},
+  const FeaturesConfiguration({
+    this.enabledNames = const {},
     this.disabledNames = const {},
-  }) : // Enum names are not constant, we have to hard code it and then assert
-       // the name is correct instead as a workaround.
-       assert(FeatureCategory.all.name == 'all');
+  });
 
   static FeaturesConfiguration fromArgs(ArgResults args) {
     final disabled = args.multiOption(disabledFeaturesOption).toSet();
@@ -64,9 +62,7 @@ class FeaturesConfiguration {
       disabled.add(FeatureCategory.flutter.name);
     }
     return FeaturesConfiguration(
-      enabledNames: args.multiOption(enabledFeaturesOption).toSet()
-        // We always enable `all`, this is the lowest precedence category.
-        ..add(FeatureCategory.all.name),
+      enabledNames: args.multiOption(enabledFeaturesOption).toSet(),
       disabledNames: disabled,
     );
   }
@@ -82,17 +78,20 @@ class FeaturesConfiguration {
   ///     then their given order:
   ///     - Disabled by category
   ///     - Enabled by category
-  bool isEnabled(String name, List<FeatureCategory> categories) {
+  bool isEnabled(
+    String name,
+    bool enabledByDefault,
+    List<FeatureCategory> categories,
+  ) {
     if (disabledNames.contains(name)) return false;
     if (enabledNames.contains(name)) return true;
     for (var category in _categoriesInPrecedenceOrder(categories)) {
       if (disabledNames.contains(category.name)) return false;
       if (enabledNames.contains(category.name)) return true;
     }
-    // Should never reach here, this assert will get tripped up by tests.
-    assert(false, 'Unreachable, should reach the `all` category');
-    // If we do reach here in production, just return true (default is enabled).
-    return true;
+
+    // No configuration, return the default.
+    return enabledByDefault;
   }
 
   /// Returns all the transitive categories from a list of categories in
@@ -173,5 +172,23 @@ extension Categorized on Object? {
     // Every tool should have at least one category (can be `all`).
     assert(value.isNotEmpty);
     _categories[this as Object] = value;
+  }
+}
+
+/// Extension that allows for setting/getting enabled by default configuration
+/// for MCP tools via an expando.
+///
+/// The default is true.
+extension EnabledByDefault on Object? {
+  static final Expando<bool> _enabledByDefault = Expando();
+
+  bool get enabledByDefault {
+    assert(this is Map<String, Object?>);
+    return _enabledByDefault[this as Object] ?? true;
+  }
+
+  set enabledByDefault(bool value) {
+    assert(this is Map<String, Object?>);
+    _enabledByDefault[this as Object] = value;
   }
 }

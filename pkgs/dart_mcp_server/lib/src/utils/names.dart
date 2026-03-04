@@ -61,7 +61,6 @@ enum ToolNames {
   runTests('run_tests'),
   signatureHelp('signature_help'),
   stopApp('stop_app'),
-  takeScreenshot('take_screenshot'),
   widgetInspector('widget_inspector');
 
   final String name;

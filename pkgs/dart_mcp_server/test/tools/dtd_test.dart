@@ -542,26 +542,6 @@ void main() {
         });
       });
 
-      test('can take a screenshot', () async {
-        await testHarness.startDebugSession(
-          counterAppPath,
-          'lib/main.dart',
-          isFlutter: true,
-        );
-        final tools = (await testHarness.mcpServerConnection.listTools()).tools;
-        final screenshotTool = tools.singleWhere(
-          (t) => t.name == DartToolingDaemonSupport.screenshotTool.name,
-        );
-        final screenshotResult = await testHarness.callToolWithRetry(
-          CallToolRequest(name: screenshotTool.name),
-        );
-        expect(screenshotResult.content.single, {
-          'data': anything,
-          'mimeType': 'image/png',
-          'type': ImageContent.expectedType,
-        });
-      });
-
       test('can take a screenshot using flutter_driver', () async {
         await testHarness.startDebugSession(
           counterAppPath,

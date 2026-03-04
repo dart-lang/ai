@@ -6,6 +6,7 @@ import 'dart:io' hide File;
 import 'dart:io' as io show File;
 
 import 'package:dart_mcp/server.dart';
+import 'package:dart_mcp_server/src/features_configuration.dart';
 import 'package:dart_mcp_server/src/mixins/pub.dart';
 import 'package:dart_mcp_server/src/utils/names.dart';
 import 'package:file/file.dart';
@@ -16,11 +17,20 @@ import 'package:test/test.dart';
 import '../test_harness.dart';
 
 void main() {
-  late TestHarness testHarness;
-  late TestProcessManager testProcessManager;
-  late Root testRoot;
-  late Tool dartPubTool;
-  late FileSystem fileSystem;
+  test('pub tools are disabled by default', () async {
+    final featureConfig = const FeaturesConfiguration();
+    for (var tool in PubSupport.allTools) {
+      expect(
+        featureConfig.isEnabled(
+          tool.name,
+          tool.enabledByDefault,
+          tool.categories,
+        ),
+        isFalse,
+        reason: 'Tool ${tool.name} should be disabled by default',
+      );
+    }
+  });
 
   final fakeAppPath = io.File.fromUri(Uri.parse('/fake_app/')).path;
 
@@ -32,6 +42,13 @@ void main() {
                   : '.bat'
             : ''}';
     group('$appKind app', () {
+
+      late TestHarness testHarness;
+      late TestProcessManager testProcessManager;
+      late Root testRoot;
+      late Tool dartPubTool;
+      late FileSystem fileSystem;
+
       // TODO: Use setUpAll, currently this fails due to an apparent TestProcess
       // issue.
       setUp(() async {
@@ -48,6 +65,9 @@ void main() {
         testHarness = await TestHarness.start(
           inProcess: true,
           fileSystem: fileSystem,
+          featuresConfig: FeaturesConfiguration(
+            enabledNames: {PubSupport.pubTool.name},
+          ),
         );
         testProcessManager =
             testHarness.serverConnectionPair.server!.processManager

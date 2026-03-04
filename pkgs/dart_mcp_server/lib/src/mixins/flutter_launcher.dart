@@ -81,8 +81,8 @@ base mixin FlutterLauncherSupport
         'device': Schema.string(
           description:
               'The device ID to launch the application on. To get a list of '
-              'available devices to present as choices, use the '
-              'list_devices tool.',
+              'available devices with IDs to present as choices, run '
+              '`flutter devices --machine`.'
         ),
         'args': Schema.list(
           items: Schema.string(),
@@ -393,7 +393,9 @@ base mixin FlutterLauncherSupport
       required: ['devices'],
       additionalProperties: false,
     ),
-  )..categories = [FeatureCategory.flutter, FeatureCategory.cli];
+        )
+        ..categories = [FeatureCategory.flutter, FeatureCategory.cli]
+        ..enabledByDefault = false;
 
   Future<CallToolResult> _listDevices(CallToolRequest request) async {
     try {

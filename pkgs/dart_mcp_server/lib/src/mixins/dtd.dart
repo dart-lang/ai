@@ -72,9 +72,6 @@ base mixin DartToolingDaemonSupport
   /// for full list of available Flutter Widget Inspector service extensions.
   static const _inspectorServiceExtensionPrefix = 'ext.flutter.inspector';
 
-  /// Whether or not to enable the screenshot tool.
-  bool get enableScreenshots;
-
   /// A unique identifier for this server instance.
   ///
   /// This is generated on first access and then cached. It is used to create
@@ -199,8 +196,6 @@ base mixin DartToolingDaemonSupport
 
     registerTool(hotReloadTool, hotReload);
     registerTool(listConnectedAppsTool, _listConnectedApps);
-
-    if (enableScreenshots) registerTool(screenshotTool, takeScreenshot);
     registerTool(widgetInspectorTool, _widgetInspector);
     registerTool(flutterDriverTool, _callFlutterDriver);
 
@@ -216,7 +211,6 @@ base mixin DartToolingDaemonSupport
     hotRestartTool,
     hotReloadTool,
     listConnectedAppsTool,
-    screenshotTool,
     widgetInspectorTool,
     flutterDriverTool,
   ];
@@ -498,48 +492,6 @@ base mixin DartToolingDaemonSupport
       }
     });
     await dtd.streamListen('Editor');
-  }
-
-  /// Takes a screenshot of the currently running app.
-  ///
-  /// If more than one debug session is active, then it just uses the first one.
-  //
-  // TODO: support passing a debug session id when there is more than one debug
-  // session.
-  Future<CallToolResult> takeScreenshot(CallToolRequest request) async {
-    final appUri = request.arguments?[ParameterNames.appUri] as String?;
-    return _callOnVmService(
-      appUri: appUri,
-      callback: (vmService) async {
-        final vm = await vmService.getVM();
-        final result = await vmService.callServiceExtension(
-          '_flutter.screenshot',
-          isolateId: vm.isolates!.first.id,
-        );
-        if (result.json?['type'] == 'Screenshot' &&
-            result.json?['screenshot'] is String) {
-          return CallToolResult(
-            content: [
-              ImageContent(
-                data: result.json!['screenshot'] as String,
-                mimeType: 'image/png',
-              ),
-            ],
-          );
-        } else {
-          return CallToolResult(
-            isError: true,
-            content: [
-              TextContent(
-                text:
-                    'Unknown error or bad response taking screenshot:\n'
-                    '${result.json}',
-              ),
-            ],
-          )..failureReason = CallToolFailureReason.wrappedServiceIssue;
-        }
-      },
-    );
   }
 
   /// Performs a hot restart on the currently running app.
@@ -1243,26 +1195,6 @@ base mixin DartToolingDaemonSupport
   )..categories = [FeatureCategory.dartToolingDaemon];
 
   @visibleForTesting
-  static final screenshotTool = Tool(
-    name: ToolNames.takeScreenshot.name,
-    description:
-        'Takes a screenshot of the active Flutter application in its '
-        'current state. Requires "${connectTool.name}" to be successfully '
-        'called first.',
-    annotations: ToolAnnotations(title: 'Take screenshot', readOnlyHint: true),
-    inputSchema: Schema.object(
-      properties: {
-        ParameterNames.appUri: Schema.string(
-          description:
-              'The app URI to take the screenshot from. Required if multiple '
-              'apps are connected.',
-        ),
-      },
-      additionalProperties: false,
-    ),
-  )..categories = [FeatureCategory.flutter];
-
-  @visibleForTesting
   static final hotReloadTool = Tool(
     name: ToolNames.hotReload.name,
     description:
@@ -1371,7 +1303,8 @@ base mixin DartToolingDaemonSupport
           FeatureCategory.dart,
           FeatureCategory.flutter,
           FeatureCategory.analysis,
-        ];
+        ]
+        ..enabledByDefault = false;
 
   static final _connectedAppsNotSupported = CallToolResult(
     isError: true,

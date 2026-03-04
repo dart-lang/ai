@@ -201,7 +201,9 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
       properties: {ParameterNames.roots: rootsSchema()},
       additionalProperties: false,
     ),
-  )..categories = [FeatureCategory.cli];
+        )
+        ..categories = [FeatureCategory.cli]
+        ..enabledByDefault = false;
 
   static final dartFormatTool = Tool(
     name: ToolNames.dartFormat.name,
@@ -211,7 +213,9 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
       properties: {ParameterNames.roots: rootsSchema(supportsPaths: true)},
       additionalProperties: false,
     ),
-  )..categories = [FeatureCategory.cli];
+        )
+        ..categories = [FeatureCategory.cli]
+        ..enabledByDefault = false;
 
   static final Tool runTestsTool = () {
     final cliSchemaJson =
@@ -233,7 +237,9 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
         },
         additionalProperties: false,
       ),
-    )..categories = [FeatureCategory.cli];
+      )
+      ..categories = [FeatureCategory.cli]
+      ..enabledByDefault = false;
   }();
 
   static final createProjectTool = Tool(
@@ -280,7 +286,9 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
       ],
       additionalProperties: false,
     ),
-  )..categories = [FeatureCategory.cli];
+        )
+        ..categories = [FeatureCategory.cli]
+        ..enabledByDefault = false;
 
   static const _allowedFlutterPlatforms = {
     'web',
