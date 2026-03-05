@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2
+
+- fix: Fixes issue with monorepos.
+
 ## 0.1.1
 
 - fix: Cleans up output from `skills get`.
