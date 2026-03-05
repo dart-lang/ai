@@ -36,7 +36,8 @@ void main(List<String> args) async {
         .map((c) => c.name)
         .join(', ');
     buf.writeln(
-      '| `${tool.name}` | ${tool.displayName} | ${tool.description} | '
+      '| `${tool.name}` | ${tool.displayName} | '
+      '${tool.description?.replaceAll('\n', '<br>') ?? ''} | '
       '${categories.isEmpty ? 'None' : categories} | '
       '${tool.enabledByDefault ? 'Yes' : 'No'} |',
     );
