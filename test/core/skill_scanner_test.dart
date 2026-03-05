@@ -1,3 +1,4 @@
+import 'package:path/path.dart' as p;
 import 'package:skills/src/core/package_resolver.dart';
 import 'package:skills/src/core/skill_scanner.dart';
 import 'package:test/test.dart';
@@ -59,7 +60,7 @@ Instructions.
       final skills = await scanner.scanPackage(package);
 
       for (final skill in skills) {
-        expect(skill.skillPath, contains('my_package/skills/'));
+        expect(skill.skillPath, contains(p.join('my_package', 'skills')));
         expect(skill.packageName, equals('my_package'));
       }
     });

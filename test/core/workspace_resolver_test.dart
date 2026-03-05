@@ -1,3 +1,4 @@
+import 'package:path/path.dart' as p;
 import 'package:skills/src/core/workspace_resolver.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
@@ -81,8 +82,11 @@ resolution: workspace
         const resolver = WorkspaceResolver();
         final layout = await resolver.resolve(d.path('workspace'));
 
-        final expectedConfig =
-            '${d.path('workspace')}/.dart_tool/package_config.json';
+        final expectedConfig = p.join(
+          d.path('workspace'),
+          '.dart_tool',
+          'package_config.json',
+        );
         for (final pkg in layout.packages) {
           expect(pkg.packageConfigPath, equals(expectedConfig));
         }
@@ -187,7 +191,7 @@ environment:
         for (final pkg in layout.packages) {
           expect(
             pkg.packageConfigPath,
-            equals('${pkg.path}/.dart_tool/package_config.json'),
+            equals(p.join(pkg.path, '.dart_tool', 'package_config.json')),
           );
         }
       },
