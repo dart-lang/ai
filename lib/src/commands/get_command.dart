@@ -71,9 +71,7 @@ class GetCommand extends SkillsCommand {
       );
       manifest = result.manifest;
       for (final info in result.installed) {
-        stdout.writeln(
-          '  [${info.ideName}] Installed ${info.skillName} from ${info.packageName}',
-        );
+        stdout.writeln('  [${info.ideName}] Installed ${info.skillName}');
       }
     }
 
