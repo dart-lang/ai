@@ -180,7 +180,7 @@ extension Categorized on Object? {
 ///
 /// The default is true.
 extension EnabledByDefault on Object? {
-  static final Expando<bool> _enabledByDefault = Expando();
+  static final _enabledByDefault = Expando<bool>();
 
   bool get enabledByDefault {
     assert(this is Map<String, Object?>);
