@@ -280,7 +280,7 @@ environment:
     });
   });
 
-  group('Given a directory without pubspec.yaml', () {
+  group('Given a directory without any pubspec.yaml in tree', () {
     test('when resolving then throws StateError', () async {
       await d.dir('empty_dir').create();
 
@@ -292,6 +292,53 @@ environment:
       );
     });
   });
+
+  group(
+    'Given a directory without pubspec.yaml but with Dart subdirectories',
+    () {
+      test(
+        'when resolving then discovers packages in immediate subdirectories',
+        () async {
+          await d.dir('implicit_mono', [
+            d.dir('server', [
+              d.file('pubspec.yaml', '''
+name: my_server
+environment:
+  sdk: ^3.11.0
+'''),
+            ]),
+            d.dir('client', [
+              d.file('pubspec.yaml', '''
+name: my_client
+environment:
+  sdk: ^3.11.0
+'''),
+            ]),
+            d.dir('docs', [d.file('index.html', '<html></html>')]),
+          ]).create();
+
+          const resolver = WorkspaceResolver();
+          final layout = await resolver.resolve(d.path('implicit_mono'));
+
+          expect(
+            layout.rootPath,
+            equals(p.canonicalize(d.path('implicit_mono'))),
+          );
+          expect(layout.packages, hasLength(2));
+
+          final names = layout.packages.map((pkg) => pkg.name).toSet();
+          expect(names, equals({'my_client', 'my_server'}));
+
+          for (final pkg in layout.packages) {
+            expect(
+              pkg.packageConfigPath,
+              equals(p.join(pkg.path, '.dart_tool', 'package_config.json')),
+            );
+          }
+        },
+      );
+    },
+  );
 
   group(
     'Given a pub workspace where a member directory lacks pubspec.yaml',

@@ -36,41 +36,87 @@ class WorkspacePackage {
 
 /// Resolves the workspace layout for a project directory.
 ///
-/// Supports three monorepo conventions in priority order:
+/// Supports four resolution strategies in priority order:
 /// 1. Dart pub workspaces (`workspace:` field in root pubspec.yaml)
 /// 2. Melos (`melos.yaml` or `melos:` in pubspec.yaml)
-/// 3. Single-package project (fallback)
+/// 3. Single-package project
+/// 4. Implicit workspace (no root pubspec.yaml, but subdirectories have them)
 class WorkspaceResolver {
   const WorkspaceResolver();
 
   /// Resolves the workspace layout for [projectPath].
+  ///
+  /// If [projectPath] contains a `pubspec.yaml`, resolves using standard
+  /// strategies (pub workspace, melos, single package). Otherwise, scans
+  /// immediate subdirectories for Dart packages.
   Future<WorkspaceLayout> resolve(String projectPath) async {
     final pubspecFile = File(p.join(projectPath, 'pubspec.yaml'));
-    if (!await pubspecFile.exists()) {
-      throw StateError(
-        'No pubspec.yaml found in $projectPath. '
-        'Run this command from a Dart or Flutter project directory.',
-      );
+    if (await pubspecFile.exists()) {
+      return _resolveFromPubspec(projectPath);
     }
 
-    final pubspecContent = await pubspecFile.readAsString();
+    final implicit = await _resolveImplicitWorkspace(projectPath);
+    if (implicit != null) return implicit;
+
+    throw StateError(
+      'No pubspec.yaml found in $projectPath. '
+      'Run this command from a Dart or Flutter project root.',
+    );
+  }
+
+  /// Resolves a workspace from a directory that contains a pubspec.yaml.
+  Future<WorkspaceLayout> _resolveFromPubspec(String rootPath) async {
+    final pubspecContent = await File(
+      p.join(rootPath, 'pubspec.yaml'),
+    ).readAsString();
     final pubspec = loadYaml(pubspecContent);
     if (pubspec is! YamlMap) {
-      throw StateError('Invalid pubspec.yaml in $projectPath.');
+      throw StateError('Invalid pubspec.yaml in $rootPath.');
     }
 
     // 1. Dart pub workspace
     final workspaceField = pubspec['workspace'];
     if (workspaceField is YamlList) {
-      return _resolvePubWorkspace(projectPath, pubspec, workspaceField);
+      return _resolvePubWorkspace(rootPath, pubspec, workspaceField);
     }
 
     // 2. Melos
-    final melosLayout = await _resolveMelos(projectPath, pubspec);
+    final melosLayout = await _resolveMelos(rootPath, pubspec);
     if (melosLayout != null) return melosLayout;
 
     // 3. Single-package fallback
-    return _resolveSinglePackage(projectPath, pubspec);
+    return _resolveSinglePackage(rootPath, pubspec);
+  }
+
+  /// Scans immediate subdirectories of [rootPath] for Dart packages.
+  /// Returns a workspace layout if any are found, or `null` otherwise.
+  Future<WorkspaceLayout?> _resolveImplicitWorkspace(String rootPath) async {
+    final canonicalRoot = p.canonicalize(rootPath);
+    final dir = Directory(canonicalRoot);
+    if (!await dir.exists()) return null;
+
+    final packages = <WorkspacePackage>[];
+    await for (final entity in dir.list()) {
+      if (entity is! Directory) continue;
+      final name = await _readPubspecName(entity.path);
+      if (name == null) continue;
+      packages.add(
+        WorkspacePackage(
+          name: name,
+          path: p.normalize(entity.path),
+          packageConfigPath: p.join(
+            entity.path,
+            '.dart_tool',
+            'package_config.json',
+          ),
+        ),
+      );
+    }
+
+    if (packages.isEmpty) return null;
+
+    packages.sort((a, b) => a.name.compareTo(b.name));
+    return WorkspaceLayout(rootPath: canonicalRoot, packages: packages);
   }
 
   Future<WorkspaceLayout> _resolvePubWorkspace(
