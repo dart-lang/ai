@@ -57,8 +57,8 @@ The CLI auto-detects your IDE from project directory markers. If multiple IDEs a
 
 | IDE | Flag | Install location | Format |
 | --- | ---- | ---------------- | ------ |
-| Cursor | `--ide cursor` | `.cursor/skills/` | Agent Skills (full directory) |
 | Antigravity | `--ide antigravity` | `.agent/skills/` | Agent Skills (full directory) |
+| Cursor | `--ide cursor` | `.cursor/skills/` | Agent Skills (full directory) |
 | Claude Code | `--ide claude` | `.claude/rules/` | Markdown rule file |
 | GitHub Copilot | `--ide copilot` | `.github/instructions/` | `.instructions.md` file |
 | Cline | `--ide cline` | `.clinerules/` | Markdown rule file |
@@ -109,7 +109,7 @@ This convention ensures skill names are globally unique and self-documenting -- 
 
 The `name` field in `SKILL.md` should match the directory name:
 
-```markdown
+```
 ---
 name: serverpod-code-generation
 description: Use when generating Serverpod endpoints, models, and serialization code.
@@ -118,7 +118,7 @@ description: Use when generating Serverpod endpoints, models, and serialization 
 
 ### Writing a SKILL.md
 
-```markdown
+```
 ---
 name: my_package-my-skill
 description: Use when the user is working with MyPackage APIs to ensure correct patterns and error handling.
@@ -162,11 +162,11 @@ To maximize compatibility:
 2. It finds your `skills/` directory and each skill subdirectory with a `SKILL.md`.
 3. It validates that each skill name starts with your package name.
 4. Skills are installed into the user's IDE-specific location.
-5. A `.skills.json` tracking file records which skills were installed from which package and IDE.
+5. A `.dart_skills/skills_config.json` tracking file records which skills were installed from which package and IDE.
 
 Users can update skills by running `skills get` again -- existing skills from your package are replaced with the latest versions.
 
-The `.skills.json` file tracks managed skills so `skills remove` knows what to clean up without touching skills you created manually.
+The `.dart_skills/skills_config.json` file tracks managed skills so `skills remove` knows what to clean up without touching skills you created manually.
 
 ## License
 
