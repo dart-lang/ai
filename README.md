@@ -2,7 +2,7 @@
 
 A CLI that brings AI agent skills from your Dart and Flutter package dependencies directly into your IDE.
 
-Dart packages can ship a `skills/` directory containing [Agent Skills](https://agentskills.io/specification) -- structured instructions that teach AI coding assistants how to use the package effectively. The `skills` CLI finds those skills in your dependency tree and installs them into your editor so your AI assistant understands your stack out of the box.
+Dart packages can ship a `skills/` directory containing [Agent Skills](https://agentskills.io/specification), structured instructions that teach AI coding assistants how to use the package effectively. The `skills` CLI finds those skills in your dependency tree and installs them into your IDE so your AI assistant better understands your stack.
 
 ## The problem
 
@@ -30,7 +30,7 @@ Make sure `~/.pub-cache/bin` is on your PATH ([instructions](https://dart.dev/to
 
 ## Quick start
 
-Navigate to your Dart or Flutter project and run:
+Navigate to the root of your Dart or Flutter project and run:
 
 ```bash
 # Install skills from all dependencies
@@ -49,7 +49,7 @@ skills remove
 skills remove serverpod
 ```
 
-The CLI will automatically run `pub get` if needed, scan your dependency packages for `skills/` directories, and install them in the right location for your IDE.
+The CLI will automatically run `pub get` if needed, scan your dependency packages for `skills/` directories, and install them in the right location for your IDE. If you are using a monorepo, `skills` will locate your different packages and get the skills for all of them.
 
 ## Supported IDEs
 
@@ -62,6 +62,8 @@ The CLI auto-detects your IDE from project directory markers. If multiple IDEs a
 | Claude Code | `--ide claude` | `.claude/rules/` | Markdown rule file |
 | GitHub Copilot | `--ide copilot` | `.github/instructions/` | `.instructions.md` file |
 | Cline | `--ide cline` | `.clinerules/` | Markdown rule file |
+
+_Note that you need to install skills for GitHub Copilot using the `--ide copilot` flag. It will not be automatically added._
 
 ### IDE format differences
 
@@ -105,18 +107,11 @@ For a package named `serverpod`:
 | `code-generation` | No -- missing package prefix |
 | `other_pkg-code-generation` | No -- wrong prefix |
 
-This convention ensures skill names are globally unique and self-documenting -- when a user sees `serverpod-code-generation` in their IDE, they know exactly where it came from.
+This convention ensures skill names are globally unique and self-documenting. When a user sees `serverpod-code-generation` in their IDE, they know exactly where it came from.
 
-The `name` field in `SKILL.md` should match the directory name:
+### Writing a skill
 
-```
----
-name: serverpod-code-generation
-description: Use when generating Serverpod endpoints, models, and serialization code.
----
-```
-
-### Writing a SKILL.md
+The `name` field in `SKILL.md` should match the directory name. Here is an example of a skill:
 
 ```
 ---
@@ -164,10 +159,6 @@ To maximize compatibility:
 4. Skills are installed into the user's IDE-specific location.
 5. A `.dart_skills/skills_config.json` tracking file records which skills were installed from which package and IDE.
 
-Users can update skills by running `skills get` again -- existing skills from your package are replaced with the latest versions.
+Users can update skills by running `skills get` again. Existing skills from your package are replaced with the latest versions.
 
 The `.dart_skills/skills_config.json` file tracks managed skills so `skills remove` knows what to clean up without touching skills you created manually.
-
-## License
-
-[BSD-3-Clause](LICENSE)
