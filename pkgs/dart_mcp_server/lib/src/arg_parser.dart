@@ -78,7 +78,6 @@ ArgParser createArgParser({
               'disabled category to re-enable more specific features under '
               'that category.',
           allowed: allFeatureAndCategoryNames,
-          defaultsTo: [FeatureCategory.all.name],
         )
         ..addOption(
           toolsOption,

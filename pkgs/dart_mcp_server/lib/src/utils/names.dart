@@ -57,7 +57,6 @@ enum ToolNames {
   ripGrepPackages('rip_grep_packages'),
   runTests('run_tests'),
   stopApp('stop_app'),
-  takeScreenshot('take_screenshot'),
   widgetInspector('widget_inspector');
 
   final String name;

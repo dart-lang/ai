@@ -123,9 +123,10 @@ void main() {
   });
 
   group('isEnabled', () {
-    test('default is enabled', () {
-      final config = FeaturesConfiguration();
-      expect(config.isEnabled('foo', [FeatureCategory.cli]), isTrue);
+    test('given default is used', () {
+      final config = const FeaturesConfiguration();
+      expect(config.isEnabled('foo', true, [FeatureCategory.cli]), isTrue);
+      expect(config.isEnabled('foo', false, [FeatureCategory.cli]), isFalse);
     });
 
     test('disabled by name takes precedence over everything', () {
@@ -138,23 +139,27 @@ void main() {
         },
       );
       expect(
-        config.isEnabled('foo', [FeatureCategory.cli]),
+        config.isEnabled('foo', true, [FeatureCategory.cli]),
         isFalse,
         reason: 'foo is disabled by name, which takes precedence over category',
       );
     });
 
-    test('enabled by name takes precedence over category disable', () {
-      final config = FeaturesConfiguration(
-        enabledNames: {'foo'},
-        disabledNames: {FeatureCategory.cli.name, FeatureCategory.all.name},
-      );
-      expect(
-        config.isEnabled('foo', [FeatureCategory.cli]),
-        isTrue,
-        reason: 'foo is enabled by name, which takes precedence over category',
-      );
-    });
+    test(
+      'enabled by name takes precedence over category disable and default',
+      () {
+        final config = FeaturesConfiguration(
+          enabledNames: {'foo'},
+          disabledNames: {FeatureCategory.cli.name, FeatureCategory.all.name},
+        );
+        expect(
+          config.isEnabled('foo', false, [FeatureCategory.cli]),
+          isTrue,
+          reason:
+              'foo is enabled by name, which takes precedence over category',
+        );
+      },
+    );
 
     test('child category takes precedence over parent category', () {
       var config = FeaturesConfiguration(
@@ -162,7 +167,7 @@ void main() {
         enabledNames: {FeatureCategory.flutter.name},
       );
       expect(
-        config.isEnabled('foo', [FeatureCategory.flutterDriver]),
+        config.isEnabled('foo', true, [FeatureCategory.flutterDriver]),
         isFalse,
         reason: 'flutterDriver is disabled and higher category precedence',
       );
@@ -172,7 +177,7 @@ void main() {
         disabledNames: {FeatureCategory.flutter.name},
       );
       expect(
-        config.isEnabled('foo', [FeatureCategory.flutterDriver]),
+        config.isEnabled('foo', true, [FeatureCategory.flutterDriver]),
         isTrue,
         reason: 'flutterDriver is enabled and higher category precedence',
       );
@@ -184,7 +189,7 @@ void main() {
         enabledNames: {FeatureCategory.flutter.name},
       );
       expect(
-        config.isEnabled('foo', [
+        config.isEnabled('foo', true, [
           FeatureCategory.flutterDriver,
           FeatureCategory.cli,
         ]),
@@ -197,7 +202,7 @@ void main() {
         disabledNames: {FeatureCategory.flutter.name},
       );
       expect(
-        config.isEnabled('foo', [
+        config.isEnabled('foo', true, [
           FeatureCategory.flutterDriver,
           FeatureCategory.cli,
         ]),
@@ -212,7 +217,7 @@ void main() {
         enabledNames: {FeatureCategory.cli.name},
       );
       expect(
-        config.isEnabled('foo', [
+        config.isEnabled('foo', true, [
           FeatureCategory.flutterDriver,
           FeatureCategory.cli,
         ]),
@@ -225,7 +230,7 @@ void main() {
         disabledNames: {FeatureCategory.cli.name},
       );
       expect(
-        config.isEnabled('foo', [
+        config.isEnabled('foo', true, [
           FeatureCategory.flutterDriver,
           FeatureCategory.cli,
         ]),
@@ -240,7 +245,7 @@ void main() {
         enabledNames: {FeatureCategory.all.name},
       );
       expect(
-        config.isEnabled('foo', [FeatureCategory.flutterDriver]),
+        config.isEnabled('foo', true, [FeatureCategory.flutterDriver]),
         isFalse,
         reason: 'flutter is disabled and higher category precedence',
       );
@@ -250,7 +255,7 @@ void main() {
         disabledNames: {FeatureCategory.all.name},
       );
       expect(
-        config.isEnabled('foo', [FeatureCategory.flutterDriver]),
+        config.isEnabled('foo', true, [FeatureCategory.flutterDriver]),
         isTrue,
         reason: 'flutter is enabled and higher category precedence',
       );
@@ -266,7 +271,7 @@ void main() {
       // so it should be prioritized, including prioritizing its own parents
       // which are also children of `all` (flutter).
       expect(
-        config.isEnabled('foo', [
+        config.isEnabled('foo', true, [
           FeatureCategory.all,
           FeatureCategory.flutterDriver,
         ]),
@@ -281,7 +286,7 @@ void main() {
         disabledNames: {FeatureCategory.all.name},
       );
       expect(
-        config.isEnabled('foo', [
+        config.isEnabled('foo', true, [
           FeatureCategory.all,
           FeatureCategory.flutterDriver,
         ]),

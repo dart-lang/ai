@@ -8,6 +8,7 @@ import 'dart:io';
 
 import 'package:collection/collection.dart';
 import 'package:dart_mcp/client.dart';
+import 'package:dart_mcp_server/src/features_configuration.dart';
 import 'package:dart_mcp_server/src/server.dart';
 import 'package:dart_mcp_server/src/utils/analytics.dart';
 import 'package:dart_mcp_server/src/utils/names.dart';
@@ -99,6 +100,9 @@ void main() {
         fileSystem: fileSystem,
         sdk: sdk,
         startFakeEditorExtension: false,
+        featuresConfig: FeaturesConfiguration(
+          enabledNames: {FeatureCategory.flutter.name},
+        ),
       );
       server = testHarness.serverConnectionPair.server!;
       client = testHarness.serverConnectionPair.serverConnection;

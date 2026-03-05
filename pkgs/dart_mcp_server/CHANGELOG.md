@@ -25,6 +25,9 @@
 - Fix `analyze_files` returning false "No errors" when `paths` parameter is specified.
 - Merge `get_selected_widget`, `get_widget_tree`, `set_widget_selection_mode` into `widget_inspector` tool.
 - Merge `hover`, `signatureHelp`, `resolveWorkspaceSymbol` into `lsp` tool.
+- Disable all tools that can easily be done on the CLI by default, as well as
+  `get_active_location`. These can be re-enabled by passing `--enable cli` or
+  `--enable <tool-name>`.
 
 # 0.1.2 (Dart SDK 3.11.0)
 

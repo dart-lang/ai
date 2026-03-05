@@ -13,6 +13,7 @@ import 'package:file/file.dart';
 import 'package:file/local.dart';
 import 'package:meta/meta.dart';
 import 'package:process/process.dart';
+import 'package:stream_channel/stream_channel.dart';
 import 'package:unified_analytics/unified_analytics.dart';
 
 import 'arg_parser.dart';
@@ -79,9 +80,6 @@ final class DartMCPServer extends MCPServer
   @override
   final Analytics? analytics;
 
-  @override
-  final bool enableScreenshots;
-
   DartMCPServer(
     super.channel, {
     required this.sdk,
@@ -90,8 +88,6 @@ final class DartMCPServer extends MCPServer
     @visibleForTesting this.processManager = const LocalProcessManager(),
     @visibleForTesting this.fileSystem = const LocalFileSystem(),
     this.forceRootsFallback = false,
-    // Disabled due to https://github.com/flutter/flutter/issues/170357
-    this.enableScreenshots = false,
     super.protocolLogSink,
   }) : super.fromStreamChannel(
          implementation: Implementation(
@@ -113,9 +109,16 @@ final class DartMCPServer extends MCPServer
   /// Runs the MCP server given command line arguments and an optional
   /// [Analytics] instance.
   ///
+  /// If [channel] is provided, then it will be used for communication,
+  /// otherwise a stdio channel will be used.
+  ///
   /// Returns a [Future] that completes with an exit code after the server has
   /// shut down.
-  static Future<int> run(List<String> args, {Analytics? analytics}) async {
+  static Future<int> run(
+    List<String> args, {
+    Analytics? analytics,
+    StreamChannel<String>? channel,
+  }) async {
     final parsedArgs = argParser.parse(args);
     if (parsedArgs.flag(helpFlag)) {
       print(argParser.usage);
@@ -140,7 +143,7 @@ final class DartMCPServer extends MCPServer
     runZonedGuarded(
       () {
         server = DartMCPServer(
-          stdioChannel(input: io.stdin, output: io.stdout),
+          channel ?? stdioChannel(input: io.stdin, output: io.stdout),
           featuresConfig: FeaturesConfiguration.fromArgs(parsedArgs),
           forceRootsFallback: parsedArgs.flag(forceRootsFallbackFlag),
           sdk: Sdk.find(
@@ -185,25 +188,33 @@ final class DartMCPServer extends MCPServer
   }
 
   @override
-  // Only actually registers the tools enabled by [toolsConfig].
+  /// Only actually registers the tools enabled by [featuresConfig].
   void registerTool(
     Tool tool,
     FutureOr<CallToolResult> Function(CallToolRequest) impl, {
     bool validateArguments = true,
   }) {
-    if (!featuresConfig.isEnabled(tool.name, tool.categories)) {
+    if (!featuresConfig.isEnabled(
+      tool.name,
+      tool.enabledByDefault,
+      tool.categories,
+    )) {
       return;
     }
     super.registerTool(tool, impl, validateArguments: validateArguments);
   }
 
   @override
-  // Only actually registers the tools enabled by [toolsConfig].
+  /// Only actually registers the prompts enabled by [featuresConfig].
   void addPrompt(
     Prompt prompt,
     FutureOr<GetPromptResult> Function(GetPromptRequest) impl,
   ) {
-    if (!featuresConfig.isEnabled(prompt.name, prompt.categories)) {
+    if (!featuresConfig.isEnabled(
+      prompt.name,
+      prompt.enabledByDefault,
+      prompt.categories,
+    )) {
       return;
     }
     super.addPrompt(prompt, impl);

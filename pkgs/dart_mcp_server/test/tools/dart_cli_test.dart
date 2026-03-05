@@ -5,6 +5,7 @@
 import 'dart:io';
 
 import 'package:dart_mcp/server.dart';
+import 'package:dart_mcp_server/src/features_configuration.dart';
 import 'package:dart_mcp_server/src/mixins/dash_cli.dart';
 import 'package:dart_mcp_server/src/utils/names.dart';
 import 'package:test/test.dart';
@@ -13,23 +14,48 @@ import 'package:test_descriptor/test_descriptor.dart' as d;
 import '../test_harness.dart';
 
 void main() {
-  late TestHarness testHarness;
-  late TestProcessManager testProcessManager;
-  late Root exampleFlutterAppRoot;
-  late Root dartCliAppRoot;
-  final dartExecutableName = 'dart${Platform.isWindows ? '.exe' : ''}';
-  final flutterExecutableName = 'flutter${Platform.isWindows ? '.bat' : ''}';
+  test('cli tools are disabled by default', () async {
+    final featureConfig = const FeaturesConfiguration();
+    for (var tool in DashCliSupport.allTools) {
+      expect(
+        featureConfig.isEnabled(
+          tool.name,
+          tool.enabledByDefault,
+          tool.categories,
+        ),
+        isFalse,
+        reason: 'Tool ${tool.name} should be disabled by default',
+      );
+    }
+  });
 
-  // TODO: Use setUpAll, currently this fails due to an apparent TestProcess
-  // issue.
-  setUp(() async {
-    testHarness = await TestHarness.start(inProcess: true);
-    testProcessManager =
-        testHarness.serverConnectionPair.server!.processManager
-            as TestProcessManager;
+  group('when cli features are enabled', () {
+    late TestHarness testHarness;
+    late TestProcessManager testProcessManager;
+    late Root exampleFlutterAppRoot;
+    late Root dartCliAppRoot;
+    final dartExecutableName = 'dart${Platform.isWindows ? '.exe' : ''}';
+    final flutterExecutableName = 'flutter${Platform.isWindows ? '.bat' : ''}';
+    late Tool dartFixTool;
+    late Tool dartFormatTool;
+    late Tool createProjectTool;
 
-    final flutterExample = d.dir('flutter_example', [
-      d.file('pubspec.yaml', '''
+    // TODO: Use setUpAll, currently this fails due to an apparent TestProcess
+    // issue.
+    setUp(() async {
+      testHarness = await TestHarness.start(
+        inProcess: true,
+        // Enable all cli features so we can test them.
+        featuresConfig: FeaturesConfiguration(
+          enabledNames: {FeatureCategory.cli.name},
+        ),
+      );
+      testProcessManager =
+          testHarness.serverConnectionPair.server!.processManager
+              as TestProcessManager;
+
+      final flutterExample = d.dir('flutter_example', [
+        d.file('pubspec.yaml', '''
 name: flutter_example
 environment:
   sdk: ^3.0.0
@@ -37,21 +63,14 @@ dependencies:
   flutter:
     sdk: flutter
 '''),
-    ]);
-    await flutterExample.create();
+      ]);
+      await flutterExample.create();
 
-    exampleFlutterAppRoot = testHarness.rootForPath(flutterExample.io.path);
-    dartCliAppRoot = testHarness.rootForPath(dartCliAppsPath);
+      exampleFlutterAppRoot = testHarness.rootForPath(flutterExample.io.path);
+      dartCliAppRoot = testHarness.rootForPath(dartCliAppsPath);
 
-    await pumpEventQueue();
-  });
+      await pumpEventQueue();
 
-  group('cli tools', () {
-    late Tool dartFixTool;
-    late Tool dartFormatTool;
-    late Tool createProjectTool;
-
-    setUp(() async {
       final tools = (await testHarness.mcpServerConnection.listTools()).tools;
       dartFixTool = tools.singleWhere(
         (t) => t.name == DashCliSupport.dartFixTool.name,
