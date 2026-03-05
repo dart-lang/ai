@@ -47,7 +47,7 @@ void main() {
       );
 
       await d.dir('project').create();
-      await manifest.save(File('${d.path('project')}/.skills.json'));
+      await manifest.save(File(SkillManifest.pathIn(d.path('project'))));
     });
 
     test('when listing then all IDEs and packages are present', () {
@@ -83,7 +83,7 @@ void main() {
     test('when loading manifest then returns null', () async {
       await d.dir('bare_project').create();
 
-      final file = File('${d.path('bare_project')}/.skills.json');
+      final file = File(SkillManifest.pathIn(d.path('bare_project')));
       final manifest = await SkillManifest.load(file);
 
       expect(manifest, isNull);

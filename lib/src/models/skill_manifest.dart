@@ -1,10 +1,22 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
+
 /// Tracks which skills are installed, per IDE and per package.
 class SkillManifest {
   static const int currentVersion = 1;
-  static const String fileName = '.skills.json';
+  static const String dirName = '.dart_skills';
+  static const String baseName = 'skills_config.json';
+
+  /// Returns the platform-correct path to the manifest file under [rootPath].
+  static String pathIn(String rootPath) => p.join(rootPath, dirName, baseName);
+
+  /// Deletes the [dirName] directory under [rootPath] if it exists.
+  static Future<void> cleanupDir(String rootPath) async {
+    final dir = Directory(p.join(rootPath, dirName));
+    if (await dir.exists()) await dir.delete(recursive: true);
+  }
 
   /// Outer key: IDE name, inner key: package name.
   final Map<String, Map<String, PackageSkillsEntry>> installations;
@@ -55,8 +67,9 @@ class SkillManifest {
     };
   }
 
-  /// Saves the manifest to [file].
+  /// Saves the manifest to [file], creating parent directories if needed.
   Future<void> save(File file) async {
+    await file.parent.create(recursive: true);
     const encoder = JsonEncoder.withIndent('  ');
     await file.writeAsString('${encoder.convert(toJson())}\n');
   }

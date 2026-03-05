@@ -504,7 +504,7 @@ Instructions for debugging.
           ),
         );
 
-        final file = File('$rootPath/.skills.json');
+        final file = File(SkillManifest.pathIn(rootPath));
         await manifest.save(file);
 
         final loaded = await SkillManifest.load(file);

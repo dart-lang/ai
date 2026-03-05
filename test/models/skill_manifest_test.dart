@@ -38,7 +38,8 @@ void main() {
 
   group('Given a manifest file on disk', () {
     test('when loading then parses correctly', () async {
-      await d.file('.skills.json', '''
+      await d.dir(SkillManifest.dirName, [
+        d.file(SkillManifest.baseName, '''
 {
   "version": 1,
   "installations": {
@@ -51,9 +52,10 @@ void main() {
     }
   }
 }
-''').create();
+'''),
+      ]).create();
 
-      final file = File(d.path('.skills.json'));
+      final file = File(SkillManifest.pathIn(d.sandbox));
       final manifest = await SkillManifest.load(file);
 
       expect(manifest, isNotNull);

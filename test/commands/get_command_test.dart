@@ -124,7 +124,7 @@ API design guidelines.
           ),
         );
 
-        final manifestFile = File('$projectPath/.skills.json');
+        final manifestFile = File(SkillManifest.pathIn(projectPath));
         await manifest.save(manifestFile);
 
         final loaded = await SkillManifest.load(manifestFile);

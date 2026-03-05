@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
 import 'package:skills/src/ide/adapters/claude_adapter.dart';
 import 'package:skills/src/ide/adapters/cursor_adapter.dart';
 import 'package:skills/src/models/skill_manifest.dart';
@@ -66,7 +67,7 @@ void main() {
         },
       );
 
-      await manifest.save(File('$projectPath/.skills.json'));
+      await manifest.save(File(SkillManifest.pathIn(projectPath)));
     });
 
     test(
@@ -115,6 +116,25 @@ void main() {
         isFalse,
       );
     });
+
+    test(
+      'when removing all then .dart_skills directory is cleaned up',
+      () async {
+        final updated = manifest
+            .withoutPackage('cursor', 'pkg_a')
+            .withoutPackage('cursor', 'pkg_b');
+        expect(updated.isEmpty, isTrue);
+
+        final dartSkillsDir = Directory(
+          p.join(projectPath, SkillManifest.dirName),
+        );
+        expect(await dartSkillsDir.exists(), isTrue);
+
+        await SkillManifest.cleanupDir(projectPath);
+
+        expect(await dartSkillsDir.exists(), isFalse);
+      },
+    );
   });
 
   group('Given a project with no managed skills', () {
@@ -123,7 +143,7 @@ void main() {
         d.dir('.cursor', [d.dir('skills')]),
       ]).create();
 
-      final manifestFile = File('${d.path('empty_project')}/.skills.json');
+      final manifestFile = File(SkillManifest.pathIn(d.path('empty_project')));
       final manifest = await SkillManifest.load(manifestFile);
 
       expect(manifest, isNull);
@@ -183,7 +203,7 @@ void main() {
         },
       );
 
-      await manifest.save(File('$projectPath/.skills.json'));
+      await manifest.save(File(SkillManifest.pathIn(projectPath)));
     });
 
     test('when removing one IDE then files for that IDE are deleted and '

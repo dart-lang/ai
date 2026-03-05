@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
-import 'package:path/path.dart' as p;
 
 import '../core/workspace_resolver.dart';
 import '../models/skill_manifest.dart';
@@ -17,7 +16,7 @@ abstract class SkillsCommand extends Command<void> {
 
   /// Returns the manifest file for the given [rootPath].
   File manifestFile(String rootPath) {
-    return File(p.join(rootPath, SkillManifest.fileName));
+    return File(SkillManifest.pathIn(rootPath));
   }
 
   /// Loads the manifest from [rootPath], or returns an empty manifest if none exists.
