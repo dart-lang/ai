@@ -6,14 +6,13 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:dart_mcp/server.dart';
+import 'package:extension_discovery/extension_discovery.dart';
 import 'package:file/file.dart';
 import 'package:mime/mime.dart';
-import 'package:mustache_template/mustache_template.dart';
-import 'package:package_config/package_config.dart';
 import 'package:path/path.dart' as p;
-import 'package:yaml/yaml.dart';
 
 import '../features_configuration.dart';
+import '../mustachio/render_simple.dart';
 import '../utils/cli_utils.dart';
 import '../utils/file_system.dart';
 import 'roots_fallback_support.dart';
@@ -21,7 +20,7 @@ import 'roots_fallback_support.dart';
 /// Implements the Packaged AI Assets proposal at
 /// https://flutter.dev/go/packaged-ai-assets
 ///
-/// Discover resources and prompts from `extensions/mcp/config.yaml` of the
+/// Discover resources and prompts from `extension/mcp/config.yaml` of the
 /// workspace roots and their dependencies.
 base mixin PackagedAiAssetsSupport
     on ResourcesSupport, PromptsSupport, RootsFallbackSupport
@@ -43,14 +42,22 @@ base mixin PackagedAiAssetsSupport
 
   @override
   FutureOr<ListPromptsResult> listPrompts([ListPromptsRequest? request]) async {
-    await _assetsDiscoveryCompleter?.future.timeout(
-      const Duration(seconds: 10),
-      onTimeout: () => null,
-    );
+    try {
+      /// Wait for the assets to be discovered, but don't fail if it times out.
+      await _assetsDiscoveryCompleter?.future.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => null,
+      );
+    } catch (e, s) {
+      log(
+        LoggingLevel.warning,
+        'Timed out waiting for package prompts to be discovered: $e\n$s',
+      );
+    }
     return await super.listPrompts(request);
   }
 
-  /// Discover resources and prompts from `extensions/mcp/config.yaml` of the
+  /// Discover resources and prompts from `extension/mcp/config.yaml` of the
   /// workspace roots and their dependencies.
   Future<void> _discoverAssets() async {
     // TODO: Elicit for permission to load AI assets from packages.
@@ -60,26 +67,40 @@ base mixin PackagedAiAssetsSupport
     }
     _assetsDiscoveryCompleter = Completer<void>();
     try {
-      final allPackages = <String, Package>{};
       final knownRoots = await roots;
+      // Extensions by package name.
+      final extensions = <String, Extension>{};
+      final seenPackageConfigs = <Uri>{};
 
       for (final root in knownRoots) {
         final rootDir = fileSystem.directory(Uri.parse(root.uri));
         if (!rootDir.existsSync()) continue;
 
         final pubspecDirs = _findPubspecDirectories(rootDir, fileSystem);
-        await for (final dir in pubspecDirs) {
-          final packageConfig = await findPackageConfig(dir);
-          if (packageConfig == null) continue;
-          // TODO: Only load resources and prompts from immediate dependencies.
-          for (final package in packageConfig.packages) {
-            // Only overwrite if this version is newer (for now, just add if
-            // not present).
-            // We also load all resources rather than just immediate dependencies,
-            // because transient dependencies might have important tools too.
-            if (!allPackages.containsKey(package.name)) {
-              allPackages[package.name] = package;
+        await for (var dir in pubspecDirs) {
+          final packageConfigUri = findPackageConfig(dir.uri);
+          if (packageConfigUri == null ||
+              !seenPackageConfigs.add(packageConfigUri)) {
+            continue;
+          }
+
+          try {
+            final foundExtensions = await findExtensions(
+              'mcp',
+              packageConfig: packageConfigUri,
+            );
+
+            for (final extension in foundExtensions) {
+              // TODO: Replace with newer version of the package if we find one.
+              if (!extensions.containsKey(extension.package)) {
+                extensions[extension.package] = extension;
+              }
             }
+          } catch (e, s) {
+            log(
+              LoggingLevel.warning,
+              'Error discovering extensions for ${dir.path}: $e\n$s',
+            );
           }
         }
       }
@@ -87,43 +108,43 @@ base mixin PackagedAiAssetsSupport
       final newResources = <String>{};
       final newPrompts = <String>{};
 
-      for (final package in allPackages.values) {
-        if (package.root.scheme != 'file') {
-          log(
-            LoggingLevel.warning,
-            'Package ${package.name} has a non-file root: ${package.root}',
-          );
-          continue;
-        }
-
-        final packageRootDir = fileSystem.directory(package.root.toFilePath());
-        final mcpExtensionsDir = fileSystem.path.join(
-          packageRootDir.path,
-          'extensions',
-          'mcp',
-        );
-        final configPath = fileSystem.path.join(
-          mcpExtensionsDir,
-          'config.yaml',
-        );
-        final configFile = fileSystem.file(configPath);
-
-        if (!configFile.existsSync()) continue;
-
+      for (final extension in extensions.values) {
         try {
-          final content = await configFile.readAsString();
-          final yaml = loadYaml(content);
+          if (extension.rootUri.scheme != 'file') {
+            log(
+              LoggingLevel.warning,
+              'Package ${extension.package} has a non-file root: '
+              '${extension.rootUri}',
+            );
+            continue;
+          }
 
-          if (yaml is! YamlMap) continue;
+          final packageRootDir = fileSystem.directory(
+            extension.rootUri,
+          );
+          final mcpExtensionDir = fileSystem.path.join(
+            packageRootDir.path,
+            'extension',
+            'mcp',
+          );
 
-          final resources = yaml['resources'];
-          if (resources is YamlList) {
+          final config = extension.config;
+          final resources = config['resources'];
+          if (resources is List) {
             for (final resourceObj in resources) {
-              if (resourceObj is! YamlMap) continue;
+              if (resourceObj is! Map) continue;
 
               final isPrivate = resourceObj['visibility'] == 'private';
               final rawPath = resourceObj['path'] as String;
-              final fullPath = fileSystem.path.join(mcpExtensionsDir, rawPath);
+
+              // The config path is always in URL format, so we need to split
+              // it by the URL separator and join using the current file system
+              // semantics.
+              final fullPath = fileSystem.path.joinAll([
+                mcpExtensionDir,
+                ...rawPath.split(p.url.separator),
+              ]);
+
               if (isPrivate &&
                   !knownRoots.any(
                     (r) => isUnderRoot(r, fullPath, fileSystem),
@@ -132,20 +153,20 @@ base mixin PackagedAiAssetsSupport
               }
 
               final name =
-                  resourceObj['name'] as String? ?? p.basename(rawPath);
+                  resourceObj['name'] as String? ?? p.url.basename(rawPath);
               final title = resourceObj['title'] as String?;
               final description = resourceObj['description'] as String?;
 
-              final relativeToRoot = p.relative(
+              final relativeToRoot = fileSystem.path.relative(
                 fullPath,
                 from: packageRootDir.path,
               );
-              final osNeutralRelativePath = relativeToRoot.replaceAll(
-                p.separator,
-                '/',
+              final uriRelativePath = relativeToRoot.replaceAll(
+                fileSystem.path.separator,
+                p.url.separator,
               );
-              final uri =
-                  'package-root://${package.name}/$osNeutralRelativePath';
+              final uri = 
+                  'package-root:${extension.package}/$uriRelativePath';
 
               final resource = Resource(
                 uri: uri,
@@ -190,14 +211,14 @@ base mixin PackagedAiAssetsSupport
             }
           }
 
-          final prompts = yaml['prompts'];
-          if (prompts is YamlList) {
+          final prompts = config['prompts'];
+          if (prompts is List) {
             for (final promptObj in prompts) {
-              if (promptObj is! YamlMap) {
+              if (promptObj is! Map) {
                 log(
                   LoggingLevel.warning,
                   'Invalid prompt object from package '
-                  '${package.name}: $promptObj',
+                  '${extension.package}: $promptObj',
                 );
                 continue;
               }
@@ -213,17 +234,17 @@ base mixin PackagedAiAssetsSupport
               }
 
               final rawPath = promptObj['path'] as String;
-              final fullPath = p.join(mcpExtensionsDir, rawPath);
+              final fullPath = p.join(mcpExtensionDir, rawPath);
               final name = promptObj['name'] as String;
               final title = promptObj['title'] as String?;
               final description = promptObj['description'] as String?;
-              final promptArguments = (promptObj['arguments'] as YamlList?)
+              final promptArguments = (promptObj['arguments'] as List?)
                   ?.map((entry) {
-                    if (entry is! YamlMap) {
+                    if (entry is! Map) {
                       log(
                         LoggingLevel.warning,
                         'Invalid prompt argument object from package '
-                        '${package.name}: $entry',
+                        '${extension.package}: $entry',
                       );
                       return null;
                     }
@@ -250,22 +271,28 @@ base mixin PackagedAiAssetsSupport
                   if (!targetFile.existsSync()) {
                     throw ArgumentError('Prompt file not found');
                   }
+                  final mapArgs = request.arguments ?? <String, Object?>{};
+                  for (final arg in (prompt.arguments ?? []).where(
+                    (arg) => arg.required == true,
+                  )) {
+                    if (!mapArgs.containsKey(arg.name)) {
+                      throw ArgumentError(
+                        'Missing required prompt argument: ${arg.name}',
+                      );
+                    }
+                  }
                   final templateContent = await targetFile.readAsString();
-                  final template = Template(
+                  final renderedContent = renderMustachio(
                     templateContent,
-                    name: name,
-                    lenient: true,
+                    mapArgs,
                   );
-
-                  final mapArgs = request.arguments ?? <String, dynamic>{};
-                  final rendered = template.renderString(mapArgs);
 
                   return GetPromptResult(
                     description: description,
                     messages: [
                       PromptMessage(
                         role: Role.user,
-                        content: TextContent(text: rendered),
+                        content: TextContent(text: renderedContent),
                       ),
                     ],
                   );
@@ -280,7 +307,7 @@ base mixin PackagedAiAssetsSupport
           log(
             LoggingLevel.error,
             'Error loading packaged AI assets from package '
-            '${package.name}: $e\n$s',
+            '${extension.package}: $e\n$s',
           );
         }
       }
