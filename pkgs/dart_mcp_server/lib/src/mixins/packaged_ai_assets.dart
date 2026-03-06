@@ -15,6 +15,7 @@ import '../features_configuration.dart';
 import '../mustachio/render_simple.dart';
 import '../utils/cli_utils.dart';
 import '../utils/file_system.dart';
+import '../utils/json.dart';
 import 'roots_fallback_support.dart';
 
 /// Implements the Packaged AI Assets proposal at
@@ -57,13 +58,34 @@ base mixin PackagedAiAssetsSupport
     return await super.listPrompts(request);
   }
 
+
+
+  @override
+  FutureOr<ListResourcesResult> listResources([
+    ListResourcesRequest? request,
+  ]) async {
+    try {
+      /// Wait for the assets to be discovered, but don't fail if it times out.
+      await _assetsDiscoveryCompleter?.future.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => null,
+      );
+    } catch (e, s) {
+      log(
+        LoggingLevel.warning,
+        'Timed out waiting for package resources to be discovered: $e\n$s',
+      );
+    }
+    return await super.listResources(request);
+  }
+
   /// Discover resources and prompts from `extension/mcp/config.yaml` of the
   /// workspace roots and their dependencies.
   Future<void> _discoverAssets() async {
     // TODO: Elicit for permission to load AI assets from packages.
-    if (_assetsDiscoveryCompleter != null &&
-        !_assetsDiscoveryCompleter!.isCompleted) {
-      return _assetsDiscoveryCompleter!.future;
+    if (_assetsDiscoveryCompleter case final completer?
+        when !completer.isCompleted) {
+      return completer.future;
     }
     _assetsDiscoveryCompleter = Completer<void>();
     try {
@@ -73,6 +95,7 @@ base mixin PackagedAiAssetsSupport
       final seenPackageConfigs = <Uri>{};
 
       for (final root in knownRoots) {
+        // Roots are in URI format and need to be loaded as such.
         final rootDir = fileSystem.directory(Uri.parse(root.uri));
         if (!rootDir.existsSync()) continue;
 
@@ -127,10 +150,8 @@ base mixin PackagedAiAssetsSupport
 
           final config = extension.config;
           final resources = config['resources'];
-          if (resources is List) {
+          if (resources is List<Object?>) {
             for (final resourceObj in resources) {
-              if (resourceObj is! Map<Object?, Object?>) continue;
-
               if (_tryAddResource(
                     resourceObj,
                     mcpExtensionDir,
@@ -141,6 +162,12 @@ base mixin PackagedAiAssetsSupport
                 newResources.add(resource.uri);
               }
             }
+          } else if (resources != null) {
+            log(
+              LoggingLevel.warning,
+              'Package ${extension.package} has an invalid resources config, '
+              'expected a List, got ${resources.runtimeType}',
+            );
           }
 
           final prompts = config['prompts'];
@@ -156,6 +183,12 @@ base mixin PackagedAiAssetsSupport
                 newPrompts.add(prompt.name);
               }
             }
+          } else if (prompts != null) {
+            log(
+              LoggingLevel.warning,
+              'Package ${extension.package} has an invalid prompts config, '
+              'expected a List, got ${prompts.runtimeType}',
+            );
           }
         } catch (e, s) {
           log(
@@ -193,59 +226,59 @@ base mixin PackagedAiAssetsSupport
     Iterable<Root> knownRoots,
     Extension extension,
   ) {
-    if (promptObj is! Map<Object?, Object?>) {
+    try {
+      final isPrivate = dig<String?>(promptObj, ['visibility']) == 'private';
+      final rawPath = dig<String>(promptObj, ['path']);
+      final fullPath = fileSystem.path.joinAll([
+        mcpExtensionDir,
+        ...rawPath.split(p.url.separator),
+      ]);
+      if (isPrivate &&
+          !knownRoots.any((r) => isUnderRoot(r, fullPath, fileSystem))) {
+        return null;
+      }
+
+      final name = dig<String>(promptObj, ['name']);
+      final title = dig<String?>(promptObj, ['title']);
+      final description = dig<String?>(promptObj, ['description']);
+      final promptArguments = dig<List<Object?>?>(promptObj, ['arguments'])
+          ?.map((entry) {
+            if (entry is! Map) {
+              log(
+                LoggingLevel.warning,
+                'Invalid prompt argument object from package '
+                '${extension.package}: $entry',
+              );
+              return null;
+            }
+            return PromptArgument.fromMap(entry.cast<String, Object?>());
+          })
+          // Can't use .nonNulls because PromptArgument technically is
+          // an Object?, and we just get Iterable<Object?> back.
+          .whereType<PromptArgument>()
+          .toList();
+
+      final prompt = Prompt(
+        name: name,
+        title: title,
+        description: description,
+        arguments: promptArguments,
+      )..categories = [FeatureCategory.packageDeps];
+
+      if (_dynamicallyAddedPrompts.add(name)) {
+        addPrompt(prompt, (request) => _readPrompt(request, prompt, fullPath));
+        return prompt;
+      } else {
+        // TODO: If the prompt changed, remove it and add it back.
+        // Prompts do not support change notifications.
+      }
+    } catch (e) {
       log(
         LoggingLevel.warning,
-        'Invalid prompt object from package '
-        '${extension.package}: $promptObj',
+        'Error loading prompt from package: ${extension.package}:\n$e',
       );
       return null;
     }
-    final isPrivate = promptObj['visibility'] == 'private';
-    final rawPath = promptObj['path'] as String;
-    final fullPath = fileSystem.path.joinAll([
-      mcpExtensionDir,
-      ...rawPath.split(p.url.separator),
-    ]);
-    if (isPrivate &&
-        !knownRoots.any((r) => isUnderRoot(r, fullPath, fileSystem))) {
-      return null;
-    }
-
-    final name = promptObj['name'] as String;
-    final title = promptObj['title'] as String?;
-    final description = promptObj['description'] as String?;
-    final promptArguments = (promptObj['arguments'] as List?)
-        ?.map((entry) {
-          if (entry is! Map) {
-            log(
-              LoggingLevel.warning,
-              'Invalid prompt argument object from package '
-              '${extension.package}: $entry',
-            );
-            return null;
-          }
-          return PromptArgument.fromMap(entry.cast<String, Object?>());
-        })
-        // Can't use .nonNulls because PromptArgument technically is
-        // an Object?, and we just get Iterable<Object?> back.
-        .whereType<PromptArgument>()
-        .toList();
-
-    final prompt = Prompt(
-      name: name,
-      title: title,
-      description: description,
-      arguments: promptArguments,
-    )..categories = [FeatureCategory.packageDeps];
-
-    if (_dynamicallyAddedPrompts.add(name)) {
-      addPrompt(prompt, (request) => _readPrompt(request, prompt, fullPath));
-    } else {
-      // TODO: If the prompt changed, remove it and add it back.
-      // Prompts do not support change notifications.
-    }
-    return prompt;
   }
 
   /// Read a [prompt] given [request] and [fullPath] to the markdown file.
@@ -284,56 +317,67 @@ base mixin PackagedAiAssetsSupport
   ///
   /// Returns the resource if it was loaded, null otherwise.
   Resource? _tryAddResource(
-    Map<Object?, Object?> resourceObj,
+    Object? resourceObj,
     String mcpExtensionDir,
     Iterable<Root> knownRoots,
     Extension extension,
   ) {
-    final isPrivate = resourceObj['visibility'] == 'private';
-    final rawPath = resourceObj['path'] as String;
+    try {
+      final isPrivate = dig<String?>(resourceObj, ['visibility']) == 'private';
+      final rawPath = dig<String>(resourceObj, ['path']);
 
-    // The config path is always in URL format, so we need to split
-    // it by the URL separator and join using the current file system
-    // semantics.
-    final fullPath = fileSystem.path.joinAll([
-      mcpExtensionDir,
-      ...rawPath.split(p.url.separator),
-    ]);
+      // The config path is always in URL format, so we need to split
+      // it by the URL separator and join using the current file system
+      // semantics.
+      final fullPath = fileSystem.path.joinAll([
+        mcpExtensionDir,
+        ...rawPath.split(p.url.separator),
+      ]);
 
-    if (isPrivate &&
-        !knownRoots.any((r) => isUnderRoot(r, fullPath, fileSystem))) {
+      if (isPrivate &&
+          !knownRoots.any((r) => isUnderRoot(r, fullPath, fileSystem))) {
+        return null;
+      }
+
+      final name =
+          dig<String?>(resourceObj, ['name']) ?? p.url.basename(rawPath);
+      final title = dig<String?>(resourceObj, ['title']);
+      final description = dig<String?>(resourceObj, ['description']);
+
+      final relativeToRoot = fileSystem.path.relative(
+        fullPath,
+        from: fileSystem.path.fromUri(extension.rootUri),
+      );
+      final uriRelativePath = relativeToRoot.replaceAll(
+        fileSystem.path.separator,
+        p.url.separator,
+      );
+      final uri = 'package-root:${extension.package}/$uriRelativePath';
+
+      final resource = Resource(
+        uri: uri,
+        name: name,
+        description: title != null
+            ? '$title: ${description ?? ''}'
+            : description,
+      );
+
+      if (_dynamicallyAddedResources.add(uri)) {
+        addResource(
+          resource,
+          (request) => _readResource(request, resource, fullPath),
+        );
+      } else {
+        updateResource(resource);
+      }
+      return resource;
+    } catch (e) {
+      log(
+        LoggingLevel.warning,
+        'Error loading resource from package: ${extension.package}:\n$e',
+      );
       return null;
     }
-
-    final name = resourceObj['name'] as String? ?? p.url.basename(rawPath);
-    final title = resourceObj['title'] as String?;
-    final description = resourceObj['description'] as String?;
-
-    final relativeToRoot = fileSystem.path.relative(
-      fullPath,
-      from: fileSystem.path.fromUri(extension.rootUri),
-    );
-    final uriRelativePath = relativeToRoot.replaceAll(
-      fileSystem.path.separator,
-      p.url.separator,
-    );
-    final uri = 'package-root:${extension.package}/$uriRelativePath';
-
-    final resource = Resource(
-      uri: uri,
-      name: name,
-      description: title != null ? '$title: ${description ?? ''}' : description,
-    );
-
-    if (_dynamicallyAddedResources.add(uri)) {
-      addResource(
-        resource,
-        (request) => _readResource(request, resource, fullPath),
-      );
-    } else {
-      updateResource(resource);
-    }
-    return resource;
   }
 
   /// Read a [resource] given [request] and [fullPath] to the resource.

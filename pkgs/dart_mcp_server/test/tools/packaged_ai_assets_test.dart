@@ -14,7 +14,6 @@ import '../test_harness.dart';
 
 void main() {
   test('discovers resources and prompts from config.yaml', () async {
-    // Scaffold a project with package-config and extensions/mcp/config.yaml
     final appDir = createApp(
       '''
 resources:
@@ -35,12 +34,10 @@ prompts:
 
     final testHarness = await TestHarness.start(cliArgs: [], inProcess: true);
 
-    // Initialize the client so the roots can be discovered.
     final client = testHarness.mcpClient;
     client.addRoot(Root(uri: appDir.io.uri.toString()));
-
-    // Give it a moment to process the listRoots call and discover assets
-    await Future<void>.delayed(const Duration(seconds: 1));
+    // Allow the root change notification to be delivered.
+    await pumpEventQueue();
 
     final resourcesResult = await testHarness.mcpServerConnection
         .listResources();
@@ -103,10 +100,10 @@ Arg3 was not passed.
     final testHarness = await TestHarness.start(cliArgs: [], inProcess: true);
     final client = testHarness.mcpClient;
     client.addRoot(Root(uri: appDir.io.uri.toString()));
+    // Allow the root change notification to be delivered.
+    await pumpEventQueue();
 
-    // Wait for discovery
-    await Future<void>.delayed(const Duration(seconds: 1));
-
+    await testHarness.mcpServerConnection.listPrompts();
     final getPromptResult = await testHarness.mcpServerConnection.getPrompt(
       GetPromptRequest(
         name: 'my_prompt',
@@ -136,9 +133,9 @@ prompts:
     final testHarness = await TestHarness.start(cliArgs: [], inProcess: true);
     final client = testHarness.mcpClient;
     client.addRoot(Root(uri: appDir.io.uri.toString()));
-
-    // Wait for discovery
-    await Future<void>.delayed(const Duration(seconds: 1));
+    // Allow the root change notification to be delivered.
+    await pumpEventQueue();
+    await testHarness.mcpServerConnection.listPrompts();
 
     expect(
       () => testHarness.mcpServerConnection.getPrompt(
@@ -152,6 +149,47 @@ prompts:
         ),
       ),
     );
+  });
+
+  group('validation', () {
+    test('invalid resource/prompt yaml is logged', () async {
+      final appDir = createApp('''
+prompts: "hello"
+resources: "hello"
+''');
+      await appDir.create();
+
+      final testHarness = await TestHarness.start(cliArgs: [], inProcess: true);
+      final client = testHarness.mcpClient;
+      final server = testHarness.mcpServerConnection;
+
+      final logStream = server.onLog;
+      client.addRoot(Root(uri: appDir.io.uri.toString()));
+      // Allow the root change notification to be delivered.
+      await pumpEventQueue();
+      logStream.listen(print);
+
+      expect(
+        logStream,
+        emitsInAnyOrder([
+          isA<LoggingMessageNotification>()
+              .having((l) => l.level, 'level', LoggingLevel.warning)
+              .having(
+                (l) => l.data,
+                'data',
+                contains('Package my_app has an invalid prompts config'),
+              ),
+
+          isA<LoggingMessageNotification>()
+              .having((l) => l.level, 'level', LoggingLevel.warning)
+              .having(
+                (l) => l.data,
+                'data',
+                contains('Package my_app has an invalid resources config'),
+              ),
+        ]),
+      );
+    });
   });
 }
 
