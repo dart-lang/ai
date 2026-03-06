@@ -48,10 +48,7 @@ prompts:
     final myResource = resourcesResult.resources.firstWhere(
       (r) => r.name == 'my_resource',
     );
-    expect(
-      myResource.uri,
-      'package-root:my_app/extension/mcp/resource.md',
-    );
+    expect(myResource.uri, 'package-root:my_app/extension/mcp/resource.md');
 
     final readResourceResult = await testHarness.mcpServerConnection
         .readResource(ReadResourceRequest(uri: myResource.uri));
@@ -155,7 +152,6 @@ prompts:
         ),
       ),
     );
-
   });
 }
 

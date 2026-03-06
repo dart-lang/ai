@@ -119,11 +119,8 @@ base mixin PackagedAiAssetsSupport
             continue;
           }
 
-          final packageRootDir = fileSystem.directory(
-            extension.rootUri,
-          );
           final mcpExtensionDir = fileSystem.path.join(
-            packageRootDir.path,
+            fileSystem.path.fromUri(extension.rootUri),
             'extension',
             'mcp',
           );
@@ -132,174 +129,31 @@ base mixin PackagedAiAssetsSupport
           final resources = config['resources'];
           if (resources is List) {
             for (final resourceObj in resources) {
-              if (resourceObj is! Map) continue;
+              if (resourceObj is! Map<Object?, Object?>) continue;
 
-              final isPrivate = resourceObj['visibility'] == 'private';
-              final rawPath = resourceObj['path'] as String;
-
-              // The config path is always in URL format, so we need to split
-              // it by the URL separator and join using the current file system
-              // semantics.
-              final fullPath = fileSystem.path.joinAll([
-                mcpExtensionDir,
-                ...rawPath.split(p.url.separator),
-              ]);
-
-              if (isPrivate &&
-                  !knownRoots.any(
-                    (r) => isUnderRoot(r, fullPath, fileSystem),
-                  )) {
-                continue;
-              }
-
-              final name =
-                  resourceObj['name'] as String? ?? p.url.basename(rawPath);
-              final title = resourceObj['title'] as String?;
-              final description = resourceObj['description'] as String?;
-
-              final relativeToRoot = fileSystem.path.relative(
-                fullPath,
-                from: packageRootDir.path,
-              );
-              final uriRelativePath = relativeToRoot.replaceAll(
-                fileSystem.path.separator,
-                p.url.separator,
-              );
-              final uri = 
-                  'package-root:${extension.package}/$uriRelativePath';
-
-              final resource = Resource(
-                uri: uri,
-                name: name,
-                description: title != null
-                    ? '$title: ${description ?? ''}'
-                    : description,
-              );
-
-              newResources.add(uri);
-              if (_dynamicallyAddedResources.add(uri)) {
-                addResource(resource, (request) async {
-                  final targetFile = fileSystem.file(fullPath);
-                  if (!targetFile.existsSync()) {
-                    throw ArgumentError('Resource file not found: $uri');
-                  }
-
-                  final mimeType = lookupMimeType(fullPath) ?? '';
-                  ResourceContents contentResult;
-                  try {
-                    // Try to read as text first, then fall back on a
-                    // binary blob if that fails.
-                    final contents = await targetFile.readAsString();
-                    contentResult = TextResourceContents(
-                      uri: uri,
-                      text: contents,
-                      mimeType: mimeType.isEmpty ? null : mimeType,
-                    );
-                  } catch (_) {
-                    final bytes = await targetFile.readAsBytes();
-                    contentResult = BlobResourceContents(
-                      uri: uri,
-                      blob: base64Encode(bytes),
-                      mimeType: mimeType.isEmpty ? null : mimeType,
-                    );
-                  }
-                  return ReadResourceResult(contents: [contentResult]);
-                });
-              } else {
-                updateResource(resource);
+              if (_tryAddResource(
+                    resourceObj,
+                    mcpExtensionDir,
+                    knownRoots,
+                    extension,
+                  )
+                  case final resource?) {
+                newResources.add(resource.uri);
               }
             }
           }
 
           final prompts = config['prompts'];
-          if (prompts is List) {
+          if (prompts is List<Object?>) {
             for (final promptObj in prompts) {
-              if (promptObj is! Map) {
-                log(
-                  LoggingLevel.warning,
-                  'Invalid prompt object from package '
-                  '${extension.package}: $promptObj',
-                );
-                continue;
-              }
-
-              final isPrivate = promptObj['visibility'] == 'private';
-              if (isPrivate &&
-                  !knownRoots.any(
-                    (r) => packageRootDir.path.startsWith(
-                      Uri.parse(r.uri).toFilePath(),
-                    ),
-                  )) {
-                continue;
-              }
-
-              final rawPath = promptObj['path'] as String;
-              final fullPath = p.join(mcpExtensionDir, rawPath);
-              final name = promptObj['name'] as String;
-              final title = promptObj['title'] as String?;
-              final description = promptObj['description'] as String?;
-              final promptArguments = (promptObj['arguments'] as List?)
-                  ?.map((entry) {
-                    if (entry is! Map) {
-                      log(
-                        LoggingLevel.warning,
-                        'Invalid prompt argument object from package '
-                        '${extension.package}: $entry',
-                      );
-                      return null;
-                    }
-                    return PromptArgument.fromMap(
-                      entry.cast<String, Object?>(),
-                    );
-                  })
-                  // Can't use .nonNulls because PromptArgument technically is
-                  // an Object?, and we just get Iterable<Object?> back.
-                  .whereType<PromptArgument>()
-                  .toList();
-
-              final prompt = Prompt(
-                name: name,
-                title: title,
-                description: description,
-                arguments: promptArguments,
-              )..categories = [FeatureCategory.packageDeps];
-
-              newPrompts.add(name);
-              if (_dynamicallyAddedPrompts.add(name)) {
-                addPrompt(prompt, (request) async {
-                  final targetFile = fileSystem.file(fullPath);
-                  if (!targetFile.existsSync()) {
-                    throw ArgumentError('Prompt file not found');
-                  }
-                  final mapArgs = request.arguments ?? <String, Object?>{};
-                  for (final arg in (prompt.arguments ?? []).where(
-                    (arg) => arg.required == true,
-                  )) {
-                    if (!mapArgs.containsKey(arg.name)) {
-                      throw ArgumentError(
-                        'Missing required prompt argument: ${arg.name}',
-                      );
-                    }
-                  }
-                  final templateContent = await targetFile.readAsString();
-                  final renderedContent = renderMustachio(
-                    templateContent,
-                    mapArgs,
-                  );
-
-                  return GetPromptResult(
-                    description: description,
-                    messages: [
-                      PromptMessage(
-                        role: Role.user,
-                        content: TextContent(text: renderedContent),
-                      ),
-                    ],
-                  );
-                });
-              } else {
-                // TODO: If the prompt changed, remove it and add it back.
-                // Prompts do not support change notifications.
+              if (_tryAddPrompt(
+                    promptObj,
+                    mcpExtensionDir,
+                    knownRoots,
+                    extension,
+                  )
+                  case final prompt?) {
+                newPrompts.add(prompt.name);
               }
             }
           }
@@ -330,6 +184,191 @@ base mixin PackagedAiAssetsSupport
     }
   }
 
+  /// Try to add a prompt from the given configuration object.
+  ///
+  /// Returns the prompt if it was loaded, null otherwise.
+  Prompt? _tryAddPrompt(
+    Object? promptObj,
+    String mcpExtensionDir,
+    Iterable<Root> knownRoots,
+    Extension extension,
+  ) {
+    if (promptObj is! Map<Object?, Object?>) {
+      log(
+        LoggingLevel.warning,
+        'Invalid prompt object from package '
+        '${extension.package}: $promptObj',
+      );
+      return null;
+    }
+    final isPrivate = promptObj['visibility'] == 'private';
+    final rawPath = promptObj['path'] as String;
+    final fullPath = fileSystem.path.joinAll([
+      mcpExtensionDir,
+      ...rawPath.split(p.url.separator),
+    ]);
+    if (isPrivate &&
+        !knownRoots.any((r) => isUnderRoot(r, fullPath, fileSystem))) {
+      return null;
+    }
+
+    final name = promptObj['name'] as String;
+    final title = promptObj['title'] as String?;
+    final description = promptObj['description'] as String?;
+    final promptArguments = (promptObj['arguments'] as List?)
+        ?.map((entry) {
+          if (entry is! Map) {
+            log(
+              LoggingLevel.warning,
+              'Invalid prompt argument object from package '
+              '${extension.package}: $entry',
+            );
+            return null;
+          }
+          return PromptArgument.fromMap(entry.cast<String, Object?>());
+        })
+        // Can't use .nonNulls because PromptArgument technically is
+        // an Object?, and we just get Iterable<Object?> back.
+        .whereType<PromptArgument>()
+        .toList();
+
+    final prompt = Prompt(
+      name: name,
+      title: title,
+      description: description,
+      arguments: promptArguments,
+    )..categories = [FeatureCategory.packageDeps];
+
+    if (_dynamicallyAddedPrompts.add(name)) {
+      addPrompt(prompt, (request) => _readPrompt(request, prompt, fullPath));
+    } else {
+      // TODO: If the prompt changed, remove it and add it back.
+      // Prompts do not support change notifications.
+    }
+    return prompt;
+  }
+
+  /// Read a [prompt] given [request] and [fullPath] to the markdown file.
+  Future<GetPromptResult> _readPrompt(
+    GetPromptRequest request,
+    Prompt prompt,
+    String fullPath,
+  ) async {
+    final targetFile = fileSystem.file(fullPath);
+    if (!targetFile.existsSync()) {
+      throw ArgumentError('Prompt file not found');
+    }
+    final mapArgs = request.arguments ?? <String, Object?>{};
+    for (final arg in (prompt.arguments ?? []).where(
+      (arg) => arg.required == true,
+    )) {
+      if (!mapArgs.containsKey(arg.name)) {
+        throw ArgumentError('Missing required prompt argument: ${arg.name}');
+      }
+    }
+    final templateContent = await targetFile.readAsString();
+    final renderedContent = renderMustachio(templateContent, mapArgs);
+
+    return GetPromptResult(
+      description: prompt.description,
+      messages: [
+        PromptMessage(
+          role: Role.user,
+          content: TextContent(text: renderedContent),
+        ),
+      ],
+    );
+  }
+
+  /// Try to add a resource from the given configuration object.
+  ///
+  /// Returns the resource if it was loaded, null otherwise.
+  Resource? _tryAddResource(
+    Map<Object?, Object?> resourceObj,
+    String mcpExtensionDir,
+    Iterable<Root> knownRoots,
+    Extension extension,
+  ) {
+    final isPrivate = resourceObj['visibility'] == 'private';
+    final rawPath = resourceObj['path'] as String;
+
+    // The config path is always in URL format, so we need to split
+    // it by the URL separator and join using the current file system
+    // semantics.
+    final fullPath = fileSystem.path.joinAll([
+      mcpExtensionDir,
+      ...rawPath.split(p.url.separator),
+    ]);
+
+    if (isPrivate &&
+        !knownRoots.any((r) => isUnderRoot(r, fullPath, fileSystem))) {
+      return null;
+    }
+
+    final name = resourceObj['name'] as String? ?? p.url.basename(rawPath);
+    final title = resourceObj['title'] as String?;
+    final description = resourceObj['description'] as String?;
+
+    final relativeToRoot = fileSystem.path.relative(
+      fullPath,
+      from: fileSystem.path.fromUri(extension.rootUri),
+    );
+    final uriRelativePath = relativeToRoot.replaceAll(
+      fileSystem.path.separator,
+      p.url.separator,
+    );
+    final uri = 'package-root:${extension.package}/$uriRelativePath';
+
+    final resource = Resource(
+      uri: uri,
+      name: name,
+      description: title != null ? '$title: ${description ?? ''}' : description,
+    );
+
+    if (_dynamicallyAddedResources.add(uri)) {
+      addResource(
+        resource,
+        (request) => _readResource(request, resource, fullPath),
+      );
+    } else {
+      updateResource(resource);
+    }
+    return resource;
+  }
+
+  /// Read a [resource] given [request] and [fullPath] to the resource.
+  Future<ReadResourceResult> _readResource(
+    ReadResourceRequest request,
+    Resource resource,
+    String fullPath,
+  ) async {
+    final targetFile = fileSystem.file(fullPath);
+    if (!targetFile.existsSync()) {
+      throw ArgumentError('Resource file not found: ${resource.uri}');
+    }
+
+    final mimeType = lookupMimeType(fullPath) ?? '';
+    ResourceContents contentResult;
+    try {
+      // Try to read as text first, then fall back on a
+      // binary blob if that fails.
+      final contents = await targetFile.readAsString();
+      contentResult = TextResourceContents(
+        uri: resource.uri,
+        text: contents,
+        mimeType: mimeType.isEmpty ? null : mimeType,
+      );
+    } catch (_) {
+      final bytes = await targetFile.readAsBytes();
+      contentResult = BlobResourceContents(
+        uri: resource.uri,
+        blob: base64Encode(bytes),
+        mimeType: mimeType.isEmpty ? null : mimeType,
+      );
+    }
+    return ReadResourceResult(contents: [contentResult]);
+  }
+
   /// Recursively find all directories containing a `pubspec.yaml` file.
   Stream<Directory> _findPubspecDirectories(
     Directory dir,
@@ -340,13 +379,13 @@ base mixin PackagedAiAssetsSupport
     if (depth > maxDepth) return;
     try {
       final hasPubspec = fileSystem
-          .file(p.join(dir.path, 'pubspec.yaml'))
+          .file(dir.childFile('pubspec.yaml'))
           .existsSync();
       if (hasPubspec) yield dir;
 
       await for (final entity in dir.list(followLinks: false)) {
         if (entity is Directory) {
-          final name = p.basename(entity.path);
+          final name = fileSystem.path.basename(entity.path);
           if (name.startsWith('.') ||
               name == 'build' ||
               name == 'ios' ||
