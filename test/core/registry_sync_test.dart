@@ -27,16 +27,16 @@ void main() {
           equals(0),
         );
         // Required for git commit in CI (no global user.name/user.email).
-        await Process.run(
-          'git',
-          ['config', 'user.email', 'test@test'],
-          workingDirectory: localPath,
-        );
-        await Process.run(
-          'git',
-          ['config', 'user.name', 'Test'],
-          workingDirectory: localPath,
-        );
+        await Process.run('git', [
+          'config',
+          'user.email',
+          'test@test',
+        ], workingDirectory: localPath);
+        await Process.run('git', [
+          'config',
+          'user.name',
+          'Test',
+        ], workingDirectory: localPath);
         await Process.run('git', ['add', '.'], workingDirectory: localPath);
         expect(
           (await Process.run('git', [
