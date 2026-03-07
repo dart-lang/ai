@@ -1,21 +1,11 @@
-import '../../models/skill_metadata.dart';
 import '../ide.dart';
-import 'rules_adapter.dart';
+import 'agent_skills_adapter.dart';
 
 /// GitHub Copilot adapter.
 ///
-/// Installs skills to `.github/instructions/<pkg>-<skill>.instructions.md`.
-class CopilotAdapter extends RulesAdapter {
+/// Installs skills to `.github/skills/<skill-name>/` per
+/// [Copilot agent skills](https://docs.github.com/en/copilot/concepts/agents/about-agent-skills).
+class CopilotAdapter extends AgentSkillsAdapter {
   CopilotAdapter(String projectPath)
-    : super(
-        skillsDirectory: Ide.copilot.skillsPath(projectPath),
-        fileExtension: '.instructions.md',
-        headerBuilder: _buildHeader,
-      );
-
-  static String _buildHeader(SkillMetadata metadata) {
-    return '---\napplyTo: "**"\n---\n'
-        '<!-- managed by skills CLI -->\n'
-        '<!-- skill: ${metadata.name} -->\n\n';
-  }
+    : super(Ide.copilot.skillsPath(projectPath));
 }

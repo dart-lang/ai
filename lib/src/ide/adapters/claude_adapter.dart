@@ -1,14 +1,10 @@
 import '../ide.dart';
-import 'rules_adapter.dart';
+import 'agent_skills_adapter.dart';
 
 /// Claude Code adapter.
 ///
-/// Installs skills to `.claude/rules/<pkg>-<skill>.md`.
-class ClaudeAdapter extends RulesAdapter {
-  ClaudeAdapter(String projectPath)
-    : super(
-        skillsDirectory: Ide.claude.skillsPath(projectPath),
-        fileExtension: '.md',
-        headerBuilder: defaultManagedHeader,
-      );
+/// Installs skills to `.claude/skills/<skill-name>/` per
+/// [Claude Code skills](https://code.claude.com/docs/en/skills).
+class ClaudeAdapter extends AgentSkillsAdapter {
+  ClaudeAdapter(String projectPath) : super(Ide.claude.skillsPath(projectPath));
 }

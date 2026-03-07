@@ -383,7 +383,7 @@ Instructions for debugging.
     setUp(() async {
       await d.dir('project3', [
         d.dir('.cursor', [d.dir('skills')]),
-        d.dir('.claude', [d.dir('rules')]),
+        d.dir('.claude', [d.dir('skills')]),
       ]).create();
 
       rootPath = d.path('project3');
@@ -418,15 +418,15 @@ Instructions for debugging.
       expect(manifest.allSkills, hasLength(6));
     });
 
-    test('when removing all then both Agent Skills and Rules files are '
-        'cleaned up', () async {
-      // Verify mixed format files exist.
+    test('when removing all then both Cursor and Claude skill directories '
+        'are cleaned up', () async {
+      // Verify skill directories exist.
       expect(
         Directory('$rootPath/.cursor/skills/pkg_a-code-gen').existsSync(),
         isTrue,
       );
       expect(
-        File('$rootPath/.claude/rules/pkg_a-code-gen.md').existsSync(),
+        Directory('$rootPath/.claude/skills/pkg_a-code-gen').existsSync(),
         isTrue,
       );
 
@@ -445,13 +445,12 @@ Instructions for debugging.
         isFalse,
       );
 
-      // Rules files cleaned.
       expect(
-        File('$rootPath/.claude/rules/pkg_a-code-gen.md').existsSync(),
+        Directory('$rootPath/.claude/skills/pkg_a-code-gen').existsSync(),
         isFalse,
       );
       expect(
-        File('$rootPath/.claude/rules/pkg_b-testing.md').existsSync(),
+        Directory('$rootPath/.claude/skills/pkg_b-testing').existsSync(),
         isFalse,
       );
 

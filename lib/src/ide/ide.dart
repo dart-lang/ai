@@ -6,9 +6,9 @@ import 'package:path/path.dart' as p;
 enum Ide {
   cursor('cursor', '.cursor/skills'),
   antigravity('antigravity', '.agent/skills'),
-  claude('claude', '.claude/rules'),
-  copilot('copilot', '.github/instructions'),
-  cline('cline', '.clinerules');
+  claude('claude', '.claude/skills'),
+  copilot('copilot', '.github/skills'),
+  cline('cline', '.cline/skills');
 
   final String cliName;
 
@@ -31,7 +31,9 @@ enum Ide {
       Ide.cursor => Directory(p.join(projectPath, '.cursor')).existsSync(),
       Ide.antigravity => Directory(p.join(projectPath, '.agent')).existsSync(),
       Ide.claude => Directory(p.join(projectPath, '.claude')).existsSync(),
-      Ide.cline => Directory(p.join(projectPath, '.clinerules')).existsSync(),
+      Ide.cline =>
+        Directory(p.join(projectPath, '.cline')).existsSync() ||
+            Directory(p.join(projectPath, '.clinerules')).existsSync(),
       Ide.copilot => false,
     };
   }

@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
 import 'package:skills/src/core/skill_scanner.dart';
 import 'package:skills/src/ide/adapters/copilot_adapter.dart';
 import 'package:test/test.dart';
@@ -11,7 +12,7 @@ void main() {
 
     setUp(() async {
       await d.dir('project', [
-        d.dir('.github', [d.dir('instructions')]),
+        d.dir('.github', [d.dir('skills')]),
       ]).create();
 
       adapter = CopilotAdapter(d.path('project'));
@@ -45,49 +46,67 @@ Write tests like this.
         );
       });
 
-      test('when installing then creates .instructions.md file in '
-          '.github/instructions/', () async {
-        await adapter.installSkill(skill);
-
-        final file = File(
-          d.path(
-            'project/.github/instructions/'
-            'copilot_pkg-testing.instructions.md',
-          ),
-        );
-        expect(await file.exists(), isTrue);
-      });
-
       test(
-        'when installing then file has copilot frontmatter and body',
+        'when installing then creates skill directory in .github/skills/',
         () async {
-          await adapter.installSkill(skill);
+          final name = await adapter.installSkill(skill);
 
-          final content = await File(
-            d.path(
-              'project/.github/instructions/'
-              'copilot_pkg-testing.instructions.md',
+          expect(name, equals('copilot_pkg-testing'));
+
+          final installed = Directory(
+            p.join(
+              d.path('project'),
+              '.github',
+              'skills',
+              'copilot_pkg-testing',
             ),
-          ).readAsString();
-
-          expect(content, contains('applyTo: "**"'));
-          expect(content, contains('<!-- managed by skills CLI -->'));
-          expect(content, contains('# Testing'));
+          );
+          expect(await installed.exists(), isTrue);
         },
       );
+
+      test('when installing then SKILL.md is copied unchanged', () async {
+        await adapter.installSkill(skill);
+
+        final content = await File(
+          p.join(
+            d.path('project'),
+            '.github',
+            'skills',
+            'copilot_pkg-testing',
+            'SKILL.md',
+          ),
+        ).readAsString();
+
+        expect(content, contains('name: copilot_pkg-testing'));
+        expect(content, contains('# Testing'));
+      });
     });
 
-    test('when removing then deletes the instructions file', () async {
-      final target = File(
-        d.path('project/.github/instructions/pkg-skill.instructions.md'),
-      );
-      await target.create(recursive: true);
-      await target.writeAsString('content');
+    test('when removing then deletes the skill directory', () async {
+      await d.dir('project', [
+        d.dir('.github', [
+          d.dir('skills', [
+            d.dir('pkg-skill', [
+              d.file(
+                'SKILL.md',
+                '---\nname: pkg-skill\n'
+                    'description: x\n---\nbody',
+              ),
+            ]),
+          ]),
+        ]),
+      ]).create();
 
       adapter = CopilotAdapter(d.path('project'));
       await adapter.removeSkill('pkg-skill');
 
-      expect(await target.exists(), isFalse);
+      expect(
+        await Directory(
+          p.join(d.path('project'), '.github', 'skills', 'pkg-skill'),
+        ).exists(),
+        isFalse,
+      );
     });
   });
 }

@@ -167,11 +167,13 @@ void main() {
           ]),
         ]),
         d.dir('.claude', [
-          d.dir('rules', [
-            d.file(
-              'pkg-skill-a.md',
-              '<!-- managed by skills CLI -->\n<!-- skill: pkg-skill-a -->\n\nBody A\n',
-            ),
+          d.dir('skills', [
+            d.dir('pkg-skill-a', [
+              d.file(
+                'SKILL.md',
+                '---\nname: pkg-skill-a\ndescription: a\n---\nBody A',
+              ),
+            ]),
           ]),
         ]),
       ]).create();
@@ -220,15 +222,15 @@ void main() {
         isFalse,
       );
       expect(
-        File('$projectPath/.claude/rules/pkg-skill-a.md').existsSync(),
+        Directory('$projectPath/.claude/skills/pkg-skill-a').existsSync(),
         isTrue,
       );
       expect(updated.allIdes, equals(['claude']));
       expect(updated.packagesForIde('claude')['pkg']!.skills, hasLength(1));
     });
 
-    test('when removing all IDEs then both Cursor directories and Claude '
-        'rule files are deleted', () async {
+    test('when removing all IDEs then both Cursor and Claude skill '
+        'directories are deleted', () async {
       final cursorAdapter = CursorAdapter(projectPath);
       final claudeAdapter = ClaudeAdapter(projectPath);
 
@@ -247,15 +249,17 @@ void main() {
         isFalse,
       );
       expect(
-        File('$projectPath/.claude/rules/pkg-skill-a.md').existsSync(),
+        Directory('$projectPath/.claude/skills/pkg-skill-a').existsSync(),
         isFalse,
       );
       expect(updated.isEmpty, isTrue);
     });
 
-    test('when Claude file is manually deleted then remove still cleans '
-        'manifest without error', () async {
-      File('$projectPath/.claude/rules/pkg-skill-a.md').deleteSync();
+    test('when Claude skill directory is manually deleted then remove still '
+        'cleans manifest without error', () async {
+      Directory(
+        '$projectPath/.claude/skills/pkg-skill-a',
+      ).deleteSync(recursive: true);
 
       final claudeAdapter = ClaudeAdapter(projectPath);
       for (final skill in manifest.packagesForIde('claude')['pkg']!.skills) {

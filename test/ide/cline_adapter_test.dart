@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
 import 'package:skills/src/core/skill_scanner.dart';
 import 'package:skills/src/ide/adapters/cline_adapter.dart';
 import 'package:test/test.dart';
@@ -10,7 +11,9 @@ void main() {
     late ClineAdapter adapter;
 
     setUp(() async {
-      await d.dir('project', [d.dir('.clinerules')]).create();
+      await d.dir('project', [
+        d.dir('.cline', [d.dir('skills')]),
+      ]).create();
 
       adapter = ClineAdapter(d.path('project'));
     });
@@ -43,40 +46,67 @@ Debugging steps.
         );
       });
 
-      test('when installing then creates .md file in .clinerules/', () async {
-        await adapter.installSkill(skill);
-
-        final ruleFile = File(
-          d.path('project/.clinerules/cline_pkg-debugging.md'),
-        );
-        expect(await ruleFile.exists(), isTrue);
-      });
-
       test(
-        'when installing then file contains managed header and body',
+        'when installing then creates skill directory in .cline/skills/',
         () async {
-          await adapter.installSkill(skill);
+          final name = await adapter.installSkill(skill);
 
-          final content = await File(
-            d.path('project/.clinerules/cline_pkg-debugging.md'),
-          ).readAsString();
+          expect(name, equals('cline_pkg-debugging'));
 
-          expect(content, contains('<!-- managed by skills CLI -->'));
-          expect(content, contains('# Debugging'));
-          expect(content, contains('Debugging steps.'));
+          final installed = Directory(
+            p.join(
+              d.path('project'),
+              '.cline',
+              'skills',
+              'cline_pkg-debugging',
+            ),
+          );
+          expect(await installed.exists(), isTrue);
         },
       );
+
+      test('when installing then SKILL.md is copied unchanged', () async {
+        await adapter.installSkill(skill);
+
+        final content = await File(
+          p.join(
+            d.path('project'),
+            '.cline',
+            'skills',
+            'cline_pkg-debugging',
+            'SKILL.md',
+          ),
+        ).readAsString();
+
+        expect(content, contains('name: cline_pkg-debugging'));
+        expect(content, contains('# Debugging'));
+      });
     });
 
-    test('when removing then deletes the rule file', () async {
-      final target = File(d.path('project/.clinerules/pkg-skill.md'));
-      await target.create(recursive: true);
-      await target.writeAsString('content');
+    test('when removing then deletes the skill directory', () async {
+      await d.dir('project', [
+        d.dir('.cline', [
+          d.dir('skills', [
+            d.dir('pkg-skill', [
+              d.file(
+                'SKILL.md',
+                '---\nname: pkg-skill\n'
+                    'description: x\n---\nbody',
+              ),
+            ]),
+          ]),
+        ]),
+      ]).create();
 
       adapter = ClineAdapter(d.path('project'));
       await adapter.removeSkill('pkg-skill');
 
-      expect(await target.exists(), isFalse);
+      expect(
+        await Directory(
+          p.join(d.path('project'), '.cline', 'skills', 'pkg-skill'),
+        ).exists(),
+        isFalse,
+      );
     });
   });
 }

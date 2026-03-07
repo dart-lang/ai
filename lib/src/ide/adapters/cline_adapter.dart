@@ -1,14 +1,10 @@
 import '../ide.dart';
-import 'rules_adapter.dart';
+import 'agent_skills_adapter.dart';
 
-/// Cline adapter.
+/// Cline adapter (experimental).
 ///
-/// Installs skills to `.clinerules/<pkg>-<skill>.md`.
-class ClineAdapter extends RulesAdapter {
-  ClineAdapter(String projectPath)
-    : super(
-        skillsDirectory: Ide.cline.skillsPath(projectPath),
-        fileExtension: '.md',
-        headerBuilder: defaultManagedHeader,
-      );
+/// Installs skills to `.cline/skills/<skill-name>/` per
+/// [Cline skills](https://docs.cline.bot/customization/skills).
+class ClineAdapter extends AgentSkillsAdapter {
+  ClineAdapter(String projectPath) : super(Ide.cline.skillsPath(projectPath));
 }

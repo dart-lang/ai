@@ -57,23 +57,17 @@ The CLI will automatically run `pub get` if needed, scan your dependency package
 
 The CLI auto-detects your IDE from project directory markers. If multiple IDEs are detected, it installs to all of them. You can also pass `--ide` explicitly or set the `SKILLS_IDE` environment variable to target a single IDE.
 
-| IDE | Flag | Install location | Format |
-| --- | ---- | ---------------- | ------ |
-| Antigravity | `--ide antigravity` | `.agent/skills/` | Agent Skills (full directory) |
-| Cursor | `--ide cursor` | `.cursor/skills/` | Agent Skills (full directory) |
-| Claude Code | `--ide claude` | `.claude/rules/` | Markdown rule file |
-| GitHub Copilot | `--ide copilot` | `.github/instructions/` | `.instructions.md` file |
-| Cline | `--ide cline` | `.clinerules/` | Markdown rule file |
+| IDE | Flag | Install location | Spec |
+| --- | ---- | ---------------- | ---- |
+| Cursor | `--ide cursor` | `.cursor/skills/` | Agent Skills |
+| Antigravity | `--ide antigravity` | `.agent/skills/` | Agent Skills |
+| Claude Code | `--ide claude` | [`.claude/skills/`](https://code.claude.com/docs/en/skills) | Agent Skills |
+| Cline (experimental) | `--ide cline` | [`.cline/skills/`](https://docs.cline.bot/customization/skills) | Agent Skills |
+| GitHub Copilot | `--ide copilot` | [`.github/skills/`](https://docs.github.com/en/copilot/concepts/agents/about-agent-skills) | Agent Skills |
 
-_Note that you need to install skills for GitHub Copilot using the `--ide copilot` flag. It will not be automatically added._
+GitHub Copilot is not auto-detected (`.github/` is often used for other purposes). Use `--ide copilot` to install skills for Copilot explicitly.
 
-### IDE format differences
-
-**Cursor** and **Antigravity** support the full Agent Skills standard. The entire skill directory is copied as-is, including `scripts/`, `references/`, and `assets/` subdirectories.
-
-**Claude Code**, **GitHub Copilot**, and **Cline** use their own rules/instructions format. For these IDEs, only the markdown body from `SKILL.md` is extracted and written as a single rule file. The `scripts/`, `references/`, and `assets/` directories are **not** installed for these IDEs.
-
-If your package needs to support all IDEs, make sure the essential instructions are self-contained in the `SKILL.md` body and don't depend on supporting files.
+All five IDEs receive the full Agent Skills directory (SKILL.md plus `scripts/`, `references/`, `assets/`) in each tool’s documented location.
 
 ## For package maintainers
 
@@ -138,19 +132,14 @@ The `description` tells the AI when to activate the skill -- make it specific an
 
 ### Supporting all IDEs
 
-Cursor and Antigravity receive the full skill directory, including `scripts/`, `references/`, and `assets/`. Claude Code, GitHub Copilot, and Cline only receive the markdown body from `SKILL.md`.
-
-To maximize compatibility:
-
-- Put all essential instructions directly in `SKILL.md`. This is the only content that reaches every IDE.
-- Use `scripts/`, `references/`, and `assets/` for supplementary material that enhances the skill on IDEs that support it, but don't make the skill depend on them.
+All IDEs receive the full skill directory (SKILL.md plus `scripts/`, `references/`, `assets/`). Write skills once and they install to each IDE’s spec-defined location.
 
 ### Best practices
 
 - **Keep skills focused.** One skill per major feature area. Don't dump everything into a single skill.
 - **Write for the AI, not the human.** Skills are instructions for the coding assistant. Be direct and prescriptive.
 - **Include examples.** Show correct usage patterns. The AI learns best from concrete examples.
-- **Keep SKILL.md under 500 lines.** Move detailed reference material into `references/` files for IDEs that support them.
+- **Keep SKILL.md under 500 lines.** Move detailed reference material into `references/` files; all supported IDEs receive the full skill directory.
 - **Version your skills with your package.** When you change APIs, update the skills to match.
 
 ### What happens when users run `skills get`

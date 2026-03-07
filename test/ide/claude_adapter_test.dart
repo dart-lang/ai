@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
 import 'package:skills/src/core/skill_scanner.dart';
 import 'package:skills/src/ide/adapters/claude_adapter.dart';
 import 'package:test/test.dart';
@@ -11,7 +12,7 @@ void main() {
 
     setUp(() async {
       await d.dir('project', [
-        d.dir('.claude', [d.dir('rules')]),
+        d.dir('.claude', [d.dir('skills')]),
       ]).create();
 
       adapter = ClaudeAdapter(d.path('project'));
@@ -45,52 +46,65 @@ Review guidelines here.
         );
       });
 
-      test('when installing then creates .md file in .claude/rules/', () async {
+      test(
+        'when installing then creates skill directory in .claude/skills/',
+        () async {
+          final name = await adapter.installSkill(skill);
+
+          expect(name, equals('claude_pkg-code-review'));
+
+          final installed = Directory(
+            p.join(
+              d.path('project'),
+              '.claude',
+              'skills',
+              'claude_pkg-code-review',
+            ),
+          );
+          expect(await installed.exists(), isTrue);
+        },
+      );
+
+      test('when installing then SKILL.md is copied unchanged', () async {
         await adapter.installSkill(skill);
 
-        final ruleFile = File(
-          d.path('project/.claude/rules/claude_pkg-code-review.md'),
-        );
-        expect(await ruleFile.exists(), isTrue);
+        final content = await File(
+          p.join(
+            d.path('project'),
+            '.claude',
+            'skills',
+            'claude_pkg-code-review',
+            'SKILL.md',
+          ),
+        ).readAsString();
+
+        expect(content, contains('name: claude_pkg-code-review'));
+        expect(content, contains('# Code Review'));
       });
-
-      test(
-        'when installing then file contains skill body with header',
-        () async {
-          await adapter.installSkill(skill);
-
-          final content = await File(
-            d.path('project/.claude/rules/claude_pkg-code-review.md'),
-          ).readAsString();
-
-          expect(content, contains('<!-- managed by skills CLI -->'));
-          expect(content, contains('# Code Review'));
-          expect(content, contains('Review guidelines here.'));
-        },
-      );
-
-      test(
-        'when installing then YAML frontmatter is not in the output',
-        () async {
-          await adapter.installSkill(skill);
-
-          final content = await File(
-            d.path('project/.claude/rules/claude_pkg-code-review.md'),
-          ).readAsString();
-
-          expect(content, isNot(contains('---')));
-        },
-      );
     });
 
-    test('when removing then deletes the rule file', () async {
-      await d.file('project/.claude/rules/pkg-skill.md', 'content').create();
+    test('when removing then deletes the skill directory', () async {
+      await d.dir('project', [
+        d.dir('.claude', [
+          d.dir('skills', [
+            d.dir('pkg-skill', [
+              d.file(
+                'SKILL.md',
+                '---\nname: pkg-skill\n'
+                    'description: x\n---\nbody',
+              ),
+            ]),
+          ]),
+        ]),
+      ]).create();
 
       adapter = ClaudeAdapter(d.path('project'));
       await adapter.removeSkill('pkg-skill');
 
       expect(
-        await File(d.path('project/.claude/rules/pkg-skill.md')).exists(),
+        await Directory(
+          p.join(d.path('project'), '.claude', 'skills', 'pkg-skill'),
+        ).exists(),
         isFalse,
       );
     });
