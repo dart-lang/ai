@@ -20,6 +20,14 @@ jobs:
         with:
           sdk: "3.11.0"
 
+      - name: Install Git (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y git
+
+      - name: Install Git (Windows)
+        if: runner.os == 'Windows'
+        run: choco install git -y
+
       - name: Install dependencies
         run: dart pub get
 

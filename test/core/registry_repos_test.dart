@@ -1,3 +1,4 @@
+import 'package:path/path.dart' as p;
 import 'package:skills/src/config.dart';
 import 'package:skills/src/core/registry_repos.dart';
 import 'package:test/test.dart';
@@ -10,7 +11,7 @@ void main() {
         name: 'skills',
         skillLayout: RegistrySkillLayout.flat,
       );
-      expect(repo.pathSegment, equals('flutter/skills'));
+      expect(repo.pathSegment, equals(p.join('flutter', 'skills')));
     });
 
     test('cloneUrl is https github URL', () {
