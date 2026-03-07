@@ -53,6 +53,8 @@ skills remove serverpod
 
 The CLI will automatically run `pub get` if needed, scan your dependency packages for `skills/` directories, and install them in the right location for your IDE. If you are using a monorepo, `skills` will locate your different packages and get the skills for all of them.
 
+If **git** is installed, `skills get` also fetches skills from GitHub registries (see [GitHub registries](#github-registries) below). Skills that come from a Dart package in your dependency tree always take precedence over registry skills for that same package, allowing package maintainers to override the skills in the registry.
+
 ## Supported IDEs
 
 The CLI auto-detects your IDE from project directory markers. If multiple IDEs are detected, it installs to all of them. You can also pass `--ide` explicitly or set the `SKILLS_IDE` environment variable to target a single IDE.
@@ -68,6 +70,13 @@ The CLI auto-detects your IDE from project directory markers. If multiple IDEs a
 GitHub Copilot is not auto-detected (`.github/` is often used for other purposes). Use `--ide copilot` to install skills for Copilot explicitly.
 
 All five IDEs receive the full Agent Skills directory (SKILL.md plus `scripts/`, `references/`, `assets/`) in each tool’s documented location.
+
+## GitHub registries
+
+When you run `skills get`, the CLI can also install skills from **GitHub registries** — repositories that host a `skills/` directory with skills for packages that may not ship skills in their pub package. This is useful for community-maintained skills or packages that haven’t added a `skills/` directory yet.
+
+- **Requirement:** Git must be installed and on your PATH. If git is not found, a warning is printed and only Dart package skills are used.
+- **Registries:** The CLI currently uses two registries: [flutter/skills](https://github.com/flutter/skills) and [serverpod/skills-registry](https://github.com/serverpod/skills-registry). Each is cloned or updated under `.dart_skills/repos/`, you probably want to add this directory to your `.gitignore`.
 
 ## For package maintainers
 
