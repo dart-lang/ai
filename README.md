@@ -55,6 +55,11 @@ The CLI will automatically run `pub get` if needed, scan your dependency package
 
 If **git** is installed, `skills get` also fetches skills from GitHub registries (see [GitHub registries](#github-registries) below). Skills that come from a Dart package in your dependency tree always take precedence over registry skills for that same package, allowing package maintainers to override the skills in the registry.
 
+### Version control and .gitignore
+
+- If you version-control your IDE config (e.g. `.cursor/`), add `.dart_skills/repos/` to your `.gitignore` so cloned registry repos are not committed.
+- If you ignore your IDE directory (e.g. `.cursor/`), you can ignore the whole `.dart_skills/` directory.
+
 ## Supported IDEs
 
 The CLI auto-detects your IDE from project directory markers. If multiple IDEs are detected, it installs to all of them. You can also pass `--ide` explicitly or set the `SKILLS_IDE` environment variable to target a single IDE.
