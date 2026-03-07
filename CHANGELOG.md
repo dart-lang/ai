@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3
+
+- fix: Uses correct skills format for all IDEs.
+
 ## 0.1.2
 
 - fix: Fixes issue with monorepos.
