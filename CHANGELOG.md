@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.5
+
+- fix: Fixes git on Windows.
+
 ## 0.1.4
 
 - feat: Adds support for fetching skills from GitHub repositories.
