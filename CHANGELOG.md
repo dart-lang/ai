@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.4
+
+- feat: Adds support for fetching skills from GitHub repositories.
+
 ## 0.1.3
 
 - fix: Uses correct skills format for all IDEs.
