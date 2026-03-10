@@ -58,8 +58,6 @@ base mixin PackagedAiAssetsSupport
     return await super.listPrompts(request);
   }
 
-
-
   @override
   FutureOr<ListResourcesResult> listResources([
     ListResourcesRequest? request,
@@ -277,8 +275,8 @@ base mixin PackagedAiAssetsSupport
         LoggingLevel.warning,
         'Error loading prompt from package: ${extension.package}:\n$e',
       );
-      return null;
     }
+    return null;
   }
 
   /// Read a [prompt] given [request] and [fullPath] to the markdown file.
