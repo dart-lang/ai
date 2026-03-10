@@ -167,7 +167,6 @@ resources: "hello"
       client.addRoot(Root(uri: appDir.io.uri.toString()));
       // Allow the root change notification to be delivered.
       await pumpEventQueue();
-      logStream.listen(print);
 
       expect(
         logStream,

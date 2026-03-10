@@ -9,10 +9,10 @@ import 'package:dart_mcp/server.dart';
 import 'package:extension_discovery/extension_discovery.dart';
 import 'package:file/file.dart';
 import 'package:mime/mime.dart';
+import 'package:mustache_template/mustache_template.dart';
 import 'package:path/path.dart' as p;
 
 import '../features_configuration.dart';
-import '../mustachio/render_simple.dart';
 import '../utils/cli_utils.dart';
 import '../utils/file_system.dart';
 import '../utils/json.dart';
@@ -300,8 +300,16 @@ base mixin PackagedAiAssetsSupport
         throw ArgumentError('Missing required prompt argument: ${arg.name}');
       }
     }
-    final templateContent = await targetFile.readAsString();
-    final renderedContent = renderMustachio(templateContent, mapArgs);
+    var renderedContent = await targetFile.readAsString();
+    try {
+      final template = Template(renderedContent, name: fullPath, lenient: true);
+      renderedContent = template.renderString(mapArgs);
+    } catch (e, s) {
+      log(
+        LoggingLevel.warning,
+        'Error rendering prompt as mustache "${prompt.name}":\n$e\n$s',
+      );
+    }
 
     return GetPromptResult(
       description: prompt.description,
