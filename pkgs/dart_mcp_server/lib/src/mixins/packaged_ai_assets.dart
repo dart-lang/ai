@@ -80,7 +80,7 @@ base mixin PackagedAiAssetsSupport
   /// Discover resources and prompts from `extension/mcp/config.yaml` of the
   /// workspace roots and their dependencies.
   Future<void> _discoverAssets() async {
-    // TODO: Elicit for permission to load AI assets from packages.
+    // TODO(#363): Consider eliciting for permission before loading AI assets.
     if (_assetsDiscoveryCompleter case final completer?
         when !completer.isCompleted) {
       return completer.future;
@@ -110,9 +110,8 @@ base mixin PackagedAiAssetsSupport
               'mcp',
               packageConfig: packageConfigUri,
             );
-
             for (final extension in foundExtensions) {
-              // TODO: Replace with newer version of the package if we find one.
+              // TODO(#386): Use the latest version of the package.
               if (!extensions.containsKey(extension.package)) {
                 extensions[extension.package] = extension;
               }
