@@ -16,6 +16,7 @@ import '../mustachio/render_simple.dart';
 import '../utils/cli_utils.dart';
 import '../utils/file_system.dart';
 import '../utils/json.dart';
+import '../utils/names.dart';
 import 'roots_fallback_support.dart';
 
 /// Implements the Packaged AI Assets proposal at
@@ -146,7 +147,7 @@ base mixin PackagedAiAssetsSupport
           );
 
           final config = extension.config;
-          final resources = config['resources'];
+          final resources = config[ParameterNames.resources];
           if (resources is List<Object?>) {
             for (final resourceObj in resources) {
               if (_tryAddResource(
@@ -167,7 +168,7 @@ base mixin PackagedAiAssetsSupport
             );
           }
 
-          final prompts = config['prompts'];
+          final prompts = config[ParameterNames.prompts];
           if (prompts is List<Object?>) {
             for (final promptObj in prompts) {
               if (_tryAddPrompt(
@@ -224,8 +225,10 @@ base mixin PackagedAiAssetsSupport
     Extension extension,
   ) {
     try {
-      final isPrivate = dig<String?>(promptObj, ['visibility']) == 'private';
-      final rawPath = dig<String>(promptObj, ['path']);
+      final isPrivate =
+          dig<String?>(promptObj, [ParameterNames.visibility]) ==
+          Visibility.private;
+      final rawPath = dig<String>(promptObj, [ParameterNames.path]);
       final fullPath = fileSystem.path.joinAll([
         mcpExtensionDir,
         ...rawPath.split(p.url.separator),
@@ -235,25 +238,26 @@ base mixin PackagedAiAssetsSupport
         return null;
       }
 
-      final name = dig<String>(promptObj, ['name']);
-      final title = dig<String?>(promptObj, ['title']);
-      final description = dig<String?>(promptObj, ['description']);
-      final promptArguments = dig<List<Object?>?>(promptObj, ['arguments'])
-          ?.map((entry) {
-            if (entry is! Map) {
-              log(
-                LoggingLevel.warning,
-                'Invalid prompt argument object from package '
-                '${extension.package}: $entry',
-              );
-              return null;
-            }
-            return PromptArgument.fromMap(entry.cast<String, Object?>());
-          })
-          // Can't use .nonNulls because PromptArgument technically is
-          // an Object?, and we just get Iterable<Object?> back.
-          .whereType<PromptArgument>()
-          .toList();
+      final name = dig<String>(promptObj, [ParameterNames.name]);
+      final title = dig<String?>(promptObj, [ParameterNames.title]);
+      final description = dig<String?>(promptObj, [ParameterNames.description]);
+      final promptArguments =
+          dig<List<Object?>?>(promptObj, [ParameterNames.arguments])
+              ?.map((entry) {
+                if (entry is! Map) {
+                  log(
+                    LoggingLevel.warning,
+                    'Invalid prompt argument object from package '
+                    '${extension.package}: $entry',
+                  );
+                  return null;
+                }
+                return PromptArgument.fromMap(entry.cast<String, Object?>());
+              })
+              // Can't use .nonNulls because PromptArgument technically is
+              // an Object?, and we just get Iterable<Object?> back.
+              .whereType<PromptArgument>()
+              .toList();
 
       final prompt = Prompt(
         name: name,
@@ -320,8 +324,10 @@ base mixin PackagedAiAssetsSupport
     Extension extension,
   ) {
     try {
-      final isPrivate = dig<String?>(resourceObj, ['visibility']) == 'private';
-      final rawPath = dig<String>(resourceObj, ['path']);
+      final isPrivate =
+          dig<String?>(resourceObj, [ParameterNames.visibility]) ==
+          Visibility.private;
+      final rawPath = dig<String>(resourceObj, [ParameterNames.path]);
 
       // The config path is always in URL format, so we need to split
       // it by the URL separator and join using the current file system
@@ -337,9 +343,12 @@ base mixin PackagedAiAssetsSupport
       }
 
       final name =
-          dig<String?>(resourceObj, ['name']) ?? p.url.basename(rawPath);
-      final title = dig<String?>(resourceObj, ['title']);
-      final description = dig<String?>(resourceObj, ['description']);
+          dig<String?>(resourceObj, [ParameterNames.name]) ??
+          p.url.basename(rawPath);
+      final title = dig<String?>(resourceObj, [ParameterNames.title]);
+      final description = dig<String?>(resourceObj, [
+        ParameterNames.description,
+      ]);
 
       final relativeToRoot = fileSystem.path.relative(
         fullPath,
@@ -445,4 +454,10 @@ base mixin PackagedAiAssetsSupport
       log(LoggingLevel.error, 'Error finding pubspec.yaml files: $e\n$s');
     }
   }
+}
+
+/// The valid visibility configurations of an AI asset.
+extension Visibility on Never {
+  static const public = 'public';
+  static const private = 'private';
 }

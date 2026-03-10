@@ -2,6 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+
 /// A namespace for all the parameter names.
 extension ParameterNames on Never {
   static const arguments = 'arguments';
@@ -9,25 +10,31 @@ extension ParameterNames on Never {
   static const appUri = 'appUri';
   static const column = 'column';
   static const command = 'command';
+  static const description = 'description';
   static const directory = 'directory';
   static const dtdUri = 'dtdUri';
   static const empty = 'empty';
   static const line = 'line';
   static const name = 'name';
   static const packageNames = 'packageNames';
+  static const path = 'path';
   static const paths = 'paths';
   static const pid = 'pid';
   static const platform = 'platform';
   static const position = 'position';
   static const projectType = 'projectType';
+  static const prompts = 'prompts';
   static const query = 'query';
+  static const resources = 'resources';
   static const root = 'root';
   static const roots = 'roots';
   static const searchDir = 'searchDir';
   static const template = 'template';
+  static const title = 'title';
   static const uri = 'uri';
   static const uris = 'uris';
   static const userJourney = 'user_journey';
+  static const visibility = 'visibility';
 }
 
 /// The names of all the tools provided by the server.
