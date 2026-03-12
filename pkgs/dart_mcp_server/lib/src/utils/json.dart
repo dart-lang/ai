@@ -35,6 +35,7 @@ T dig<T>(dynamic json, List<Object> path, {List<Object> basePath = const []}) {
     final elements = basePath.followedBy(path.take(i));
     return elements.isEmpty ? 'root' : elements.map((e) => '[$e]').join('');
   }
+
   for (; i < path.length; i++) {
     outer:
     switch (path[i]) {
