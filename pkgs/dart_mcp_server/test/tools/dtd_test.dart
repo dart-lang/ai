@@ -1029,6 +1029,22 @@ void main() {
           await testHarness.stopDebugSession(debugSession);
         });
 
+        test('can set frame sync', () async {
+          final debugSession = await testHarness.startDebugSession(
+            counterAppPath,
+            'lib/driver_main.dart',
+            isFlutter: true,
+          );
+          final result = await testHarness.callToolWithRetry(
+            CallToolRequest(
+              name: DartToolingDaemonSupport.flutterDriverTool.name,
+              arguments: {'command': 'set_frame_sync', 'enabled': 'false'},
+            ),
+          );
+          expect(result.isError, isNot(true));
+          await testHarness.stopDebugSession(debugSession);
+        });
+
         test('can enable and disable semantics', () async {
           final debugSession = await testHarness.startDebugSession(
             counterAppPath,

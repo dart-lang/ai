@@ -20,6 +20,10 @@
 - The `read_package_uris` tool now returns flattened text and image `Content`
   payloads when traversing directories and symlinks rather than `ResourceLink`s
   or embedded resources. This has better support across all clients.
+- Expose `set_frame_sync` command in the `flutter_driver` tool, allowing agents
+  to disable frame synchronization for apps with continuous animations (Rive,
+  Lottie, etc.) that cause `tap`/`waitFor` to time out
+  ([issue #391](https://github.com/dart-lang/ai/issues/391)).
 - Fix nested finder JSON serialization for Ancestor/Descendant finders in the
   `flutter_driver` tool ([issue #345](https://github.com/dart-lang/ai/issues/345)).
 - Fix `analyze_files` returning false "No errors" when `paths` parameter is specified.
