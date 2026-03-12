@@ -1096,7 +1096,7 @@ base mixin DartToolingDaemonSupport
             // 'request_data',
             'scroll',
             'scrollIntoView',
-            // 'set_frame_sync',
+            'set_frame_sync',
             'set_semantics',
             'set_text_entry_emulation',
             'tap',
