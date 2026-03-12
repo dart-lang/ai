@@ -179,6 +179,34 @@ prompts:
   });
 
   group('validation', () {
+    test('invalid package_config.json is logged', () async {
+      final appDir = d.dir('my_app', [
+        d.file('pubspec.yaml', '''
+name: my_app
+environment:
+  sdk: ^3.0.0
+'''),
+        d.dir('.dart_tool', [d.file('package_config.json', '{ bad_json...')]),
+      ]);
+      await appDir.create();
+
+      final testHarness = await TestHarness.start(cliArgs: [], inProcess: true);
+      final client = testHarness.mcpClient;
+      final server = testHarness.mcpServerConnection;
+
+      final logFuture = server.onLog.firstWhere(
+        (l) =>
+            l.level == LoggingLevel.warning &&
+            l.data.toString().contains('Error discovering extensions for '),
+      );
+
+      client.addRoot(Root(uri: appDir.io.uri.toString()));
+      // Allow the root change notification to be delivered.
+      await pumpEventQueue();
+
+      await expectLater(logFuture, completes);
+    });
+
     test('invalid resource/prompt yaml is logged', () async {
       final appDir = createApp('''
 prompts: "hello"
@@ -216,7 +244,171 @@ resources: "hello"
         ]),
       );
     });
+
+    test('invalid individual prompt/resource configs are logged', () async {
+      final appDir = createApp(
+        '''
+prompts:
+  - name: "valid_prompt"
+    path: "prompt_1.md"
+  - name: "invalid_prompt_no_path"
+  - name: "invalid_prompt_bad_args"
+    path: "prompt_1.md"
+    arguments:
+      - "not_a_map"
+resources:
+  - name: "valid_resource"
+    path: "resource_1.md"
+  - name: "invalid_resource_no_path"
+''',
+        promptContents: {'prompt_1.md': 'Hello'},
+        resourceContents: {'resource_1.md': 'World'},
+      );
+      await appDir.create();
+
+      final testHarness = await TestHarness.start(cliArgs: [], inProcess: true);
+      final client = testHarness.mcpClient;
+      final server = testHarness.mcpServerConnection;
+
+      final logs = <String>[];
+      server.onLog.listen((l) {
+        logs.add(l.data.toString());
+      });
+
+      client.addRoot(Root(uri: appDir.io.uri.toString()));
+      await pumpEventQueue();
+
+      final promptsResult = await server.listPrompts();
+      final promptNames = promptsResult.prompts.map((p) => p.name).toList();
+      expect(promptNames, contains('valid_prompt'));
+      expect(
+        promptNames,
+        contains('invalid_prompt_bad_args'),
+      ); // The prompt loads but without the invalid argument
+      expect(promptNames, isNot(contains('invalid_prompt_no_path')));
+
+      final resourcesResult = await server.listResources();
+      final resourceNames = resourcesResult.resources
+          .map((r) => r.name)
+          .toList();
+      expect(resourceNames, contains('valid_resource'));
+      expect(resourceNames, isNot(contains('invalid_resource_no_path')));
+
+      expect(
+        logs,
+        containsAll([
+          contains(
+            'Error loading prompt from package "my_app":\nFormatException: '
+            'Expected a string at [prompts][1][path]. Found null.',
+          ),
+          contains(
+            'Invalid prompt argument object from package "my_app": not_a_map',
+          ),
+          contains(
+            'Error loading resource from package "my_app":\nFormatException: '
+            'Expected a string at [resources][1][path]. Found null.',
+          ),
+        ]),
+      );
+    });
   });
+
+  test(
+    'multiple dependencies of the same package uses the latest version',
+    () async {
+      final appDir = d.dir('my_app', [
+        d.dir('app1', [
+          d.file('pubspec.yaml', 'name: app1\n'),
+          d.dir('.dart_tool', [
+            d.file(
+              'package_config.json',
+              jsonEncode({
+                'configVersion': 2,
+                'packages': [
+                  {
+                    'name': 'some_package',
+                    'rootUri': '../../some_package_a',
+                    'packageUri': 'lib/',
+                    'languageVersion': '3.0',
+                  },
+                  {
+                    'name': 'some_package',
+                    'rootUri': '../../some_package_b',
+                    'packageUri': 'lib/',
+                    'languageVersion': '3.0',
+                  },
+                  {
+                    'name': 'some_package',
+                    'rootUri': '../../some_package_c',
+                    'packageUri': 'lib/',
+                    'languageVersion': '3.0',
+                  },
+                ],
+              }),
+            ),
+          ]),
+        ]),
+        // We have 3 packages and sandwich the desired one in between them
+        // to try and make sure that one isn't the first one encountered
+        // and isn't just selected because of that.
+        //
+        // TODO: can we more reliably affect the load order here?
+        d.dir('some_package_a', [
+          d.file('pubspec.yaml', 'name: some_package\nversion: 1.0.0\n'),
+          d.dir('extension', [
+            d.dir('mcp', [
+              d.file(
+                'config.yaml',
+                'prompts:\n  - name: prompt_1_0_0\n    path: prompt.md\n',
+              ),
+              d.file('prompt.md', 'Hello prompt_1_0_0'),
+            ]),
+          ]),
+        ]),
+        d.dir('some_package_b', [
+          d.file('pubspec.yaml', 'name: some_package\nversion: 3.0.0\n'),
+          d.dir('extension', [
+            d.dir('mcp', [
+              d.file(
+                'config.yaml',
+                'prompts:\n  - name: prompt_3_0_0\n    path: prompt.md\n',
+              ),
+              d.file('prompt.md', 'Hello prompt_3_0_0'),
+            ]),
+          ]),
+        ]),
+        d.dir('some_package_c', [
+          d.file('pubspec.yaml', 'name: some_package\nversion: 2.0.0\n'),
+          d.dir('extension', [
+            d.dir('mcp', [
+              d.file(
+                'config.yaml',
+                'prompts:\n  - name: prompt_2_0_0\n    path: prompt.md\n',
+              ),
+              d.file('prompt.md', 'Hello prompt_2_0_0'),
+            ]),
+          ]),
+        ]),
+      ]);
+
+      await appDir.create();
+
+      final testHarness = await TestHarness.start(cliArgs: [], inProcess: true);
+      final client = testHarness.mcpClient;
+      client.addRoot(Root(uri: appDir.io.uri.toString()));
+      await pumpEventQueue();
+
+      final promptsResult = await testHarness.mcpServerConnection.listPrompts();
+      final promptNames = promptsResult.prompts.map((p) => p.name).toList();
+
+      expect(promptNames, contains('prompt_3_0_0'));
+      expect(
+        promptNames,
+        isNot(anyOf(contains('prompt_1_0_0'), contains('prompt_2_0_0'))),
+      );
+    },
+    skip: 'TODO(#386): Use the latest version of the package.',
+  );
 }
 
 d.DirectoryDescriptor createApp(

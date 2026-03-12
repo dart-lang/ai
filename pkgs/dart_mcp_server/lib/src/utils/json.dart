@@ -21,7 +21,7 @@
 /// If at some point the types don't match throw a [FormatException].
 ///
 /// Returns the result as a [T].
-T dig<T>(dynamic json, List<Object> path) {
+T dig<T>(dynamic json, List<Object> path, {List<Object> basePath = const []}) {
   var i = 0;
   String currentElementType() => switch (json) {
     Null _ => 'null',
@@ -31,8 +31,10 @@ T dig<T>(dynamic json, List<Object> path) {
     Map _ => 'a map',
     _ => throw ArgumentError('Bad json'),
   };
-  String currentPath() =>
-      i == 0 ? 'root' : path.sublist(0, i).map((i) => '[$i]').join('');
+  String currentPath() {
+    final elements = basePath.followedBy(path.take(i));
+    return elements.isEmpty ? 'root' : elements.map((e) => '[$e]').join('');
+  }
   for (; i < path.length; i++) {
     outer:
     switch (path[i]) {

@@ -148,9 +148,10 @@ base mixin PackagedAiAssetsSupport
           final config = extension.config;
           final resources = config[ParameterNames.resources];
           if (resources is List<Object?>) {
-            for (final resourceObj in resources) {
+            for (var i = 0; i < resources.length; i++) {
               if (_tryAddResource(
-                    resourceObj,
+                    resources[i],
+                    [ParameterNames.resources, i],
                     mcpExtensionDir,
                     knownRoots,
                     extension,
@@ -169,9 +170,10 @@ base mixin PackagedAiAssetsSupport
 
           final prompts = config[ParameterNames.prompts];
           if (prompts is List<Object?>) {
-            for (final promptObj in prompts) {
+            for (var i = 0; i < prompts.length; i++) {
               if (_tryAddPrompt(
-                    promptObj,
+                    prompts[i],
+                    [ParameterNames.prompts, i],
                     mcpExtensionDir,
                     knownRoots,
                     extension,
@@ -219,15 +221,20 @@ base mixin PackagedAiAssetsSupport
   /// Returns the prompt if it was loaded, null otherwise.
   Prompt? _tryAddPrompt(
     Object? promptObj,
+    List<Object> basePath,
     String mcpExtensionDir,
     Iterable<Root> knownRoots,
     Extension extension,
   ) {
     try {
       final isPrivate =
-          dig<String?>(promptObj, [ParameterNames.visibility]) ==
+          dig<String?>(promptObj, [
+            ParameterNames.visibility,
+          ], basePath: basePath) ==
           Visibility.private;
-      final rawPath = dig<String>(promptObj, [ParameterNames.path]);
+      final rawPath = dig<String>(promptObj, [
+        ParameterNames.path,
+      ], basePath: basePath);
       final fullPath = fileSystem.path.joinAll([
         mcpExtensionDir,
         ...rawPath.split(p.url.separator),
@@ -237,17 +244,25 @@ base mixin PackagedAiAssetsSupport
         return null;
       }
 
-      final name = dig<String>(promptObj, [ParameterNames.name]);
-      final title = dig<String?>(promptObj, [ParameterNames.title]);
-      final description = dig<String?>(promptObj, [ParameterNames.description]);
+      final name = dig<String>(promptObj, [
+        ParameterNames.name,
+      ], basePath: basePath);
+      final title = dig<String?>(promptObj, [
+        ParameterNames.title,
+      ], basePath: basePath);
+      final description = dig<String?>(promptObj, [
+        ParameterNames.description,
+      ], basePath: basePath);
       final promptArguments =
-          dig<List<Object?>?>(promptObj, [ParameterNames.arguments])
+          dig<List<Object?>?>(promptObj, [
+                ParameterNames.arguments,
+              ], basePath: basePath)
               ?.map((entry) {
                 if (entry is! Map) {
                   log(
                     LoggingLevel.warning,
                     'Invalid prompt argument object from package '
-                    '${extension.package}: $entry',
+                    '"${extension.package}": $entry',
                   );
                   return null;
                 }
@@ -275,7 +290,7 @@ base mixin PackagedAiAssetsSupport
     } catch (e) {
       log(
         LoggingLevel.warning,
-        'Error loading prompt from package: ${extension.package}:\n$e',
+        'Error loading prompt from package "${extension.package}":\n$e',
       );
     }
     return null;
@@ -326,15 +341,20 @@ base mixin PackagedAiAssetsSupport
   /// Returns the resource if it was loaded, null otherwise.
   Resource? _tryAddResource(
     Object? resourceObj,
+    List<Object> basePath,
     String mcpExtensionDir,
     Iterable<Root> knownRoots,
     Extension extension,
   ) {
     try {
       final isPrivate =
-          dig<String?>(resourceObj, [ParameterNames.visibility]) ==
+          dig<String?>(resourceObj, [
+            ParameterNames.visibility,
+          ], basePath: basePath) ==
           Visibility.private;
-      final rawPath = dig<String>(resourceObj, [ParameterNames.path]);
+      final rawPath = dig<String>(resourceObj, [
+        ParameterNames.path,
+      ], basePath: basePath);
 
       // The config path is always in URL format, so we need to split
       // it by the URL separator and join using the current file system
@@ -350,12 +370,16 @@ base mixin PackagedAiAssetsSupport
       }
 
       final name =
-          dig<String?>(resourceObj, [ParameterNames.name]) ??
+          dig<String?>(resourceObj, [
+            ParameterNames.name,
+          ], basePath: basePath) ??
           p.url.basename(rawPath);
-      final title = dig<String?>(resourceObj, [ParameterNames.title]);
+      final title = dig<String?>(resourceObj, [
+        ParameterNames.title,
+      ], basePath: basePath);
       final description = dig<String?>(resourceObj, [
         ParameterNames.description,
-      ]);
+      ], basePath: basePath);
 
       final relativeToRoot = fileSystem.path.relative(
         fullPath,
@@ -387,7 +411,7 @@ base mixin PackagedAiAssetsSupport
     } catch (e) {
       log(
         LoggingLevel.warning,
-        'Error loading resource from package: ${extension.package}:\n$e',
+        'Error loading resource from package "${extension.package}":\n$e',
       );
       return null;
     }
