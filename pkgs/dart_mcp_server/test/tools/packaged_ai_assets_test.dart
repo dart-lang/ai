@@ -4,6 +4,7 @@
 
 import 'dart:convert';
 
+import 'package:collection/collection.dart';
 import 'package:dart_mcp/client.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:json_rpc_2/json_rpc_2.dart';
@@ -17,18 +18,32 @@ void main() {
     final appDir = createApp(
       '''
 resources:
-  - name: "my_resource"
-    title: "My Resource"
-    description: "My resource description"
-    path: "resource.md"
+  - name: "resource_1"
+    title: "Resource 1"
+    description: "Resource 1 description"
+    path: "resource_1.md"
+  - name: "resource_2"
+    title: "Resource 2"
+    description: "Resource 2 description"
+    path: "resource_2.md"
 prompts:
-  - name: "my_prompt"
-    title: "My Prompt"
-    description: "My prompt description"
-    path: "prompt.md"
+  - name: "prompt_1"
+    title: "Prompt 1"
+    description: "Prompt 1 description"
+    path: "prompt_1.md"
+  - name: "prompt_2"
+    title: "Prompt 2"
+    description: "Prompt 2 description"
+    path: "prompt_2.md"
 ''',
-      promptContent: 'Hello Prompt',
-      resourceContent: 'Hello Resource',
+      promptContents: {
+        'prompt_1.md': 'Hello Prompt 1',
+        'prompt_2.md': 'Hello Prompt 2',
+      },
+      resourceContents: {
+        'resource_1.md': 'Hello Resource 1',
+        'resource_2.md': 'Hello Resource 2',
+      },
     );
     await appDir.create();
 
@@ -41,30 +56,37 @@ prompts:
 
     final resourcesResult = await testHarness.mcpServerConnection
         .listResources();
-    expect(resourcesResult.resources, hasLength(greaterThan(0)));
-    final myResource = resourcesResult.resources.firstWhere(
-      (r) => r.name == 'my_resource',
-    );
-    expect(myResource.uri, 'package-root:my_app/extension/mcp/resource.md');
+    for (var i = 1; i < 3; i++) {
+      final myResource = resourcesResult.resources.firstWhereOrNull(
+        (r) => r.name == 'resource_$i',
+      );
+      expect(myResource, isA<Resource>());
+      expect(
+        myResource!.uri,
+        'package-root:my_app/extension/mcp/resource_$i.md',
+      );
 
-    final readResourceResult = await testHarness.mcpServerConnection
-        .readResource(ReadResourceRequest(uri: myResource.uri));
-    expect(readResourceResult.contents, hasLength(1));
-    final content = readResourceResult.contents.first as TextResourceContents;
-    expect(content.text, 'Hello Resource');
+      final readResourceResult = await testHarness.mcpServerConnection
+          .readResource(ReadResourceRequest(uri: myResource.uri));
+      expect(readResourceResult.contents, hasLength(1));
+      final content = readResourceResult.contents.first as TextResourceContents;
+      expect(content.text, 'Hello Resource $i');
+    }
 
-    final promptsResult = await testHarness.mcpServerConnection.listPrompts();
-    expect(promptsResult.prompts, hasLength(2));
-    expect(
-      promptsResult.prompts,
-      contains(isA<Prompt>().having((p) => p.name, 'name', 'my_prompt')),
-    );
+    for (var i = 1; i < 3; i++) {
+      final promptsResult = await testHarness.mcpServerConnection.listPrompts();
+      expect(
+        promptsResult.prompts,
+        contains(isA<Prompt>().having((p) => p.name, 'name', 'prompt_$i')),
+      );
 
-    final getPromptResult = await testHarness.mcpServerConnection.getPrompt(
-      GetPromptRequest(name: 'my_prompt'),
-    );
-    final promptContent = getPromptResult.messages.first.content as TextContent;
-    expect(promptContent.text, 'Hello Prompt');
+      final getPromptResult = await testHarness.mcpServerConnection.getPrompt(
+        GetPromptRequest(name: 'prompt_$i'),
+      );
+      final promptContent =
+          getPromptResult.messages.first.content as TextContent;
+      expect(promptContent.text, 'Hello Prompt $i');
+    }
   });
 
   test('renders mustache templates for prompts with arguments', () async {
@@ -79,7 +101,8 @@ prompts:
       - name: "arg2"
       - name: "arg3"
 ''',
-      promptContent: '''
+      promptContents: {
+        'prompt.md': '''
 Hello {{arg1}}!
 {{#arg2}}
 Arg2 was passed {{arg2}}.
@@ -94,6 +117,7 @@ Arg3 was passed {{arg3}}.
 Arg3 was not passed.
 {{/arg3}}
 ''',
+      },
     );
     await appDir.create();
 
@@ -119,7 +143,8 @@ Arg3 was not passed.
   });
 
   test('required arguments must be passed', () async {
-    final appDir = createApp('''
+    final appDir = createApp(
+      '''
 prompts:
   - name: "my_prompt"
     description: "A prompt that has a required argument"
@@ -127,7 +152,9 @@ prompts:
     arguments:
       - name: "arg1"
         required: true
-''', promptContent: 'Hello {{arg1}}!');
+''',
+      promptContents: {'prompt.md': 'Hello {{arg1}}!'},
+    );
     await appDir.create();
 
     final testHarness = await TestHarness.start(cliArgs: [], inProcess: true);
@@ -194,8 +221,8 @@ resources: "hello"
 
 d.DirectoryDescriptor createApp(
   String extensionConfig, {
-  String? promptContent,
-  String? resourceContent,
+  Map<String, String>? promptContents,
+  Map<String, String>? resourceContents,
 }) {
   return d.dir('my_app', [
     d.file('pubspec.yaml', '''
@@ -222,8 +249,14 @@ environment:
     d.dir('extension', [
       d.dir('mcp', [
         d.file('config.yaml', extensionConfig),
-        if (promptContent != null) d.file('prompt.md', promptContent),
-        if (resourceContent != null) d.file('resource.md', resourceContent),
+        if (promptContents != null) ...[
+          for (final prompt in promptContents.entries)
+            d.file(prompt.key, prompt.value),
+        ],
+        if (resourceContents != null) ...[
+          for (final resource in resourceContents.entries)
+            d.file(resource.key, resource.value),
+        ],
       ]),
     ]),
   ]);

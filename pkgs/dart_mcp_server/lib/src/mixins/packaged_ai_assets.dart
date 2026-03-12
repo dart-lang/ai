@@ -44,18 +44,17 @@ base mixin PackagedAiAssetsSupport
 
   @override
   FutureOr<ListPromptsResult> listPrompts([ListPromptsRequest? request]) async {
-    try {
-      /// Wait for the assets to be discovered, but don't fail if it times out.
-      await _assetsDiscoveryCompleter?.future.timeout(
-        const Duration(seconds: 5),
-        onTimeout: () => null,
-      );
-    } catch (e, s) {
-      log(
-        LoggingLevel.warning,
-        'Timed out waiting for package prompts to be discovered: $e\n$s',
-      );
-    }
+    /// Wait for the assets to be discovered, but don't fail if it times out.
+    await _assetsDiscoveryCompleter?.future.timeout(
+      const Duration(seconds: 5),
+      onTimeout: () {
+        log(
+          LoggingLevel.warning,
+          'Timed out waiting for package prompts to be discovered, returning '
+          'what we have.',
+        );
+      },
+    );
     return await super.listPrompts(request);
   }
 
@@ -63,18 +62,18 @@ base mixin PackagedAiAssetsSupport
   FutureOr<ListResourcesResult> listResources([
     ListResourcesRequest? request,
   ]) async {
-    try {
-      /// Wait for the assets to be discovered, but don't fail if it times out.
-      await _assetsDiscoveryCompleter?.future.timeout(
-        const Duration(seconds: 5),
-        onTimeout: () => null,
-      );
-    } catch (e, s) {
-      log(
-        LoggingLevel.warning,
-        'Timed out waiting for package resources to be discovered: $e\n$s',
-      );
-    }
+    /// Wait for the assets to be discovered, but don't fail if it times out.
+    await _assetsDiscoveryCompleter?.future.timeout(
+      const Duration(seconds: 5),
+      onTimeout: () {
+        log(
+          LoggingLevel.warning,
+          'Timed out waiting for package resources to be discovered, '
+          'returning what we have.',
+        );
+      },
+    );
+
     return await super.listResources(request);
   }
 
@@ -447,7 +446,10 @@ base mixin PackagedAiAssetsSupport
           if (name.startsWith('.') ||
               name == 'build' ||
               name == 'ios' ||
-              name == 'android') {
+              name == 'android' ||
+              name == 'macos' ||
+              name == 'linux' ||
+              name == 'windows') {
             continue;
           }
           yield* _findPubspecDirectories(
