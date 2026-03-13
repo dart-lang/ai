@@ -12,6 +12,7 @@ import 'package:dart_mcp_server/src/features_configuration.dart';
 import 'package:dart_mcp_server/src/mixins/analyzer.dart';
 import 'package:dart_mcp_server/src/mixins/dash_cli.dart';
 import 'package:dart_mcp_server/src/mixins/dtd.dart';
+import 'package:dart_mcp_server/src/mixins/file_system.dart';
 import 'package:dart_mcp_server/src/mixins/flutter_launcher.dart';
 import 'package:dart_mcp_server/src/mixins/grep_packages.dart';
 import 'package:dart_mcp_server/src/mixins/package_uri_reader.dart';
@@ -30,6 +31,7 @@ void main() {
       ...DartAnalyzerSupport.allTools,
       ...DashCliSupport.allTools,
       ...DartToolingDaemonSupport.allTools,
+      ...FileAccessSupport.allTools,
       ...FlutterLauncherSupport.allTools,
       ...GrepSupport.allTools,
       ...PackageUriSupport.allTools,

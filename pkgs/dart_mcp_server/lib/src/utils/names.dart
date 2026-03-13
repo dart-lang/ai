@@ -9,6 +9,7 @@ extension ParameterNames on Never {
   static const appUri = 'appUri';
   static const column = 'column';
   static const command = 'command';
+  static const contents = 'contents';
   static const directory = 'directory';
   static const dtdUri = 'dtdUri';
   static const empty = 'empty';
@@ -17,6 +18,7 @@ extension ParameterNames on Never {
   static const name = 'name';
   static const packageNames = 'packageNames';
   static const paths = 'paths';
+  static const path = 'path';
   static const pid = 'pid';
   static const platform = 'platform';
   static const position = 'position';
@@ -39,6 +41,7 @@ enum ToolNames {
   createProject('create_project'),
   dartFix('dart_fix'),
   dartFormat('dart_format'),
+  deleteFile('delete_file'),
   dtd('dtd'),
   flutterDriverCommand('flutter_driver_command'),
   getActiveLocation('get_active_location'),
@@ -48,16 +51,19 @@ enum ToolNames {
   hotRestart('hot_restart'),
   launchApp('launch_app'),
   listDevices('list_devices'),
+  listFiles('list_files'),
   listRunningApps('list_running_apps'),
   lsp('lsp'),
   pub('pub'),
   pubDevSearch('pub_dev_search'),
+  readFile('read_file'),
   readPackageUris('read_package_uris'),
   removeRoots('remove_roots'),
   ripGrepPackages('rip_grep_packages'),
   runTests('run_tests'),
   stopApp('stop_app'),
-  widgetInspector('widget_inspector');
+  widgetInspector('widget_inspector'),
+  writeFile('write_file');
 
   final String name;
   const ToolNames(this.name);
