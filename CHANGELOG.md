@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.0
+
+- feat: Adds `skills prune` command.
+- chore: Lowers required Dart version.
+
 ## 0.1.5
 
 - fix: Fixes git on Windows.
