@@ -44,6 +44,9 @@ skills get serverpod
 # List installed skills
 skills list
 
+# Remove skills for packages no longer in your dependency tree
+skills prune
+
 # Remove all managed skills
 skills remove
 
@@ -54,6 +57,16 @@ skills remove serverpod
 The CLI will automatically run `pub get` if needed, scan your dependency packages for `skills/` directories, and install them in the right location for your IDE. If you are using a monorepo, `skills` will locate your different packages and get the skills for all of them.
 
 If **git** is installed, `skills get` also fetches skills from GitHub registries (see [GitHub registries](#github-registries) below). Skills that come from a Dart package in your dependency tree always take precedence over registry skills for that same package, allowing package maintainers to override the skills in the registry.
+
+### Pruning removed dependencies
+
+When you remove a package from your `pubspec.yaml`, its skills stay in your IDE directories until you clean them up. Run:
+
+```bash
+skills prune
+```
+
+This removes only skills whose package is no longer in your dependency tree and updates the manifest. Use `--ide <ide>` to prune a single IDE. If you have no managed skills, `skills prune` reports that and exits.
 
 ### Version control and .gitignore
 

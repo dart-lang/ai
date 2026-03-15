@@ -14,6 +14,20 @@ void main() {
     test(
       'when git is unavailable then only Dart skills are installed and warning is printed',
       () async {
+        // Use a test-owned temp dir (pass to create()) so we do not use test_descriptor's
+        // global sandbox; then run the command with --directory so we never change process cwd.
+        final testRootPath = p.join(
+          Directory.systemTemp.path,
+          'skills_get_test_${DateTime.now().millisecondsSinceEpoch}',
+        );
+        Directory(testRootPath).createSync();
+        addTearDown(() async {
+          await Directory(testRootPath).delete(recursive: true);
+        });
+
+        // dep_with_skills is sibling of project, so from project/.dart_tool we need ../../dep_with_skills
+        final depRelative = p.join('..', '..', 'dep_with_skills');
+
         await d.dir('dep_with_skills', [
           d.dir('lib', [d.file('dep.dart', '')]),
           d.dir('skills', [
@@ -21,12 +35,7 @@ void main() {
               d.file('SKILL.md', '---\nname: dep_with_skills-code-gen\n---\n'),
             ]),
           ]),
-        ]).create();
-
-        final projectPath = d.path('project');
-        // dep_with_skills is sibling of project in sandbox, so from project/.dart_tool
-        // we need to go up twice: ../../dep_with_skills
-        final depRelative = p.join('..', '..', 'dep_with_skills');
+        ]).create(testRootPath);
 
         await d.dir('project', [
           d.file('pubspec.yaml', '''
@@ -51,21 +60,18 @@ environment:
             ),
           ]),
           d.dir('.cursor', [d.dir('skills')]),
-        ]).create();
+        ]).create(testRootPath);
+
+        final projectPath = p.join(testRootPath, 'project');
 
         final getCommand = GetCommand(
-          gitRunner: const GitRunner(isAvailableOverride: _gitUnavailable),
+          gitRunner: GitRunner(isAvailableOverride: _gitUnavailable),
         );
         final runner = CommandRunner<void>('skills', 'Test')
           ..addCommand(getCommand);
 
-        final savedCwd = Directory.current.path;
-        try {
-          Directory.current = Directory(projectPath);
-          await runner.run(['get', '--ide', 'cursor']);
-        } finally {
-          Directory.current = Directory(savedCwd);
-        }
+        await runner
+            .run(['get', '--directory', projectPath, '--ide', 'cursor']);
 
         final skillDir = Directory(
           p.join(projectPath, '.cursor', 'skills', 'dep_with_skills-code-gen'),
