@@ -28,6 +28,7 @@
 - Disable all tools that can easily be done on the CLI by default, as well as
   `get_active_location`. These can be re-enabled by passing `--enable cli` or
   `--enable <tool-name>`.
+- Add file system tools (read, write, delete, list)
 
 # 0.1.2 (Dart SDK 3.11.0)
 
