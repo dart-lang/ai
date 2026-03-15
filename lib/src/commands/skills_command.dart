@@ -27,6 +27,6 @@ abstract class SkillsCommand extends Command<void> {
   /// The package name from rest arguments, or null if not specified.
   String? get packageNameArg =>
       argResults != null && argResults!.rest.isNotEmpty
-      ? argResults!.rest.first
-      : null;
+          ? argResults!.rest.first
+          : null;
 }

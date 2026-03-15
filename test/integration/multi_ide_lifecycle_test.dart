@@ -81,7 +81,7 @@ Instructions for debugging.
     ];
   });
 
-  group('Given skills installed to Cursor and Antigravity', () {
+  group('Given skills installed to Cursor and generic', () {
     late String rootPath;
     late SkillManifest manifest;
 
@@ -103,7 +103,7 @@ Instructions for debugging.
       );
       manifest = result.manifest;
       result = await installer.installSkillsForIde(
-        ide: Ide.antigravity,
+        ide: Ide.generic,
         rootPath: rootPath,
         skills: [...pkgASkills, ...pkgBSkills],
         manifest: manifest,
@@ -175,7 +175,7 @@ Instructions for debugging.
         isFalse,
       );
 
-      // Antigravity files still present.
+      // Generic (.agent) files still present.
       expect(
         Directory('$rootPath/.agent/skills/pkg_a-code-gen').existsSync(),
         isTrue,
@@ -185,8 +185,8 @@ Instructions for debugging.
         isTrue,
       );
 
-      expect(manifest.allIdes, equals(['antigravity']));
-      expect(manifest.packagesForIde('antigravity'), hasLength(2));
+      expect(manifest.allIdes, equals(['generic']));
+      expect(manifest.packagesForIde('generic'), hasLength(2));
     });
 
     test(
@@ -226,7 +226,7 @@ Instructions for debugging.
         );
 
         expect(manifest.packagesForIde('cursor'), contains('pkg_b'));
-        expect(manifest.packagesForIde('antigravity'), contains('pkg_b'));
+        expect(manifest.packagesForIde('generic'), contains('pkg_b'));
         expect(manifest.packagesForIde('cursor'), isNot(contains('pkg_a')));
       },
     );
@@ -254,7 +254,7 @@ Instructions for debugging.
       );
       manifest = result.manifest;
       result = await installer.installSkillsForIde(
-        ide: Ide.antigravity,
+        ide: Ide.generic,
         rootPath: rootPath,
         skills: pkgASkills,
         manifest: manifest,
@@ -280,7 +280,7 @@ Instructions for debugging.
 
         expect(manifest.isEmpty, isTrue);
 
-        // Antigravity was removed normally.
+        // Generic (.agent) was removed normally.
         expect(
           Directory('$rootPath/.agent/skills/pkg_a-code-gen').existsSync(),
           isFalse,
@@ -288,7 +288,8 @@ Instructions for debugging.
       },
     );
 
-    test('when some skills are manually deleted then remaining are still '
+    test(
+        'when some skills are manually deleted then remaining are still '
         'removed correctly', () async {
       // Install a second package too.
       var result = await const SkillInstaller().installSkillsForIde(
@@ -319,7 +320,7 @@ Instructions for debugging.
     });
   });
 
-  group('Given skills installed to Cursor and Antigravity', () {
+  group('Given skills installed to Cursor and generic', () {
     late String rootPath;
     late SkillManifest manifest;
 
@@ -341,7 +342,7 @@ Instructions for debugging.
       );
       manifest = result.manifest;
       result = await installer.installSkillsForIde(
-        ide: Ide.antigravity,
+        ide: Ide.generic,
         rootPath: rootPath,
         skills: pkgASkills,
         manifest: manifest,
@@ -366,13 +367,13 @@ Instructions for debugging.
         isTrue,
       );
 
-      // Antigravity untouched.
+      // Generic (.agent) untouched.
       expect(
         Directory('$rootPath/.agent/skills/pkg_a-code-gen').existsSync(),
         isTrue,
       );
 
-      expect(manifest.allIdes, containsAll(['cursor', 'antigravity']));
+      expect(manifest.allIdes, containsAll(['cursor', 'generic']));
     });
   });
 
@@ -418,7 +419,8 @@ Instructions for debugging.
       expect(manifest.allSkills, hasLength(6));
     });
 
-    test('when removing all then both Cursor and Claude skill directories '
+    test(
+        'when removing all then both Cursor and Claude skill directories '
         'are cleaned up', () async {
       // Verify skill directories exist.
       expect(
@@ -458,6 +460,34 @@ Instructions for debugging.
     });
   });
 
+  group('Given generic IDE (antigravity/codex/generic)', () {
+    test(
+      'when installing then manifest stores canonical name generic only',
+      () async {
+        await d.dir('generic_project', [
+          d.dir('.agent', [d.dir('skills')]),
+        ]).create();
+        final rootPath = d.path('generic_project');
+
+        var manifest = const SkillManifest();
+        final result = await const SkillInstaller().installSkillsForIde(
+          ide: Ide.generic,
+          rootPath: rootPath,
+          skills: pkgASkills,
+          manifest: manifest,
+        );
+        manifest = result.manifest;
+
+        expect(manifest.allIdes, equals(['generic']));
+        expect(manifest.packagesForIde('generic'), hasLength(1));
+        expect(
+            manifest.packagesForIde('generic')['pkg_a']!.skills, hasLength(1));
+        expect(manifest.installations.containsKey('antigravity'), isFalse);
+        expect(manifest.installations.containsKey('codex'), isFalse);
+      },
+    );
+  });
+
   group('Given manifest saved to and loaded from disk', () {
     test(
       'when round-tripping multi-IDE manifest then all data preserved',
@@ -479,7 +509,7 @@ Instructions for debugging.
           ),
         );
         manifest = manifest.withPackage(
-          'antigravity',
+          'generic',
           'pkg_a',
           PackageSkillsEntry(
             skills: [
@@ -510,11 +540,11 @@ Instructions for debugging.
         expect(loaded, isNotNull);
         expect(
           loaded!.allIdes.toSet(),
-          equals({'cursor', 'antigravity', 'claude'}),
+          equals({'cursor', 'generic', 'claude'}),
         );
         expect(loaded.packagesForIde('cursor')['pkg_a']!.skills, hasLength(1));
         expect(
-          loaded.packagesForIde('antigravity')['pkg_a']!.skills,
+          loaded.packagesForIde('generic')['pkg_a']!.skills,
           hasLength(1),
         );
         expect(loaded.packagesForIde('claude')['pkg_b']!.skills, hasLength(1));

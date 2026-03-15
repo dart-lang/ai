@@ -1,20 +1,20 @@
 import 'dart:io';
 
 import 'package:skills/src/core/skill_scanner.dart';
-import 'package:skills/src/ide/adapters/antigravity_adapter.dart';
+import 'package:skills/src/ide/adapters/generic_adapter.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
 
 void main() {
-  group('Given an AntigravityAdapter', () {
-    late AntigravityAdapter adapter;
+  group('Given a GenericAdapter', () {
+    late GenericAdapter adapter;
 
     setUp(() async {
       await d.dir('project', [
         d.dir('.agent', [d.dir('skills')]),
       ]).create();
 
-      adapter = AntigravityAdapter(d.path('project'));
+      adapter = GenericAdapter(d.path('project'));
     });
 
     group('and a scanned skill', () {

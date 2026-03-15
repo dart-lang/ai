@@ -7,5 +7,5 @@ import 'agent_skills_adapter.dart';
 /// [Copilot agent skills](https://docs.github.com/en/copilot/concepts/agents/about-agent-skills).
 class CopilotAdapter extends AgentSkillsAdapter {
   CopilotAdapter(String projectPath)
-    : super(Ide.copilot.skillsPath(projectPath));
+      : super(Ide.copilot.skillsPath(projectPath));
 }

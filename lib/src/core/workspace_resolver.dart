@@ -179,9 +179,8 @@ class WorkspaceResolver {
     }
 
     // Check for melos section in pubspec.yaml (Melos 7.3.0+)
-    melosConfig ??= pubspec['melos'] is YamlMap
-        ? pubspec['melos'] as YamlMap
-        : null;
+    melosConfig ??=
+        pubspec['melos'] is YamlMap ? pubspec['melos'] as YamlMap : null;
 
     if (melosConfig == null) return null;
 

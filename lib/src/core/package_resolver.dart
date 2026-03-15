@@ -73,9 +73,8 @@ class PackageResolver {
     final memberNames = workspace.packages.map((p) => p.name).toSet();
 
     // Deduplicate by config path -- pub workspaces share one config.
-    final configPaths = workspace.packages
-        .map((p) => p.packageConfigPath)
-        .toSet();
+    final configPaths =
+        workspace.packages.map((p) => p.packageConfigPath).toSet();
 
     final seen = <String>{};
     final results = <ResolvedPackage>[];

@@ -66,15 +66,17 @@ The CLI auto-detects your IDE from project directory markers. If multiple IDEs a
 
 | IDE | Flag | Install location | Spec |
 | --- | ---- | ---------------- | ---- |
-| Cursor | `--ide cursor` | `.cursor/skills/` | Agent Skills |
-| Antigravity | `--ide antigravity` | `.agent/skills/` | Agent Skills |
-| Claude Code | `--ide claude` | [`.claude/skills/`](https://code.claude.com/docs/en/skills) | Agent Skills |
-| Cline (experimental) | `--ide cline` | [`.cline/skills/`](https://docs.cline.bot/customization/skills) | Agent Skills |
-| GitHub Copilot | `--ide copilot` | [`.github/skills/`](https://docs.github.com/en/copilot/concepts/agents/about-agent-skills) | Agent Skills |
+| [Antigravity](https://antigravity.google/docs/skills) | `--ide antigravity` | `.agent/skills/` | Agent Skills |
+| [Claude Code](https://code.claude.com/docs/en/skills) | `--ide claude` | `.claude/skills/` | Agent Skills |
+| [Cline](https://docs.cline.bot/customization/skills) | `--ide cline` | `.cline/skills/` | Agent Skills |
+| [Codex](https://developers.openai.com/codex/skills/) | `--ide codex` | `.agent/skills/` | Agent Skills |
+| [Cursor](https://cursor.com/docs/skills) | `--ide cursor` | `.cursor/skills/` | Agent Skills |
+| [GitHub Copilot](https://docs.github.com/en/copilot/concepts/agents/about-agent-skills) | `--ide copilot` | `.github/skills/` | Agent Skills |
+| Generic | `--ide generic` | `.agent/skills/` | Agent Skills |
 
-GitHub Copilot is not auto-detected (`.github/` is often used for other purposes). Use `--ide copilot` to install skills for Copilot explicitly.
+Antigravity, Codex, and generic all install to the same `.agent/skills/` directory (only `generic` is stored in the config). GitHub Copilot is not auto-detected (`.github/` is often used for other purposes); use `--ide copilot` to install skills for Copilot explicitly.
 
-All five IDEs receive the full Agent Skills directory (SKILL.md plus `scripts/`, `references/`, `assets/`) in each tool’s documented location.
+Each of these IDEs receives the full Agent Skills directory (SKILL.md plus `scripts/`, `references/`, `assets/`) in each tool’s documented location.
 
 ## GitHub registries
 

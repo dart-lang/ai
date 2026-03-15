@@ -3,9 +3,13 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 /// Supported IDEs for skill installation.
+///
+/// The "generic" IDE uses `.agent/skills/`. Antigravity, Codex, and generic are
+/// separate CLI options that all map here; only "generic" is stored in
+/// skills_config.
 enum Ide {
   cursor('cursor', '.cursor/skills'),
-  antigravity('antigravity', '.agent/skills'),
+  generic('generic', '.agent/skills'),
   claude('claude', '.claude/skills'),
   copilot('copilot', '.github/skills'),
   cline('cline', '.cline/skills');
@@ -16,6 +20,12 @@ enum Ide {
   final String skillsRelativePath;
 
   const Ide(this.cliName, this.skillsRelativePath);
+
+  /// Aliases that map to this IDE in the CLI (e.g. antigravity, codex → generic).
+  List<String> get cliAliases => switch (this) {
+        Ide.generic => ['antigravity', 'codex'],
+        _ => [],
+      };
 
   /// Returns the absolute skills directory path for this IDE within [projectPath].
   String skillsPath(String projectPath) =>
@@ -29,25 +39,36 @@ enum Ide {
   bool isDetected(String projectPath) {
     return switch (this) {
       Ide.cursor => Directory(p.join(projectPath, '.cursor')).existsSync(),
-      Ide.antigravity => Directory(p.join(projectPath, '.agent')).existsSync(),
+      Ide.generic => Directory(p.join(projectPath, '.agent')).existsSync(),
       Ide.claude => Directory(p.join(projectPath, '.claude')).existsSync(),
-      Ide.cline =>
-        Directory(p.join(projectPath, '.cline')).existsSync() ||
-            Directory(p.join(projectPath, '.clinerules')).existsSync(),
+      Ide.cline => Directory(p.join(projectPath, '.cline')).existsSync() ||
+          Directory(p.join(projectPath, '.clinerules')).existsSync(),
       Ide.copilot => false,
     };
   }
 
   /// Parses a CLI name string into an [Ide].
+  /// Accepts canonical names and aliases (e.g. antigravity, codex → generic).
   static Ide? fromCliName(String name) {
+    final lower = name.toLowerCase();
     for (final ide in Ide.values) {
-      if (ide.cliName == name.toLowerCase()) return ide;
+      if (ide.cliName == lower) return ide;
+      if (ide.cliAliases.contains(lower)) return ide;
     }
     return null;
   }
 
-  /// All valid CLI names as a list.
-  static List<String> get cliNames => Ide.values.map((e) => e.cliName).toList();
+  /// All valid CLI names (canonical + aliases) for --ide and help.
+  /// Sorted alphabetically with "generic" last.
+  static List<String> get cliNames {
+    final all = Ide.values.expand((e) => [e.cliName, ...e.cliAliases]).toList();
+    all.sort((a, b) {
+      if (a == 'generic') return 1;
+      if (b == 'generic') return -1;
+      return a.compareTo(b);
+    });
+    return all;
+  }
 
   /// All valid CLI names as a comma-separated string.
   static String get validNames => cliNames.join(', ');

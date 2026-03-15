@@ -15,13 +15,13 @@ void main() {
   });
 
   group('Given a project with a .agent directory', () {
-    test('when detecting IDE then returns antigravity', () async {
+    test('when detecting IDE then returns generic', () async {
       await d.dir('ag_project', [d.dir('.agent')]).create();
 
       const detector = IdeDetector();
       final ide = detector.detect(d.path('ag_project'));
 
-      expect(ide, equals(Ide.antigravity));
+      expect(ide, equals(Ide.generic));
     });
   });
 
@@ -108,17 +108,22 @@ void main() {
       final ides = detector.detectAll(d.path('multi_ide_project2'));
 
       expect(ides, hasLength(3));
-      expect(ides, containsAll([Ide.cursor, Ide.antigravity, Ide.claude]));
+      expect(ides, containsAll([Ide.cursor, Ide.generic, Ide.claude]));
     });
   });
 
   group('Given Ide.fromCliName', () {
     test('when given valid name then returns correct enum', () {
       expect(Ide.fromCliName('cursor'), equals(Ide.cursor));
-      expect(Ide.fromCliName('antigravity'), equals(Ide.antigravity));
+      expect(Ide.fromCliName('generic'), equals(Ide.generic));
       expect(Ide.fromCliName('claude'), equals(Ide.claude));
       expect(Ide.fromCliName('copilot'), equals(Ide.copilot));
       expect(Ide.fromCliName('cline'), equals(Ide.cline));
+    });
+
+    test('when given generic aliases then returns generic', () {
+      expect(Ide.fromCliName('antigravity'), equals(Ide.generic));
+      expect(Ide.fromCliName('codex'), equals(Ide.generic));
     });
 
     test('when given invalid name then returns null', () {

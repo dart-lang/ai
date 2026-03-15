@@ -208,7 +208,8 @@ void main() {
       await manifest.save(File(SkillManifest.pathIn(projectPath)));
     });
 
-    test('when removing one IDE then files for that IDE are deleted and '
+    test(
+        'when removing one IDE then files for that IDE are deleted and '
         'other IDE files remain', () async {
       final cursorAdapter = CursorAdapter(projectPath);
 
@@ -229,7 +230,8 @@ void main() {
       expect(updated.packagesForIde('claude')['pkg']!.skills, hasLength(1));
     });
 
-    test('when removing all IDEs then both Cursor and Claude skill '
+    test(
+        'when removing all IDEs then both Cursor and Claude skill '
         'directories are deleted', () async {
       final cursorAdapter = CursorAdapter(projectPath);
       final claudeAdapter = ClaudeAdapter(projectPath);
@@ -255,7 +257,8 @@ void main() {
       expect(updated.isEmpty, isTrue);
     });
 
-    test('when Claude skill directory is manually deleted then remove still '
+    test(
+        'when Claude skill directory is manually deleted then remove still '
         'cleans manifest without error', () async {
       Directory(
         '$projectPath/.claude/skills/pkg-skill-a',

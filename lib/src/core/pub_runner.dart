@@ -66,9 +66,8 @@ class PubRunner {
   /// For Dart pub workspaces, a single `pub get` at the root suffices.
   /// For melos or multi-package setups, runs `pub get` per member as needed.
   static Future<bool> ensureWorkspaceConfigs(WorkspaceLayout workspace) async {
-    final configPaths = workspace.packages
-        .map((p) => p.packageConfigPath)
-        .toSet();
+    final configPaths =
+        workspace.packages.map((p) => p.packageConfigPath).toSet();
 
     for (final configPath in configPaths) {
       if (File(configPath).existsSync()) continue;
