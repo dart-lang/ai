@@ -476,41 +476,6 @@ base mixin DartAnalyzerSupport
         await _applyTextEdits(Uri.parse(entry.key.toString()), entry.value);
       }
     }
-
-    final documentChanges = edit.documentChanges;
-    if (documentChanges != null) {
-      for (final change in documentChanges) {
-        await change.map(
-          (createFile) async {
-            final file = fileSystem.file(createFile.uri);
-            await file.create(recursive: true);
-          },
-          (deleteFile) async {
-            final file = fileSystem.file(deleteFile.uri);
-            await file.delete(recursive: true);
-          },
-          (renameFile) async {
-            final file = fileSystem.file(renameFile.oldUri);
-            await file.rename(fileSystem.path.fromUri(renameFile.newUri));
-          },
-          (textDocumentEdit) async {
-            final uri = textDocumentEdit.textDocument.uri;
-            final edits = textDocumentEdit.edits
-                .map(
-                  (e) => e.map(
-                    (lsp.TextEdit te) => te,
-                    (ae) => lsp.TextEdit(range: ae.range, newText: ae.newText),
-                    (snippet) => throw UnimplementedError(
-                      'SnippetTextEdit not supported',
-                    ),
-                  ),
-                )
-                .toList();
-            await _applyTextEdits(uri, edits);
-          },
-        );
-      }
-    }
   }
 
   /// Refreshes the content of a file by applying a list of [lsp.TextEdit]s.
