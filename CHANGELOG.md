@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1
+
+- docs: Updates README.
+
 ## 0.2.0
 
 - feat: Adds `skills prune` command.
