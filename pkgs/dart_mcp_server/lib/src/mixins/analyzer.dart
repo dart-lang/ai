@@ -316,10 +316,7 @@ base mixin DartAnalyzerSupport
       );
       messages.add(TextContent(text: 'Applied quick fixes'));
 
-      // Give a small delay to allow the analysis to start.
-      if (_doneAnalyzing == null) {
-        await Future<void>.delayed(const Duration(milliseconds: 100));
-      }
+      // If its still analyzing, wait for it to finish.
       await _doneAnalyzing?.future;
     }
 

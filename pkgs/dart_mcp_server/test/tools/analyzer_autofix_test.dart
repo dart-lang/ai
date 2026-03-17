@@ -17,7 +17,7 @@ void main() {
   late TestHarness testHarness;
 
   setUp(() async {
-    testHarness = await TestHarness.start();
+    testHarness = await TestHarness.start(inProcess: true);
   });
 
   group('analyzer autoFix', () {
@@ -41,8 +41,16 @@ name: test_project
 environment:
   sdk: '>=3.0.0 <4.0.0'
 '''),
+          d.file('analysis_options.yaml', '''
+linter:
+  rules:
+    - unnecessary_new
+'''),
           d.file('main.dart', '''
+class A {}
 void main() {
+  final a = new A();
+  print(a);
   final x = 'hello';
   print(x?.length);
 }
@@ -66,15 +74,23 @@ void main() {
           },
         );
         var result = await testHarness.callToolWithRetry(noFixRequest);
-        final containsLint = contains(
+        final containsInvalidNullAwareOperator = contains(
           isA<TextContent>().having(
             (t) => t.text,
             'text',
             contains('invalid_null_aware_operator'),
           ),
         );
+        final containsUnnecessaryNew = contains(
+          isA<TextContent>().having(
+            (t) => t.text,
+            'text',
+            contains('unnecessary_new'),
+          ),
+        );
         expect(result.isError, isNot(true));
-        expect(result.content, containsLint);
+        expect(result.content, containsInvalidNullAwareOperator);
+        expect(result.content, containsUnnecessaryNew);
 
         // Now, call with autoFix: true.
         final fixRequest = CallToolRequest(
@@ -98,11 +114,14 @@ void main() {
             ),
           ),
         );
-        expect(result.content, isNot(containsLint));
+        expect(result.content, isNot(containsInvalidNullAwareOperator));
+        expect(result.content, isNot(containsUnnecessaryNew));
 
         // Verify the file has been fixed.
         final mainFile = File(p.join(project.io.path, 'main.dart'));
         final content = await mainFile.readAsString();
+        expect(content, isNot(contains('new A()')));
+        expect(content, contains('A()'));
         expect(content, contains('x.length'));
         expect(content, isNot(contains('x?.length')));
 
