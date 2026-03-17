@@ -28,6 +28,7 @@
 - Disable all tools that can easily be done on the CLI by default, as well as
   `get_active_location`. These can be re-enabled by passing `--enable cli` or
   `--enable <tool-name>`.
+- Add support for auto-fixing diagnostics returned by `analyze_files`.
 
 # 0.1.2 (Dart SDK 3.11.0)
 

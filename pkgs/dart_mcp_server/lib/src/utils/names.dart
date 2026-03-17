@@ -28,6 +28,7 @@ extension ParameterNames on Never {
   static const summaryOnly = 'summaryOnly';
   static const template = 'template';
   static const uri = 'uri';
+  static const applyFixes = 'applyFixes';
   static const uris = 'uris';
   static const userJourney = 'user_journey';
 }

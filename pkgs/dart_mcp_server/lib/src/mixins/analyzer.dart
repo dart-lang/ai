@@ -122,6 +122,10 @@ base mixin DartAnalyzerSupport
         lsp.Method.textDocument_publishDiagnostics.toString(),
         _handleDiagnostics,
       )
+      ..registerMethod(
+        lsp.Method.workspace_applyEdit.toString(),
+        _handleApplyEdit,
+      )
       ..registerMethod(r'$/analyzerStatus', _handleAnalyzerStatus)
       ..registerFallback((Parameters params) {
         log(
@@ -144,6 +148,12 @@ base mixin DartAnalyzerSupport
               lsp.InitializeParams(
                 capabilities: lsp.ClientCapabilities(
                   workspace: lsp.WorkspaceClientCapabilities(
+                    applyEdit: true,
+                    workspaceEdit: lsp.WorkspaceEditClientCapabilities(
+                      changeAnnotationSupport:
+                          // ignore: lines_longer_than_80_chars
+                          lsp.WorkspaceEditClientCapabilitiesChangeAnnotationSupport(),
+                    ),
                     diagnostics: lsp.DiagnosticWorkspaceClientCapabilities(
                       refreshSupport: true,
                     ),
@@ -260,8 +270,9 @@ base mixin DartAnalyzerSupport
     final allRoots = await roots;
 
     if (rootConfigs != null && rootConfigs.isEmpty) {
-      // Have to have at least one root set.
-      return noRootsSetResponse;
+      // If you provide an empty list of roots, we have nothing to do, but
+      // don't want to default to all roots as you explicitly gave zero.
+      return emptyRootsGivenResponse;
     }
 
     // Default to use the known roots if none were specified.
@@ -291,6 +302,26 @@ base mixin DartAnalyzerSupport
         requestedUris.add(rootUri);
       }
     }
+    final messages = <Content>[];
+
+    final applyFixes =
+        request.arguments?[ParameterNames.applyFixes] as bool? ?? false;
+    if (applyFixes) {
+      await _lspConnection!.sendRequest(
+        lsp.Method.workspace_executeCommand.toString(),
+        lsp.ExecuteCommandParams(
+          command: 'dart.edit.fixAllInWorkspace',
+          arguments: [],
+        ).toJson(),
+      );
+      messages.add(TextContent(text: 'Applied quick fixes'));
+
+      // Give a small delay to allow the analysis to start.
+      if (_doneAnalyzing == null) {
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      }
+      await _doneAnalyzing?.future;
+    }
 
     final entries = diagnostics.entries.where((entry) {
       final entryPath = fileSystem.path.canonicalize(entry.key.toFilePath());
@@ -301,7 +332,6 @@ base mixin DartAnalyzerSupport
       });
     });
 
-    final messages = <Content>[];
     for (var entry in entries) {
       for (var diagnostic in entry.value) {
         final diagnosticJson = diagnostic.toJson();
@@ -309,7 +339,7 @@ base mixin DartAnalyzerSupport
         messages.add(TextContent(text: jsonEncode(diagnosticJson)));
       }
     }
-    if (messages.isEmpty) {
+    if (messages.isEmpty || (applyFixes && messages.length == 1)) {
       messages.add(TextContent(text: 'No errors'));
     }
     return CallToolResult(content: messages);
@@ -429,6 +459,105 @@ base mixin DartAnalyzerSupport
           .toList(),
     });
   }
+ 
+  /// Handles `workspace/applyEdit` requests from the LSP server.
+  ///
+  /// These happen when the agents requests to apply quick fixes or refactors.
+  Future<Map<String, Object?>> _handleApplyEdit(Parameters params) async {
+    final editParams = lsp.ApplyWorkspaceEditParams.fromJson(
+      params.value as Map<String, Object?>,
+    );
+    await _applyWorkspaceEdit(editParams.edit);
+    return lsp.ApplyWorkspaceEditResult(applied: true).toJson();
+  }
+
+  /// Applies a [lsp.WorkspaceEdit] to the filesystem.
+  Future<void> _applyWorkspaceEdit(lsp.WorkspaceEdit edit) async {
+    final changes = edit.changes;
+    if (changes != null) {
+      for (final entry in changes.entries) {
+        await _applyTextEdits(Uri.parse(entry.key.toString()), entry.value);
+      }
+    }
+
+    final documentChanges = edit.documentChanges;
+    if (documentChanges != null) {
+      for (final change in documentChanges) {
+        await change.map(
+          (createFile) async {
+            final file = fileSystem.file(createFile.uri);
+            await file.create(recursive: true);
+          },
+          (deleteFile) async {
+            final file = fileSystem.file(deleteFile.uri);
+            await file.delete(recursive: true);
+          },
+          (renameFile) async {
+            final file = fileSystem.file(renameFile.oldUri);
+            await file.rename(fileSystem.path.fromUri(renameFile.newUri));
+          },
+          (textDocumentEdit) async {
+            final uri = textDocumentEdit.textDocument.uri;
+            final edits = textDocumentEdit.edits
+                .map(
+                  (e) => e.map(
+                    (lsp.TextEdit te) => te,
+                    (ae) => lsp.TextEdit(range: ae.range, newText: ae.newText),
+                    (snippet) => throw UnimplementedError(
+                      'SnippetTextEdit not supported',
+                    ),
+                  ),
+                )
+                .toList();
+            await _applyTextEdits(uri, edits);
+          },
+        );
+      }
+    }
+  }
+
+  /// Refreshes the content of a file by applying a list of [lsp.TextEdit]s.
+  Future<void> _applyTextEdits(Uri uri, List<lsp.TextEdit> edits) async {
+    if (edits.isEmpty) return;
+    final file = fileSystem.file(uri.toFilePath());
+    if (!await file.exists()) return;
+    final content = await file.readAsString();
+    final newContent = _applyEditsToString(content, edits);
+    await file.writeAsString(newContent);
+  }
+
+  /// Returns [content] with [edits] applied.
+  String _applyEditsToString(String content, List<lsp.TextEdit> edits) {
+    if (edits.isEmpty) return content;
+
+    final lineOffsets = <int>[0];
+    for (var i = 0; i < content.length; i++) {
+      if (content.codeUnitAt(i) == 10) {
+        // \n
+        lineOffsets.add(i + 1);
+      }
+    }
+
+    int getOffset(lsp.Position pos) {
+      if (pos.line >= lineOffsets.length) return content.length;
+      return lineOffsets[pos.line] + pos.character;
+    }
+
+    final sortedEdits = List<lsp.TextEdit>.from(edits)
+      ..sort((a, b) {
+        final startA = getOffset(a.range.start);
+        final startB = getOffset(b.range.start);
+        return startB.compareTo(startA);
+      });
+
+    var result = content;
+    for (final edit in sortedEdits) {
+      final start = getOffset(edit.range.start);
+      final end = getOffset(edit.range.end);
+      result = result.replaceRange(start, end, edit.newText);
+    }
+    return result;
+  }
 
   /// Update the LSP workspace dirs when our workspace [Root]s change.
   @override
@@ -480,7 +609,14 @@ base mixin DartAnalyzerSupport
     name: ToolNames.analyzeFiles.name,
     description: 'Analyzes specific paths, or the entire project, for errors.',
     inputSchema: Schema.object(
-      properties: {ParameterNames.roots: rootsSchema(supportsPaths: true)},
+      properties: {
+        ParameterNames.roots: rootsSchema(supportsPaths: true),
+        ParameterNames.applyFixes: Schema.bool(
+          description:
+              'Whether or not to automatically apply quick fixes before '
+              'returning diagnostics. Defaults to false.',
+        ),
+      },
       additionalProperties: false,
     ),
     annotations: ToolAnnotations(title: 'Analyze projects', readOnlyHint: true),
@@ -543,6 +679,19 @@ base mixin DartAnalyzerSupport
         text:
             'No roots set. At least one root must be set in order to use this '
             'tool.',
+      ),
+    ],
+  )..failureReason = CallToolFailureReason.noRootsSet;
+
+  @visibleForTesting
+  static final emptyRootsGivenResponse = CallToolResult(
+    isError: true,
+    content: [
+      TextContent(
+        text:
+            'A list of roots was provided, but it was empty. Either omit the '
+            '`roots` parameter to use the default roots, or provide a '
+            'non-empty list of roots.',
       ),
     ],
   )..failureReason = CallToolFailureReason.noRootsSet;
