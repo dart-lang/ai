@@ -472,8 +472,8 @@ base mixin DartAnalyzerSupport
   Future<void> _applyWorkspaceEdit(lsp.WorkspaceEdit edit) async {
     final changes = edit.changes;
     if (changes != null) {
-      for (final entry in changes.entries) {
-        await _applyTextEdits(Uri.parse(entry.key.toString()), entry.value);
+      for (final MapEntry(key: uri, value: edits) in changes.entries) {
+        await _applyTextEdits(uri, edits);
       }
     }
   }
@@ -481,7 +481,7 @@ base mixin DartAnalyzerSupport
   /// Refreshes the content of a file by applying a list of [lsp.TextEdit]s.
   Future<void> _applyTextEdits(Uri uri, List<lsp.TextEdit> edits) async {
     if (edits.isEmpty) return;
-    final file = fileSystem.file(uri.toFilePath());
+    final file = fileSystem.file(uri);
     if (!await file.exists()) return;
     final content = await file.readAsString();
     final newContent = _applyEditsToString(content, edits);
@@ -494,8 +494,7 @@ base mixin DartAnalyzerSupport
 
     final lineOffsets = <int>[0];
     for (var i = 0; i < content.length; i++) {
-      if (content.codeUnitAt(i) == 10) {
-        // \n
+      if (content.codeUnitAt(i) == CodeUnits.newline) {
         lineOffsets.add(i + 1);
       }
     }
@@ -504,21 +503,27 @@ base mixin DartAnalyzerSupport
       if (pos.line >= lineOffsets.length) return content.length;
       return lineOffsets[pos.line] + pos.character;
     }
-
+    // We want to walk sequentially through the file, so we need to sort the
+    // edits by their start position.
     final sortedEdits = List<lsp.TextEdit>.from(edits)
       ..sort((a, b) {
         final startA = getOffset(a.range.start);
         final startB = getOffset(b.range.start);
-        return startB.compareTo(startA);
+        return startA.compareTo(startB);
       });
 
-    var result = content;
+    final result = StringBuffer();
+    var contentCursor = 0;
     for (final edit in sortedEdits) {
       final start = getOffset(edit.range.start);
       final end = getOffset(edit.range.end);
-      result = result.replaceRange(start, end, edit.newText);
+
+      result.write(content.substring(contentCursor, start));
+      result.write(edit.newText);
+      contentCursor = end;
     }
-    return result;
+    result.write(content.substring(contentCursor));
+    return result.toString();
   }
 
   /// Update the LSP workspace dirs when our workspace [Root]s change.
@@ -669,4 +674,8 @@ extension LspCommands on Never {
   static const hover = 'hover';
   static const signatureHelp = 'signatureHelp';
   static const resolveWorkspaceSymbol = 'resolveWorkspaceSymbol';
+}
+
+extension CodeUnits on Never {
+  static const newline = 10;
 }
