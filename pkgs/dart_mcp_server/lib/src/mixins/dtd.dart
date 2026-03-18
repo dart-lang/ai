@@ -278,55 +278,8 @@ base mixin DartToolingDaemonSupport
   }
 
   /// Connects to the Dart Tooling Daemon.
-  FutureOr<CallToolResult> _connect(CallToolRequest request) async {
-    final uriString = request.arguments?[ParameterNames.uri] as String?;
-    Uri? uri;
-
-    if (uriString != null) {
-      uri = Uri.parse(uriString);
-    } else {
-      // Attempt automatic discovery
-      final instances = await _listRunningDtdInstances();
-      if (instances.isEmpty) {
-        return CallToolResult(
-          isError: true,
-          content: [
-            Content.text(
-              text:
-                  'No running DTD instances found for automatic discovery. '
-                  'Please provide a URI.',
-            ),
-          ],
-        );
-      }
-
-      // Selection strategy:
-      // 1. Prefer matching workspaceRoot with client roots (if available).
-      // 2. Fallback to the most recent one (highest epoch).
-      final sortedInstances = instances.toList()
-        ..sort((a, b) {
-          final epochA = a['epoch'] as int? ?? 0;
-          final epochB = b['epoch'] as int? ?? 0;
-          return epochB.compareTo(epochA); // Descending
-        });
-
-      // TODO: Match workspaceRoot with client roots if RootsTrackingSupport is
-      // active.
-      // For now, pick the most recent.
-      final selected = sortedInstances.first;
-      final selectedWsUri = selected['wsUri'] as String?;
-      if (selectedWsUri == null) {
-        return CallToolResult(
-          isError: true,
-          content: [
-            Content.text(text: 'Discovered DTD instance missing wsUri.'),
-          ],
-        );
-      }
-      uri = Uri.parse(selectedWsUri);
-      log(LoggingLevel.info, 'Automatically discovered DTD at $uri');
-    }
-
+  /// Connects to a single DTD at [uri].
+  Future<CallToolResult> _connectToDtdSingle(Uri uri) async {
     if (_dtds.any((dtd) => dtd.uri == uri)) {
       return _dtdAlreadyConnected;
     }
@@ -387,8 +340,83 @@ base mixin DartToolingDaemonSupport
     }
   }
 
+  /// Connects to the Dart Tooling Daemon.
+  FutureOr<CallToolResult> _connect(CallToolRequest request) async {
+    final uriString = request.arguments?[ParameterNames.uri] as String?;
+
+    if (uriString != null) {
+      return _connectToDtdSingle(Uri.parse(uriString));
+    }
+
+    // Attempt automatic discovery
+    final (instances, error) = await _listRunningDtdInstances();
+    if (error != null) {
+      return error;
+    }
+    if (instances.isEmpty) {
+      return CallToolResult(
+        content: [
+          Content.text(
+            text:
+                'No running DTD instances found for automatic discovery. '
+                'Please provide a URI.',
+          ),
+        ],
+      );
+    }
+
+    final connectedUrls = <String>[];
+    final failedUrls = <String>[];
+
+    for (final instance in instances) {
+      final selectedWsUri = instance['wsUri'] as String?;
+      if (selectedWsUri == null) continue;
+
+      final uri = Uri.parse(selectedWsUri);
+      final result = await _connectToDtdSingle(uri);
+
+      if (result.isError == true) {
+        if (result.failureReason == CallToolFailureReason.dtdAlreadyConnected) {
+          connectedUrls.add('$uri (Already connected)');
+        } else {
+          final errorMessage =
+              result.content.isNotEmpty && result.content.first is TextContent
+              ? (result.content.first as TextContent).text
+              : 'Unknown error';
+          failedUrls.add('$uri ($errorMessage)');
+        }
+      } else {
+        connectedUrls.add('$uri');
+      }
+    }
+
+    final appUris = activeVmServices.keys.toList();
+    final appListString = appUris.isEmpty
+        ? 'No apps currently connected.'
+        : 'Connected apps:\n${appUris.map((a) => '- $a').join('\n')}';
+
+    final textResult = StringBuffer();
+    textResult.writeln('Automatic discovery finished.');
+    if (connectedUrls.isNotEmpty) {
+      textResult.writeln(
+        'Connected to:\n${connectedUrls.map((u) => '- $u').join('\n')}',
+      );
+    }
+    if (failedUrls.isNotEmpty) {
+      textResult.writeln(
+        'Failed to connect to:\n${failedUrls.map((u) => '- $u').join('\n')}',
+      );
+    }
+    textResult.writeln(appListString);
+
+    return CallToolResult(
+      content: [TextContent(text: textResult.toString().trim())],
+    );
+  }
+
   /// Lists running DTD instances by querying the dart executable.
-  Future<List<Map<String, Object?>>> _listRunningDtdInstances() async {
+  Future<(List<Map<String, Object?>>, CallToolResult?)>
+  _listRunningDtdInstances() async {
     try {
       final result = await processManager.run([
         sdk.dartExecutablePath,
@@ -401,18 +429,41 @@ base mixin DartToolingDaemonSupport
           LoggingLevel.warning,
           'dart tooling-daemon --list failed: ${result.stderr}',
         );
-        return [];
+        return (
+          <Map<String, Object?>>[],
+          CallToolResult(
+            isError: true,
+            content: [
+              Content.text(
+                text: 'dart tooling-daemon --list failed: ${result.stderr}',
+              ),
+            ],
+          )..failureReason = CallToolFailureReason.nonZeroExitCode,
+        );
       }
       final output = result.stdout as String;
-      if (output.trim().isEmpty) return [];
+      if (output.trim().isEmpty) return (<Map<String, Object?>>[], null);
       final parsed = jsonDecode(output);
       if (parsed is List) {
-        return parsed.cast<Map<String, Object?>>();
+        return (parsed.cast<Map<String, Object?>>(), null);
       }
+      return (
+        <Map<String, Object?>>[],
+        CallToolResult(
+          isError: true,
+          content: [Content.text(text: 'Unexpected JSON format from DTD list')],
+        )..failureReason = CallToolFailureReason.unhandledError,
+      );
     } catch (e) {
       log(LoggingLevel.warning, 'Error listing DTD instances: $e');
+      return (
+        <Map<String, Object?>>[],
+        CallToolResult(
+          isError: true,
+          content: [Content.text(text: 'Error listing DTD instances: $e')],
+        )..failureReason = CallToolFailureReason.unhandledError,
+      );
     }
-    return [];
   }
 
   /// The [dtdTool] for managing DTD connections.
@@ -435,7 +486,7 @@ base mixin DartToolingDaemonSupport
           description:
               'The DTD URI to connect to or disconnect from. '
               'Optional for "connect" (triggers automatic discovery), '
-              'optional for "disconnect".',
+              'optional for "disconnect" (if only one DTD is connected).',
         ),
       },
       required: [ParameterNames.command],
@@ -970,15 +1021,20 @@ base mixin DartToolingDaemonSupport
       selectedAppUri = appUri;
     } else {
       if (activeVmServices.length > 1) {
-        selectedAppUri = activeVmServices.keys.last;
-        log(
-          LoggingLevel.info,
-          'Multiple apps connected. Defaulting to the most recently connected '
-          'app: $selectedAppUri',
-        );
-      } else {
-        selectedAppUri = activeVmServices.keys.first;
+        return CallToolResult(
+          isError: true,
+          content: [
+            TextContent(
+              text:
+                  'Multiple apps connected. You must provide an '
+                  '"${ParameterNames.appUri}". Use "${dtdTool.name}" with '
+                  'command "${DtdCommand.listConnectedApps}" to see available '
+                  'apps.',
+            ),
+          ],
+        )..failureReason = CallToolFailureReason.mustSpecifyDtdUri;
       }
+      selectedAppUri = activeVmServices.keys.first;
     }
 
     return await callback(await activeVmServices[selectedAppUri]!);
