@@ -461,7 +461,7 @@ base mixin DartAnalyzerSupport
           .toList(),
     });
   }
- 
+
   /// Handles `workspace/applyEdit` requests from the LSP server.
   ///
   /// These happen when the agents requests to apply quick fixes or refactors.
