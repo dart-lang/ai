@@ -271,8 +271,9 @@ void main() {
         isA<TextContent>().having(
           (t) => t.text,
           'text',
-          'No roots set. At least one root must be set in order to use this '
-              'tool.',
+          'A list of roots was provided, but it was empty. Either omit the '
+              '`roots` parameter to use the default roots, or provide a '
+              'non-empty list of roots.',
         ),
       );
     });
