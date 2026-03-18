@@ -17,7 +17,7 @@ import 'package:test/test.dart';
 import '../test_harness.dart';
 
 void main() {
-  test('pub tools are disabled by default', () async {
+  test('pub tools are enabled by default', () async {
     final featureConfig = const FeaturesConfiguration();
     for (var tool in PubSupport.allTools) {
       expect(
@@ -26,8 +26,8 @@ void main() {
           tool.enabledByDefault,
           tool.categories,
         ),
-        isFalse,
-        reason: 'Tool ${tool.name} should be disabled by default',
+        isTrue,
+        reason: 'Tool ${tool.name} should be enabled by default',
       );
     }
   });
