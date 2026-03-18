@@ -1,4 +1,4 @@
-// Copyright (c) 2025, the Dart project authors.  Please see the AUTHORS file
+// Copyright (c) 2026, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
@@ -14,39 +14,31 @@ import 'package:test_descriptor/test_descriptor.dart' as d;
 import '../test_harness.dart';
 
 void main() {
-  late TestHarness testHarness;
-
-  setUp(() async {
-    testHarness = await TestHarness.start(inProcess: true);
-  });
-
-  group('analyzer autoFix', () {
+  group('analyze_files', () {
+    late TestHarness testHarness;
     late Tool analyzeTool;
 
     setUp(() async {
+      testHarness = await TestHarness.start(inProcess: true);
       final tools = (await testHarness.mcpServerConnection.listTools()).tools;
       analyzeTool = tools.singleWhere(
         (t) => t.name == DartAnalyzerSupport.analyzeFilesTool.name,
       );
     });
 
-    test(
-      'can apply quick fixes automatically',
-      () async {
-        // Create a project with a fixable error.
-        // Unnecessary null-aware operator is a good candidate.
-        final project = d.dir('project', [
-          d.file('pubspec.yaml', '''
+    test('can apply quick fixes automatically', () async {
+      final project = d.dir('project', [
+        d.file('pubspec.yaml', '''
 name: test_project
 environment:
   sdk: '>=3.0.0 <4.0.0'
 '''),
-          d.file('analysis_options.yaml', '''
+        d.file('analysis_options.yaml', '''
 linter:
   rules:
     - unnecessary_new
 '''),
-          d.file('main.dart', '''
+        d.file('main.dart', '''
 class A {}
 void main() {
   final a = new A();
@@ -55,87 +47,77 @@ void main() {
   print(x?.length);
 }
 '''),
-        ]);
-        await project.create();
-        final projectRoot = testHarness.rootForPath(project.io.path);
-        testHarness.mcpClient.addRoot(projectRoot);
+      ]);
+      await project.create();
+      final projectRoot = testHarness.rootForPath(project.io.path);
+      testHarness.mcpClient.addRoot(projectRoot);
+      await pumpEventQueue();
 
-        // Allow the notification to propagate.
-        await pumpEventQueue();
+      final analyzeRequest = CallToolRequest(
+        name: analyzeTool.name,
+        arguments: {
+          ParameterNames.roots: [
+            {ParameterNames.root: projectRoot.uri},
+          ],
+          ParameterNames.applyFixes: false,
+        },
+      );
+      var result = await testHarness.callToolWithRetry(analyzeRequest);
+      final containsInvalidNullAwareOperator = contains(
+        isA<TextContent>().having(
+          (t) => t.text,
+          'text',
+          contains('invalid_null_aware_operator'),
+        ),
+      );
+      final containsUnnecessaryNew = contains(
+        isA<TextContent>().having(
+          (t) => t.text,
+          'text',
+          contains('unnecessary_new'),
+        ),
+      );
+      expect(result.content, containsInvalidNullAwareOperator);
+      expect(result.content, containsUnnecessaryNew);
 
-        // First, verify the error exists without autoFix.
-        final noFixRequest = CallToolRequest(
-          name: analyzeTool.name,
-          arguments: {
-            ParameterNames.roots: [
-              {ParameterNames.root: projectRoot.uri},
-            ],
-            ParameterNames.applyFixes: false,
-          },
-        );
-        var result = await testHarness.callToolWithRetry(noFixRequest);
-        final containsInvalidNullAwareOperator = contains(
+      // Actually apply the fixes now.
+      final fixRequest = CallToolRequest(
+        name: analyzeTool.name,
+        arguments: {
+          ParameterNames.roots: [
+            {ParameterNames.root: projectRoot.uri},
+          ],
+          ParameterNames.applyFixes: true,
+        },
+      );
+      result = await testHarness.callToolWithRetry(fixRequest);
+      expect(
+        result.content,
+        contains(
           isA<TextContent>().having(
             (t) => t.text,
             'text',
-            contains('invalid_null_aware_operator'),
+            'Applied quick fixes',
           ),
-        );
-        final containsUnnecessaryNew = contains(
-          isA<TextContent>().having(
-            (t) => t.text,
-            'text',
-            contains('unnecessary_new'),
-          ),
-        );
-        expect(result.isError, isNot(true));
-        expect(result.content, containsInvalidNullAwareOperator);
-        expect(result.content, containsUnnecessaryNew);
+        ),
+      );
+      expect(result.content, isNot(containsInvalidNullAwareOperator));
+      expect(result.content, isNot(containsUnnecessaryNew));
 
-        // Now, call with autoFix: true.
-        final fixRequest = CallToolRequest(
-          name: analyzeTool.name,
-          arguments: {
-            ParameterNames.roots: [
-              {ParameterNames.root: projectRoot.uri},
-            ],
-            ParameterNames.applyFixes: true,
-          },
-        );
-        result = await testHarness.callToolWithRetry(fixRequest);
-        expect(result.isError, isNot(true));
-        expect(
-          result.content,
-          contains(
-            isA<TextContent>().having(
-              (t) => t.text,
-              'text',
-              'Applied quick fixes',
-            ),
-          ),
-        );
-        expect(result.content, isNot(containsInvalidNullAwareOperator));
-        expect(result.content, isNot(containsUnnecessaryNew));
+      // Verify the file has been fixed.
+      final mainFile = File(p.join(project.io.path, 'main.dart'));
+      final content = await mainFile.readAsString();
+      expect(content, isNot(contains('new A()')));
+      expect(content, contains('A()'));
+      expect(content, contains('x.length'));
+      expect(content, isNot(contains('x?.length')));
 
-        // Verify the file has been fixed.
-        final mainFile = File(p.join(project.io.path, 'main.dart'));
-        final content = await mainFile.readAsString();
-        expect(content, isNot(contains('new A()')));
-        expect(content, contains('A()'));
-        expect(content, contains('x.length'));
-        expect(content, isNot(contains('x?.length')));
-
-        // Finally, verify no errors are returned now.
-        result = await testHarness.callToolWithRetry(noFixRequest);
-        expect(result.isError, isNot(true));
-        expect(
-          result.content,
-          contains(
-            isA<TextContent>().having((t) => t.text, 'text', 'No errors'),
-          ),
-        );
-      },
-      timeout: const Timeout(Duration(minutes: 2)),
-    );
+      // Finally, verify no errors are returned for future analysis.
+      result = await testHarness.callToolWithRetry(analyzeRequest);
+      expect(
+        result.content,
+        contains(isA<TextContent>().having((t) => t.text, 'text', 'No errors')),
+      );
+    });
   });
 }

@@ -314,13 +314,15 @@ base mixin DartAnalyzerSupport
           arguments: [],
         ).toJson(),
       );
+      // The actual edits are asynchronous, we just assume some were applied
+      // as a confirmation to the LLM that it was respected.
       messages.add(TextContent(text: 'Applied quick fixes'));
 
       // If its still analyzing, wait for it to finish.
       await _doneAnalyzing?.future;
     }
 
-    final entries = diagnostics.entries.where((entry) {
+    final filteredDiagnostics = diagnostics.entries.where((entry) {
       final entryPath = fileSystem.path.canonicalize(entry.key.toFilePath());
       return requestedUris.any((uri) {
         final requestedPath = fileSystem.path.canonicalize(uri.toFilePath());
@@ -329,16 +331,19 @@ base mixin DartAnalyzerSupport
       });
     });
 
-    for (var entry in entries) {
-      for (var diagnostic in entry.value) {
+    var sawDiagnostic = false;
+    for (final MapEntry(key: uri, value: diagnostics) in filteredDiagnostics) {
+      for (final diagnostic in diagnostics) {
+        sawDiagnostic = true;
         final diagnosticJson = diagnostic.toJson();
-        diagnosticJson[ParameterNames.uri] = entry.key.toString();
+        diagnosticJson[ParameterNames.uri] = uri.toString();
         messages.add(TextContent(text: jsonEncode(diagnosticJson)));
       }
     }
-    if (messages.isEmpty || (applyFixes && messages.length == 1)) {
+    if (!sawDiagnostic) {
       messages.add(TextContent(text: 'No errors'));
     }
+
     return CallToolResult(content: messages);
   }
 
@@ -468,7 +473,7 @@ base mixin DartAnalyzerSupport
     return lsp.ApplyWorkspaceEditResult(applied: true).toJson();
   }
 
-  /// Applies a [lsp.WorkspaceEdit] to the filesystem.
+  /// Applies a [lsp.WorkspaceEdit] to the actual filesystem.
   Future<void> _applyWorkspaceEdit(lsp.WorkspaceEdit edit) async {
     final changes = edit.changes;
     if (changes != null) {
@@ -478,7 +483,8 @@ base mixin DartAnalyzerSupport
     }
   }
 
-  /// Refreshes the content of a file by applying a list of [lsp.TextEdit]s.
+  /// Actually applies a list of [edits] to a file at [uri] and writes the
+  /// new contents.
   Future<void> _applyTextEdits(Uri uri, List<lsp.TextEdit> edits) async {
     if (edits.isEmpty) return;
     final file = fileSystem.file(uri);
@@ -488,23 +494,34 @@ base mixin DartAnalyzerSupport
     await file.writeAsString(newContent);
   }
 
-  /// Returns [content] with [edits] applied.
+  /// Applies a list of [edits] to [content] and returns the new content.
   String _applyEditsToString(String content, List<lsp.TextEdit> edits) {
     if (edits.isEmpty) return content;
 
+    // Precompute line offsets for efficient position lookups, ranges are given
+    // as line/column pairs but we need actual character offsets.
     final lineOffsets = <int>[0];
     for (var i = 0; i < content.length; i++) {
+      // Note that LSP ranges are based on utf16 code units and not grapheme
+      // clusters, which simplifies this logic.
       if (content.codeUnitAt(i) == CodeUnits.newline) {
         lineOffsets.add(i + 1);
       }
     }
 
+    // Convert a line/column pair to a character offset.
     int getOffset(lsp.Position pos) {
-      if (pos.line >= lineOffsets.length) return content.length;
-      return lineOffsets[pos.line] + pos.character;
+      if (pos.line >= lineOffsets.length) {
+        throw StateError('Invalid line number: ${pos.line}');
+      }
+      final offset = lineOffsets[pos.line] + pos.character;
+      if (offset > content.length) {
+        throw StateError('Invalid character offset: $offset');
+      }
+      return offset;
     }
-    // We want to walk sequentially through the file, so we need to sort the
-    // edits by their start position.
+
+    // Sort edits by start position to apply them sequentially.
     final sortedEdits = List<lsp.TextEdit>.from(edits)
       ..sort((a, b) {
         final startA = getOffset(a.range.start);
@@ -512,17 +529,27 @@ base mixin DartAnalyzerSupport
         return startA.compareTo(startB);
       });
 
+    // Build up the string incrementally to avoid copying the whole string
+    // multiple times. This is O(N) instead of O(N*M) where N is the number
+    // of edits and M is the length of the content.
     final result = StringBuffer();
     var contentCursor = 0;
+    int? lastEditEnd;
     for (final edit in sortedEdits) {
       final start = getOffset(edit.range.start);
       final end = getOffset(edit.range.end);
+      if (lastEditEnd != null && start < lastEditEnd) {
+        throw StateError('Overlapping edits are not supported');
+      }
 
       result.write(content.substring(contentCursor, start));
       result.write(edit.newText);
       contentCursor = end;
+      lastEditEnd = end;
     }
-    result.write(content.substring(contentCursor));
+    if (contentCursor < content.length) {
+      result.write(content.substring(contentCursor));
+    }
     return result.toString();
   }
 

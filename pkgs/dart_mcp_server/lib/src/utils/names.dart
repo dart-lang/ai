@@ -4,9 +4,10 @@
 
 /// A namespace for all the parameter names.
 extension ParameterNames on Never {
-  static const arguments = 'arguments';
+  static const applyFixes = 'applyFixes';
   static const apps = 'apps';
   static const appUri = 'appUri';
+  static const arguments = 'arguments';
   static const column = 'column';
   static const command = 'command';
   static const directory = 'directory';
@@ -28,7 +29,6 @@ extension ParameterNames on Never {
   static const summaryOnly = 'summaryOnly';
   static const template = 'template';
   static const uri = 'uri';
-  static const applyFixes = 'applyFixes';
   static const uris = 'uris';
   static const userJourney = 'user_journey';
 }
