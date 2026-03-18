@@ -487,7 +487,7 @@ base mixin DartAnalyzerSupport
   /// new contents.
   Future<void> _applyTextEdits(Uri uri, List<lsp.TextEdit> edits) async {
     if (edits.isEmpty) return;
-    final file = fileSystem.file(uri);
+    final file = fileSystem.file(uri.toFilePath());
     if (!await file.exists()) return;
     final content = await file.readAsString();
     final newContent = _applyEditsToString(content, edits);
