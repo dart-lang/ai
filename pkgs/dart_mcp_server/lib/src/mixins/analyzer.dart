@@ -322,11 +322,13 @@ base mixin DartAnalyzerSupport
       // as a confirmation to the LLM that it was respected.
       messages.add(TextContent(text: 'Applied quick fixes'));
 
-      // Wait for the new analysis to start
-      await _analysisStart.future.timeout(
-        const Duration(seconds: 1),
-        onTimeout: () {},
-      );
+      if (_doneAnalyzing == null) {
+        // Wait a bit for the new analysis to start if not currently analyzing.
+        await _analysisStart.future.timeout(
+          const Duration(seconds: 1),
+          onTimeout: () {},
+        );
+      }
       await _doneAnalyzing?.future;
     }
 
