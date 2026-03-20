@@ -2,6 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:io';
+
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp_server/src/mixins/dtd.dart';
 
@@ -149,12 +151,14 @@ void main() {
       }
     });
 
-    test('can get runtime errors from multiple apps using appUri', () async {
-      await testHarness.connectToDtd();
+    test(
+      'can get runtime errors from multiple apps using appUri',
+      () async {
+        await testHarness.connectToDtd();
 
-      await d.dir('dart_app_1', [
-        d.dir('bin', [
-          d.file('main.dart', '''
+        await d.dir('dart_app_1', [
+          d.dir('bin', [
+            d.file('main.dart', '''
 import 'dart:io';
 void main() async {
   stderr.writeln('error from app 1');
@@ -163,24 +167,24 @@ void main() async {
   }
 }
 '''),
-        ]),
-      ]).create();
-      final session1 = await testHarness.startDebugSession(
-        p.join(d.sandbox, 'dart_app_1'),
-        'bin/main.dart',
-        isFlutter: false,
-      );
-      addTearDown(() => testHarness.stopDebugSession(session1));
+          ]),
+        ]).create();
+        final session1 = await testHarness.startDebugSession(
+          p.join(d.sandbox, 'dart_app_1'),
+          'bin/main.dart',
+          isFlutter: false,
+        );
+        addTearDown(() => testHarness.stopDebugSession(session1));
 
-      final secondEditorExtension = await FakeEditorExtension.connect(
-        testHarness.sdk,
-      );
-      addTearDown(secondEditorExtension.shutdown);
-      await testHarness.connectToDtd(dtdUri: secondEditorExtension.dtdUri);
+        final secondEditorExtension = await FakeEditorExtension.connect(
+          testHarness.sdk,
+        );
+        addTearDown(secondEditorExtension.shutdown);
+        await testHarness.connectToDtd(dtdUri: secondEditorExtension.dtdUri);
 
-      await d.dir('dart_app_2', [
-        d.dir('bin', [
-          d.file('main.dart', '''
+        await d.dir('dart_app_2', [
+          d.dir('bin', [
+            d.file('main.dart', '''
 import 'dart:io';
 void main() async {
   stderr.writeln('error from app 2');
@@ -189,59 +193,63 @@ void main() async {
   }
 }
 '''),
-        ]),
-      ]).create();
-      final session2 = await testHarness.startDebugSession(
-        p.join(d.sandbox, 'dart_app_2'),
-        'bin/main.dart',
-        isFlutter: false,
-        editorExtension: secondEditorExtension,
-      );
-      addTearDown(
-        () => testHarness.stopDebugSession(
-          session2,
+          ]),
+        ]).create();
+        final session2 = await testHarness.startDebugSession(
+          p.join(d.sandbox, 'dart_app_2'),
+          'bin/main.dart',
+          isFlutter: false,
           editorExtension: secondEditorExtension,
-        ),
-      );
+        );
+        addTearDown(
+          () => testHarness.stopDebugSession(
+            session2,
+            editorExtension: secondEditorExtension,
+          ),
+        );
 
-      final listResult = await testHarness.callToolWithRetry(
-        CallToolRequest(
-          name: ToolNames.dtd.name,
-          arguments: {ParameterNames.command: DtdCommand.listConnectedApps},
-        ),
-        retryUntil: (result) =>
-            (result.structuredContent![ParameterNames.apps] as List).length ==
-            2,
-      );
-      final connectedApps =
-          (listResult.structuredContent![ParameterNames.apps] as List)
-              .cast<String>();
-      expect(connectedApps, hasLength(2));
+        final listResult = await testHarness.callToolWithRetry(
+          CallToolRequest(
+            name: ToolNames.dtd.name,
+            arguments: {ParameterNames.command: DtdCommand.listConnectedApps},
+          ),
+          retryUntil: (result) =>
+              (result.structuredContent![ParameterNames.apps] as List).length ==
+              2,
+        );
+        final connectedApps =
+            (listResult.structuredContent![ParameterNames.apps] as List)
+                .cast<String>();
+        expect(connectedApps, hasLength(2));
 
-      // Verify errors for App 1
-      final errors1 = await testHarness.callToolWithRetry(
-        CallToolRequest(
-          name: ToolNames.getRuntimeErrors.name,
-          arguments: {ParameterNames.appUri: session1.vmServiceUri},
-        ),
-      );
-      expect(
-        (errors1.content[1] as TextContent).text,
-        contains('error from app 1'),
-      );
+        // Verify errors for App 1
+        final errors1 = await testHarness.callToolWithRetry(
+          CallToolRequest(
+            name: ToolNames.getRuntimeErrors.name,
+            arguments: {ParameterNames.appUri: session1.vmServiceUri},
+          ),
+        );
+        expect(
+          (errors1.content[1] as TextContent).text,
+          contains('error from app 1'),
+        );
 
-      // Verify errors for App 2
-      final errors2 = await testHarness.callToolWithRetry(
-        CallToolRequest(
-          name: ToolNames.getRuntimeErrors.name,
-          arguments: {ParameterNames.appUri: session2.vmServiceUri},
-        ),
-        retryUntil: (result) => result.content.length > 1,
-      );
-      expect(
-        (errors2.content[1] as TextContent).text,
-        contains('error from app 2'),
-      );
-    });
+        // Verify errors for App 2
+        final errors2 = await testHarness.callToolWithRetry(
+          CallToolRequest(
+            name: ToolNames.getRuntimeErrors.name,
+            arguments: {ParameterNames.appUri: session2.vmServiceUri},
+          ),
+          retryUntil: (result) => result.content.length > 1,
+        );
+        expect(
+          (errors2.content[1] as TextContent).text,
+          contains('error from app 2'),
+        );
+      },
+      skip: Platform.isWindows
+          ? 'https://github.com/dart-lang/ai/issues/407'
+          : false,
+    );
   });
 }
