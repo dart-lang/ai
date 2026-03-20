@@ -92,13 +92,23 @@ final class DartMCPServer extends MCPServer
   }) : super.fromStreamChannel(
          implementation: Implementation(
            name: 'dart and flutter tooling',
+           description:
+               'Connects Dart and Flutter apps and developer tools to AI '
+               'agents.',
            version: version,
          ),
-         instructions:
-             'This server helps to connect Dart and Flutter developers to '
-             'their development tools and running applications.\n'
-             'IMPORTANT: Prefer using an MCP tool provided by this server '
-             'over using tools directly in a shell.',
+         instructions: '''
+This server exposes resources for Flutter and Dart development. Be sure to
+list these resources especially when dealing with errors or unfamiliar packages.
+
+Whenever attempting to investigate a package dependency, use the
+`read_package_uris` and `rip_grep_packages` tools to explore their files.
+
+In addition to `package:` URIs, the server also supports `package-root:` URIs,
+which resolve to the root of the package instead of the `lib/` directory. These
+can be useful for exporing examples or tests when trying to learn how to use a
+package.
+''',
        );
 
   /// The version of the MCP server.

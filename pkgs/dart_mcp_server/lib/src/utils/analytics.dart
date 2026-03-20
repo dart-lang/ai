@@ -164,6 +164,7 @@ enum CallToolFailureReason {
   noRootGiven,
   noRootsSet,
   noSuchCommand,
+  nonZeroExitCode,
   mustSpecifyDtdUri,
   processException,
   timeout,

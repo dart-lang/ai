@@ -19,6 +19,8 @@ import 'package:web_socket/web_socket.dart';
 import '../features_configuration.dart';
 import '../utils/analytics.dart';
 import '../utils/names.dart';
+import '../utils/process_manager.dart';
+import '../utils/sdk.dart';
 import '../utils/uuid.dart';
 
 /// Constants used by the MCP server to register services on DTD.
@@ -39,8 +41,8 @@ extension McpServiceConstants on Never {
 ///
 /// The MCPServer must already have the [ToolsSupport] mixin applied.
 base mixin DartToolingDaemonSupport
-    on ToolsSupport, LoggingSupport, ResourcesSupport
-    implements AnalyticsSupport {
+    on ToolsSupport, LoggingSupport, ResourcesSupport, SdkSupport
+    implements AnalyticsSupport, ProcessManagerSupport {
   /// The DTD instances that this server is connected to.
   final List<DartToolingDaemon> _dtds = [];
 
@@ -276,9 +278,8 @@ base mixin DartToolingDaemonSupport
   }
 
   /// Connects to the Dart Tooling Daemon.
-  FutureOr<CallToolResult> _connect(CallToolRequest request) async {
-    final uriString = request.arguments![ParameterNames.uri] as String;
-    final uri = Uri.parse(uriString);
+  /// Connects to a single DTD at [uri].
+  Future<CallToolResult> _connectToDtdSingle(Uri uri) async {
     if (_dtds.any((dtd) => dtd.uri == uri)) {
       return _dtdAlreadyConnected;
     }
@@ -318,7 +319,9 @@ base mixin DartToolingDaemonSupport
           : 'Connected apps:\n${connectedApps.map((id) => '- $id').join('\n')}';
 
       return CallToolResult(
-        content: [TextContent(text: 'Connection succeeded. $appListString')],
+        content: [
+          TextContent(text: 'Connection succeeded to $uri. $appListString'),
+        ],
       );
     } on WebSocketException catch (_) {
       return CallToolResult(
@@ -334,6 +337,132 @@ base mixin DartToolingDaemonSupport
         isError: true,
         content: [Content.text(text: 'Connection failed: $e')],
       )..failureReason = CallToolFailureReason.unhandledError;
+    }
+  }
+
+  /// Connects to the Dart Tooling Daemon.
+  FutureOr<CallToolResult> _connect(CallToolRequest request) async {
+    final uriString = request.arguments?[ParameterNames.uri] as String?;
+
+    if (uriString != null) {
+      return _connectToDtdSingle(Uri.parse(uriString));
+    }
+
+    // Attempt automatic discovery
+    final (instances, error) = await _listRunningDtdInstances();
+    if (error != null) {
+      return error;
+    }
+    if (instances.isEmpty) {
+      return CallToolResult(
+        content: [
+          Content.text(
+            text:
+                'No running DTD instances found for automatic discovery. '
+                'Please provide a URI.',
+          ),
+        ],
+      );
+    }
+
+    final connectedUrls = <String>[];
+    final failedUrls = <String>[];
+
+    for (final instance in instances) {
+      final selectedWsUri = instance['wsUri'] as String?;
+      if (selectedWsUri == null) continue;
+
+      final uri = Uri.parse(selectedWsUri);
+      final result = await _connectToDtdSingle(uri);
+
+      if (result.isError == true) {
+        if (result.failureReason == CallToolFailureReason.dtdAlreadyConnected) {
+          connectedUrls.add('$uri (Already connected)');
+        } else {
+          final errorMessage =
+              result.content.isNotEmpty && result.content.first is TextContent
+              ? (result.content.first as TextContent).text
+              : 'Unknown error';
+          failedUrls.add('$uri ($errorMessage)');
+        }
+      } else {
+        connectedUrls.add('$uri');
+      }
+    }
+
+    final appUris = activeVmServices.keys.toList();
+    final appListString = appUris.isEmpty
+        ? 'No apps currently connected.'
+        : 'Connected apps:\n${appUris.map((a) => '- $a').join('\n')}';
+
+    final textResult = StringBuffer();
+    textResult.writeln('Automatic discovery finished.');
+    if (connectedUrls.isNotEmpty) {
+      textResult.writeln(
+        'Connected to:\n${connectedUrls.map((u) => '- $u').join('\n')}',
+      );
+    }
+    if (failedUrls.isNotEmpty) {
+      textResult.writeln(
+        'Failed to connect to:\n${failedUrls.map((u) => '- $u').join('\n')}',
+      );
+    }
+    textResult.writeln(appListString);
+
+    return CallToolResult(
+      content: [TextContent(text: textResult.toString().trim())],
+    );
+  }
+
+  /// Lists running DTD instances by querying the dart executable.
+  Future<(List<Map<String, Object?>>, CallToolResult?)>
+  _listRunningDtdInstances() async {
+    try {
+      final result = await processManager.run([
+        sdk.dartExecutablePath,
+        'tooling-daemon',
+        '--list',
+        '--machine',
+      ]);
+      if (result.exitCode != 0) {
+        log(
+          LoggingLevel.warning,
+          'dart tooling-daemon --list failed: ${result.stderr}',
+        );
+        return (
+          <Map<String, Object?>>[],
+          CallToolResult(
+            isError: true,
+            content: [
+              Content.text(
+                text: 'dart tooling-daemon --list failed: ${result.stderr}',
+              ),
+            ],
+          )..failureReason = CallToolFailureReason.nonZeroExitCode,
+        );
+      }
+      final output = result.stdout as String;
+      if (output.trim().isEmpty) return (<Map<String, Object?>>[], null);
+      final parsed = jsonDecode(output);
+      if (parsed is List) {
+        return (parsed.cast<Map<String, Object?>>(), null);
+      }
+      return (
+        <Map<String, Object?>>[],
+        CallToolResult(
+          isError: true,
+          content: [Content.text(text: 'Unexpected JSON format from DTD list')],
+        )..failureReason = CallToolFailureReason.unhandledError,
+      );
+    } catch (e) {
+      log(LoggingLevel.warning, 'Error listing DTD instances: $e');
+      return (
+        <Map<String, Object?>>[],
+        CallToolResult(
+          isError: true,
+          content: [Content.text(text: 'Error listing DTD instances: $e')],
+        )..failureReason = CallToolFailureReason.unhandledError,
+      );
     }
   }
 
@@ -356,7 +485,8 @@ base mixin DartToolingDaemonSupport
         ParameterNames.uri: Schema.string(
           description:
               'The DTD URI to connect to or disconnect from. '
-              'Required for "connect", optional for "disconnect".',
+              'Optional for "connect" (triggers automatic discovery), '
+              'optional for "disconnect" (if only one DTD is connected).',
         ),
       },
       required: [ParameterNames.command],

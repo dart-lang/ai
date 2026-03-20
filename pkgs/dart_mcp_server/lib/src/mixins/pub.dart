@@ -117,7 +117,7 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
           ),
         )
         ..categories = [FeatureCategory.cli, FeatureCategory.packageDeps]
-        ..enabledByDefault = false;
+        ..enabledByDefault = true;
 }
 
 /// The set of supported `dart pub` subcommands.

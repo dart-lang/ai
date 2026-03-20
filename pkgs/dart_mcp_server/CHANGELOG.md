@@ -29,6 +29,8 @@
   `get_active_location`. These can be re-enabled by passing `--enable cli` or
   `--enable <tool-name>`.
 - Add support for auto-fixing diagnostics returned by `analyze_files`.
+- Updated server instructions to encourage listing resources, using the tools to
+  read and grep package contents, and to explain `package-root:` URIs.
 
 # 0.1.2 (Dart SDK 3.11.0)
 
