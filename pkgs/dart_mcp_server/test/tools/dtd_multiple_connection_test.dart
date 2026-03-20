@@ -2,6 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:io';
+
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp_server/src/mixins/dtd.dart';
 
@@ -200,6 +202,10 @@ void main() async {
           editorExtension: secondEditorExtension,
         ),
       );
+      if (Platform.isWindows) {
+        // Windows needs a bit of time for the app to release its file handles.
+        addTearDown(() => Future<void>.delayed(const Duration(seconds: 1)));
+      }
 
       final listResult = await testHarness.callToolWithRetry(
         CallToolRequest(

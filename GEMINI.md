@@ -100,3 +100,4 @@ Tests can be run using the `dart test` command in each package's directory.
 - **Dependencies**: The project uses standard Dart package management with `pubspec.yaml` files.
 - **Contributions**: The `CONTRIBUTING.md` file (which is currently a placeholder) would contain information about contributing to the project.
 - **Test Apps**: Use the `test_descriptor` package to create apps for testing, or use the fixture apps in `pkgs/dart_mcp_server/test_fixtures`.
+- **Formatting**: Always format code using `dart format` after making changes.
