@@ -2,10 +2,13 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:io';
+
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp_server/src/mixins/dtd.dart';
 
 import 'package:dart_mcp_server/src/utils/names.dart';
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import '../test_harness.dart';
@@ -99,14 +102,14 @@ void main() {
         ),
       );
 
-      // Give some time for services to register
-      await Future<void>.delayed(const Duration(milliseconds: 500));
-
-      final listResult = await testHarness.callTool(
+      final listResult = await testHarness.callToolWithRetry(
         CallToolRequest(
           name: ToolNames.dtd.name,
           arguments: {ParameterNames.command: DtdCommand.listConnectedApps},
         ),
+        retryUntil: (result) =>
+            (result.structuredContent![ParameterNames.apps] as List).length ==
+            2,
       );
       expect(listResult.isError, isNot(true));
       final structured = listResult.structuredContent;
@@ -142,6 +145,103 @@ void main() {
           contains('Hot reload succeeded.'),
         );
       }
+    });
+
+    test('can get runtime errors from multiple apps using appUri', () async {
+      await testHarness.connectToDtd();
+
+      // Start app 1 on DTD 1
+      final appDir1 = await Directory.systemTemp.createTemp('dart_app_1');
+      addTearDown(() => appDir1.delete(recursive: true));
+      final mainFile1 = File(p.join(appDir1.path, 'bin', 'main.dart'));
+      await mainFile1.create(recursive: true);
+      await mainFile1.writeAsString('''
+import 'dart:io';
+void main() async {
+  stderr.writeln('error from app 1');
+  while (true) {
+    await Future.delayed(Duration(seconds: 1));
+  }
+}
+''');
+      final session1 = await testHarness.startDebugSession(
+        appDir1.path,
+        'bin/main.dart',
+        isFlutter: false,
+      );
+      addTearDown(() => testHarness.stopDebugSession(session1));
+
+      // Start DTD 2 and App 2
+      final secondEditorExtension = await FakeEditorExtension.connect(
+        testHarness.sdk,
+      );
+      addTearDown(secondEditorExtension.shutdown);
+      await testHarness.connectToDtd(dtdUri: secondEditorExtension.dtdUri);
+
+      final appDir2 = await Directory.systemTemp.createTemp('dart_app_2');
+      addTearDown(() => appDir2.delete(recursive: true));
+      final mainFile2 = File(p.join(appDir2.path, 'bin', 'main.dart'));
+      await mainFile2.create(recursive: true);
+      await mainFile2.writeAsString('''
+import 'dart:io';
+void main() async {
+  stderr.writeln('error from app 2');
+  while (true) {
+    await Future.delayed(Duration(seconds: 1));
+  }
+}
+''');
+      final session2 = await testHarness.startDebugSession(
+        appDir2.path,
+        'bin/main.dart',
+        isFlutter: false,
+        editorExtension: secondEditorExtension,
+      );
+      addTearDown(
+        () => testHarness.stopDebugSession(
+          session2,
+          editorExtension: secondEditorExtension,
+        ),
+      );
+
+      final listResult = await testHarness.callToolWithRetry(
+        CallToolRequest(
+          name: ToolNames.dtd.name,
+          arguments: {ParameterNames.command: DtdCommand.listConnectedApps},
+        ),
+        retryUntil: (result) =>
+            (result.structuredContent![ParameterNames.apps] as List).length ==
+            2,
+      );
+      final connectedApps =
+          (listResult.structuredContent![ParameterNames.apps] as List)
+              .cast<String>();
+      expect(connectedApps, hasLength(2));
+
+      // Verify errors for App 1
+      final errors1 = await testHarness.callToolWithRetry(
+        CallToolRequest(
+          name: ToolNames.getRuntimeErrors.name,
+          arguments: {ParameterNames.appUri: session1.vmServiceUri},
+        ),
+      );
+      expect(
+        (errors1.content[1] as TextContent).text,
+        contains('error from app 1'),
+      );
+
+      // Verify errors for App 2
+      final errors2 = await testHarness.callToolWithRetry(
+        CallToolRequest(
+          name: ToolNames.getRuntimeErrors.name,
+          arguments: {ParameterNames.appUri: session2.vmServiceUri},
+        ),
+        retryUntil: (result) => result.content.length > 1,
+      );
+      expect(
+        (errors2.content[1] as TextContent).text,
+        contains('error from app 2'),
+      );
     });
   });
 }

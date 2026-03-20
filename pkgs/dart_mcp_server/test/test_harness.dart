@@ -29,11 +29,16 @@ import 'package:unified_analytics/unified_analytics.dart';
 Future<T> callWithRetry<T>(
   FutureOr<T> Function() fn, {
   int maxTries = 5,
+  bool Function(T)? retryUntil,
 }) async {
   var tryCount = 0;
   while (true) {
     try {
-      return await fn();
+      final result = await fn();
+      if (retryUntil?.call(result) == false) {
+        throw StateError('Retry condition not met');
+      }
+      return result;
     } catch (_) {
       if (tryCount++ >= maxTries) rethrow;
     }
@@ -230,9 +235,11 @@ class TestHarness {
     CallToolRequest request, {
     int maxTries = 5,
     bool expectError = false,
+    bool Function(CallToolResult)? retryUntil,
   }) => callWithRetry(
     () => callTool(request, expectError: expectError),
     maxTries: maxTries,
+    retryUntil: retryUntil,
   );
 
   /// Calls [getPrompt] on the [mcpServerConnection].
