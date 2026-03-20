@@ -255,7 +255,7 @@ void main() {
       await example.create();
       final exampleRoot = testHarness.rootForPath(example.io.path);
       testHarness.mcpClient.addRoot(exampleRoot);
-      await pumpEventQueue();
+      await pumpEventQueue(times: 100);
 
       final request = CallToolRequest(
         name: analyzeTool.name,
