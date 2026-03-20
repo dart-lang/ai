@@ -42,6 +42,9 @@ base mixin DartAnalyzerSupport
   /// is over.
   Completer<void>? _doneAnalyzing = Completer();
 
+  /// Completes the next time we get an analysis start event.
+  Completer<void> _analysisStart = Completer();
+
   /// The current LSP workspace folder state.
   HashSet<lsp.WorkspaceFolder> _currentWorkspaceFolders =
       HashSet<lsp.WorkspaceFolder>(
@@ -319,7 +322,11 @@ base mixin DartAnalyzerSupport
       // as a confirmation to the LLM that it was respected.
       messages.add(TextContent(text: 'Applied quick fixes'));
 
-      // If its still analyzing, wait for it to finish.
+      // Wait for the new analysis to start
+      await _analysisStart.future.timeout(
+        const Duration(seconds: 1),
+        onTimeout: () {},
+      );
       await _doneAnalyzing?.future;
     }
 
@@ -442,6 +449,8 @@ base mixin DartAnalyzerSupport
       // Leave existing completer in place - we start with one so we don't
       // respond too early to the first analyze request.
       _doneAnalyzing ??= Completer<void>();
+      _analysisStart.complete(null);
+      _analysisStart = Completer();
     } else {
       assert(_doneAnalyzing != null);
       _doneAnalyzing?.complete();

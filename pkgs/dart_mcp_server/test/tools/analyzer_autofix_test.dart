@@ -101,8 +101,6 @@ void main() {
           ),
         ),
       );
-      expect(result.content, isNot(containsInvalidNullAwareOperator));
-      expect(result.content, isNot(containsUnnecessaryNew));
 
       // Verify the file has been fixed.
       final mainFile = File(p.join(project.io.path, 'main.dart'));
@@ -111,6 +109,10 @@ void main() {
       expect(content, contains('A()'));
       expect(content, contains('x.length'));
       expect(content, isNot(contains('x?.length')));
+
+      // Verify that we don't report the fixed errors
+      expect(result.content, isNot(containsInvalidNullAwareOperator));
+      expect(result.content, isNot(containsUnnecessaryNew));
 
       // Finally, verify no errors are returned for future analysis.
       result = await testHarness.callToolWithRetry(analyzeRequest);
