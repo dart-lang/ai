@@ -255,7 +255,8 @@ void main() {
       await example.create();
       final exampleRoot = testHarness.rootForPath(example.io.path);
       testHarness.mcpClient.addRoot(exampleRoot);
-      await pumpEventQueue(times: 100);
+      // PumpEventQueue isn't sufficient for this test for some reason.
+      await Future<void>.delayed(const Duration(milliseconds: 100));
 
       final request = CallToolRequest(
         name: analyzeTool.name,
