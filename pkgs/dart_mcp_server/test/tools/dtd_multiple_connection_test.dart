@@ -2,7 +2,6 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp_server/src/mixins/dtd.dart';
 
@@ -170,13 +169,12 @@ void main() async {
       );
       addTearDown(() => testHarness.stopDebugSession(session1));
 
-
       final secondEditorExtension = await FakeEditorExtension.connect(
         testHarness.sdk,
       );
       addTearDown(secondEditorExtension.shutdown);
       await testHarness.connectToDtd(dtdUri: secondEditorExtension.dtdUri);
-      
+
       await d.dir('dart_app_2', [
         d.dir('bin', [
           d.file('main.dart', '''
