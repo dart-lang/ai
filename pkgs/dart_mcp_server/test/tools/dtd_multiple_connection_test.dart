@@ -2,7 +2,6 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'dart:io';
 
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp_server/src/mixins/dtd.dart';
@@ -10,6 +9,7 @@ import 'package:dart_mcp_server/src/mixins/dtd.dart';
 import 'package:dart_mcp_server/src/utils/names.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import 'package:test_descriptor/test_descriptor.dart' as d;
 
 import '../test_harness.dart';
 
@@ -150,12 +150,9 @@ void main() {
     test('can get runtime errors from multiple apps using appUri', () async {
       await testHarness.connectToDtd();
 
-      // Start app 1 on DTD 1
-      final appDir1 = await Directory.systemTemp.createTemp('dart_app_1');
-      addTearDown(() => appDir1.delete(recursive: true));
-      final mainFile1 = File(p.join(appDir1.path, 'bin', 'main.dart'));
-      await mainFile1.create(recursive: true);
-      await mainFile1.writeAsString('''
+      await d.dir('dart_app_1', [
+        d.dir('bin', [
+          d.file('main.dart', '''
 import 'dart:io';
 void main() async {
   stderr.writeln('error from app 1');
@@ -163,26 +160,26 @@ void main() async {
     await Future.delayed(Duration(seconds: 1));
   }
 }
-''');
+'''),
+        ]),
+      ]).create();
       final session1 = await testHarness.startDebugSession(
-        appDir1.path,
+        p.join(d.sandbox, 'dart_app_1'),
         'bin/main.dart',
         isFlutter: false,
       );
       addTearDown(() => testHarness.stopDebugSession(session1));
 
-      // Start DTD 2 and App 2
+
       final secondEditorExtension = await FakeEditorExtension.connect(
         testHarness.sdk,
       );
       addTearDown(secondEditorExtension.shutdown);
       await testHarness.connectToDtd(dtdUri: secondEditorExtension.dtdUri);
-
-      final appDir2 = await Directory.systemTemp.createTemp('dart_app_2');
-      addTearDown(() => appDir2.delete(recursive: true));
-      final mainFile2 = File(p.join(appDir2.path, 'bin', 'main.dart'));
-      await mainFile2.create(recursive: true);
-      await mainFile2.writeAsString('''
+      
+      await d.dir('dart_app_2', [
+        d.dir('bin', [
+          d.file('main.dart', '''
 import 'dart:io';
 void main() async {
   stderr.writeln('error from app 2');
@@ -190,9 +187,11 @@ void main() async {
     await Future.delayed(Duration(seconds: 1));
   }
 }
-''');
+'''),
+        ]),
+      ]).create();
       final session2 = await testHarness.startDebugSession(
-        appDir2.path,
+        p.join(d.sandbox, 'dart_app_2'),
         'bin/main.dart',
         isFlutter: false,
         editorExtension: secondEditorExtension,
