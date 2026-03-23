@@ -39,6 +39,7 @@
 - Fixed the `web_server` device for `launch_app` to return just the URI that should
   be opened in a browser, we do not get a DTD or Vm Service URI until the app is
   actually connected, which was causing timeouts.
+- Compact the output of the `analyze_files` tool to reduce token usage.
 
 # 0.1.2 (Dart SDK 3.11.0)
 
