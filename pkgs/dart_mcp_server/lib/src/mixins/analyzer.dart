@@ -285,6 +285,7 @@ base mixin DartAnalyzerSupport
     ];
 
     final requestedUris = <Uri>{};
+    final requestedUriRoots = <Uri, Uri>{};
     for (final rootConfig in rootConfigs) {
       final validated = validateRootConfig(
         rootConfig,
@@ -300,10 +301,13 @@ base mixin DartAnalyzerSupport
 
       if (validated.paths != null && validated.paths!.isNotEmpty) {
         for (final path in validated.paths!) {
-          requestedUris.add(rootUri.resolve(path));
+          final uri = rootUri.resolve(path);
+          requestedUris.add(uri);
+          requestedUriRoots[uri] = rootUri;
         }
       } else {
         requestedUris.add(rootUri);
+        requestedUriRoots[rootUri] = rootUri;
       }
     }
     final messages = <Content>[];
@@ -332,22 +336,42 @@ base mixin DartAnalyzerSupport
       await _doneAnalyzing?.future;
     }
 
-    final filteredDiagnostics = diagnostics.entries.where((entry) {
-      final entryPath = fileSystem.path.canonicalize(entry.key.toFilePath());
-      return requestedUris.any((uri) {
-        final requestedPath = fileSystem.path.canonicalize(uri.toFilePath());
-        return fileSystem.path.equals(requestedPath, entryPath) ||
-            fileSystem.path.isWithin(requestedPath, entryPath);
-      });
-    });
+    final filteredDiagnosticsByRoot = <Uri, Map<Uri, List<lsp.Diagnostic>>>{};
+    for (final MapEntry(key: uri, value: diagnostics) in diagnostics.entries) {
+      final entryPath = fileSystem.path.canonicalize(uri.toFilePath());
+      if (requestedUriRoots[uri] case final rootUri?) {
+        filteredDiagnosticsByRoot
+            .putIfAbsent(rootUri, () => {})
+            .putIfAbsent(uri, () => [])
+            .addAll(diagnostics);
+        continue;
+      }
+
+      for (final rootUri in requestedUriRoots.keys) {
+        final requestedPath = fileSystem.path.canonicalize(
+          rootUri.toFilePath(),
+        );
+        if (fileSystem.path.equals(requestedPath, entryPath) ||
+            fileSystem.path.isWithin(requestedPath, entryPath)) {
+          filteredDiagnosticsByRoot
+              .putIfAbsent(rootUri, () => {})
+              .putIfAbsent(uri, () => [])
+              .addAll(diagnostics);
+          break;
+        }
+      }
+    }
 
     var sawDiagnostic = false;
-    for (final MapEntry(key: uri, value: diagnostics) in filteredDiagnostics) {
-      for (final diagnostic in diagnostics) {
+    for (final MapEntry(key: rootUri, value: diagnostics)
+        in filteredDiagnosticsByRoot.entries) {
+      if (diagnostics.values.every((d) => d.isEmpty)) continue;
+
+      messages.add(TextContent(text: '# Diagnostics for root $rootUri\n'));
+      for (final MapEntry(key: sourceUri, value: diagnostics)
+          in diagnostics.entries) {
         sawDiagnostic = true;
-        final diagnosticJson = diagnostic.toJson();
-        diagnosticJson[ParameterNames.uri] = uri.toString();
-        messages.add(TextContent(text: jsonEncode(diagnosticJson)));
+        messages.add(formatDiagnostics(rootUri, sourceUri, diagnostics));
       }
     }
     if (!sawDiagnostic) {
@@ -355,6 +379,58 @@ base mixin DartAnalyzerSupport
     }
 
     return CallToolResult(content: messages);
+  }
+
+  Content formatDiagnostics(
+    Uri rootUri,
+    Uri sourceUri,
+    List<lsp.Diagnostic> diagnostics,
+  ) {
+    final rootPath = fileSystem.path.fromUri(rootUri);
+    final relativePath = fileSystem.path.relative(
+      fileSystem.path.fromUri(sourceUri),
+      from: rootPath,
+    );
+    final buffer = StringBuffer();
+    for (final diagnostic in diagnostics) {
+      buffer
+        ..write(diagnostic.severity?.name ?? 'info')
+        ..write(' • ')
+        ..write(relativePath)
+        ..write(':')
+        ..write(diagnostic.range.start.line + 1)
+        ..write(':')
+        ..write(diagnostic.range.start.character + 1)
+        ..write(' • ')
+        ..write(diagnostic.message);
+      if (diagnostic.code case final code?) {
+        buffer.write(' • ');
+        buffer.write(code);
+      }
+
+      // Add any context messages as bullet list items.
+      if (diagnostic.relatedInformation case final relatedInfo?) {
+        for (var message in relatedInfo) {
+          final contextPath = fileSystem.path.relative(
+            fileSystem.path.fromUri(message.location.uri),
+            from: rootPath,
+          );
+
+          buffer
+            ..write(' • ')
+            ..write(message.message)
+            ..write(' at ')
+            ..write(contextPath)
+            ..write(':')
+            ..write(message.location.range.start.line + 1)
+            ..write(':')
+            ..write(message.location.range.start.character + 1);
+        }
+      }
+      buffer.writeln();
+    }
+
+    return Content.text(text: buffer.toString());
   }
 
   /// Implementation of the [lspTool].
@@ -717,4 +793,21 @@ extension LspCommands on Never {
 
 extension CodeUnits on Never {
   static const newline = 10;
+}
+
+extension on lsp.DiagnosticSeverity {
+  String get name {
+    switch (this) {
+      case lsp.DiagnosticSeverity.Error:
+        return 'error';
+      case lsp.DiagnosticSeverity.Warning:
+        return 'warning';
+      case lsp.DiagnosticSeverity.Information:
+        return 'info';
+      case lsp.DiagnosticSeverity.Hint:
+        return 'hint';
+      default:
+        return 'info';
+    }
+  }
 }

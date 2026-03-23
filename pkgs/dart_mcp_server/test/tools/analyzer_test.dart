@@ -49,9 +49,14 @@ void main() {
         isA<TextContent>().having(
           (t) => t.text,
           'text',
+          contains('# Diagnostics for root ${exampleRoot.uri}'),
+        ),
+        isA<TextContent>().having(
+          (t) => t.text,
+          'text',
           contains(
-            "The argument type 'String' can't be assigned to the parameter "
-            "type 'num'.",
+            "error • main.dart:1:20 • The argument type 'String' can't be "
+            "assigned to the parameter type 'num'.",
           ),
         ),
       ]);
@@ -66,10 +71,9 @@ void main() {
 
       result = await testHarness.callToolWithRetry(request);
       expect(result.isError, isNot(true));
-      expect(
-        result.content.single,
+      expect(result.content, [
         isA<TextContent>().having((t) => t.text, 'text', 'No errors'),
-      );
+      ]);
     });
 
     test('can analyze a project with multiple errors (no paths)', () async {
@@ -86,21 +90,25 @@ void main() {
       final request = CallToolRequest(name: analyzeTool.name);
       final result = await testHarness.callToolWithRetry(request);
       expect(result.isError, isNot(true));
-      expect(result.content, hasLength(2));
       expect(
         result.content,
         containsAll([
           isA<TextContent>().having(
             (t) => t.text,
             'text',
-            contains("Undefined name 'foo'"),
+            contains('# Diagnostics for root ${exampleRoot.uri}'),
+          ),
+          isA<TextContent>().having(
+            (t) => t.text,
+            'text',
+            contains("error • other.dart:1:17 • Undefined name 'foo'"),
           ),
           isA<TextContent>().having(
             (t) => t.text,
             'text',
             contains(
-              "The argument type 'String' can't be assigned to the parameter "
-              "type 'num'.",
+              "error • main.dart:1:20 • The argument type 'String' can't be "
+              "assigned to the parameter type 'num'.",
             ),
           ),
         ]),
@@ -131,18 +139,21 @@ void main() {
       );
       final result = await testHarness.callToolWithRetry(request);
       expect(result.isError, isNot(true));
-      expect(result.content, hasLength(1));
-      expect(
-        result.content.single,
+      expect(result.content, [
+        isA<TextContent>().having(
+          (t) => t.text,
+          'text',
+          contains('# Diagnostics for root ${exampleRoot.uri}'),
+        ),
         isA<TextContent>().having(
           (t) => t.text,
           'text',
           contains(
-            "The argument type 'String' can't be assigned to the parameter "
-            "type 'num'.",
+            "error • main.dart:1:20 • The argument type 'String' can't be "
+            "assigned to the parameter type 'num'.",
           ),
         ),
-      );
+      ]);
     });
 
     test('can analyze a specific directory', () async {
@@ -169,15 +180,18 @@ void main() {
       );
       final result = await testHarness.callToolWithRetry(request);
       expect(result.isError, isNot(true));
-      expect(result.content, hasLength(1));
-      expect(
-        result.content.single,
+      expect(result.content, [
         isA<TextContent>().having(
           (t) => t.text,
           'text',
-          contains("Undefined name 'foo'"),
+          contains('# Diagnostics for root'),
         ),
-      );
+        isA<TextContent>().having(
+          (t) => t.text,
+          'text',
+          contains("error • other.dart:1:17 • Undefined name 'foo'"),
+        ),
+      ]);
     });
 
     test('handles a non-existent path', () async {
@@ -203,10 +217,9 @@ void main() {
       );
       final result = await testHarness.callToolWithRetry(request);
       expect(result.isError, isNot(true));
-      expect(
-        result.content.single,
+      expect(result.content, [
         isA<TextContent>().having((t) => t.text, 'text', 'No errors'),
-      );
+      ]);
     });
 
     test('handles an empty paths list for a root', () async {
@@ -232,18 +245,21 @@ void main() {
       );
       final result = await testHarness.callToolWithRetry(request);
       expect(result.isError, isNot(true));
-      expect(result.content, hasLength(1));
-      expect(
-        result.content.single,
+      expect(result.content, [
+        isA<TextContent>().having(
+          (t) => t.text,
+          'text',
+          contains('# Diagnostics for root ${exampleRoot.uri}'),
+        ),
         isA<TextContent>().having(
           (t) => t.text,
           'text',
           contains(
-            "The argument type 'String' can't be assigned to the parameter "
-            "type 'num'.",
+            "error • main.dart:1:20 • The argument type 'String' can't be "
+            "assigned to the parameter type 'num'.",
           ),
         ),
-      );
+      ]);
     });
 
     test('handles an empty roots list', () async {
@@ -356,22 +372,32 @@ void main() {
       await callWithRetry(() async {
         final result = await testHarness.callTool(request);
         expect(result.isError, isNot(true));
-        expect(result.content, hasLength(2));
+        expect(result.content, hasLength(4));
         expect(
           result.content,
           containsAll([
             isA<TextContent>().having(
               (t) => t.text,
               'text',
+              contains('# Diagnostics for root ${projectARoot.uri}\n'),
+            ),
+            isA<TextContent>().having(
+              (t) => t.text,
+              'text',
+              contains('# Diagnostics for root ${projectBRoot.uri}\n'),
+            ),
+            isA<TextContent>().having(
+              (t) => t.text,
+              'text',
               contains(
-                "The argument type 'String' can't be assigned to the "
-                "parameter type 'num'.",
+                "error • main.dart:1:20 • The argument type 'String' "
+                "can't be assigned to the parameter type 'num'.",
               ),
             ),
             isA<TextContent>().having(
               (t) => t.text,
               'text',
-              contains("Undefined name 'foo'"),
+              contains("error • other.dart:1:17 • Undefined name 'foo'"),
             ),
           ]),
         );
