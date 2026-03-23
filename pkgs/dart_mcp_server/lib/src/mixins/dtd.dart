@@ -1335,7 +1335,8 @@ base mixin DartToolingDaemonSupport
         ParameterNames.appUri: Schema.string(
           description:
               'The app URI to perform the hot reload on. Required if '
-              'multiple apps are connected.',
+              'multiple apps are connected. This may also be referred to as '
+              'a VM Service URI.',
         ),
       },
       additionalProperties: false,
@@ -1357,7 +1358,8 @@ base mixin DartToolingDaemonSupport
         ParameterNames.appUri: Schema.string(
           description:
               'The app URI to perform the hot restart on. Required if multiple '
-              'apps are connected.',
+              'apps are connected. This may also be referred to as a VM '
+              'Service URI.',
         ),
       },
       additionalProperties: false,
@@ -1395,7 +1397,8 @@ base mixin DartToolingDaemonSupport
         ),
         ParameterNames.appUri: Schema.string(
           description:
-              'The app URI to use. Required if multiple apps are connected.',
+              'The app URI to use. Required if multiple apps are connected. '
+              'This may also be referred to as a VM Service URI.',
         ),
       },
       required: const [ParameterNames.command],

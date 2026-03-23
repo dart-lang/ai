@@ -143,13 +143,13 @@ For more information, see the official VS Code documentation for
 | `dtd` | Dart Tooling Daemon | Connects to, disconnects from, or lists apps connected to the Dart Tooling Daemon. | dart_tooling_daemon | Yes |
 | `flutter_driver_command` | Flutter Driver | Run a flutter driver command | flutter_driver | Yes |
 | `get_active_location` | Get Active Editor Location | Retrieves the current active location (e.g., cursor position) in the connected editor. Requires an active DTD connection. | dart_tooling_daemon | No |
-| `get_app_logs` |  | Returns the collected logs for a given flutter run process id. Can only retrieve logs started by the launch_app tool. | flutter | Yes |
+| `get_app_logs` |  | Returns the collected logs for a given flutter run process id. Can only retrieve logs started by the launch_app tool. | flutter, flutter_app_lifecycle | No |
 | `get_runtime_errors` | Get runtime errors | Retrieves the most recent runtime errors that have occurred in the active Dart or Flutter application. Requires an active DTD connection. | dart_tooling_daemon | Yes |
 | `hot_reload` | Hot reload | Performs a hot reload of the active Flutter application. This will apply the latest code changes to the running application, while maintaining application state.  Reload will not update const definitions of global values. Requires an active DTD connection. | flutter | Yes |
 | `hot_restart` | Hot restart | Performs a hot restart of the active Flutter application. This applies the latest code changes to the running application, including changes to global const values, while resetting application state. Requires an active DTD connection. Doesn't work for Non-Flutter Dart CLI programs. | flutter | Yes |
-| `launch_app` |  | Launches a Flutter application and returns its DTD URI. | flutter | Yes |
-| `list_devices` |  | Lists available Flutter devices. | flutter, cli | No |
-| `list_running_apps` |  | Returns the list of running app process IDs and associated DTD URIs for apps started by the launch_app tool. | flutter | Yes |
+| `launch_app` |  | Launches a Flutter application and returns its DTD URI. | flutter, flutter_app_lifecycle | No |
+| `list_devices` |  | Lists available Flutter devices. | flutter, flutter_app_lifecycle, cli | No |
+| `list_running_apps` |  | Returns the list of running app process IDs and associated DTD URIs for apps started by the launch_app tool. | flutter, flutter_app_lifecycle | No |
 | `lsp` | Language Server Protocol | Interacts with the Dart Language Server Protocol (LSP) to provide code intelligence features like hover, signature help, and symbol resolution.<br>Commands:<br>- hover: Get hover information (docs, types) at a position. Requires: uri, line, column.<br>- signatureHelp: Get signature help at a position. Requires: uri, line, column.<br>- resolveWorkspaceSymbol: Fuzzy search for symbols by name. Requires: query. | analysis | Yes |
 | `pub` | pub | Runs a pub command for the given project roots, like `dart pub get` or `flutter pub add`. | cli, package_deps | Yes |
 | `pub_dev_search` | pub.dev search | Searches pub.dev for packages relevant to a given search query. The response will describe each result with its download count, package description, topics, license, and publisher. | package_deps | Yes |
@@ -157,7 +157,7 @@ For more information, see the official VS Code documentation for
 | `remove_roots` | Remove roots | Removes one or more project roots previously added via the add_roots tool. | None | Yes |
 | `rip_grep_packages` |  | Uses ripgrep to find patterns in package dependencies. Note that ripgrep must be installed already, see https://github.com/BurntSushi/ripgrep for instructions. | package_deps | Yes |
 | `run_tests` | Run tests | Run Dart or Flutter tests with an agent centric UX. ALWAYS use instead of `dart test` or `flutter test` shell commands. | cli | No |
-| `stop_app` |  | Kills a running Flutter process started by the launch_app tool. | flutter | Yes |
+| `stop_app` |  | Kills a running Flutter process started by the launch_app tool. | flutter, flutter_app_lifecycle | No |
 | `widget_inspector` | Widget Inspector | Interact with the Flutter widget inspector in the active Flutter application. Requires an active DTD connection. | flutter | Yes |
 
 <!-- generated -->

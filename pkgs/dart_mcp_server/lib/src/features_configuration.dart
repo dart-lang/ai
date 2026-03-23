@@ -26,6 +26,10 @@ enum FeatureCategory {
   /// Features that are specific to Flutter projects only.
   flutter(all),
 
+  /// Features for launching, stopping, and otherwise controlling the lifecycle
+  /// of Flutter apps.
+  flutterAppLifecycle(flutter, 'flutter_app_lifecycle'),
+
   /// Features that require use of flutter_driver to interact with the app.
   flutterDriver(flutter, 'flutter_driver'),
 

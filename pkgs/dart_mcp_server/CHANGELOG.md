@@ -31,6 +31,14 @@
 - Add support for auto-fixing diagnostics returned by `analyze_files`.
 - Updated server instructions to encourage listing resources, using the tools to
   read and grep package contents, and to explain `package-root:` URIs.
+- Disable by default the `launch_app`, and associated tools (`list_running_apps`,
+  `get_app_logs`, `list_devices`, `stop_app`). These can be re-enabled by
+  passing `--enable flutter_app_lifecycle` (to enable all of them) or
+  `--enable <tool-name>` (to enable specific ones). Agents tend to do better just
+  using the CLI to manage the app lifecycle, and it is more flexible.
+- Fixed the `web_server` device for `launch_app` to return just the URI that should
+  be opened in a browser, we do not get a DTD or Vm Service URI until the app is
+  actually connected, which was causing timeouts.
 
 # 0.1.2 (Dart SDK 3.11.0)
 

@@ -66,52 +66,70 @@ base mixin FlutterLauncherSupport
   ];
 
   /// A tool to launch a Flutter application.
-  static final launchAppTool = Tool(
-    name: ToolNames.launchApp.name,
-    description: 'Launches a Flutter application and returns its DTD URI.',
-    inputSchema: Schema.object(
-      properties: {
-        'root': Schema.string(
-          description: 'The root directory of the Flutter project.',
-        ),
-        'target': Schema.string(
+  static final launchAppTool =
+      Tool(
+          name: ToolNames.launchApp.name,
           description:
-              'The main entry point file of the application. Defaults to "lib/main.dart".',
-        ),
-        'device': Schema.string(
-          description:
-              'The device ID to launch the application on. To get a list of '
-              'available devices with IDs to present as choices, run '
-              '`flutter devices --machine`.',
-        ),
-        'args': Schema.list(
-          items: Schema.string(),
-          description:
-              'Additional arguments to pass to the `flutter run` command. '
-              'For example: ["--flavor", "dev", "--dart-define-from-file", '
-              '"env.json"]. Do not include '
-              '${_managedFlutterRunFlags.join(', ')} '
-              'as these are managed automatically.',
-        ),
-        'timeout': Schema.int(
-          description: 'Timeout in milliseconds, defaults to 90000.',
-        ),
-      },
-      required: ['root', 'device'],
-      additionalProperties: false,
-    ),
-    outputSchema: Schema.object(
-      properties: {
-        ParameterNames.dtdUri: Schema.string(
-          description: 'The DTD URI of the launched Flutter application.',
-        ),
-        ParameterNames.pid: Schema.int(
-          description: 'The process ID of the launched Flutter application.',
-        ),
-      },
-      required: [ParameterNames.dtdUri, ParameterNames.pid],
-    ),
-  )..categories = [FeatureCategory.flutter];
+              'Launches a Flutter application and returns its DTD URI.',
+          inputSchema: Schema.object(
+            properties: {
+              'root': Schema.string(
+                description: 'The root directory of the Flutter project.',
+              ),
+              'target': Schema.string(
+                description:
+                    'The main entry point file of the application. Defaults to '
+                    '"lib/main.dart".',
+              ),
+              'device': Schema.string(
+                description:
+                    'The device ID to launch the application on. To get a list '
+                    'of available devices with IDs to present as choices, run '
+                    '`flutter devices --machine`.',
+              ),
+              'args': Schema.list(
+                items: Schema.string(),
+                description:
+                    'Additional arguments to pass to the `flutter run` '
+                    'command. For example: ["--flavor", "dev", '
+                    '"--dart-define-from-file", "env.json"]. Do not include '
+                    '${_managedFlutterRunFlags.join(', ')} '
+                    'as these are managed automatically.',
+              ),
+              'timeout': Schema.int(
+                description: 'Timeout in milliseconds, defaults to 90000.',
+              ),
+            },
+            required: ['root', 'device'],
+            additionalProperties: false,
+          ),
+          outputSchema: Schema.object(
+            properties: {
+              ParameterNames.dtdUri: Schema.string(
+                description: 'The DTD URI of the launched Flutter application.',
+              ),
+              ParameterNames.appUri: Schema.string(
+                description:
+                    'The App URI for this specific Flutter application, used '
+                    'for dtd tools.',
+              ),
+              ParameterNames.webLaunchUri: Schema.string(
+                description:
+                    'The web launch URI of the launched Flutter application.',
+              ),
+              ParameterNames.pid: Schema.int(
+                description:
+                    'The process ID of the launched Flutter application.',
+              ),
+            },
+            required: [ParameterNames.pid],
+          ),
+        )
+        ..categories = [
+          FeatureCategory.flutter,
+          FeatureCategory.flutterAppLifecycle,
+        ]
+        ..enabledByDefault = false;
 
   Future<CallToolResult> _launchApp(CallToolRequest request) async {
     final root = request.arguments!['root'] as String;
@@ -147,7 +165,6 @@ base mixin FlutterLauncherSupport
       )..failureReason = CallToolFailureReason.argumentError;
     }
     final timeout = request.arguments!['timeout'] as int? ?? 90000;
-    final completer = Completer<({Uri dtdUri, int pid})>();
 
     log(
       LoggingLevel.debug,
@@ -155,6 +172,9 @@ base mixin FlutterLauncherSupport
     );
 
     Process? process;
+    final dtdUriCompleter = Completer<Uri>();
+    final appUriCompleter = Completer<Uri>();
+    final webLaunchUriCompleter = Completer<Uri>();
     try {
       process = await processManager.start(
         [
@@ -182,23 +202,31 @@ base mixin FlutterLauncherSupport
       late StreamSubscription stdoutSubscription;
       late StreamSubscription stderrSubscription;
 
-      void checkForDtdUri(String line) {
+      void listenForMachineLogs(String line) {
         line = line.trim();
         // Check for --machine output first.
         if (line.startsWith('[') && line.endsWith(']')) {
-          // Looking for:
-          // [{"event":"app.dtd","params":{"appId":"cd6c66eb-35e9-4ac1-96df-727540138346","uri":"ws://127.0.0.1:59548/3OpAaPw9i34="}}]
           try {
             final json =
                 jsonDecode(line.substring(1, line.length - 1))
                     as Map<String, Object?>;
-            if (json['event'] == 'app.dtd' && json['params'] != null) {
-              final params = json['params'] as Map<String, Object?>;
-              if (params['uri'] != null) {
-                final dtdUri = Uri.parse(params['uri'] as String);
+            switch (json) {
+              case {'event': 'app.dtd', 'params': {'uri': final String uri}}:
+                final dtdUri = Uri.parse(uri);
                 log(LoggingLevel.debug, 'Found machine DTD URI: $dtdUri');
-                completer.complete((dtdUri: dtdUri, pid: process!.pid));
-              }
+                dtdUriCompleter.complete(dtdUri);
+              case {
+                'event': 'app.debugPort',
+                'params': {'wsUri': final String wsUri},
+              }:
+                log(LoggingLevel.debug, 'Found machine App URI: $wsUri');
+                appUriCompleter.complete(Uri.parse(wsUri));
+              case {
+                'event': 'app.webLaunchUrl',
+                'params': {'url': final String url},
+              }:
+                log(LoggingLevel.debug, 'Found machine Web Launch URI: $url');
+                webLaunchUriCompleter.complete(Uri.parse(url));
             }
           } on FormatException {
             // Ignore failures to parse the JSON or the URI.
@@ -217,7 +245,7 @@ base mixin FlutterLauncherSupport
                 '[flutter stdout ${process!.pid}]: $line',
               );
               _runningApps[process.pid]?.logs.add('[stdout] $line');
-              checkForDtdUri(line);
+              listenForMachineLogs(line);
             },
             onDone: stdoutDone.complete,
             onError: stdoutDone.completeError,
@@ -233,12 +261,13 @@ base mixin FlutterLauncherSupport
                 '[flutter stderr ${process!.pid}]: $line',
               );
               _runningApps[process.pid]?.logs.add('[stderr] $line');
-              checkForDtdUri(line);
+              listenForMachineLogs(line);
             },
             onDone: stderrDone.complete,
             onError: stderrDone.completeError,
           );
-
+      final completer =
+          Completer<({Uri? dtdUri, Uri? appUri, Uri? webLaunchUri, int pid})>();
       unawaited(
         process.exitCode.then((exitCode) async {
           // Wait for both streams to finish processing before potentially
@@ -259,7 +288,8 @@ base mixin FlutterLauncherSupport
             ];
             completer.completeError(
               'Flutter application exited with code $exitCode before the DTD '
-              'URI was found, with log output:\n${logOutput.join('\n')}',
+              'App URI, or WebLaunchUri was found, with log output:\n'
+              '${logOutput.join('\n')}',
             );
           }
           _runningApps.remove(process.pid);
@@ -270,21 +300,64 @@ base mixin FlutterLauncherSupport
         }),
       );
 
+      unawaited(
+        dtdUriCompleter.future.then((dtdUri) {
+          appUriCompleter.future.then((appUri) {
+            if (completer.isCompleted) return;
+            completer.complete((
+              dtdUri: dtdUri,
+              appUri: appUri,
+              webLaunchUri: null,
+              pid: process!.pid,
+            ));
+          });
+        }),
+      );
+
+      unawaited(
+        webLaunchUriCompleter.future.then((webLaunchUri) {
+          if (completer.isCompleted) return;
+          completer.complete((
+            dtdUri: null,
+            appUri: null,
+            webLaunchUri: webLaunchUri,
+            pid: process!.pid,
+          ));
+        }),
+      );
+
       final result = await completer.future.timeout(
         Duration(milliseconds: timeout),
       );
-      _runningApps[result.pid]?.dtdUri = result.dtdUri.toString();
+      if (result.dtdUri case final Uri dtdUri?) {
+        _runningApps[result.pid]?.dtdUri = dtdUri.toString();
+      }
+
+      final description = StringBuffer();
+      description.writeln(
+        'Flutter application started successfully with PID '
+        '${result.pid}',
+      );
+      if (result.webLaunchUri case final webLaunchUri?) {
+        description.writeln(
+          'Run the app by navigating to: $webLaunchUri in a web browser. '
+          'Note that DTD will not be active until the app is running.',
+        );
+      } else {
+        description
+          ..writeln('DTD URI: ${result.dtdUri}')
+          ..writeln('App URI: ${result.appUri}');
+      }
 
       return CallToolResult(
-        content: [
-          TextContent(
-            text:
-                'Flutter application launched successfully with PID '
-                '${result.pid} with the DTD URI ${result.dtdUri}',
-          ),
-        ],
+        content: [TextContent(text: description.toString())],
         structuredContent: {
-          ParameterNames.dtdUri: result.dtdUri.toString(),
+          if (result.dtdUri case final dtdUri?)
+            ParameterNames.dtdUri: dtdUri.toString(),
+          if (result.appUri case final appUri?)
+            ParameterNames.appUri: appUri.toString(),
+          if (result.webLaunchUri case final webLaunchUri?)
+            ParameterNames.webLaunchUri: webLaunchUri.toString(),
           ParameterNames.pid: result.pid,
         },
       );
@@ -309,28 +382,34 @@ base mixin FlutterLauncherSupport
   }
 
   /// A tool to stop a running Flutter application.
-  static final stopAppTool = Tool(
-    name: ToolNames.stopApp.name,
-    description:
-        'Kills a running Flutter process started by the launch_app tool.',
-    inputSchema: Schema.object(
-      properties: {
-        ParameterNames.pid: Schema.int(
-          description: 'The process ID of the process to kill.',
-        ),
-      },
-      required: [ParameterNames.pid],
-      additionalProperties: false,
-    ),
-    outputSchema: Schema.object(
-      properties: {
-        'success': Schema.bool(
-          description: 'Whether the process was killed successfully.',
-        ),
-      },
-      required: ['success'],
-    ),
-  )..categories = [FeatureCategory.flutter];
+  static final stopAppTool =
+      Tool(
+          name: ToolNames.stopApp.name,
+          description:
+              'Kills a running Flutter process started by the launch_app tool.',
+          inputSchema: Schema.object(
+            properties: {
+              ParameterNames.pid: Schema.int(
+                description: 'The process ID of the process to kill.',
+              ),
+            },
+            required: [ParameterNames.pid],
+            additionalProperties: false,
+          ),
+          outputSchema: Schema.object(
+            properties: {
+              'success': Schema.bool(
+                description: 'Whether the process was killed successfully.',
+              ),
+            },
+            required: ['success'],
+          ),
+        )
+        ..categories = [
+          FeatureCategory.flutter,
+          FeatureCategory.flutterAppLifecycle,
+        ]
+        ..enabledByDefault = false;
 
   Future<CallToolResult> _stopApp(CallToolRequest request) async {
     final pid = request.arguments!['pid'] as int;
@@ -395,7 +474,11 @@ base mixin FlutterLauncherSupport
             additionalProperties: false,
           ),
         )
-        ..categories = [FeatureCategory.flutter, FeatureCategory.cli]
+        ..categories = [
+          FeatureCategory.flutter,
+          FeatureCategory.flutterAppLifecycle,
+          FeatureCategory.cli,
+        ]
         ..enabledByDefault = false;
 
   Future<CallToolResult> _listDevices(CallToolRequest request) async {
@@ -461,37 +544,44 @@ base mixin FlutterLauncherSupport
   }
 
   /// A tool to get the logs for a running Flutter application.
-  static final getAppLogsTool = Tool(
-    name: ToolNames.getAppLogs.name,
-    description:
-        'Returns the collected logs for a given flutter run process '
-        'id. Can only retrieve logs started by the launch_app tool.',
-    inputSchema: Schema.object(
-      properties: {
-        ParameterNames.pid: Schema.int(
+  static final getAppLogsTool =
+      Tool(
+          name: ToolNames.getAppLogs.name,
           description:
-              'The process ID of the flutter run process running the '
-              'application.',
-        ),
-        'maxLines': Schema.int(
-          description:
-              'The maximum number of log lines to return from the end of the '
-              'logs. Defaults to 500. If set to -1, all logs will be returned.',
-        ),
-      },
-      required: [ParameterNames.pid],
-      additionalProperties: false,
-    ),
-    outputSchema: Schema.object(
-      properties: {
-        'logs': Schema.list(
-          description: 'The collected logs for the process.',
-          items: Schema.string(),
-        ),
-      },
-      required: ['logs'],
-    ),
-  )..categories = [FeatureCategory.flutter];
+              'Returns the collected logs for a given flutter run process '
+              'id. Can only retrieve logs started by the launch_app tool.',
+          inputSchema: Schema.object(
+            properties: {
+              ParameterNames.pid: Schema.int(
+                description:
+                    'The process ID of the flutter run process running the '
+                    'application.',
+              ),
+              'maxLines': Schema.int(
+                description:
+                    'The maximum number of log lines to return from the end of '
+                    'the logs. Defaults to 500. If set to -1, all logs will be '
+                    'returned.',
+              ),
+            },
+            required: [ParameterNames.pid],
+            additionalProperties: false,
+          ),
+          outputSchema: Schema.object(
+            properties: {
+              'logs': Schema.list(
+                description: 'The collected logs for the process.',
+                items: Schema.string(),
+              ),
+            },
+            required: ['logs'],
+          ),
+        )
+        ..categories = [
+          FeatureCategory.flutter,
+          FeatureCategory.flutterAppLifecycle,
+        ]
+        ..enabledByDefault = false;
 
   Future<CallToolResult> _getAppLogs(CallToolRequest request) async {
     final pid = request.arguments!['pid'] as int;
@@ -525,35 +615,41 @@ base mixin FlutterLauncherSupport
   }
 
   /// A tool to list all running Flutter applications.
-  static final listRunningAppsTool = Tool(
-    name: ToolNames.listRunningApps.name,
-    description:
-        'Returns the list of running app process IDs and associated '
-        'DTD URIs for apps started by the launch_app tool.',
-    inputSchema: Schema.object(),
-    outputSchema: Schema.object(
-      properties: {
-        ParameterNames.apps: Schema.list(
+  static final listRunningAppsTool =
+      Tool(
+          name: ToolNames.listRunningApps.name,
           description:
-              'A list of running applications started by the '
-              'launch_app tool.',
-          items: Schema.object(
+              'Returns the list of running app process IDs and associated '
+              'DTD URIs for apps started by the launch_app tool.',
+          inputSchema: Schema.object(),
+          outputSchema: Schema.object(
             properties: {
-              ParameterNames.pid: Schema.int(
-                description: 'The process ID of the application.',
-              ),
-              ParameterNames.dtdUri: Schema.string(
-                description: 'The DTD URI of the application.',
+              ParameterNames.apps: Schema.list(
+                description:
+                    'A list of running applications started by the '
+                    'launch_app tool.',
+                items: Schema.object(
+                  properties: {
+                    ParameterNames.pid: Schema.int(
+                      description: 'The process ID of the application.',
+                    ),
+                    ParameterNames.dtdUri: Schema.string(
+                      description: 'The DTD URI of the application.',
+                    ),
+                  },
+                  required: [ParameterNames.pid, ParameterNames.dtdUri],
+                ),
               ),
             },
-            required: [ParameterNames.pid, ParameterNames.dtdUri],
+            required: [ParameterNames.apps],
+            additionalProperties: false,
           ),
-        ),
-      },
-      required: [ParameterNames.apps],
-      additionalProperties: false,
-    ),
-  )..categories = [FeatureCategory.flutter];
+        )
+        ..categories = [
+          FeatureCategory.flutter,
+          FeatureCategory.flutterAppLifecycle,
+        ]
+        ..enabledByDefault = false;
 
   Future<CallToolResult> _listRunningApps(CallToolRequest request) async {
     final apps = _runningApps.entries

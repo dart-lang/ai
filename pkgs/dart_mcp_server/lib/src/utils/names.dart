@@ -31,6 +31,7 @@ extension ParameterNames on Never {
   static const uri = 'uri';
   static const uris = 'uris';
   static const userJourney = 'user_journey';
+  static const webLaunchUri = 'webLaunchUri';
 }
 
 /// The names of all the tools provided by the server.
