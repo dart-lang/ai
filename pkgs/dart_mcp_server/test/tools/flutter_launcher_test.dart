@@ -474,7 +474,7 @@ void main() {
               '"cd6c66eb-35e9-4ac1-96df-727540138346","uri":"$dtdUri"}}]',
           '[stdout] [{"event":"app.debugPort","params":{"appId":'
               '"cd6c66eb-35e9-4ac1-96df-727540138346",'
-              '"wsUri":"$vmServiceUri"}}]'
+              '"wsUri":"$vmServiceUri"}}]',
         ],
       });
     });
