@@ -26,6 +26,7 @@ void main() {
     late MemoryFileSystem fileSystem;
     const projectRoot = '/project';
     final dtdUri = 'ws://127.0.0.1:12345/abcdefg=';
+    final vmServiceUri = 'ws://127.0.0.1:54321/';
     final processPid = 54321;
     late TestHarness testHarness;
     late DartMCPServer server;
@@ -65,7 +66,10 @@ void main() {
               stdout ??
               '[{"event":"app.dtd","params":{'
                   '"appId":"cd6c66eb-35e9-4ac1-96df-727540138346",'
-                  '"uri":"$dtdUri"}}]',
+                  '"uri":"$dtdUri"}}]\n'
+                  '[{"event":"app.debugPort","params":{'
+                  '"appId":"cd6c66eb-35e9-4ac1-96df-727540138346",'
+                  '"wsUri":"$vmServiceUri"}}]',
           exitCode: exitCode != null ? Future.value(exitCode) : null,
           pid: processPid,
         ),
@@ -119,12 +123,15 @@ void main() {
       expect(result.content, <Content>[
         Content.text(
           text:
-              'Flutter application launched successfully with PID 54321 with the DTD URI ws://127.0.0.1:12345/abcdefg=',
+              'Flutter application started successfully with PID 54321\n'
+              'DTD URI: ws://127.0.0.1:12345/abcdefg=\n'
+              'App URI: ws://127.0.0.1:54321/\n',
         ),
       ]);
       expect(result.isError, isNot(true));
       expect(result.structuredContent, {
         ParameterNames.dtdUri: dtdUri,
+        ParameterNames.appUri: vmServiceUri,
         ParameterNames.pid: processPid,
       });
       await server.shutdown();
@@ -304,12 +311,15 @@ void main() {
         expect(result.content, <Content>[
           Content.text(
             text:
-                'Flutter application launched successfully with PID 54321 with the DTD URI ws://127.0.0.1:12345/abcdefg=',
+                'Flutter application started successfully with PID 54321\n'
+                'DTD URI: ws://127.0.0.1:12345/abcdefg=\n'
+                'App URI: ws://127.0.0.1:54321/\n',
           ),
         ]);
         expect(result.isError, isNot(true));
         expect(result.structuredContent, {
           ParameterNames.dtdUri: dtdUri,
+          ParameterNames.appUri: vmServiceUri,
           ParameterNames.pid: processPid,
         });
       },
@@ -328,12 +338,15 @@ void main() {
       expect(result.content, <Content>[
         Content.text(
           text:
-              'Flutter application launched successfully with PID 54321 with the DTD URI ws://127.0.0.1:12345/abcdefg=',
+              'Flutter application started successfully with PID 54321\n'
+              'DTD URI: ws://127.0.0.1:12345/abcdefg=\n'
+              'App URI: ws://127.0.0.1:54321/\n',
         ),
       ]);
       expect(result.isError, isNot(true));
       expect(result.structuredContent, {
         ParameterNames.dtdUri: dtdUri,
+        ParameterNames.appUri: vmServiceUri,
         ParameterNames.pid: processPid,
       });
     });
@@ -353,7 +366,8 @@ void main() {
       expect(
         textOutput.map((context) => context.text).toList().join('\n'),
         stringContainsInOrder([
-          'Flutter application exited with code 1 before the DTD URI was found',
+          'Flutter application exited with code 1 before the DTD App URI, or '
+              'WebLaunchUri was found',
           'with log output',
           'Something went wrong',
         ]),
@@ -432,7 +446,10 @@ void main() {
             'line 1\nline 2\nline 3\n'
             '[{"event":"app.dtd","params":{'
             '"appId":"cd6c66eb-35e9-4ac1-96df-727540138346",'
-            '"uri":"$dtdUri"}}]',
+            '"uri":"$dtdUri"}}]\n'
+            '[{"event":"app.debugPort","params":{'
+            '"appId":"cd6c66eb-35e9-4ac1-96df-727540138346",'
+            '"wsUri":"$vmServiceUri"}}]',
       );
       await client.callTool(
         CallToolRequest(
@@ -444,7 +461,7 @@ void main() {
       final result = await client.callTool(
         CallToolRequest(
           name: 'get_app_logs',
-          arguments: {ParameterNames.pid: processPid, 'maxLines': 2},
+          arguments: {ParameterNames.pid: processPid, 'maxLines': 3},
         ),
       );
 
@@ -453,7 +470,11 @@ void main() {
         'logs': [
           '[skipping 2 log lines]...',
           '[stdout] line 3',
-          '[stdout] [{"event":"app.dtd","params":{"appId":"cd6c66eb-35e9-4ac1-96df-727540138346","uri":"ws://127.0.0.1:12345/abcdefg="}}]',
+          '[stdout] [{"event":"app.dtd","params":{"appId":'
+              '"cd6c66eb-35e9-4ac1-96df-727540138346","uri":"$dtdUri"}}]',
+          '[stdout] [{"event":"app.debugPort","params":{"appId":'
+              '"cd6c66eb-35e9-4ac1-96df-727540138346",'
+              '"wsUri":"$vmServiceUri"}}]'
         ],
       });
     });
