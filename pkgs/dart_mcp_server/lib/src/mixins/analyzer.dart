@@ -35,15 +35,37 @@ base mixin DartAnalyzerSupport
   /// The actual process for the LSP server.
   Process? _lspServer;
 
+  @visibleForTesting
+  Process? get lspServer => _lspServer;
+
   /// The current diagnostics for a given file.
   Map<Uri, List<lsp.Diagnostic>> diagnostics = {};
 
-  /// If currently analyzing, a completer which will be completed once analysis
-  /// is over.
+  /// If currently analyzing or waiting on first analysis, a completer which
+  /// will be completed once analysis is over.
   Completer<void>? _doneAnalyzing = Completer();
 
   /// Completes the next time we get an analysis start event.
   Completer<void> _analysisStart = Completer();
+
+  /// The future for the current LSP server initialization.
+  Future<String?>? _lspInitialization;
+
+  @visibleForTesting
+  Future<String?>? get lspInitialization => _lspInitialization;
+
+  /// The timer which will shut down the LSP server after inactivity.
+  Timer? _lspInactivityTimer;
+
+  /// The duration of inactivity before the LSP server is shut down.
+  @visibleForTesting
+  static Duration lspInactivityDuration = const Duration(minutes: 10);
+
+  /// The number of currently active LSP requests.
+  int _activeLspRequests = 0;
+
+  @visibleForTesting
+  int get activeLspRequests => _activeLspRequests;
 
   /// The current LSP workspace folder state.
   HashSet<lsp.WorkspaceFolder> _currentWorkspaceFolders =
@@ -67,12 +89,6 @@ base mixin DartAnalyzerSupport
         'Project analysis requires a Dart SDK but none was given. Analysis '
             'tools have been disabled.',
     ];
-
-    if (unsupportedReasons.isEmpty) {
-      if (await _initializeAnalyzerLspServer() case final failedReason?) {
-        unsupportedReasons.add(failedReason);
-      }
-    }
 
     if (unsupportedReasons.isEmpty) {
       registerTool(analyzeFilesTool, _analyzeFiles);
@@ -257,8 +273,7 @@ base mixin DartAnalyzerSupport
   @override
   Future<void> shutdown() async {
     await super.shutdown();
-    _lspServer?.kill();
-    await _lspConnection?.close();
+    await _stopLspServer();
   }
 
   /// Implementation of the [analyzeFilesTool], analyzes all the files in all
@@ -266,119 +281,119 @@ base mixin DartAnalyzerSupport
   ///
   /// Waits for any pending analysis before returning.
   Future<CallToolResult> _analyzeFiles(CallToolRequest request) async {
-    final errorResult = await _ensurePrerequisites(request);
-    if (errorResult != null) return errorResult;
+    return withAnalysisServer((analysisServer) async {
+      var rootConfigs = (request.arguments?[ParameterNames.roots] as List?)
+          ?.cast<Map<String, Object?>>();
+      final allRoots = await roots;
 
-    var rootConfigs = (request.arguments?[ParameterNames.roots] as List?)
-        ?.cast<Map<String, Object?>>();
-    final allRoots = await roots;
-
-    if (rootConfigs != null && rootConfigs.isEmpty) {
-      // If you provide an empty list of roots, we have nothing to do, but
-      // don't want to default to all roots as you explicitly gave zero.
-      return emptyRootsGivenResponse;
-    }
-
-    // Default to use the known roots if none were specified.
-    rootConfigs ??= [
-      for (final root in allRoots) {ParameterNames.root: root.uri},
-    ];
-
-    final requestedUris = <Uri>{};
-    final requestedUriRoots = <Uri, Uri>{};
-    for (final rootConfig in rootConfigs) {
-      final validated = validateRootConfig(
-        rootConfig,
-        knownRoots: allRoots,
-        fileSystem: fileSystem,
-      );
-
-      if (validated.errorResult case final error?) {
-        return error;
+      if (rootConfigs != null && rootConfigs.isEmpty) {
+        // If you provide an empty list of roots, we have nothing to do, but
+        // don't want to default to all roots as you explicitly gave zero.
+        return emptyRootsGivenResponse;
       }
 
-      final rootUri = Uri.parse(validated.root!.uri);
+      // Default to use the known roots if none were specified.
+      rootConfigs ??= [
+        for (final root in allRoots) {ParameterNames.root: root.uri},
+      ];
 
-      if (validated.paths != null && validated.paths!.isNotEmpty) {
-        for (final path in validated.paths!) {
-          final uri = rootUri.resolve(path);
-          requestedUris.add(uri);
-          requestedUriRoots[uri] = rootUri;
+      final requestedUris = <Uri>{};
+      final requestedUriRoots = <Uri, Uri>{};
+      for (final rootConfig in rootConfigs) {
+        final validated = validateRootConfig(
+          rootConfig,
+          knownRoots: allRoots,
+          fileSystem: fileSystem,
+        );
+
+        if (validated.errorResult case final error?) {
+          return error;
         }
-      } else {
-        requestedUris.add(rootUri);
-        requestedUriRoots[rootUri] = rootUri;
+
+        final rootUri = Uri.parse(validated.root!.uri);
+
+        if (validated.paths != null && validated.paths!.isNotEmpty) {
+          for (final path in validated.paths!) {
+            final uri = rootUri.resolve(path);
+            requestedUris.add(uri);
+            requestedUriRoots[uri] = rootUri;
+          }
+        } else {
+          requestedUris.add(rootUri);
+          requestedUriRoots[rootUri] = rootUri;
+        }
       }
-    }
-    final messages = <Content>[];
+      final messages = <Content>[];
 
-    final applyFixes =
-        request.arguments?[ParameterNames.applyFixes] as bool? ?? false;
-    if (applyFixes) {
-      await _lspConnection!.sendRequest(
-        lsp.Method.workspace_executeCommand.toString(),
-        lsp.ExecuteCommandParams(
-          command: 'dart.edit.fixAllInWorkspace',
-          arguments: [],
-        ).toJson(),
-      );
-      // The actual edits are asynchronous, we just assume some were applied
-      // as a confirmation to the LLM that it was respected.
-      messages.add(TextContent(text: 'Applied quick fixes'));
-
-      if (_doneAnalyzing == null) {
-        // Wait a bit for the new analysis to start if not currently analyzing.
-        await _analysisStart.future.timeout(
-          const Duration(seconds: 1),
-          onTimeout: () {},
+      final applyFixes =
+          request.arguments?[ParameterNames.applyFixes] as bool? ?? false;
+      if (applyFixes) {
+        await analysisServer.sendRequest(
+          lsp.Method.workspace_executeCommand.toString(),
+          lsp.ExecuteCommandParams(
+            command: 'dart.edit.fixAllInWorkspace',
+            arguments: [],
+          ).toJson(),
         );
-      }
-      await _doneAnalyzing?.future;
-    }
+        // The actual edits are asynchronous, we just assume some were applied
+        // as a confirmation to the LLM that it was respected.
+        messages.add(TextContent(text: 'Applied quick fixes'));
 
-    final filteredDiagnosticsByRoot = <Uri, Map<Uri, List<lsp.Diagnostic>>>{};
-    for (final MapEntry(key: uri, value: diagnostics) in diagnostics.entries) {
-      final entryPath = fileSystem.path.canonicalize(uri.toFilePath());
-      if (requestedUriRoots[uri] case final rootUri?) {
-        filteredDiagnosticsByRoot
-            .putIfAbsent(rootUri, () => {})
-            .putIfAbsent(uri, () => [])
-            .addAll(diagnostics);
-        continue;
+        if (_doneAnalyzing == null) {
+          // Wait a bit for the new analysis to start if not currently analyzing.
+          await _analysisStart.future.timeout(
+            const Duration(seconds: 1),
+            onTimeout: () {},
+          );
+        }
+        await _doneAnalyzing?.future;
       }
 
-      for (final rootUri in requestedUriRoots.keys) {
-        final requestedPath = fileSystem.path.canonicalize(
-          rootUri.toFilePath(),
-        );
-        if (fileSystem.path.equals(requestedPath, entryPath) ||
-            fileSystem.path.isWithin(requestedPath, entryPath)) {
+      final filteredDiagnosticsByRoot = <Uri, Map<Uri, List<lsp.Diagnostic>>>{};
+      for (final MapEntry(key: uri, value: diagnostics)
+          in diagnostics.entries) {
+        final entryPath = fileSystem.path.canonicalize(uri.toFilePath());
+        if (requestedUriRoots[uri] case final rootUri?) {
           filteredDiagnosticsByRoot
               .putIfAbsent(rootUri, () => {})
               .putIfAbsent(uri, () => [])
               .addAll(diagnostics);
-          break;
+          continue;
+        }
+
+        for (final rootUri in requestedUriRoots.keys) {
+          final requestedPath = fileSystem.path.canonicalize(
+            rootUri.toFilePath(),
+          );
+          if (fileSystem.path.equals(requestedPath, entryPath) ||
+              fileSystem.path.isWithin(requestedPath, entryPath)) {
+            filteredDiagnosticsByRoot
+                .putIfAbsent(rootUri, () => {})
+                .putIfAbsent(uri, () => [])
+                .addAll(diagnostics);
+            break;
+          }
         }
       }
-    }
 
-    var sawDiagnostic = false;
-    for (final MapEntry(key: rootUri, value: diagnostics)
-        in filteredDiagnosticsByRoot.entries) {
-      if (diagnostics.values.every((d) => d.isEmpty)) continue;
+      var sawDiagnostic = false;
+      for (final MapEntry(key: rootUri, value: diagnostics)
+          in filteredDiagnosticsByRoot.entries) {
+        if (diagnostics.values.every((d) => d.isEmpty)) continue;
 
-      messages.add(TextContent(text: '# Diagnostics for root $rootUri\n'));
-      for (final MapEntry(key: sourceUri, value: diagnostics)
-          in diagnostics.entries) {
-        sawDiagnostic = true;
-        messages.add(formatDiagnostics(rootUri, sourceUri, diagnostics));
+        messages.add(TextContent(text: '# Diagnostics for root $rootUri\n'));
+        for (final MapEntry(key: sourceUri, value: diagnostics)
+            in diagnostics.entries) {
+          sawDiagnostic = true;
+          messages.add(formatDiagnostics(rootUri, sourceUri, diagnostics));
+        }
       }
-    }
-    if (!sawDiagnostic) {
-      messages.add(TextContent(text: 'No errors'));
-    }
+      if (!sawDiagnostic) {
+        messages.add(TextContent(text: 'No errors'));
+      }
 
-    return CallToolResult(content: messages);
+      return CallToolResult(content: messages);
+    });
   }
 
   Content formatDiagnostics(
@@ -439,32 +454,32 @@ base mixin DartAnalyzerSupport
   /// Dispatches the request to the appropriate handler based on the `command`
   /// argument.
   Future<CallToolResult> _lsp(CallToolRequest request) async {
-    final errorResult = await _ensurePrerequisites(request);
-    if (errorResult != null) return errorResult;
-
-    final command = request.arguments![ParameterNames.command] as String;
-    switch (command) {
-      case LspCommands.hover:
-        return _hover(request);
-      case LspCommands.signatureHelp:
-        return _signatureHelp(request);
-      case LspCommands.resolveWorkspaceSymbol:
-        return _resolveWorkspaceSymbol(request);
-      default:
-        return CallToolResult(
-          isError: true,
-          content: [TextContent(text: 'Unknown LSP command: $command')],
-        );
-    }
+    return withAnalysisServer((analysisServer) async {
+      final command = request.arguments![ParameterNames.command] as String;
+      switch (command) {
+        case LspCommands.hover:
+          return _hover(request, analysisServer);
+        case LspCommands.signatureHelp:
+          return _signatureHelp(request, analysisServer);
+        case LspCommands.resolveWorkspaceSymbol:
+          return _resolveWorkspaceSymbol(request, analysisServer);
+        default:
+          return CallToolResult(
+            isError: true,
+            content: [TextContent(text: 'Unknown LSP command: $command')],
+          );
+      }
+    });
   }
 
   /// Implementation of the [LspCommands.resolveWorkspaceSymbol] command,
   /// resolves a given symbol or symbols in a workspace.
   Future<CallToolResult> _resolveWorkspaceSymbol(
     CallToolRequest request,
+    Peer analysisServer,
   ) async {
     final query = request.arguments![ParameterNames.query] as String;
-    final result = await _lspConnection!.sendRequest(
+    final result = await analysisServer.sendRequest(
       lsp.Method.workspace_symbol.toString(),
       lsp.WorkspaceSymbolParams(query: query).toJson(),
     );
@@ -473,13 +488,16 @@ base mixin DartAnalyzerSupport
 
   /// Implementation of the [LspCommands.signatureHelp] command, get signature
   /// help for a given position in a file.
-  Future<CallToolResult> _signatureHelp(CallToolRequest request) async {
+  Future<CallToolResult> _signatureHelp(
+    CallToolRequest request,
+    Peer analysisServer,
+  ) async {
     final uri = Uri.parse(request.arguments![ParameterNames.uri] as String);
     final position = lsp.Position(
       line: request.arguments![ParameterNames.line] as int,
       character: request.arguments![ParameterNames.column] as int,
     );
-    final result = await _lspConnection!.sendRequest(
+    final result = await analysisServer.sendRequest(
       lsp.Method.textDocument_signatureHelp.toString(),
       lsp.SignatureHelpParams(
         textDocument: lsp.TextDocumentIdentifier(uri: uri),
@@ -491,13 +509,16 @@ base mixin DartAnalyzerSupport
 
   /// Implementation of the [LspCommands.hover] command, get hover information
   /// for a given position in a file.
-  Future<CallToolResult> _hover(CallToolRequest request) async {
+  Future<CallToolResult> _hover(
+    CallToolRequest request,
+    Peer analysisServer,
+  ) async {
     final uri = Uri.parse(request.arguments![ParameterNames.uri] as String);
     final position = lsp.Position(
       line: request.arguments![ParameterNames.line] as int,
       character: request.arguments![ParameterNames.column] as int,
     );
-    final result = await _lspConnection!.sendRequest(
+    final result = await analysisServer.sendRequest(
       lsp.Method.textDocument_hover.toString(),
       lsp.HoverParams(
         textDocument: lsp.TextDocumentIdentifier(uri: uri),
@@ -507,17 +528,79 @@ base mixin DartAnalyzerSupport
     return CallToolResult(content: [TextContent(text: jsonEncode(result))]);
   }
 
-  /// Ensures that all prerequisites for any analysis task are met.
+  /// Ensures that the analysis server is started and the prerequisites
+  /// are met, then calls [callback] with the server instance.
   ///
-  /// Returns an error response if any prerequisite is not met, otherwise
-  /// returns `null`.
-  Future<CallToolResult?> _ensurePrerequisites(CallToolRequest request) async {
+  /// The inactivity timer is completely cancelled while the callback is
+  /// running and restarted only after all requests have completed.
+  @visibleForTesting
+  Future<CallToolResult> withAnalysisServer(
+    Future<CallToolResult> Function(Peer analysisServer) callback,
+  ) async {
     final roots = await this.roots;
     if (roots.isEmpty) {
       return noRootsSetResponse;
     }
-    await _doneAnalyzing?.future;
-    return null;
+
+    // Cancel timer while we are working.
+    _lspInactivityTimer?.cancel();
+    _lspInactivityTimer = null;
+    _activeLspRequests++;
+
+    try {
+      if (_lspConnection == null) {
+        final error = await (_lspInitialization ??=
+            _initializeAnalyzerLspServer());
+        if (error != null) {
+          _lspInitialization = null;
+          return CallToolResult(
+            isError: true,
+            content: [TextContent(text: error)],
+          )..failureReason = CallToolFailureReason.lspStartupFailed;
+        }
+        // After starting the server, ensure it has the current roots.
+        await _updateRootsToLspServer();
+      }
+
+      await _doneAnalyzing?.future;
+
+      return await callback(_lspConnection!);
+    } finally {
+      // Restore the inactivity timer if all requests are done.
+      _activeLspRequests--;
+      _resetInactivityTimer();
+    }
+  }
+
+  /// Resets the inactivity timer for the LSP server if no requests are active.
+  void _resetInactivityTimer() {
+    _lspInactivityTimer?.cancel();
+    _lspInactivityTimer = null;
+
+    if (_activeLspRequests == 0) {
+      _lspInactivityTimer = Timer(lspInactivityDuration, _stopLspServer);
+    }
+  }
+
+  /// Shuts down the LSP server and cleans up associated state.
+  Future<void> _stopLspServer() async {
+    _lspInactivityTimer?.cancel();
+    _lspInactivityTimer = null;
+    _lspInitialization = null;
+
+    final server = _lspServer;
+    final connection = _lspConnection;
+
+    _lspServer = null;
+    _lspConnection = null;
+
+    // Reset analysis related state.
+    diagnostics.clear();
+    _doneAnalyzing = Completer<void>();
+    _currentWorkspaceFolders.clear();
+
+    server?.kill();
+    await connection?.close();
   }
 
   /// Handles `$/analyzerStatus` events, which tell us when analysis starts and
@@ -646,45 +729,49 @@ base mixin DartAnalyzerSupport
   @override
   Future<void> updateRoots() async {
     await super.updateRoots();
-    unawaited(() async {
-      final newRoots = await roots;
+    if (_lspConnection != null) {
+      _resetInactivityTimer();
+      await _updateRootsToLspServer();
+    }
+  }
 
-      final oldWorkspaceFolders = _currentWorkspaceFolders;
-      final newWorkspaceFolders = _currentWorkspaceFolders =
-          HashSet<lsp.WorkspaceFolder>(
-            equals: (a, b) => a.uri == b.uri,
-            hashCode: (a) => a.uri.hashCode,
-          )..addAll(newRoots.map((r) => r.asWorkspaceFolder));
+  /// Sends the current list of workspace folders to the LSP server.
+  Future<void> _updateRootsToLspServer() async {
+    final newRoots = await roots;
 
-      final added = newWorkspaceFolders
-          .difference(oldWorkspaceFolders)
-          .toList();
-      final removed = oldWorkspaceFolders
-          .difference(newWorkspaceFolders)
-          .toList();
+    final oldWorkspaceFolders = _currentWorkspaceFolders;
+    final newWorkspaceFolders = _currentWorkspaceFolders =
+        HashSet<lsp.WorkspaceFolder>(
+          equals: (a, b) => a.uri == b.uri,
+          hashCode: (a) => a.uri.hashCode,
+        )..addAll(newRoots.map((r) => r.asWorkspaceFolder));
 
-      // This can happen in the case of multiple notifications in quick
-      // succession, the `roots` future will complete only after the state has
-      // stabilized which can result in empty diffs.
-      if (added.isEmpty && removed.isEmpty) {
-        return;
-      }
+    final added = newWorkspaceFolders.difference(oldWorkspaceFolders).toList();
+    final removed = oldWorkspaceFolders
+        .difference(newWorkspaceFolders)
+        .toList();
 
-      final event = lsp.WorkspaceFoldersChangeEvent(
-        added: added,
-        removed: removed,
-      );
+    // This can happen in the case of multiple notifications in quick
+    // succession, the `roots` future will complete only after the state has
+    // stabilized which can result in empty diffs.
+    if (added.isEmpty && removed.isEmpty) {
+      return;
+    }
 
-      log(
-        LoggingLevel.debug,
-        () => 'Notifying of workspace root change: ${event.toJson()}',
-      );
+    final event = lsp.WorkspaceFoldersChangeEvent(
+      added: added,
+      removed: removed,
+    );
 
-      _lspConnection!.sendNotification(
-        lsp.Method.workspace_didChangeWorkspaceFolders.toString(),
-        lsp.DidChangeWorkspaceFoldersParams(event: event).toJson(),
-      );
-    }());
+    log(
+      LoggingLevel.debug,
+      () => 'Notifying of workspace root change: ${event.toJson()}',
+    );
+
+    _lspConnection!.sendNotification(
+      lsp.Method.workspace_didChangeWorkspaceFolders.toString(),
+      lsp.DidChangeWorkspaceFoldersParams(event: event).toJson(),
+    );
   }
 
   @visibleForTesting

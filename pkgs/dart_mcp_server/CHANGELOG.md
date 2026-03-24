@@ -40,6 +40,8 @@
   be opened in a browser, we do not get a DTD or Vm Service URI until the app is
   actually connected, which was causing timeouts.
 - Compact the output of the `analyze_files` tool to reduce token usage.
+- Start analysis server instances lazily, and time them out after 10 minutes of
+  inactivity.
 
 # 0.1.2 (Dart SDK 3.11.0)
 

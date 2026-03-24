@@ -159,6 +159,7 @@ enum CallToolFailureReason {
   invalidPath,
   invalidRootPath,
   invalidRootScheme,
+  lspStartupFailed,
   noActiveDebugSession,
   noPackageConfigFound,
   noRootGiven,
