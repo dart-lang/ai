@@ -404,8 +404,9 @@ base mixin DartAnalyzerSupport
         ..write(' • ')
         ..write(diagnostic.message);
       if (diagnostic.code case final code?) {
-        buffer.write(' • ');
-        buffer.write(code);
+        buffer
+          ..write(' • ')
+          ..write(code);
       }
 
       // Add any context messages as bullet list items.
