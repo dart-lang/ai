@@ -340,7 +340,8 @@ base mixin DartAnalyzerSupport
         messages.add(TextContent(text: 'Applied quick fixes'));
 
         if (_doneAnalyzing == null) {
-          // Wait a bit for the new analysis to start if not currently analyzing.
+          // Wait a bit for the new analysis to start if not currently
+          // analyzing.
           await _analysisStart.future.timeout(
             const Duration(seconds: 1),
             onTimeout: () {},
