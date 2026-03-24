@@ -8,6 +8,7 @@ import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp_server/src/features_configuration.dart';
 import 'package:dart_mcp_server/src/server.dart';
 import 'package:dart_mcp_server/src/utils/analytics.dart';
+import 'package:dart_mcp_server/src/utils/names.dart';
 import 'package:test/test.dart';
 import 'package:unified_analytics/testing.dart';
 import 'package:unified_analytics/unified_analytics.dart';
@@ -223,6 +224,51 @@ void main() {
                 'tool': tool.name,
                 'success': false,
                 'failureReason': 'argumentError',
+                'elapsedMilliseconds': isA<int>(),
+              }),
+            ),
+      );
+    });
+
+    test('includes the command in the tool name if present', () async {
+      analytics.sentEvents.clear();
+      final tool = Tool(
+        name: 'meta_tool',
+        inputSchema: Schema.object(
+          properties: {ParameterNames.command: Schema.string()},
+          required: [ParameterNames.command],
+        ),
+      )..categories = [FeatureCategory.cli];
+      server.registerTool(
+        tool,
+        (request) => CallToolResult(
+          content: [
+            Content.text(
+              text: request.arguments![ParameterNames.command] as String,
+            ),
+          ],
+        ),
+      );
+      await testHarness.mcpServerConnection.callTool(
+        CallToolRequest(
+          name: tool.name,
+          arguments: {ParameterNames.command: 'hello'},
+        ),
+      );
+      expect(
+        analytics.sentEvents.last,
+        isA<Event>()
+            .having((e) => e.eventName, 'eventName', DashEvent.dartMCPEvent)
+            .having(
+              (e) => e.eventData,
+              'eventData',
+              equals({
+                'client': server.clientInfo.name,
+                'clientVersion': server.clientInfo.version,
+                'serverVersion': server.implementation.version,
+                'type': AnalyticsEvent.callTool.name,
+                'tool': '${tool.name}.hello',
+                'success': true,
                 'elapsedMilliseconds': isA<int>(),
               }),
             ),

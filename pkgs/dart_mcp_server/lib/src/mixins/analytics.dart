@@ -8,6 +8,7 @@ import 'package:dart_mcp/server.dart';
 import 'package:unified_analytics/unified_analytics.dart';
 
 import '../utils/analytics.dart';
+import '../utils/names.dart';
 
 /// A mixin which intercepts various MCP calls to track analytics.
 base mixin AnalyticsEvents
@@ -153,6 +154,11 @@ base mixin AnalyticsEvents
       return result = await super.callTool(request);
     } finally {
       watch.stop();
+      var toolName = request.name;
+      if (request.arguments?[ParameterNames.command]
+          case final String command) {
+        toolName += '.$command';
+      }
       trySendAnalyticsEvent(
         Event.dartMCPEvent(
           client: clientInfo.name,
@@ -160,7 +166,7 @@ base mixin AnalyticsEvents
           serverVersion: implementation.version,
           type: AnalyticsEvent.callTool.name,
           additionalData: CallToolMetrics(
-            tool: request.name,
+            tool: toolName,
             success: result != null && result.isError != true,
             elapsedMilliseconds: watch.elapsedMilliseconds,
             failureReason: result?.failureReason,
