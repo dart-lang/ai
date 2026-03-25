@@ -230,7 +230,22 @@ To use finder-based commands (tap, enter text, scroll, screenshot),
 your app must call `enableFlutterDriverExtension()` before `runApp()`.
 See the [Flutter Driver documentation][] for setup details.
 
-Launch with the driver enabled:
+A recommended pattern is to gate the extension behind a compile-time
+flag so it stays disabled in production but can be toggled on with
+`--dart-define`:
+
+```dart
+import 'package:flutter_driver/driver_extension.dart';
+
+void main() {
+  if (const bool.fromEnvironment('ENABLE_FLUTTER_DRIVER')) {
+    enableFlutterDriverExtension();
+  }
+  runApp(const MyApp());
+}
+```
+
+Then launch with the driver enabled:
 
 ```bash
 flutter run -d <device-id> --dart-define=ENABLE_FLUTTER_DRIVER=true --print-dtd
