@@ -1276,7 +1276,7 @@ base mixin DartToolingDaemonSupport
         ),
         ParameterNames.enabled: Schema.string(
           description:
-              'Used by set_text_entry_emulation, defaults to '
+              'Used by set_text_entry_emulation and set_frame_sync, defaults to '
               'false',
           // ignore: deprecated_member_use
           enumValues: const ['true', 'false'],
