@@ -38,7 +38,7 @@ void main() {
 
       // Give a chance for the server to start, but assert it has not.
       await pumpEventQueue();
-      expect(server.lspServer, isNull);
+      expect(server.liveAnalysisServer, isNull);
       expect(server.lspInitialization, isNull);
 
       final request = CallToolRequest(
@@ -50,7 +50,7 @@ void main() {
         result.content.first,
         isA<TextContent>().having((t) => t.text, 'text', contains('No errors')),
       );
-      expect(server.lspServer, isNotNull);
+      expect(server.liveAnalysisServer, isNotNull);
     });
 
     test('auto-disconnects after inactivity', () async {
@@ -69,7 +69,7 @@ void main() {
       var result = await testHarness.callToolWithRetry(request);
       expect(result.isError, isNot(true));
       await pumpEventQueue();
-      expect(server.lspServer, isNull);
+      expect(server.liveAnalysisServer, isNull);
 
       // Check that we can call the tool again though.
       result = await testHarness.callToolWithRetry(request);
@@ -102,7 +102,7 @@ void main() {
         CallToolRequest(name: DartAnalyzerSupport.analyzeFilesTool.name),
       );
       await pumpEventQueue();
-      expect(server.lspServer, isNull);
+      expect(server.liveAnalysisServer, isNull);
 
       testHarness.mcpClient.addRoot(root2);
       await pumpEventQueue();
@@ -158,14 +158,14 @@ void main() {
       await f1;
       expect(server.activeLspRequests, 1);
       await pumpEventQueue();
-      expect(server.lspServer, isNotNull);
+      expect(server.liveAnalysisServer, isNotNull);
 
       c2.complete(CallToolResult(content: []));
       await f2;
       expect(server.activeLspRequests, 0);
 
       await pumpEventQueue();
-      expect(server.lspServer, isNull);
+      expect(server.liveAnalysisServer, isNull);
     });
   });
 }

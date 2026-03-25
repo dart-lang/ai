@@ -30,13 +30,13 @@ base mixin DartAnalyzerSupport
     on ToolsSupport, LoggingSupport, RootsTrackingSupport, FileSystemSupport
     implements SdkSupport, ProcessManagerSupport {
   /// The LSP server connection for the analysis server.
-  Peer? _lspConnection;
+  Peer? _analysisServerConnection;
 
   /// The actual process for the LSP server.
-  Process? _lspServer;
+  Process? _liveAnalysisServer;
 
   @visibleForTesting
-  Process? get lspServer => _lspServer;
+  Process? get liveAnalysisServer => _liveAnalysisServer;
 
   /// The current diagnostics for a given file.
   Map<Uri, List<lsp.Diagnostic>> diagnostics = {};
@@ -117,7 +117,7 @@ base mixin DartAnalyzerSupport
   ///
   /// On failure, returns a reason for the failure.
   Future<String?> _initializeAnalyzerLspServer() async {
-    final lspServer = await processManager.start([
+    final analysisServer = await processManager.start([
       sdk.dartExecutablePath,
       'language-server',
       // Required even though it is documented as the default.
@@ -128,8 +128,8 @@ base mixin DartAnalyzerSupport
       // '--protocol-traffic-log',
       // 'language-server-protocol.log',
     ]);
-    _lspServer = lspServer;
-    lspServer.stderr
+    _liveAnalysisServer = analysisServer;
+    analysisServer.stderr
         .transform(utf8.decoder)
         .transform(const LineSplitter())
         .listen((line) async {
@@ -137,7 +137,8 @@ base mixin DartAnalyzerSupport
           log(LoggingLevel.warning, line, logger: 'DartLanguageServer');
         });
 
-    final lspConnection = Peer(lspChannel(lspServer.stdout, lspServer.stdin))
+    final analysisServerConnection =
+        Peer(lspChannel(analysisServer.stdout, analysisServer.stdin))
       ..registerMethod(
         lsp.Method.textDocument_publishDiagnostics.toString(),
         _handleDiagnostics,
@@ -153,9 +154,9 @@ base mixin DartAnalyzerSupport
           () => 'Unhandled LSP message: ${params.method} - ${params.asMap}',
         );
       });
-    _lspConnection = lspConnection;
+    _analysisServerConnection = analysisServerConnection;
 
-    unawaited(lspConnection.listen());
+    unawaited(analysisServerConnection.listen());
 
     log(LoggingLevel.debug, 'Connecting to analyzer lsp server');
     lsp.InitializeResult? initializeResult;
@@ -163,7 +164,7 @@ base mixin DartAnalyzerSupport
     try {
       // Initialize with the server.
       initializeResult = lsp.InitializeResult.fromJson(
-        (await lspConnection.sendRequest(
+        (await analysisServerConnection.sendRequest(
               lsp.Method.initialize.toString(),
               lsp.InitializeParams(
                 capabilities: lsp.ClientCapabilities(
@@ -259,10 +260,10 @@ base mixin DartAnalyzerSupport
     }
 
     if (error != null) {
-      lspServer.kill();
-      await lspConnection.close();
+      analysisServer.kill();
+      await analysisServerConnection.close();
     } else {
-      lspConnection.sendNotification(
+      analysisServerConnection.sendNotification(
         lsp.Method.initialized.toString(),
         lsp.InitializedParams().toJson(),
       );
@@ -549,7 +550,7 @@ base mixin DartAnalyzerSupport
     _activeLspRequests++;
 
     try {
-      if (_lspConnection == null) {
+      if (_analysisServerConnection == null) {
         final error = await (_lspInitialization ??=
             _initializeAnalyzerLspServer());
         if (error != null) {
@@ -565,7 +566,7 @@ base mixin DartAnalyzerSupport
 
       await _doneAnalyzing?.future;
 
-      return await callback(_lspConnection!);
+      return await callback(_analysisServerConnection!);
     } finally {
       // Restore the inactivity timer if all requests are done.
       _activeLspRequests--;
@@ -589,11 +590,11 @@ base mixin DartAnalyzerSupport
     _lspInactivityTimer = null;
     _lspInitialization = null;
 
-    final server = _lspServer;
-    final connection = _lspConnection;
+    final server = _liveAnalysisServer;
+    final connection = _analysisServerConnection;
 
-    _lspServer = null;
-    _lspConnection = null;
+    _liveAnalysisServer = null;
+    _analysisServerConnection = null;
 
     // Reset analysis related state.
     diagnostics.clear();
@@ -730,7 +731,7 @@ base mixin DartAnalyzerSupport
   @override
   Future<void> updateRoots() async {
     await super.updateRoots();
-    if (_lspConnection != null) {
+    if (_analysisServerConnection != null) {
       _resetInactivityTimer();
       await _updateRootsToLspServer();
     }
@@ -769,7 +770,7 @@ base mixin DartAnalyzerSupport
       () => 'Notifying of workspace root change: ${event.toJson()}',
     );
 
-    _lspConnection!.sendNotification(
+    _analysisServerConnection!.sendNotification(
       lsp.Method.workspace_didChangeWorkspaceFolders.toString(),
       lsp.DidChangeWorkspaceFoldersParams(event: event).toJson(),
     );
