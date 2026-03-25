@@ -203,3 +203,54 @@ available to the agent. For example, in a GEMINI.md file in your project:
 | `widget_inspector` | Widget Inspector | Interact with the Flutter widget inspector in the active Flutter application. Requires an active DTD connection. | flutter | Yes |
 
 <!-- generated -->
+
+## Connect to a running Flutter app
+
+Launch your app with `--print-dtd` to expose the Dart Tooling Daemon URI:
+
+```bash
+flutter run -d <device-id> --print-dtd
+```
+
+The terminal output will include:
+
+```text
+The Dart Tooling Daemon is available at: ws://127.0.0.1:<port>/<token>=
+```
+
+Connect the MCP server using the `dtd` tool with that URI:
+
+```text
+dtd(command: "connect", uri: "ws://127.0.0.1:<port>/<token>=")
+```
+
+### Interact with the UI using Flutter Driver
+
+To use finder-based commands (tap, enter text, scroll, screenshot),
+your app must call `enableFlutterDriverExtension()` before `runApp()`.
+See the [Flutter Driver documentation][] for setup details.
+
+Launch with the driver enabled:
+
+```bash
+flutter run -d <device-id> --dart-define=ENABLE_FLUTTER_DRIVER=true --print-dtd
+```
+
+Then use the `flutter_driver_command` tool:
+
+```text
+flutter_driver_command(command: "screenshot")
+flutter_driver_command(command: "tap", finderType: "ByText", text: "Sign In")
+```
+
+### Troubleshooting
+
+- **Do not use the VM Service URI** to connect — use the DTD URI (`ws://`).
+  Using the wrong URI gives: *"Connected to a VM Service but expected to connect to a Dart Tooling Daemon service."*
+- **Commands timing out?** Apps with continuous animations (Rive, Lottie, spinners)
+  block frame sync. Disable it with:
+  `flutter_driver_command(command: "set_frame_sync", enabled: "false")`
+- **Driver not active?** `bool.fromEnvironment` is baked at compile time.
+  Run `flutter clean` if you added the flag to an existing build.
+
+[Flutter Driver documentation]: https://docs.flutter.dev/testing/integration-tests
