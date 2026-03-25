@@ -139,21 +139,21 @@ base mixin DartAnalyzerSupport
 
     final analysisServerConnection =
         Peer(lspChannel(analysisServer.stdout, analysisServer.stdin))
-      ..registerMethod(
-        lsp.Method.textDocument_publishDiagnostics.toString(),
-        _handleDiagnostics,
-      )
-      ..registerMethod(
-        lsp.Method.workspace_applyEdit.toString(),
-        _handleApplyEdit,
-      )
-      ..registerMethod(r'$/analyzerStatus', _handleAnalyzerStatus)
-      ..registerFallback((Parameters params) {
-        log(
-          LoggingLevel.debug,
-          () => 'Unhandled LSP message: ${params.method} - ${params.asMap}',
-        );
-      });
+          ..registerMethod(
+            lsp.Method.textDocument_publishDiagnostics.toString(),
+            _handleDiagnostics,
+          )
+          ..registerMethod(
+            lsp.Method.workspace_applyEdit.toString(),
+            _handleApplyEdit,
+          )
+          ..registerMethod(r'$/analyzerStatus', _handleAnalyzerStatus)
+          ..registerFallback((Parameters params) {
+            log(
+              LoggingLevel.debug,
+              () => 'Unhandled LSP message: ${params.method} - ${params.asMap}',
+            );
+          });
     _analysisServerConnection = analysisServerConnection;
 
     unawaited(analysisServerConnection.listen());
