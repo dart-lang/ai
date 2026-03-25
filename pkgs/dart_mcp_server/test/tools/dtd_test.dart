@@ -1029,6 +1029,92 @@ void main() {
           await testHarness.stopDebugSession(debugSession);
         });
 
+        test('can enable and disable semantics', () async {
+          final debugSession = await testHarness.startDebugSession(
+            counterAppPath,
+            'lib/driver_main.dart',
+            isFlutter: true,
+          );
+
+          // Enable semantics
+          var result = await testHarness.callToolWithRetry(
+            CallToolRequest(
+              name: DartToolingDaemonSupport.flutterDriverTool.name,
+              arguments: {
+                ParameterNames.command: 'set_semantics',
+                ParameterNames.enabled: 'true',
+              },
+            ),
+          );
+          expect(result.isError, isNot(true));
+          expect(
+            result.content.first,
+            isA<TextContent>().having(
+              (c) => c.text,
+              'text',
+              contains('"changedState":true'),
+            ),
+          );
+
+          // Disable semantics
+          result = await testHarness.callToolWithRetry(
+            CallToolRequest(
+              name: DartToolingDaemonSupport.flutterDriverTool.name,
+              arguments: {
+                ParameterNames.command: 'set_semantics',
+                ParameterNames.enabled: 'false',
+              },
+            ),
+          );
+          expect(result.isError, isNot(true));
+          expect(
+            result.content.first,
+            isA<TextContent>().having(
+              (c) => c.text,
+              'text',
+              contains('"changedState":true'),
+            ),
+          );
+
+          await testHarness.stopDebugSession(debugSession);
+        });
+
+        test('set_semantics enables searching by semantics label', () async {
+          final debugSession = await testHarness.startDebugSession(
+            counterAppPath,
+            'lib/driver_main.dart',
+            isFlutter: true,
+          );
+
+          await testHarness.callToolWithRetry(
+            CallToolRequest(
+              name: DartToolingDaemonSupport.flutterDriverTool.name,
+              arguments: {
+                ParameterNames.command: 'set_semantics',
+                ParameterNames.enabled: 'true',
+              },
+            ),
+          );
+
+          // Should be able to find the counter text by semantics label.
+          // Note: We still can't see the "Increment" label for some reason,
+          // but this seems to be a flutter issue and not an MCP issue.
+          final result = await testHarness.callToolWithRetry(
+            CallToolRequest(
+              name: DartToolingDaemonSupport.flutterDriverTool.name,
+              arguments: {
+                ParameterNames.command: 'waitFor',
+                'finderType': 'BySemanticsLabel',
+                'label': '0',
+                'isRegExp': 'false',
+              },
+            ),
+          );
+          expect(result.isError, isNot(true));
+
+          await testHarness.stopDebugSession(debugSession);
+        });
+
         test('can use Descendant finder', () async {
           final debugSession = await testHarness.startDebugSession(
             counterAppPath,
