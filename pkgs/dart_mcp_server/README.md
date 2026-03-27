@@ -140,7 +140,7 @@ For more information, see the official VS Code documentation for
 | `create_project` | Create project | Creates a new Dart or Flutter project. | cli | No |
 | `dart_fix` | Dart fix | Runs `dart fix --apply` for the given project roots. | cli | No |
 | `dart_format` | Dart format | Runs `dart format .` for the given project roots. | cli | No |
-| `dtd` | Dart Tooling Daemon | Connects to, disconnects from, or lists apps connected to the Dart Tooling Daemon. | dart_tooling_daemon | Yes |
+| `dtd` | Dart Tooling Daemon | Manage live app connections to Dart and Flutter apps using the Dart Tooling Daemon (DTD). Start by using the `listDtdUris` command to find available DTD URIs, followed by the `connect` command with the desired URI to connect to. Apps from a given DTD instance are automatically connected to, and you can use the `listConnectedApps` command to see the list of connected apps. If you see DTD instances with a working dir that looks like a home directory, these are likely connected to an IDE and you should connect to those to find IDE launched apps. | dart_tooling_daemon | Yes |
 | `flutter_driver_command` | Flutter Driver | Run a flutter driver command | flutter_driver | Yes |
 | `get_active_location` | Get Active Editor Location | Retrieves the current active location (e.g., cursor position) in the connected editor. Requires an active DTD connection. | dart_tooling_daemon | No |
 | `get_app_logs` |  | Returns the collected logs for a given flutter run process id. Can only retrieve logs started by the launch_app tool. | flutter, flutter_app_lifecycle | No |
