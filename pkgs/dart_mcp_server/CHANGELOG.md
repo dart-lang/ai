@@ -47,6 +47,7 @@
 - Start analysis server instances lazily, and time them out after 10 minutes of
   inactivity.
 - Enable `set_semantics` command for flutter_driver.
+- Add `listDtdUris` subcommand for the `dtd` tool.
 
 # 0.1.2 (Dart SDK 3.11.0)
 

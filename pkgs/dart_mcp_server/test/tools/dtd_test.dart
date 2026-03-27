@@ -16,6 +16,7 @@ import 'package:dart_mcp_server/src/utils/names.dart';
 import 'package:devtools_shared/devtools_shared.dart';
 import 'package:dtd/dtd.dart';
 import 'package:json_rpc_2/json_rpc_2.dart';
+import 'package:process/process.dart';
 import 'package:test/test.dart';
 import 'package:unified_analytics/testing.dart';
 import 'package:unified_analytics/unified_analytics.dart' as ua;
@@ -35,6 +36,8 @@ void main() {
           featuresConfig: FeaturesConfiguration(
             enabledNames: {FeatureCategory.dartToolingDaemon.name},
           ),
+          inProcess: true,
+          processManager: const LocalProcessManager(),
         );
         await testHarness.connectToDtd();
       });
@@ -104,6 +107,25 @@ void main() {
             TextContent(text: 'Hot restart succeeded.'),
           ]);
         });
+      });
+
+      test('Can list running DTD URIs', () async {
+        final result = await testHarness.callTool(
+          CallToolRequest(
+            name: ToolNames.dtd.name,
+            arguments: {ParameterNames.command: DtdCommand.listDtdUris},
+          ),
+        );
+
+        expect(result.isError, isNot(true));
+        final text = (result.content.first as TextContent).text;
+        expect(
+          text,
+          matches(RegExp(r'Found \d+ Dart Tooling Daemon instance\(s\):')),
+        );
+        expect(text, contains('WS URI:'));
+        expect(text, contains('Workspace Root:'));
+        expect(text, contains('PID:'));
       });
 
       group('sampling service extension', () {
