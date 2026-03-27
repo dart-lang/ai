@@ -122,12 +122,18 @@ base mixin DartToolingDaemonSupport
     debugAwaitVmServiceDisposal ? await future : unawaited(future);
   }
 
+  /// Updates the list of active VM services based on the connected apps in DTD.
+  ///
+  /// Returns the list of all VM service URIs that are currently connected to
+  /// this DTD instance.
   @visibleForTesting
-  Future<void> updateActiveVmServices(DartToolingDaemon dtd) async {
-    if (!dtd.supportsConnectedApps) return;
+  Future<List<VmServiceInfo>> updateActiveVmServices(
+    DartToolingDaemon dtd,
+  ) async {
+    if (!dtd.supportsConnectedApps) return [];
 
     final vmServiceInfos = (await dtd.getVmServices()).vmServicesInfos;
-    if (vmServiceInfos.isEmpty) return;
+    if (vmServiceInfos.isEmpty) return [];
 
     for (final vmServiceInfo in vmServiceInfos) {
       final vmServiceUri = vmServiceInfo.uri;
@@ -186,6 +192,7 @@ base mixin DartToolingDaemonSupport
         }),
       );
     }
+    return vmServiceInfos;
   }
 
   @override
@@ -311,12 +318,13 @@ base mixin DartToolingDaemonSupport
       await _listenForServices(dtd);
 
       // Try to get the initial list of apps.
-      await updateActiveVmServices(dtd);
+      final vmServiceInfos = await updateActiveVmServices(dtd);
 
-      final connectedApps = activeVmServices.keys.toList();
+      final connectedApps = vmServiceInfos;
       final appListString = connectedApps.isEmpty
           ? 'No apps currently connected.'
-          : 'Connected apps:\n${connectedApps.map((id) => '- $id').join('\n')}';
+          : 'Connected apps:\n'
+                '${connectedApps.map((info) => info.description).join('\n')}';
 
       return CallToolResult(
         content: [
@@ -442,23 +450,25 @@ base mixin DartToolingDaemonSupport
 
   Future<CallToolResult> _listConnectedApps(CallToolRequest request) async {
     if (_dtds.isEmpty) return _dtdNotConnected;
+    final textResult = <TextContent>[];
+    // Connected app info by DTD uri.
+    final structuredResult = <String, List<Map<String, Object?>>>{};
 
-    // Ensure lists are up to date
     for (final dtd in _dtds) {
-      await updateActiveVmServices(dtd);
+      final vmServiceInfos = await updateActiveVmServices(dtd);
+      final appsDescription = vmServiceInfos.isEmpty
+          ? 'No connected apps found.\n'
+          : 'Connected apps:\n'
+                '${vmServiceInfos.map((a) => '- $a').join('\n')}\n\n';
+      textResult.add(TextContent(text: '## DTD at $dtd:\n$appsDescription'));
+      structuredResult[dtd.uri.toString()]!.addAll(
+        vmServiceInfos.map((a) => a.toJson()),
+      );
     }
 
-    final appUris = activeVmServices.keys.toList();
     return CallToolResult(
-      content: [
-        TextContent(
-          text: appUris.isEmpty
-              ? 'No connected apps found.'
-              : 'Connected apps:\n'
-                    '${appUris.map((a) => '- $a').join('\n')}',
-        ),
-      ],
-      structuredContent: {ParameterNames.apps: appUris},
+      content: textResult,
+      structuredContent: structuredResult,
     );
   }
 
@@ -1665,8 +1675,8 @@ extension _DartToolingDaemonMetadata on DartToolingDaemon {
   static final _supportsConnectedApps = Expando<bool>();
   static final _activeLocations = Expando<Map<String, Object?>>();
 
-  Uri? get uri => _dtdUris[this];
-  set uri(Uri? value) => _dtdUris[this] = value;
+  Uri get uri => _dtdUris[this]!;
+  set uri(Uri value) => _dtdUris[this] = value;
 
   Set<String> get vmServiceUris => _vmServiceUris[this] ??= {};
 
@@ -1689,4 +1699,12 @@ extension DtdCommand on Never {
   static const disconnect = 'disconnect';
   static const listConnectedApps = 'listConnectedApps';
   static const listDtdUris = 'listDtdUris';
+}
+
+extension on VmServiceInfo {
+  String get description =>
+      '''
+- name: ${name ?? 'Unspecified'}
+  uri: $uri
+''';
 }
