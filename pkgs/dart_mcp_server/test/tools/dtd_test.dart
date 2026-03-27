@@ -36,7 +36,7 @@ void main() {
           featuresConfig: FeaturesConfiguration(
             enabledNames: {FeatureCategory.dartToolingDaemon.name},
           ),
-          inProcess: true,
+          inProcess: false,
           processManager: const LocalProcessManager(),
         );
         await testHarness.connectToDtd();
@@ -126,6 +126,79 @@ void main() {
         expect(text, contains('WS URI:'));
         expect(text, contains('Workspace Root:'));
         expect(text, contains('PID:'));
+      });
+
+      test('can list connected apps across multiple DTDs', () async {
+        final dtd1Uri = testHarness.fakeEditorExtension!.dtdUri;
+        final secondEditorExtension = await FakeEditorExtension.connect(
+          testHarness.sdk,
+        );
+        addTearDown(secondEditorExtension.shutdown);
+        final dtd2Uri = secondEditorExtension.dtdUri;
+        await testHarness.connectToDtd(dtdUri: dtd2Uri);
+
+        await testHarness.startDebugSession(
+          counterAppPath,
+          'lib/main.dart',
+          isFlutter: true,
+        );
+        await testHarness.startDebugSession(
+          counterAppPath,
+          'lib/main.dart',
+          isFlutter: true,
+          editorExtension: secondEditorExtension,
+        );
+
+        final result = await testHarness.callToolWithRetry(
+          CallToolRequest(
+            name: ToolNames.dtd.name,
+            arguments: {ParameterNames.command: DtdCommand.listConnectedApps},
+          ),
+          retryUntil: (r) {
+            // Wait until both apps appear in the structured result.
+            final structuredContent =
+                r.structuredContent as Map<String, dynamic>?;
+            if (structuredContent == null || structuredContent.length < 2) {
+              return false;
+            }
+            final appsDtd1 = structuredContent[dtd1Uri] as List?;
+            final appsDtd2 = structuredContent[dtd2Uri] as List?;
+            return (appsDtd1?.isNotEmpty ?? false) &&
+                (appsDtd2?.isNotEmpty ?? false);
+          },
+        );
+
+        expect(result.isError, isNot(true));
+        final structuredContent =
+            result.structuredContent as Map<String, dynamic>;
+        expect(structuredContent.keys, containsAll([dtd1Uri, dtd2Uri]));
+
+        final appsDtd1 = (structuredContent[dtd1Uri] as List)
+            .cast<Map<String, Object?>>();
+        final appsDtd2 = (structuredContent[dtd2Uri] as List)
+            .cast<Map<String, Object?>>();
+
+        expect(appsDtd1, hasLength(1));
+        expect(appsDtd2, hasLength(1));
+        expect(appsDtd1.first['uri'], isNot(equals(appsDtd2.first['uri'])));
+
+        final textString = result.content
+            .map((c) => (c as TextContent).text)
+            .join();
+        final sections = textString.split('## ').skip(1);
+        expect(
+          sections,
+          unorderedEquals([
+            allOf(
+              contains('DTD at `$dtd1Uri`'),
+              contains(appsDtd1.first['uri']),
+            ),
+            allOf(
+              contains('DTD at `$dtd2Uri`'),
+              contains(appsDtd2.first['uri']),
+            ),
+          ]),
+        );
       });
 
       group('sampling service extension', () {
@@ -1210,6 +1283,7 @@ void main() {
       }
       expect(tools, isNotEmpty);
     });
+    
   });
 
   group('ErrorLog', () {

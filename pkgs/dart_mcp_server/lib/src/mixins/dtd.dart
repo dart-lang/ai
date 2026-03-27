@@ -404,7 +404,10 @@ base mixin DartToolingDaemonSupport
         'followed by the `${DtdCommand.connect}` command with the desired '
         'URI to connect to. Apps from a given DTD instance are automatically '
         'connected to, and you can use the `${DtdCommand.listConnectedApps}` '
-        'command to see the list of connected apps.',
+        'command to see the list of connected apps. If you see DTD instances '
+        'with a working dir that looks like a home directory, these are likely '
+        'connected to an IDE and you should connect to those to find IDE '
+        'launched apps.',
     inputSchema: Schema.object(
       properties: {
         ParameterNames.command: EnumSchema.untitledSingleSelect(
@@ -459,11 +462,13 @@ base mixin DartToolingDaemonSupport
       final appsDescription = vmServiceInfos.isEmpty
           ? 'No connected apps found.\n'
           : 'Connected apps:\n'
-                '${vmServiceInfos.map((a) => '- $a').join('\n')}\n\n';
-      textResult.add(TextContent(text: '## DTD at $dtd:\n$appsDescription'));
-      structuredResult[dtd.uri.toString()]!.addAll(
-        vmServiceInfos.map((a) => a.toJson()),
+                '${vmServiceInfos.map((a) => a.description).join('\n')}\n\n';
+      textResult.add(
+        TextContent(text: '## DTD at `${dtd.uri}`\n$appsDescription'),
       );
+      structuredResult[dtd.uri.toString()] = vmServiceInfos
+          .map((a) => a.toJson())
+          .toList();
     }
 
     return CallToolResult(
