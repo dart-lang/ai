@@ -390,8 +390,13 @@ base mixin DartToolingDaemonSupport
   static final dtdTool = Tool(
     name: ToolNames.dtd.name,
     description:
-        'Connects to, disconnects from, or lists apps connected to the '
-        'Dart Tooling Daemon.',
+        'Manage live app connections to Dart and Flutter apps using the '
+        'Dart Tooling Daemon (DTD). Start by using the '
+        '`${DtdCommand.listDtdUris}` command to find available DTD URIs, '
+        'followed by the `${DtdCommand.connect}` command with the desired '
+        'URI to connect to. Apps from a given DTD instance are automatically '
+        'connected to, and you can use the `${DtdCommand.listConnectedApps}` '
+        'command to see the list of connected apps.',
     inputSchema: Schema.object(
       properties: {
         ParameterNames.command: EnumSchema.untitledSingleSelect(
