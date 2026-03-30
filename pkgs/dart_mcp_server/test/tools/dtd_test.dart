@@ -1283,7 +1283,6 @@ void main() {
       }
       expect(tools, isNotEmpty);
     });
-    
   });
 
   group('ErrorLog', () {

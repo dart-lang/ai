@@ -165,8 +165,7 @@ extension type PromptMessage.fromMap(Map<String, Object?> _value) {
 /// client.
 extension type PromptListChangedNotification.fromMap(
   Map<String, Object?> _value
-)
-    implements Notification {
+) implements Notification {
   static const methodName = 'notifications/prompts/list_changed';
 
   factory PromptListChangedNotification({Meta? meta}) =>
