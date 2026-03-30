@@ -1267,8 +1267,7 @@ extension type SingleSelectEnumSchema.fromMap(Map<String, Object?> _value)
 /// Schema for single-selection enumeration without display titles for options.
 extension type UntitledSingleSelectEnumSchema.fromMap(
   Map<String, Object?> _value
-)
-    implements SingleSelectEnumSchema {
+) implements SingleSelectEnumSchema {
   factory UntitledSingleSelectEnumSchema({
     String? title,
     String? description,
@@ -1343,8 +1342,7 @@ extension type MultiSelectEnumSchema._fromMap(Map<String, Object?> _value)
 /// Schema for multiple-selection enumeration without display titles.
 extension type UntitledMultiSelectEnumSchema.fromMap(
   Map<String, Object?> _value
-)
-    implements MultiSelectEnumSchema {
+) implements MultiSelectEnumSchema {
   factory UntitledMultiSelectEnumSchema({
     String? title,
     String? description,

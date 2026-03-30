@@ -61,7 +61,7 @@ enum ProtocolVersion {
 
 /// A progress token, used to associate progress notifications with the original
 /// request.
-extension type ProgressToken( /*String|int*/ Object _) {}
+extension type ProgressToken(/*String|int*/ Object _) {}
 
 /// An opaque token used to represent a cursor for pagination.
 extension type Cursor(String _) {}
@@ -226,7 +226,7 @@ extension type CancelledNotification.fromMap(Map<String, Object?> _value)
 }
 
 /// An opaque request ID.
-extension type RequestId( /*String|int*/ Parameter _) {}
+extension type RequestId(/*String|int*/ Parameter _) {}
 
 /// A ping, issued by either the server or the client, to check that the other
 /// party is still alive.

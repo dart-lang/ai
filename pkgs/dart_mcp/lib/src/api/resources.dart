@@ -111,8 +111,7 @@ extension type ReadResourceResult.fromMap(Map<String, Object?> _value)
 /// client.
 extension type ResourceListChangedNotification.fromMap(
   Map<String, Object?> _value
-)
-    implements Notification {
+) implements Notification {
   static const methodName = 'notifications/resources/list_changed';
 
   factory ResourceListChangedNotification({Meta? meta}) =>
