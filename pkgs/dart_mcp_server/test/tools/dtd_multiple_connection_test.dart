@@ -112,32 +112,17 @@ void main() {
           arguments: {ParameterNames.command: DtdCommand.listConnectedApps},
         ),
         retryUntil: (result) =>
-            (result.structuredContent as Map<String, Object?>).values
-                .cast<List<Object?>>()
-                .fold(0, (count, apps) => count + apps.length) ==
+            (result.structuredContent![ParameterNames.apps] as List).length ==
             2,
       );
       expect(listResult.isError, isNot(true));
-      final dtdEntries = listResult.structuredContent;
-      expect(dtdEntries, isNotNull);
-      final connectedAppUris = (dtdEntries as Map<String, Object?>).values
-          .cast<List<Object?>>()
-          .fold(
-            <String>[],
-            (apps, appInfos) => apps
-              ..addAll(
-                appInfos.map(
-                  (app) => (app as Map<String, Object?>)['uri'] as String,
-                ),
-              ),
-          );
-      expect(connectedAppUris, hasLength(2));
-      for (final uri in connectedAppUris) {
-        expect(
-          Uri.tryParse(uri),
-          isNotNull,
-          reason: 'App URIs should be valid',
-        );
+      final structured = listResult.structuredContent;
+      expect(structured, isNotNull);
+      final connectedApps = (structured![ParameterNames.apps] as List)
+          .cast<String>();
+      expect(connectedApps, hasLength(2));
+      for (final uri in connectedApps) {
+        expect(Uri.tryParse(uri), isNotNull, reason: 'App ID should be a URI');
       }
 
       // Call tool without appUri (should fail)
@@ -152,7 +137,7 @@ void main() {
       );
 
       // Call tool WITH appUri (should succeed)
-      for (final appUri in connectedAppUris) {
+      for (final appUri in connectedApps) {
         final result = await testHarness.callTool(
           CallToolRequest(
             name: ToolNames.hotReload.name,
@@ -229,26 +214,13 @@ void main() async {
             arguments: {ParameterNames.command: DtdCommand.listConnectedApps},
           ),
           retryUntil: (result) =>
-              (result.structuredContent as Map<String, Object?>).values
-                  .cast<List<Object?>>()
-                  .fold(0, (count, apps) => count + apps.length) ==
+              (result.structuredContent![ParameterNames.apps] as List).length ==
               2,
         );
-        expect(listResult.isError, isNot(true));
-        final dtdEntries = listResult.structuredContent;
-        expect(dtdEntries, isNotNull);
-        final connectedAppUris = (dtdEntries as Map<String, Object?>).values
-            .cast<List<Object?>>()
-            .fold(
-              <String>[],
-              (apps, appInfos) => apps
-                ..addAll(
-                  appInfos.map(
-                    (app) => (app as Map<String, Object?>)['uri'] as String,
-                  ),
-                ),
-            );
-        expect(connectedAppUris, hasLength(2));
+        final connectedApps =
+            (listResult.structuredContent![ParameterNames.apps] as List)
+                .cast<String>();
+        expect(connectedApps, hasLength(2));
 
         // Verify errors for App 1
         final errors1 = await testHarness.callToolWithRetry(

@@ -184,7 +184,8 @@ enum ElicitationAction {
 /// completed.
 extension type ElicitationCompleteNotification.fromMap(
   Map<String, Object?> _value
-) implements Notification {
+)
+    implements Notification {
   static const methodName = 'notifications/elicitation/complete';
 
   factory ElicitationCompleteNotification({

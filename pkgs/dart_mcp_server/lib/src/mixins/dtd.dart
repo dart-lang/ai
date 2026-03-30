@@ -122,18 +122,12 @@ base mixin DartToolingDaemonSupport
     debugAwaitVmServiceDisposal ? await future : unawaited(future);
   }
 
-  /// Updates the list of active VM services based on the connected apps in DTD.
-  ///
-  /// Returns the list of all VM service URIs that are currently connected to
-  /// this DTD instance.
   @visibleForTesting
-  Future<List<VmServiceInfo>> updateActiveVmServices(
-    DartToolingDaemon dtd,
-  ) async {
-    if (!dtd.supportsConnectedApps) return [];
+  Future<void> updateActiveVmServices(DartToolingDaemon dtd) async {
+    if (!dtd.supportsConnectedApps) return;
 
     final vmServiceInfos = (await dtd.getVmServices()).vmServicesInfos;
-    if (vmServiceInfos.isEmpty) return [];
+    if (vmServiceInfos.isEmpty) return;
 
     for (final vmServiceInfo in vmServiceInfos) {
       final vmServiceUri = vmServiceInfo.uri;
@@ -192,7 +186,6 @@ base mixin DartToolingDaemonSupport
         }),
       );
     }
-    return vmServiceInfos;
   }
 
   @override
@@ -318,13 +311,12 @@ base mixin DartToolingDaemonSupport
       await _listenForServices(dtd);
 
       // Try to get the initial list of apps.
-      final vmServiceInfos = await updateActiveVmServices(dtd);
+      await updateActiveVmServices(dtd);
 
-      final connectedApps = vmServiceInfos;
+      final connectedApps = activeVmServices.keys.toList();
       final appListString = connectedApps.isEmpty
           ? 'No apps currently connected.'
-          : 'Connected apps:\n'
-                '${connectedApps.map((info) => info.description).join('\n')}';
+          : 'Connected apps:\n${connectedApps.map((id) => '- $id').join('\n')}';
 
       return CallToolResult(
         content: [
@@ -351,63 +343,135 @@ base mixin DartToolingDaemonSupport
   /// Connects to the Dart Tooling Daemon.
   FutureOr<CallToolResult> _connect(CallToolRequest request) async {
     final uriString = request.arguments?[ParameterNames.uri] as String?;
-    if (uriString == null) {
+
+    if (uriString != null) {
+      return _connectToDtdSingle(Uri.parse(uriString));
+    }
+
+    // Attempt automatic discovery
+    final (instances, error) = await _listRunningDtdInstances();
+    if (error != null) {
+      return error;
+    }
+    if (instances.isEmpty) {
       return CallToolResult(
         content: [
           Content.text(
             text:
-                'No URI provided, list the available ones with '
-                '`${ToolNames.dtd.name}(command: '
-                '${DtdCommand.listDtdUris})`.',
+                'No running DTD instances found for automatic discovery. '
+                'Please provide a URI.',
           ),
         ],
-        isError: true,
-      )..failureReason = CallToolFailureReason.mustSpecifyDtdUri;
+      );
     }
 
-    return _connectToDtdSingle(Uri.parse(uriString));
+    final connectedUrls = <String>[];
+    final failedUrls = <String>[];
+
+    for (final instance in instances) {
+      final selectedWsUri = instance['wsUri'] as String?;
+      if (selectedWsUri == null) continue;
+
+      final uri = Uri.parse(selectedWsUri);
+      final result = await _connectToDtdSingle(uri);
+
+      if (result.isError == true) {
+        if (result.failureReason == CallToolFailureReason.dtdAlreadyConnected) {
+          connectedUrls.add('$uri (Already connected)');
+        } else {
+          final errorMessage =
+              result.content.isNotEmpty && result.content.first is TextContent
+              ? (result.content.first as TextContent).text
+              : 'Unknown error';
+          failedUrls.add('$uri ($errorMessage)');
+        }
+      } else {
+        connectedUrls.add('$uri');
+      }
+    }
+
+    final appUris = activeVmServices.keys.toList();
+    final appListString = appUris.isEmpty
+        ? 'No apps currently connected.'
+        : 'Connected apps:\n${appUris.map((a) => '- $a').join('\n')}';
+
+    final textResult = StringBuffer();
+    textResult.writeln('Automatic discovery finished.');
+    if (connectedUrls.isNotEmpty) {
+      textResult.writeln(
+        'Connected to:\n${connectedUrls.map((u) => '- $u').join('\n')}',
+      );
+    }
+    if (failedUrls.isNotEmpty) {
+      textResult.writeln(
+        'Failed to connect to:\n${failedUrls.map((u) => '- $u').join('\n')}',
+      );
+    }
+    textResult.writeln(appListString);
+
+    return CallToolResult(
+      content: [TextContent(text: textResult.toString().trim())],
+    );
   }
 
-  /// Lists the available Dart Tooling Daemon instances.
-  Future<CallToolResult> _listDtdInstancesTool(CallToolRequest request) async {
-    final result = await processManager.run([
-      sdk.dartExecutablePath,
-      'tooling-daemon',
-      '--list',
-    ]);
-    if (result.exitCode != 0) {
-      log(
-        LoggingLevel.warning,
-        'dart tooling-daemon --list failed: ${result.stderr}',
+  /// Lists running DTD instances by querying the dart executable.
+  Future<(List<Map<String, Object?>>, CallToolResult?)>
+  _listRunningDtdInstances() async {
+    try {
+      final result = await processManager.run([
+        sdk.dartExecutablePath,
+        'tooling-daemon',
+        '--list',
+        '--machine',
+      ]);
+      if (result.exitCode != 0) {
+        log(
+          LoggingLevel.warning,
+          'dart tooling-daemon --list failed: ${result.stderr}',
+        );
+        return (
+          <Map<String, Object?>>[],
+          CallToolResult(
+            isError: true,
+            content: [
+              Content.text(
+                text: 'dart tooling-daemon --list failed: ${result.stderr}',
+              ),
+            ],
+          )..failureReason = CallToolFailureReason.nonZeroExitCode,
+        );
+      }
+      final output = result.stdout as String;
+      if (output.trim().isEmpty) return (<Map<String, Object?>>[], null);
+      final parsed = jsonDecode(output);
+      if (parsed is List) {
+        return (parsed.cast<Map<String, Object?>>(), null);
+      }
+      return (
+        <Map<String, Object?>>[],
+        CallToolResult(
+          isError: true,
+          content: [Content.text(text: 'Unexpected JSON format from DTD list')],
+        )..failureReason = CallToolFailureReason.unhandledError,
       );
-      return CallToolResult(
-        isError: true,
-        content: [
-          Content.text(
-            text: 'dart tooling-daemon --list failed: ${result.stderr}',
-          ),
-        ],
-      )..failureReason = CallToolFailureReason.nonZeroExitCode;
+    } catch (e) {
+      log(LoggingLevel.warning, 'Error listing DTD instances: $e');
+      return (
+        <Map<String, Object?>>[],
+        CallToolResult(
+          isError: true,
+          content: [Content.text(text: 'Error listing DTD instances: $e')],
+        )..failureReason = CallToolFailureReason.unhandledError,
+      );
     }
-    return CallToolResult(
-      content: [Content.text(text: result.stdout as String)],
-    );
   }
 
   /// The [dtdTool] for managing DTD connections.
   static final dtdTool = Tool(
     name: ToolNames.dtd.name,
     description:
-        'Manage live app connections to Dart and Flutter apps using the '
-        'Dart Tooling Daemon (DTD). Start by using the '
-        '`${DtdCommand.listDtdUris}` command to find available DTD URIs, '
-        'followed by the `${DtdCommand.connect}` command with the desired '
-        'URI to connect to. Apps from a given DTD instance are automatically '
-        'connected to, and you can use the `${DtdCommand.listConnectedApps}` '
-        'command to see the list of connected apps. If you see DTD instances '
-        'with a working dir that looks like a home directory, these are likely '
-        'connected to an IDE and you should connect to those to find IDE '
-        'launched apps.',
+        'Connects to, disconnects from, or lists apps connected to the '
+        'Dart Tooling Daemon.',
     inputSchema: Schema.object(
       properties: {
         ParameterNames.command: EnumSchema.untitledSingleSelect(
@@ -416,14 +480,13 @@ base mixin DartToolingDaemonSupport
             DtdCommand.connect,
             DtdCommand.disconnect,
             DtdCommand.listConnectedApps,
-            DtdCommand.listDtdUris,
           ],
         ),
         ParameterNames.uri: Schema.string(
           description:
               'The DTD URI to connect to or disconnect from. '
-              'Required for "${DtdCommand.connect}", optional for '
-              '"${DtdCommand.disconnect}" (if only one DTD is connected).',
+              'Optional for "connect" (triggers automatic discovery), '
+              'optional for "disconnect" (if only one DTD is connected).',
         ),
       },
       required: [ParameterNames.command],
@@ -441,8 +504,6 @@ base mixin DartToolingDaemonSupport
         return _disconnect(request);
       case DtdCommand.listConnectedApps:
         return _listConnectedApps(request);
-      case DtdCommand.listDtdUris:
-        return _listDtdInstancesTool(request);
       default:
         return CallToolResult(
           isError: true,
@@ -453,27 +514,23 @@ base mixin DartToolingDaemonSupport
 
   Future<CallToolResult> _listConnectedApps(CallToolRequest request) async {
     if (_dtds.isEmpty) return _dtdNotConnected;
-    final textResult = <TextContent>[];
-    // Connected app info by DTD uri.
-    final structuredResult = <String, List<Map<String, Object?>>>{};
 
+    // Ensure lists are up to date
     for (final dtd in _dtds) {
-      final vmServiceInfos = await updateActiveVmServices(dtd);
-      final appsDescription = vmServiceInfos.isEmpty
-          ? 'No connected apps found.\n'
-          : 'Connected apps:\n'
-                '${vmServiceInfos.map((a) => a.description).join('\n')}\n\n';
-      textResult.add(
-        TextContent(text: '## DTD at `${dtd.uri}`\n$appsDescription'),
-      );
-      structuredResult[dtd.uri.toString()] = vmServiceInfos
-          .map((a) => a.toJson())
-          .toList();
+      await updateActiveVmServices(dtd);
     }
 
+    final appUris = activeVmServices.keys.toList();
     return CallToolResult(
-      content: textResult,
-      structuredContent: structuredResult,
+      content: [
+        TextContent(
+          text: appUris.isEmpty
+              ? 'No connected apps found.'
+              : 'Connected apps:\n'
+                    '${appUris.map((a) => '- $a').join('\n')}',
+        ),
+      ],
+      structuredContent: {ParameterNames.apps: appUris},
     );
   }
 
@@ -1631,7 +1688,11 @@ class ErrorLog {
 
   final int _maxSize;
 
-  ErrorLog({this._maxSize = 20000});
+  ErrorLog({
+    // One token is ~4 characters. Allow up to 5k tokens by default, so 20k
+    // characters.
+    int maxSize = 20000,
+  }) : _maxSize = maxSize;
 
   /// Adds a new [error] to the log.
   void add(String error) {
@@ -1676,8 +1737,8 @@ extension _DartToolingDaemonMetadata on DartToolingDaemon {
   static final _supportsConnectedApps = Expando<bool>();
   static final _activeLocations = Expando<Map<String, Object?>>();
 
-  Uri get uri => _dtdUris[this]!;
-  set uri(Uri value) => _dtdUris[this] = value;
+  Uri? get uri => _dtdUris[this];
+  set uri(Uri? value) => _dtdUris[this] = value;
 
   Set<String> get vmServiceUris => _vmServiceUris[this] ??= {};
 
@@ -1699,13 +1760,4 @@ extension DtdCommand on Never {
   static const connect = 'connect';
   static const disconnect = 'disconnect';
   static const listConnectedApps = 'listConnectedApps';
-  static const listDtdUris = 'listDtdUris';
-}
-
-extension on VmServiceInfo {
-  String get description =>
-      '''
-- name: ${name ?? 'Unspecified'}
-  uri: $uri
-''';
 }
