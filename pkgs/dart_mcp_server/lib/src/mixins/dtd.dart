@@ -1631,11 +1631,7 @@ class ErrorLog {
 
   final int _maxSize;
 
-  ErrorLog({
-    // One token is ~4 characters. Allow up to 5k tokens by default, so 20k
-    // characters.
-    int maxSize = 20000,
-  }) : _maxSize = maxSize;
+  ErrorLog({this._maxSize = 20000});
 
   /// Adds a new [error] to the log.
   void add(String error) {
