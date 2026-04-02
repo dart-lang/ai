@@ -170,6 +170,7 @@ base mixin AnalyticsEvents
             success: result != null && result.isError != true,
             elapsedMilliseconds: watch.elapsedMilliseconds,
             failureReason: result?.failureReason,
+            extraToolMetrics: result?.customMetrics,
           ),
         ),
       );

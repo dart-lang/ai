@@ -275,6 +275,31 @@ void main() {
       );
     });
 
+    test('includes custom metrics if provided', () async {
+      analytics.sentEvents.clear();
+      final tool = Tool(name: 'hello', inputSchema: Schema.object())
+        ..categories = [FeatureCategory.cli];
+      server.registerTool(
+        tool,
+        (_) =>
+            CallToolResult(content: [Content.text(text: 'world')])
+              ..customMetrics = FakeCustomMetrics('world'),
+      );
+      await testHarness.mcpServerConnection.callTool(
+        CallToolRequest(name: tool.name),
+      );
+      expect(
+        analytics.sentEvents.last,
+        isA<Event>()
+            .having((e) => e.eventName, 'eventName', DashEvent.dartMCPEvent)
+            .having(
+              (e) => e.eventData['customValue'],
+              'eventData.customValue',
+              equals('world'),
+            ),
+      );
+    });
+
     group('are sent for prompts', () {
       final helloPrompt = Prompt(
         name: 'hello',
@@ -402,4 +427,12 @@ void main() {
       );
     });
   });
+}
+
+final class FakeCustomMetrics extends CustomMetrics {
+  final String customValue;
+  FakeCustomMetrics(this.customValue);
+
+  @override
+  Map<String, Object> toMap() => {'customValue': customValue};
 }

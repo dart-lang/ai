@@ -116,11 +116,15 @@ final class CallToolMetrics extends CustomMetrics {
   /// The reason for the failure, if [success] is `false`.
   final CallToolFailureReason? failureReason;
 
+  /// Extra metrics reported by the given tool that was called.
+  final CustomMetrics? extraToolMetrics;
+
   CallToolMetrics({
     required this.tool,
     required this.success,
     required this.elapsedMilliseconds,
     required this.failureReason,
+    required this.extraToolMetrics,
   });
 
   @override
@@ -129,6 +133,7 @@ final class CallToolMetrics extends CustomMetrics {
     _success: success,
     _elapsedMilliseconds: elapsedMilliseconds,
     _failureReason: ?failureReason?.name,
+    ...?extraToolMetrics?.toMap(),
   };
 }
 
@@ -172,6 +177,14 @@ enum CallToolFailureReason {
   unhandledError,
   webSocketException,
   wrappedServiceIssue,
+}
+
+extension WithCustomMetrics on CallToolResult {
+  static final _expando = Expando<CustomMetrics>();
+
+  CustomMetrics? get customMetrics => _expando[this as Object];
+
+  set customMetrics(CustomMetrics? value) => _expando[this as Object] = value;
 }
 
 const _elapsedMilliseconds = 'elapsedMilliseconds';
