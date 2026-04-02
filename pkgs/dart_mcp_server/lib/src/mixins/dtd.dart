@@ -214,7 +214,7 @@ base mixin DartToolingDaemonSupport
               ) ??
               false;
           if (!hasExtension) continue;
-          await vmService.httpEnableTimelineLogging(id, enabled: true);
+          await vmService.httpEnableTimelineLogging(id, true);
         } catch (_) {
           // Silently skip isolates that fail — they may be in a bad state.
         }
@@ -339,15 +339,15 @@ base mixin DartToolingDaemonSupport
           );
           final requests = profile.requests
               .map(
-                (r) => {
+                (r) => <String, Object?>{
                   'id': r.id,
                   'method': r.method,
-                  'uri': r.uri,
+                  'uri': r.uri.toString(),
                   'status_code': r.response?.statusCode,
                   'start_time': r.startTime.toIso8601String(),
                   'end_time': r.endTime?.toIso8601String(),
-                  'request_size': r.requestBody?.bodySizeBytes,
-                  'response_size': r.response?.bodySizeBytes,
+                  'request_size': r.request?.contentLength,
+                  'response_size': r.response?.contentLength,
                   'error': r.response == null && r.endTime != null
                       ? 'request failed'
                       : null,
@@ -416,21 +416,22 @@ base mixin DartToolingDaemonSupport
           final isolateId = vm.isolates!.first.id!;
           final r =
               await vmService.getHttpProfileRequest(isolateId, requestId);
-          final detail = {
+          final detail = <String, Object?>{
             'id': r.id,
             'method': r.method,
-            'uri': r.uri,
+            'uri': r.uri.toString(),
             'status_code': r.response?.statusCode,
             'start_time': r.startTime.toIso8601String(),
             'end_time': r.endTime?.toIso8601String(),
-            'request_headers': r.requestBody?.headers,
+            'request_headers': r.request?.headers,
             'response_headers': r.response?.headers,
-            'request_body': r.requestBody?.body != null
-                ? base64Encode(r.requestBody!.body!)
+            'request_body': r.requestBody != null && r.requestBody!.isNotEmpty
+                ? base64Encode(r.requestBody!)
                 : null,
-            'response_body': r.response?.body != null
-                ? base64Encode(r.response!.body!)
-                : null,
+            'response_body':
+                r.responseBody != null && r.responseBody!.isNotEmpty
+                    ? base64Encode(r.responseBody!)
+                    : null,
           };
           return CallToolResult(
             content: [TextContent(text: jsonEncode(detail))],
