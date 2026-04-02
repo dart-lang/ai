@@ -87,6 +87,7 @@ void main() {
             ),
             inProcess: true,
           );
+          addTearDown(freshHarness.tearDown);
 
           final result = await freshHarness.mcpServerConnection.callTool(
             CallToolRequest(
