@@ -8,16 +8,21 @@ import 'package:dart_mcp_server/src/utils/names.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
+import 'package:unified_analytics/unified_analytics.dart';
 
 import '../test_harness.dart';
 
 void main() {
   late TestHarness testHarness;
+  late FakeAnalytics analytics;
 
   // TODO: Use setUpAll, currently this fails due to an apparent TestProcess
   // issue.
   setUp(() async {
-    testHarness = await TestHarness.start();
+    // These must run in process to inspect the analytics.
+    testHarness = await TestHarness.start(inProcess: true);
+    analytics =
+        testHarness.serverConnectionPair.server!.analytics as FakeAnalytics;
   });
 
   group('analyzer tools', () {
@@ -579,6 +584,48 @@ void printIt({required int x}) {
           (t) => t.text,
           'text',
           contains('No roots set'),
+        ),
+      );
+    });
+
+    test('send analytics', () async {
+      final example = d.dir('example', [
+        d.file('main.dart', 'void main() => 1 + 2;'),
+      ]);
+      await example.create();
+      final exampleRoot = testHarness.rootForPath(example.io.path);
+      testHarness.mcpClient.addRoot(exampleRoot);
+      await pumpEventQueue();
+
+      await testHarness.callToolWithRetry(
+        CallToolRequest(name: DartAnalyzerSupport.analyzeFilesTool.name),
+      );
+      expect(
+        analytics.sentEvents.last.eventData,
+        allOf(
+          isNot(contains(AnalysisMetrics.applyFixesTimeMsKey)),
+          containsPair(AnalysisMetrics.analyzerReadyTimeMsKey, isA<int>()),
+          containsPair(AnalysisMetrics.didInitializeAnalysisServerKey, true),
+        ),
+      );
+
+      await testHarness.callToolWithRetry(
+        CallToolRequest(
+          name: DartAnalyzerSupport.lspTool.name,
+          arguments: {
+            ParameterNames.command: LspCommands.hover,
+            ParameterNames.uri: p.join(exampleRoot.uri, 'main.dart'),
+            ParameterNames.line: 0,
+            ParameterNames.column: 0,
+          },
+        ),
+      );
+      expect(
+        analytics.sentEvents.last.eventData,
+        allOf(
+          isNot(contains(AnalysisMetrics.applyFixesTimeMsKey)),
+          containsPair(AnalysisMetrics.analyzerReadyTimeMsKey, isA<int>()),
+          containsPair(AnalysisMetrics.didInitializeAnalysisServerKey, false),
         ),
       );
     });

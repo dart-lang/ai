@@ -145,11 +145,11 @@ void main() {
       final c1 = Completer<CallToolResult>();
       final c2 = Completer<CallToolResult>();
       final serverReady = Completer<void>();
-      final f1 = server.withAnalysisServer((_) {
+      final f1 = server.withAnalysisServer((_, _, _) {
         serverReady.complete();
         return c1.future;
       });
-      final f2 = server.withAnalysisServer((_) => c2.future);
+      final f2 = server.withAnalysisServer((_, _, _) => c2.future);
       await serverReady.future;
       await pumpEventQueue();
       expect(server.activeLspRequests, 2);

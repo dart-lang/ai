@@ -11,6 +11,7 @@ import 'package:dart_mcp/server.dart';
 import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:language_server_protocol/protocol_generated.dart' as lsp;
 import 'package:meta/meta.dart';
+import 'package:unified_analytics/unified_analytics.dart';
 
 import '../features_configuration.dart';
 import '../lsp/wire_format.dart';
@@ -282,7 +283,11 @@ base mixin DartAnalyzerSupport
   ///
   /// Waits for any pending analysis before returning.
   Future<CallToolResult> _analyzeFiles(CallToolRequest request) async {
-    return withAnalysisServer((analysisServer) async {
+    return withAnalysisServer((
+      analysisServer,
+      analyzerReadyTimeMs,
+      serverWasInitialized,
+    ) async {
       var rootConfigs = (request.arguments?[ParameterNames.roots] as List?)
           ?.cast<Map<String, Object?>>();
       final allRoots = await roots;
@@ -328,7 +333,10 @@ base mixin DartAnalyzerSupport
 
       final applyFixes =
           request.arguments?[ParameterNames.applyFixes] as bool? ?? false;
+      
+      Stopwatch? applyFixesWatch;
       if (applyFixes) {
+        applyFixesWatch = Stopwatch()..start();
         await analysisServer.sendRequest(
           lsp.Method.workspace_executeCommand.toString(),
           lsp.ExecuteCommandParams(
@@ -349,6 +357,7 @@ base mixin DartAnalyzerSupport
           );
         }
         await _doneAnalyzing?.future;
+        applyFixesWatch.stop();
       }
 
       final filteredDiagnosticsByRoot = <Uri, Map<Uri, List<lsp.Diagnostic>>>{};
@@ -394,7 +403,12 @@ base mixin DartAnalyzerSupport
         messages.add(TextContent(text: 'No errors'));
       }
 
-      return CallToolResult(content: messages);
+      return CallToolResult(content: messages)
+        ..customMetrics = AnalysisMetrics(
+          applyFixesTimeMs: applyFixesWatch?.elapsedMilliseconds,
+          analyzerReadyTimeMs: analyzerReadyTimeMs,
+          didInitializeAnalysisServer: serverWasInitialized,
+        );
     });
   }
 
@@ -456,21 +470,32 @@ base mixin DartAnalyzerSupport
   /// Dispatches the request to the appropriate handler based on the `command`
   /// argument.
   Future<CallToolResult> _lsp(CallToolRequest request) async {
-    return withAnalysisServer((analysisServer) async {
+    return withAnalysisServer((
+      analysisServer,
+      analyzerReadyTimeMs,
+      serverWasInitialized,
+    ) async {
       final command = request.arguments![ParameterNames.command] as String;
-      switch (command) {
-        case LspCommands.hover:
-          return _hover(request, analysisServer);
-        case LspCommands.signatureHelp:
-          return _signatureHelp(request, analysisServer);
-        case LspCommands.resolveWorkspaceSymbol:
-          return _resolveWorkspaceSymbol(request, analysisServer);
-        default:
-          return CallToolResult(
+      final result = switch (command) {
+        LspCommands.hover => await _hover(request, analysisServer),
+        LspCommands.signatureHelp => await _signatureHelp(
+          request,
+          analysisServer,
+        ),
+        LspCommands.resolveWorkspaceSymbol => await _resolveWorkspaceSymbol(
+          request,
+          analysisServer,
+        ),
+        _ => CallToolResult(
             isError: true,
             content: [TextContent(text: 'Unknown LSP command: $command')],
-          );
-      }
+        ),
+      };
+      return result
+        ..customMetrics = AnalysisMetrics(
+          analyzerReadyTimeMs: analyzerReadyTimeMs,
+          didInitializeAnalysisServer: serverWasInitialized,
+        );
     });
   }
 
@@ -537,8 +562,18 @@ base mixin DartAnalyzerSupport
   /// running and restarted only after all requests have completed.
   @visibleForTesting
   Future<CallToolResult> withAnalysisServer(
-    Future<CallToolResult> Function(Peer analysisServer) callback,
+    Future<CallToolResult> Function(
+      // The active analysis server channel.
+      Peer analysisServer,
+      // How long it took to invoke the callback.
+      int analyzerReadyTimeMs,
+      // Whether the server was initialized during this call.
+      bool serverWasInitialized,
+    )
+    callback,
   ) async {
+    final watch = Stopwatch()..start();
+    var serverWasInitialized = false;
     final roots = await this.roots;
     if (roots.isEmpty) {
       return noRootsSetResponse;
@@ -551,6 +586,7 @@ base mixin DartAnalyzerSupport
 
     try {
       if (_analysisServerConnection == null) {
+        serverWasInitialized = true;
         final error = await (_lspInitialization ??=
             _initializeAnalyzerLspServer());
         if (error != null) {
@@ -566,7 +602,12 @@ base mixin DartAnalyzerSupport
 
       await _doneAnalyzing?.future;
 
-      return await callback(_analysisServerConnection!);
+      watch.stop();
+      return await callback(
+        _analysisServerConnection!,
+        watch.elapsedMilliseconds,
+        serverWasInitialized,
+      );
     } finally {
       // Restore the inactivity timer if all requests are done.
       _activeLspRequests--;
@@ -900,4 +941,36 @@ extension on lsp.DiagnosticSeverity {
         return 'info';
     }
   }
+}
+
+/// Custom metrics for analysis server tool calls.
+final class AnalysisMetrics extends CustomMetrics {
+  /// Total time incurred by applying quick fixes, including re-analysis.
+  final int? applyFixesTimeMs;
+
+  /// How long before the analyzer was ready to accept commands. Includes
+  /// waiting for any pending analysis, and possibly starting the server.
+  final int analyzerReadyTimeMs;
+
+  /// Whether or not this request had to start the analysis server from scratch.
+  final bool didInitializeAnalysisServer;
+
+  AnalysisMetrics({
+    this.applyFixesTimeMs,
+    required this.analyzerReadyTimeMs,
+    required this.didInitializeAnalysisServer,
+  });
+
+  @override
+  Map<String, Object> toMap() {
+    return {
+      applyFixesTimeMsKey: ?applyFixesTimeMs,
+      analyzerReadyTimeMsKey: analyzerReadyTimeMs,
+      didInitializeAnalysisServerKey: didInitializeAnalysisServer,
+    };
+  }
+
+  static const applyFixesTimeMsKey = 'applyFixesTimeMs';
+  static const analyzerReadyTimeMsKey = 'analyzerReadyTimeMs';
+  static const didInitializeAnalysisServerKey = 'didInitializeAnalysisServer';
 }

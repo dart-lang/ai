@@ -6,20 +6,25 @@ import 'dart:io';
 
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp_server/src/mixins/analyzer.dart';
+import 'package:dart_mcp_server/src/utils/analytics.dart';
 import 'package:dart_mcp_server/src/utils/names.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
+import 'package:unified_analytics/unified_analytics.dart';
 
 import '../test_harness.dart';
 
 void main() {
   group('analyze_files', () {
     late TestHarness testHarness;
+    late FakeAnalytics analytics;
     late Tool analyzeTool;
 
     setUp(() async {
       testHarness = await TestHarness.start(inProcess: true);
+      analytics =
+          testHarness.serverConnectionPair.server!.analytics as FakeAnalytics;
       final tools = (await testHarness.mcpServerConnection.listTools()).tools;
       analyzeTool = tools.singleWhere(
         (t) => t.name == DartAnalyzerSupport.analyzeFilesTool.name,
@@ -62,7 +67,7 @@ void main() {
           ParameterNames.applyFixes: false,
         },
       );
-      var result = await testHarness.callToolWithRetry(analyzeRequest);
+      var result = await testHarness.callTool(analyzeRequest);
       final containsInvalidNullAwareOperator = contains(
         isA<TextContent>().having(
           (t) => t.text,
@@ -79,6 +84,14 @@ void main() {
       );
       expect(result.content, containsInvalidNullAwareOperator);
       expect(result.content, containsUnnecessaryNew);
+      expect(
+        analytics.sentEvents.last.eventData,
+        allOf(
+          isNot(contains(AnalysisMetrics.applyFixesTimeMsKey)),
+          containsPair(AnalysisMetrics.analyzerReadyTimeMsKey, isA<int>()),
+          containsPair(AnalysisMetrics.didInitializeAnalysisServerKey, true),
+        ),
+      );
 
       // Actually apply the fixes now.
       final fixRequest = CallToolRequest(
@@ -113,12 +126,29 @@ void main() {
       // Verify that we don't report the fixed errors
       expect(result.content, isNot(containsInvalidNullAwareOperator));
       expect(result.content, isNot(containsUnnecessaryNew));
+      expect(
+        analytics.sentEvents.last.eventData,
+        allOf(
+          containsPair(AnalysisMetrics.applyFixesTimeMsKey, isA<int>()),
+          containsPair(AnalysisMetrics.analyzerReadyTimeMsKey, isA<int>()),
+          containsPair(AnalysisMetrics.didInitializeAnalysisServerKey, false),
+        ),
+      );
 
       // Finally, verify no errors are returned for future analysis.
       result = await testHarness.callToolWithRetry(analyzeRequest);
       expect(
         result.content,
         contains(isA<TextContent>().having((t) => t.text, 'text', 'No errors')),
+      );
+
+      expect(
+        analytics.sentEvents.last.eventData,
+        allOf(
+          isNot(contains(AnalysisMetrics.applyFixesTimeMsKey)),
+          containsPair(AnalysisMetrics.analyzerReadyTimeMsKey, isA<int>()),
+          containsPair(AnalysisMetrics.didInitializeAnalysisServerKey, false),
+        ),
       );
     });
   });
