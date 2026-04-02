@@ -333,7 +333,7 @@ base mixin DartAnalyzerSupport
 
       final applyFixes =
           request.arguments?[ParameterNames.applyFixes] as bool? ?? false;
-      
+
       Stopwatch? applyFixesWatch;
       if (applyFixes) {
         applyFixesWatch = Stopwatch()..start();
@@ -487,8 +487,8 @@ base mixin DartAnalyzerSupport
           analysisServer,
         ),
         _ => CallToolResult(
-            isError: true,
-            content: [TextContent(text: 'Unknown LSP command: $command')],
+          isError: true,
+          content: [TextContent(text: 'Unknown LSP command: $command')],
         ),
       };
       return result

@@ -6,7 +6,6 @@ import 'dart:io';
 
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp_server/src/mixins/analyzer.dart';
-import 'package:dart_mcp_server/src/utils/analytics.dart';
 import 'package:dart_mcp_server/src/utils/names.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
