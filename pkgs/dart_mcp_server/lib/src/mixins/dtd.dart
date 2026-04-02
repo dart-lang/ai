@@ -146,6 +146,8 @@ base mixin DartToolingDaemonSupport
       final vmServiceFuture = activeVmServices[vmServiceUri] =
           vmServiceConnectUri(vmServiceUri);
       final vmService = await vmServiceFuture;
+      // Enable HTTP profiling so network logs are captured from app start.
+      await _enableHttpProfiling(vmService);
       // Start listening for and collecting errors immediately.
       final errorService = await _AppListener.forVmService(vmService, this);
       final resource = Resource(
@@ -195,6 +197,33 @@ base mixin DartToolingDaemonSupport
     return vmServiceInfos;
   }
 
+  /// Enables HTTP profiling on all isolates of [vmService].
+  ///
+  /// Silently skips isolates that do not support the dart:io HTTP profiling
+  /// extension (e.g. web apps or isolates not using dart:io).
+  Future<void> _enableHttpProfiling(VmService vmService) async {
+    try {
+      final vm = await vmService.getVM();
+      for (final isolateRef in vm.isolates ?? <IsolateRef>[]) {
+        final id = isolateRef.id;
+        if (id == null) continue;
+        try {
+          final isolate = await vmService.getIsolate(id);
+          final hasExtension = isolate.extensionRPCs?.contains(
+                'ext.dart.io.httpEnableTimelineLogging',
+              ) ??
+              false;
+          if (!hasExtension) continue;
+          await vmService.httpEnableTimelineLogging(id, enabled: true);
+        } catch (_) {
+          // Silently skip isolates that fail — they may be in a bad state.
+        }
+      }
+    } catch (_) {
+      // If we can't even get the VM, skip entirely.
+    }
+  }
+
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) async {
     registerTool(dtdTool, _dtd);
@@ -204,6 +233,9 @@ base mixin DartToolingDaemonSupport
     registerTool(hotReloadTool, hotReload);
     registerTool(widgetInspectorTool, _widgetInspector);
     registerTool(flutterDriverTool, _callFlutterDriver);
+    registerTool(getNetworkLogsTool, _getNetworkLogs);
+    registerTool(clearNetworkLogsTool, _clearNetworkLogs);
+    registerTool(getNetworkRequestTool, _getNetworkRequest);
 
     return super.initialize(request);
   }
@@ -217,6 +249,9 @@ base mixin DartToolingDaemonSupport
     hotReloadTool,
     widgetInspectorTool,
     flutterDriverTool,
+    getNetworkLogsTool,
+    clearNetworkLogsTool,
+    getNetworkRequestTool,
   ];
 
   @override
@@ -280,6 +315,135 @@ base mixin DartToolingDaemonSupport
           ],
           isError: result.json?['isError'] as bool?,
         );
+      },
+    );
+  }
+
+  /// Fetches recorded HTTP requests for the running app.
+  Future<CallToolResult> _getNetworkLogs(CallToolRequest request) async {
+    final appUri = request.arguments?[ParameterNames.appUri] as String?;
+    final updatedSinceStr =
+        request.arguments?[ParameterNames.updatedSince] as String?;
+    final updatedSince =
+        updatedSinceStr != null ? DateTime.tryParse(updatedSinceStr) : null;
+
+    return _callOnVmService(
+      appUri: appUri,
+      callback: (vmService) async {
+        try {
+          final vm = await vmService.getVM();
+          final isolateId = vm.isolates!.first.id!;
+          final profile = await vmService.getHttpProfile(
+            isolateId,
+            updatedSince: updatedSince,
+          );
+          final requests = profile.requests
+              .map(
+                (r) => {
+                  'id': r.id,
+                  'method': r.method,
+                  'uri': r.uri,
+                  'status_code': r.response?.statusCode,
+                  'start_time': r.startTime.toIso8601String(),
+                  'end_time': r.endTime?.toIso8601String(),
+                  'request_size': r.requestBody?.bodySizeBytes,
+                  'response_size': r.response?.bodySizeBytes,
+                  'error': r.response == null && r.endTime != null
+                      ? 'request failed'
+                      : null,
+                },
+              )
+              .toList();
+          return CallToolResult(
+            content: [TextContent(text: jsonEncode(requests))],
+            structuredContent: {'requests': requests},
+          );
+        } catch (e) {
+          return CallToolResult(
+            isError: true,
+            content: [TextContent(text: 'Failed to get network logs: $e')],
+          )..failureReason = CallToolFailureReason.unhandledError;
+        }
+      },
+    );
+  }
+
+  /// Clears the HTTP profile buffer for the running app.
+  Future<CallToolResult> _clearNetworkLogs(CallToolRequest request) async {
+    final appUri = request.arguments?[ParameterNames.appUri] as String?;
+    return _callOnVmService(
+      appUri: appUri,
+      callback: (vmService) async {
+        try {
+          final vm = await vmService.getVM();
+          final isolateId = vm.isolates!.first.id!;
+          await vmService.clearHttpProfile(isolateId);
+          return CallToolResult(
+            content: [TextContent(text: 'Network logs cleared.')],
+          );
+        } catch (e) {
+          return CallToolResult(
+            isError: true,
+            content: [TextContent(text: 'Failed to clear network logs: $e')],
+          )..failureReason = CallToolFailureReason.unhandledError;
+        }
+      },
+    );
+  }
+
+  /// Fetches full detail for a single HTTP request by ID.
+  Future<CallToolResult> _getNetworkRequest(CallToolRequest request) async {
+    final appUri = request.arguments?[ParameterNames.appUri] as String?;
+    final requestId =
+        request.arguments?[ParameterNames.requestId] as String?;
+    if (requestId == null) {
+      return CallToolResult(
+        isError: true,
+        content: [
+          TextContent(
+            text:
+                'Missing required parameter: ${ParameterNames.requestId}',
+          ),
+        ],
+      )..failureReason = CallToolFailureReason.argumentError;
+    }
+
+    return _callOnVmService(
+      appUri: appUri,
+      callback: (vmService) async {
+        try {
+          final vm = await vmService.getVM();
+          final isolateId = vm.isolates!.first.id!;
+          final r =
+              await vmService.getHttpProfileRequest(isolateId, requestId);
+          final detail = {
+            'id': r.id,
+            'method': r.method,
+            'uri': r.uri,
+            'status_code': r.response?.statusCode,
+            'start_time': r.startTime.toIso8601String(),
+            'end_time': r.endTime?.toIso8601String(),
+            'request_headers': r.requestBody?.headers,
+            'response_headers': r.response?.headers,
+            'request_body': r.requestBody?.body != null
+                ? base64Encode(r.requestBody!.body!)
+                : null,
+            'response_body': r.response?.body != null
+                ? base64Encode(r.response!.body!)
+                : null,
+          };
+          return CallToolResult(
+            content: [TextContent(text: jsonEncode(detail))],
+            structuredContent: detail,
+          );
+        } catch (e) {
+          return CallToolResult(
+            isError: true,
+            content: [
+              TextContent(text: 'Failed to get network request: $e'),
+            ],
+          )..failureReason = CallToolFailureReason.unhandledError;
+        }
       },
     );
   }
@@ -1228,6 +1392,80 @@ base mixin DartToolingDaemonSupport
       required: [ParameterNames.command],
     ),
   )..categories = [FeatureCategory.flutterDriver];
+
+  @visibleForTesting
+  static final getNetworkLogsTool = Tool(
+    name: ToolNames.getNetworkLogs.name,
+    description:
+        'Fetches recorded HTTP requests from the running app. '
+        'HTTP profiling is enabled automatically when the app connects, so '
+        'requests are captured from app start. Use updatedSince to poll only '
+        'new entries since a previous call.',
+    annotations: ToolAnnotations(title: 'Get Network Logs', readOnlyHint: true),
+    inputSchema: Schema.object(
+      properties: {
+        ParameterNames.appUri: Schema.string(
+          description:
+              'The app URI to fetch network logs from. Required if '
+              'multiple apps are connected.',
+        ),
+        ParameterNames.updatedSince: Schema.string(
+          description:
+              'ISO 8601 timestamp. If provided, only requests started or '
+              'updated after this time are returned.',
+        ),
+      },
+      additionalProperties: false,
+    ),
+  )
+    ..categories = [FeatureCategory.networkInspector]
+    ..enabledByDefault = false;
+
+  @visibleForTesting
+  static final clearNetworkLogsTool = Tool(
+    name: ToolNames.clearNetworkLogs.name,
+    description: 'Clears the HTTP profile buffer for the running app.',
+    annotations: ToolAnnotations(title: 'Clear Network Logs'),
+    inputSchema: Schema.object(
+      properties: {
+        ParameterNames.appUri: Schema.string(
+          description:
+              'The app URI to clear network logs for. Required if '
+              'multiple apps are connected.',
+        ),
+      },
+      additionalProperties: false,
+    ),
+  )
+    ..categories = [FeatureCategory.networkInspector]
+    ..enabledByDefault = false;
+
+  @visibleForTesting
+  static final getNetworkRequestTool = Tool(
+    name: ToolNames.getNetworkRequest.name,
+    description:
+        'Fetches full detail for a single HTTP request by ID, including '
+        'headers and body bytes (base64-encoded). Get the request ID from '
+        'get_network_logs.',
+    annotations: ToolAnnotations(
+      title: 'Get Network Request',
+      readOnlyHint: true,
+    ),
+    inputSchema: Schema.object(
+      properties: {
+        ParameterNames.appUri: Schema.string(
+          description: 'The app URI. Required if multiple apps are connected.',
+        ),
+        ParameterNames.requestId: Schema.string(
+          description: 'The request ID from get_network_logs.',
+        ),
+      },
+      required: [ParameterNames.requestId],
+      additionalProperties: false,
+    ),
+  )
+    ..categories = [FeatureCategory.networkInspector]
+    ..enabledByDefault = false;
 
   @visibleForTesting
   static final getRuntimeErrorsTool = Tool(
