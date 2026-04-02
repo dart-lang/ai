@@ -23,6 +23,8 @@ extension ParameterNames on Never {
   static const position = 'position';
   static const projectType = 'projectType';
   static const query = 'query';
+  static const requestId = 'requestId';
+  static const updatedSince = 'updatedSince';
   static const root = 'root';
   static const roots = 'roots';
   static const searchDir = 'searchDir';
@@ -45,6 +47,9 @@ enum ToolNames {
   flutterDriverCommand('flutter_driver_command'),
   getActiveLocation('get_active_location'),
   getAppLogs('get_app_logs'),
+  getNetworkLogs('get_network_logs'),
+  clearNetworkLogs('clear_network_logs'),
+  getNetworkRequest('get_network_request'),
   getRuntimeErrors('get_runtime_errors'),
   hotReload('hot_reload'),
   hotRestart('hot_restart'),
