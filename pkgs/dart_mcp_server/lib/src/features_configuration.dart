@@ -37,7 +37,10 @@ enum FeatureCategory {
   dartToolingDaemon(all, 'dart_tooling_daemon'),
 
   /// Features for interacting with package dependencies, pub and/or pub.dev
-  packageDeps(all, 'package_deps');
+  packageDeps(all, 'package_deps'),
+
+  /// Features for inspecting HTTP network traffic via the VM service.
+  networkInspector(dartToolingDaemon, 'network_inspector');
 
   const FeatureCategory(this.parent, [this._optionName]);
 
