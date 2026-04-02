@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp_server/src/features_configuration.dart';
@@ -18,6 +17,47 @@ void main() {
   late TestHarness testHarness;
 
   group('network inspector tools', () {
+    group('[in-process]', () {
+      setUp(() async {
+        testHarness = await TestHarness.start(
+          featuresConfig: FeaturesConfiguration(
+            enabledNames: {FeatureCategory.networkInspector.name},
+          ),
+          inProcess: true,
+        );
+        await testHarness.connectToDtd();
+      });
+
+      test('network inspector tools are registered', () async {
+        final tools =
+            (await testHarness.mcpServerConnection.listTools()).tools;
+        final toolNames = tools.map((t) => t.name).toSet();
+
+        expect(toolNames, contains(ToolNames.getNetworkLogs.name));
+        expect(toolNames, contains(ToolNames.clearNetworkLogs.name));
+        expect(toolNames, contains(ToolNames.getNetworkRequest.name));
+      });
+
+      test('get_network_logs returns error when DTD not connected', () async {
+        // Create a fresh harness without connecting to DTD.
+        final freshHarness = await TestHarness.start(
+          featuresConfig: FeaturesConfiguration(
+            enabledNames: {FeatureCategory.networkInspector.name},
+          ),
+          inProcess: true,
+        );
+
+        final result = await freshHarness.mcpServerConnection.callTool(
+          CallToolRequest(
+            name: ToolNames.getNetworkLogs.name,
+            arguments: {},
+          ),
+        );
+
+        expect(result.isError, true);
+      });
+    });
+
     group('[compiled server]', () {
       setUp(() async {
         testHarness = await TestHarness.start(
@@ -67,36 +107,6 @@ void main() {
           );
 
           expect(result.isError, isNot(true));
-        });
-
-        test('get_network_logs tools are registered', () async {
-          final tools =
-              (await testHarness.mcpServerConnection.listTools()).tools;
-          final toolNames = tools.map((t) => t.name).toSet();
-
-          expect(toolNames, contains(ToolNames.getNetworkLogs.name));
-          expect(toolNames, contains(ToolNames.clearNetworkLogs.name));
-          expect(toolNames, contains(ToolNames.getNetworkRequest.name));
-        });
-
-        test('get_network_logs returns error when DTD not connected', () async {
-          // Don't call connectToDtd - just check the error path.
-          final freshHarness = await TestHarness.start(
-            featuresConfig: FeaturesConfiguration(
-              enabledNames: {FeatureCategory.networkInspector.name},
-            ),
-            inProcess: true,
-          );
-          addTearDown(freshHarness.tearDown);
-
-          final result = await freshHarness.mcpServerConnection.callTool(
-            CallToolRequest(
-              name: ToolNames.getNetworkLogs.name,
-              arguments: {},
-            ),
-          );
-
-          expect(result.isError, true);
         });
       });
     });
