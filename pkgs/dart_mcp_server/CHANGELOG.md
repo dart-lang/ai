@@ -1,4 +1,4 @@
-# 0.1.3 (Dart SDK 3.12.0) - WIP
+# 0.1.3 (Dart SDK 3.12.0)
 
 - Add additional analytics for initialization events, and various list\* method
   calls. This will help understand how the server is being used by different
