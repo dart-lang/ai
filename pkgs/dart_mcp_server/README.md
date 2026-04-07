@@ -127,6 +127,54 @@ instead.
 For more information, see the official VS Code documentation for
 [enabling MCP support](https://code.visualstudio.com/docs/copilot/chat/mcp-servers#_enable-mcp-support-in-vs-code).
 
+### Connecting to Applications
+
+Often, connecting to your running application is as simple as asking your agent
+to do it, you can say "connect to my flutter web app" or "connect to my web
+server".
+
+This works by discovering Dart Tooling Daemon instances on your machine, and
+then discovering dart and flutter applications that are registered with those
+instances. 
+
+See the sections below for specific hints and details for flutter versus dart
+apps, as well as hints about how to make this work better in multi-app
+scenarios, or use fewer tokens.
+
+#### Flutter Applications
+
+Flutter applications are automatically registered with the Dart Tooling Daemon
+when running in debug/profile mode, unless `--no-dds` is passed (the Dart
+Development Service is actually what spawns DTD, so disabling that disables
+DTD).
+
+#### Dart Applications
+
+To connect to a pure Dart application, you need to run the application with the
+`--observe` flag. This will start the Dart Tooling Daemon (DTD) and register the
+application with it.
+
+#### Pass --print-dtd
+
+Both `dart` and `flutter` support the `--print-dtd` flag to get an explicit
+reference to the DTD URI for that application. This is especially useful when the
+agent is spawning the process, because it can avoid having to list all available
+DTD URIs and trying to pick the right one.
+
+It is recommended to put this instruction in a RULES file so that it is always
+available to the agent. For example, in a GEMINI.md file in your project:
+
+```md
+## Launching Dart and Flutter Applications
+
+- Always pass the `--print-dtd` flag to `dart` or `flutter` when spawning an
+  application.
+- For `dart` applications, always pass the `--observe` flag to enable the app to
+  be connected to.
+- Both `--print-dtd` and `--observe` must come before the script name or path
+  when spawning `dart` applications: `dart --observe --print-dtd bin/main.dart`.
+```
+
 ## Tools
 
 <!-- run 'dart tool/update_readme.dart' to update -->
