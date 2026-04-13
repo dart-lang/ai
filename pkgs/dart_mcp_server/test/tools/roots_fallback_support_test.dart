@@ -85,7 +85,6 @@ void main() {
         (await server.roots).map((r) => r.uri),
         unorderedEquals([clientRoot.uri, rootA.uri]),
       );
-      
     });
 
     test('Gives roots changed notifications when tools are called', () async {
