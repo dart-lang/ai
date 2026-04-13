@@ -18,10 +18,6 @@ transport medium. To access all the features of the Dart MCP server, an MCP clie
 experience with the Dart MCP server, an MCP client should also support
 [Roots](https://modelcontextprotocol.io/docs/concepts/roots).
 
-If you are using a client that claims it supports roots but does not actually
-set them, pass `--force-roots-fallback` which will instead enable tools for
-managing the roots.
-
 Here are specific instructions for some popular tools:
 
 ### Gemini CLI
@@ -90,8 +86,7 @@ all projects) to configure the Dart MCP server:
       "command": "dart",
       "args": [
         "mcp-server",
-        "--experimental-mcp-server", // Can be removed for Dart 3.9.0 or later
-        "--force-roots-fallback" // Workaround for a Cursor issue with Roots support
+        "--experimental-mcp-server" // Can be removed for Dart 3.9.0 or later
       ]
     }
   }
@@ -183,7 +178,6 @@ available to the agent. For example, in a GEMINI.md file in your project:
 
 | Tool Name | Title | Description | Categories | Enabled |
 | --- | --- | --- | --- | --- |
-| `add_roots` | Add roots | Adds one or more project roots. Tools are only allowed to run under these roots, so you must call this function before passing any roots to any other tools. | None | Yes |
 | `analyze_files` | Analyze projects | Analyzes specific paths, or the entire project, for errors. | analysis | Yes |
 | `create_project` | Create project | Creates a new Dart or Flutter project. | cli | No |
 | `dart_fix` | Dart fix | Runs `dart fix --apply` for the given project roots. | cli | No |
@@ -202,8 +196,8 @@ available to the agent. For example, in a GEMINI.md file in your project:
 | `pub` | pub | Runs a pub command for the given project roots, like `dart pub get` or `flutter pub add`. | cli, package_deps | Yes |
 | `pub_dev_search` | pub.dev search | Searches pub.dev for packages relevant to a given search query. The response will describe each result with its download count, package description, topics, license, and publisher. | package_deps | Yes |
 | `read_package_uris` |  | Reads "package" and "package-root" scheme URIs which represent paths under Dart package dependencies. "package" URIs are always relative to the "lib" directory and "package-root" URIs are relative to the true root directory of the package. For example, the URI "package:test/test.dart" represents the path "lib/test.dart" under the "test" package. "package-root:test/example/test.dart" represents the path "example/test.dart". This API supports both reading files and listing directories. | package_deps | Yes |
-| `remove_roots` | Remove roots | Removes one or more project roots previously added via the add_roots tool. | None | Yes |
 | `rip_grep_packages` |  | Uses ripgrep to find patterns in package dependencies. Note that ripgrep must be installed already, see https://github.com/BurntSushi/ripgrep for instructions. | package_deps | Yes |
+| `roots` | Roots Management | Manage project roots. | None | Yes |
 | `run_tests` | Run tests | Run Dart or Flutter tests with an agent centric UX. ALWAYS use instead of `dart test` or `flutter test` shell commands. | cli | No |
 | `stop_app` |  | Kills a running Flutter process started by the launch_app tool. | flutter, flutter_app_lifecycle | No |
 | `widget_inspector` | Widget Inspector | Interact with the Flutter widget inspector in the active Flutter application. Requires an active DTD connection. | flutter | Yes |

@@ -72,9 +72,6 @@ final class DartMCPServer extends MCPServer
   final FileSystem fileSystem;
 
   @override
-  final bool forceRootsFallback;
-
-  @override
   final Sdk sdk;
 
   @override
@@ -87,7 +84,6 @@ final class DartMCPServer extends MCPServer
     this.analytics,
     @visibleForTesting this.processManager = const LocalProcessManager(),
     @visibleForTesting this.fileSystem = const LocalFileSystem(),
-    this.forceRootsFallback = false,
     super.protocolLogSink,
   }) : super.fromStreamChannel(
          implementation: Implementation(
@@ -114,7 +110,7 @@ package.
   /// The version of the MCP server.
   ///
   /// Should match the version in the CHANGELOG.md.
-  static final version = '0.1.3';
+  static final version = '0.1.4';
 
   /// Runs the MCP server given command line arguments and an optional
   /// [Analytics] instance.
@@ -155,7 +151,6 @@ package.
         server = DartMCPServer(
           channel ?? stdioChannel(input: io.stdin, output: io.stdout),
           featuresConfig: FeaturesConfiguration.fromArgs(parsedArgs),
-          forceRootsFallback: parsedArgs.flag(forceRootsFallbackFlag),
           sdk: Sdk.find(
             dartSdkPath: dartSdkPath,
             flutterSdkPath: flutterSdkPath,

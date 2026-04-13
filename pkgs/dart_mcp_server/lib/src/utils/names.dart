@@ -36,7 +36,6 @@ extension ParameterNames on Never {
 
 /// The names of all the tools provided by the server.
 enum ToolNames {
-  addRoots('add_roots'),
   analyzeFiles('analyze_files'),
   createProject('create_project'),
   dartFix('dart_fix'),
@@ -55,8 +54,8 @@ enum ToolNames {
   pub('pub'),
   pubDevSearch('pub_dev_search'),
   readPackageUris('read_package_uris'),
-  removeRoots('remove_roots'),
   ripGrepPackages('rip_grep_packages'),
+  roots('roots'),
   runTests('run_tests'),
   stopApp('stop_app'),
   widgetInspector('widget_inspector');

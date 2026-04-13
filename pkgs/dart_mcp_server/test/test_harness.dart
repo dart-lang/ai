@@ -100,7 +100,6 @@ class TestHarness {
     FileSystem? fileSystem,
     ProcessManager? processManager,
     List<String> cliArgs = const [],
-    bool forceRootsFallback = false,
     Sdk? sdk,
     bool startFakeEditorExtension = true,
     FeaturesConfiguration featuresConfig = const FeaturesConfiguration(),
@@ -122,7 +121,6 @@ class TestHarness {
       processManager,
       sdk,
       cliArgs,
-      forceRootsFallback,
       featuresConfig,
     );
     final connection = serverConnectionPair.serverConnection;
@@ -484,7 +482,6 @@ Future<ServerConnectionPair> _initializeMCPServer(
   ProcessManager processManager,
   Sdk sdk,
   List<String> cliArgs,
-  bool forceRootsFallback,
   FeaturesConfiguration featuresConfig,
 ) async {
   ServerConnection connection;
@@ -535,16 +532,10 @@ Future<ServerConnectionPair> _initializeMCPServer(
       fileSystem: fileSystem,
       sdk: sdk,
       analytics: analytics,
-      forceRootsFallback: forceRootsFallback,
     );
     addTearDown(server.shutdown);
     connection = client.connectServer(clientChannel);
   } else {
-    assert(
-      !forceRootsFallback,
-      'forceRootsFallback is not supported when running in process, pass the '
-      '--force-roots-fallback clie arg instead',
-    );
     final process = await Process.start(sdk.dartExecutablePath, [
       'pub', // Using `pub` gives us incremental compilation
       'run',

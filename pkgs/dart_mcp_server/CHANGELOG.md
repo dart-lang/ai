@@ -1,3 +1,8 @@
+# 0.1.4 (Dart SDK 3.13.0-WIP)
+
+- Always enable roots fallback, and merge them with client roots that are set
+  (if any).
+
 # 0.1.3 (Dart SDK 3.12.0)
 
 - Add additional analytics for initialization events, and various list\* method

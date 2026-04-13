@@ -5,6 +5,8 @@
 import 'dart:async';
 import 'dart:collection';
 
+import 'package:async/async.dart';
+
 import 'package:dart_mcp/server.dart';
 import 'package:meta/meta.dart';
 
@@ -26,151 +28,127 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
     hashCode: (root) => root.uri.hashCode,
   );
 
-  /// Whether or not to force the fallback mode for roots, regardless of the
-  /// client's reported support.
-  ///
-  /// Override this to enable it.
-  bool get forceRootsFallback => false;
-
-  /// Whether fallback mode is enabled.
-  ///
-  /// Unsafe to call until after the server is initialized.
-  bool get _fallbackEnabled => forceRootsFallback || !super.supportsRoots;
-
   /// Always supported, either by the client or this mixin.
   @override
   bool get supportsRoots => true;
 
   @override
-  bool get supportsRootsChanged =>
-      // If the client supports roots, then we only support root change events
-      // if they do. If we are implementing the support, we always support it.
-      _fallbackEnabled ? true : super.supportsRootsChanged;
+  bool get supportsRootsChanged => true;
 
+  /// Combines the client stream and the fallback controller stream.
   @override
-  Stream<RootsListChangedNotification?>? get rootsListChanged =>
-      // If the client supports roots, just use their stream (or lack thereof).
-      // If they don't, use our own stream.
-      _fallbackEnabled
-      ? _rootsListChangedFallbackController?.stream
-      : super.rootsListChanged;
+  Stream<RootsListChangedNotification?> get rootsListChanged {
+    final clientStream = super.rootsListChanged;
+    if (clientStream == null) {
+      return _rootsListChangedFallbackController.stream;
+    }
+    return StreamGroup.merge([
+      clientStream,
+      _rootsListChangedFallbackController.stream,
+    ]);
+  }
 
-  StreamController<RootsListChangedNotification?>?
-  _rootsListChangedFallbackController;
+  /// Broadcast controller for roots list changed events from usage of the
+  /// roots tool.
+  final _rootsListChangedFallbackController =
+      StreamController<RootsListChangedNotification?>.broadcast();
 
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) async {
     try {
       return super.initialize(request);
     } finally {
-      // Can't call `super.supportsRoots` until after `super.initialize`.
-      if (_fallbackEnabled) {
-        registerTool(removeRootsTool, _removeRoots);
-        registerTool(addRootsTool, _addRoots);
-        _rootsListChangedFallbackController =
-            StreamController<RootsListChangedNotification?>.broadcast();
-      }
+      registerTool(rootsTool, _roots);
     }
   }
 
   @visibleForTesting
-  static final List<Tool> allTools = [removeRootsTool, addRootsTool];
+  static final List<Tool> allTools = [rootsTool];
 
-  /// Delegates to the inherited implementation if fallback mode is not enabled,
-  /// otherwise returns our own custom roots.
   @override
-  Future<ListRootsResult> listRoots([ListRootsRequest? request]) async =>
-      _fallbackEnabled
-      ? ListRootsResult(roots: _customRoots.toList())
-      : super.listRoots(request);
-
-  /// Adds the roots in [request] the custom roots and calls [updateRoots].
-  ///
-  /// Should only be called if [_fallbackEnabled] is `true`.
-  Future<CallToolResult> _addRoots(CallToolRequest request) async {
-    if (!_fallbackEnabled) {
-      throw StateError(
-        'This tool should not be invoked if the client supports roots',
-      );
+  Future<ListRootsResult> listRoots([ListRootsRequest? request]) async {
+    final clientRoots = <Root>[];
+    if (super.supportsRoots) {
+      try {
+        final result = await super.listRoots(request);
+        clientRoots.addAll(result.roots);
+      } catch (e, s) {
+        log(LoggingLevel.error, 'Failed to list roots from client: $e\n$s');
+      }
     }
 
-    (request.arguments![ParameterNames.roots] as List).cast<Root>().forEach(
-      _customRoots.add,
-    );
-    _rootsListChangedFallbackController?.add(RootsListChangedNotification());
+    final seenUris = <String>{};
+    final allRoots = <Root>[];
+
+    for (final root in clientRoots.followedBy(_customRoots)) {
+      if (seenUris.add(root.uri)) {
+        allRoots.add(root);
+      }
+    }
+
+    return ListRootsResult(roots: allRoots);
+  }
+
+  /// Handles requests to the roots tool, delegating to the subcommand.
+  Future<CallToolResult> _roots(CallToolRequest request) async {
+    final command = request.arguments![ParameterNames.command] as String;
+    switch (command) {
+      case RootsCommands.add:
+        return _addRoots(request);
+      case RootsCommands.remove:
+        return _removeRoots(request);
+      default:
+        return CallToolResult(
+          isError: true,
+          content: [TextContent(text: 'Unknown command: $command')],
+        );
+    }
+  }
+
+  Future<CallToolResult> _addRoots(CallToolRequest request) async {
+    final uris = (request.arguments?[ParameterNames.uris] as List)
+        .cast<String>();
+    _customRoots.addAll(uris.map((u) => Root(uri: u)));
+    _rootsListChangedFallbackController.add(RootsListChangedNotification());
     return success;
   }
 
-  /// Removes the roots in [request] from the custom roots and calls
-  /// [updateRoots].
-  ///
-  /// Should only be called if [_fallbackEnabled] is true.
   Future<CallToolResult> _removeRoots(CallToolRequest request) async {
-    if (!_fallbackEnabled) {
-      throw StateError(
-        'This tool should not be invoked if the client supports roots',
-      );
-    }
-
-    final roots = (request.arguments![ParameterNames.uris] as List)
-        .cast<String>()
-        .map((uri) => Root(uri: uri));
-    _customRoots.removeAll(roots);
-    _rootsListChangedFallbackController?.add(RootsListChangedNotification());
-
+    final uris = (request.arguments?[ParameterNames.uris] as List)
+        .cast<String>();
+    _customRoots.removeAll(uris.map((u) => Root(uri: u)));
+    _rootsListChangedFallbackController.add(RootsListChangedNotification());
     return success;
   }
 
   @override
   Future<void> shutdown() async {
     await super.shutdown();
-    await _rootsListChangedFallbackController?.close();
+    await _rootsListChangedFallbackController.close();
   }
 
   @visibleForTesting
-  static final addRootsTool = Tool(
-    name: ToolNames.addRoots.name,
-    description:
-        'Adds one or more project roots. Tools are only allowed to run under '
-        'these roots, so you must call this function before passing any roots '
-        'to any other tools.',
-    annotations: ToolAnnotations(title: 'Add roots', readOnlyHint: false),
+  static final rootsTool = Tool(
+    name: ToolNames.roots.name,
+    description: 'Manage project roots.',
     inputSchema: Schema.object(
       properties: {
-        ParameterNames.roots: Schema.list(
-          description: 'All the project roots to add to this server.',
-          items: Schema.object(
-            properties: {
-              ParameterNames.uri: Schema.string(
-                description: 'The URI of the root.',
-              ),
-              ParameterNames.name: Schema.string(
-                description: 'An optional name of the root.',
-              ),
-            },
-            required: [ParameterNames.uri],
-          ),
+        ParameterNames.command: EnumSchema.untitledSingleSelect(
+          description: 'The command to execute.',
+          values: [RootsCommands.add, RootsCommands.remove],
         ),
-      },
-      additionalProperties: false,
-    ),
-  )..categories = [FeatureCategory.all];
-
-  @visibleForTesting
-  static final removeRootsTool = Tool(
-    name: ToolNames.removeRoots.name,
-    description:
-        'Removes one or more project roots previously added via '
-        'the add_roots tool.',
-    annotations: ToolAnnotations(title: 'Remove roots', readOnlyHint: false),
-    inputSchema: Schema.object(
-      properties: {
         ParameterNames.uris: Schema.list(
-          description: 'All the project roots to remove from this server.',
-          items: Schema.string(description: 'The URIs of the roots to remove.'),
+          description: 'The URIs to add or remove as roots.',
+          items: Schema.string(),
         ),
       },
+      required: [ParameterNames.command, ParameterNames.uris],
       additionalProperties: false,
     ),
   )..categories = [FeatureCategory.all];
+}
+
+extension RootsCommands on Never {
+  static const add = 'add';
+  static const remove = 'remove';
 }

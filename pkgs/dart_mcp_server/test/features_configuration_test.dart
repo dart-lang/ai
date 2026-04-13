@@ -104,10 +104,7 @@ void main() {
     });
 
     test('runtime validation with TestHarness', () async {
-      final harness = await TestHarness.start(
-        inProcess: true,
-        forceRootsFallback: true,
-      );
+      final harness = await TestHarness.start(inProcess: true);
 
       final toolsResult = await harness.mcpServerConnection.listTools();
       final promptsResult = await harness.mcpServerConnection.listPrompts();
