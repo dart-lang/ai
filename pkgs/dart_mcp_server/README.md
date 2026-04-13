@@ -197,7 +197,7 @@ available to the agent. For example, in a GEMINI.md file in your project:
 | `pub_dev_search` | pub.dev search | Searches pub.dev for packages relevant to a given search query. The response will describe each result with its download count, package description, topics, license, and publisher. | package_deps | Yes |
 | `read_package_uris` |  | Reads "package" and "package-root" scheme URIs which represent paths under Dart package dependencies. "package" URIs are always relative to the "lib" directory and "package-root" URIs are relative to the true root directory of the package. For example, the URI "package:test/test.dart" represents the path "lib/test.dart" under the "test" package. "package-root:test/example/test.dart" represents the path "example/test.dart". This API supports both reading files and listing directories. | package_deps | Yes |
 | `rip_grep_packages` |  | Uses ripgrep to find patterns in package dependencies. Note that ripgrep must be installed already, see https://github.com/BurntSushi/ripgrep for instructions. | package_deps | Yes |
-| `roots` | Roots Management | Manage project roots. | None | Yes |
+| `roots` |  | Manage project roots. | None | Yes |
 | `run_tests` | Run tests | Run Dart or Flutter tests with an agent centric UX. ALWAYS use instead of `dart test` or `flutter test` shell commands. | cli | No |
 | `stop_app` |  | Kills a running Flutter process started by the launch_app tool. | flutter, flutter_app_lifecycle | No |
 | `widget_inspector` | Widget Inspector | Interact with the Flutter widget inspector in the active Flutter application. Requires an active DTD connection. | flutter | Yes |
