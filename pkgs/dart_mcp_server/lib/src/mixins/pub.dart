@@ -69,6 +69,7 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
 
     return runCommandInRoots(
       request,
+      // ignore: use_null_aware_elements
       arguments: ['pub', command, if (packageNames != null) ...packageNames],
       commandDescription: 'dart|flutter pub $command',
       processManager: processManager,
