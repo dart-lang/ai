@@ -18,10 +18,6 @@ transport medium. To access all the features of the Dart MCP server, an MCP clie
 experience with the Dart MCP server, an MCP client should also support
 [Roots](https://modelcontextprotocol.io/docs/concepts/roots).
 
-If you are using a client that claims it supports roots but does not actually
-set them, pass `--force-roots-fallback` which will instead enable tools for
-managing the roots.
-
 Here are specific instructions for some popular tools:
 
 ### Gemini CLI
@@ -91,7 +87,6 @@ all projects) to configure the Dart MCP server:
       "args": [
         "mcp-server",
         "--experimental-mcp-server", // Can be removed for Dart 3.9.0 or later
-        "--force-roots-fallback" // Workaround for a Cursor issue with Roots support
       ]
     }
   }

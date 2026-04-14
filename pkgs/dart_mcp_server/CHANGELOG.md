@@ -1,4 +1,9 @@
-# 0.1.2 (Dart SDK 3.11.0) - WIP
+# 0.1.2+1 (Dart SDK 3.11.5)
+
+- Always enable roots fallback, and merge them with client roots that are set
+  (if any).
+
+# 0.1.2 (Dart SDK 3.11.0)
 
 - Add `--tools=dart|all` argument to allow enabling only vanilla Dart tools for
   non-flutter projects.

@@ -13,7 +13,7 @@ import 'package:stream_channel/stream_channel.dart';
 import 'package:test/test.dart';
 
 void main() {
-  late RootsTrackingSupport server;
+  late TestServer server;
   late ServerConnection serverConnection;
   final rootA = Root(uri: 'file:///a/');
   final rootB = Root(uri: 'file:///b/');
@@ -149,38 +149,97 @@ void main() {
         await server.roots; // wait for the first listRoots request to complete
       });
 
-      test('registers no tools', () async {
+      test('registers tools to add and remove roots', () async {
         final tools = await serverConnection.listTools(ListToolsRequest());
-        expect(tools.tools, isEmpty);
+        expect(
+          tools.tools,
+          unorderedEquals([
+            RootsFallbackSupport.addRootsTool,
+            RootsFallbackSupport.removeRootsTool,
+          ]),
+        );
       });
 
-      test('Gives roots changed notifications when roots are added', () async {
-        final notifications = StreamQueue(server.rootsListChanged!);
-        client.addRoot(rootA);
-        expect(await notifications.hasNext, true);
-        await notifications.next;
+      test(
+        'Gives roots changed notifications when roots are added by the client',
+        () async {
+          final notifications = StreamQueue(server.rootsListChanged!);
+          client.addRoot(rootA);
+          expect(await notifications.hasNext, true);
+          await notifications.next;
 
-        client.removeRoot(rootA);
-        expect(await notifications.hasNext, true);
-        await notifications.next;
-      });
+          client.removeRoot(rootA);
+          expect(await notifications.hasNext, true);
+          await notifications.next;
+        },
+      );
 
-      test('can add, remove, and list roots', () async {
+      test(
+        'Gives roots changed notifications when roots are added by the tool',
+        () async {
+          var next = server.rootsListChanged!.first;
+          unawaited(
+            serverConnection.callTool(
+              CallToolRequest(
+                name: RootsFallbackSupport.addRootsTool.name,
+                arguments: {
+                  ParameterNames.roots: [rootA],
+                },
+              ),
+            ),
+          );
+          await next;
+
+          next = server.rootsListChanged!.first;
+          unawaited(
+            serverConnection.callTool(
+              CallToolRequest(
+                name: RootsFallbackSupport.removeRootsTool.name,
+                arguments: {
+                  ParameterNames.uris: [rootA.uri],
+                },
+              ),
+            ),
+          );
+          await next;
+        },
+      );
+
+      test('can add, remove, and list roots using client or tools', () async {
         expect((await server.listRoots(ListRootsRequest())).roots, isEmpty);
 
-        client
-          ..addRoot(rootA)
-          ..addRoot(rootB);
+        client.addRoot(rootA);
+        await serverConnection.callTool(
+          CallToolRequest(
+            name: RootsFallbackSupport.addRootsTool.name,
+            arguments: {
+              ParameterNames.roots: [rootB],
+            },
+          ),
+        );
+        await pumpEventQueue();
         expect(
           (await server.listRoots(ListRootsRequest())).roots,
           unorderedEquals([rootA, rootB]),
         );
 
-        client.removeRoot(rootB);
+        client.removeRoot(rootA);
+        await pumpEventQueue();
         expect(
           (await server.listRoots(ListRootsRequest())).roots,
-          unorderedEquals([rootA]),
+          unorderedEquals([rootB]),
         );
+
+        await serverConnection.callTool(
+          CallToolRequest(
+            name: RootsFallbackSupport.removeRootsTool.name,
+            arguments: {
+              ParameterNames.uris: [rootB.uri],
+            },
+          ),
+        );
+        await pumpEventQueue();
+        expect((await server.listRoots(ListRootsRequest())).roots, isEmpty);
       });
     });
   });
@@ -221,7 +280,7 @@ final class TestServer extends MCPServer
   TestServer(
     super.channel, {
     super.protocolLogSink,
-    this.forceRootsFallback = false,
+    this.forceRootsFallback = true,
   }) : super.fromStreamChannel(
          implementation: Implementation(name: 'test server', version: '0.1.0'),
          instructions: 'A test server with roots fallback support',

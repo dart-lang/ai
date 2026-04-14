@@ -35,12 +35,13 @@ ArgParser createArgParser({
         ..addFlag(
           forceRootsFallbackFlag,
           negatable: true,
-          defaultsTo: false,
+          defaultsTo: true,
           help:
               'Forces a behavior for project roots which uses MCP tools '
               'instead of the native MCP roots. This can be helpful for '
               'clients like Cursor which claim to have roots support but do '
               'not actually support it.',
+          hide: true,
         )
         ..addOption(
           logFileOption,

@@ -5,6 +5,7 @@
 import 'dart:async';
 import 'dart:collection';
 
+import 'package:async/async.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:meta/meta.dart';
 
@@ -45,14 +46,24 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
       // if they do. If we are implementing the support, we always support it.
       _fallbackEnabled ? true : super.supportsRootsChanged;
 
+  /// Combines the client stream and the fallback controller stream.
   @override
-  Stream<RootsListChangedNotification?>? get rootsListChanged =>
-      // If the client supports roots, just use their stream (or lack thereof).
-      // If they don't, use our own stream.
-      _fallbackEnabled
-      ? _rootsListChangedFallbackController?.stream
-      : super.rootsListChanged;
+  Stream<RootsListChangedNotification?>? get rootsListChanged {
+    final clientStream = super.rootsListChanged;
+    if (clientStream == null) {
+      return _rootsListChangedFallbackController?.stream;
+    } else if (_rootsListChangedFallbackController == null) {
+      return clientStream;
+    } else {
+      return StreamGroup.merge([
+        clientStream,
+        _rootsListChangedFallbackController!.stream,
+      ]);
+    }
+  }
 
+  /// Broadcast controller for roots list changed events from usage of the
+  /// roots tool.
   StreamController<RootsListChangedNotification?>?
   _rootsListChangedFallbackController;
 
@@ -71,13 +82,30 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
     }
   }
 
-  /// Delegates to the inherited implementation if fallback mode is not enabled,
-  /// otherwise returns our own custom roots.
+  /// Returns the custom roots combined with the client's roots.
   @override
-  Future<ListRootsResult> listRoots([ListRootsRequest? request]) async =>
-      _fallbackEnabled
-      ? ListRootsResult(roots: _customRoots.toList())
-      : super.listRoots(request);
+  Future<ListRootsResult> listRoots([ListRootsRequest? request]) async {
+    final clientRoots = <Root>[];
+    if (super.supportsRoots) {
+      try {
+        final result = await super.listRoots(request);
+        clientRoots.addAll(result.roots);
+      } catch (e, s) {
+        log(LoggingLevel.error, 'Failed to list roots from client: $e\n$s');
+      }
+    }
+
+    final seenUris = <String>{};
+    final allRoots = <Root>[];
+
+    for (final root in clientRoots.followedBy(_customRoots)) {
+      if (seenUris.add(root.uri)) {
+        allRoots.add(root);
+      }
+    }
+
+    return ListRootsResult(roots: allRoots);
+  }
 
   /// Adds the roots in [request] the custom roots and calls [updateRoots].
   ///
