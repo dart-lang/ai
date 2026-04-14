@@ -106,6 +106,7 @@ base mixin FlutterLauncherSupport
           '--device-id',
           device,
           if (target != null) '--target',
+          // ignore: use_null_aware_elements
           if (target != null) target,
         ],
         workingDirectory: root,

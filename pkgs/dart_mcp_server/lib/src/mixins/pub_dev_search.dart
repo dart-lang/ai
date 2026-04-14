@@ -108,6 +108,7 @@ base mixin PubDevSupport on ToolsSupport {
                   'latest',
                   'version',
                 ]),
+                // ignore: use_null_aware_elements
                 if (dig<String?>(versionListing, [
                       'latest',
                       'pubspec',
@@ -115,6 +116,7 @@ base mixin PubDevSupport on ToolsSupport {
                     ])
                     case final description?)
                   'description': description,
+                // ignore: use_null_aware_elements
                 if (dig<String?>(versionListing, [
                       'latest',
                       'pubspec',
@@ -122,6 +124,7 @@ base mixin PubDevSupport on ToolsSupport {
                     ])
                     case final homepage?)
                   'homepage': homepage,
+                // ignore: use_null_aware_elements
                 if (dig<String?>(versionListing, [
                       'latest',
                       'pubspec',
@@ -129,6 +132,7 @@ base mixin PubDevSupport on ToolsSupport {
                     ])
                     case final repository?)
                   'repository': repository,
+                // ignore: use_null_aware_elements
                 if (dig<String?>(versionListing, [
                       'latest',
                       'pubspec',
