@@ -790,7 +790,7 @@ extension type ObjectSchema.fromMap(Map<String, Object?> _value)
     Keys.type: JsonType.object.typeName,
     if (title != null) Keys.title: title,
     if (description != null) Keys.description: description,
-    if (properties != null) Keys.properties: properties,
+    Keys.properties: properties ?? const <String, Schema>{},
     if (patternProperties != null) Keys.patternProperties: patternProperties,
     if (required != null) Keys.required: required,
     if (additionalProperties != null)

@@ -455,7 +455,10 @@ base mixin FlutterLauncherSupport
       Tool(
           name: ToolNames.listDevices.name,
           description: 'Lists available Flutter devices.',
-          inputSchema: Schema.object(),
+          inputSchema: Schema.object(
+            properties: const {},
+            required: const [],
+          ),
           outputSchema: Schema.object(
             properties: {
               'devices': Schema.list(
@@ -621,7 +624,10 @@ base mixin FlutterLauncherSupport
           description:
               'Returns the list of running app process IDs and associated '
               'DTD URIs for apps started by the launch_app tool.',
-          inputSchema: Schema.object(),
+          inputSchema: Schema.object(
+            properties: const {},
+            required: const [],
+          ),
           outputSchema: Schema.object(
             properties: {
               ParameterNames.apps: Schema.list(

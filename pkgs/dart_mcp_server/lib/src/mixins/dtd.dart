@@ -1360,7 +1360,11 @@ base mixin DartToolingDaemonSupport
             title: 'Get Active Editor Location',
             readOnlyHint: true,
           ),
-          inputSchema: Schema.object(additionalProperties: false),
+          inputSchema: Schema.object(
+            properties: const {},
+            required: const [],
+            additionalProperties: false,
+          ),
         )
         ..categories = [FeatureCategory.dartToolingDaemon]
         ..enabledByDefault = false;
@@ -1631,7 +1635,7 @@ class ErrorLog {
 
   final int _maxSize;
 
-  ErrorLog({this._maxSize = 20000});
+  ErrorLog({int maxSize = 20000}) : _maxSize = maxSize;
 
   /// Adds a new [error] to the log.
   void add(String error) {
