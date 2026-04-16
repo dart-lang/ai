@@ -5,3 +5,7 @@ pubspec.lock
 .vscode
 .idea
 *.iml
+
+# Gemini specific ignores
+**/.gemini/logs.json
+**/.gemini/settings.json
