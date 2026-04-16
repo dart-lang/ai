@@ -7,5 +7,6 @@ pubspec.lock
 *.iml
 
 # Gemini specific ignores
-**/.gemini/logs.json
-**/.gemini/settings.json
+**/.gemini/*
+!**/.gemini/config.yaml
+!**/.gemini/styleguide.md
