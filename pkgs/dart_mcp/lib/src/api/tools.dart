@@ -794,7 +794,7 @@ extension type ObjectSchema.fromMap(Map<String, Object?> _value)
     // Although the MCP specification only requires `type` for tool input schemas,
     // some clients (e.g., Claude Code, LMStudio, VS Code) expect `properties`
     // to be present and will throw validation errors if it is missing.
-    // See issue #170 for details.
+    // See issue [#170](https://github.com/dart-lang/ai/issues/170#) for details.
     Keys.properties: properties ?? const <String, Schema>{},
     if (patternProperties != null) Keys.patternProperties: patternProperties,
     if (required != null) Keys.required: required,
