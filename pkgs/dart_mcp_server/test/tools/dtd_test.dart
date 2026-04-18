@@ -115,16 +115,14 @@ void main() {
             name: ToolNames.dtd.name,
             arguments: {ParameterNames.command: DtdCommand.listDtdUris},
           ),
-          expectError: true,
         );
 
+        expect(result.isError, isNot(true));
         final text = (result.content.first as TextContent).text;
-        if (result.isError == true) {
-          expect(text, contains('Could not find an option named "--list"'));
-          return;
-        }
-
-        expect(text, matches(RegExp(r'Found \d+ Dart Tooling Daemon instance\(s\):')));
+        expect(
+          text,
+          matches(RegExp(r'Found \d+ Dart Tooling Daemon instance\(s\):')),
+        );
         expect(text, contains('WS URI:'));
         expect(text, contains('Workspace Root:'));
         expect(text, contains('PID:'));

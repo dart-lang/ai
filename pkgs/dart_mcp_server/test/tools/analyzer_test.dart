@@ -76,10 +76,9 @@ void main() {
 
       result = await testHarness.callToolWithRetry(request);
       expect(result.isError, isNot(true));
-      expect(
-        result.content,
-        contains(isA<TextContent>().having((t) => t.text, 'text', 'No errors')),
-      );
+      expect(result.content, [
+        isA<TextContent>().having((t) => t.text, 'text', 'No errors'),
+      ]);
     });
 
     test('can analyze a project with multiple errors (no paths)', () async {

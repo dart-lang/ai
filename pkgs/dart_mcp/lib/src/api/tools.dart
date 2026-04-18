@@ -790,6 +790,11 @@ extension type ObjectSchema.fromMap(Map<String, Object?> _value)
     Keys.type: JsonType.object.typeName,
     if (title != null) Keys.title: title,
     if (description != null) Keys.description: description,
+    // Some MCP tools define an inputSchema without a `properties` field.
+    // Although the MCP specification only requires `type` for tool input schemas,
+    // some clients (e.g., Claude Code, LMStudio, VS Code) expect `properties`
+    // to be present and will throw validation errors if it is missing.
+    // See issue #170 for details.
     Keys.properties: properties ?? const <String, Schema>{},
     if (patternProperties != null) Keys.patternProperties: patternProperties,
     if (required != null) Keys.required: required,
