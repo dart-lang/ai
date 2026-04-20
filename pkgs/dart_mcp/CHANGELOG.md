@@ -1,3 +1,8 @@
+## 0.5.1
+
+- Always send a properties object for tool input schemas, see
+  https://github.com/dart-lang/ai/issues/170.
+
 ## 0.5.0
 
 - Initial support for protocol version [2025-11-25](https://modelcontextprotocol.io/specification/2025-11-25/).
