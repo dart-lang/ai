@@ -108,7 +108,7 @@ void main() {
 
     test('ObjectSchema includes empty properties by default', () {
       final schema = ObjectSchema();
-      expect(schema, {'type': 'object', 'properties': {}});
+      expect(schema, {'type': 'object', 'properties': <String, Schema>{}});
     });
 
     test('StringSchema', () {
