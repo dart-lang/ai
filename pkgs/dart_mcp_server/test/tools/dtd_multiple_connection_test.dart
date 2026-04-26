@@ -2,8 +2,6 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'dart:io';
-
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp_server/src/mixins/dtd.dart';
 
@@ -275,9 +273,6 @@ void main() async {
           contains('error from app 2'),
         );
       },
-      skip: Platform.isWindows
-          ? 'https://github.com/dart-lang/ai/issues/407'
-          : false,
     );
   });
 }

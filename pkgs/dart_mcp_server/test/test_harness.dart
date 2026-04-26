@@ -320,12 +320,31 @@ final class AppDebugSession {
   }
 
   static Future<void> kill(TestProcess process, bool isFlutter) async {
-    if (isFlutter) {
-      process.stdin.writeln('q');
-      await process.shouldExit(0);
-    } else {
-      await process.kill();
-      await process.shouldExit();
+    do {
+      if (isFlutter) {
+        process.stdin.writeln('q');
+        await process.shouldExit(0);
+      } else {
+        await process.kill();
+        await process.shouldExit();
+      }
+    } while (await _pidAlive(process.pid));
+  }
+
+  static Future<bool> _pidAlive(int pid) async {
+    try {
+      if (Platform.isWindows) {
+        final p = await Process.start('tasklist', const []);
+        final lines = await p.stdout
+            .transform(const Utf8Decoder(allowMalformed: true))
+            .toList();
+        return lines.where((e) => e.contains(' $pid ')).isNotEmpty;
+      } else {
+        // TODO: handle other platforms if needed
+        return false;
+      }
+    } catch (_) {
+      return false;
     }
   }
 }
