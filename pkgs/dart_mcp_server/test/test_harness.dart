@@ -320,29 +320,39 @@ final class AppDebugSession {
   }
 
   static Future<void> kill(TestProcess process, bool isFlutter) async {
-    do {
-      if (isFlutter) {
-        process.stdin.writeln('q');
-        await process.shouldExit(0);
-      } else {
-        await process.kill();
-        await process.shouldExit();
+    if (isFlutter) {
+      process.stdin.writeln('q');
+      await process.shouldExit(0);
+    } else {
+      await process.kill();
+      await process.shouldExit();
+    }
+
+    // On Windows, the process might still be cleaning up even after the exit
+    // code is received.
+    // Poll with a delay to ensure it's fully gone before proceeding to cleanup.
+    if (Platform.isWindows) {
+      for (var i = 0; i < 20; i++) {
+        if (!await _pidAlive(process.pid)) break;
+        await Future<void>.delayed(const Duration(milliseconds: 50));
       }
-    } while (await _pidAlive(process.pid));
+    }
   }
 
   static Future<bool> _pidAlive(int pid) async {
     try {
       if (Platform.isWindows) {
-        final p = await Process.start('tasklist', const []);
-        final lines = await p.stdout
-            .transform(const Utf8Decoder(allowMalformed: true))
-            .toList();
-        return lines.where((e) => e.contains(' $pid ')).isNotEmpty;
-      } else {
-        // TODO: handle other platforms if needed
-        return false;
+        final result = await Process.run('tasklist', [
+          '/FI',
+          '"PID eq $pid"',
+          '/NH',
+        ]);
+        return result.stdout.toString().contains('$pid');
+      } else if (Platform.isLinux || Platform.isMacOS) {
+        final result = await Process.run('ps', ['-p', '$pid']);
+        return result.stdout.toString().contains('$pid');
       }
+      return false;
     } catch (_) {
       return false;
     }
