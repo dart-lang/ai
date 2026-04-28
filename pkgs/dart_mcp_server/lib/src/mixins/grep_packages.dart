@@ -321,6 +321,6 @@ base mixin GrepSupport
 
   /// The default install directory for ripgrep.
   Directory get _defaultInstallDir => fileSystem
-      .directory(applicationConfigHome('dart_mcp_server'))
+      .directory(BaseDirectories('dart_mcp_server').configHome)
       .childDirectory('bin');
 }
