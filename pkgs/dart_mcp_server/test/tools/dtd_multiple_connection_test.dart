@@ -164,14 +164,12 @@ void main() {
       }
     });
 
-    test(
-      'can get runtime errors from multiple apps using appUri',
-      () async {
-        await testHarness.connectToDtd();
+    test('can get runtime errors from multiple apps using appUri', () async {
+      await testHarness.connectToDtd();
 
-        await d.dir('dart_app_1', [
-          d.dir('bin', [
-            d.file('main.dart', '''
+      await d.dir('dart_app_1', [
+        d.dir('bin', [
+          d.file('main.dart', '''
 import 'dart:io';
 void main() async {
   stderr.writeln('error from app 1');
@@ -180,24 +178,24 @@ void main() async {
   }
 }
 '''),
-          ]),
-        ]).create();
-        final session1 = await testHarness.startDebugSession(
-          p.join(d.sandbox, 'dart_app_1'),
-          'bin/main.dart',
-          isFlutter: false,
-        );
-        addTearDown(() => testHarness.stopDebugSession(session1));
+        ]),
+      ]).create();
+      final session1 = await testHarness.startDebugSession(
+        p.join(d.sandbox, 'dart_app_1'),
+        'bin/main.dart',
+        isFlutter: false,
+      );
+      addTearDown(() => testHarness.stopDebugSession(session1));
 
-        final secondEditorExtension = await FakeEditorExtension.connect(
-          testHarness.sdk,
-        );
-        addTearDown(secondEditorExtension.shutdown);
-        await testHarness.connectToDtd(dtdUri: secondEditorExtension.dtdUri);
+      final secondEditorExtension = await FakeEditorExtension.connect(
+        testHarness.sdk,
+      );
+      addTearDown(secondEditorExtension.shutdown);
+      await testHarness.connectToDtd(dtdUri: secondEditorExtension.dtdUri);
 
-        await d.dir('dart_app_2', [
-          d.dir('bin', [
-            d.file('main.dart', '''
+      await d.dir('dart_app_2', [
+        d.dir('bin', [
+          d.file('main.dart', '''
 import 'dart:io';
 void main() async {
   stderr.writeln('error from app 2');
@@ -206,73 +204,72 @@ void main() async {
   }
 }
 '''),
-          ]),
-        ]).create();
-        final session2 = await testHarness.startDebugSession(
-          p.join(d.sandbox, 'dart_app_2'),
-          'bin/main.dart',
-          isFlutter: false,
+        ]),
+      ]).create();
+      final session2 = await testHarness.startDebugSession(
+        p.join(d.sandbox, 'dart_app_2'),
+        'bin/main.dart',
+        isFlutter: false,
+        editorExtension: secondEditorExtension,
+      );
+      addTearDown(
+        () => testHarness.stopDebugSession(
+          session2,
           editorExtension: secondEditorExtension,
-        );
-        addTearDown(
-          () => testHarness.stopDebugSession(
-            session2,
-            editorExtension: secondEditorExtension,
-          ),
-        );
+        ),
+      );
 
-        final listResult = await testHarness.callToolWithRetry(
-          CallToolRequest(
-            name: ToolNames.dtd.name,
-            arguments: {ParameterNames.command: DtdCommand.listConnectedApps},
-          ),
-          retryUntil: (result) =>
-              (result.structuredContent as Map<String, Object?>).values
-                  .cast<List<Object?>>()
-                  .fold(0, (count, apps) => count + apps.length) ==
-              2,
-        );
-        expect(listResult.isError, isNot(true));
-        final dtdEntries = listResult.structuredContent;
-        expect(dtdEntries, isNotNull);
-        final connectedAppUris = (dtdEntries as Map<String, Object?>).values
-            .cast<List<Object?>>()
-            .fold(
-              <String>[],
-              (apps, appInfos) => apps
-                ..addAll(
-                  appInfos.map(
-                    (app) => (app as Map<String, Object?>)['uri'] as String,
-                  ),
+      final listResult = await testHarness.callToolWithRetry(
+        CallToolRequest(
+          name: ToolNames.dtd.name,
+          arguments: {ParameterNames.command: DtdCommand.listConnectedApps},
+        ),
+        retryUntil: (result) =>
+            (result.structuredContent as Map<String, Object?>).values
+                .cast<List<Object?>>()
+                .fold(0, (count, apps) => count + apps.length) ==
+            2,
+      );
+      expect(listResult.isError, isNot(true));
+      final dtdEntries = listResult.structuredContent;
+      expect(dtdEntries, isNotNull);
+      final connectedAppUris = (dtdEntries as Map<String, Object?>).values
+          .cast<List<Object?>>()
+          .fold(
+            <String>[],
+            (apps, appInfos) => apps
+              ..addAll(
+                appInfos.map(
+                  (app) => (app as Map<String, Object?>)['uri'] as String,
                 ),
-            );
-        expect(connectedAppUris, hasLength(2));
+              ),
+          );
+      expect(connectedAppUris, hasLength(2));
 
-        // Verify errors for App 1
-        final errors1 = await testHarness.callToolWithRetry(
-          CallToolRequest(
-            name: ToolNames.getRuntimeErrors.name,
-            arguments: {ParameterNames.appUri: session1.vmServiceUri},
-          ),
-        );
-        expect(
-          (errors1.content[1] as TextContent).text,
-          contains('error from app 1'),
-        );
+      // Verify errors for App 1
+      final errors1 = await testHarness.callToolWithRetry(
+        CallToolRequest(
+          name: ToolNames.getRuntimeErrors.name,
+          arguments: {ParameterNames.appUri: session1.vmServiceUri},
+        ),
+      );
+      expect(
+        (errors1.content[1] as TextContent).text,
+        contains('error from app 1'),
+      );
 
-        // Verify errors for App 2
-        final errors2 = await testHarness.callToolWithRetry(
-          CallToolRequest(
-            name: ToolNames.getRuntimeErrors.name,
-            arguments: {ParameterNames.appUri: session2.vmServiceUri},
-          ),
-          retryUntil: (result) => result.content.length > 1,
-        );
-        expect(
-          (errors2.content[1] as TextContent).text,
-          contains('error from app 2'),
-        );
-      },
-    );
+      // Verify errors for App 2
+      final errors2 = await testHarness.callToolWithRetry(
+        CallToolRequest(
+          name: ToolNames.getRuntimeErrors.name,
+          arguments: {ParameterNames.appUri: session2.vmServiceUri},
+        ),
+        retryUntil: (result) => result.content.length > 1,
+      );
+      expect(
+        (errors2.content[1] as TextContent).text,
+        contains('error from app 2'),
+      );
+    });
   });
 }
