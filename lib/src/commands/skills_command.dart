@@ -27,19 +27,19 @@ abstract class SkillsCommand extends Command<void> {
     return const WorkspaceResolver().resolve(path);
   }
 
-  /// Returns the manifest file for the given [rootPath].
-  File manifestFile(String rootPath) {
-    return File(SkillManifest.pathIn(rootPath));
-  }
-
-  /// Loads the manifest from [rootPath], or returns an empty manifest if none exists.
-  Future<SkillManifest> loadManifest(String rootPath) async {
-    return SkillManifest.loadOrEmpty(manifestFile(rootPath));
-  }
-
   /// The package name from rest arguments, or null if not specified.
   String? get packageNameArg =>
       argResults != null && argResults!.rest.isNotEmpty
           ? argResults!.rest.first
           : null;
+}
+
+/// Returns the manifest file for the given [rootPath].
+File manifestFile(String rootPath) {
+  return File(SkillManifest.pathIn(rootPath));
+}
+
+/// Loads the manifest from [rootPath], or returns an empty manifest if none exists.
+Future<SkillManifest> loadManifest(String rootPath) async {
+  return SkillManifest.loadOrEmpty(manifestFile(rootPath));
 }
