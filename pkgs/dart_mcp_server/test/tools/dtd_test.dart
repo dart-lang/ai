@@ -110,6 +110,12 @@ void main() {
       });
 
       test('Can list running DTD URIs', () async {
+        // Ensure we can see another one that is not directly connected to
+        // the test harness.
+        final secondEditorExtension = await FakeEditorExtension.connect(
+          testHarness.sdk,
+        );
+        addTearDown(secondEditorExtension.shutdown);
         final result = await testHarness.callTool(
           CallToolRequest(
             name: ToolNames.dtd.name,
@@ -124,6 +130,8 @@ void main() {
           matches(RegExp(r'Found \d+ Dart Tooling Daemon instance\(s\):')),
         );
         expect(text, contains('WS URI:'));
+        expect(text, contains(testHarness.fakeEditorExtension!.dtdUri));
+        expect(text, contains(secondEditorExtension.dtdUri));
         expect(text, contains('Workspace Root:'));
         expect(text, contains('PID:'));
       });
