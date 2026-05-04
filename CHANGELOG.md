@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.2
+
+- refactor: Expose the `getSkills` function for external use.
+
 ## 0.2.1
 
 - docs: Updates README.
