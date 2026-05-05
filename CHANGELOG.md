@@ -1,8 +1,14 @@
 # Changelog
 
+## 0.3.0
+
+- feat: Adds support for OpenCode.
+- feat: Exports `getSkills` for programmatic usage as part of the public API.
+- fix: Makes all skills non-user-invocable by default on Claude Code.
+
 ## 0.2.2
 
-- refactor: Expose the `getSkills` function for external use.
+- refactor: Refactors the core logic to the `getSkills` function.
 
 ## 0.2.1
 
