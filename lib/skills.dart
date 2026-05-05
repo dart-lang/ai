@@ -3,3 +3,6 @@
 export 'src/commands/get_command.dart';
 export 'src/commands/list_command.dart';
 export 'src/commands/remove_command.dart';
+
+// Public API: function for programmatic use.
+export 'src/commands/get_skills.dart' show getSkills;
