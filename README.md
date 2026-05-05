@@ -87,6 +87,7 @@ The CLI auto-detects your IDE from project directory markers. If multiple IDEs a
 | [Codex](https://developers.openai.com/codex/skills/) | `--ide codex` | `.agent/skills/` | Agent Skills |
 | [Cursor](https://cursor.com/docs/skills) | `--ide cursor` | `.cursor/skills/` | Agent Skills |
 | [GitHub Copilot](https://docs.github.com/en/copilot/concepts/agents/about-agent-skills) | `--ide copilot` | `.github/skills/` | Agent Skills |
+| [OpenCode](https://opencode.ai) | `--ide opencode` | `.opencode/skills/` | Agent Skills |
 | Generic | `--ide generic` | `.agent/skills/` | Agent Skills |
 
 Antigravity, Codex, and generic all install to the same `.agent/skills/` directory (only `generic` is stored in the config). GitHub Copilot is not auto-detected (`.github/` is often used for other purposes); use `--ide copilot` to install skills for Copilot explicitly.

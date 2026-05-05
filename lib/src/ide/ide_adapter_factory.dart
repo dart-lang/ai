@@ -3,6 +3,7 @@ import 'adapters/cline_adapter.dart';
 import 'adapters/copilot_adapter.dart';
 import 'adapters/cursor_adapter.dart';
 import 'adapters/generic_adapter.dart';
+import 'adapters/opencode_adapter.dart';
 import 'ide.dart';
 import 'ide_adapter.dart';
 
@@ -14,5 +15,6 @@ IdeAdapter createIdeAdapter(Ide ide, String projectPath) {
     Ide.claude => ClaudeAdapter(projectPath),
     Ide.copilot => CopilotAdapter(projectPath),
     Ide.cline => ClineAdapter(projectPath),
+    Ide.opencode => OpenCodeAdapter(projectPath),
   };
 }

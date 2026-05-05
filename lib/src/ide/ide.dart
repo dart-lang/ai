@@ -12,7 +12,8 @@ enum Ide {
   generic('generic', '.agent/skills'),
   claude('claude', '.claude/skills'),
   copilot('copilot', '.github/skills'),
-  cline('cline', '.cline/skills');
+  cline('cline', '.cline/skills'),
+  opencode('opencode', '.opencode/skills');
 
   final String cliName;
 
@@ -44,6 +45,7 @@ enum Ide {
       Ide.cline => Directory(p.join(projectPath, '.cline')).existsSync() ||
           Directory(p.join(projectPath, '.clinerules')).existsSync(),
       Ide.copilot => false,
+      Ide.opencode => Directory(p.join(projectPath, '.opencode')).existsSync(),
     };
   }
 

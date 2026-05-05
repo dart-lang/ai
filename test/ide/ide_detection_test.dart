@@ -47,6 +47,17 @@ void main() {
     });
   });
 
+  group('Given a project with a .opencode directory', () {
+    test('when detecting IDE then returns opencode', () async {
+      await d.dir('opencode_project', [d.dir('.opencode')]).create();
+
+      const detector = IdeDetector();
+      final ide = detector.detect(d.path('opencode_project'));
+
+      expect(ide, equals(Ide.opencode));
+    });
+  });
+
   group('Given a project with .github/copilot-instructions.md', () {
     test('when detecting IDE then does not auto-detect copilot', () async {
       await d.dir('copilot_project', [
@@ -119,6 +130,7 @@ void main() {
       expect(Ide.fromCliName('claude'), equals(Ide.claude));
       expect(Ide.fromCliName('copilot'), equals(Ide.copilot));
       expect(Ide.fromCliName('cline'), equals(Ide.cline));
+      expect(Ide.fromCliName('opencode'), equals(Ide.opencode));
     });
 
     test('when given generic aliases then returns generic', () {
