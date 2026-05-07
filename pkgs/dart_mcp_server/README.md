@@ -304,16 +304,35 @@ driving: `widget_inspector`, `get_runtime_errors`, `hot_reload`,
 and form input, pair the Dart MCP server with a **browser-driving MCP**
 (any MCP that controls Chrome or Firefox).
 
-Two launch modes, with different trade-offs:
+Two launch modes:
 
-| Mode | Pros | Cons |
-|---|---|---|
-| `flutter run -d chrome` | Single command, opens immediately. | Flutter spawns a clean Chrome window without extensions or your user profile, so a browser-driving MCP cannot attach to that window. You can launch a second MCP-controlled Chrome on the same dev URL, but multi-instance behavior in this mode needs validation. |
-| `flutter run -d web-server` | Open the URL in your own MCP-controlled Chrome — DTD picks the app up after the browser handshake. One instance, clean attribution. | DevTools / IDE attach behaviors are different from `-d chrome`; exact gaps not yet fully mapped. |
+`flutter run -d chrome` opens immediately in a clean Chrome window
+spawned by Flutter — no extensions, no user profile — and that window is
+the one DTD knows about. A browser-driving MCP cannot attach to that
+window, and pointing a second browser at the same dev URL is misleading
+(see the warning below).
 
-In `web-server` mode, DTD does **not** appear in `listDtdUris` until a
-browser actually loads the served URL. That handshake is what registers
-the app with DDS.
+`flutter run -d web-server` doesn't auto-spawn a browser — open the URL
+in your MCP-controlled Chrome, and DTD picks the app up once the page
+finishes loading. The browser the agent drives *is* the registered
+VM Service client. DTD does **not** appear in `listDtdUris` until the
+URL actually loads in a browser; that handshake is what registers the
+app with DDS. The "Dart Debug Chrome extension" Flutter mentions in its
+log is for human DevTools-style breakpoints, not for the MCP — the MCP
+toolset works without it.
+
+> ⚠️ **The second-browser trap (`-d chrome` only).** Opening another
+> Chrome tab at the same dev URL looks normal — the bundle is served, the
+> app renders, the user is logged in. But hot reload, runtime errors, and
+> the widget inspector all keep targeting the Chrome Flutter spawned:
+> edits don't appear in the second browser, `print` output and exceptions
+> don't come from it, and `listConnectedApps` still shows a single entry.
+> An agent driving that second browser believes it is reading and patching
+> the visible app while every MCP call silently lands on an invisible
+> window. Installing the Dart Debug Extension in a regular Chrome does not
+> rescue this — in `-d chrome` mode, dwds tracks the window it spawned via
+> CDP and ignores other clients. For agent-driven web testing, prefer
+> `-d web-server`.
 
 ### Identifying instances when several are connected
 
