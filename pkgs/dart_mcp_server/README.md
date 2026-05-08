@@ -223,9 +223,10 @@ VM Service URI) to disambiguate.
 
 To use finder-based UI commands (`tap`, `enter_text`, `screenshot`,
 `scroll`, `waitFor`…), your app must call `enableFlutterDriverExtension()`
-before `runApp()`. The `flutter_driver` package does **not** compile under
-dart2js, so for projects that also build for web, gate the import via a
-conditional and provide a stub for web builds:
+before `runApp()` (see the [Flutter Driver documentation][] for background).
+The `flutter_driver` package does **not** compile under dart2js, so for
+projects that also build for web, gate the import via a conditional and
+provide a stub for web builds:
 
 ```dart
 // lib/utils/flutter_driver_setup.dart
@@ -269,6 +270,10 @@ quit and relaunch, not a hot reload.
 flutter_driver_command(command: "screenshot", appUri: "...")
 flutter_driver_command(command: "tap", finderType: "ByText", text: "Sign In", appUri: "...")
 ```
+
+The `enabled` parameter (used by `set_semantics`, `set_frame_sync`,
+`set_text_entry_emulation`) is passed as a string — `"true"` or `"false"`,
+not an unquoted bool.
 
 A few non-obvious finder rules:
 
@@ -325,11 +330,12 @@ toolset works without it.
 > Chrome tab at the same dev URL looks normal — the bundle is served, the
 > app renders, the user is logged in. But hot reload, runtime errors, and
 > the widget inspector all keep targeting the Chrome Flutter spawned:
-> edits don't appear in the second browser, `print` output and exceptions
-> don't come from it, and `listConnectedApps` still shows a single entry.
-> An agent driving that second browser believes it is reading and patching
-> the visible app while every MCP call silently lands on an invisible
-> window. Installing the Dart Debug Extension in a regular Chrome does not
+> edits don't appear in the second browser, and `listConnectedApps` still
+> shows a single entry. The same applies to `print` output and runtime
+> errors, which only flow back from the CDP-attached window. An agent
+> driving that second browser believes it is reading and patching the
+> visible app while every MCP call silently lands on an invisible window.
+> Installing the Dart Debug Extension in a regular Chrome does not
 > rescue this — in `-d chrome` mode, dwds tracks the window it spawned via
 > CDP and ignores other clients. For agent-driven web testing, prefer
 > `-d web-server`.
@@ -381,8 +387,8 @@ trivial.
 - **`hot_reload` (or any tool) returns "must specify app URI".** Multiple
   apps connected — pass `appUri` on every call.
 - **Live `flutter run` exits with `The Dart compiler exited unexpectedly`.**
-  A cleanup command (`flutter clean`, `flutter pub get`, `build_runner
-  --delete-conflicting-outputs`) deleted `.dart_tool/` or `build/` while
-  the app was running. Quit the app first, clean, relaunch.
+  Something deleted `.dart_tool/` or `build/` while the app was running
+  (typically `flutter clean`, `flutter pub get`, or a `build_runner` rerun).
+  Quit the app first, clean, relaunch.
 
 [Flutter Driver documentation]: https://docs.flutter.dev/testing/integration-tests
