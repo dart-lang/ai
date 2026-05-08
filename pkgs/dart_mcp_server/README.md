@@ -281,16 +281,16 @@ A few non-obvious finder rules:
   widget — `ByText` will not find it. Use `BySemanticsLabel` (or add a
   `ValueKey` and use `ByValueKey`).
 - **`BySemanticsLabel` requires semantics enabled.** Call
-  `flutter_driver_command(set_semantics, enabled: "true")` once per session
-  before relying on it; the semantics tree only builds when accessibility
-  is on.
+  `flutter_driver_command(command: "set_semantics", enabled: "true")` once
+  per session before relying on it; the semantics tree only builds when
+  accessibility is on.
 - **Multiple `TextField`s on screen** make `ByType: "TextField"` fail with
   *"ambiguously found multiple matching widgets"*. Add a `ValueKey` or use
   `BySemanticsLabel` with the field's hint or label.
 - **Frame sync timeouts** on apps with continuous animations (Rive, Lottie,
   spinners) — call
-  `flutter_driver_command(set_frame_sync, enabled: "false")` once per
-  session.
+  `flutter_driver_command(command: "set_frame_sync", enabled: "false")`
+  once per session.
 
 #### No pixel-coordinate clicks
 
@@ -360,8 +360,9 @@ trivial.
 - **`analyze_files`** runs the analysis server with `custom_lint` plugins
   (e.g. `riverpod_lint`); the bash `dart analyze` CLI does not. If your
   project relies on those plugins, `analyze_files` is the only way an
-  agent will see the diagnostics. Pass `paths` inside `roots` to scope to
-  `lib/`; without it, an iOS build pulls `build/ios/SourcePackages` into
+  agent will see the diagnostics. Each entry in the `roots` argument
+  accepts an optional `paths` field — pass `paths: ["lib"]` to scope the
+  analysis; without it, an iOS build pulls `build/ios/SourcePackages` into
   the analyzed set.
 - **`widget_inspector(get_widget_tree)`** can return very large trees on
   non-trivial apps and overflow to a file. Pass `summaryOnly: true` for a
@@ -380,10 +381,12 @@ trivial.
   (use a browser MCP — Flutter Driver doesn't exist on dart2js), or you
   launched without `--dart-define=ENABLE_FLUTTER_DRIVER=true`. The flag is
   compile-time — quit and relaunch.
-- **`BySemanticsLabel` times out.** Call `set_semantics, enabled: "true"`
+- **`BySemanticsLabel` times out.** Call
+  `flutter_driver_command(command: "set_semantics", enabled: "true")`
   first.
-- **Frame sync timeouts** on animated apps. Call `set_frame_sync, enabled:
-  "false"` once per session.
+- **Frame sync timeouts** on animated apps. Call
+  `flutter_driver_command(command: "set_frame_sync", enabled: "false")`
+  once per session.
 - **`hot_reload` (or any tool) returns "must specify app URI".** Multiple
   apps connected — pass `appUri` on every call.
 - **Live `flutter run` exits with `The Dart compiler exited unexpectedly`.**
