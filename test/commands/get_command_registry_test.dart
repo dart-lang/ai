@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:skills/src/commands/get_command.dart';
 import 'package:skills/src/core/git_runner.dart';
 import 'package:skills/src/models/skill_manifest.dart';
+import '../fake_dialog_support.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
 
@@ -65,6 +66,7 @@ environment:
         final projectPath = p.join(testRootPath, 'project');
 
         final getCommand = GetCommand(
+          dialogSupport: FakeDialogSupport(),
           gitRunner: GitRunner(isAvailableOverride: _gitUnavailable),
         );
         final runner = CommandRunner<void>('skills', 'Test')

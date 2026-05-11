@@ -1,7 +1,5 @@
-import 'dart:io';
-import 'dart:io' as io; // to distinguish stdout from io.stdout, etc.
-
 import 'package:args/command_runner.dart';
+import 'package:logging/logging.dart';
 import 'package:skills/src/commands/skills_command.dart';
 import 'package:skills/src/core/git_runner.dart';
 import 'package:skills/src/core/package_resolver.dart';
@@ -13,20 +11,18 @@ import 'package:skills/src/core/skill_merger.dart';
 import 'package:skills/src/core/skill_scanner.dart';
 import 'package:skills/src/core/workspace_resolver.dart';
 import 'package:skills/src/ide/ide.dart';
+import 'package:skills/src/core/dialog_support.dart';
 
 /// Installs skills from package dependencies for [ides].
 Future<bool> getSkills({
   required List<Ide> ides,
+  required Logger logger,
   required WorkspaceLayout workspace,
+  DialogSupport? dialogSupport,
   GitRunner gitRunner = const GitRunner(),
   String usage = '',
   String? packageName,
-  IOSink? stdout,
-  IOSink? stderr,
 }) async {
-  stdout ??= io.stdout;
-  stderr ??= io.stderr;
-
   final ready = await PubRunner.ensureWorkspaceConfigs(workspace);
   if (!ready) {
     throw UsageException('Failed to run pub get.', usage);
@@ -38,22 +34,22 @@ Future<bool> getSkills({
   );
 
   if (packageName != null && packages.isEmpty) {
-    stderr.writeln('Package "$packageName" not found in dependencies.');
+    logger.severe('Package "$packageName" not found in dependencies.');
     return false;
   }
 
-  const scanner = SkillScanner();
+  final scanner = SkillScanner(logger);
   final dartSkills = await scanner.scan(packages);
   final rootPath = workspace.rootPath;
 
   var registrySkills = <ScannedSkill>[];
   if (await gitRunner.isAvailable) {
     const registrySync = RegistrySync();
-    await registrySync.sync(rootPath, onProgress: stdout.writeln);
+    await registrySync.sync(rootPath, onProgress: logger.info);
     const registryScanner = RegistryScanner();
     registrySkills = await registryScanner.scan(rootPath);
   } else {
-    stderr.writeln(
+    logger.warning(
       'Warning: git not found. Skipping GitHub registry skills.',
     );
   }
@@ -66,11 +62,11 @@ Future<bool> getSkills({
   );
 
   if (skills.isEmpty) {
-    stdout.writeln('No skills found in ${packageName ?? "any"} packages.');
+    logger.info('No skills found in ${packageName ?? "any"} packages.');
     return false;
   }
 
-  const installer = SkillInstaller();
+  final installer = SkillInstaller(dialogSupport);
   var manifest = await loadManifest(rootPath);
 
   for (final ide in ides) {
@@ -80,16 +76,20 @@ Future<bool> getSkills({
       skills: skills,
       manifest: manifest,
     );
+    if (result == null) {
+      logger.warning('Installation aborted for IDE ${ide.cliName}');
+      continue;
+    }
     manifest = result.manifest;
     for (final info in result.installed) {
-      stdout.writeln('  [${info.ideName}] Installed ${info.skillName}');
+      logger.info('  [${info.ideName}] Installed ${info.skillName}');
     }
   }
 
   await manifest.save(manifestFile(rootPath));
 
   final ideNames = ides.map((e) => e.cliName).join(', ');
-  stdout.writeln('Installed ${skills.length} skill(s) for $ideNames.');
+  logger.info('Installed ${skills.length} skill(s) for $ideNames.');
 
   return true;
 }

@@ -1,3 +1,4 @@
+import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 import 'package:skills/src/core/package_resolver.dart';
 import 'package:skills/src/core/skill_scanner.dart';
@@ -5,10 +6,13 @@ import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
 
 void main() {
+  late Logger logger;
+
   group('Given a package with correctly prefixed skills', () {
     late ResolvedPackage package;
 
     setUp(() async {
+      logger = Logger('SkillScanner test');
       await d.dir('my_package', [
         d.dir('skills', [
           d.dir('my_package-code-gen', [
@@ -45,7 +49,7 @@ Instructions.
     });
 
     test('when scanning then finds all valid skills', () async {
-      const scanner = SkillScanner();
+      final scanner = SkillScanner(logger);
       final skills = await scanner.scanPackage(package);
 
       expect(skills, hasLength(2));
@@ -56,7 +60,7 @@ Instructions.
     });
 
     test('when scanning then skill paths point to skill directories', () async {
-      const scanner = SkillScanner();
+      final scanner = SkillScanner(logger);
       final skills = await scanner.scanPackage(package);
 
       for (final skill in skills) {
@@ -98,7 +102,7 @@ Body.
           rootPath: d.path('my_package'),
         );
 
-        const scanner = SkillScanner();
+        final scanner = SkillScanner(logger);
         final skills = await scanner.scanPackage(package);
 
         expect(skills, hasLength(1));
@@ -118,7 +122,7 @@ Body.
         rootPath: d.path('no_skills_package'),
       );
 
-      const scanner = SkillScanner();
+      final scanner = SkillScanner(logger);
       final skills = await scanner.scanPackage(package);
 
       expect(skills, isEmpty);
@@ -140,7 +144,7 @@ Body.
         rootPath: d.path('empty_skills'),
       );
 
-      const scanner = SkillScanner();
+      final scanner = SkillScanner(logger);
       final skills = await scanner.scanPackage(package);
 
       expect(skills, isEmpty);
@@ -182,7 +186,7 @@ Body B.
         ResolvedPackage(name: 'pkg_b', rootPath: d.path('pkg_b')),
       ];
 
-      const scanner = SkillScanner();
+      final scanner = SkillScanner(logger);
       final skills = await scanner.scan(packages);
 
       expect(skills, hasLength(2));

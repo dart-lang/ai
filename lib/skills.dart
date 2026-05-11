@@ -6,3 +6,5 @@ export 'src/commands/remove_command.dart';
 
 // Public API: function for programmatic use.
 export 'src/commands/get_skills.dart' show getSkills;
+export 'src/core/dialog_support.dart' show DialogSupport;
+export 'src/core/cli_dialog_support.dart' show CliUtilDialogSupport;

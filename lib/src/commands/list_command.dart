@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import '../models/skill_manifest.dart';
 import 'skills_command.dart';
 
@@ -11,6 +9,8 @@ class ListCommand extends SkillsCommand {
   @override
   final String description = 'List installed managed skills.';
 
+  ListCommand();
+
   @override
   Future<void> run() async {
     final workspace = await resolveWorkspace();
@@ -19,24 +19,27 @@ class ListCommand extends SkillsCommand {
     final manifest = await SkillManifest.load(manifestFile(rootPath));
 
     if (manifest == null || manifest.isEmpty) {
-      stdout.writeln('No managed skills installed.');
+      logger.info('No managed skills installed.');
       return;
     }
 
-    stdout.writeln('Installed skills:');
-    stdout.writeln();
+    final buffer = StringBuffer()
+      ..writeln('Installed skills:')
+      ..writeln();
 
     for (final ide in manifest.allIdes) {
       final pkgs = manifest.packagesForIde(ide);
       if (pkgs.isEmpty) continue;
 
-      stdout.writeln('  $ide:');
+      buffer.writeln('  $ide:');
       for (final entry in pkgs.entries) {
-        stdout.writeln('    ${entry.key}:');
+        buffer.writeln('    ${entry.key}:');
         for (final skill in entry.value.skills) {
-          stdout.writeln('      - ${skill.name}');
+          buffer.writeln('      - ${skill.name}');
         }
       }
     }
+
+    logger.info(buffer.toString());
   }
 }

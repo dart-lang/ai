@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
+import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 
 import '../core/workspace_resolver.dart';
@@ -8,6 +9,8 @@ import '../models/skill_manifest.dart';
 
 /// Base class for skills CLI commands with shared workspace and manifest helpers.
 abstract class SkillsCommand extends Command<void> {
+  late final logger = Logger('skills $name');
+
   SkillsCommand() {
     argParser.addOption(
       'directory',

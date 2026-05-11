@@ -14,9 +14,9 @@ void main() {
     });
   });
 
-  group('Given a project with a .agent directory', () {
+  group('Given a project with a .agents directory', () {
     test('when detecting IDE then returns generic', () async {
-      await d.dir('ag_project', [d.dir('.agent')]).create();
+      await d.dir('ag_project', [d.dir('.agents')]).create();
 
       const detector = IdeDetector();
       final ide = detector.detect(d.path('ag_project'));
@@ -99,7 +99,7 @@ void main() {
     test('when detecting single IDE then returns null', () async {
       await d.dir('multi_ide_project', [
         d.dir('.cursor'),
-        d.dir('.agent'),
+        d.dir('.agents'),
       ]).create();
 
       const detector = IdeDetector();
@@ -111,7 +111,7 @@ void main() {
     test('when detecting all IDEs then returns all detected', () async {
       await d.dir('multi_ide_project2', [
         d.dir('.cursor'),
-        d.dir('.agent'),
+        d.dir('.agents'),
         d.dir('.claude'),
       ]).create();
 

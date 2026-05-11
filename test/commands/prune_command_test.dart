@@ -5,6 +5,7 @@ import 'package:args/command_runner.dart';
 import 'package:path/path.dart' as p;
 import 'package:skills/src/commands/prune_command.dart';
 import 'package:skills/src/models/skill_manifest.dart';
+import '../fake_dialog_support.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
 
@@ -92,7 +93,7 @@ environment:
         );
         await manifest.save(File(SkillManifest.pathIn(projectPath)));
 
-        final pruneCommand = PruneCommand();
+        final pruneCommand = PruneCommand(dialogSupport: FakeDialogSupport());
         final runner = CommandRunner<void>('skills', 'Test')
           ..addCommand(pruneCommand);
         await runner
@@ -174,7 +175,7 @@ environment:
         );
         await manifest.save(File(SkillManifest.pathIn(projectPath)));
 
-        final pruneCommand = PruneCommand();
+        final pruneCommand = PruneCommand(dialogSupport: FakeDialogSupport());
         final runner = CommandRunner<void>('skills', 'Test')
           ..addCommand(pruneCommand);
         await runner
@@ -223,7 +224,7 @@ environment:
 
       final projectPath = p.join(testRootPath, 'no_skills_project');
 
-      final pruneCommand = PruneCommand();
+      final pruneCommand = PruneCommand(dialogSupport: FakeDialogSupport());
       final runner = CommandRunner<void>('skills', 'Test')
         ..addCommand(pruneCommand);
       await runner.run(['prune', '--directory', projectPath]);
@@ -347,7 +348,7 @@ environment:
         );
         await manifest.save(File(SkillManifest.pathIn(projectPath)));
 
-        final pruneCommand = PruneCommand();
+        final pruneCommand = PruneCommand(dialogSupport: FakeDialogSupport());
         final runner = CommandRunner<void>('skills', 'Test')
           ..addCommand(pruneCommand);
         await runner

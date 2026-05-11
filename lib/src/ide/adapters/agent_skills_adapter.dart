@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../core/skill_scanner.dart';
+import '../../models/skill_manifest.dart';
 import '../ide_adapter.dart';
 
 /// Base adapter for IDEs that support the Agent Skills standard natively.
@@ -19,6 +20,12 @@ class AgentSkillsAdapter implements IdeAdapter {
   Future<void> ensureSkillsDirectory() async {
     await Directory(skillsDirectory).create(recursive: true);
   }
+
+  /// Performs any migrations needed for this IDE.
+  ///
+  /// Returns false if the operation was aborted by the user or failed,
+  /// true if it succeeded.
+  Future<bool> performMigrations(SkillManifest manifest) async => true;
 
   @override
   Future<String> installSkill(ScannedSkill skill) async {

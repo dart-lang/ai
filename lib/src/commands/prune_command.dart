@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:args/command_runner.dart';
 
 import '../core/package_resolver.dart';
@@ -9,6 +7,7 @@ import '../ide/ide.dart';
 import '../models/skill_manifest.dart';
 import 'options.dart';
 import 'skills_command.dart';
+import 'package:skills/src/core/dialog_support.dart';
 
 /// Removes installed skills whose package is no longer in the dependency tree.
 class PruneCommand extends SkillsCommand {
@@ -19,7 +18,11 @@ class PruneCommand extends SkillsCommand {
   final String description =
       'Remove skills whose package is no longer in the dependency tree.';
 
-  PruneCommand() {
+  final DialogSupport? _dialogSupport;
+
+  PruneCommand({
+    DialogSupport? dialogSupport,
+  }) : _dialogSupport = dialogSupport {
     addIdeOption(argParser);
   }
 
@@ -39,7 +42,7 @@ class PruneCommand extends SkillsCommand {
     final loaded = await SkillManifest.load(manifestFile(rootPath));
 
     if (loaded == null || loaded.isEmpty) {
-      stdout.writeln('No managed skills found.');
+      logger.info('No managed skills found.');
       return;
     }
 
@@ -56,7 +59,7 @@ class PruneCommand extends SkillsCommand {
           .toList();
     }
 
-    const installer = SkillInstaller();
+    final installer = SkillInstaller(_dialogSupport);
     var totalRemoved = 0;
     final prunedPackages = <String>{};
 
@@ -75,7 +78,7 @@ class PruneCommand extends SkillsCommand {
         totalRemoved += result.removedCount;
         prunedPackages.add(packageName);
         for (final info in result.removed) {
-          stdout.writeln('  [${info.ideName}] Removed ${info.skillName}');
+          logger.info('  [${info.ideName}] Removed ${info.skillName}');
         }
       }
     }
@@ -87,9 +90,9 @@ class PruneCommand extends SkillsCommand {
     }
 
     if (totalRemoved == 0) {
-      stdout.writeln('No skills to prune.');
+      logger.info('No skills to prune.');
     } else {
-      stdout.writeln(
+      logger.info(
         'Pruned $totalRemoved skill(s) from ${prunedPackages.length} package(s).',
       );
     }

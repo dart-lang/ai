@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.0-dev
+
+- refactor: Migrate from `.agent/skills` to `.agents/skills` for the generic IDE
+  adapter. When a `.agent/` dir is detected you will be prompted for what action
+  to take.
+- feat: Added `DialogSupport` interface and optional parameter to `getSkills`,
+  includes a `CliUtilDialogSupport` implementation for use in simple CLIs.
+- feat: **Breaking Change** - Removed `stdout` and `stdin` parameters to
+  `getSkills` and replaced them with a required `Logger logger`.
+
 ## 0.3.0
 
 - feat: Adds support for OpenCode.

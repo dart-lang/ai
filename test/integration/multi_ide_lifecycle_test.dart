@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:skills/src/core/skill_installer.dart';
 import 'package:skills/src/core/skill_scanner.dart';
 import 'package:skills/src/ide/ide.dart';
+import '../fake_dialog_support.dart';
 import 'package:skills/src/models/skill_manifest.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
@@ -10,8 +11,10 @@ import 'package:test_descriptor/test_descriptor.dart' as d;
 void main() {
   late List<ScannedSkill> pkgASkills;
   late List<ScannedSkill> pkgBSkills;
+  late FakeDialogSupport fakeDialogSupport;
 
   setUp(() async {
+    fakeDialogSupport = FakeDialogSupport();
     // Source packages with skills.
     await d.dir('pkg_a', [
       d.dir('skills', [
@@ -88,27 +91,27 @@ Instructions for debugging.
     setUp(() async {
       await d.dir('project', [
         d.dir('.cursor', [d.dir('skills')]),
-        d.dir('.agent', [d.dir('skills')]),
+        d.dir('.agents', [d.dir('skills')]),
       ]).create();
 
       rootPath = d.path('project');
       manifest = const SkillManifest();
 
-      const installer = SkillInstaller();
+      final installer = SkillInstaller(fakeDialogSupport);
       var result = await installer.installSkillsForIde(
         ide: Ide.cursor,
         rootPath: rootPath,
         skills: [...pkgASkills, ...pkgBSkills],
         manifest: manifest,
       );
-      manifest = result.manifest;
+      manifest = result!.manifest;
       result = await installer.installSkillsForIde(
         ide: Ide.generic,
         rootPath: rootPath,
         skills: [...pkgASkills, ...pkgBSkills],
         manifest: manifest,
       );
-      manifest = result.manifest;
+      manifest = result!.manifest;
     });
 
     test('when removing all then both IDEs are cleaned up', () async {
@@ -118,11 +121,11 @@ Instructions for debugging.
         isTrue,
       );
       expect(
-        Directory('$rootPath/.agent/skills/pkg_a-code-gen').existsSync(),
+        Directory('$rootPath/.agents/skills/pkg_a-code-gen').existsSync(),
         isTrue,
       );
 
-      manifest = await const SkillInstaller().removeAllSkills(
+      manifest = await SkillInstaller(fakeDialogSupport).removeAllSkills(
         rootPath: rootPath,
         manifest: manifest,
       );
@@ -141,15 +144,15 @@ Instructions for debugging.
         isFalse,
       );
       expect(
-        Directory('$rootPath/.agent/skills/pkg_a-code-gen').existsSync(),
+        Directory('$rootPath/.agents/skills/pkg_a-code-gen').existsSync(),
         isFalse,
       );
       expect(
-        Directory('$rootPath/.agent/skills/pkg_b-testing').existsSync(),
+        Directory('$rootPath/.agents/skills/pkg_b-testing').existsSync(),
         isFalse,
       );
       expect(
-        Directory('$rootPath/.agent/skills/pkg_b-debugging').existsSync(),
+        Directory('$rootPath/.agents/skills/pkg_b-debugging').existsSync(),
         isFalse,
       );
 
@@ -158,7 +161,7 @@ Instructions for debugging.
 
     test('when removing one IDE then the other remains intact', () async {
       // Remove only Cursor.
-      final result = await const SkillInstaller().removeSkillsForIde(
+      final result = await SkillInstaller(fakeDialogSupport).removeSkillsForIde(
         ide: Ide.cursor,
         rootPath: rootPath,
         manifest: manifest,
@@ -175,13 +178,13 @@ Instructions for debugging.
         isFalse,
       );
 
-      // Generic (.agent) files still present.
+      // Generic (.agents) files still present.
       expect(
-        Directory('$rootPath/.agent/skills/pkg_a-code-gen').existsSync(),
+        Directory('$rootPath/.agents/skills/pkg_a-code-gen').existsSync(),
         isTrue,
       );
       expect(
-        Directory('$rootPath/.agent/skills/pkg_b-testing').existsSync(),
+        Directory('$rootPath/.agents/skills/pkg_b-testing').existsSync(),
         isTrue,
       );
 
@@ -193,7 +196,7 @@ Instructions for debugging.
       'when removing one package from all IDEs then other package remains',
       () async {
         // Remove pkg_a from both IDEs.
-        const installer = SkillInstaller();
+        final installer = SkillInstaller(fakeDialogSupport);
         for (final ideName in manifest.allIdes.toList()) {
           final ide = Ide.fromCliName(ideName)!;
           final result = await installer.removeSkillsForIde(
@@ -211,7 +214,7 @@ Instructions for debugging.
           isFalse,
         );
         expect(
-          Directory('$rootPath/.agent/skills/pkg_a-code-gen').existsSync(),
+          Directory('$rootPath/.agents/skills/pkg_a-code-gen').existsSync(),
           isFalse,
         );
 
@@ -221,7 +224,7 @@ Instructions for debugging.
           isTrue,
         );
         expect(
-          Directory('$rootPath/.agent/skills/pkg_b-debugging').existsSync(),
+          Directory('$rootPath/.agents/skills/pkg_b-debugging').existsSync(),
           isTrue,
         );
 
@@ -239,27 +242,27 @@ Instructions for debugging.
     setUp(() async {
       await d.dir('project', [
         d.dir('.cursor', [d.dir('skills')]),
-        d.dir('.agent', [d.dir('skills')]),
+        d.dir('.agents', [d.dir('skills')]),
       ]).create();
 
       rootPath = d.path('project');
       manifest = const SkillManifest();
 
-      const installer = SkillInstaller();
+      final installer = SkillInstaller(fakeDialogSupport);
       var result = await installer.installSkillsForIde(
         ide: Ide.cursor,
         rootPath: rootPath,
         skills: pkgASkills,
         manifest: manifest,
       );
-      manifest = result.manifest;
+      manifest = result!.manifest;
       result = await installer.installSkillsForIde(
         ide: Ide.generic,
         rootPath: rootPath,
         skills: pkgASkills,
         manifest: manifest,
       );
-      manifest = result.manifest;
+      manifest = result!.manifest;
     });
 
     test(
@@ -273,16 +276,16 @@ Instructions for debugging.
         cursorSkillDir.deleteSync(recursive: true);
 
         // Remove all -- should not throw even though cursor files are gone.
-        manifest = await const SkillInstaller().removeAllSkills(
+        manifest = await SkillInstaller(fakeDialogSupport).removeAllSkills(
           rootPath: rootPath,
           manifest: manifest,
         );
 
         expect(manifest.isEmpty, isTrue);
 
-        // Generic (.agent) was removed normally.
+        // Generic (.agents) was removed normally.
         expect(
-          Directory('$rootPath/.agent/skills/pkg_a-code-gen').existsSync(),
+          Directory('$rootPath/.agents/skills/pkg_a-code-gen').existsSync(),
           isFalse,
         );
       },
@@ -292,13 +295,13 @@ Instructions for debugging.
         'when some skills are manually deleted then remaining are still '
         'removed correctly', () async {
       // Install a second package too.
-      var result = await const SkillInstaller().installSkillsForIde(
+      var result = await SkillInstaller(fakeDialogSupport).installSkillsForIde(
         ide: Ide.cursor,
         rootPath: rootPath,
         skills: pkgBSkills,
         manifest: manifest,
       );
-      manifest = result.manifest;
+      manifest = result!.manifest;
 
       // Manually delete pkg_a skill from cursor.
       Directory(
@@ -306,7 +309,7 @@ Instructions for debugging.
       ).deleteSync(recursive: true);
 
       // Remove all.
-      manifest = await const SkillInstaller().removeAllSkills(
+      manifest = await SkillInstaller(fakeDialogSupport).removeAllSkills(
         rootPath: rootPath,
         manifest: manifest,
       );
@@ -327,39 +330,40 @@ Instructions for debugging.
     setUp(() async {
       await d.dir('project2', [
         d.dir('.cursor', [d.dir('skills')]),
-        d.dir('.agent', [d.dir('skills')]),
+        d.dir('.agents', [d.dir('skills')]),
       ]).create();
 
       rootPath = d.path('project2');
       manifest = const SkillManifest();
 
-      const installer = SkillInstaller();
+      final installer = SkillInstaller(fakeDialogSupport);
       var result = await installer.installSkillsForIde(
         ide: Ide.cursor,
         rootPath: rootPath,
         skills: pkgASkills,
         manifest: manifest,
       );
-      manifest = result.manifest;
+      manifest = result!.manifest;
       result = await installer.installSkillsForIde(
         ide: Ide.generic,
         rootPath: rootPath,
         skills: pkgASkills,
         manifest: manifest,
       );
-      manifest = result.manifest;
+      manifest = result!.manifest;
     });
 
     test('when reinstalling to one IDE then the other is untouched', () async {
       // Reinstall to Cursor only (simulating `skills get --ide cursor`).
       // SkillInstaller removes existing before installing.
-      final result = await const SkillInstaller().installSkillsForIde(
+      final result =
+          await SkillInstaller(fakeDialogSupport).installSkillsForIde(
         ide: Ide.cursor,
         rootPath: rootPath,
         skills: pkgASkills,
         manifest: manifest,
       );
-      manifest = result.manifest;
+      manifest = result!.manifest;
 
       // Cursor reinstalled.
       expect(
@@ -367,9 +371,9 @@ Instructions for debugging.
         isTrue,
       );
 
-      // Generic (.agent) untouched.
+      // Generic (.agents) untouched.
       expect(
-        Directory('$rootPath/.agent/skills/pkg_a-code-gen').existsSync(),
+        Directory('$rootPath/.agents/skills/pkg_a-code-gen').existsSync(),
         isTrue,
       );
 
@@ -390,21 +394,21 @@ Instructions for debugging.
       rootPath = d.path('project3');
       manifest = const SkillManifest();
 
-      const installer = SkillInstaller();
+      final installer = SkillInstaller(fakeDialogSupport);
       var result = await installer.installSkillsForIde(
         ide: Ide.cursor,
         rootPath: rootPath,
         skills: [...pkgASkills, ...pkgBSkills],
         manifest: manifest,
       );
-      manifest = result.manifest;
+      manifest = result!.manifest;
       result = await installer.installSkillsForIde(
         ide: Ide.claude,
         rootPath: rootPath,
         skills: [...pkgASkills, ...pkgBSkills],
         manifest: manifest,
       );
-      manifest = result.manifest;
+      manifest = result!.manifest;
     });
 
     test('when listing then manifest reports both IDEs correctly', () {
@@ -432,7 +436,7 @@ Instructions for debugging.
         isTrue,
       );
 
-      manifest = await const SkillInstaller().removeAllSkills(
+      manifest = await SkillInstaller(fakeDialogSupport).removeAllSkills(
         rootPath: rootPath,
         manifest: manifest,
       );
@@ -465,18 +469,19 @@ Instructions for debugging.
       'when installing then manifest stores canonical name generic only',
       () async {
         await d.dir('generic_project', [
-          d.dir('.agent', [d.dir('skills')]),
+          d.dir('.agents', [d.dir('skills')]),
         ]).create();
         final rootPath = d.path('generic_project');
 
         var manifest = const SkillManifest();
-        final result = await const SkillInstaller().installSkillsForIde(
+        final result =
+            await SkillInstaller(fakeDialogSupport).installSkillsForIde(
           ide: Ide.generic,
           rootPath: rootPath,
           skills: pkgASkills,
           manifest: manifest,
         );
-        manifest = result.manifest;
+        manifest = result!.manifest;
 
         expect(manifest.allIdes, equals(['generic']));
         expect(manifest.packagesForIde('generic'), hasLength(1));

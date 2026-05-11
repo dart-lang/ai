@@ -1,10 +1,9 @@
-import 'dart:io';
-
 import '../core/skill_installer.dart';
 import '../ide/ide.dart';
 import '../models/skill_manifest.dart';
 import 'options.dart';
 import 'skills_command.dart';
+import 'package:skills/src/core/dialog_support.dart';
 
 /// Removes managed skills.
 class RemoveCommand extends SkillsCommand {
@@ -14,7 +13,11 @@ class RemoveCommand extends SkillsCommand {
   @override
   final String description = 'Remove managed skills.';
 
-  RemoveCommand() {
+  final DialogSupport? _dialogSupport;
+
+  RemoveCommand({
+    DialogSupport? dialogSupport,
+  }) : _dialogSupport = dialogSupport {
     addIdeOption(argParser);
   }
 
@@ -26,7 +29,7 @@ class RemoveCommand extends SkillsCommand {
     final loaded = await SkillManifest.load(manifestFile(rootPath));
 
     if (loaded == null || loaded.isEmpty) {
-      stdout.writeln('No managed skills found.');
+      logger.info('No managed skills found.');
       return;
     }
 
@@ -47,7 +50,7 @@ class RemoveCommand extends SkillsCommand {
           .toList();
     }
 
-    const installer = SkillInstaller();
+    final installer = SkillInstaller(_dialogSupport);
     var totalRemoved = 0;
 
     for (final ide in targetIdes) {
@@ -60,7 +63,7 @@ class RemoveCommand extends SkillsCommand {
       manifest = result.manifest;
       totalRemoved += result.removedCount;
       for (final info in result.removed) {
-        stdout.writeln('  [${info.ideName}] Removed ${info.skillName}');
+        logger.info('  [${info.ideName}] Removed ${info.skillName}');
       }
     }
 
@@ -71,9 +74,9 @@ class RemoveCommand extends SkillsCommand {
     }
 
     if (packageName != null) {
-      stdout.writeln('Removed skills from $packageName.');
+      logger.info('Removed skills from $packageName.');
     } else {
-      stdout.writeln('Removed $totalRemoved managed skill(s).');
+      logger.info('Removed $totalRemoved managed skill(s).');
     }
   }
 }

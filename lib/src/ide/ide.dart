@@ -4,12 +4,12 @@ import 'package:path/path.dart' as p;
 
 /// Supported IDEs for skill installation.
 ///
-/// The "generic" IDE uses `.agent/skills/`. Antigravity, Codex, and generic are
+/// The "generic" IDE uses `.agents/skills/`. Antigravity, Codex, and generic are
 /// separate CLI options that all map here; only "generic" is stored in
 /// skills_config.
 enum Ide {
   cursor('cursor', '.cursor/skills'),
-  generic('generic', '.agent/skills'),
+  generic('generic', '.agents/skills'),
   claude('claude', '.claude/skills'),
   copilot('copilot', '.github/skills'),
   cline('cline', '.cline/skills'),
@@ -40,7 +40,7 @@ enum Ide {
   bool isDetected(String projectPath) {
     return switch (this) {
       Ide.cursor => Directory(p.join(projectPath, '.cursor')).existsSync(),
-      Ide.generic => Directory(p.join(projectPath, '.agent')).existsSync(),
+      Ide.generic => Directory(p.join(projectPath, '.agents')).existsSync(),
       Ide.claude => Directory(p.join(projectPath, '.claude')).existsSync(),
       Ide.cline => Directory(p.join(projectPath, '.cline')).existsSync() ||
           Directory(p.join(projectPath, '.clinerules')).existsSync(),
