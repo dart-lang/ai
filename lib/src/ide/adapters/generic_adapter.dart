@@ -53,7 +53,6 @@ class GenericAdapter extends AgentSkillsAdapter {
       if (!hasManifestSkillsInOldDir) {
         return true;
       }
-
       // Default is to only move known skills that we installed.
       bool moveAll = false;
 

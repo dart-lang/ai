@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 
 import 'package:args/args.dart';
 import 'package:config/config.dart';
+import 'package:skills/src/core/dialog_support.dart';
 
 import '../ide/ide.dart';
 
@@ -40,11 +41,15 @@ void addIdeOption(ArgParser argParser) {
 ///
 /// If `--ide` is specified (or the `SKILLS_IDE` env var), returns that single
 /// IDE. Otherwise returns all auto-detected IDEs.
+///
+/// If no IDE is auto-detected, uses [DialogSupport] (if given) to ask the user.
+///
 /// Throws if no IDE can be determined.
-List<Ide> resolveIdes({
+Future<List<Ide>> resolveIdes({
   required ArgResults? argResults,
   required String projectPath,
-}) {
+  DialogSupport? dialogSupport,
+}) async {
   final config = Configuration.resolveNoExcept(
     options: SkillsOption.values,
     argResults: argResults,
@@ -62,11 +67,18 @@ List<Ide> resolveIdes({
   }
 
   final detected = const IdeDetector().detectAll(projectPath);
-  if (detected.isEmpty) {
-    throw UsageException(
-      'Could not auto-detect IDE. Use --ide to specify one of: ${Ide.validNames}',
-      '',
-    );
+  if (detected.isNotEmpty) return detected;
+
+  if (dialogSupport case var dialogSupport?) {
+    final options = Ide.values.map((e) => e.cliName).toList();
+    final result = await dialogSupport.showMultiSelectDialog(options,
+        title: 'Unable to auto-detect IDE. Please select one or more:');
+    if (result != null && result.isNotEmpty) {
+      return result.map((e) => Ide.values[e]).toList();
+    }
   }
-  return detected;
+  throw UsageException(
+      'Could not auto-detect IDE and none selected. Use --ide to specify one of: '
+          '${Ide.validNames}',
+      '');
 }

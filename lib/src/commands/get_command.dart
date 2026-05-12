@@ -37,7 +37,8 @@ class GetCommand extends SkillsCommand {
       );
     }
 
-    final ides = resolveIdes(argResults: argResults, projectPath: rootPath);
+    final ides =
+        await resolveIdes(argResults: argResults, projectPath: rootPath);
 
     await getSkills(
       ides: ides,

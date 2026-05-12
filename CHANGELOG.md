@@ -9,6 +9,7 @@
   includes a `CliUtilDialogSupport` implementation for use in simple CLIs.
 - feat: **Breaking Change** - Removed `stdout` and `stdin` parameters to
   `getSkills` and replaced them with a required `Logger logger`.
+- feat: Allow the user to select an IDE if none is detected.
 
 ## 0.3.0
 
