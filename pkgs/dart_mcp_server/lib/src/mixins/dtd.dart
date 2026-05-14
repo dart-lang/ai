@@ -297,7 +297,7 @@ base mixin DartToolingDaemonSupport
     return _callOnVmService(
       appUri: appUri,
       callback: (vmService) async {
-        isolateId ??= (await vmService.getVM()).isolates!.first.id;
+        isolateId ??= (await vmService.getVM()).isolates?.firstOrNull?.id;
         try {
           final result = await vmService.callMethod(
             method,
