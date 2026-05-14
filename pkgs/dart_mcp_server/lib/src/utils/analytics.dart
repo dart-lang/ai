@@ -173,6 +173,7 @@ enum CallToolFailureReason {
   nonZeroExitCode,
   mustSpecifyDtdUri,
   processException,
+  rpcError,
   timeout,
   unhandledError,
   webSocketException,

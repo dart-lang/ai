@@ -2,6 +2,7 @@
 
 - Always enable roots fallback, and merge them with client roots that are set
   (if any).
+- Add a tool for making abribrary vm service method calls to connected apps.
 
 # 0.1.3 (Dart SDK 3.12.0)
 

@@ -14,7 +14,9 @@ extension ParameterNames on Never {
   static const dtdUri = 'dtdUri';
   static const empty = 'empty';
   static const enabled = 'enabled';
+  static const isolateId = 'isolateId';
   static const line = 'line';
+  static const method = 'method';
   static const name = 'name';
   static const packageNames = 'packageNames';
   static const paths = 'paths';
@@ -47,6 +49,7 @@ enum ToolNames {
   getRuntimeErrors('get_runtime_errors'),
   hotReload('hot_reload'),
   hotRestart('hot_restart'),
+  callVmServiceMethod('call_vm_service_method'),
   launchApp('launch_app'),
   listDevices('list_devices'),
   listRunningApps('list_running_apps'),

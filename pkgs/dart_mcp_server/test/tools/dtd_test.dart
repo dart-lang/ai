@@ -1277,6 +1277,70 @@ void main() {
           await testHarness.stopDebugSession(debugSession);
         });
       });
+
+      test('can invoke VM service methods', () async {
+        final debugSession = await testHarness.startDebugSession(
+          dartCliAppsPath,
+          'bin/infinite_wait.dart',
+          isFlutter: false,
+        );
+        await debugSession.appProcess.stdout.next;
+
+        final result = await testHarness.callToolWithRetry(
+          CallToolRequest(
+            name: ToolNames.callVmServiceMethod.name,
+            arguments: {
+              ParameterNames.method: 'ext.test.echo',
+              ParameterNames.arguments: {'message': 'hello'},
+            },
+          ),
+        );
+
+        expect(result.isError, isNot(true));
+        final content =
+            jsonDecode((result.content.single as TextContent).text)
+                as Map<String, Object?>;
+        expect(content['method'], 'ext.test.echo');
+        expect(content['parameters'], containsPair('message', 'hello'));
+
+        debugSession.appProcess.stdin.writeln('q');
+        await testHarness.stopDebugSession(debugSession);
+      });
+
+      test('reports errors from VM service method calls', () async {
+        final debugSession = await testHarness.startDebugSession(
+          dartCliAppsPath,
+          'bin/infinite_wait.dart',
+          isFlutter: false,
+        );
+        await debugSession.appProcess.stdout.next;
+
+        final result = await testHarness.callToolWithRetry(
+          CallToolRequest(
+            name: ToolNames.callVmServiceMethod.name,
+            arguments: {
+              ParameterNames.method: 'ext.test.failure',
+              ParameterNames.arguments: {'message': 'hello'},
+            },
+          ),
+          expectError: true,
+          retryUntil: (r) =>
+              r.isError == true && r.content.single is TextContent
+              ? (r.content.single as TextContent).text.contains(
+                  'Something went wrong',
+                )
+              : false,
+        );
+
+        expect(result.isError, true);
+        final content = (result.content.single as TextContent).text;
+        expect(content, contains('RPCError'));
+        expect(content, contains('ext.test.failure'));
+        expect(content, contains('Something went wrong'));
+
+        debugSession.appProcess.stdin.writeln('q');
+        await testHarness.stopDebugSession(debugSession);
+      });
     });
 
     test('Does not include flutter tools with --tools=dart', () async {
