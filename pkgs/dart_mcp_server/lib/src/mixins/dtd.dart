@@ -289,7 +289,7 @@ base mixin DartToolingDaemonSupport
   Future<CallToolResult> _callVmServiceMethod(CallToolRequest request) async {
     // These are already validated to match the schema definition.
     final method = request.arguments?[ParameterNames.method] as String;
-    var isolateId = request.arguments?[ParameterNames.isolateId] as String?;
+    final isolateId = request.arguments?[ParameterNames.isolateId] as String?;
     final args =
         request.arguments?[ParameterNames.arguments] as Map<String, Object?>?;
     final appUri = request.arguments?[ParameterNames.appUri] as String?;
@@ -297,7 +297,6 @@ base mixin DartToolingDaemonSupport
     return _callOnVmService(
       appUri: appUri,
       callback: (vmService) async {
-        isolateId ??= (await vmService.getVM()).isolates?.firstOrNull?.id;
         try {
           final result = await vmService.callMethod(
             method,
@@ -1421,8 +1420,8 @@ base mixin DartToolingDaemonSupport
         ),
         ParameterNames.isolateId: Schema.string(
           description:
-              'The isolate ID to target (optional), defaults to the main '
-              'isolate.',
+              'The isolate ID to target, you can find isolate IDs using the '
+              '`getVM` method.',
         ),
         ParameterNames.arguments: Schema.object(
           description: 'Arguments for the method (optional).',
