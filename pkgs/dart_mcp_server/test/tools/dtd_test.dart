@@ -1286,12 +1286,14 @@ void main() {
         );
         await debugSession.appProcess.stdout.next;
 
+        final isolateId = await _getIsolateId(testHarness);
         final result = await testHarness.callToolWithRetry(
           CallToolRequest(
             name: ToolNames.callVmServiceMethod.name,
             arguments: {
               ParameterNames.method: 'ext.test.echo',
               ParameterNames.arguments: {'message': 'hello'},
+              ParameterNames.isolateId: isolateId,
             },
           ),
         );
@@ -1315,12 +1317,14 @@ void main() {
         );
         await debugSession.appProcess.stdout.next;
 
+        final isolateId = await _getIsolateId(testHarness);
         final result = await testHarness.callToolWithRetry(
           CallToolRequest(
             name: ToolNames.callVmServiceMethod.name,
             arguments: {
               ParameterNames.method: 'ext.test.failure',
               ParameterNames.arguments: {'message': 'hello'},
+              ParameterNames.isolateId: isolateId,
             },
           ),
           expectError: true,
@@ -1481,4 +1485,19 @@ Future<void> _deleteWithRetry(Directory dir) async {
       await Future<void>.delayed(const Duration(milliseconds: 200));
     }
   }
+}
+
+Future<String> _getIsolateId(TestHarness testHarness) async {
+  final getVmResponse = await testHarness.callTool(
+    CallToolRequest(
+      name: ToolNames.callVmServiceMethod.name,
+      arguments: {ParameterNames.method: 'getVM'},
+    ),
+  );
+  final vmObject =
+      jsonDecode((getVmResponse.content.single as TextContent).text)
+          as Map<String, Object?>;
+  return ((vmObject['isolates'] as List<Object?>).first
+          as Map<String, Object?>)['id']
+      as String;
 }
