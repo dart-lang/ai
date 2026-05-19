@@ -1334,7 +1334,7 @@ void main() {
             ) =>
               msg.contains('Something went wrong'),
             _ => false,
-          }
+          },
         );
 
         expect(result.isError, true);
