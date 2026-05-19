@@ -1298,7 +1298,6 @@ void main() {
           ),
         );
 
-        expect(result.isError, isNot(true));
         final content =
             jsonDecode((result.content.single as TextContent).text)
                 as Map<String, Object?>;
@@ -1328,12 +1327,14 @@ void main() {
             },
           ),
           expectError: true,
-          retryUntil: (r) =>
-              r.isError == true && r.content.single is TextContent
-              ? (r.content.single as TextContent).text.contains(
-                  'Something went wrong',
-                )
-              : false,
+          retryUntil: (r) => switch (r) {
+            CallToolResult(
+              isError: true,
+              content: [TextContent(text: final msg)],
+            ) =>
+              msg.contains('Something went wrong'),
+            _ => false,
+          }
         );
 
         expect(result.isError, true);
@@ -1494,10 +1495,12 @@ Future<String> _getIsolateId(TestHarness testHarness) async {
       arguments: {ParameterNames.method: 'getVM'},
     ),
   );
-  final vmObject =
-      jsonDecode((getVmResponse.content.single as TextContent).text)
-          as Map<String, Object?>;
-  return ((vmObject['isolates'] as List<Object?>).first
-          as Map<String, Object?>)['id']
-      as String;
+  if (getVmResponse case CallToolResult(
+    content: [TextContent(text: final text)],
+  )) {
+    if (jsonDecode(text) case {'isolates': [{'id': final String id}, ...]}) {
+      return id;
+    }
+  }
+  throw StateError('Failed to extract isolate ID from VM response');
 }

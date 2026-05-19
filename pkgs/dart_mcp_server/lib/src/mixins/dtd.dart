@@ -1421,7 +1421,8 @@ base mixin DartToolingDaemonSupport
         ParameterNames.isolateId: Schema.string(
           description:
               'The isolate ID to target, you can find isolate IDs using the '
-              '`getVM` method.',
+              '`getVM` method. Only methods that require an isolate ID should '
+              'be given one.',
         ),
         ParameterNames.arguments: Schema.object(
           description: 'Arguments for the method (optional).',
