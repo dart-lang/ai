@@ -1411,6 +1411,8 @@ base mixin DartToolingDaemonSupport
     description:
         'Invoke VM service methods on a connected app. See the Public RPCs '
         'section of '
+        // TODO: Make vm service self describing
+        // https://github.com/dart-lang/sdk/issues/63415
         'https://raw.githubusercontent.com/dart-lang/sdk/refs/heads/main/runtime/vm/service/service.md',
     annotations: ToolAnnotations(title: 'Invoke VM Service Method'),
     inputSchema: Schema.object(
