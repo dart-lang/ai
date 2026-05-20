@@ -1,8 +1,10 @@
 # 0.1.4 (Dart SDK 3.13.0-WIP)
 
+- Support reading `DART_ROOT` environment variable to set the Dart SDK root.
 - Always enable roots fallback, and merge them with client roots that are set
   (if any).
 - Add a tool for making arbitrary vm service method calls to connected apps.
+- Move binary to `bin/dart_mcp_server.dart` to be compatible with dart run.
 
 # 0.1.3 (Dart SDK 3.12.0)
 

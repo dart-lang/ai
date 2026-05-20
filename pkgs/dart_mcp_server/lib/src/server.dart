@@ -137,11 +137,6 @@ package.
     }
 
     DartMCPServer? server;
-    final dartSdkPath =
-        parsedArgs.option(dartSdkOption) ?? io.Platform.environment['DART_SDK'];
-    final flutterSdkPath =
-        parsedArgs.option(flutterSdkOption) ??
-        io.Platform.environment['FLUTTER_SDK'];
     final logFilePath = parsedArgs.option(logFileOption);
     final logFileSink = logFilePath == null
         ? null
@@ -152,8 +147,8 @@ package.
           channel ?? stdioChannel(input: io.stdin, output: io.stdout),
           featuresConfig: FeaturesConfiguration.fromArgs(parsedArgs),
           sdk: Sdk.find(
-            dartSdkPath: dartSdkPath,
-            flutterSdkPath: flutterSdkPath,
+            dartSdkPath: parsedArgs.option(dartSdkOption),
+            flutterSdkPath: parsedArgs.option(flutterSdkOption),
           ),
           analytics: analytics,
           protocolLogSink: logFileSink,
