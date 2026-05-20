@@ -204,6 +204,7 @@ base mixin DartToolingDaemonSupport
     registerTool(hotReloadTool, hotReload);
     registerTool(widgetInspectorTool, _widgetInspector);
     registerTool(flutterDriverTool, _callFlutterDriver);
+    registerTool(callVmServiceMethodTool, _callVmServiceMethod);
 
     return super.initialize(request);
   }
@@ -217,6 +218,7 @@ base mixin DartToolingDaemonSupport
     hotReloadTool,
     widgetInspectorTool,
     flutterDriverTool,
+    callVmServiceMethodTool,
   ];
 
   @override
@@ -284,7 +286,45 @@ base mixin DartToolingDaemonSupport
     );
   }
 
+  Future<CallToolResult> _callVmServiceMethod(CallToolRequest request) async {
+    // These are already validated to match the schema definition.
+    final method = request.arguments?[ParameterNames.method] as String;
+    final isolateId = request.arguments?[ParameterNames.isolateId] as String?;
+    final args =
+        request.arguments?[ParameterNames.arguments] as Map<String, Object?>?;
+    final appUri = request.arguments?[ParameterNames.appUri] as String?;
+
+    return _callOnVmService(
+      appUri: appUri,
+      callback: (vmService) async {
+        try {
+          final result = await vmService.callMethod(
+            method,
+            isolateId: isolateId,
+            args: args,
+          );
+          return CallToolResult(
+            content: [TextContent(text: jsonEncode(result.json))],
+          );
+        } on RPCError catch (e) {
+          return CallToolResult(
+            isError: true,
+            content: [
+              TextContent(text: 'RPCError when invoking method $method: $e'),
+            ],
+          )..failureReason = CallToolFailureReason.rpcError;
+        } catch (e) {
+          return CallToolResult(
+            isError: true,
+            content: [TextContent(text: 'Error invoking method $method: $e')],
+          )..failureReason = CallToolFailureReason.unhandledError;
+        }
+      },
+    );
+  }
+
   /// Connects to the Dart Tooling Daemon.
+  ///
   /// Connects to a single DTD at [uri].
   Future<CallToolResult> _connectToDtdSingle(Uri uri) async {
     if (_dtds.any((dtd) => dtd.uri == uri)) {
@@ -1364,6 +1404,41 @@ base mixin DartToolingDaemonSupport
         )
         ..categories = [FeatureCategory.dartToolingDaemon]
         ..enabledByDefault = false;
+
+  @visibleForTesting
+  static final callVmServiceMethodTool = Tool(
+    name: ToolNames.callVmServiceMethod.name,
+    description:
+        'Invoke VM service methods on a connected app. See the Public RPCs '
+        'section of '
+        // TODO: Make vm service self describing
+        // https://github.com/dart-lang/sdk/issues/63415
+        'https://raw.githubusercontent.com/dart-lang/sdk/refs/heads/main/runtime/vm/service/service.md',
+    annotations: ToolAnnotations(title: 'Invoke VM Service Method'),
+    inputSchema: Schema.object(
+      properties: {
+        ParameterNames.method: Schema.string(
+          description: 'The name of the method to invoke.',
+        ),
+        ParameterNames.isolateId: Schema.string(
+          description:
+              'The isolate ID to target, you can find isolate IDs using the '
+              '`getVM` method. Only methods that require an isolate ID should '
+              'be given one.',
+        ),
+        ParameterNames.arguments: Schema.object(
+          description: 'Arguments for the method (optional).',
+          additionalProperties: true,
+        ),
+        ParameterNames.appUri: Schema.string(
+          description:
+              'The app URI to target. Required if multiple apps are connected.',
+        ),
+      },
+      required: [ParameterNames.method],
+      additionalProperties: false,
+    ),
+  )..categories = [FeatureCategory.dartToolingDaemon];
 
   static final _connectedAppsNotSupported = CallToolResult(
     isError: true,

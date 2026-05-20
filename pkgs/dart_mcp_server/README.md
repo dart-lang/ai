@@ -179,6 +179,7 @@ available to the agent. For example, in a GEMINI.md file in your project:
 | Tool Name | Title | Description | Categories | Enabled |
 | --- | --- | --- | --- | --- |
 | `analyze_files` | Analyze projects | Analyzes specific paths, or the entire project, for errors. | analysis | Yes |
+| `call_vm_service_method` | Invoke VM Service Method | Invoke VM service methods on a connected app. See the Public RPCs section of https://raw.githubusercontent.com/dart-lang/sdk/refs/heads/main/runtime/vm/service/service.md | dart_tooling_daemon | Yes |
 | `create_project` | Create project | Creates a new Dart or Flutter project. | cli | No |
 | `dart_fix` | Dart fix | Runs `dart fix --apply` for the given project roots. | cli | No |
 | `dart_format` | Dart format | Runs `dart format .` for the given project roots. | cli | No |

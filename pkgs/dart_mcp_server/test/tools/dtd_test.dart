@@ -1277,6 +1277,75 @@ void main() {
           await testHarness.stopDebugSession(debugSession);
         });
       });
+
+      test('can invoke VM service methods', () async {
+        final debugSession = await testHarness.startDebugSession(
+          dartCliAppsPath,
+          'bin/infinite_wait.dart',
+          isFlutter: false,
+        );
+        await debugSession.appProcess.stdout.next;
+
+        final isolateId = await _getIsolateId(testHarness);
+        final result = await testHarness.callToolWithRetry(
+          CallToolRequest(
+            name: ToolNames.callVmServiceMethod.name,
+            arguments: {
+              ParameterNames.method: 'ext.test.echo',
+              ParameterNames.arguments: {'message': 'hello'},
+              ParameterNames.isolateId: isolateId,
+            },
+          ),
+        );
+
+        final content =
+            jsonDecode((result.content.single as TextContent).text)
+                as Map<String, Object?>;
+        expect(content['method'], 'ext.test.echo');
+        expect(content['parameters'], containsPair('message', 'hello'));
+
+        debugSession.appProcess.stdin.writeln('q');
+        await testHarness.stopDebugSession(debugSession);
+      });
+
+      test('reports errors from VM service method calls', () async {
+        final debugSession = await testHarness.startDebugSession(
+          dartCliAppsPath,
+          'bin/infinite_wait.dart',
+          isFlutter: false,
+        );
+        await debugSession.appProcess.stdout.next;
+
+        final isolateId = await _getIsolateId(testHarness);
+        final result = await testHarness.callToolWithRetry(
+          CallToolRequest(
+            name: ToolNames.callVmServiceMethod.name,
+            arguments: {
+              ParameterNames.method: 'ext.test.failure',
+              ParameterNames.arguments: {'message': 'hello'},
+              ParameterNames.isolateId: isolateId,
+            },
+          ),
+          expectError: true,
+          retryUntil: (r) => switch (r) {
+            CallToolResult(
+              isError: true,
+              content: [TextContent(text: final msg)],
+            ) =>
+              msg.contains('Something went wrong'),
+            _ => false,
+          },
+        );
+
+        expect(result.isError, true);
+        final content = (result.content.single as TextContent).text;
+        expect(content, contains('RPCError'));
+        expect(content, contains('ext.test.failure'));
+        expect(content, contains('Something went wrong'));
+
+        debugSession.appProcess.stdin.writeln('q');
+        await testHarness.stopDebugSession(debugSession);
+      });
     });
 
     test('Does not include flutter tools with --tools=dart', () async {
@@ -1417,4 +1486,21 @@ Future<void> _deleteWithRetry(Directory dir) async {
       await Future<void>.delayed(const Duration(milliseconds: 200));
     }
   }
+}
+
+Future<String> _getIsolateId(TestHarness testHarness) async {
+  final getVmResponse = await testHarness.callTool(
+    CallToolRequest(
+      name: ToolNames.callVmServiceMethod.name,
+      arguments: {ParameterNames.method: 'getVM'},
+    ),
+  );
+  if (getVmResponse case CallToolResult(
+    content: [TextContent(text: final text)],
+  )) {
+    if (jsonDecode(text) case {'isolates': [{'id': final String id}, ...]}) {
+      return id;
+    }
+  }
+  throw StateError('Failed to extract isolate ID from VM response');
 }
