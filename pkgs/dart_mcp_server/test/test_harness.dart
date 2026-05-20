@@ -104,10 +104,7 @@ class TestHarness {
     bool startFakeEditorExtension = true,
     FeaturesConfiguration featuresConfig = const FeaturesConfiguration(),
   }) async {
-    sdk ??= Sdk.find(
-      dartSdkPath: Platform.environment['DART_SDK'],
-      flutterSdkPath: Platform.environment['FLUTTER_SDK'],
-    );
+    sdk ??= Sdk.find();
     fileSystem ??= const LocalFileSystem();
     processManager ??= TestProcessManager();
 

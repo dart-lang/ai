@@ -40,7 +40,9 @@ class Sdk {
     Map<String, String>? environment,
   }) {
     environment ??= Platform.environment;
-    dartSdkPath ??= environment['DART_ROOT'];
+    dartSdkPath ??= environment['DART_ROOT'] ?? environment['DART_SDK'];
+    flutterSdkPath ??=
+        environment['FLUTTER_ROOT'] ?? environment['FLUTTER_SDK'];
     // Assume that we are running from the Dart SDK bin dir if not given any
     // other configuration.
     dartSdkPath ??= p.dirname(p.dirname(Platform.resolvedExecutable));
@@ -74,7 +76,7 @@ class Sdk {
           ?.child('bin')
           .child('dart${Platform.isWindows ? '.exe' : ''}') ??
       (throw ArgumentError(
-        'Dart SDK location unknown, try setting the DART_SDK environment '
+        'Dart SDK location unknown, try setting the DART_ROOT environment '
         'variable.',
       ));
 
