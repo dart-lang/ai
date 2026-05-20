@@ -581,7 +581,7 @@ Future<ServerConnectionPair> _initializeMCPServer(
     final process = await Process.start(sdk.dartExecutablePath, [
       'pub', // Using `pub` gives us incremental compilation
       'run',
-      'bin/main.dart',
+      'bin/dart_mcp_server.dart',
       ...cliArgs,
       for (var enabled in featuresConfig.enabledNames) '--enable=$enabled',
       for (var disabled in featuresConfig.disabledNames) '--disable=$disabled',
