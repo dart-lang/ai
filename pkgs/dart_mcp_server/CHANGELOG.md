@@ -5,6 +5,9 @@
   (if any).
 - Add a tool for making arbitrary vm service method calls to connected apps.
 - Move binary to `bin/dart_mcp_server.dart` to be compatible with dart run.
+- Add support for enabling analytics when running as a package based on the
+  `DASH__TOOL` environment variable. Analytics will not be tracked if this is
+  not set.
 
 # 0.1.3 (Dart SDK 3.12.0)
 
