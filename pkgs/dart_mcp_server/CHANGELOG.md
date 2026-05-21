@@ -1,5 +1,8 @@
-# 0.1.4 (Dart SDK 3.13.0-WIP)
+# 1.0.0-wip
 
+- Package is now shipped on pub instead of through the SDK. The
+  `dart mcp-server` command will continue to work as an alias for
+  `dart run dart_mcp_server@`.
 - Support reading `DART_ROOT` environment variable to set the Dart SDK root.
 - Always enable roots fallback, and merge them with client roots that are set
   (if any).
