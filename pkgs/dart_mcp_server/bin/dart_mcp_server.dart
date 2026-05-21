@@ -25,5 +25,9 @@ void main(List<String> args) async {
         )
       : null;
 
-  exitCode = await DartMCPServer.run(args, analytics: analytics);
+  try {
+    exitCode = await DartMCPServer.run(args, analytics: analytics);
+  } finally {
+    await analytics?.close();
+  }
 }
