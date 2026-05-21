@@ -34,13 +34,13 @@ ArgParser createArgParser({
           dartSdkOption,
           help:
               'The path to the root of the desired Dart SDK. Defaults to the '
-              'DART_SDK environment variable.',
+              'DART_ROOT environment variable.',
         )
         ..addOption(
           flutterSdkOption,
           help:
               'The path to the root of the desired Flutter SDK. Defaults to '
-              'the FLUTTER_SDK environment variable, then searching up from '
+              'the FLUTTER_ROOT environment variable, then searching up from '
               'the Dart SDK.',
         )
         ..addFlag(

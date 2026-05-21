@@ -6,9 +6,6 @@ publish_to: none
 environment:
   sdk: ^3.12.0-257.0.dev
 
-executables:
-  dart_mcp_server: main
-
 dependencies:
   args: ^2.7.0
   async: ^2.13.0
