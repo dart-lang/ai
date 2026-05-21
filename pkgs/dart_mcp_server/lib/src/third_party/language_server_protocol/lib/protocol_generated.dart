@@ -525,7 +525,7 @@ bool _canParseBoolInlineValueOptionsInlineValueRegistrationOptions(
 }
 
 bool
-    _canParseBoolLinkedEditingRangeOptionsLinkedEditingRangeRegistrationOptions(
+_canParseBoolLinkedEditingRangeOptionsLinkedEditingRangeRegistrationOptions(
   Map<String, Object?> map,
   LspJsonReporter reporter,
   String fieldName, {
@@ -4415,9 +4415,9 @@ bool _canParseListNotebookDocumentSyncOptionsNotebookSelector2Cells(
             value.any(
               (item) =>
                   !NotebookDocumentSyncOptionsNotebookSelector2Cells.canParse(
-                item,
-                reporter,
-              ),
+                    item,
+                    reporter,
+                  ),
             ))) {
       reporter.reportError(
         'must be of type List<NotebookDocumentSyncOptionsNotebookSelector2Cells>',
@@ -4454,9 +4454,9 @@ bool _canParseListNotebookDocumentSyncOptionsNotebookSelectorCells(
             value.any(
               (item) =>
                   !NotebookDocumentSyncOptionsNotebookSelectorCells.canParse(
-                item,
-                reporter,
-              ),
+                    item,
+                    reporter,
+                  ),
             ))) {
       reporter.reportError(
         'must be of type List<NotebookDocumentSyncOptionsNotebookSelectorCells>',
@@ -4470,7 +4470,7 @@ bool _canParseListNotebookDocumentSyncOptionsNotebookSelectorCells(
 }
 
 bool
-    _canParseListNotebookDocumentSyncOptionsNotebookSelectorNotebookDocumentSyncOptionsNotebookSelector2(
+_canParseListNotebookDocumentSyncOptionsNotebookSelectorNotebookDocumentSyncOptionsNotebookSelector2(
   Map<String, Object?> map,
   LspJsonReporter reporter,
   String fieldName, {
@@ -4925,7 +4925,7 @@ bool _canParseListSymbolTag(
 }
 
 bool
-    _canParseListTextDocumentContentChangePartialTextDocumentContentChangeWholeDocument(
+_canParseListTextDocumentContentChangePartialTextDocumentContentChangeWholeDocument(
   Map<String, Object?> map,
   LspJsonReporter reporter,
   String fieldName, {
@@ -5187,7 +5187,7 @@ bool _canParseListWorkspaceFolder(
 }
 
 bool
-    _canParseListWorkspaceFullDocumentDiagnosticReportWorkspaceUnchangedDocumentDiagnosticReport(
+_canParseListWorkspaceFullDocumentDiagnosticReportWorkspaceUnchangedDocumentDiagnosticReport(
   Map<String, Object?> map,
   LspJsonReporter reporter,
   String fieldName, {
@@ -5361,7 +5361,7 @@ bool _canParseMapStringChangeAnnotation(
 }
 
 bool
-    _canParseMapUriFullDocumentDiagnosticReportUnchangedDocumentDiagnosticReport(
+_canParseMapUriFullDocumentDiagnosticReportUnchangedDocumentDiagnosticReport(
   Map<String, Object?> map,
   LspJsonReporter reporter,
   String fieldName, {
@@ -5826,7 +5826,7 @@ bool _canParseNotebookDocumentClientCapabilities(
 }
 
 bool
-    _canParseNotebookDocumentFilter1NotebookDocumentFilter2NotebookDocumentFilter3String(
+_canParseNotebookDocumentFilter1NotebookDocumentFilter2NotebookDocumentFilter3String(
   Map<String, Object?> map,
   LspJsonReporter reporter,
   String fieldName, {
@@ -5920,7 +5920,7 @@ bool _canParseNotebookDocumentSyncClientCapabilities(
 }
 
 bool
-    _canParseNotebookDocumentSyncOptionsNotebookDocumentSyncRegistrationOptions(
+_canParseNotebookDocumentSyncOptionsNotebookDocumentSyncRegistrationOptions(
   Map<String, Object?> map,
   LspJsonReporter reporter,
   String fieldName, {
@@ -7931,84 +7931,75 @@ bool _canParseWorkspaceSymbolClientCapabilitiesTagSupport(
 }
 
 Either3<AnnotatedTextEdit, SnippetTextEdit, TextEdit>
-    _eitherAnnotatedTextEditSnippetTextEditTextEdit(Object? value) {
+_eitherAnnotatedTextEditSnippetTextEditTextEdit(Object? value) {
   return AnnotatedTextEdit.canParse(value, nullLspJsonReporter)
       ? Either3.t1(AnnotatedTextEdit.fromJson(value as Map<String, Object?>))
       : SnippetTextEdit.canParse(value, nullLspJsonReporter)
-          ? Either3.t2(SnippetTextEdit.fromJson(value as Map<String, Object?>))
-          : TextEdit.canParse(value, nullLspJsonReporter)
-              ? Either3.t3(TextEdit.fromJson(value as Map<String, Object?>))
-              : throw '$value was not one of (AnnotatedTextEdit, SnippetTextEdit, TextEdit)';
+      ? Either3.t2(SnippetTextEdit.fromJson(value as Map<String, Object?>))
+      : TextEdit.canParse(value, nullLspJsonReporter)
+      ? Either3.t3(TextEdit.fromJson(value as Map<String, Object?>))
+      : throw '$value was not one of (AnnotatedTextEdit, SnippetTextEdit, TextEdit)';
 }
 
 Either3<bool, CallHierarchyOptions, CallHierarchyRegistrationOptions>
-    _eitherBoolCallHierarchyOptionsCallHierarchyRegistrationOptions(
-        Object? value) {
+_eitherBoolCallHierarchyOptionsCallHierarchyRegistrationOptions(Object? value) {
   return value is bool
       ? Either3.t1(value)
       : CallHierarchyOptions.canParse(value, nullLspJsonReporter)
-          ? Either3.t2(
-              CallHierarchyOptions.fromJson(value as Map<String, Object?>))
-          : CallHierarchyRegistrationOptions.canParse(
-                  value, nullLspJsonReporter)
-              ? Either3.t3(
-                  CallHierarchyRegistrationOptions.fromJson(
-                    value as Map<String, Object?>,
-                  ),
-                )
-              : throw '$value was not one of (bool, CallHierarchyOptions, CallHierarchyRegistrationOptions)';
+      ? Either3.t2(CallHierarchyOptions.fromJson(value as Map<String, Object?>))
+      : CallHierarchyRegistrationOptions.canParse(value, nullLspJsonReporter)
+      ? Either3.t3(
+          CallHierarchyRegistrationOptions.fromJson(
+            value as Map<String, Object?>,
+          ),
+        )
+      : throw '$value was not one of (bool, CallHierarchyOptions, CallHierarchyRegistrationOptions)';
 }
 
 Either2<bool, CodeActionOptions> _eitherBoolCodeActionOptions(Object? value) {
   return value is bool
       ? Either2.t1(value)
       : CodeActionOptions.canParse(value, nullLspJsonReporter)
-          ? Either2.t2(
-              CodeActionOptions.fromJson(value as Map<String, Object?>))
-          : throw '$value was not one of (bool, CodeActionOptions)';
+      ? Either2.t2(CodeActionOptions.fromJson(value as Map<String, Object?>))
+      : throw '$value was not one of (bool, CodeActionOptions)';
 }
 
 Either3<bool, DeclarationOptions, DeclarationRegistrationOptions>
-    _eitherBoolDeclarationOptionsDeclarationRegistrationOptions(Object? value) {
+_eitherBoolDeclarationOptionsDeclarationRegistrationOptions(Object? value) {
   return value is bool
       ? Either3.t1(value)
       : DeclarationOptions.canParse(value, nullLspJsonReporter)
-          ? Either3.t2(
-              DeclarationOptions.fromJson(value as Map<String, Object?>))
-          : DeclarationRegistrationOptions.canParse(value, nullLspJsonReporter)
-              ? Either3.t3(
-                  DeclarationRegistrationOptions.fromJson(
-                    value as Map<String, Object?>,
-                  ),
-                )
-              : throw '$value was not one of (bool, DeclarationOptions, DeclarationRegistrationOptions)';
+      ? Either3.t2(DeclarationOptions.fromJson(value as Map<String, Object?>))
+      : DeclarationRegistrationOptions.canParse(value, nullLspJsonReporter)
+      ? Either3.t3(
+          DeclarationRegistrationOptions.fromJson(
+            value as Map<String, Object?>,
+          ),
+        )
+      : throw '$value was not one of (bool, DeclarationOptions, DeclarationRegistrationOptions)';
 }
 
 Either2<bool, DefinitionOptions> _eitherBoolDefinitionOptions(Object? value) {
   return value is bool
       ? Either2.t1(value)
       : DefinitionOptions.canParse(value, nullLspJsonReporter)
-          ? Either2.t2(
-              DefinitionOptions.fromJson(value as Map<String, Object?>))
-          : throw '$value was not one of (bool, DefinitionOptions)';
+      ? Either2.t2(DefinitionOptions.fromJson(value as Map<String, Object?>))
+      : throw '$value was not one of (bool, DefinitionOptions)';
 }
 
 Either3<bool, DocumentColorOptions, DocumentColorRegistrationOptions>
-    _eitherBoolDocumentColorOptionsDocumentColorRegistrationOptions(
-        Object? value) {
+_eitherBoolDocumentColorOptionsDocumentColorRegistrationOptions(Object? value) {
   return value is bool
       ? Either3.t1(value)
       : DocumentColorOptions.canParse(value, nullLspJsonReporter)
-          ? Either3.t2(
-              DocumentColorOptions.fromJson(value as Map<String, Object?>))
-          : DocumentColorRegistrationOptions.canParse(
-                  value, nullLspJsonReporter)
-              ? Either3.t3(
-                  DocumentColorRegistrationOptions.fromJson(
-                    value as Map<String, Object?>,
-                  ),
-                )
-              : throw '$value was not one of (bool, DocumentColorOptions, DocumentColorRegistrationOptions)';
+      ? Either3.t2(DocumentColorOptions.fromJson(value as Map<String, Object?>))
+      : DocumentColorRegistrationOptions.canParse(value, nullLspJsonReporter)
+      ? Either3.t3(
+          DocumentColorRegistrationOptions.fromJson(
+            value as Map<String, Object?>,
+          ),
+        )
+      : throw '$value was not one of (bool, DocumentColorOptions, DocumentColorRegistrationOptions)';
 }
 
 Either2<bool, DocumentFormattingOptions> _eitherBoolDocumentFormattingOptions(
@@ -8017,10 +8008,10 @@ Either2<bool, DocumentFormattingOptions> _eitherBoolDocumentFormattingOptions(
   return value is bool
       ? Either2.t1(value)
       : DocumentFormattingOptions.canParse(value, nullLspJsonReporter)
-          ? Either2.t2(
-              DocumentFormattingOptions.fromJson(value as Map<String, Object?>),
-            )
-          : throw '$value was not one of (bool, DocumentFormattingOptions)';
+      ? Either2.t2(
+          DocumentFormattingOptions.fromJson(value as Map<String, Object?>),
+        )
+      : throw '$value was not one of (bool, DocumentFormattingOptions)';
 }
 
 Either2<bool, DocumentHighlightOptions> _eitherBoolDocumentHighlightOptions(
@@ -8029,23 +8020,23 @@ Either2<bool, DocumentHighlightOptions> _eitherBoolDocumentHighlightOptions(
   return value is bool
       ? Either2.t1(value)
       : DocumentHighlightOptions.canParse(value, nullLspJsonReporter)
-          ? Either2.t2(
-              DocumentHighlightOptions.fromJson(value as Map<String, Object?>),
-            )
-          : throw '$value was not one of (bool, DocumentHighlightOptions)';
+      ? Either2.t2(
+          DocumentHighlightOptions.fromJson(value as Map<String, Object?>),
+        )
+      : throw '$value was not one of (bool, DocumentHighlightOptions)';
 }
 
 Either2<bool, DocumentRangeFormattingOptions>
-    _eitherBoolDocumentRangeFormattingOptions(Object? value) {
+_eitherBoolDocumentRangeFormattingOptions(Object? value) {
   return value is bool
       ? Either2.t1(value)
       : DocumentRangeFormattingOptions.canParse(value, nullLspJsonReporter)
-          ? Either2.t2(
-              DocumentRangeFormattingOptions.fromJson(
-                value as Map<String, Object?>,
-              ),
-            )
-          : throw '$value was not one of (bool, DocumentRangeFormattingOptions)';
+      ? Either2.t2(
+          DocumentRangeFormattingOptions.fromJson(
+            value as Map<String, Object?>,
+          ),
+        )
+      : throw '$value was not one of (bool, DocumentRangeFormattingOptions)';
 }
 
 Either2<bool, DocumentSymbolOptions> _eitherBoolDocumentSymbolOptions(
@@ -8054,197 +8045,190 @@ Either2<bool, DocumentSymbolOptions> _eitherBoolDocumentSymbolOptions(
   return value is bool
       ? Either2.t1(value)
       : DocumentSymbolOptions.canParse(value, nullLspJsonReporter)
-          ? Either2.t2(
-              DocumentSymbolOptions.fromJson(value as Map<String, Object?>),
-            )
-          : throw '$value was not one of (bool, DocumentSymbolOptions)';
+      ? Either2.t2(
+          DocumentSymbolOptions.fromJson(value as Map<String, Object?>),
+        )
+      : throw '$value was not one of (bool, DocumentSymbolOptions)';
 }
 
 Either3<bool, FoldingRangeOptions, FoldingRangeRegistrationOptions>
-    _eitherBoolFoldingRangeOptionsFoldingRangeRegistrationOptions(
-        Object? value) {
+_eitherBoolFoldingRangeOptionsFoldingRangeRegistrationOptions(Object? value) {
   return value is bool
       ? Either3.t1(value)
       : FoldingRangeOptions.canParse(value, nullLspJsonReporter)
-          ? Either3.t2(
-              FoldingRangeOptions.fromJson(value as Map<String, Object?>))
-          : FoldingRangeRegistrationOptions.canParse(value, nullLspJsonReporter)
-              ? Either3.t3(
-                  FoldingRangeRegistrationOptions.fromJson(
-                    value as Map<String, Object?>,
-                  ),
-                )
-              : throw '$value was not one of (bool, FoldingRangeOptions, FoldingRangeRegistrationOptions)';
+      ? Either3.t2(FoldingRangeOptions.fromJson(value as Map<String, Object?>))
+      : FoldingRangeRegistrationOptions.canParse(value, nullLspJsonReporter)
+      ? Either3.t3(
+          FoldingRangeRegistrationOptions.fromJson(
+            value as Map<String, Object?>,
+          ),
+        )
+      : throw '$value was not one of (bool, FoldingRangeOptions, FoldingRangeRegistrationOptions)';
 }
 
 Either2<bool, HoverOptions> _eitherBoolHoverOptions(Object? value) {
   return value is bool
       ? Either2.t1(value)
       : HoverOptions.canParse(value, nullLspJsonReporter)
-          ? Either2.t2(HoverOptions.fromJson(value as Map<String, Object?>))
-          : throw '$value was not one of (bool, HoverOptions)';
+      ? Either2.t2(HoverOptions.fromJson(value as Map<String, Object?>))
+      : throw '$value was not one of (bool, HoverOptions)';
 }
 
 Either3<bool, ImplementationOptions, ImplementationRegistrationOptions>
-    _eitherBoolImplementationOptionsImplementationRegistrationOptions(
+_eitherBoolImplementationOptionsImplementationRegistrationOptions(
   Object? value,
 ) {
   return value is bool
       ? Either3.t1(value)
       : ImplementationOptions.canParse(value, nullLspJsonReporter)
-          ? Either3.t2(
-              ImplementationOptions.fromJson(value as Map<String, Object?>),
-            )
-          : ImplementationRegistrationOptions.canParse(
-                  value, nullLspJsonReporter)
-              ? Either3.t3(
-                  ImplementationRegistrationOptions.fromJson(
-                    value as Map<String, Object?>,
-                  ),
-                )
-              : throw '$value was not one of (bool, ImplementationOptions, ImplementationRegistrationOptions)';
+      ? Either3.t2(
+          ImplementationOptions.fromJson(value as Map<String, Object?>),
+        )
+      : ImplementationRegistrationOptions.canParse(value, nullLspJsonReporter)
+      ? Either3.t3(
+          ImplementationRegistrationOptions.fromJson(
+            value as Map<String, Object?>,
+          ),
+        )
+      : throw '$value was not one of (bool, ImplementationOptions, ImplementationRegistrationOptions)';
 }
 
 Either3<bool, InlayHintOptions, InlayHintRegistrationOptions>
-    _eitherBoolInlayHintOptionsInlayHintRegistrationOptions(Object? value) {
+_eitherBoolInlayHintOptionsInlayHintRegistrationOptions(Object? value) {
   return value is bool
       ? Either3.t1(value)
       : InlayHintOptions.canParse(value, nullLspJsonReporter)
-          ? Either3.t2(InlayHintOptions.fromJson(value as Map<String, Object?>))
-          : InlayHintRegistrationOptions.canParse(value, nullLspJsonReporter)
-              ? Either3.t3(
-                  InlayHintRegistrationOptions.fromJson(
-                      value as Map<String, Object?>),
-                )
-              : throw '$value was not one of (bool, InlayHintOptions, InlayHintRegistrationOptions)';
+      ? Either3.t2(InlayHintOptions.fromJson(value as Map<String, Object?>))
+      : InlayHintRegistrationOptions.canParse(value, nullLspJsonReporter)
+      ? Either3.t3(
+          InlayHintRegistrationOptions.fromJson(value as Map<String, Object?>),
+        )
+      : throw '$value was not one of (bool, InlayHintOptions, InlayHintRegistrationOptions)';
 }
 
 Either3<bool, InlineValueOptions, InlineValueRegistrationOptions>
-    _eitherBoolInlineValueOptionsInlineValueRegistrationOptions(Object? value) {
+_eitherBoolInlineValueOptionsInlineValueRegistrationOptions(Object? value) {
   return value is bool
       ? Either3.t1(value)
       : InlineValueOptions.canParse(value, nullLspJsonReporter)
-          ? Either3.t2(
-              InlineValueOptions.fromJson(value as Map<String, Object?>))
-          : InlineValueRegistrationOptions.canParse(value, nullLspJsonReporter)
-              ? Either3.t3(
-                  InlineValueRegistrationOptions.fromJson(
-                    value as Map<String, Object?>,
-                  ),
-                )
-              : throw '$value was not one of (bool, InlineValueOptions, InlineValueRegistrationOptions)';
+      ? Either3.t2(InlineValueOptions.fromJson(value as Map<String, Object?>))
+      : InlineValueRegistrationOptions.canParse(value, nullLspJsonReporter)
+      ? Either3.t3(
+          InlineValueRegistrationOptions.fromJson(
+            value as Map<String, Object?>,
+          ),
+        )
+      : throw '$value was not one of (bool, InlineValueOptions, InlineValueRegistrationOptions)';
 }
 
 Either3<bool, LinkedEditingRangeOptions, LinkedEditingRangeRegistrationOptions>
-    _eitherBoolLinkedEditingRangeOptionsLinkedEditingRangeRegistrationOptions(
+_eitherBoolLinkedEditingRangeOptionsLinkedEditingRangeRegistrationOptions(
   Object? value,
 ) {
   return value is bool
       ? Either3.t1(value)
       : LinkedEditingRangeOptions.canParse(value, nullLspJsonReporter)
-          ? Either3.t2(
-              LinkedEditingRangeOptions.fromJson(value as Map<String, Object?>),
-            )
-          : LinkedEditingRangeRegistrationOptions.canParse(
-              value,
-              nullLspJsonReporter,
-            )
-              ? Either3.t3(
-                  LinkedEditingRangeRegistrationOptions.fromJson(
-                    value as Map<String, Object?>,
-                  ),
-                )
-              : throw '$value was not one of (bool, LinkedEditingRangeOptions, LinkedEditingRangeRegistrationOptions)';
+      ? Either3.t2(
+          LinkedEditingRangeOptions.fromJson(value as Map<String, Object?>),
+        )
+      : LinkedEditingRangeRegistrationOptions.canParse(
+          value,
+          nullLspJsonReporter,
+        )
+      ? Either3.t3(
+          LinkedEditingRangeRegistrationOptions.fromJson(
+            value as Map<String, Object?>,
+          ),
+        )
+      : throw '$value was not one of (bool, LinkedEditingRangeOptions, LinkedEditingRangeRegistrationOptions)';
 }
 
 Either3<bool, MonikerOptions, MonikerRegistrationOptions>
-    _eitherBoolMonikerOptionsMonikerRegistrationOptions(Object? value) {
+_eitherBoolMonikerOptionsMonikerRegistrationOptions(Object? value) {
   return value is bool
       ? Either3.t1(value)
       : MonikerOptions.canParse(value, nullLspJsonReporter)
-          ? Either3.t2(MonikerOptions.fromJson(value as Map<String, Object?>))
-          : MonikerRegistrationOptions.canParse(value, nullLspJsonReporter)
-              ? Either3.t3(
-                  MonikerRegistrationOptions.fromJson(
-                      value as Map<String, Object?>),
-                )
-              : throw '$value was not one of (bool, MonikerOptions, MonikerRegistrationOptions)';
+      ? Either3.t2(MonikerOptions.fromJson(value as Map<String, Object?>))
+      : MonikerRegistrationOptions.canParse(value, nullLspJsonReporter)
+      ? Either3.t3(
+          MonikerRegistrationOptions.fromJson(value as Map<String, Object?>),
+        )
+      : throw '$value was not one of (bool, MonikerOptions, MonikerRegistrationOptions)';
 }
 
 Either2<bool, ReferenceOptions> _eitherBoolReferenceOptions(Object? value) {
   return value is bool
       ? Either2.t1(value)
       : ReferenceOptions.canParse(value, nullLspJsonReporter)
-          ? Either2.t2(ReferenceOptions.fromJson(value as Map<String, Object?>))
-          : throw '$value was not one of (bool, ReferenceOptions)';
+      ? Either2.t2(ReferenceOptions.fromJson(value as Map<String, Object?>))
+      : throw '$value was not one of (bool, ReferenceOptions)';
 }
 
 Either2<bool, RenameOptions> _eitherBoolRenameOptions(Object? value) {
   return value is bool
       ? Either2.t1(value)
       : RenameOptions.canParse(value, nullLspJsonReporter)
-          ? Either2.t2(RenameOptions.fromJson(value as Map<String, Object?>))
-          : throw '$value was not one of (bool, RenameOptions)';
+      ? Either2.t2(RenameOptions.fromJson(value as Map<String, Object?>))
+      : throw '$value was not one of (bool, RenameOptions)';
 }
 
 Either2<bool, SaveOptions> _eitherBoolSaveOptions(Object? value) {
   return value is bool
       ? Either2.t1(value)
       : SaveOptions.canParse(value, nullLspJsonReporter)
-          ? Either2.t2(SaveOptions.fromJson(value as Map<String, Object?>))
-          : throw '$value was not one of (bool, SaveOptions)';
+      ? Either2.t2(SaveOptions.fromJson(value as Map<String, Object?>))
+      : throw '$value was not one of (bool, SaveOptions)';
 }
 
 Either3<bool, SelectionRangeOptions, SelectionRangeRegistrationOptions>
-    _eitherBoolSelectionRangeOptionsSelectionRangeRegistrationOptions(
+_eitherBoolSelectionRangeOptionsSelectionRangeRegistrationOptions(
   Object? value,
 ) {
   return value is bool
       ? Either3.t1(value)
       : SelectionRangeOptions.canParse(value, nullLspJsonReporter)
-          ? Either3.t2(
-              SelectionRangeOptions.fromJson(value as Map<String, Object?>),
-            )
-          : SelectionRangeRegistrationOptions.canParse(
-                  value, nullLspJsonReporter)
-              ? Either3.t3(
-                  SelectionRangeRegistrationOptions.fromJson(
-                    value as Map<String, Object?>,
-                  ),
-                )
-              : throw '$value was not one of (bool, SelectionRangeOptions, SelectionRangeRegistrationOptions)';
+      ? Either3.t2(
+          SelectionRangeOptions.fromJson(value as Map<String, Object?>),
+        )
+      : SelectionRangeRegistrationOptions.canParse(value, nullLspJsonReporter)
+      ? Either3.t3(
+          SelectionRangeRegistrationOptions.fromJson(
+            value as Map<String, Object?>,
+          ),
+        )
+      : throw '$value was not one of (bool, SelectionRangeOptions, SelectionRangeRegistrationOptions)';
 }
 
 Either2<bool, SemanticTokensClientCapabilitiesRequestsFull>
-    _eitherBoolSemanticTokensClientCapabilitiesRequestsFull(Object? value) {
+_eitherBoolSemanticTokensClientCapabilitiesRequestsFull(Object? value) {
   return value is bool
       ? Either2.t1(value)
       : SemanticTokensClientCapabilitiesRequestsFull.canParse(
           value,
           nullLspJsonReporter,
         )
-          ? Either2.t2(
-              SemanticTokensClientCapabilitiesRequestsFull.fromJson(
-                value as Map<String, Object?>,
-              ),
-            )
-          : throw '$value was not one of (bool, SemanticTokensClientCapabilitiesRequestsFull)';
+      ? Either2.t2(
+          SemanticTokensClientCapabilitiesRequestsFull.fromJson(
+            value as Map<String, Object?>,
+          ),
+        )
+      : throw '$value was not one of (bool, SemanticTokensClientCapabilitiesRequestsFull)';
 }
 
 Either2<bool, SemanticTokensClientCapabilitiesRequestsRange>
-    _eitherBoolSemanticTokensClientCapabilitiesRequestsRange(Object? value) {
+_eitherBoolSemanticTokensClientCapabilitiesRequestsRange(Object? value) {
   return value is bool
       ? Either2.t1(value)
       : SemanticTokensClientCapabilitiesRequestsRange.canParse(
           value,
           nullLspJsonReporter,
         )
-          ? Either2.t2(
-              SemanticTokensClientCapabilitiesRequestsRange.fromJson(
-                value as Map<String, Object?>,
-              ),
-            )
-          : throw '$value was not one of (bool, SemanticTokensClientCapabilitiesRequestsRange)';
+      ? Either2.t2(
+          SemanticTokensClientCapabilitiesRequestsRange.fromJson(
+            value as Map<String, Object?>,
+          ),
+        )
+      : throw '$value was not one of (bool, SemanticTokensClientCapabilitiesRequestsRange)';
 }
 
 Either2<bool, SemanticTokensFullDelta> _eitherBoolSemanticTokensFullDelta(
@@ -8253,10 +8237,10 @@ Either2<bool, SemanticTokensFullDelta> _eitherBoolSemanticTokensFullDelta(
   return value is bool
       ? Either2.t1(value)
       : SemanticTokensFullDelta.canParse(value, nullLspJsonReporter)
-          ? Either2.t2(
-              SemanticTokensFullDelta.fromJson(value as Map<String, Object?>),
-            )
-          : throw '$value was not one of (bool, SemanticTokensFullDelta)';
+      ? Either2.t2(
+          SemanticTokensFullDelta.fromJson(value as Map<String, Object?>),
+        )
+      : throw '$value was not one of (bool, SemanticTokensFullDelta)';
 }
 
 Either2<bool, SemanticTokensOptionsRange> _eitherBoolSemanticTokensOptionsRange(
@@ -8265,57 +8249,52 @@ Either2<bool, SemanticTokensOptionsRange> _eitherBoolSemanticTokensOptionsRange(
   return value is bool
       ? Either2.t1(value)
       : SemanticTokensOptionsRange.canParse(value, nullLspJsonReporter)
-          ? Either2.t2(
-              SemanticTokensOptionsRange.fromJson(
-                  value as Map<String, Object?>),
-            )
-          : throw '$value was not one of (bool, SemanticTokensOptionsRange)';
+      ? Either2.t2(
+          SemanticTokensOptionsRange.fromJson(value as Map<String, Object?>),
+        )
+      : throw '$value was not one of (bool, SemanticTokensOptionsRange)';
 }
 
 Either2<bool, String> _eitherBoolString(Object? value) {
   return value is bool
       ? Either2.t1(value)
       : value is String
-          ? Either2.t2(value)
-          : throw '$value was not one of (bool, String)';
+      ? Either2.t2(value)
+      : throw '$value was not one of (bool, String)';
 }
 
 Either3<bool, TypeDefinitionOptions, TypeDefinitionRegistrationOptions>
-    _eitherBoolTypeDefinitionOptionsTypeDefinitionRegistrationOptions(
+_eitherBoolTypeDefinitionOptionsTypeDefinitionRegistrationOptions(
   Object? value,
 ) {
   return value is bool
       ? Either3.t1(value)
       : TypeDefinitionOptions.canParse(value, nullLspJsonReporter)
-          ? Either3.t2(
-              TypeDefinitionOptions.fromJson(value as Map<String, Object?>),
-            )
-          : TypeDefinitionRegistrationOptions.canParse(
-                  value, nullLspJsonReporter)
-              ? Either3.t3(
-                  TypeDefinitionRegistrationOptions.fromJson(
-                    value as Map<String, Object?>,
-                  ),
-                )
-              : throw '$value was not one of (bool, TypeDefinitionOptions, TypeDefinitionRegistrationOptions)';
+      ? Either3.t2(
+          TypeDefinitionOptions.fromJson(value as Map<String, Object?>),
+        )
+      : TypeDefinitionRegistrationOptions.canParse(value, nullLspJsonReporter)
+      ? Either3.t3(
+          TypeDefinitionRegistrationOptions.fromJson(
+            value as Map<String, Object?>,
+          ),
+        )
+      : throw '$value was not one of (bool, TypeDefinitionOptions, TypeDefinitionRegistrationOptions)';
 }
 
 Either3<bool, TypeHierarchyOptions, TypeHierarchyRegistrationOptions>
-    _eitherBoolTypeHierarchyOptionsTypeHierarchyRegistrationOptions(
-        Object? value) {
+_eitherBoolTypeHierarchyOptionsTypeHierarchyRegistrationOptions(Object? value) {
   return value is bool
       ? Either3.t1(value)
       : TypeHierarchyOptions.canParse(value, nullLspJsonReporter)
-          ? Either3.t2(
-              TypeHierarchyOptions.fromJson(value as Map<String, Object?>))
-          : TypeHierarchyRegistrationOptions.canParse(
-                  value, nullLspJsonReporter)
-              ? Either3.t3(
-                  TypeHierarchyRegistrationOptions.fromJson(
-                    value as Map<String, Object?>,
-                  ),
-                )
-              : throw '$value was not one of (bool, TypeHierarchyOptions, TypeHierarchyRegistrationOptions)';
+      ? Either3.t2(TypeHierarchyOptions.fromJson(value as Map<String, Object?>))
+      : TypeHierarchyRegistrationOptions.canParse(value, nullLspJsonReporter)
+      ? Either3.t3(
+          TypeHierarchyRegistrationOptions.fromJson(
+            value as Map<String, Object?>,
+          ),
+        )
+      : throw '$value was not one of (bool, TypeHierarchyOptions, TypeHierarchyRegistrationOptions)';
 }
 
 Either2<bool, WorkspaceSymbolOptions> _eitherBoolWorkspaceSymbolOptions(
@@ -8324,51 +8303,49 @@ Either2<bool, WorkspaceSymbolOptions> _eitherBoolWorkspaceSymbolOptions(
   return value is bool
       ? Either2.t1(value)
       : WorkspaceSymbolOptions.canParse(value, nullLspJsonReporter)
-          ? Either2.t2(
-              WorkspaceSymbolOptions.fromJson(value as Map<String, Object?>),
-            )
-          : throw '$value was not one of (bool, WorkspaceSymbolOptions)';
+      ? Either2.t2(
+          WorkspaceSymbolOptions.fromJson(value as Map<String, Object?>),
+        )
+      : throw '$value was not one of (bool, WorkspaceSymbolOptions)';
 }
 
 Either4<CreateFile, DeleteFile, RenameFile, TextDocumentEdit>
-    _eitherCreateFileDeleteFileRenameFileTextDocumentEdit(Object? value) {
+_eitherCreateFileDeleteFileRenameFileTextDocumentEdit(Object? value) {
   return CreateFile.canParse(value, nullLspJsonReporter)
       ? Either4.t1(CreateFile.fromJson(value as Map<String, Object?>))
       : DeleteFile.canParse(value, nullLspJsonReporter)
-          ? Either4.t2(DeleteFile.fromJson(value as Map<String, Object?>))
-          : RenameFile.canParse(value, nullLspJsonReporter)
-              ? Either4.t3(RenameFile.fromJson(value as Map<String, Object?>))
-              : TextDocumentEdit.canParse(value, nullLspJsonReporter)
-                  ? Either4.t4(
-                      TextDocumentEdit.fromJson(value as Map<String, Object?>))
-                  : throw '$value was not one of (CreateFile, DeleteFile, RenameFile, TextDocumentEdit)';
+      ? Either4.t2(DeleteFile.fromJson(value as Map<String, Object?>))
+      : RenameFile.canParse(value, nullLspJsonReporter)
+      ? Either4.t3(RenameFile.fromJson(value as Map<String, Object?>))
+      : TextDocumentEdit.canParse(value, nullLspJsonReporter)
+      ? Either4.t4(TextDocumentEdit.fromJson(value as Map<String, Object?>))
+      : throw '$value was not one of (CreateFile, DeleteFile, RenameFile, TextDocumentEdit)';
 }
 
 Either2<DiagnosticOptions, DiagnosticRegistrationOptions>
-    _eitherDiagnosticOptionsDiagnosticRegistrationOptions(Object? value) {
+_eitherDiagnosticOptionsDiagnosticRegistrationOptions(Object? value) {
   return DiagnosticOptions.canParse(value, nullLspJsonReporter)
       ? Either2.t1(DiagnosticOptions.fromJson(value as Map<String, Object?>))
       : DiagnosticRegistrationOptions.canParse(value, nullLspJsonReporter)
-          ? Either2.t2(
-              DiagnosticRegistrationOptions.fromJson(
-                  value as Map<String, Object?>),
-            )
-          : throw '$value was not one of (DiagnosticOptions, DiagnosticRegistrationOptions)';
+      ? Either2.t2(
+          DiagnosticRegistrationOptions.fromJson(value as Map<String, Object?>),
+        )
+      : throw '$value was not one of (DiagnosticOptions, DiagnosticRegistrationOptions)';
 }
 
 Either2<EditRangeWithInsertReplace, Range>
-    _eitherEditRangeWithInsertReplaceRange(Object? value) {
+_eitherEditRangeWithInsertReplaceRange(Object? value) {
   return EditRangeWithInsertReplace.canParse(value, nullLspJsonReporter)
       ? Either2.t1(
           EditRangeWithInsertReplace.fromJson(value as Map<String, Object?>),
         )
       : Range.canParse(value, nullLspJsonReporter)
-          ? Either2.t2(Range.fromJson(value as Map<String, Object?>))
-          : throw '$value was not one of (EditRangeWithInsertReplace, Range)';
+      ? Either2.t2(Range.fromJson(value as Map<String, Object?>))
+      : throw '$value was not one of (EditRangeWithInsertReplace, Range)';
 }
 
 Either2<FullDocumentDiagnosticReport, UnchangedDocumentDiagnosticReport>
-    _eitherFullDocumentDiagnosticReportUnchangedDocumentDiagnosticReport(
+_eitherFullDocumentDiagnosticReportUnchangedDocumentDiagnosticReport(
   Object? value,
 ) {
   return FullDocumentDiagnosticReport.canParse(value, nullLspJsonReporter)
@@ -8376,12 +8353,12 @@ Either2<FullDocumentDiagnosticReport, UnchangedDocumentDiagnosticReport>
           FullDocumentDiagnosticReport.fromJson(value as Map<String, Object?>),
         )
       : UnchangedDocumentDiagnosticReport.canParse(value, nullLspJsonReporter)
-          ? Either2.t2(
-              UnchangedDocumentDiagnosticReport.fromJson(
-                value as Map<String, Object?>,
-              ),
-            )
-          : throw '$value was not one of (FullDocumentDiagnosticReport, UnchangedDocumentDiagnosticReport)';
+      ? Either2.t2(
+          UnchangedDocumentDiagnosticReport.fromJson(
+            value as Map<String, Object?>,
+          ),
+        )
+      : throw '$value was not one of (FullDocumentDiagnosticReport, UnchangedDocumentDiagnosticReport)';
 }
 
 Either2<InsertReplaceEdit, TextEdit> _eitherInsertReplaceEditTextEdit(
@@ -8390,16 +8367,16 @@ Either2<InsertReplaceEdit, TextEdit> _eitherInsertReplaceEditTextEdit(
   return InsertReplaceEdit.canParse(value, nullLspJsonReporter)
       ? Either2.t1(InsertReplaceEdit.fromJson(value as Map<String, Object?>))
       : TextEdit.canParse(value, nullLspJsonReporter)
-          ? Either2.t2(TextEdit.fromJson(value as Map<String, Object?>))
-          : throw '$value was not one of (InsertReplaceEdit, TextEdit)';
+      ? Either2.t2(TextEdit.fromJson(value as Map<String, Object?>))
+      : throw '$value was not one of (InsertReplaceEdit, TextEdit)';
 }
 
 Either2<int, String> _eitherIntString(Object? value) {
   return value is int
       ? Either2.t1(value)
       : value is String
-          ? Either2.t2(value)
-          : throw '$value was not one of (int, String)';
+      ? Either2.t2(value)
+      : throw '$value was not one of (int, String)';
 }
 
 Either2<List<InlayHintLabelPart>, String> _eitherListInlayHintLabelPartString(
@@ -8418,32 +8395,35 @@ Either2<List<InlayHintLabelPart>, String> _eitherListInlayHintLabelPartString(
               .toList(),
         )
       : value is String
-          ? Either2.t2(value)
-          : throw '$value was not one of (List<InlayHintLabelPart>, String)';
+      ? Either2.t2(value)
+      : throw '$value was not one of (List<InlayHintLabelPart>, String)';
 }
 
 Either2<Location, WorkspaceSymbolLocation>
-    _eitherLocationWorkspaceSymbolLocation(Object? value) {
+_eitherLocationWorkspaceSymbolLocation(Object? value) {
   return Location.canParse(value, nullLspJsonReporter)
       ? Either2.t1(Location.fromJson(value as Map<String, Object?>))
       : WorkspaceSymbolLocation.canParse(value, nullLspJsonReporter)
-          ? Either2.t2(
-              WorkspaceSymbolLocation.fromJson(value as Map<String, Object?>),
-            )
-          : throw '$value was not one of (Location, WorkspaceSymbolLocation)';
+      ? Either2.t2(
+          WorkspaceSymbolLocation.fromJson(value as Map<String, Object?>),
+        )
+      : throw '$value was not one of (Location, WorkspaceSymbolLocation)';
 }
 
 Either2<MarkupContent, String> _eitherMarkupContentString(Object? value) {
   return MarkupContent.canParse(value, nullLspJsonReporter)
       ? Either2.t1(MarkupContent.fromJson(value as Map<String, Object?>))
       : value is String
-          ? Either2.t2(value)
-          : throw '$value was not one of (MarkupContent, String)';
+      ? Either2.t2(value)
+      : throw '$value was not one of (MarkupContent, String)';
 }
 
-Either3<NotebookDocumentFilter1, NotebookDocumentFilter2,
-        NotebookDocumentFilter3>
-    _eitherNotebookDocumentFilter1NotebookDocumentFilter2NotebookDocumentFilter3(
+Either3<
+  NotebookDocumentFilter1,
+  NotebookDocumentFilter2,
+  NotebookDocumentFilter3
+>
+_eitherNotebookDocumentFilter1NotebookDocumentFilter2NotebookDocumentFilter3(
   Object? value,
 ) {
   return NotebookDocumentFilter1.canParse(value, nullLspJsonReporter)
@@ -8451,19 +8431,18 @@ Either3<NotebookDocumentFilter1, NotebookDocumentFilter2,
           NotebookDocumentFilter1.fromJson(value as Map<String, Object?>),
         )
       : NotebookDocumentFilter2.canParse(value, nullLspJsonReporter)
-          ? Either3.t2(
-              NotebookDocumentFilter2.fromJson(value as Map<String, Object?>),
-            )
-          : NotebookDocumentFilter3.canParse(value, nullLspJsonReporter)
-              ? Either3.t3(
-                  NotebookDocumentFilter3.fromJson(
-                      value as Map<String, Object?>),
-                )
-              : throw '$value was not one of (NotebookDocumentFilter1, NotebookDocumentFilter2, NotebookDocumentFilter3)';
+      ? Either3.t2(
+          NotebookDocumentFilter2.fromJson(value as Map<String, Object?>),
+        )
+      : NotebookDocumentFilter3.canParse(value, nullLspJsonReporter)
+      ? Either3.t3(
+          NotebookDocumentFilter3.fromJson(value as Map<String, Object?>),
+        )
+      : throw '$value was not one of (NotebookDocumentFilter1, NotebookDocumentFilter2, NotebookDocumentFilter3)';
 }
 
 Either2<NotebookDocumentFilter, String>
-    _eitherNotebookDocumentFilter1NotebookDocumentFilter2NotebookDocumentFilter3String(
+_eitherNotebookDocumentFilter1NotebookDocumentFilter2NotebookDocumentFilter3String(
   Object? value,
 ) {
   return NotebookDocumentFilter1.canParse(value, nullLspJsonReporter) ||
@@ -8475,12 +8454,12 @@ Either2<NotebookDocumentFilter, String>
           ),
         )
       : value is String
-          ? Either2.t2(value)
-          : throw '$value was not one of (NotebookDocumentFilter, String)';
+      ? Either2.t2(value)
+      : throw '$value was not one of (NotebookDocumentFilter, String)';
 }
 
 Either2<NotebookDocumentSyncOptions, NotebookDocumentSyncRegistrationOptions>
-    _eitherNotebookDocumentSyncOptionsNotebookDocumentSyncRegistrationOptions(
+_eitherNotebookDocumentSyncOptionsNotebookDocumentSyncRegistrationOptions(
   Object? value,
 ) {
   return NotebookDocumentSyncOptions.canParse(value, nullLspJsonReporter)
@@ -8491,23 +8470,25 @@ Either2<NotebookDocumentSyncOptions, NotebookDocumentSyncRegistrationOptions>
           value,
           nullLspJsonReporter,
         )
-          ? Either2.t2(
-              NotebookDocumentSyncRegistrationOptions.fromJson(
-                value as Map<String, Object?>,
-              ),
-            )
-          : throw '$value was not one of (NotebookDocumentSyncOptions, NotebookDocumentSyncRegistrationOptions)';
+      ? Either2.t2(
+          NotebookDocumentSyncRegistrationOptions.fromJson(
+            value as Map<String, Object?>,
+          ),
+        )
+      : throw '$value was not one of (NotebookDocumentSyncOptions, NotebookDocumentSyncRegistrationOptions)';
 }
 
-Either2<NotebookDocumentSyncOptionsNotebookSelector,
-        NotebookDocumentSyncOptionsNotebookSelector2>
-    _eitherNotebookDocumentSyncOptionsNotebookSelectorNotebookDocumentSyncOptionsNotebookSelector2(
+Either2<
+  NotebookDocumentSyncOptionsNotebookSelector,
+  NotebookDocumentSyncOptionsNotebookSelector2
+>
+_eitherNotebookDocumentSyncOptionsNotebookSelectorNotebookDocumentSyncOptionsNotebookSelector2(
   Object? value,
 ) {
   return NotebookDocumentSyncOptionsNotebookSelector.canParse(
-    value,
-    nullLspJsonReporter,
-  )
+        value,
+        nullLspJsonReporter,
+      )
       ? Either2.t1(
           NotebookDocumentSyncOptionsNotebookSelector.fromJson(
             value as Map<String, Object?>,
@@ -8517,28 +8498,27 @@ Either2<NotebookDocumentSyncOptionsNotebookSelector,
           value,
           nullLspJsonReporter,
         )
-          ? Either2.t2(
-              NotebookDocumentSyncOptionsNotebookSelector2.fromJson(
-                value as Map<String, Object?>,
-              ),
-            )
-          : throw '$value was not one of (NotebookDocumentSyncOptionsNotebookSelector, NotebookDocumentSyncOptionsNotebookSelector2)';
+      ? Either2.t2(
+          NotebookDocumentSyncOptionsNotebookSelector2.fromJson(
+            value as Map<String, Object?>,
+          ),
+        )
+      : throw '$value was not one of (NotebookDocumentSyncOptionsNotebookSelector, NotebookDocumentSyncOptionsNotebookSelector2)';
 }
 
 Either2<SemanticTokensOptions, SemanticTokensRegistrationOptions>
-    _eitherSemanticTokensOptionsSemanticTokensRegistrationOptions(
-        Object? value) {
+_eitherSemanticTokensOptionsSemanticTokensRegistrationOptions(Object? value) {
   return SemanticTokensOptions.canParse(value, nullLspJsonReporter)
       ? Either2.t1(
           SemanticTokensOptions.fromJson(value as Map<String, Object?>),
         )
       : SemanticTokensRegistrationOptions.canParse(value, nullLspJsonReporter)
-          ? Either2.t2(
-              SemanticTokensRegistrationOptions.fromJson(
-                value as Map<String, Object?>,
-              ),
-            )
-          : throw '$value was not one of (SemanticTokensOptions, SemanticTokensRegistrationOptions)';
+      ? Either2.t2(
+          SemanticTokensRegistrationOptions.fromJson(
+            value as Map<String, Object?>,
+          ),
+        )
+      : throw '$value was not one of (SemanticTokensOptions, SemanticTokensRegistrationOptions)';
 }
 
 Either2<LspPattern, RelativePattern> _eitherStringRelativePattern(
@@ -8547,13 +8527,15 @@ Either2<LspPattern, RelativePattern> _eitherStringRelativePattern(
   return value is String
       ? Either2.t1(value)
       : RelativePattern.canParse(value, nullLspJsonReporter)
-          ? Either2.t2(RelativePattern.fromJson(value as Map<String, Object?>))
-          : throw '$value was not one of (LspPattern, RelativePattern)';
+      ? Either2.t2(RelativePattern.fromJson(value as Map<String, Object?>))
+      : throw '$value was not one of (LspPattern, RelativePattern)';
 }
 
-Either2<TextDocumentContentChangePartial,
-        TextDocumentContentChangeWholeDocument>
-    _eitherTextDocumentContentChangePartialTextDocumentContentChangeWholeDocument(
+Either2<
+  TextDocumentContentChangePartial,
+  TextDocumentContentChangeWholeDocument
+>
+_eitherTextDocumentContentChangePartialTextDocumentContentChangeWholeDocument(
   Object? value,
 ) {
   return TextDocumentContentChangePartial.canParse(value, nullLspJsonReporter)
@@ -8566,42 +8548,44 @@ Either2<TextDocumentContentChangePartial,
           value,
           nullLspJsonReporter,
         )
-          ? Either2.t2(
-              TextDocumentContentChangeWholeDocument.fromJson(
-                value as Map<String, Object?>,
-              ),
-            )
-          : throw '$value was not one of (TextDocumentContentChangePartial, TextDocumentContentChangeWholeDocument)';
+      ? Either2.t2(
+          TextDocumentContentChangeWholeDocument.fromJson(
+            value as Map<String, Object?>,
+          ),
+        )
+      : throw '$value was not one of (TextDocumentContentChangePartial, TextDocumentContentChangeWholeDocument)';
 }
 
 Either2<TextDocumentSyncKind, TextDocumentSyncOptions>
-    _eitherTextDocumentSyncKindTextDocumentSyncOptions(Object? value) {
+_eitherTextDocumentSyncKindTextDocumentSyncOptions(Object? value) {
   return TextDocumentSyncKind.canParse(value, nullLspJsonReporter)
       ? Either2.t1(TextDocumentSyncKind.fromJson(value as int))
       : TextDocumentSyncOptions.canParse(value, nullLspJsonReporter)
-          ? Either2.t2(
-              TextDocumentSyncOptions.fromJson(value as Map<String, Object?>),
-            )
-          : throw '$value was not one of (TextDocumentSyncKind, TextDocumentSyncOptions)';
+      ? Either2.t2(
+          TextDocumentSyncOptions.fromJson(value as Map<String, Object?>),
+        )
+      : throw '$value was not one of (TextDocumentSyncKind, TextDocumentSyncOptions)';
 }
 
 Either2<LSPUri, WorkspaceFolder> _eitherUriWorkspaceFolder(Object? value) {
   return (value is String && Uri.tryParse(value) != null)
       ? Either2.t1(Uri.parse(value))
       : WorkspaceFolder.canParse(value, nullLspJsonReporter)
-          ? Either2.t2(WorkspaceFolder.fromJson(value as Map<String, Object?>))
-          : throw '$value was not one of (LSPUri, WorkspaceFolder)';
+      ? Either2.t2(WorkspaceFolder.fromJson(value as Map<String, Object?>))
+      : throw '$value was not one of (LSPUri, WorkspaceFolder)';
 }
 
-Either2<WorkspaceFullDocumentDiagnosticReport,
-        WorkspaceUnchangedDocumentDiagnosticReport>
-    _eitherWorkspaceFullDocumentDiagnosticReportWorkspaceUnchangedDocumentDiagnosticReport(
+Either2<
+  WorkspaceFullDocumentDiagnosticReport,
+  WorkspaceUnchangedDocumentDiagnosticReport
+>
+_eitherWorkspaceFullDocumentDiagnosticReportWorkspaceUnchangedDocumentDiagnosticReport(
   Object? value,
 ) {
   return WorkspaceFullDocumentDiagnosticReport.canParse(
-    value,
-    nullLspJsonReporter,
-  )
+        value,
+        nullLspJsonReporter,
+      )
       ? Either2.t1(
           WorkspaceFullDocumentDiagnosticReport.fromJson(
             value as Map<String, Object?>,
@@ -8611,12 +8595,12 @@ Either2<WorkspaceFullDocumentDiagnosticReport,
           value,
           nullLspJsonReporter,
         )
-          ? Either2.t2(
-              WorkspaceUnchangedDocumentDiagnosticReport.fromJson(
-                value as Map<String, Object?>,
-              ),
-            )
-          : throw '$value was not one of (WorkspaceFullDocumentDiagnosticReport, WorkspaceUnchangedDocumentDiagnosticReport)';
+      ? Either2.t2(
+          WorkspaceUnchangedDocumentDiagnosticReport.fromJson(
+            value as Map<String, Object?>,
+          ),
+        )
+      : throw '$value was not one of (WorkspaceFullDocumentDiagnosticReport, WorkspaceUnchangedDocumentDiagnosticReport)';
 }
 
 /// Result for a request to resolve the incoming calls for a given
@@ -8668,15 +8652,18 @@ typedef DefinitionLink = LocationLink;
 /// in comparison to the last pull request.
 ///
 /// @since 3.17.0
-typedef DocumentDiagnosticReport = Either2<RelatedFullDocumentDiagnosticReport,
-    RelatedUnchangedDocumentDiagnosticReport>;
+typedef DocumentDiagnosticReport =
+    Either2<
+      RelatedFullDocumentDiagnosticReport,
+      RelatedUnchangedDocumentDiagnosticReport
+    >;
 
 /// A document filter describes a top level text document or a notebook cell
 /// document.
 ///
 /// @since 3.17.0 - proposed support for NotebookCellTextDocumentFilter.
-typedef DocumentFilter
-    = Either2<NotebookCellTextDocumentFilter, TextDocumentFilter>;
+typedef DocumentFilter =
+    Either2<NotebookCellTextDocumentFilter, TextDocumentFilter>;
 
 /// A document selector is the combination of one or many document filters.
 ///
@@ -8698,8 +8685,12 @@ typedef GlobPattern = Either2<LspPattern, RelativePattern>;
 /// InlineValue types combines all inline value types into one type.
 ///
 /// @since 3.17.0
-typedef InlineValue = Either3<InlineValueEvaluatableExpression, InlineValueText,
-    InlineValueVariableLookup>;
+typedef InlineValue =
+    Either3<
+      InlineValueEvaluatableExpression,
+      InlineValueText,
+      InlineValueVariableLookup
+    >;
 
 /// LSP arrays.
 /// @since 3.17.0
@@ -8725,18 +8716,22 @@ typedef LspPattern = String;
 /// with documents)
 ///
 /// @since 3.17.0
-typedef NotebookDocumentFilter = Either3<NotebookDocumentFilter1,
-    NotebookDocumentFilter2, NotebookDocumentFilter3>;
+typedef NotebookDocumentFilter =
+    Either3<
+      NotebookDocumentFilter1,
+      NotebookDocumentFilter2,
+      NotebookDocumentFilter3
+    >;
 
-typedef PrepareRenameResult
-    = Either3<PrepareRenamePlaceholder, PrepareRenameResult2, Range>;
+typedef PrepareRenameResult =
+    Either3<PrepareRenamePlaceholder, PrepareRenameResult2, Range>;
 
 typedef ProgressToken = Either2<int, String>;
 
 /// Result for a request to provide commands for the given text document and
 /// range.
-typedef TextDocumentCodeActionResult
-    = List<Either2<CodeActionLiteral, Command>>?;
+typedef TextDocumentCodeActionResult =
+    List<Either2<CodeActionLiteral, Command>>?;
 
 /// Result for a request to provide code lens for the given text document.
 typedef TextDocumentCodeLensResult = List<CodeLens>?;
@@ -8752,31 +8747,34 @@ typedef TextDocumentCodeLensResult = List<CodeLens>?;
 /// filtering, like `sortText`,
 /// `filterText`, `insertText`, and `textEdit`, must not be changed during
 /// resolve.
-typedef TextDocumentCompletionResult
-    = Either2<CompletionList, List<CompletionItem>>?;
+typedef TextDocumentCompletionResult =
+    Either2<CompletionList, List<CompletionItem>>?;
 
 /// An event describing a change to a text document. If only a text is provided
 /// it is considered to be the full content of the document.
-typedef TextDocumentContentChangeEvent = Either2<
-    TextDocumentContentChangePartial, TextDocumentContentChangeWholeDocument>;
+typedef TextDocumentContentChangeEvent =
+    Either2<
+      TextDocumentContentChangePartial,
+      TextDocumentContentChangeWholeDocument
+    >;
 
-typedef TextDocumentContentChangeEvent2
-    = TextDocumentContentChangeWholeDocument;
+typedef TextDocumentContentChangeEvent2 =
+    TextDocumentContentChangeWholeDocument;
 
 /// Result for a request to resolve the type definition locations of a symbol at
 /// a given text document position. The request's parameter is of type
 /// [TextDocumentPositionParams] the response is of type [Declaration] or a
 /// typed array of [DeclarationLink] or a [Future] that resolves to such.
-typedef TextDocumentDeclarationResult
-    = Either2<Declaration, List<DeclarationLink>>?;
+typedef TextDocumentDeclarationResult =
+    Either2<Declaration, List<DeclarationLink>>?;
 
 /// Result for a request to resolve the definition location of a symbol at a
 /// given text document position. The request's parameter is of type
 /// [TextDocumentPosition] the response is of either type [Definition] or a
 /// typed array of
 /// [DefinitionLink] or a [Future] that resolves to such.
-typedef TextDocumentDefinitionResult
-    = Either2<Definition, List<DefinitionLink>>?;
+typedef TextDocumentDefinitionResult =
+    Either2<Definition, List<DefinitionLink>>?;
 
 /// Result for request to resolve a [DocumentHighlight] for a given text
 /// document position. The request's parameter is of type [TextDocumentPosition]
@@ -8790,8 +8788,8 @@ typedef TextDocumentDocumentLinkResult = List<DocumentLink>?;
 /// Result for a request to list all symbols found in a given text document. The
 /// request's parameter is of type [TextDocumentIdentifier] the response is of
 /// type [SymbolInformation] or a [Future] that resolves to such.
-typedef TextDocumentDocumentSymbolResult
-    = Either2<List<DocumentSymbol>, List<SymbolInformation>>?;
+typedef TextDocumentDocumentSymbolResult =
+    Either2<List<DocumentSymbol>, List<SymbolInformation>>?;
 
 /// A document filter denotes a document by different properties like the
 /// [TextDocument.languageId], the [Uri.scheme] of its resource, or a
@@ -8814,8 +8812,8 @@ typedef TextDocumentDocumentSymbolResult
 /// language: 'json', pattern: '**package.json' }`
 ///
 /// @since 3.17.0
-typedef TextDocumentFilter = Either3<TextDocumentFilter1,
-    TextDocumentFilterScheme, TextDocumentFilter3>;
+typedef TextDocumentFilter =
+    Either3<TextDocumentFilter1, TextDocumentFilterScheme, TextDocumentFilter3>;
 
 /// Result for a request to provide folding ranges in a document. The request's
 /// parameter is of type [FoldingRangeParams], the response is of type
@@ -8834,8 +8832,8 @@ typedef TextDocumentHoverResult = Hover?;
 /// a given text document position. The request's parameter is of type
 /// [TextDocumentPositionParams] the response is of type [Definition] or a
 /// [Future] that resolves to such.
-typedef TextDocumentImplementationResult
-    = Either2<Definition, List<DefinitionLink>>?;
+typedef TextDocumentImplementationResult =
+    Either2<Definition, List<DefinitionLink>>?;
 
 /// Result for a request to provide inlay hints in a document. The request's
 /// parameter is of type [InlayHintsParams], the response is of type
@@ -8901,8 +8899,8 @@ typedef TextDocumentRenameResult = WorkspaceEdit?;
 typedef TextDocumentSelectionRangeResult = List<SelectionRange>?;
 
 /// Result for @since 3.16.0
-typedef TextDocumentSemanticTokensFullDeltaResult
-    = Either2<SemanticTokens, SemanticTokensDelta>?;
+typedef TextDocumentSemanticTokensFullDeltaResult =
+    Either2<SemanticTokens, SemanticTokensDelta>?;
 
 /// Result for @since 3.16.0
 typedef TextDocumentSemanticTokensFullResult = SemanticTokens?;
@@ -8916,8 +8914,8 @@ typedef TextDocumentSignatureHelpResult = SignatureHelp?;
 /// a given text document position. The request's parameter is of type
 /// [TextDocumentPositionParams] the response is of type [Definition] or a
 /// [Future] that resolves to such.
-typedef TextDocumentTypeDefinitionResult
-    = Either2<Definition, List<DefinitionLink>>?;
+typedef TextDocumentTypeDefinitionResult =
+    Either2<Definition, List<DefinitionLink>>?;
 
 /// Result for a document will save request is sent from the client to the
 /// server before the document is actually saved. The request can return an
@@ -8946,9 +8944,11 @@ typedef WindowShowMessageRequestResult = MessageActionItem?;
 /// A workspace diagnostic document report.
 ///
 /// @since 3.17.0
-typedef WorkspaceDocumentDiagnosticReport = Either2<
-    WorkspaceFullDocumentDiagnosticReport,
-    WorkspaceUnchangedDocumentDiagnosticReport>;
+typedef WorkspaceDocumentDiagnosticReport =
+    Either2<
+      WorkspaceFullDocumentDiagnosticReport,
+      WorkspaceUnchangedDocumentDiagnosticReport
+    >;
 
 /// Result for a request send from the client to the server to execute a
 /// command. The request might return a workspace edit which the client will
@@ -8962,8 +8962,8 @@ typedef WorkspaceExecuteCommandResult = LSPAny?;
 /// @since 3.17.0 - support for WorkspaceSymbol in the returned data. Clients
 ///  need to advertise support for WorkspaceSymbols via the client capability
 ///  `workspace.symbol.resolveSupport`.
-typedef WorkspaceSymbolResult
-    = Either2<List<SymbolInformation>, List<WorkspaceSymbol>>?;
+typedef WorkspaceSymbolResult =
+    Either2<List<SymbolInformation>, List<WorkspaceSymbol>>?;
 
 /// Result for the will create files request is sent from the client to the
 /// server before files are actually created as long as the creation is
@@ -9621,8 +9621,9 @@ class CallHierarchyIncomingCallsParams
         ? null
         : _eitherIntString(partialResultTokenJson);
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return CallHierarchyIncomingCallsParams(
       item: item,
       partialResultToken: partialResultToken,
@@ -9680,15 +9681,15 @@ class CallHierarchyItem implements ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        data,
-        detail,
-        kind,
-        name,
-        range,
-        selectionRange,
-        lspHashCode(tags),
-        uri,
-      );
+    data,
+    detail,
+    kind,
+    name,
+    range,
+    selectionRange,
+    lspHashCode(tags),
+    uri,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -10062,8 +10063,9 @@ class CallHierarchyOutgoingCallsParams
         ? null
         : _eitherIntString(partialResultTokenJson);
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return CallHierarchyOutgoingCallsParams(
       item: item,
       partialResultToken: partialResultToken,
@@ -10165,8 +10167,9 @@ class CallHierarchyPrepareParams
       textDocumentJson as Map<String, Object?>,
     );
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return CallHierarchyPrepareParams(
       position: position,
       textDocument: textDocument,
@@ -10483,13 +10486,13 @@ class ClientCapabilities implements ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        experimental,
-        general,
-        notebookDocument,
-        textDocument,
-        window,
-        workspace,
-      );
+    experimental,
+    general,
+    notebookDocument,
+    textDocument,
+    window,
+    workspace,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -10908,7 +10911,7 @@ class CodeActionClientCapabilities implements ToJsonable {
   ///
   /// @since 3.8.0
   final CodeActionClientCapabilitiesCodeActionLiteralSupport?
-      codeActionLiteralSupport;
+  codeActionLiteralSupport;
 
   /// Whether code action supports the `data` property which is preserved
   /// between a `textDocument/codeAction` and a `codeAction/resolve` request.
@@ -10953,14 +10956,14 @@ class CodeActionClientCapabilities implements ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        codeActionLiteralSupport,
-        dataSupport,
-        disabledSupport,
-        dynamicRegistration,
-        honorsChangeAnnotations,
-        isPreferredSupport,
-        resolveSupport,
-      );
+    codeActionLiteralSupport,
+    dataSupport,
+    disabledSupport,
+    dynamicRegistration,
+    honorsChangeAnnotations,
+    isPreferredSupport,
+    resolveSupport,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -11555,15 +11558,15 @@ class CodeActionLiteral implements ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        command,
-        data,
-        lspHashCode(diagnostics),
-        disabled,
-        edit,
-        isPreferred,
-        kind,
-        title,
-      );
+    command,
+    data,
+    lspHashCode(diagnostics),
+    disabled,
+    edit,
+    isPreferred,
+    kind,
+    title,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -11589,8 +11592,9 @@ class CodeActionLiteral implements ToJsonable {
       result['data'] = data;
     }
     if (diagnostics != null) {
-      result['diagnostics'] =
-          diagnostics?.map((item) => item.toJson()).toList();
+      result['diagnostics'] = diagnostics
+          ?.map((item) => item.toJson())
+          .toList();
     }
     if (disabled != null) {
       result['disabled'] = disabled?.toJson();
@@ -11702,8 +11706,9 @@ class CodeActionLiteral implements ToJsonable {
     final isPreferredJson = json['isPreferred'];
     final isPreferred = isPreferredJson as bool?;
     final kindJson = json['kind'];
-    final kind =
-        kindJson != null ? CodeActionKind.fromJson(kindJson as String) : null;
+    final kind = kindJson != null
+        ? CodeActionKind.fromJson(kindJson as String)
+        : null;
     final titleJson = json['title'];
     final title = titleJson as String;
     return CodeActionLiteral(
@@ -11747,10 +11752,10 @@ class CodeActionOptions implements WorkDoneProgressOptions, ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        lspHashCode(codeActionKinds),
-        resolveProvider,
-        workDoneProgress,
-      );
+    lspHashCode(codeActionKinds),
+    resolveProvider,
+    workDoneProgress,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -11768,8 +11773,9 @@ class CodeActionOptions implements WorkDoneProgressOptions, ToJsonable {
   Map<String, Object?> toJson() {
     var result = <String, Object?>{};
     if (codeActionKinds != null) {
-      result['codeActionKinds'] =
-          codeActionKinds?.map((item) => item.toJson()).toList();
+      result['codeActionKinds'] = codeActionKinds
+          ?.map((item) => item.toJson())
+          .toList();
     }
     if (resolveProvider != null) {
       result['resolveProvider'] = resolveProvider;
@@ -11870,12 +11876,12 @@ class CodeActionParams
   });
   @override
   int get hashCode => Object.hash(
-        context,
-        partialResultToken,
-        range,
-        textDocument,
-        workDoneToken,
-      );
+    context,
+    partialResultToken,
+    range,
+    textDocument,
+    workDoneToken,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -11973,8 +11979,9 @@ class CodeActionParams
       textDocumentJson as Map<String, Object?>,
     );
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return CodeActionParams(
       context: context,
       partialResultToken: partialResultToken,
@@ -12021,11 +12028,11 @@ class CodeActionRegistrationOptions
   });
   @override
   int get hashCode => Object.hash(
-        lspHashCode(codeActionKinds),
-        lspHashCode(documentSelector),
-        resolveProvider,
-        workDoneProgress,
-      );
+    lspHashCode(codeActionKinds),
+    lspHashCode(documentSelector),
+    resolveProvider,
+    workDoneProgress,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -12047,8 +12054,9 @@ class CodeActionRegistrationOptions
   Map<String, Object?> toJson() {
     var result = <String, Object?>{};
     if (codeActionKinds != null) {
-      result['codeActionKinds'] =
-          codeActionKinds?.map((item) => item.toJson()).toList();
+      result['codeActionKinds'] = codeActionKinds
+          ?.map((item) => item.toJson())
+          .toList();
     }
     result['documentSelector'] = documentSelector;
     if (resolveProvider != null) {
@@ -12538,8 +12546,9 @@ class CodeLensParams
       textDocumentJson as Map<String, Object?>,
     );
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return CodeLensParams(
       partialResultToken: partialResultToken,
       textDocument: textDocument,
@@ -12574,10 +12583,10 @@ class CodeLensRegistrationOptions
   });
   @override
   int get hashCode => Object.hash(
-        lspHashCode(documentSelector),
-        resolveProvider,
-        workDoneProgress,
-      );
+    lspHashCode(documentSelector),
+    resolveProvider,
+    workDoneProgress,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -12942,8 +12951,9 @@ class ColorPresentation implements ToJsonable {
   Map<String, Object?> toJson() {
     var result = <String, Object?>{};
     if (additionalTextEdits != null) {
-      result['additionalTextEdits'] =
-          additionalTextEdits?.map((item) => item.toJson()).toList();
+      result['additionalTextEdits'] = additionalTextEdits
+          ?.map((item) => item.toJson())
+          .toList();
     }
     result['label'] = label;
     if (textEdit != null) {
@@ -13041,12 +13051,12 @@ class ColorPresentationParams
   });
   @override
   int get hashCode => Object.hash(
-        color,
-        partialResultToken,
-        range,
-        textDocument,
-        workDoneToken,
-      );
+    color,
+    partialResultToken,
+    range,
+    textDocument,
+    workDoneToken,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -13142,8 +13152,9 @@ class ColorPresentationParams
       textDocumentJson as Map<String, Object?>,
     );
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return ColorPresentationParams(
       color: color,
       partialResultToken: partialResultToken,
@@ -13231,8 +13242,9 @@ class Command implements ToJsonable {
 
   static Command fromJson(Map<String, Object?> json) {
     final argumentsJson = json['arguments'];
-    final arguments =
-        (argumentsJson as List<Object?>?)?.map((item) => item).toList();
+    final arguments = (argumentsJson as List<Object?>?)
+        ?.map((item) => item)
+        .toList();
     final commandJson = json['command'];
     final command = commandJson as String;
     final titleJson = json['title'];
@@ -13281,13 +13293,13 @@ class CompletionClientCapabilities implements ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        completionItem,
-        completionItemKind,
-        completionList,
-        contextSupport,
-        dynamicRegistration,
-        insertTextMode,
-      );
+    completionItem,
+    completionItemKind,
+    completionList,
+    contextSupport,
+    dynamicRegistration,
+    insertTextMode,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -13500,17 +13512,17 @@ class CompletionClientCapabilitiesCompletionItem implements ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        commitCharactersSupport,
-        deprecatedSupport,
-        lspHashCode(documentationFormat),
-        insertReplaceSupport,
-        insertTextModeSupport,
-        labelDetailsSupport,
-        preselectSupport,
-        resolveSupport,
-        snippetSupport,
-        tagSupport,
-      );
+    commitCharactersSupport,
+    deprecatedSupport,
+    lspHashCode(documentationFormat),
+    insertReplaceSupport,
+    insertTextModeSupport,
+    labelDetailsSupport,
+    preselectSupport,
+    resolveSupport,
+    snippetSupport,
+    tagSupport,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -13541,8 +13553,9 @@ class CompletionClientCapabilitiesCompletionItem implements ToJsonable {
       result['deprecatedSupport'] = deprecatedSupport;
     }
     if (documentationFormat != null) {
-      result['documentationFormat'] =
-          documentationFormat?.map((item) => item.toJson()).toList();
+      result['documentationFormat'] = documentationFormat
+          ?.map((item) => item.toJson())
+          .toList();
     }
     if (insertReplaceSupport != null) {
       result['insertReplaceSupport'] = insertReplaceSupport;
@@ -14029,26 +14042,26 @@ class CompletionItem implements ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        lspHashCode(additionalTextEdits),
-        command,
-        lspHashCode(commitCharacters),
-        data,
-        deprecated,
-        detail,
-        documentation,
-        filterText,
-        insertText,
-        insertTextFormat,
-        insertTextMode,
-        kind,
-        label,
-        labelDetails,
-        preselect,
-        sortText,
-        lspHashCode(tags),
-        textEdit,
-        textEditText,
-      );
+    lspHashCode(additionalTextEdits),
+    command,
+    lspHashCode(commitCharacters),
+    data,
+    deprecated,
+    detail,
+    documentation,
+    filterText,
+    insertText,
+    insertTextFormat,
+    insertTextMode,
+    kind,
+    label,
+    labelDetails,
+    preselect,
+    sortText,
+    lspHashCode(tags),
+    textEdit,
+    textEditText,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -14085,8 +14098,9 @@ class CompletionItem implements ToJsonable {
   Map<String, Object?> toJson() {
     var result = <String, Object?>{};
     if (additionalTextEdits != null) {
-      result['additionalTextEdits'] =
-          additionalTextEdits?.map((item) => item.toJson()).toList();
+      result['additionalTextEdits'] = additionalTextEdits
+          ?.map((item) => item.toJson())
+          .toList();
     }
     if (command != null) {
       result['command'] = command?.toJson();
@@ -14363,8 +14377,9 @@ class CompletionItem implements ToJsonable {
         ? InsertTextMode.fromJson(insertTextModeJson as int)
         : null;
     final kindJson = json['kind'];
-    final kind =
-        kindJson != null ? CompletionItemKind.fromJson(kindJson as int) : null;
+    final kind = kindJson != null
+        ? CompletionItemKind.fromJson(kindJson as int)
+        : null;
     final labelJson = json['label'];
     final label = labelJson as String;
     final labelDetailsJson = json['labelDetails'];
@@ -14450,12 +14465,12 @@ class CompletionItemDefaults implements ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        lspHashCode(commitCharacters),
-        data,
-        editRange,
-        insertTextFormat,
-        insertTextMode,
-      );
+    lspHashCode(commitCharacters),
+    data,
+    editRange,
+    insertTextFormat,
+    insertTextMode,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -15055,12 +15070,12 @@ class CompletionOptions implements WorkDoneProgressOptions, ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        lspHashCode(allCommitCharacters),
-        completionItem,
-        resolveProvider,
-        lspHashCode(triggerCharacters),
-        workDoneProgress,
-      );
+    lspHashCode(allCommitCharacters),
+    completionItem,
+    resolveProvider,
+    lspHashCode(triggerCharacters),
+    workDoneProgress,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -15228,12 +15243,12 @@ class CompletionParams
   });
   @override
   int get hashCode => Object.hash(
-        context,
-        partialResultToken,
-        position,
-        textDocument,
-        workDoneToken,
-      );
+    context,
+    partialResultToken,
+    position,
+    textDocument,
+    workDoneToken,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -15333,8 +15348,9 @@ class CompletionParams
       textDocumentJson as Map<String, Object?>,
     );
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return CompletionParams(
       context: context,
       partialResultToken: partialResultToken,
@@ -15405,13 +15421,13 @@ class CompletionRegistrationOptions
   });
   @override
   int get hashCode => Object.hash(
-        lspHashCode(allCommitCharacters),
-        completionItem,
-        lspHashCode(documentSelector),
-        resolveProvider,
-        lspHashCode(triggerCharacters),
-        workDoneProgress,
-      );
+    lspHashCode(allCommitCharacters),
+    completionItem,
+    lspHashCode(documentSelector),
+    resolveProvider,
+    lspHashCode(triggerCharacters),
+    workDoneProgress,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -15661,8 +15677,9 @@ class ConfigurationItem implements ToJsonable {
 
   static ConfigurationItem fromJson(Map<String, Object?> json) {
     final scopeUriJson = json['scopeUri'];
-    final scopeUri =
-        scopeUriJson != null ? Uri.parse(scopeUriJson as String) : null;
+    final scopeUri = scopeUriJson != null
+        ? Uri.parse(scopeUriJson as String)
+        : null;
     final sectionJson = json['section'];
     final section = sectionJson as String?;
     return ConfigurationItem(scopeUri: scopeUri, section: section);
@@ -16238,8 +16255,9 @@ class DeclarationParams
       textDocumentJson as Map<String, Object?>,
     );
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return DeclarationParams(
       partialResultToken: partialResultToken,
       position: position,
@@ -16618,8 +16636,9 @@ class DefinitionParams
       textDocumentJson as Map<String, Object?>,
     );
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return DefinitionParams(
       partialResultToken: partialResultToken,
       position: position,
@@ -17034,16 +17053,16 @@ class Diagnostic implements ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        code,
-        codeDescription,
-        data,
-        message,
-        range,
-        lspHashCode(relatedInformation),
-        severity,
-        source,
-        lspHashCode(tags),
-      );
+    code,
+    codeDescription,
+    data,
+    message,
+    range,
+    lspHashCode(relatedInformation),
+    severity,
+    source,
+    lspHashCode(tags),
+  );
 
   @override
   bool operator ==(Object other) {
@@ -17078,8 +17097,9 @@ class Diagnostic implements ToJsonable {
     result['message'] = message;
     result['range'] = range.toJson();
     if (relatedInformation != null) {
-      result['relatedInformation'] =
-          relatedInformation?.map((item) => item.toJson()).toList();
+      result['relatedInformation'] = relatedInformation
+          ?.map((item) => item.toJson())
+          .toList();
     }
     if (severity != null) {
       result['severity'] = severity?.toJson();
@@ -17336,11 +17356,11 @@ class DiagnosticOptions implements WorkDoneProgressOptions, ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        identifier,
-        interFileDependencies,
-        workDoneProgress,
-        workspaceDiagnostics,
-      );
+    identifier,
+    interFileDependencies,
+    workDoneProgress,
+    workspaceDiagnostics,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -17483,13 +17503,13 @@ class DiagnosticRegistrationOptions
   });
   @override
   int get hashCode => Object.hash(
-        lspHashCode(documentSelector),
-        id,
-        identifier,
-        interFileDependencies,
-        workDoneProgress,
-        workspaceDiagnostics,
-      );
+    lspHashCode(documentSelector),
+    id,
+    identifier,
+    interFileDependencies,
+    workDoneProgress,
+    workspaceDiagnostics,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -18172,8 +18192,8 @@ class DidChangeTextDocumentParams implements ToJsonable {
         .map(
           (item) =>
               _eitherTextDocumentContentChangePartialTextDocumentContentChangeWholeDocument(
-            item,
-          ),
+                item,
+              ),
         )
         .toList();
     final textDocumentJson = json['textDocument'];
@@ -18483,8 +18503,9 @@ class DidCloseNotebookDocumentParams implements ToJsonable {
   @override
   Map<String, Object?> toJson() {
     var result = <String, Object?>{};
-    result['cellTextDocuments'] =
-        cellTextDocuments.map((item) => item.toJson()).toList();
+    result['cellTextDocuments'] = cellTextDocuments
+        .map((item) => item.toJson())
+        .toList();
     result['notebookDocument'] = notebookDocument.toJson();
     return result;
   }
@@ -18628,8 +18649,9 @@ class DidOpenNotebookDocumentParams implements ToJsonable {
   @override
   Map<String, Object?> toJson() {
     var result = <String, Object?>{};
-    result['cellTextDocuments'] =
-        cellTextDocuments.map((item) => item.toJson()).toList();
+    result['cellTextDocuments'] = cellTextDocuments
+        .map((item) => item.toJson())
+        .toList();
     result['notebookDocument'] = notebookDocument.toJson();
     return result;
   }
@@ -19078,8 +19100,9 @@ class DocumentColorParams
       textDocumentJson as Map<String, Object?>,
     );
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return DocumentColorParams(
       partialResultToken: partialResultToken,
       textDocument: textDocument,
@@ -19237,12 +19260,12 @@ class DocumentDiagnosticParams
   });
   @override
   int get hashCode => Object.hash(
-        identifier,
-        partialResultToken,
-        previousResultId,
-        textDocument,
-        workDoneToken,
-      );
+    identifier,
+    partialResultToken,
+    previousResultId,
+    textDocument,
+    workDoneToken,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -19342,8 +19365,9 @@ class DocumentDiagnosticParams
       textDocumentJson as Map<String, Object?>,
     );
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return DocumentDiagnosticParams(
       identifier: identifier,
       partialResultToken: partialResultToken,
@@ -19394,9 +19418,10 @@ class DocumentDiagnosticReportPartialResult implements ToJsonable {
   );
 
   final Map<
-      DocumentUri,
-      Either2<FullDocumentDiagnosticReport,
-          UnchangedDocumentDiagnosticReport>> relatedDocuments;
+    DocumentUri,
+    Either2<FullDocumentDiagnosticReport, UnchangedDocumentDiagnosticReport>
+  >
+  relatedDocuments;
 
   DocumentDiagnosticReportPartialResult({required this.relatedDocuments});
 
@@ -19674,8 +19699,9 @@ class DocumentFormattingParams implements WorkDoneProgressParams, ToJsonable {
       textDocumentJson as Map<String, Object?>,
     );
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return DocumentFormattingParams(
       options: options,
       textDocument: textDocument,
@@ -20128,8 +20154,9 @@ class DocumentHighlightParams
       textDocumentJson as Map<String, Object?>,
     );
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return DocumentHighlightParams(
       partialResultToken: partialResultToken,
       position: position,
@@ -20602,8 +20629,9 @@ class DocumentLinkParams
       textDocumentJson as Map<String, Object?>,
     );
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return DocumentLinkParams(
       partialResultToken: partialResultToken,
       textDocument: textDocument,
@@ -20641,10 +20669,10 @@ class DocumentLinkRegistrationOptions
   });
   @override
   int get hashCode => Object.hash(
-        lspHashCode(documentSelector),
-        resolveProvider,
-        workDoneProgress,
-      );
+    lspHashCode(documentSelector),
+    resolveProvider,
+    workDoneProgress,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -21027,10 +21055,10 @@ class DocumentOnTypeFormattingRegistrationOptions
   });
   @override
   int get hashCode => Object.hash(
-        lspHashCode(documentSelector),
-        firstTriggerCharacter,
-        lspHashCode(moreTriggerCharacter),
-      );
+    lspHashCode(documentSelector),
+    firstTriggerCharacter,
+    lspHashCode(moreTriggerCharacter),
+  );
 
   @override
   bool operator ==(Object other) {
@@ -21353,8 +21381,9 @@ class DocumentRangeFormattingParams
       textDocumentJson as Map<String, Object?>,
     );
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return DocumentRangeFormattingParams(
       options: options,
       range: range,
@@ -21515,15 +21544,15 @@ class DocumentSymbol implements ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        lspHashCode(children),
-        deprecated,
-        detail,
-        kind,
-        name,
-        range,
-        selectionRange,
-        lspHashCode(tags),
-      );
+    lspHashCode(children),
+    deprecated,
+    detail,
+    kind,
+    name,
+    range,
+    selectionRange,
+    lspHashCode(tags),
+  );
 
   @override
   bool operator ==(Object other) {
@@ -21716,12 +21745,12 @@ class DocumentSymbolClientCapabilities implements ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        dynamicRegistration,
-        hierarchicalDocumentSymbolSupport,
-        labelSupport,
-        symbolKind,
-        tagSupport,
-      );
+    dynamicRegistration,
+    hierarchicalDocumentSymbolSupport,
+    labelSupport,
+    symbolKind,
+    tagSupport,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -22145,8 +22174,9 @@ class DocumentSymbolParams
       textDocumentJson as Map<String, Object?>,
     );
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return DocumentSymbolParams(
       partialResultToken: partialResultToken,
       textDocument: textDocument,
@@ -22518,8 +22548,9 @@ class ExecuteCommandOptions implements WorkDoneProgressOptions, ToJsonable {
       return ExecuteCommandRegistrationOptions.fromJson(json);
     }
     final commandsJson = json['commands'];
-    final commands =
-        (commandsJson as List<Object?>).map((item) => item as String).toList();
+    final commands = (commandsJson as List<Object?>)
+        .map((item) => item as String)
+        .toList();
     final workDoneProgressJson = json['workDoneProgress'];
     final workDoneProgress = workDoneProgressJson as bool?;
     return ExecuteCommandOptions(
@@ -22614,13 +22645,15 @@ class ExecuteCommandParams implements WorkDoneProgressParams, ToJsonable {
 
   static ExecuteCommandParams fromJson(Map<String, Object?> json) {
     final argumentsJson = json['arguments'];
-    final arguments =
-        (argumentsJson as List<Object?>?)?.map((item) => item).toList();
+    final arguments = (argumentsJson as List<Object?>?)
+        ?.map((item) => item)
+        .toList();
     final commandJson = json['command'];
     final command = commandJson as String;
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return ExecuteCommandParams(
       arguments: arguments,
       command: command,
@@ -22698,8 +22731,9 @@ class ExecuteCommandRegistrationOptions
 
   static ExecuteCommandRegistrationOptions fromJson(Map<String, Object?> json) {
     final commandsJson = json['commands'];
-    final commands =
-        (commandsJson as List<Object?>).map((item) => item as String).toList();
+    final commands = (commandsJson as List<Object?>)
+        .map((item) => item as String)
+        .toList();
     final workDoneProgressJson = json['workDoneProgress'];
     final workDoneProgress = workDoneProgressJson as bool?;
     return ExecuteCommandRegistrationOptions(
@@ -23084,14 +23118,14 @@ class FileOperationClientCapabilities implements ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        didCreate,
-        didDelete,
-        didRename,
-        dynamicRegistration,
-        willCreate,
-        willDelete,
-        willRename,
-      );
+    didCreate,
+    didDelete,
+    didRename,
+    dynamicRegistration,
+    willCreate,
+    willDelete,
+    willRename,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -23344,13 +23378,13 @@ class FileOperationOptions implements ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        didCreate,
-        didDelete,
-        didRename,
-        willCreate,
-        willDelete,
-        willRename,
-      );
+    didCreate,
+    didDelete,
+    didRename,
+    willCreate,
+    willDelete,
+    willRename,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -23949,13 +23983,13 @@ class FoldingRange implements ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        collapsedText,
-        endCharacter,
-        endLine,
-        kind,
-        startCharacter,
-        startLine,
-      );
+    collapsedText,
+    endCharacter,
+    endLine,
+    kind,
+    startCharacter,
+    startLine,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -24060,8 +24094,9 @@ class FoldingRange implements ToJsonable {
     final endLineJson = json['endLine'];
     final endLine = endLineJson as int;
     final kindJson = json['kind'];
-    final kind =
-        kindJson != null ? FoldingRangeKind.fromJson(kindJson as String) : null;
+    final kind = kindJson != null
+        ? FoldingRangeKind.fromJson(kindJson as String)
+        : null;
     final startCharacterJson = json['startCharacter'];
     final startCharacter = startCharacterJson as int?;
     final startLineJson = json['startLine'];
@@ -24117,12 +24152,12 @@ class FoldingRangeClientCapabilities implements ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        dynamicRegistration,
-        foldingRange,
-        foldingRangeKind,
-        lineFoldingOnly,
-        rangeLimit,
-      );
+    dynamicRegistration,
+    foldingRange,
+    foldingRangeKind,
+    lineFoldingOnly,
+    rangeLimit,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -24550,8 +24585,9 @@ class FoldingRangeParams
       textDocumentJson as Map<String, Object?>,
     );
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return FoldingRangeParams(
       partialResultToken: partialResultToken,
       textDocument: textDocument,
@@ -24709,12 +24745,12 @@ class FormattingOptions implements ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        insertFinalNewline,
-        insertSpaces,
-        tabSize,
-        trimFinalNewlines,
-        trimTrailingWhitespace,
-      );
+    insertFinalNewline,
+    insertSpaces,
+    tabSize,
+    trimFinalNewlines,
+    trimTrailingWhitespace,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -24986,11 +25022,11 @@ class GeneralClientCapabilities implements ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        markdown,
-        lspHashCode(positionEncodings),
-        regularExpressions,
-        staleRequestSupport,
-      );
+    markdown,
+    lspHashCode(positionEncodings),
+    regularExpressions,
+    staleRequestSupport,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -25012,8 +25048,9 @@ class GeneralClientCapabilities implements ToJsonable {
       result['markdown'] = markdown?.toJson();
     }
     if (positionEncodings != null) {
-      result['positionEncodings'] =
-          positionEncodings?.map((item) => item.toJson()).toList();
+      result['positionEncodings'] = positionEncodings
+          ?.map((item) => item.toJson())
+          .toList();
     }
     if (regularExpressions != null) {
       result['regularExpressions'] = regularExpressions?.toJson();
@@ -25289,8 +25326,9 @@ class HoverClientCapabilities implements ToJsonable {
   Map<String, Object?> toJson() {
     var result = <String, Object?>{};
     if (contentFormat != null) {
-      result['contentFormat'] =
-          contentFormat?.map((item) => item.toJson()).toList();
+      result['contentFormat'] = contentFormat
+          ?.map((item) => item.toJson())
+          .toList();
     }
     if (dynamicRegistration != null) {
       result['dynamicRegistration'] = dynamicRegistration;
@@ -25489,8 +25527,9 @@ class HoverParams
       textDocumentJson as Map<String, Object?>,
     );
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return HoverParams(
       position: position,
       textDocument: textDocument,
@@ -25844,8 +25883,9 @@ class ImplementationParams
       textDocumentJson as Map<String, Object?>,
     );
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return ImplementationParams(
       partialResultToken: partialResultToken,
       position: position,
@@ -26075,17 +26115,17 @@ class InitializeParams implements WorkDoneProgressParams, ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        capabilities,
-        clientInfo,
-        initializationOptions,
-        locale,
-        processId,
-        rootPath,
-        rootUri,
-        trace,
-        workDoneToken,
-        lspHashCode(workspaceFolders),
-      );
+    capabilities,
+    clientInfo,
+    initializationOptions,
+    locale,
+    processId,
+    rootPath,
+    rootUri,
+    trace,
+    workDoneToken,
+    lspHashCode(workspaceFolders),
+  );
 
   @override
   bool operator ==(Object other) {
@@ -26131,8 +26171,9 @@ class InitializeParams implements WorkDoneProgressParams, ToJsonable {
       result['workDoneToken'] = workDoneToken?.toJson();
     }
     if (workspaceFolders != null) {
-      result['workspaceFolders'] =
-          workspaceFolders?.map((item) => item.toJson()).toList();
+      result['workspaceFolders'] = workspaceFolders
+          ?.map((item) => item.toJson())
+          .toList();
     }
     return result;
   }
@@ -26245,14 +26286,17 @@ class InitializeParams implements WorkDoneProgressParams, ToJsonable {
     final rootPathJson = json['rootPath'];
     final rootPath = rootPathJson as String?;
     final rootUriJson = json['rootUri'];
-    final rootUri =
-        rootUriJson != null ? Uri.parse(rootUriJson as String) : null;
+    final rootUri = rootUriJson != null
+        ? Uri.parse(rootUriJson as String)
+        : null;
     final traceJson = json['trace'];
-    final trace =
-        traceJson != null ? TraceValue.fromJson(traceJson as String) : null;
+    final trace = traceJson != null
+        ? TraceValue.fromJson(traceJson as String)
+        : null;
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     final workspaceFoldersJson = json['workspaceFolders'];
     final workspaceFolders = (workspaceFoldersJson as List<Object?>?)
         ?.map((item) => WorkspaceFolder.fromJson(item as Map<String, Object?>))
@@ -26410,15 +26454,15 @@ class InlayHint implements ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        data,
-        kind,
-        label,
-        paddingLeft,
-        paddingRight,
-        position,
-        lspHashCode(textEdits),
-        tooltip,
-      );
+    data,
+    kind,
+    label,
+    paddingLeft,
+    paddingRight,
+    position,
+    lspHashCode(textEdits),
+    tooltip,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -26536,8 +26580,9 @@ class InlayHint implements ToJsonable {
     final dataJson = json['data'];
     final data = dataJson;
     final kindJson = json['kind'];
-    final kind =
-        kindJson != null ? InlayHintKind.fromJson(kindJson as int) : null;
+    final kind = kindJson != null
+        ? InlayHintKind.fromJson(kindJson as int)
+        : null;
     final labelJson = json['label'];
     final label = _eitherListInlayHintLabelPartString(labelJson);
     final paddingLeftJson = json['paddingLeft'];
@@ -26551,8 +26596,9 @@ class InlayHint implements ToJsonable {
         ?.map((item) => TextEdit.fromJson(item as Map<String, Object?>))
         .toList();
     final tooltipJson = json['tooltip'];
-    final tooltip =
-        tooltipJson == null ? null : _eitherMarkupContentString(tooltipJson);
+    final tooltip = tooltipJson == null
+        ? null
+        : _eitherMarkupContentString(tooltipJson);
     return InlayHint(
       data: data,
       kind: kind,
@@ -26862,8 +26908,9 @@ class InlayHintLabelPart implements ToJsonable {
         ? Location.fromJson(locationJson as Map<String, Object?>)
         : null;
     final tooltipJson = json['tooltip'];
-    final tooltip =
-        tooltipJson == null ? null : _eitherMarkupContentString(tooltipJson);
+    final tooltip = tooltipJson == null
+        ? null
+        : _eitherMarkupContentString(tooltipJson);
     final valueJson = json['value'];
     final value = valueJson as String;
     return InlayHintLabelPart(
@@ -27047,8 +27094,9 @@ class InlayHintParams implements WorkDoneProgressParams, ToJsonable {
       textDocumentJson as Map<String, Object?>,
     );
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return InlayHintParams(
       range: range,
       textDocument: textDocument,
@@ -27095,11 +27143,11 @@ class InlayHintRegistrationOptions
   });
   @override
   int get hashCode => Object.hash(
-        lspHashCode(documentSelector),
-        id,
-        resolveProvider,
-        workDoneProgress,
-      );
+    lspHashCode(documentSelector),
+    id,
+    resolveProvider,
+    workDoneProgress,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -27652,8 +27700,9 @@ class InlineValueParams implements WorkDoneProgressParams, ToJsonable {
       textDocumentJson as Map<String, Object?>,
     );
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return InlineValueParams(
       context: context,
       range: range,
@@ -28413,8 +28462,9 @@ class LinkedEditingRangeParams
       textDocumentJson as Map<String, Object?>,
     );
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return LinkedEditingRangeParams(
       position: position,
       textDocument: textDocument,
@@ -28722,11 +28772,11 @@ class LocationLink implements ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        originSelectionRange,
-        targetRange,
-        targetSelectionRange,
-        targetUri,
-      );
+    originSelectionRange,
+    targetRange,
+    targetSelectionRange,
+    targetUri,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -29732,8 +29782,9 @@ class Moniker implements ToJsonable {
     final identifierJson = json['identifier'];
     final identifier = identifierJson as String;
     final kindJson = json['kind'];
-    final kind =
-        kindJson != null ? MonikerKind.fromJson(kindJson as String) : null;
+    final kind = kindJson != null
+        ? MonikerKind.fromJson(kindJson as String)
+        : null;
     final schemeJson = json['scheme'];
     final scheme = schemeJson as String;
     final uniqueJson = json['unique'];
@@ -30016,8 +30067,9 @@ class MonikerParams
       textDocumentJson as Map<String, Object?>,
     );
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return MonikerParams(
       partialResultToken: partialResultToken,
       position: position,
@@ -30442,8 +30494,8 @@ class NotebookCellTextDocumentFilter implements ToJsonable {
     final notebookJson = json['notebook'];
     final notebook =
         _eitherNotebookDocumentFilter1NotebookDocumentFilter2NotebookDocumentFilter3String(
-      notebookJson,
-    );
+          notebookJson,
+        );
     return NotebookCellTextDocumentFilter(
       language: language,
       notebook: notebook,
@@ -30713,8 +30765,9 @@ class NotebookDocumentChangeEventCells implements ToJsonable {
       result['structure'] = structure?.toJson();
     }
     if (textContent != null) {
-      result['textContent'] =
-          textContent?.map((item) => item.toJson()).toList();
+      result['textContent'] = textContent
+          ?.map((item) => item.toJson())
+          .toList();
     }
     return result;
   }
@@ -30961,8 +31014,8 @@ class NotebookDocumentChangeEventCellsTextContent implements ToJsonable {
         .map(
           (item) =>
               _eitherTextDocumentContentChangePartialTextDocumentContentChangeWholeDocument(
-            item,
-          ),
+                item,
+              ),
         )
         .toList();
     final documentJson = json['document'];
@@ -31487,8 +31540,12 @@ class NotebookDocumentSyncOptions implements ToJsonable {
 
   /// The notebooks to be synced
   final List<
-      Either2<NotebookDocumentSyncOptionsNotebookSelector,
-          NotebookDocumentSyncOptionsNotebookSelector2>> notebookSelector;
+    Either2<
+      NotebookDocumentSyncOptionsNotebookSelector,
+      NotebookDocumentSyncOptionsNotebookSelector2
+    >
+  >
+  notebookSelector;
 
   /// Whether save notification should be forwarded to the server. Will only be
   /// honored if mode === `notebook`.
@@ -31558,8 +31615,8 @@ class NotebookDocumentSyncOptions implements ToJsonable {
         .map(
           (item) =>
               _eitherNotebookDocumentSyncOptionsNotebookSelectorNotebookDocumentSyncOptionsNotebookSelector2(
-            item,
-          ),
+                item,
+              ),
         )
         .toList();
     final saveJson = json['save'];
@@ -31652,8 +31709,8 @@ class NotebookDocumentSyncOptionsNotebookSelector implements ToJsonable {
     final notebookJson = json['notebook'];
     final notebook =
         _eitherNotebookDocumentFilter1NotebookDocumentFilter2NotebookDocumentFilter3String(
-      notebookJson,
-    );
+          notebookJson,
+        );
     return NotebookDocumentSyncOptionsNotebookSelector(
       cells: cells,
       notebook: notebook,
@@ -31888,8 +31945,12 @@ class NotebookDocumentSyncRegistrationOptions
   /// The notebooks to be synced
   @override
   final List<
-      Either2<NotebookDocumentSyncOptionsNotebookSelector,
-          NotebookDocumentSyncOptionsNotebookSelector2>> notebookSelector;
+    Either2<
+      NotebookDocumentSyncOptionsNotebookSelector,
+      NotebookDocumentSyncOptionsNotebookSelector2
+    >
+  >
+  notebookSelector;
 
   /// Whether save notification should be forwarded to the server. Will only be
   /// honored if mode === `notebook`.
@@ -31976,8 +32037,8 @@ class NotebookDocumentSyncRegistrationOptions
         .map(
           (item) =>
               _eitherNotebookDocumentSyncOptionsNotebookSelectorNotebookDocumentSyncOptionsNotebookSelector2(
-            item,
-          ),
+                item,
+              ),
         )
         .toList();
     final saveJson = json['save'];
@@ -32525,8 +32586,9 @@ class PrepareRenameParams
       textDocumentJson as Map<String, Object?>,
     );
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return PrepareRenameParams(
       position: position,
       textDocument: textDocument,
@@ -32850,12 +32912,12 @@ class PublishDiagnosticsClientCapabilities implements ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        codeDescriptionSupport,
-        dataSupport,
-        relatedInformation,
-        tagSupport,
-        versionSupport,
-      );
+    codeDescriptionSupport,
+    dataSupport,
+    relatedInformation,
+    tagSupport,
+    versionSupport,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -33418,12 +33480,12 @@ class ReferenceParams
   });
   @override
   int get hashCode => Object.hash(
-        context,
-        partialResultToken,
-        position,
-        textDocument,
-        workDoneToken,
-      );
+    context,
+    partialResultToken,
+    position,
+    textDocument,
+    workDoneToken,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -33521,8 +33583,9 @@ class ReferenceParams
       textDocumentJson as Map<String, Object?>,
     );
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return ReferenceParams(
       context: context,
       partialResultToken: partialResultToken,
@@ -33727,8 +33790,9 @@ class RegistrationParams implements ToJsonable {
   @override
   Map<String, Object?> toJson() {
     var result = <String, Object?>{};
-    result['registrations'] =
-        registrations.map((item) => item.toJson()).toList();
+    result['registrations'] = registrations
+        .map((item) => item.toJson())
+        .toList();
     return result;
   }
 
@@ -33865,9 +33929,10 @@ class RelatedFullDocumentDiagnosticReport
   ///
   /// @since 3.17.0
   final Map<
-      DocumentUri,
-      Either2<FullDocumentDiagnosticReport,
-          UnchangedDocumentDiagnosticReport>>? relatedDocuments;
+    DocumentUri,
+    Either2<FullDocumentDiagnosticReport, UnchangedDocumentDiagnosticReport>
+  >?
+  relatedDocuments;
 
   /// An optional result id. If provided it will be sent on the next diagnostic
   /// request for the same document.
@@ -33885,11 +33950,11 @@ class RelatedFullDocumentDiagnosticReport
   }
   @override
   int get hashCode => Object.hash(
-        lspHashCode(items),
-        kind,
-        lspHashCode(relatedDocuments),
-        resultId,
-      );
+    lspHashCode(items),
+    kind,
+    lspHashCode(relatedDocuments),
+    resultId,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -33978,15 +34043,15 @@ class RelatedFullDocumentDiagnosticReport
     final kindJson = json['kind'];
     final kind = kindJson as String;
     final relatedDocumentsJson = json['relatedDocuments'];
-    final relatedDocuments =
-        (relatedDocumentsJson as Map<Object, Object?>?)?.map(
-      (key, value) => MapEntry(
-        Uri.parse(key as String),
-        _eitherFullDocumentDiagnosticReportUnchangedDocumentDiagnosticReport(
-          value,
-        ),
-      ),
-    );
+    final relatedDocuments = (relatedDocumentsJson as Map<Object, Object?>?)
+        ?.map(
+          (key, value) => MapEntry(
+            Uri.parse(key as String),
+            _eitherFullDocumentDiagnosticReportUnchangedDocumentDiagnosticReport(
+              value,
+            ),
+          ),
+        );
     final resultIdJson = json['resultId'];
     final resultId = resultIdJson as String?;
     return RelatedFullDocumentDiagnosticReport(
@@ -34021,9 +34086,10 @@ class RelatedUnchangedDocumentDiagnosticReport
   ///
   /// @since 3.17.0
   final Map<
-      DocumentUri,
-      Either2<FullDocumentDiagnosticReport,
-          UnchangedDocumentDiagnosticReport>>? relatedDocuments;
+    DocumentUri,
+    Either2<FullDocumentDiagnosticReport, UnchangedDocumentDiagnosticReport>
+  >?
+  relatedDocuments;
 
   /// A result id which will be sent on the next diagnostic request for the same
   /// document.
@@ -34112,15 +34178,15 @@ class RelatedUnchangedDocumentDiagnosticReport
     final kindJson = json['kind'];
     final kind = kindJson as String;
     final relatedDocumentsJson = json['relatedDocuments'];
-    final relatedDocuments =
-        (relatedDocumentsJson as Map<Object, Object?>?)?.map(
-      (key, value) => MapEntry(
-        Uri.parse(key as String),
-        _eitherFullDocumentDiagnosticReportUnchangedDocumentDiagnosticReport(
-          value,
-        ),
-      ),
-    );
+    final relatedDocuments = (relatedDocumentsJson as Map<Object, Object?>?)
+        ?.map(
+          (key, value) => MapEntry(
+            Uri.parse(key as String),
+            _eitherFullDocumentDiagnosticReportUnchangedDocumentDiagnosticReport(
+              value,
+            ),
+          ),
+        );
     final resultIdJson = json['resultId'];
     final resultId = resultIdJson as String;
     return RelatedUnchangedDocumentDiagnosticReport(
@@ -34242,11 +34308,11 @@ class RenameClientCapabilities implements ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        dynamicRegistration,
-        honorsChangeAnnotations,
-        prepareSupport,
-        prepareSupportDefaultBehavior,
-      );
+    dynamicRegistration,
+    honorsChangeAnnotations,
+    prepareSupport,
+    prepareSupportDefaultBehavior,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -34271,8 +34337,8 @@ class RenameClientCapabilities implements ToJsonable {
       result['prepareSupport'] = prepareSupport;
     }
     if (prepareSupportDefaultBehavior != null) {
-      result['prepareSupportDefaultBehavior'] =
-          prepareSupportDefaultBehavior?.toJson();
+      result['prepareSupportDefaultBehavior'] = prepareSupportDefaultBehavior
+          ?.toJson();
     }
     return result;
   }
@@ -34333,10 +34399,10 @@ class RenameClientCapabilities implements ToJsonable {
         json['prepareSupportDefaultBehavior'];
     final prepareSupportDefaultBehavior =
         prepareSupportDefaultBehaviorJson != null
-            ? PrepareSupportDefaultBehavior.fromJson(
-                prepareSupportDefaultBehaviorJson as int,
-              )
-            : null;
+        ? PrepareSupportDefaultBehavior.fromJson(
+            prepareSupportDefaultBehaviorJson as int,
+          )
+        : null;
     return RenameClientCapabilities(
       dynamicRegistration: dynamicRegistration,
       honorsChangeAnnotations: honorsChangeAnnotations,
@@ -34813,8 +34879,9 @@ class RenameParams implements WorkDoneProgressParams, ToJsonable {
       textDocumentJson as Map<String, Object?>,
     );
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return RenameParams(
       newName: newName,
       position: position,
@@ -34852,10 +34919,10 @@ class RenameRegistrationOptions
   });
   @override
   int get hashCode => Object.hash(
-        lspHashCode(documentSelector),
-        prepareProvider,
-        workDoneProgress,
-      );
+    lspHashCode(documentSelector),
+    prepareProvider,
+    workDoneProgress,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -35342,11 +35409,11 @@ class SelectionRangeParams
   });
   @override
   int get hashCode => Object.hash(
-        partialResultToken,
-        lspHashCode(positions),
-        textDocument,
-        workDoneToken,
-      );
+    partialResultToken,
+    lspHashCode(positions),
+    textDocument,
+    workDoneToken,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -35431,8 +35498,9 @@ class SelectionRangeParams
       textDocumentJson as Map<String, Object?>,
     );
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return SelectionRangeParams(
       partialResultToken: partialResultToken,
       positions: positions,
@@ -35658,8 +35726,9 @@ class SemanticTokens implements ToJsonable {
 
   static SemanticTokens fromJson(Map<String, Object?> json) {
     final dataJson = json['data'];
-    final data =
-        (dataJson as List<Object?>).map((item) => item as int).toList();
+    final data = (dataJson as List<Object?>)
+        .map((item) => item as int)
+        .toList();
     final resultIdJson = json['resultId'];
     final resultId = resultIdJson as String?;
     return SemanticTokens(data: data, resultId: resultId);
@@ -35733,16 +35802,16 @@ class SemanticTokensClientCapabilities implements ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        augmentsSyntaxTokens,
-        dynamicRegistration,
-        lspHashCode(formats),
-        multilineTokenSupport,
-        overlappingTokenSupport,
-        requests,
-        serverCancelSupport,
-        lspHashCode(tokenModifiers),
-        lspHashCode(tokenTypes),
-      );
+    augmentsSyntaxTokens,
+    dynamicRegistration,
+    lspHashCode(formats),
+    multilineTokenSupport,
+    overlappingTokenSupport,
+    requests,
+    serverCancelSupport,
+    lspHashCode(tokenModifiers),
+    lspHashCode(tokenTypes),
+  );
 
   @override
   bool operator ==(Object other) {
@@ -36122,11 +36191,11 @@ class SemanticTokensDeltaParams
   });
   @override
   int get hashCode => Object.hash(
-        partialResultToken,
-        previousResultId,
-        textDocument,
-        workDoneToken,
-      );
+    partialResultToken,
+    previousResultId,
+    textDocument,
+    workDoneToken,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -36209,8 +36278,9 @@ class SemanticTokensDeltaParams
       textDocumentJson as Map<String, Object?>,
     );
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return SemanticTokensDeltaParams(
       partialResultToken: partialResultToken,
       previousResultId: previousResultId,
@@ -36358,8 +36428,9 @@ class SemanticTokensEdit implements ToJsonable {
 
   static SemanticTokensEdit fromJson(Map<String, Object?> json) {
     final dataJson = json['data'];
-    final data =
-        (dataJson as List<Object?>?)?.map((item) => item as int).toList();
+    final data = (dataJson as List<Object?>?)
+        ?.map((item) => item as int)
+        .toList();
     final deleteCountJson = json['deleteCount'];
     final deleteCount = deleteCountJson as int;
     final startJson = json['start'];
@@ -36613,8 +36684,9 @@ class SemanticTokensOptions implements WorkDoneProgressOptions, ToJsonable {
       return SemanticTokensRegistrationOptions.fromJson(json);
     }
     final fullJson = json['full'];
-    final full =
-        fullJson == null ? null : _eitherBoolSemanticTokensFullDelta(fullJson);
+    final full = fullJson == null
+        ? null
+        : _eitherBoolSemanticTokensFullDelta(fullJson);
     final legendJson = json['legend'];
     final legend = SemanticTokensLegend.fromJson(
       legendJson as Map<String, Object?>,
@@ -36765,8 +36837,9 @@ class SemanticTokensParams
       textDocumentJson as Map<String, Object?>,
     );
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return SemanticTokensParams(
       partialResultToken: partialResultToken,
       textDocument: textDocument,
@@ -36823,8 +36896,9 @@ class SemanticTokensPartialResult implements ToJsonable {
 
   static SemanticTokensPartialResult fromJson(Map<String, Object?> json) {
     final dataJson = json['data'];
-    final data =
-        (dataJson as List<Object?>).map((item) => item as int).toList();
+    final data = (dataJson as List<Object?>)
+        .map((item) => item as int)
+        .toList();
     return SemanticTokensPartialResult(data: data);
   }
 }
@@ -36942,8 +37016,9 @@ class SemanticTokensRangeParams
       textDocumentJson as Map<String, Object?>,
     );
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return SemanticTokensRangeParams(
       partialResultToken: partialResultToken,
       range: range,
@@ -36999,13 +37074,13 @@ class SemanticTokensRegistrationOptions
   });
   @override
   int get hashCode => Object.hash(
-        lspHashCode(documentSelector),
-        full,
-        id,
-        legend,
-        range,
-        workDoneProgress,
-      );
+    lspHashCode(documentSelector),
+    full,
+    id,
+    legend,
+    range,
+    workDoneProgress,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -37114,8 +37189,9 @@ class SemanticTokensRegistrationOptions
         )
         .toList();
     final fullJson = json['full'];
-    final full =
-        fullJson == null ? null : _eitherBoolSemanticTokensFullDelta(fullJson);
+    final full = fullJson == null
+        ? null
+        : _eitherBoolSemanticTokensFullDelta(fullJson);
     final idJson = json['id'];
     final id = idJson as String?;
     final legendJson = json['legend'];
@@ -37271,7 +37347,7 @@ class ServerCapabilities implements ToJsonable {
   ///
   /// @since 3.16.0
   final Either3<bool, CallHierarchyOptions, CallHierarchyRegistrationOptions>?
-      callHierarchyProvider;
+  callHierarchyProvider;
 
   /// The server provides code actions. CodeActionOptions may only be specified
   /// if the client states that it supports `codeActionLiteralSupport` in its
@@ -37283,14 +37359,14 @@ class ServerCapabilities implements ToJsonable {
 
   /// The server provides color provider support.
   final Either3<bool, DocumentColorOptions, DocumentColorRegistrationOptions>?
-      colorProvider;
+  colorProvider;
 
   /// The server provides completion support.
   final CompletionOptions? completionProvider;
 
   /// The server provides Goto Declaration support.
   final Either3<bool, DeclarationOptions, DeclarationRegistrationOptions>?
-      declarationProvider;
+  declarationProvider;
 
   /// The server provides goto definition support.
   final Either2<bool, DefinitionOptions>? definitionProvider;
@@ -37299,7 +37375,7 @@ class ServerCapabilities implements ToJsonable {
   ///
   /// @since 3.17.0
   final Either2<DiagnosticOptions, DiagnosticRegistrationOptions>?
-      diagnosticProvider;
+  diagnosticProvider;
 
   /// The server provides document formatting.
   final Either2<bool, DocumentFormattingOptions>? documentFormattingProvider;
@@ -37315,7 +37391,7 @@ class ServerCapabilities implements ToJsonable {
 
   /// The server provides document range formatting.
   final Either2<bool, DocumentRangeFormattingOptions>?
-      documentRangeFormattingProvider;
+  documentRangeFormattingProvider;
 
   /// The server provides document symbol support.
   final Either2<bool, DocumentSymbolOptions>? documentSymbolProvider;
@@ -37328,44 +37404,51 @@ class ServerCapabilities implements ToJsonable {
 
   /// The server provides folding provider support.
   final Either3<bool, FoldingRangeOptions, FoldingRangeRegistrationOptions>?
-      foldingRangeProvider;
+  foldingRangeProvider;
 
   /// The server provides hover support.
   final Either2<bool, HoverOptions>? hoverProvider;
 
   /// The server provides Goto Implementation support.
   final Either3<bool, ImplementationOptions, ImplementationRegistrationOptions>?
-      implementationProvider;
+  implementationProvider;
 
   /// The server provides inlay hints.
   ///
   /// @since 3.17.0
   final Either3<bool, InlayHintOptions, InlayHintRegistrationOptions>?
-      inlayHintProvider;
+  inlayHintProvider;
 
   /// The server provides inline values.
   ///
   /// @since 3.17.0
   final Either3<bool, InlineValueOptions, InlineValueRegistrationOptions>?
-      inlineValueProvider;
+  inlineValueProvider;
 
   /// The server provides linked editing range support.
   ///
   /// @since 3.16.0
-  final Either3<bool, LinkedEditingRangeOptions,
-      LinkedEditingRangeRegistrationOptions>? linkedEditingRangeProvider;
+  final Either3<
+    bool,
+    LinkedEditingRangeOptions,
+    LinkedEditingRangeRegistrationOptions
+  >?
+  linkedEditingRangeProvider;
 
   /// The server provides moniker support.
   ///
   /// @since 3.16.0
   final Either3<bool, MonikerOptions, MonikerRegistrationOptions>?
-      monikerProvider;
+  monikerProvider;
 
   /// Defines how notebook documents are synced.
   ///
   /// @since 3.17.0
-  final Either2<NotebookDocumentSyncOptions,
-      NotebookDocumentSyncRegistrationOptions>? notebookDocumentSync;
+  final Either2<
+    NotebookDocumentSyncOptions,
+    NotebookDocumentSyncRegistrationOptions
+  >?
+  notebookDocumentSync;
 
   /// The position encoding the server picked from the encodings offered by the
   /// client via the client capability `general.positionEncodings`.
@@ -37388,13 +37471,13 @@ class ServerCapabilities implements ToJsonable {
 
   /// The server provides selection range support.
   final Either3<bool, SelectionRangeOptions, SelectionRangeRegistrationOptions>?
-      selectionRangeProvider;
+  selectionRangeProvider;
 
   /// The server provides semantic tokens support.
   ///
   /// @since 3.16.0
   final Either2<SemanticTokensOptions, SemanticTokensRegistrationOptions>?
-      semanticTokensProvider;
+  semanticTokensProvider;
 
   /// The server provides signature help support.
   final SignatureHelpOptions? signatureHelpProvider;
@@ -37403,17 +37486,17 @@ class ServerCapabilities implements ToJsonable {
   /// defining each notification or for backwards compatibility the
   /// TextDocumentSyncKind number.
   final Either2<TextDocumentSyncKind, TextDocumentSyncOptions>?
-      textDocumentSync;
+  textDocumentSync;
 
   /// The server provides Goto Type Definition support.
   final Either3<bool, TypeDefinitionOptions, TypeDefinitionRegistrationOptions>?
-      typeDefinitionProvider;
+  typeDefinitionProvider;
 
   /// The server provides type hierarchy support.
   ///
   /// @since 3.17.0
   final Either3<bool, TypeHierarchyOptions, TypeHierarchyRegistrationOptions>?
-      typeHierarchyProvider;
+  typeHierarchyProvider;
 
   /// Workspace specific server capabilities.
   final WorkspaceOptions? workspace;
@@ -37459,42 +37542,42 @@ class ServerCapabilities implements ToJsonable {
   });
   @override
   int get hashCode => Object.hashAll([
-        callHierarchyProvider,
-        codeActionProvider,
-        codeLensProvider,
-        colorProvider,
-        completionProvider,
-        declarationProvider,
-        definitionProvider,
-        diagnosticProvider,
-        documentFormattingProvider,
-        documentHighlightProvider,
-        documentLinkProvider,
-        documentOnTypeFormattingProvider,
-        documentRangeFormattingProvider,
-        documentSymbolProvider,
-        executeCommandProvider,
-        experimental,
-        foldingRangeProvider,
-        hoverProvider,
-        implementationProvider,
-        inlayHintProvider,
-        inlineValueProvider,
-        linkedEditingRangeProvider,
-        monikerProvider,
-        notebookDocumentSync,
-        positionEncoding,
-        referencesProvider,
-        renameProvider,
-        selectionRangeProvider,
-        semanticTokensProvider,
-        signatureHelpProvider,
-        textDocumentSync,
-        typeDefinitionProvider,
-        typeHierarchyProvider,
-        workspace,
-        workspaceSymbolProvider,
-      ]);
+    callHierarchyProvider,
+    codeActionProvider,
+    codeLensProvider,
+    colorProvider,
+    completionProvider,
+    declarationProvider,
+    definitionProvider,
+    diagnosticProvider,
+    documentFormattingProvider,
+    documentHighlightProvider,
+    documentLinkProvider,
+    documentOnTypeFormattingProvider,
+    documentRangeFormattingProvider,
+    documentSymbolProvider,
+    executeCommandProvider,
+    experimental,
+    foldingRangeProvider,
+    hoverProvider,
+    implementationProvider,
+    inlayHintProvider,
+    inlineValueProvider,
+    linkedEditingRangeProvider,
+    monikerProvider,
+    notebookDocumentSync,
+    positionEncoding,
+    referencesProvider,
+    renameProvider,
+    selectionRangeProvider,
+    semanticTokensProvider,
+    signatureHelpProvider,
+    textDocumentSync,
+    typeDefinitionProvider,
+    typeHierarchyProvider,
+    workspace,
+    workspaceSymbolProvider,
+  ]);
 
   @override
   bool operator ==(Object other) {
@@ -37567,8 +37650,8 @@ class ServerCapabilities implements ToJsonable {
       result['diagnosticProvider'] = diagnosticProvider?.toJson();
     }
     if (documentFormattingProvider != null) {
-      result['documentFormattingProvider'] =
-          documentFormattingProvider?.toJson();
+      result['documentFormattingProvider'] = documentFormattingProvider
+          ?.toJson();
     }
     if (documentHighlightProvider != null) {
       result['documentHighlightProvider'] = documentHighlightProvider?.toJson();
@@ -37609,8 +37692,8 @@ class ServerCapabilities implements ToJsonable {
       result['inlineValueProvider'] = inlineValueProvider?.toJson();
     }
     if (linkedEditingRangeProvider != null) {
-      result['linkedEditingRangeProvider'] =
-          linkedEditingRangeProvider?.toJson();
+      result['linkedEditingRangeProvider'] = linkedEditingRangeProvider
+          ?.toJson();
     }
     if (monikerProvider != null) {
       result['monikerProvider'] = monikerProvider?.toJson();
@@ -38030,18 +38113,18 @@ class ServerCapabilities implements ToJsonable {
         json['documentOnTypeFormattingProvider'];
     final documentOnTypeFormattingProvider =
         documentOnTypeFormattingProviderJson != null
-            ? DocumentOnTypeFormattingOptions.fromJson(
-                documentOnTypeFormattingProviderJson as Map<String, Object?>,
-              )
-            : null;
+        ? DocumentOnTypeFormattingOptions.fromJson(
+            documentOnTypeFormattingProviderJson as Map<String, Object?>,
+          )
+        : null;
     final documentRangeFormattingProviderJson =
         json['documentRangeFormattingProvider'];
     final documentRangeFormattingProvider =
         documentRangeFormattingProviderJson == null
-            ? null
-            : _eitherBoolDocumentRangeFormattingOptions(
-                documentRangeFormattingProviderJson,
-              );
+        ? null
+        : _eitherBoolDocumentRangeFormattingOptions(
+            documentRangeFormattingProviderJson,
+          );
     final documentSymbolProviderJson = json['documentSymbolProvider'];
     final documentSymbolProvider = documentSymbolProviderJson == null
         ? null
@@ -38695,7 +38778,7 @@ class ShowMessageRequestClientCapabilities implements ToJsonable {
 
   /// Capabilities specific to the `MessageActionItem` type.
   final ShowMessageRequestClientCapabilitiesMessageActionItem?
-      messageActionItem;
+  messageActionItem;
 
   ShowMessageRequestClientCapabilities({this.messageActionItem});
 
@@ -39053,7 +39136,7 @@ class SignatureHelpClientCapabilities implements ToJsonable {
   /// The client supports the following `SignatureInformation` specific
   /// properties.
   final SignatureHelpClientCapabilitiesSignatureInformation?
-      signatureInformation;
+  signatureInformation;
   SignatureHelpClientCapabilities({
     this.contextSupport,
     this.dynamicRegistration,
@@ -39168,10 +39251,10 @@ class SignatureHelpClientCapabilitiesSignatureInformation
   });
   @override
   int get hashCode => Object.hash(
-        activeParameterSupport,
-        lspHashCode(documentationFormat),
-        parameterInformation,
-      );
+    activeParameterSupport,
+    lspHashCode(documentationFormat),
+    parameterInformation,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -39193,8 +39276,9 @@ class SignatureHelpClientCapabilitiesSignatureInformation
       result['activeParameterSupport'] = activeParameterSupport;
     }
     if (documentationFormat != null) {
-      result['documentationFormat'] =
-          documentationFormat?.map((item) => item.toJson()).toList();
+      result['documentationFormat'] = documentationFormat
+          ?.map((item) => item.toJson())
+          .toList();
     }
     if (parameterInformation != null) {
       result['parameterInformation'] = parameterInformation?.toJson();
@@ -39302,11 +39386,11 @@ class SignatureHelpContext implements ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        activeSignatureHelp,
-        isRetrigger,
-        triggerCharacter,
-        triggerKind,
-      );
+    activeSignatureHelp,
+    isRetrigger,
+    triggerCharacter,
+    triggerKind,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -39428,10 +39512,10 @@ class SignatureHelpOptions implements WorkDoneProgressOptions, ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        lspHashCode(retriggerCharacters),
-        lspHashCode(triggerCharacters),
-        workDoneProgress,
-      );
+    lspHashCode(retriggerCharacters),
+    lspHashCode(triggerCharacters),
+    workDoneProgress,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -39638,8 +39722,9 @@ class SignatureHelpParams
       textDocumentJson as Map<String, Object?>,
     );
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return SignatureHelpParams(
       context: context,
       position: position,
@@ -39687,11 +39772,11 @@ class SignatureHelpRegistrationOptions
   });
   @override
   int get hashCode => Object.hash(
-        lspHashCode(documentSelector),
-        lspHashCode(retriggerCharacters),
-        lspHashCode(triggerCharacters),
-        workDoneProgress,
-      );
+    lspHashCode(documentSelector),
+    lspHashCode(retriggerCharacters),
+    lspHashCode(triggerCharacters),
+    workDoneProgress,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -39865,11 +39950,11 @@ class SignatureInformation implements ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        activeParameter,
-        documentation,
-        label,
-        lspHashCode(parameters),
-      );
+    activeParameter,
+    documentation,
+    label,
+    lspHashCode(parameters),
+  );
 
   @override
   bool operator ==(Object other) {
@@ -40189,13 +40274,13 @@ class SymbolInformation implements BaseSymbolInformation, ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        containerName,
-        deprecated,
-        kind,
-        location,
-        name,
-        lspHashCode(tags),
-      );
+    containerName,
+    deprecated,
+    kind,
+    location,
+    name,
+    lspHashCode(tags),
+  );
 
   @override
   bool operator ==(Object other) {
@@ -40642,37 +40727,37 @@ class TextDocumentClientCapabilities implements ToJsonable {
   });
   @override
   int get hashCode => Object.hashAll([
-        callHierarchy,
-        codeAction,
-        codeLens,
-        colorProvider,
-        completion,
-        declaration,
-        definition,
-        diagnostic,
-        documentHighlight,
-        documentLink,
-        documentSymbol,
-        foldingRange,
-        formatting,
-        hover,
-        implementation,
-        inlayHint,
-        inlineValue,
-        linkedEditingRange,
-        moniker,
-        onTypeFormatting,
-        publishDiagnostics,
-        rangeFormatting,
-        references,
-        rename,
-        selectionRange,
-        semanticTokens,
-        signatureHelp,
-        synchronization,
-        typeDefinition,
-        typeHierarchy,
-      ]);
+    callHierarchy,
+    codeAction,
+    codeLens,
+    colorProvider,
+    completion,
+    declaration,
+    definition,
+    diagnostic,
+    documentHighlight,
+    documentLink,
+    documentSymbol,
+    foldingRange,
+    formatting,
+    hover,
+    implementation,
+    inlayHint,
+    inlineValue,
+    linkedEditingRange,
+    moniker,
+    onTypeFormatting,
+    publishDiagnostics,
+    rangeFormatting,
+    references,
+    rename,
+    selectionRange,
+    semanticTokens,
+    signatureHelp,
+    synchronization,
+    typeDefinition,
+    typeHierarchy,
+  ]);
 
   @override
   bool operator ==(Object other) {
@@ -43092,8 +43177,9 @@ class TypeDefinitionParams
       textDocumentJson as Map<String, Object?>,
     );
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return TypeDefinitionParams(
       partialResultToken: partialResultToken,
       position: position,
@@ -43325,15 +43411,15 @@ class TypeHierarchyItem implements ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        data,
-        detail,
-        kind,
-        name,
-        range,
-        selectionRange,
-        lspHashCode(tags),
-        uri,
-      );
+    data,
+    detail,
+    kind,
+    name,
+    range,
+    selectionRange,
+    lspHashCode(tags),
+    uri,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -43640,8 +43726,9 @@ class TypeHierarchyPrepareParams
       textDocumentJson as Map<String, Object?>,
     );
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return TypeHierarchyPrepareParams(
       position: position,
       textDocument: textDocument,
@@ -43860,8 +43947,9 @@ class TypeHierarchySubtypesParams
         ? null
         : _eitherIntString(partialResultTokenJson);
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return TypeHierarchySubtypesParams(
       item: item,
       partialResultToken: partialResultToken,
@@ -43964,8 +44052,9 @@ class TypeHierarchySupertypesParams
         ? null
         : _eitherIntString(partialResultTokenJson);
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return TypeHierarchySupertypesParams(
       item: item,
       partialResultToken: partialResultToken,
@@ -44201,8 +44290,9 @@ class UnregistrationParams implements ToJsonable {
   @override
   Map<String, Object?> toJson() {
     var result = <String, Object?>{};
-    result['unregisterations'] =
-        unregisterations.map((item) => item.toJson()).toList();
+    result['unregisterations'] = unregisterations
+        .map((item) => item.toJson())
+        .toList();
     return result;
   }
 
@@ -45245,8 +45335,9 @@ class WorkDoneProgressParams implements ToJsonable {
       return TypeHierarchyPrepareParams.fromJson(json);
     }
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return WorkDoneProgressParams(workDoneToken: workDoneToken);
   }
 }
@@ -45471,21 +45562,21 @@ class WorkspaceClientCapabilities implements ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        applyEdit,
-        codeLens,
-        configuration,
-        diagnostics,
-        didChangeConfiguration,
-        didChangeWatchedFiles,
-        executeCommand,
-        fileOperations,
-        inlayHint,
-        inlineValue,
-        semanticTokens,
-        symbol,
-        workspaceEdit,
-        workspaceFolders,
-      );
+    applyEdit,
+    codeLens,
+    configuration,
+    diagnostics,
+    didChangeConfiguration,
+    didChangeWatchedFiles,
+    executeCommand,
+    fileOperations,
+    inlayHint,
+    inlineValue,
+    semanticTokens,
+    symbol,
+    workspaceEdit,
+    workspaceFolders,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -45814,11 +45905,11 @@ class WorkspaceDiagnosticParams
   });
   @override
   int get hashCode => Object.hash(
-        identifier,
-        partialResultToken,
-        lspHashCode(previousResultIds),
-        workDoneToken,
-      );
+    identifier,
+    partialResultToken,
+    lspHashCode(previousResultIds),
+    workDoneToken,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -45842,8 +45933,9 @@ class WorkspaceDiagnosticParams
     if (partialResultToken != null) {
       result['partialResultToken'] = partialResultToken?.toJson();
     }
-    result['previousResultIds'] =
-        previousResultIds.map((item) => item.toJson()).toList();
+    result['previousResultIds'] = previousResultIds
+        .map((item) => item.toJson())
+        .toList();
     if (workDoneToken != null) {
       result['workDoneToken'] = workDoneToken?.toJson();
     }
@@ -45907,8 +45999,9 @@ class WorkspaceDiagnosticParams
         .map((item) => PreviousResultId.fromJson(item as Map<String, Object?>))
         .toList();
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return WorkspaceDiagnosticParams(
       identifier: identifier,
       partialResultToken: partialResultToken,
@@ -45972,8 +46065,8 @@ class WorkspaceDiagnosticReport implements ToJsonable {
         .map(
           (item) =>
               _eitherWorkspaceFullDocumentDiagnosticReportWorkspaceUnchangedDocumentDiagnosticReport(
-            item,
-          ),
+                item,
+              ),
         )
         .toList();
     return WorkspaceDiagnosticReport(items: items);
@@ -46038,8 +46131,8 @@ class WorkspaceDiagnosticReportPartialResult implements ToJsonable {
         .map(
           (item) =>
               _eitherWorkspaceFullDocumentDiagnosticReportWorkspaceUnchangedDocumentDiagnosticReport(
-            item,
-          ),
+                item,
+              ),
         )
         .toList();
     return WorkspaceDiagnosticReportPartialResult(items: items);
@@ -46094,14 +46187,14 @@ class WorkspaceEdit implements ToJsonable {
   /// `workspace.workspaceEdit.resourceOperations` then only plain `TextEdit`s
   /// using the `changes` property are supported.
   final List<Either4<CreateFile, DeleteFile, RenameFile, TextDocumentEdit>>?
-      documentChanges;
+  documentChanges;
   WorkspaceEdit({this.changeAnnotations, this.changes, this.documentChanges});
   @override
   int get hashCode => Object.hash(
-        lspHashCode(changeAnnotations),
-        lspHashCode(changes),
-        lspHashCode(documentChanges),
-      );
+    lspHashCode(changeAnnotations),
+    lspHashCode(changes),
+    lspHashCode(documentChanges),
+  );
 
   @override
   bool operator ==(Object other) {
@@ -46176,13 +46269,13 @@ class WorkspaceEdit implements ToJsonable {
 
   static WorkspaceEdit fromJson(Map<String, Object?> json) {
     final changeAnnotationsJson = json['changeAnnotations'];
-    final changeAnnotations =
-        (changeAnnotationsJson as Map<Object, Object?>?)?.map(
-      (key, value) => MapEntry(
-        key as String,
-        ChangeAnnotation.fromJson(value as Map<String, Object?>),
-      ),
-    );
+    final changeAnnotations = (changeAnnotationsJson as Map<Object, Object?>?)
+        ?.map(
+          (key, value) => MapEntry(
+            key as String,
+            ChangeAnnotation.fromJson(value as Map<String, Object?>),
+          ),
+        );
     final changesJson = json['changes'];
     final changes = (changesJson as Map<Object, Object?>?)?.map(
       (key, value) => MapEntry(
@@ -46217,7 +46310,7 @@ class WorkspaceEditClientCapabilities implements ToJsonable {
   ///
   /// @since 3.16.0
   final WorkspaceEditClientCapabilitiesChangeAnnotationSupport?
-      changeAnnotationSupport;
+  changeAnnotationSupport;
 
   /// The client supports versioned document changes in `WorkspaceEdit`s
   final bool? documentChanges;
@@ -46249,12 +46342,12 @@ class WorkspaceEditClientCapabilities implements ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        changeAnnotationSupport,
-        documentChanges,
-        failureHandling,
-        normalizesLineEndings,
-        lspHashCode(resourceOperations),
-      );
+    changeAnnotationSupport,
+    documentChanges,
+    failureHandling,
+    normalizesLineEndings,
+    lspHashCode(resourceOperations),
+  );
 
   @override
   bool operator ==(Object other) {
@@ -46286,8 +46379,9 @@ class WorkspaceEditClientCapabilities implements ToJsonable {
       result['normalizesLineEndings'] = normalizesLineEndings;
     }
     if (resourceOperations != null) {
-      result['resourceOperations'] =
-          resourceOperations?.map((item) => item.toJson()).toList();
+      result['resourceOperations'] = resourceOperations
+          ?.map((item) => item.toJson())
+          .toList();
     }
     return result;
   }
@@ -47630,8 +47724,9 @@ class WorkspaceSymbolParams
     final queryJson = json['query'];
     final query = queryJson as String;
     final workDoneTokenJson = json['workDoneToken'];
-    final workDoneToken =
-        workDoneTokenJson == null ? null : _eitherIntString(workDoneTokenJson);
+    final workDoneToken = workDoneTokenJson == null
+        ? null
+        : _eitherIntString(workDoneTokenJson);
     return WorkspaceSymbolParams(
       partialResultToken: partialResultToken,
       query: query,

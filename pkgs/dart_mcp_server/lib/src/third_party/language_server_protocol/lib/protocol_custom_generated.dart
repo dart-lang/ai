@@ -1007,8 +1007,8 @@ Either2<int, String> _eitherIntString(Object? value) {
   return value is int
       ? Either2.t1(value)
       : value is String
-          ? Either2.t2(value)
-          : throw '$value was not one of (int, String)';
+      ? Either2.t2(value)
+      : throw '$value was not one of (int, String)';
 }
 
 typedef DocumentUri = Uri;
@@ -1018,8 +1018,8 @@ typedef LSPObject = Object;
 
 typedef LSPUri = Uri;
 
-typedef TextDocumentEditEdits
-    = List<Either3<AnnotatedTextEdit, SnippetTextEdit, TextEdit>>;
+typedef TextDocumentEditEdits =
+    List<Either3<AnnotatedTextEdit, SnippetTextEdit, TextEdit>>;
 
 class AnalyzerStatusParams implements ToJsonable {
   static const jsonHandler = LspJsonHandler(
@@ -1858,20 +1858,20 @@ class EditableArgument implements ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        defaultValue,
-        displayValue,
-        documentation,
-        hasArgument,
-        isDeprecated,
-        isEditable,
-        isNullable,
-        isRequired,
-        name,
-        notEditableReason,
-        lspHashCode(options),
-        type,
-        value,
-      );
+    defaultValue,
+    displayValue,
+    documentation,
+    hasArgument,
+    isDeprecated,
+    isEditable,
+    isNullable,
+    isRequired,
+    name,
+    notEditableReason,
+    lspHashCode(options),
+    type,
+    value,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -2053,8 +2053,9 @@ class EditableArgument implements ToJsonable {
     final notEditableReasonJson = json['notEditableReason'];
     final notEditableReason = notEditableReasonJson as String?;
     final optionsJson = json['options'];
-    final options =
-        (optionsJson as List<Object?>?)?.map((item) => item as String).toList();
+    final options = (optionsJson as List<Object?>?)
+        ?.map((item) => item as String)
+        .toList();
     final typeJson = json['type'];
     final type = typeJson as String;
     final valueJson = json['value'];
@@ -2101,12 +2102,12 @@ class EditableArguments implements ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        lspHashCode(arguments),
-        documentation,
-        name,
-        range,
-        textDocument,
-      );
+    lspHashCode(arguments),
+    documentation,
+    name,
+    range,
+    textDocument,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -2477,16 +2478,16 @@ class FlutterOutline implements ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        lspHashCode(attributes),
-        lspHashCode(children),
-        className,
-        codeRange,
-        dartElement,
-        kind,
-        label,
-        range,
-        variableName,
-      );
+    lspHashCode(attributes),
+    lspHashCode(children),
+    className,
+    codeRange,
+    dartElement,
+    kind,
+    label,
+    range,
+    variableName,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -2819,17 +2820,17 @@ class FlutterWidgetPreviewDetails implements ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        dependencyHasErrors,
-        functionName,
-        hasError,
-        isBuilder,
-        isMultiPreview,
-        libraryUri,
-        packageName,
-        position,
-        previewAnnotation,
-        scriptUri,
-      );
+    dependencyHasErrors,
+    functionName,
+    hasError,
+    isBuilder,
+    isMultiPreview,
+    libraryUri,
+    packageName,
+    position,
+    previewAnnotation,
+    scriptUri,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -3022,10 +3023,10 @@ class FlutterWidgetPreviews implements ToJsonable {
   });
   @override
   int get hashCode => Object.hash(
-        lspHashCode(namespaces),
-        lspHashCode(previews),
-        lspHashCode(scriptUris),
-      );
+    lspHashCode(namespaces),
+    lspHashCode(previews),
+    lspHashCode(scriptUris),
+  );
 
   @override
   bool operator ==(Object other) {
@@ -3874,8 +3875,9 @@ class InteractiveParams implements ToJsonable {
     final dataJson = json['data'];
     final data = dataJson;
     final formAnswersJson = json['formAnswers'];
-    final formAnswers =
-        (formAnswersJson as List<Object?>).map((item) => item).toList();
+    final formAnswers = (formAnswersJson as List<Object?>)
+        .map((item) => item)
+        .toList();
     final formFieldsJson = json['formFields'];
     final formFields = (formFieldsJson as List<Object?>?)
         ?.map((item) => FormField.fromJson(item as Map<String, Object?>))
@@ -4849,13 +4851,13 @@ class SaveUriCommandParameter implements CommandParameter, ToJsonable {
   }
   @override
   int get hashCode => Object.hash(
-        actionLabel,
-        defaultValue,
-        lspHashCode(filters),
-        kind,
-        parameterLabel,
-        parameterTitle,
-      );
+    actionLabel,
+    defaultValue,
+    lspHashCode(filters),
+    kind,
+    parameterLabel,
+    parameterTitle,
+  );
 
   @override
   bool operator ==(Object other) {
