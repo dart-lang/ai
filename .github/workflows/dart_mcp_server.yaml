@@ -40,11 +40,6 @@ jobs:
         with:
           path: "~/.pub-cache/hosted"
           key: "pub-cache-hosted;${{ matrix.flutterSdk }};${{ matrix.os }}"
-      - name: Cache Pub sdk git dependency
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae
-        with:
-          path: "~/.pub-cache/git/sdk-b0838eac58308fc4e6654ca99eda75b30649c08f/"
-          key: "pub-cache-git;${{ matrix.flutterSdk }};${{ matrix.os }}"
       # We need the flutter SDK in order to run the counter app for integration
       # testing.
       - uses: subosito/flutter-action@v2
