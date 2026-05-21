@@ -13,6 +13,8 @@ import 'package:skills/src/core/workspace_resolver.dart';
 import 'package:skills/src/ide/ide.dart';
 import 'package:skills/src/core/dialog_support.dart';
 
+import '../models/skill_manifest.dart';
+
 /// Installs skills from package dependencies for [ides].
 Future<bool> getSkills({
   required List<Ide> ides,
@@ -67,7 +69,7 @@ Future<bool> getSkills({
   }
 
   final installer = SkillInstaller(dialogSupport);
-  var manifest = await loadManifest(rootPath);
+  var manifest = await SkillManifest.loadOrEmptyFromRoot(rootPath);
 
   for (final ide in ides) {
     final result = await installer.installSkillsForIde(

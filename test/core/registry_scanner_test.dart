@@ -17,16 +17,18 @@ void main() {
       'when scanning flat layout then returns ScannedSkills with correct fields',
       () async {
         await d.dir('project', [
-          d.dir('.dart_skills', [
-            d.dir('repos', [
-              d.dir('owner', [
-                d.dir('repo', [
-                  d.dir('skills', [
-                    d.dir('my_pkg-buttons', [
-                      d.file('SKILL.md', '---\nname: my_pkg-buttons\n---\n'),
-                    ]),
-                    d.dir('my_pkg-forms', [
-                      d.file('SKILL.md', '---\nname: my_pkg-forms\n---\n'),
+          d.dir('.dart_tool', [
+            d.dir('skills', [
+              d.dir('repos', [
+                d.dir('owner', [
+                  d.dir('repo', [
+                    d.dir('skills', [
+                      d.dir('my_pkg-buttons', [
+                        d.file('SKILL.md', '---\nname: my_pkg-buttons\n---\n'),
+                      ]),
+                      d.dir('my_pkg-forms', [
+                        d.file('SKILL.md', '---\nname: my_pkg-forms\n---\n'),
+                      ]),
                     ]),
                   ]),
                 ]),
@@ -63,27 +65,30 @@ void main() {
       'when scanning groupedByPackage layout then returns ScannedSkills',
       () async {
         await d.dir('project', [
-          d.dir('.dart_skills', [
-            d.dir('repos', [
-              d.dir('owner', [
-                d.dir('repo', [
-                  d.dir('skills', [
-                    d.dir('riverpod', [
-                      d.dir('riverpod-get-started', [
-                        d.file(
-                          'SKILL.md',
-                          '---\nname: riverpod-get-started\n---\n',
-                        ),
+          d.dir('.dart_tool', [
+            d.dir('skills', [
+              d.dir('repos', [
+                d.dir('owner', [
+                  d.dir('repo', [
+                    d.dir('skills', [
+                      d.dir('riverpod', [
+                        d.dir('riverpod-get-started', [
+                          d.file(
+                            'SKILL.md',
+                            '---\nname: riverpod-get-started\n---\n',
+                          ),
+                        ]),
+                        d.dir('riverpod-testing', [
+                          d.file(
+                            'SKILL.md',
+                            '---\nname: riverpod-testing\n---\n',
+                          ),
+                        ]),
                       ]),
-                      d.dir('riverpod-testing', [
-                        d.file(
-                          'SKILL.md',
-                          '---\nname: riverpod-testing\n---\n',
-                        ),
+                      d.dir('flutter_riverpod', [
+                        d.dir(
+                            'flutter_riverpod-hooks', [d.file('SKILL.md', '')]),
                       ]),
-                    ]),
-                    d.dir('flutter_riverpod', [
-                      d.dir('flutter_riverpod-hooks', [d.file('SKILL.md', '')]),
                     ]),
                   ]),
                 ]),
@@ -122,13 +127,15 @@ void main() {
 
     test('when skill dir has no hyphen then skipped in flat layout', () async {
       await d.dir('project', [
-        d.dir('.dart_skills', [
-          d.dir('repos', [
-            d.dir('a', [
-              d.dir('b', [
-                d.dir('skills', [
-                  d.dir('no_hyphen', [
-                    d.file('SKILL.md', '---\nname: no_hyphen\n---\n'),
+        d.dir('.dart_tool', [
+          d.dir('skills', [
+            d.dir('repos', [
+              d.dir('a', [
+                d.dir('b', [
+                  d.dir('skills', [
+                    d.dir('no_hyphen', [
+                      d.file('SKILL.md', '---\nname: no_hyphen\n---\n'),
+                    ]),
                   ]),
                 ]),
               ]),
@@ -153,12 +160,14 @@ void main() {
 
     test('when skill dir has no SKILL.md then skipped', () async {
       await d.dir('project', [
-        d.dir('.dart_skills', [
-          d.dir('repos', [
-            d.dir('a', [
-              d.dir('b', [
-                d.dir('skills', [
-                  d.dir('pkg-skill', [d.file('README.md', 'not a skill')]),
+        d.dir('.dart_tool', [
+          d.dir('skills', [
+            d.dir('repos', [
+              d.dir('a', [
+                d.dir('b', [
+                  d.dir('skills', [
+                    d.dir('pkg-skill', [d.file('README.md', 'not a skill')]),
+                  ]),
                 ]),
               ]),
             ]),
@@ -182,19 +191,21 @@ void main() {
 
     test('when multiple repos then aggregates skills from all', () async {
       await d.dir('project', [
-        d.dir('.dart_skills', [
-          d.dir('repos', [
-            d.dir('owner1', [
-              d.dir('repo1', [
-                d.dir('skills', [
-                  d.dir('pkg-a', [d.file('SKILL.md', '')]),
+        d.dir('.dart_tool', [
+          d.dir('skills', [
+            d.dir('repos', [
+              d.dir('owner1', [
+                d.dir('repo1', [
+                  d.dir('skills', [
+                    d.dir('pkg-a', [d.file('SKILL.md', '')]),
+                  ]),
                 ]),
               ]),
-            ]),
-            d.dir('owner2', [
-              d.dir('repo2', [
-                d.dir('skills', [
-                  d.dir('pkg-b', [d.file('SKILL.md', '')]),
+              d.dir('owner2', [
+                d.dir('repo2', [
+                  d.dir('skills', [
+                    d.dir('pkg-b', [d.file('SKILL.md', '')]),
+                  ]),
                 ]),
               ]),
             ]),

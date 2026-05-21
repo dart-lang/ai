@@ -16,9 +16,9 @@ class ListCommand extends SkillsCommand {
     final workspace = await resolveWorkspace();
     final rootPath = workspace.rootPath;
 
-    final manifest = await SkillManifest.load(manifestFile(rootPath));
+    final manifest = await SkillManifest.loadOrEmptyFromRoot(rootPath);
 
-    if (manifest == null || manifest.isEmpty) {
+    if (manifest.isEmpty) {
       logger.info('No managed skills installed.');
       return;
     }

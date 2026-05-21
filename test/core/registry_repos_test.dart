@@ -1,6 +1,7 @@
 import 'package:path/path.dart' as p;
 import 'package:skills/src/config.dart';
 import 'package:skills/src/core/registry_repos.dart';
+import 'package:skills/src/models/skill_manifest.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -28,10 +29,9 @@ void main() {
   });
 
   group('registryReposPath / registryRepoPath', () {
-    test('registryReposPath ends with .dart_skills/repos', () {
+    test('registryReposPath includes .dart_tool/skills/repos', () {
       final path = registryReposPath('/project');
-      expect(path, contains('.dart_skills'));
-      expect(path, contains('repos'));
+      expect(path, contains(p.join(SkillManifest.dirName, 'repos')));
     });
 
     test('registryRepoPath includes owner and repo', () {
@@ -41,9 +41,10 @@ void main() {
         skillLayout: RegistrySkillLayout.flat,
       );
       final path = registryRepoPath('/project', repo);
-      expect(path, contains('.dart_skills'));
-      expect(path, contains('flutter'));
-      expect(path, contains('skills'));
+      expect(
+        path,
+        contains(p.join(SkillManifest.dirName, 'repos', 'flutter', 'skills')),
+      );
     });
   });
 

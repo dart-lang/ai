@@ -16,12 +16,12 @@ Fix any format, analysis, or test failures before finishing.
 
 ## Project conventions
 
-- **Manifest path:** The skills manifest path is defined in one place: `.dart_skills/skills_config.json` (see `SkillManifest` in `lib/src/models/skill_manifest.dart`). Use `SkillManifest.pathIn(rootPath)`, `SkillManifest.dirName`, and `SkillManifest.baseName` — never hardcode the path or path separators elsewhere.
+- **Manifest path:** The skills manifest path is defined in one place: `.dart_tool/skills/skills_config.json` (see `SkillManifest` in `lib/src/models/skill_manifest.dart`). Use `SkillManifest.pathIn(rootPath)`, `SkillManifest.dirName`, and `SkillManifest.baseName` — never hardcode the path or path separators elsewhere.
 - **Paths:** Use `package:path/path.dart` and `p.join()` for all path construction so behavior is correct on Windows.
-- **Empty manifest:** When all managed skills are removed, delete the `.dart_skills` directory rather than leaving an empty manifest file (see `SkillManifest.cleanupDir` and `RemoveCommand`).
+- **Empty manifest:** When all managed skills are removed, delete the `.dart_tool/skills` directory rather than leaving an empty manifest file (see `SkillManifest.cleanupDir` and `RemoveCommand`).
 - **Workspace resolution:** The CLI supports (1) a directory with a `pubspec.yaml` (pub workspace, melos, or single package) and (2) an implicit workspace: no root `pubspec.yaml`, but immediate subdirectories that have `pubspec.yaml` are treated as packages. Do not walk up the directory tree to find a project root; the user is expected to run from the project root.
 - **IDE install locations:** Install full Agent Skills (SKILL.md plus scripts, references, assets) into each IDE’s documented location: `.cursor/skills/`, `.agents/skills/`, `.claude/skills/`, `.cline/skills/`, `.github/skills/`. See README for spec links.
-- **Registry repos:** GitHub registry repos are cloned/updated under `.dart_skills/repos/<owner>/<repo>`. The merge step gives Dart-package skills precedence per package: if a dependency ships its own skills, registry skills for that package are not installed.
+- **Registry repos:** GitHub registry repos are cloned/updated under `.dart_tool/skills/repos/<owner>/<repo>`. The merge step gives Dart-package skills precedence per package: if a dependency ships its own skills, registry skills for that package are not installed.
 - **Generic IDE:** Antigravity, Codex, and generic are separate CLI options that all install to `.agents/skills/`. Only `generic` is stored in `skills_config.json`.
 - **Listing IDEs:** When listing agents/IDEs (docs, help text, CLI options), use alphabetical order with generic last.
 - **Cline** is experimental; **Copilot** is not auto-detected (use `--ide copilot` explicitly).

@@ -83,8 +83,7 @@ void main() {
     test('when loading manifest then returns null', () async {
       await d.dir('bare_project').create();
 
-      final file = File(SkillManifest.pathIn(d.path('bare_project')));
-      final manifest = await SkillManifest.load(file);
+      final manifest = await SkillManifest.loadFromRoot(d.path('bare_project'));
 
       expect(manifest, isNull);
     });

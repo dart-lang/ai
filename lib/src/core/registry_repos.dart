@@ -40,13 +40,13 @@ class RegistryRepo {
 }
 
 /// Returns the absolute path to the repos root under [rootPath]:
-/// `<rootPath>/.dart_skills/repos`.
+/// `<rootPath>/.dart_tool/skills/repos`.
 String registryReposPath(String rootPath) {
   return p.join(rootPath, SkillManifest.dirName, 'repos');
 }
 
 /// Returns the absolute path where [repo] should be cloned under [rootPath]:
-/// `<rootPath>/.dart_skills/repos/<owner>/<name>`.
+/// `<rootPath>/.dart_tool/skills/repos/<owner>/<name>`.
 String registryRepoPath(String rootPath, RegistryRepo repo) {
   return p.join(registryReposPath(rootPath), repo.pathSegment);
 }

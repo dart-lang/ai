@@ -41,8 +41,3 @@ abstract class SkillsCommand extends Command<void> {
 File manifestFile(String rootPath) {
   return File(SkillManifest.pathIn(rootPath));
 }
-
-/// Loads the manifest from [rootPath], or returns an empty manifest if none exists.
-Future<SkillManifest> loadManifest(String rootPath) async {
-  return SkillManifest.loadOrEmpty(manifestFile(rootPath));
-}
