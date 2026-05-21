@@ -9,12 +9,14 @@ import 'dart:io';
 
 import 'package:dart_mcp/server.dart';
 import 'package:json_rpc_2/json_rpc_2.dart';
-import 'package:language_server_protocol/protocol_generated.dart' as lsp;
 import 'package:meta/meta.dart';
 import 'package:unified_analytics/unified_analytics.dart';
 
 import '../features_configuration.dart';
 import '../lsp/wire_format.dart';
+// ignore: avoid_relative_lib_imports
+import '../third_party/language_server_protocol/lib/protocol_generated.dart'
+    as lsp;
 import '../utils/analytics.dart';
 import '../utils/cli_utils.dart';
 import '../utils/file_system.dart';
