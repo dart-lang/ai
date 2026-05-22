@@ -1,12 +1,18 @@
-# 0.1.4 (Dart SDK 3.13.0-WIP)
+## 1.0.0-wip
 
+- Package is now shipped on pub instead of through the SDK. The
+  `dart mcp-server` command will continue to work as an alias for
+  `dart run dart_mcp_server@`.
 - Support reading `DART_ROOT` environment variable to set the Dart SDK root.
 - Always enable roots fallback, and merge them with client roots that are set
   (if any).
 - Add a tool for making arbitrary vm service method calls to connected apps.
 - Move binary to `bin/dart_mcp_server.dart` to be compatible with dart run.
+- Add support for enabling analytics when running as a package based on the
+  `DASH__TOOL` environment variable. Analytics will not be tracked if this is
+  not set.
 
-# 0.1.3 (Dart SDK 3.12.0)
+## 0.1.3 (Dart SDK 3.12.0)
 
 - Add additional analytics for initialization events, and various list\* method
   calls. This will help understand how the server is being used by different
@@ -57,7 +63,7 @@
 - Enable `set_semantics` command for flutter_driver.
 - Add `listDtdUris` subcommand for the `dtd` tool.
 
-# 0.1.2 (Dart SDK 3.11.0)
+## 0.1.2 (Dart SDK 3.11.0)
 
 - Add `--tools=dart|all` argument to allow enabling only vanilla Dart tools for
   non-flutter projects.
@@ -74,7 +80,7 @@
 - Fix the `timeout` parameter for the flutter_driver tool to be a String,
   matching the underlying expected type (issue #330).
 
-# 0.1.1 (Dart SDK 3.10.0)
+## 0.1.1 (Dart SDK 3.10.0)
 
 - Change tools that accept multiple roots to not return immediately on the first
   failure.
@@ -102,7 +108,7 @@
   than just screenshots.
 - Mark the "root" parameter for `create_project` required.
 
-# 0.1.0 (Dart SDK 3.9.0)
+## 0.1.0 (Dart SDK 3.9.0)
 
 - Add documentation/homepage/repository links to pub results.
 - Handle relative paths under roots without trailing slashes.
