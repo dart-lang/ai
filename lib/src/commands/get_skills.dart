@@ -1,11 +1,15 @@
+import 'dart:io' as io;
+
 import 'package:args/command_runner.dart';
 import 'package:logging/logging.dart';
 import 'package:skills/src/commands/skills_command.dart';
+import 'package:skills/src/core/advisory_checker.dart';
 import 'package:skills/src/core/git_runner.dart';
 import 'package:skills/src/core/package_resolver.dart';
 import 'package:skills/src/core/pub_runner.dart';
 import 'package:skills/src/core/registry_scanner.dart';
 import 'package:skills/src/core/registry_sync.dart';
+import 'package:skills/src/core/registry_repos.dart';
 import 'package:skills/src/core/skill_installer.dart';
 import 'package:skills/src/core/skill_merger.dart';
 import 'package:skills/src/core/skill_scanner.dart';
@@ -40,21 +44,50 @@ Future<bool> getSkills({
     return false;
   }
 
-  final scanner = SkillScanner(logger);
-  final dartSkills = await scanner.scan(packages);
   final rootPath = workspace.rootPath;
-
+  final registryRepoCommits = <String, String>{};
   var registrySkills = <ScannedSkill>[];
+
   if (await gitRunner.isAvailable) {
     const registrySync = RegistrySync();
     await registrySync.sync(rootPath, onProgress: logger.info);
     const registryScanner = RegistryScanner();
     registrySkills = await registryScanner.scan(rootPath);
+
+    for (final repo in registrySync.repos) {
+      final repoPath = registryRepoPath(rootPath, repo);
+      final commit = await _getGitCommit(repoPath);
+      if (commit != null) {
+        registryRepoCommits['${repo.owner}/${repo.name}'] = commit;
+      }
+    }
   } else {
     logger.warning(
       'Warning: git not found. Skipping GitHub registry skills.',
     );
   }
+
+  final advisoryChecker = AdvisoryChecker();
+  final advisories = await advisoryChecker.checkAdvisories(
+    packages,
+    rootPath,
+    logger,
+    registryRepoCommits: registryRepoCommits,
+  );
+  if (advisories.isNotEmpty) {
+    final buffer = StringBuffer()
+      ..writeln('Warning: Found security advisories:');
+    for (final entry in advisories.entries) {
+      buffer.writeln('  ${entry.key}:');
+      for (final summary in entry.value) {
+        buffer.writeln('    - $summary');
+      }
+    }
+    logger.warning(buffer.toString());
+  }
+
+  final scanner = SkillScanner(logger);
+  final dartSkills = await scanner.scan(packages);
 
   final resolvedPackageNames = packages.map((p) => p.name).toSet();
   final skills = mergeSkills(
@@ -94,4 +127,21 @@ Future<bool> getSkills({
   logger.info('Installed ${skills.length} skill(s) for $ideNames.');
 
   return true;
+}
+
+Future<String?> _getGitCommit(String repoPath) async {
+  try {
+    final result = await io.Process.run(
+      'git',
+      ['rev-parse', 'HEAD'],
+      workingDirectory: repoPath,
+      runInShell: true,
+    );
+    if (result.exitCode == 0) {
+      return (result.stdout as String).trim();
+    }
+  } catch (e) {
+    // Ignore
+  }
+  return null;
 }

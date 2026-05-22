@@ -73,13 +73,6 @@ void main() {
   });
 
   group('Given a project without package_config.json', () {
-    test('when checking hasPackageConfig then returns false', () async {
-      await d.dir('empty_project').create();
-
-      final resolver = PackageResolver(d.path('empty_project'));
-      expect(resolver.hasPackageConfig, isFalse);
-    });
-
     test('when resolving then throws StateError', () async {
       await d.dir('no_config_project').create();
 

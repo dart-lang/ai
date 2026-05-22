@@ -25,13 +25,6 @@ class PackageResolver {
 
   const PackageResolver(this.projectPath);
 
-  /// Returns the path to the package_config.json file.
-  String get packageConfigPath =>
-      p.join(projectPath, '.dart_tool', 'package_config.json');
-
-  /// Whether the package_config.json file exists.
-  bool get hasPackageConfig => File(packageConfigPath).existsSync();
-
   /// Resolves all dependency packages to their on-disk locations.
   ///
   /// If [packageName] is provided, only that package is returned.
