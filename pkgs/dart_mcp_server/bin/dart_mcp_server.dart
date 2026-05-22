@@ -3,8 +3,31 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:io';
+
 import 'package:dart_mcp_server/dart_mcp_server.dart';
+import 'package:unified_analytics/unified_analytics.dart';
 
 void main(List<String> args) async {
-  exitCode = await DartMCPServer.run(args);
+  DashTool? tool;
+  if (Platform.environment[DashEnvVar.tool.name] case final toolEnv?) {
+    try {
+      tool = DashTool.fromLabel(toolEnv);
+    } catch (e) {
+      // Ignore errors, but don't track analytics for unrecognized tools.
+    }
+  }
+
+  final analytics = tool != null
+      ? Analytics(
+          tool: tool,
+          // The actual version is the part up to the first space.
+          dartVersion: Platform.version.split(' ').first,
+        )
+      : null;
+
+  try {
+    exitCode = await DartMCPServer.run(args, analytics: analytics);
+  } finally {
+    await analytics?.close();
+  }
 }
