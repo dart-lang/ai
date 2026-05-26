@@ -52,3 +52,6 @@ dev_dependencies:
 dependency_overrides:
   dart_mcp:
     path: ../dart_mcp
+
+executables:
+  dart_mcp_server: dart_mcp_server
