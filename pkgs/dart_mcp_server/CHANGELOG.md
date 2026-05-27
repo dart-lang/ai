@@ -1,4 +1,4 @@
-## 1.0.0-wip
+## 1.0.0
 
 - Package is now shipped on pub instead of through the SDK. The
   `dart mcp-server` command will continue to work as an alias for

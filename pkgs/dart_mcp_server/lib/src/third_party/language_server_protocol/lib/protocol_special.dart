@@ -34,9 +34,9 @@ Object? specToJson(Object? obj) {
   }
 }
 
-void _alwaysNull(dynamic _, [dynamic __]) {}
+void _alwaysNull(dynamic _, [dynamic _]) {}
 
-bool _alwaysTrue(dynamic _, [dynamic __]) => true;
+bool _alwaysTrue(dynamic _, [dynamic _]) => true;
 
 /// An LSP Code Action, which can be either a [CodeActionLiteral] (if supported
 /// by the client) that contains a [Command] and/or an inline edit, or just a

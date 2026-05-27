@@ -2,7 +2,7 @@ name: dart_mcp_server
 description: >-
   An MCP server for Dart projects, exposing various developer tools to AI
   models.
-version: 1.0.0-wip
+version: 1.0.0
 environment:
   sdk: ^3.12.0
 
@@ -42,6 +42,3 @@ dev_dependencies:
 
 executables:
   dart_mcp_server: dart_mcp_server
-
-workspace:
-  - lib/src/third_party/language_server_protocol

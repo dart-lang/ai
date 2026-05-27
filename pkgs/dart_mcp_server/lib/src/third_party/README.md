@@ -9,6 +9,7 @@ It is copied here with minimal changes, such as:
 
 - Formatting it with `dart format .`.
 - Removing `package:` imports and replacing them with relative imports.
+- Deleting the `pubspec.yaml` file.
 
 To update it, you can simply replace the entire language_server_protocol
 directory with the one from the SDK, and perform the changes listed above.
