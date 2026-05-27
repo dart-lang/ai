@@ -2,6 +2,8 @@ name: dart_mcp_server
 description: >-
   An MCP server for Dart projects, exposing various developer tools to AI
   models.
+repository: https://github.com/dart-lang/ai/tree/main/pkgs/dart_mcp_server
+issue_tracker: https://github.com/dart-lang/ai/issues?q=is%3Aissue+is%3Aopen+label%3Apackage%3Adart_mcp_server
 version: 1.0.0
 environment:
   sdk: ^3.12.0
