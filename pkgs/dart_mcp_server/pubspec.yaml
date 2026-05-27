@@ -40,5 +40,8 @@ dev_dependencies:
   test_descriptor: ^2.0.2
   test_process: ^2.1.1
 
+executables:
+  dart_mcp_server: dart_mcp_server
+
 workspace:
   - lib/src/third_party/language_server_protocol
