@@ -1,3 +1,7 @@
+## 1.0.1
+
+- Minor changes to improve pub score.
+
 ## 1.0.0
 
 - Package is now shipped on pub instead of through the SDK. The

@@ -4,7 +4,10 @@ description: >-
   models.
 repository: https://github.com/dart-lang/ai/tree/main/pkgs/dart_mcp_server
 issue_tracker: https://github.com/dart-lang/ai/issues?q=is%3Aissue+is%3Aopen+label%3Apackage%3Adart_mcp_server
-version: 1.0.0
+
+# NOTE: Must also update version in pkgs/dart_mcp_server/lib/src/server.dart
+version: 1.0.1
+
 environment:
   sdk: ^3.12.0
 
@@ -15,11 +18,12 @@ dependencies:
   collection: ^1.19.1
   dart_mcp: ^0.5.0
   dds_service_extensions: ^2.0.1
-  devtools_shared: ^12.0.0
+  devtools_shared: ^13.0.0
   dtd: ^4.0.0
   file: ^7.0.1
   http: ^1.3.0
   json_rpc_2: ^4.0.0
+  lints: ^6.1.0
   meta: ^1.16.0
   mime: ^2.0.0
   package_config: ^2.2.0
@@ -27,7 +31,7 @@ dependencies:
   pool: ^1.5.1
   process: ^5.0.3
   stream_channel: ^2.1.4
-  unified_analytics: ^8.0.2
+  unified_analytics: ^8.0.13
   vm_service: ^15.0.0
   web_socket: ^1.0.1
   yaml: ^3.1.3
