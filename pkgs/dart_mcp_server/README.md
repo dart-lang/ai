@@ -33,8 +33,7 @@ apply to this project) or edit the global `~/.gemini/settings.json` file in your
     "dart": {
       "command": "dart",
       "args": [
-        "mcp-server",
-        "--experimental-mcp-server", // Can be removed for Dart 3.9.0 or later.
+        "mcp-server"
       ]
     }
   }
