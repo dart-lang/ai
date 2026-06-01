@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 import 'package:skills/src/core/skill_installer.dart';
 import 'package:skills/src/core/skill_scanner.dart';
 import 'package:skills/src/ide/ide.dart';
+import 'package:skills/src/models/global_config.dart';
 import 'package:skills/src/models/skill_manifest.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
@@ -62,6 +63,7 @@ void main() {
         rootPath: rootPath,
         skills: scannedSkills,
         manifest: manifest,
+        globalConfig: const GlobalConfig(),
       );
 
       expect(result, isNotNull);

@@ -20,15 +20,26 @@ class CliUtilDialogSupport implements DialogSupport {
   CliUtilDialogSupport(this._sharedStdIn);
 
   @override
-  Future<int?> showSingleSelectDialog(List<String> options, {String? title}) {
+  Future<int?> showSingleSelectDialog(List<String> options,
+      {String? title}) async {
     if (title != null) io.stdout.writeln(title);
-    return cli.showSingleSelectDialog(options, _sharedStdIn);
+    final result = await cli.showSingleSelectDialog(options, _sharedStdIn);
+    if (result != null) {
+      io.stdout.writeln('> ${options[result]}');
+    }
+    return result;
   }
 
   @override
   Future<Set<int>?> showMultiSelectDialog(List<String> options,
-      {String? title}) {
+      {String? title}) async {
     if (title != null) io.stdout.writeln(title);
-    return cli.showMultiSelectDialog(options, _sharedStdIn);
+    final result = await cli.showMultiSelectDialog(options, _sharedStdIn);
+    if (result != null) {
+      final selectionStr =
+          result.isEmpty ? 'None' : result.map((i) => options[i]).join(', ');
+      io.stdout.writeln('> $selectionStr');
+    }
+    return result;
   }
 }

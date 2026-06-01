@@ -13,30 +13,49 @@ enum RegistrySkillLayout {
   groupedByPackage,
 }
 
-/// A GitHub registry repository with owner, name, and skill directory layout.
+/// A registry repository with a clone URL.
 class RegistryRepo {
-  final String owner;
-  final String name;
+  final String cloneUrl;
 
-  /// How skills are laid out under this repo's `skills/` directory.
-  final RegistrySkillLayout skillLayout;
-
-  /// If set, used instead of the default GitHub URL (for testing with local repos).
-  final String? customCloneUrl;
+  /// Absolute paths where this repo is installed.
+  final List<String> installs;
 
   const RegistryRepo({
-    required this.owner,
-    required this.name,
-    required this.skillLayout,
-    this.customCloneUrl,
+    required this.cloneUrl,
+    this.installs = const [],
   });
 
-  /// The path segment for this repo under [reposDir], e.g. "flutter/skills".
-  String get pathSegment => p.join(owner, name);
+  RegistryRepo copyWith({
+    String? cloneUrl,
+    List<String>? installs,
+  }) {
+    return RegistryRepo(
+      cloneUrl: cloneUrl ?? this.cloneUrl,
+      installs: installs ?? this.installs,
+    );
+  }
 
-  /// Full clone URL.
-  String get cloneUrl =>
-      customCloneUrl ?? 'https://github.com/$owner/$name.git';
+  factory RegistryRepo.fromJson(Map<String, dynamic> json) {
+    final installs = (json['installs'] as List<dynamic>?)?.cast<String>() ?? [];
+    final cloneUrl = json['cloneUrl'] as String;
+    return RegistryRepo(cloneUrl: cloneUrl, installs: installs);
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'cloneUrl': cloneUrl,
+      'installs': installs,
+    };
+  }
+
+  /// Returns a copy with a new install location added.
+  RegistryRepo withInstall(String location) {
+    if (installs.contains(location)) return this;
+    return RegistryRepo(cloneUrl: cloneUrl, installs: [...installs, location]);
+  }
+
+  /// The path segment for this repo under [reposDir].
+  String get pathSegment => Uri.encodeComponent(cloneUrl);
 }
 
 /// Returns the absolute path to the repos root under [rootPath]:

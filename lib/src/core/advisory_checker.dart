@@ -30,12 +30,13 @@ class AdvisoryChecker {
   }) async {
     final results = <String, List<String>>{};
     final queries = <Map<String, dynamic>>[];
-    final queriedPackageNames = <String>[];
+    // Package names or git URIs that were queried.
+    final queriedSources = <String>[];
 
     /// Queries for all the registry repositories.
     if (registryRepoCommits != null) {
       for (final entry in registryRepoCommits.entries) {
-        queriedPackageNames.add(entry.key);
+        queriedSources.add(entry.key);
         queries.add({'commit': entry.value});
       }
     }
@@ -56,7 +57,7 @@ class AdvisoryChecker {
 
       if (query != null) {
         queries.add(query);
-        queriedPackageNames.add(package.name);
+        queriedSources.add('package:${package.name}');
       }
     }
 
@@ -87,14 +88,14 @@ ${response.body}
         final result = resultsList[i] as Map<String, Object?>;
         final vulns = result['vulns'] as List<Object?>?;
         if (vulns != null && vulns.isNotEmpty) {
-          final packageName = queriedPackageNames[i];
+          final source = queriedSources[i];
           final summaries = <String>[];
           for (final vuln in vulns) {
             final vulnMap = vuln as Map<String, Object?>;
             final id = vulnMap['id'] as String;
             summaries.add('https://osv.dev/vulnerability/$id');
           }
-          results[packageName] = summaries;
+          results[source] = summaries;
         }
       }
     } catch (e) {

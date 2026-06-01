@@ -14,6 +14,10 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     steps:
+      # Enables git to use long paths on windows
+      - name: Enable long paths in Git
+        run: git config --global core.longpaths true
+
       - uses: actions/checkout@v4
 
       - uses: dart-lang/setup-dart@v1

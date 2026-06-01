@@ -16,6 +16,7 @@ import 'package:skills/src/core/skill_scanner.dart';
 import 'package:skills/src/core/workspace_resolver.dart';
 import 'package:skills/src/ide/ide.dart';
 import 'package:skills/src/core/dialog_support.dart';
+import 'package:skills/src/models/global_config.dart';
 
 import '../models/skill_manifest.dart';
 
@@ -45,20 +46,38 @@ Future<bool> getSkills({
   }
 
   final rootPath = workspace.rootPath;
+  var manifest = await SkillManifest.loadOrEmptyFromRoot(rootPath);
+
+  final globalConfigPath = GlobalConfig.globalPath;
+  final globalConfigFile = io.File(globalConfigPath);
+  var globalConfig = await GlobalConfig.loadOrEmpty(globalConfigFile);
+
+  final registrySkills = <ScannedSkill>[];
   final registryRepoCommits = <String, String>{};
-  var registrySkills = <ScannedSkill>[];
 
   if (await gitRunner.isAvailable) {
-    const registrySync = RegistrySync();
+    final registrySync = RegistrySync(
+        repos: [...globalConfig.registries, ...manifest.registries]);
     await registrySync.sync(rootPath, onProgress: logger.info);
-    const registryScanner = RegistryScanner();
-    registrySkills = await registryScanner.scan(rootPath);
+
+    final registryScanner = RegistryScanner();
+    registrySkills
+      ..addAll(await registryScanner.scan(
+        rootPath,
+        isGlobal: true,
+        repos: globalConfig.registries,
+      ))
+      ..addAll(await registryScanner.scan(
+        rootPath,
+        isGlobal: false,
+        repos: manifest.registries,
+      ));
 
     for (final repo in registrySync.repos) {
       final repoPath = registryRepoPath(rootPath, repo);
       final commit = await _getGitCommit(repoPath);
       if (commit != null) {
-        registryRepoCommits['${repo.owner}/${repo.name}'] = commit;
+        registryRepoCommits[repo.cloneUrl] = commit;
       }
     }
   } else {
@@ -102,7 +121,6 @@ Future<bool> getSkills({
   }
 
   final installer = SkillInstaller(dialogSupport);
-  var manifest = await SkillManifest.loadOrEmptyFromRoot(rootPath);
 
   for (final ide in ides) {
     final result = await installer.installSkillsForIde(
@@ -110,17 +128,20 @@ Future<bool> getSkills({
       rootPath: rootPath,
       skills: skills,
       manifest: manifest,
+      globalConfig: globalConfig,
     );
     if (result == null) {
       logger.warning('Installation aborted for IDE ${ide.cliName}');
       continue;
     }
     manifest = result.manifest;
+    globalConfig = result.globalConfig;
     for (final info in result.installed) {
       logger.info('  [${info.ideName}] Installed ${info.skillName}');
     }
   }
 
+  await globalConfig.save(globalConfigFile);
   await manifest.save(manifestFile(rootPath));
 
   final ideNames = ides.map((e) => e.cliName).join(', ');

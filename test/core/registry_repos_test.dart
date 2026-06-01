@@ -1,29 +1,25 @@
 import 'package:path/path.dart' as p;
-import 'package:skills/src/config.dart';
 import 'package:skills/src/core/registry_repos.dart';
 import 'package:skills/src/models/skill_manifest.dart';
 import 'package:test/test.dart';
 
 void main() {
   group('RegistryRepo', () {
-    test('pathSegment joins owner and name', () {
+    test('pathSegment encodes cloneUrl', () {
       const repo = RegistryRepo(
-        owner: 'flutter',
-        name: 'skills',
-        skillLayout: RegistrySkillLayout.flat,
+        cloneUrl: 'https://github.com/flutter/skills.git',
       );
-      expect(repo.pathSegment, equals(p.join('flutter', 'skills')));
+      expect(repo.pathSegment,
+          equals(Uri.encodeComponent('https://github.com/flutter/skills.git')));
     });
 
-    test('cloneUrl is https github URL', () {
+    test('cloneUrl is the provided URL', () {
       const repo = RegistryRepo(
-        owner: 'serverpod',
-        name: 'skills-registry',
-        skillLayout: RegistrySkillLayout.groupedByPackage,
+        cloneUrl: 'https://example.com/repo.git',
       );
       expect(
         repo.cloneUrl,
-        equals('https://github.com/serverpod/skills-registry.git'),
+        equals('https://example.com/repo.git'),
       );
     });
   });
@@ -34,44 +30,16 @@ void main() {
       expect(path, contains(p.join(SkillManifest.dirName, 'repos')));
     });
 
-    test('registryRepoPath includes owner and repo', () {
+    test('registryRepoPath includes host, owner and repo', () {
       const repo = RegistryRepo(
-        owner: 'flutter',
-        name: 'skills',
-        skillLayout: RegistrySkillLayout.flat,
+        cloneUrl: 'https://github.com/flutter/skills.git',
       );
       final path = registryRepoPath('/project', repo);
       expect(
         path,
-        contains(p.join(SkillManifest.dirName, 'repos', 'flutter', 'skills')),
+        contains(p.join(SkillManifest.dirName, 'repos',
+            Uri.encodeComponent(repo.cloneUrl))),
       );
     });
-  });
-
-  group('kRegistryRepos', () {
-    test(
-      'contains flutter/skills with flat and serverpod/skills-registry with groupedByPackage',
-      () {
-        expect(kRegistryRepos.length, greaterThanOrEqualTo(2));
-        expect(
-          kRegistryRepos.any(
-            (r) =>
-                r.owner == 'flutter' &&
-                r.name == 'skills' &&
-                r.skillLayout == RegistrySkillLayout.flat,
-          ),
-          isTrue,
-        );
-        expect(
-          kRegistryRepos.any(
-            (r) =>
-                r.owner == 'serverpod' &&
-                r.name == 'skills-registry' &&
-                r.skillLayout == RegistrySkillLayout.groupedByPackage,
-          ),
-          isTrue,
-        );
-      },
-    );
   });
 }

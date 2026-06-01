@@ -10,11 +10,15 @@ class ScannedSkill {
   final String packageName;
   final String skillName;
   final String skillPath;
+  final String? registryUrl;
+  final bool isGlobal;
 
   const ScannedSkill({
     required this.packageName,
     required this.skillName,
     required this.skillPath,
+    this.registryUrl,
+    this.isGlobal = false,
   });
 }
 

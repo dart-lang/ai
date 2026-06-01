@@ -45,8 +45,9 @@ packages:
 
     final result = await checker.checkAdvisories(packages, d.sandbox, logger);
 
-    expect(result, contains('pkg1'));
-    expect(result['pkg1'], contains('https://osv.dev/vulnerability/GHSA-1'));
+    expect(result, contains('package:pkg1'));
+    expect(result['package:pkg1'],
+        contains('https://osv.dev/vulnerability/GHSA-1'));
   });
 
   test(

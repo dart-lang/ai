@@ -3,9 +3,11 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../core/registry_repos.dart';
+
 /// Tracks which skills are installed, per IDE and per package.
 class SkillManifest {
-  static const int currentVersion = 1;
+  static const int currentVersion = 2;
   static final String dirName = p.join('.dart_tool', 'skills');
   static const String baseName = 'skills_config.json';
 
@@ -18,10 +20,20 @@ class SkillManifest {
     if (await dir.exists()) await dir.delete(recursive: true);
   }
 
+  /// The version of the manifest when it was loaded.
+  final int version;
+
   /// Outer key: IDE name, inner key: package name.
   final Map<String, Map<String, PackageSkillsEntry>> installations;
 
-  const SkillManifest({this.installations = const {}});
+  /// Configured registries for this workspace.
+  final List<RegistryRepo> registries;
+
+  const SkillManifest({
+    this.version = currentVersion,
+    this.installations = const {},
+    this.registries = const [],
+  });
 
   /// Migrates existing state from `.dart_skills` to `.dart_tool/skills`.
   static Future<void> migrateIfNeeded(String rootPath) async {
@@ -68,6 +80,7 @@ class SkillManifest {
   }
 
   factory SkillManifest.fromJson(Map<String, dynamic> json) {
+    final version = json['version'] as int? ?? 1;
     final installationsJson =
         json['installations'] as Map<String, dynamic>? ?? {};
     final installations = installationsJson.map((ideKey, ideValue) {
@@ -81,7 +94,16 @@ class SkillManifest {
       return MapEntry(ideKey, pkgs);
     });
 
-    return SkillManifest(installations: installations);
+    final registriesJson = json['registries'] as List<dynamic>? ?? [];
+    final registries = registriesJson
+        .map((r) => RegistryRepo.fromJson(r as Map<String, dynamic>))
+        .toList();
+
+    return SkillManifest(
+      version: version,
+      installations: installations,
+      registries: registries,
+    );
   }
 
   Map<String, dynamic> toJson() {
@@ -93,6 +115,7 @@ class SkillManifest {
           pkgs.map((pkgKey, entry) => MapEntry(pkgKey, entry.toJson())),
         ),
       ),
+      'registries': registries.map((r) => r.toJson()).toList(),
     };
   }
 
@@ -138,7 +161,7 @@ class SkillManifest {
     final updated = _deepCopy();
     updated.putIfAbsent(ide, () => {});
     updated[ide]![packageName] = entry;
-    return SkillManifest(installations: updated);
+    return SkillManifest(installations: updated, registries: registries);
   }
 
   /// Returns a copy with [packageName] removed from [ide].
@@ -146,14 +169,30 @@ class SkillManifest {
     final updated = _deepCopy();
     updated[ide]?.remove(packageName);
     if (updated[ide]?.isEmpty ?? false) updated.remove(ide);
-    return SkillManifest(installations: updated);
+    return SkillManifest(installations: updated, registries: registries);
   }
 
   /// Returns a copy with all packages removed for [ide].
   SkillManifest withoutIde(String ide) {
     final updated = _deepCopy();
     updated.remove(ide);
-    return SkillManifest(installations: updated);
+    return SkillManifest(installations: updated, registries: registries);
+  }
+
+  /// Returns a copy with [repo] added.
+  SkillManifest withRegistry(RegistryRepo repo) {
+    return SkillManifest(
+      installations: installations,
+      registries: [...registries, repo],
+    );
+  }
+
+  /// Returns a copy with [repo] removed.
+  SkillManifest withoutRegistry(RegistryRepo repo) {
+    return SkillManifest(
+      installations: installations,
+      registries: registries.where((r) => r.cloneUrl != repo.cloneUrl).toList(),
+    );
   }
 
   Map<String, Map<String, PackageSkillsEntry>> _deepCopy() {

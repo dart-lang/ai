@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'git_runner.dart';
 import 'registry_repos.dart';
-import '../config.dart';
 
 /// Syncs GitHub registry repos to the local `.dart_skills/repos` directory.
 ///
@@ -12,14 +11,13 @@ import '../config.dart';
 class RegistrySync {
   final GitRunner gitRunner;
 
-  /// Repos to sync; defaults to [kRegistryRepos].
+  /// Repos to sync.
   final List<RegistryRepo> repos;
 
-  const RegistrySync({GitRunner? gitRunner, List<RegistryRepo>? repos})
-      : gitRunner = gitRunner ?? const GitRunner(),
-        repos = repos ?? kRegistryRepos;
+  const RegistrySync({GitRunner? gitRunner, this.repos = const []})
+      : gitRunner = gitRunner ?? const GitRunner();
 
-  /// Ensures all [kRegistryRepos] are present and up to date under
+  /// Ensures all [repos] are present and up to date under
   /// [rootPath]/.dart_skills/repos.
   ///
   /// Call only when [GitRunner.isAvailable] is true.
@@ -52,7 +50,7 @@ class RegistrySync {
     RegistryRepo repo,
     void Function(String)? onProgress,
   ) async {
-    onProgress?.call('Cloning ${repo.owner}/${repo.name}...');
+    onProgress?.call('Cloning ${repo.cloneUrl}...');
     final result = await Process.run(
       'git',
       ['clone', '--depth', '1', repo.cloneUrl, repoPath],
@@ -61,7 +59,7 @@ class RegistrySync {
     );
     if (result.exitCode != 0) {
       stderr.writeln(
-        'Warning: Failed to clone ${repo.owner}/${repo.name}: ${result.stderr}',
+        'Warning: Failed to clone ${repo.cloneUrl}: ${result.stderr}',
       );
     }
   }
@@ -71,7 +69,7 @@ class RegistrySync {
     RegistryRepo repo,
     void Function(String)? onProgress,
   ) async {
-    onProgress?.call('Updating ${repo.owner}/${repo.name}...');
+    onProgress?.call('Updating ${repo.cloneUrl}...');
     var result = await Process.run(
       'git',
       ['fetch', 'origin'],
@@ -80,7 +78,7 @@ class RegistrySync {
     );
     if (result.exitCode != 0) {
       stderr.writeln(
-        'Warning: Failed to fetch ${repo.owner}/${repo.name}: ${result.stderr}',
+        'Warning: Failed to fetch ${repo.cloneUrl}: ${result.stderr}',
       );
       return;
     }
@@ -92,7 +90,7 @@ class RegistrySync {
     );
     if (result.exitCode != 0) {
       stderr.writeln(
-        'Warning: Failed to reset ${repo.owner}/${repo.name}: ${result.stderr}',
+        'Warning: Failed to reset ${repo.cloneUrl}: ${result.stderr}',
       );
     }
   }

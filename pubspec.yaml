@@ -16,6 +16,7 @@ environment:
 dependencies:
   args: ^2.7.0
   cli_util: ^0.5.1
+  collection: ^1.19.1
   config: ^0.8.0
   glob: ^2.1.0
   http: ^1.6.0

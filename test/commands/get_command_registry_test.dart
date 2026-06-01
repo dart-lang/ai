@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:args/command_runner.dart';
 import 'package:path/path.dart' as p;
 import 'package:skills/src/commands/get_command.dart';
+import 'package:skills/src/commands/skills_command_runner.dart';
 import 'package:skills/src/core/git_runner.dart';
+import 'package:skills/src/core/registry_repos.dart';
+import 'package:skills/src/models/global_config.dart';
 import 'package:skills/src/models/skill_manifest.dart';
 import '../fake_dialog_support.dart';
 import 'package:test/test.dart';
@@ -69,7 +71,7 @@ environment:
           dialogSupport: FakeDialogSupport(),
           gitRunner: GitRunner(isAvailableOverride: _gitUnavailable),
         );
-        final runner = CommandRunner<void>('skills', 'Test')
+        final runner = SkillsCommandRunner('skills', 'Test')
           ..addCommand(getCommand);
 
         await runner
@@ -83,6 +85,83 @@ environment:
         expect(await manifestFile.exists(), isTrue);
       },
     );
+
+    test(
+        'when installing from global registry then adds back-link to global '
+        'config', () async {
+      final mockRegistry = d.dir('mock_registry', [
+        d.dir('skills', [
+          d.dir('pkg-skill', [
+            d.file('SKILL.md', '---\nname: pkg-skill\n---\n'),
+          ]),
+        ]),
+      ]);
+      await mockRegistry.create();
+      final registryPath = mockRegistry.io.path;
+
+      // Initialize git repo
+      await Process.run('git', ['init'], workingDirectory: registryPath);
+      await Process.run('git', ['config', 'user.name', 'Test'],
+          workingDirectory: registryPath);
+      await Process.run('git', ['config', 'user.email', 'test@example.com'],
+          workingDirectory: registryPath);
+      await Process.run('git', ['add', '.'], workingDirectory: registryPath);
+      await Process.run('git', ['commit', '-m', 'initial'],
+          workingDirectory: registryPath);
+
+      final project = d.dir('project', [
+        d.file('pubspec.yaml', '''
+name: test_app
+environment:
+  sdk: ^3.0.0
+'''),
+        d.dir('.dart_tool', [
+          d.file(
+            'package_config.json',
+            jsonEncode({
+              'configVersion': 2,
+              'packages': [
+                {'name': 'test_app', 'rootUri': '../', 'packageUri': 'lib/'},
+                {'name': 'pkg', 'rootUri': '../../pkg', 'packageUri': 'lib/'},
+              ],
+            }),
+          ),
+        ]),
+        d.dir('.cursor', [d.dir('skills')]),
+      ]);
+      await project.create();
+      final projectPath = project.io.path;
+
+      final globalConfigPath = d.file('global_config.json').io.path;
+      GlobalConfig.globalPathOverride = globalConfigPath;
+      addTearDown(() => GlobalConfig.globalPathOverride = null);
+
+      final fileUrl = '../mock_registry';
+      var globalConfig = const GlobalConfig();
+      globalConfig = globalConfig.withRegistry(RegistryRepo(cloneUrl: fileUrl));
+      await globalConfig.save(File(globalConfigPath));
+
+      final getCommand = GetCommand(
+        dialogSupport: FakeDialogSupport(),
+      );
+
+      final runner = SkillsCommandRunner('skills', 'Test')
+        ..addCommand(getCommand);
+
+      await runner.run(['--directory', projectPath, 'get', '--ide', 'cursor']);
+
+      expect(
+          Directory(p.join(projectPath, '.cursor', 'skills', 'pkg-skill'))
+              .existsSync(),
+          isTrue);
+
+      final updatedGlobalConfig =
+          await GlobalConfig.loadOrEmpty(File(globalConfigPath));
+      final repo = updatedGlobalConfig.registries
+          .firstWhere((r) => r.cloneUrl == fileUrl);
+      expect(repo.installs, isNotEmpty);
+      expect(repo.installs.first, contains('pkg-skill'));
+    });
   });
 }
 

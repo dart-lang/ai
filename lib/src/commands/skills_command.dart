@@ -11,20 +11,12 @@ import '../models/skill_manifest.dart';
 abstract class SkillsCommand extends Command<void> {
   late final logger = Logger('skills $name');
 
-  SkillsCommand() {
-    argParser.addOption(
-      'directory',
-      abbr: 'C',
-      help: 'Run as if in this directory (default: current directory).',
-    );
-  }
-
   /// Resolves the workspace layout.
   ///
   /// Uses [--directory] if set, otherwise the current working directory.
   /// This allows tests and scripts to run without changing the process cwd.
   Future<WorkspaceLayout> resolveWorkspace() async {
-    final dir = argResults?['directory'] as String?;
+    final dir = globalResults?['directory'] as String?;
     final path =
         dir != null ? p.normalize(p.absolute(dir)) : Directory.current.path;
     return const WorkspaceResolver().resolve(path);

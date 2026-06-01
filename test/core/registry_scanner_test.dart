@@ -9,26 +9,27 @@ void main() {
     test('when repos directory does not exist then returns empty', () async {
       await d.dir('project', []).create();
       const scanner = RegistryScanner();
-      final skills = await scanner.scan(d.path('project'));
+      final skills = await scanner.scan(d.path('project'), isGlobal: false);
       expect(skills, isEmpty);
     });
 
     test(
       'when scanning flat layout then returns ScannedSkills with correct fields',
       () async {
+        const registryRepo = RegistryRepo(
+          cloneUrl: 'https://github.com/owner/repo.git',
+        );
         await d.dir('project', [
           d.dir('.dart_tool', [
             d.dir('skills', [
               d.dir('repos', [
-                d.dir('owner', [
-                  d.dir('repo', [
-                    d.dir('skills', [
-                      d.dir('my_pkg-buttons', [
-                        d.file('SKILL.md', '---\nname: my_pkg-buttons\n---\n'),
-                      ]),
-                      d.dir('my_pkg-forms', [
-                        d.file('SKILL.md', '---\nname: my_pkg-forms\n---\n'),
-                      ]),
+                d.dir(registryRepo.pathSegment, [
+                  d.dir('skills', [
+                    d.dir('my_pkg-buttons', [
+                      d.file('SKILL.md', '---\nname: my_pkg-buttons\n---\n'),
+                    ]),
+                    d.dir('my_pkg-forms', [
+                      d.file('SKILL.md', '---\nname: my_pkg-forms\n---\n'),
                     ]),
                   ]),
                 ]),
@@ -40,12 +41,9 @@ void main() {
         const scanner = RegistryScanner();
         final skills = await scanner.scan(
           d.path('project'),
+          isGlobal: false,
           repos: [
-            const RegistryRepo(
-              owner: 'owner',
-              name: 'repo',
-              skillLayout: RegistrySkillLayout.flat,
-            ),
+            registryRepo,
           ],
         );
 
@@ -64,31 +62,31 @@ void main() {
     test(
       'when scanning groupedByPackage layout then returns ScannedSkills',
       () async {
+        const registryRepo = RegistryRepo(
+          cloneUrl: 'https://github.com/owner/repo.git',
+        );
         await d.dir('project', [
           d.dir('.dart_tool', [
             d.dir('skills', [
               d.dir('repos', [
-                d.dir('owner', [
-                  d.dir('repo', [
-                    d.dir('skills', [
-                      d.dir('riverpod', [
-                        d.dir('riverpod-get-started', [
-                          d.file(
-                            'SKILL.md',
-                            '---\nname: riverpod-get-started\n---\n',
-                          ),
-                        ]),
-                        d.dir('riverpod-testing', [
-                          d.file(
-                            'SKILL.md',
-                            '---\nname: riverpod-testing\n---\n',
-                          ),
-                        ]),
+                d.dir(registryRepo.pathSegment, [
+                  d.dir('skills', [
+                    d.dir('riverpod', [
+                      d.dir('riverpod-get-started', [
+                        d.file(
+                          'SKILL.md',
+                          '---\nname: riverpod-get-started\n---\n',
+                        ),
                       ]),
-                      d.dir('flutter_riverpod', [
-                        d.dir(
-                            'flutter_riverpod-hooks', [d.file('SKILL.md', '')]),
+                      d.dir('riverpod-testing', [
+                        d.file(
+                          'SKILL.md',
+                          '---\nname: riverpod-testing\n---\n',
+                        ),
                       ]),
+                    ]),
+                    d.dir('flutter_riverpod', [
+                      d.dir('flutter_riverpod-hooks', [d.file('SKILL.md', '')]),
                     ]),
                   ]),
                 ]),
@@ -100,12 +98,9 @@ void main() {
         const scanner = RegistryScanner();
         final skills = await scanner.scan(
           d.path('project'),
+          isGlobal: false,
           repos: [
-            const RegistryRepo(
-              owner: 'owner',
-              name: 'repo',
-              skillLayout: RegistrySkillLayout.groupedByPackage,
-            ),
+            registryRepo,
           ],
         );
 
@@ -147,11 +142,10 @@ void main() {
       const scanner = RegistryScanner();
       final skills = await scanner.scan(
         d.path('project'),
+        isGlobal: false,
         repos: [
           const RegistryRepo(
-            owner: 'a',
-            name: 'b',
-            skillLayout: RegistrySkillLayout.flat,
+            cloneUrl: 'https://github.com/a/b.git',
           ),
         ],
       );
@@ -178,11 +172,10 @@ void main() {
       const scanner = RegistryScanner();
       final skills = await scanner.scan(
         d.path('project'),
+        isGlobal: false,
         repos: [
           const RegistryRepo(
-            owner: 'a',
-            name: 'b',
-            skillLayout: RegistrySkillLayout.flat,
+            cloneUrl: 'https://github.com/a/b.git',
           ),
         ],
       );
@@ -190,22 +183,26 @@ void main() {
     });
 
     test('when multiple repos then aggregates skills from all', () async {
+      const registryRepos = [
+        RegistryRepo(
+          cloneUrl: 'https://github.com/owner1/repo1.git',
+        ),
+        RegistryRepo(
+          cloneUrl: 'https://github.com/owner2/repo2.git',
+        ),
+      ];
       await d.dir('project', [
         d.dir('.dart_tool', [
           d.dir('skills', [
             d.dir('repos', [
-              d.dir('owner1', [
-                d.dir('repo1', [
-                  d.dir('skills', [
-                    d.dir('pkg-a', [d.file('SKILL.md', '')]),
-                  ]),
+              d.dir(registryRepos[0].pathSegment, [
+                d.dir('skills', [
+                  d.dir('pkg-a', [d.file('SKILL.md', '')]),
                 ]),
               ]),
-              d.dir('owner2', [
-                d.dir('repo2', [
-                  d.dir('skills', [
-                    d.dir('pkg-b', [d.file('SKILL.md', '')]),
-                  ]),
+              d.dir(registryRepos[1].pathSegment, [
+                d.dir('skills', [
+                  d.dir('pkg-b', [d.file('SKILL.md', '')]),
                 ]),
               ]),
             ]),
@@ -216,18 +213,8 @@ void main() {
       const scanner = RegistryScanner();
       final skills = await scanner.scan(
         d.path('project'),
-        repos: [
-          const RegistryRepo(
-            owner: 'owner1',
-            name: 'repo1',
-            skillLayout: RegistrySkillLayout.flat,
-          ),
-          const RegistryRepo(
-            owner: 'owner2',
-            name: 'repo2',
-            skillLayout: RegistrySkillLayout.flat,
-          ),
-        ],
+        isGlobal: false,
+        repos: registryRepos,
       );
       expect(skills, hasLength(2));
       expect(skills.map((s) => s.packageName).toSet(), equals({'pkg'}));

@@ -12,6 +12,9 @@
 - feat: Check packages for security advisories on install.
 - chore: Move cache dir to `.dart_tool/skills` from `.dart_skills`.
 - feat: Allow the user to select an IDE if none is detected.
+- feat: Add `registry` command with `add`, `list`, and `remove` commands. This
+  replaces the old hardcoded flutter/skills and serverpod/skills-registry
+  registries, and new installs will not get those auto installed.
 
 ## 0.3.0
 
