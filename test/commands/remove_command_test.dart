@@ -118,7 +118,7 @@ void main() {
     });
 
     test(
-      'when removing all then .dart_skills directory is cleaned up',
+      'when removing all then cache and config directories are cleaned up',
       () async {
         final updated = manifest
             .withoutPackage('cursor', 'pkg_a')
@@ -126,12 +126,17 @@ void main() {
         expect(updated.isEmpty, isTrue);
 
         final dartSkillsDir =
-            Directory(p.join(projectPath, SkillManifest.dirName));
+            Directory(p.join(projectPath, SkillManifest.configDirPath));
         expect(await dartSkillsDir.exists(), isTrue);
 
-        await SkillManifest.cleanupDir(projectPath);
+        final cacheDir =
+            Directory(p.join(projectPath, SkillManifest.cacheDirPath));
+        await cacheDir.create(recursive: true);
+        await updated.save(File(SkillManifest.pathIn(projectPath)));
+        await SkillManifest.cleanup(projectPath);
 
         expect(await dartSkillsDir.exists(), isFalse);
+        expect(await cacheDir.exists(), isFalse);
       },
     );
   });

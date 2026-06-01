@@ -68,7 +68,7 @@ class RemoveCommand extends SkillsCommand {
     }
 
     if (manifest.isEmpty) {
-      await SkillManifest.cleanupDir(rootPath);
+      await SkillManifest.cleanup(rootPath);
     } else {
       await manifest.save(manifestFile(rootPath));
     }

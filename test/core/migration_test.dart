@@ -62,13 +62,13 @@ void main() {
         expect(globalConfig.registries.first.cloneUrl,
             equals('https://github.com/owner1/repo1.git'));
 
-        final oldRepoDir = Directory(p.join(
-            projectPath, SkillManifest.dirName, 'repos', 'owner1', 'repo1'));
+        final oldRepoDir = Directory(
+            p.join(projectPath, '.dart_skills', 'repos', 'owner1', 'repo1'));
         expect(await oldRepoDir.exists(), isFalse);
 
         final newRepoDir = Directory(p.join(
             projectPath,
-            SkillManifest.dirName,
+            SkillManifest.cacheDirPath,
             'repos',
             Uri.encodeComponent('https://github.com/owner1/repo1.git')));
         expect(await newRepoDir.exists(), isTrue);
@@ -108,8 +108,8 @@ void main() {
         expect(globalConfig.registries, isEmpty);
         expect(updatedManifest.registries, isEmpty);
 
-        final repoDir = Directory(p.join(
-            projectPath, SkillManifest.dirName, 'repos', 'owner1', 'repo1'));
+        final repoDir = Directory(
+            p.join(projectPath, '.dart_skills', 'repos', 'owner1', 'repo1'));
         expect(await repoDir.exists(), isFalse);
       });
 
@@ -246,12 +246,15 @@ void main() {
       expect(manifest!.version, equals(SkillManifest.currentVersion));
 
       // Check the repo has been moved to the new location
-      final oldRepoDir = Directory(p.join(
-          projectPath, SkillManifest.dirName, 'repos', 'owner1', 'repo1'));
+      final oldRepoDir = Directory(
+          p.join(projectPath, '.dart_skills', 'repos', 'owner1', 'repo1'));
       expect(await oldRepoDir.exists(), isFalse);
 
-      final newRepoDir = Directory(p.join(projectPath, SkillManifest.dirName,
-          'repos', Uri.encodeComponent('https://github.com/owner1/repo1.git')));
+      final newRepoDir = Directory(p.join(
+          projectPath,
+          SkillManifest.cacheDirPath,
+          'repos',
+          Uri.encodeComponent('https://github.com/owner1/repo1.git')));
       expect(await newRepoDir.exists(), isTrue);
     });
   });

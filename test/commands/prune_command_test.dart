@@ -184,7 +184,7 @@ environment:
           isFalse,
         );
         final dartSkillsDir = Directory(
-          p.join(projectPath, SkillManifest.dirName),
+          p.join(projectPath, SkillManifest.cacheDirPath),
         );
         expect(await dartSkillsDir.exists(), isFalse);
       },
