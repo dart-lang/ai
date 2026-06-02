@@ -47,7 +47,7 @@ class GetCommand extends SkillsCommand {
       dialogSupport: _dialogSupport,
       gitRunner: _effectiveGitRunner,
       usage: usage,
-      packageName: packageNameArg,
+      packageNames: packageNamesArg?.toSet(),
     );
   }
 }

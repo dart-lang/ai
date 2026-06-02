@@ -1,8 +1,13 @@
+import 'package:logging/logging.dart';
 import 'package:skills/src/core/skill_merger.dart';
 import 'package:skills/src/core/skill_scanner.dart';
 import 'package:test/test.dart';
 
 void main() {
+  setUpAll(() {
+    Logger.root.onRecord.listen((r) => printOnFailure(r.toString()));
+  });
+
   group('mergeSkills', () {
     test(
       'when package has both dart and registry skills then only dart included',

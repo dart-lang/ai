@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:logging/logging.dart';
 import 'package:skills/src/core/skill_scanner.dart';
 import 'package:skills/src/ide/adapters/generic_adapter.dart';
 import 'package:skills/src/models/skill_manifest.dart';
@@ -9,6 +10,9 @@ import 'package:test_descriptor/test_descriptor.dart' as d;
 import '../fake_dialog_support.dart';
 
 void main() {
+  setUpAll(() {
+    Logger.root.onRecord.listen((r) => printOnFailure(r.toString()));
+  });
   group('Given a GenericAdapter', () {
     late GenericAdapter adapter;
     late FakeDialogSupport fakeDialogSupport;

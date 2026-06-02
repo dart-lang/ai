@@ -12,6 +12,7 @@ class FakeDialogSupport implements DialogSupport {
 
   List<String>? lastSingleSelectOptions;
   List<String>? lastMultiSelectOptions;
+  Set<int>? lastInitialSelected;
 
   @override
   Future<int?> showSingleSelectDialog(List<String> options,
@@ -21,9 +22,13 @@ class FakeDialogSupport implements DialogSupport {
   }
 
   @override
-  Future<Set<int>?> showMultiSelectDialog(List<String> options,
-      {String? title}) async {
+  Future<Set<int>?> showMultiSelectDialog(
+    List<String> options, {
+    String? title,
+    Set<int> initialSelected = const {},
+  }) async {
     lastMultiSelectOptions = options;
+    lastInitialSelected = initialSelected;
     return multiSelectResult;
   }
 }

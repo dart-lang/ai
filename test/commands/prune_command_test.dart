@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:logging/logging.dart';
 import 'package:skills/src/commands/skills_command_runner.dart';
 import 'package:path/path.dart' as p;
 import 'package:skills/src/commands/prune_command.dart';
@@ -10,6 +11,10 @@ import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
 
 void main() {
+  setUpAll(() {
+    Logger.root.onRecord.listen((r) => printOnFailure(r.toString()));
+  });
+
   group('Prune command', () {
     test(
       'removes only unreferenced packages when manifest has pkg_a and pkg_b but deps only pkg_a',

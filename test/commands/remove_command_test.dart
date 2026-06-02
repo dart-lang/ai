@@ -1,64 +1,85 @@
+import 'dart:convert';
 import 'dart:io';
 
-import 'package:path/path.dart' as p;
-import 'package:skills/src/ide/adapters/claude_adapter.dart';
-import 'package:skills/src/ide/adapters/cursor_adapter.dart';
+import 'package:args/command_runner.dart';
+import 'package:logging/logging.dart';
+import 'package:skills/src/commands/remove_command.dart';
+import 'package:skills/src/commands/skills_command_runner.dart';
 import 'package:skills/src/models/skill_manifest.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
 
+import '../fake_dialog_support.dart';
+
 void main() {
-  group('Given a project with managed skills installed', () {
+  late CommandRunner runner;
+  late FakeDialogSupport fakeDialogSupport;
+
+  setUpAll(() {
+    Logger.root.onRecord.listen((r) => printOnFailure(r.toString()));
+  });
+
+  setUp(() {
+    fakeDialogSupport = FakeDialogSupport();
+    final removeCommand = RemoveCommand(dialogSupport: fakeDialogSupport);
+    runner = SkillsCommandRunner('skills', 'test')..addCommand(removeCommand);
+  });
+
+  group('Given a project with installed skills for dep1 and dep2', () {
     late String projectPath;
     late SkillManifest manifest;
 
     setUp(() async {
-      await d.dir('project', [
+      final projectRootDir = d.dir('project', [
+        d.file('pubspec.yaml', '''
+name: test_app
+environment:
+  sdk: ^3.0.0
+'''),
+        d.dir('.dart_tool', [
+          d.file(
+            'package_config.json',
+            jsonEncode({
+              'configVersion': 2,
+              'packages': [
+                {'name': 'test_app', 'rootUri': '../', 'packageUri': 'lib/'},
+                {'name': 'dep1', 'rootUri': '../../dep1', 'packageUri': 'lib/'},
+                {'name': 'dep2', 'rootUri': '../../dep2', 'packageUri': 'lib/'},
+              ],
+            }),
+          ),
+        ]),
         d.dir('.cursor', [
           d.dir('skills', [
-            d.dir('pkg_a-skill-1', [
-              d.file(
-                'SKILL.md',
-                '---\nname: pkg_a-skill-1\ndescription: s1\n---\nBody 1',
-              ),
-            ]),
-            d.dir('pkg_a-skill-2', [
-              d.file(
-                'SKILL.md',
-                '---\nname: pkg_a-skill-2\ndescription: s2\n---\nBody 2',
-              ),
-            ]),
-            d.dir('pkg_b-skill-3', [
-              d.file(
-                'SKILL.md',
-                '---\nname: pkg_b-skill-3\ndescription: s3\n---\nBody 3',
-              ),
-            ]),
+            d.dir('dep1-skill-1', [d.file('SKILL.md', 'content')]),
+            d.dir('dep1-skill-2', [d.file('SKILL.md', 'content')]),
+            d.dir('dep2-skill-3', [d.file('SKILL.md', 'content')]),
           ]),
         ]),
-      ]).create();
+      ]);
+      await projectRootDir.create();
 
-      projectPath = d.path('project');
+      projectPath = projectRootDir.io.path;
 
       manifest = SkillManifest(
         installations: {
           'cursor': {
-            'pkg_a': PackageSkillsEntry(
+            'dep1': PackageSkillsEntry(
               skills: [
                 InstalledSkillEntry(
-                  name: 'pkg_a-skill-1',
+                  name: 'dep1-skill-1',
                   installedAt: DateTime.utc(2026),
                 ),
                 InstalledSkillEntry(
-                  name: 'pkg_a-skill-2',
+                  name: 'dep1-skill-2',
                   installedAt: DateTime.utc(2026),
                 ),
               ],
             ),
-            'pkg_b': PackageSkillsEntry(
+            'dep2': PackageSkillsEntry(
               skills: [
                 InstalledSkillEntry(
-                  name: 'pkg_b-skill-3',
+                  name: 'dep2-skill-3',
                   installedAt: DateTime.utc(2026),
                 ),
               ],
@@ -70,73 +91,57 @@ void main() {
       await manifest.save(File(SkillManifest.pathIn(projectPath)));
     });
 
-    test(
-      'when removing a specific package then only its skills are removed',
-      () async {
-        final adapter = CursorAdapter(projectPath);
+    test('when running `skills remove dep1` then removes only dep1 skills',
+        () async {
+      await runner.run(
+          ['remove', '--directory', projectPath, '--ide', 'cursor', 'dep1']);
 
-        final pkgEntry = manifest.packagesForIde('cursor')['pkg_a']!;
-        for (final skill in pkgEntry.skills) {
-          await adapter.removeSkill(skill.name);
-        }
-        final updated = manifest.withoutPackage('cursor', 'pkg_a');
+      await d.dir('project', [
+        d.dir('.cursor', [
+          d.dir('skills', [
+            d.nothing('dep1-skill-1'),
+            d.nothing('dep1-skill-2'),
+            d.dir('dep2-skill-3'),
+          ]),
+        ]),
+        d.dir(SkillManifest.configDirPath, [
+          d.file(
+            'skills_config.json',
+            allOf(
+              isNot(contains('dep1-skill-1')),
+              isNot(contains('dep1-skill-2')),
+              contains('dep2-skill-3'),
+            ),
+          ),
+        ]),
+      ]).validate();
+    });
 
-        expect(
-          await Directory('$projectPath/.cursor/skills/pkg_a-skill-1').exists(),
-          isFalse,
-        );
-        expect(
-          await Directory('$projectPath/.cursor/skills/pkg_a-skill-2').exists(),
-          isFalse,
-        );
-        expect(
-          await Directory('$projectPath/.cursor/skills/pkg_b-skill-3').exists(),
-          isTrue,
-        );
-        expect(updated.packagesForIde('cursor'), hasLength(1));
-        expect(updated.packagesForIde('cursor'), contains('pkg_b'));
-      },
-    );
+    test('when running `skills remove all` then removes all skills', () async {
+      await runner.run(
+          ['remove', '--directory', projectPath, '--ide', 'cursor', 'all']);
 
-    test('when removing all then all managed skills are removed', () async {
-      final adapter = CursorAdapter(projectPath);
-
-      for (final entry in manifest.packagesForIde('cursor').values) {
-        for (final skill in entry.skills) {
-          await adapter.removeSkill(skill.name);
-        }
-      }
-
-      expect(
-        await Directory('$projectPath/.cursor/skills/pkg_a-skill-1').exists(),
-        isFalse,
-      );
-      expect(
-        await Directory('$projectPath/.cursor/skills/pkg_b-skill-3').exists(),
-        isFalse,
-      );
+      await d.dir('project', [
+        d.dir('.cursor', [
+          d.dir('skills', [
+            d.nothing('dep1-skill'),
+            d.nothing('dep2-skill'),
+          ]),
+        ]),
+        d.dir('.dart_tool', [d.nothing('skills')]),
+      ]).validate();
     });
 
     test(
       'when removing all then cache and config directories are cleaned up',
       () async {
-        final updated = manifest
-            .withoutPackage('cursor', 'pkg_a')
-            .withoutPackage('cursor', 'pkg_b');
-        expect(updated.isEmpty, isTrue);
+        await runner.run(
+            ['remove', '--directory', projectPath, '--ide', 'cursor', 'all']);
 
-        final dartSkillsDir =
-            Directory(p.join(projectPath, SkillManifest.configDirPath));
-        expect(await dartSkillsDir.exists(), isTrue);
-
-        final cacheDir =
-            Directory(p.join(projectPath, SkillManifest.cacheDirPath));
-        await cacheDir.create(recursive: true);
-        await updated.save(File(SkillManifest.pathIn(projectPath)));
-        await SkillManifest.cleanup(projectPath);
-
-        expect(await dartSkillsDir.exists(), isFalse);
-        expect(await cacheDir.exists(), isFalse);
+        await d.dir('project', [
+          d.nothing(SkillManifest.configDirPath),
+          d.nothing(SkillManifest.cacheDirPath)
+        ]).validate();
       },
     );
   });
@@ -144,8 +149,17 @@ void main() {
   group('Given a project with no managed skills', () {
     test('when removing then manifest remains empty', () async {
       await d.dir('empty_project', [
+        d.file('pubspec.yaml', '''
+name: test_app
+environment:
+  sdk: ^3.0.0
+'''),
         d.dir('.cursor', [d.dir('skills')]),
       ]).create();
+      var projectPath = d.dir('empty_project').io.path;
+
+      await runner.run(
+          ['remove', '--directory', projectPath, '--ide', 'cursor', 'all']);
 
       final manifest =
           await SkillManifest.loadFromRoot(d.path('empty_project'));
@@ -160,22 +174,39 @@ void main() {
 
     setUp(() async {
       await d.dir('multi_project', [
+        d.file('pubspec.yaml', '''
+name: test_app
+environment:
+  sdk: ^3.0.0
+'''),
         d.dir('.cursor', [
           d.dir('skills', [
-            d.dir('pkg-skill-a', [
+            d.dir('dep1-skill', [
               d.file(
                 'SKILL.md',
-                '---\nname: pkg-skill-a\ndescription: a\n---\nBody A',
+                '---\nname: pkg-skill\ndescription: a\n---\nBody A',
+              ),
+            ]),
+            d.dir('dep2-skill', [
+              d.file(
+                'SKILL.md',
+                '---\nname: dep2-skill\ndescription: a\n---\nBody A',
               ),
             ]),
           ]),
         ]),
         d.dir('.claude', [
           d.dir('skills', [
-            d.dir('pkg-skill-a', [
+            d.dir('dep1-skill', [
               d.file(
                 'SKILL.md',
-                '---\nname: pkg-skill-a\ndescription: a\n---\nBody A',
+                '---\nname: dep1-skill\ndescription: a\n---\nBody A',
+              ),
+            ]),
+            d.dir('dep2-skill', [
+              d.file(
+                'SKILL.md',
+                '---\nname: dep2-skill\ndescription: a\n---\nBody A',
               ),
             ]),
           ]),
@@ -184,28 +215,26 @@ void main() {
 
       projectPath = d.path('multi_project');
 
+      final dep1SkillsEntry = PackageSkillsEntry(
+        skills: [
+          InstalledSkillEntry(
+            name: 'dep1-skill',
+            installedAt: DateTime.utc(2026),
+          ),
+        ],
+      );
+      final dep2SkillsEntry = PackageSkillsEntry(
+        skills: [
+          InstalledSkillEntry(
+            name: 'dep2-skill',
+            installedAt: DateTime.utc(2026),
+          ),
+        ],
+      );
       manifest = SkillManifest(
         installations: {
-          'cursor': {
-            'pkg': PackageSkillsEntry(
-              skills: [
-                InstalledSkillEntry(
-                  name: 'pkg-skill-a',
-                  installedAt: DateTime.utc(2026),
-                ),
-              ],
-            ),
-          },
-          'claude': {
-            'pkg': PackageSkillsEntry(
-              skills: [
-                InstalledSkillEntry(
-                  name: 'pkg-skill-a',
-                  installedAt: DateTime.utc(2026),
-                ),
-              ],
-            ),
-          },
+          'cursor': {'dep1': dep1SkillsEntry, 'dep2': dep2SkillsEntry},
+          'claude': {'dep1': dep1SkillsEntry, 'dep2': dep2SkillsEntry},
         },
       );
 
@@ -213,68 +242,90 @@ void main() {
     });
 
     test(
-        'when removing one IDE then files for that IDE are deleted and '
-        'other IDE files remain', () async {
-      final cursorAdapter = CursorAdapter(projectPath);
+        'when running `skills remove` without arguments removes the'
+        'selected skills for all IDEs', () async {
+      fakeDialogSupport.multiSelectResult = {0};
 
-      for (final skill in manifest.packagesForIde('cursor')['pkg']!.skills) {
-        await cursorAdapter.removeSkill(skill.name);
-      }
-      final updated = manifest.withoutIde('cursor');
+      await runner.run(['remove', '--directory', projectPath]);
 
-      expect(
-        Directory('$projectPath/.cursor/skills/pkg-skill-a').existsSync(),
-        isFalse,
-      );
-      expect(
-        Directory('$projectPath/.claude/skills/pkg-skill-a').existsSync(),
-        isTrue,
-      );
-      expect(updated.allIdes, equals(['claude']));
-      expect(updated.packagesForIde('claude')['pkg']!.skills, hasLength(1));
+      await d.dir('multi_project', [
+        d.dir('.cursor', [
+          d.dir('skills', [
+            d.nothing('dep1-skill'),
+            d.dir('dep2-skill'),
+          ]),
+        ]),
+        d.dir('.claude', [
+          d.dir('skills', [
+            d.nothing('dep1-skill'),
+            d.dir('dep2-skill'),
+          ]),
+        ]),
+      ]).validate();
     });
 
     test(
-        'when removing all IDEs then both Cursor and Claude skill '
-        'directories are deleted', () async {
-      final cursorAdapter = CursorAdapter(projectPath);
-      final claudeAdapter = ClaudeAdapter(projectPath);
+        'when running `skills remove --ide cursor` removes the selected skills'
+        'skills for just cursor', () async {
+      fakeDialogSupport.multiSelectResult = {0};
 
-      for (final skill in manifest.packagesForIde('cursor')['pkg']!.skills) {
-        await cursorAdapter.removeSkill(skill.name);
-      }
-      var updated = manifest.withoutIde('cursor');
+      await runner
+          .run(['remove', '--directory', projectPath, '--ide', 'cursor']);
 
-      for (final skill in updated.packagesForIde('claude')['pkg']!.skills) {
-        await claudeAdapter.removeSkill(skill.name);
-      }
-      updated = updated.withoutIde('claude');
+      await d.dir('multi_project', [
+        d.dir('.cursor', [
+          d.dir('skills', [
+            d.nothing('dep1-skill'),
+            d.dir('dep2-skill'),
+          ]),
+        ]),
+        d.dir('.claude', [
+          d.dir('skills', [
+            d.dir('dep1-skill'),
+            d.dir('dep2-skill'),
+          ]),
+        ]),
+      ]).validate();
+    });
 
-      expect(
-        Directory('$projectPath/.cursor/skills/pkg-skill-a').existsSync(),
-        isFalse,
-      );
-      expect(
-        Directory('$projectPath/.claude/skills/pkg-skill-a').existsSync(),
-        isFalse,
-      );
-      expect(updated.isEmpty, isTrue);
+    test(
+        'when running `skills remove` without arguments and NO dialog support '
+        'then does nothing and prints packages', () async {
+      await runner
+          .run(['remove', '--directory', projectPath, '--ide', 'cursor']);
+
+      await d.dir('multi_project', [
+        d.dir('.cursor', [
+          d.dir('skills', [
+            d.dir('dep1-skill'),
+            d.dir('dep2-skill'),
+          ]),
+        ]),
+        d.dir('.claude', [
+          d.dir('skills', [
+            d.dir('dep1-skill'),
+            d.dir('dep2-skill'),
+          ]),
+        ]),
+        d.dir(SkillManifest.configDirPath, [
+          d.file('skills_config.json',
+              allOf(contains('dep1-skill'), contains('dep2-skill'))),
+        ]),
+      ]).validate();
     });
 
     test(
         'when Claude skill directory is manually deleted then remove still '
         'cleans manifest without error', () async {
       Directory(
-        '$projectPath/.claude/skills/pkg-skill-a',
+        '$projectPath/.claude/skills/dep1-skill',
       ).deleteSync(recursive: true);
 
-      final claudeAdapter = ClaudeAdapter(projectPath);
-      for (final skill in manifest.packagesForIde('claude')['pkg']!.skills) {
-        await claudeAdapter.removeSkill(skill.name);
-      }
-      final updated = manifest.withoutIde('claude');
-
-      expect(updated.allIdes, equals(['cursor']));
+      await runner.run(
+          ['remove', '--directory', projectPath, '--ide', 'claude', 'dep1']);
+      final manifest = await SkillManifest.loadFromRoot(projectPath);
+      expect(manifest!.packagesForIde('claude').keys,
+          allOf(contains('dep2'), isNot(contains('dep1'))));
     });
   });
 }

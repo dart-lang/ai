@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 import 'package:skills/src/commands/get_command.dart';
 import 'package:skills/src/commands/skills_command_runner.dart';
@@ -13,6 +14,10 @@ import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
 
 void main() {
+  setUpAll(() {
+    Logger.root.onRecord.listen((r) => printOnFailure(r.toString()));
+  });
+
   group('GetCommand with registry', () {
     test(
       'when git is unavailable then only Dart skills are installed and warning is printed',
@@ -68,7 +73,7 @@ environment:
         final projectPath = p.join(testRootPath, 'project');
 
         final getCommand = GetCommand(
-          dialogSupport: FakeDialogSupport(),
+          dialogSupport: FakeDialogSupport()..multiSelectResult = {0},
           gitRunner: GitRunner(isAvailableOverride: _gitUnavailable),
         );
         final runner = SkillsCommandRunner('skills', 'Test')
@@ -136,13 +141,13 @@ environment:
       GlobalConfig.globalPathOverride = globalConfigPath;
       addTearDown(() => GlobalConfig.globalPathOverride = null);
 
-      final fileUrl = '../mock_registry';
       var globalConfig = const GlobalConfig();
-      globalConfig = globalConfig.withRegistry(RegistryRepo(cloneUrl: fileUrl));
+      globalConfig =
+          globalConfig.withRegistry(RegistryRepo(cloneUrl: registryPath));
       await globalConfig.save(File(globalConfigPath));
 
       final getCommand = GetCommand(
-        dialogSupport: FakeDialogSupport(),
+        dialogSupport: FakeDialogSupport()..multiSelectResult = {0},
       );
 
       final runner = SkillsCommandRunner('skills', 'Test')
@@ -150,15 +155,12 @@ environment:
 
       await runner.run(['--directory', projectPath, 'get', '--ide', 'cursor']);
 
-      expect(
-          Directory(p.join(projectPath, '.cursor', 'skills', 'pkg-skill'))
-              .existsSync(),
-          isTrue);
+      await d.dir(projectPath, [d.dir('.cursor/skills/pkg-skill')]).validate();
 
       final updatedGlobalConfig =
           await GlobalConfig.loadOrEmpty(File(globalConfigPath));
       final repo = updatedGlobalConfig.registries
-          .firstWhere((r) => r.cloneUrl == fileUrl);
+          .firstWhere((r) => r.cloneUrl == registryPath);
       expect(repo.installs, isNotEmpty);
       expect(repo.installs.first, contains('pkg-skill'));
     });

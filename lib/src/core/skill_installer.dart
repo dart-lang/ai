@@ -183,40 +183,27 @@ class SkillInstaller {
   }
 
   /// Removes skills for [ide] from [manifest].
-  /// If [packageName] is set, only that package is removed; otherwise all.
+  ///
+  /// If [packageNames] is set, only those packages are removed; otherwise all.
+  /// If [packageNames] contains `all`, then all packages are also removed.
   Future<SkillRemoveResult> removeSkillsForIde({
     required Ide ide,
     required String rootPath,
     required SkillManifest manifest,
-    String? packageName,
+    Set<String>? packageNames,
   }) async {
     final adapter = createIdeAdapter(ide, rootPath, _dialogSupport);
     final removed = <RemovedSkillInfo>[];
 
-    if (packageName != null) {
-      final pkgEntry = manifest.packagesForIde(ide.cliName)[packageName];
-      if (pkgEntry == null) {
-        return SkillRemoveResult(
-          manifest: manifest,
-          removedCount: 0,
-          removed: [],
-        );
-      }
-      for (final skill in pkgEntry.skills) {
-        await adapter.removeSkill(skill.name);
-        removed.add(
-          RemovedSkillInfo(ideName: ide.cliName, skillName: skill.name),
-        );
-      }
-      return SkillRemoveResult(
-        manifest: manifest.withoutPackage(ide.cliName, packageName),
-        removedCount: removed.length,
-        removed: removed,
-      );
-    }
-
     final pkgs = manifest.packagesForIde(ide.cliName);
+
     for (final entry in pkgs.entries) {
+      if (packageNames != null &&
+          !packageNames.contains('all') &&
+          !packageNames.contains(entry.key)) {
+        continue;
+      }
+      manifest = manifest.withoutPackage(ide.cliName, entry.key);
       for (final skill in entry.value.skills) {
         await adapter.removeSkill(skill.name);
         removed.add(
@@ -225,7 +212,7 @@ class SkillInstaller {
       }
     }
     return SkillRemoveResult(
-      manifest: manifest.withoutIde(ide.cliName),
+      manifest: manifest,
       removedCount: removed.length,
       removed: removed,
     );

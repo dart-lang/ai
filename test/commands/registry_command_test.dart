@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:args/command_runner.dart';
 import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 import 'package:skills/src/commands/registry_command.dart';
@@ -16,7 +15,7 @@ void main() {
     late String projectPath;
     late String globalConfigPath;
     late FakeDialogSupport fakeDialogSupport;
-    late CommandRunner<void> runner;
+    late SkillsCommandRunner runner;
 
     setUp(() async {
       await d.dir('project', [

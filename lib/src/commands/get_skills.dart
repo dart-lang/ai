@@ -21,6 +21,8 @@ import 'package:skills/src/models/global_config.dart';
 import '../models/skill_manifest.dart';
 
 /// Installs skills from package dependencies for [ides].
+///
+/// Returns `true` on success or `false` otherwise.
 Future<bool> getSkills({
   required List<Ide> ides,
   required Logger logger,
@@ -28,7 +30,7 @@ Future<bool> getSkills({
   DialogSupport? dialogSupport,
   GitRunner gitRunner = const GitRunner(),
   String usage = '',
-  String? packageName,
+  Set<String>? packageNames,
 }) async {
   final ready = await PubRunner.ensureWorkspaceConfigs(workspace);
   if (!ready) {
@@ -37,12 +39,23 @@ Future<bool> getSkills({
 
   final packages = await PackageResolver.resolveWorkspace(
     workspace,
-    packageName: packageName,
+    packageNames: packageNames,
   );
 
-  if (packageName != null && packages.isEmpty) {
-    logger.severe('Package "$packageName" not found in dependencies.');
-    return false;
+  if (packageNames != null) {
+    if (packages.isEmpty) {
+      logger
+          .severe('None of the requested packages were found in dependencies.');
+      return false;
+    }
+
+    final foundNames = packages.map((p) => p.name).toSet();
+    final missing = packageNames.difference(foundNames)..remove('all');
+    if (missing.isNotEmpty) {
+      logger.warning(
+          'Warning: The following requested packages were not found in '
+          'dependencies: ${missing.join(', ')}');
+    }
   }
 
   final rootPath = workspace.rootPath;
@@ -109,14 +122,51 @@ Future<bool> getSkills({
   final dartSkills = await scanner.scan(packages);
 
   final resolvedPackageNames = packages.map((p) => p.name).toSet();
-  final skills = mergeSkills(
+  var skills = mergeSkills(
     dartSkills: dartSkills,
     registrySkills: registrySkills,
     resolvedPackageNames: resolvedPackageNames,
   );
 
   if (skills.isEmpty) {
-    logger.info('No skills found in ${packageName ?? "any"} packages.');
+    logger.info('No skills found in ${packageNames ?? "any"} packages.');
+    return false;
+  }
+
+  if (packageNames == null) {
+    final packagesWithSkills =
+        skills.map((skill) => skill.packageName).toSet().toList()..sort();
+    if (packagesWithSkills.isNotEmpty) {
+      if (dialogSupport != null) {
+        final initialSelected =
+            Iterable<int>.generate(packagesWithSkills.length).toSet();
+        final selectedIndices = await dialogSupport.showMultiSelectDialog(
+          packagesWithSkills,
+          title: 'Select packages to install skills from:',
+          initialSelected: initialSelected,
+        );
+        if (selectedIndices != null) {
+          final selectedPackages =
+              selectedIndices.map((i) => packagesWithSkills[i]).toSet();
+          skills.removeWhere((s) => !selectedPackages.contains(s.packageName));
+        } else {
+          logger.info('Installation aborted by user.');
+          return false;
+        }
+      } else {
+        logger.info('Available packages with skills:');
+        for (final pkg in packagesWithSkills) {
+          logger.info('  $pkg');
+        }
+        logger.info('Rerun with trailing arguments for each package you want '
+            'to install skills for, or `all` to install all skills.');
+        return false;
+      }
+    }
+  }
+
+  if (skills.isEmpty) {
+    logger.info('No skills selected to install.');
     return false;
   }
 

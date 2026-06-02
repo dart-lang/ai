@@ -35,7 +35,7 @@ class RemoveCommand extends SkillsCommand {
 
     var manifest = loaded;
 
-    final packageName = packageNameArg;
+    var packagesToRemove = packageNamesArg?.toSet();
 
     // Determine which IDEs to remove from: --ide narrows to one,
     // otherwise all IDEs in the manifest.
@@ -50,6 +50,46 @@ class RemoveCommand extends SkillsCommand {
           .toList();
     }
 
+    if (packagesToRemove == null) {
+      final packagesWithSkills = <String>{};
+      for (final ide in targetIdes) {
+        packagesWithSkills.addAll(manifest.packagesForIde(ide.cliName).keys);
+      }
+      final packagesList = packagesWithSkills.toList()..sort();
+
+      if (packagesList.isEmpty) {
+        logger.info('No skills found to remove.');
+        return;
+      }
+
+      if (_dialogSupport != null) {
+        final selectedIndices = await _dialogSupport.showMultiSelectDialog(
+          packagesList,
+          title: 'Select packages to remove skills for:',
+        );
+        if (selectedIndices != null) {
+          packagesToRemove =
+              selectedIndices.map((i) => packagesList[i]).toSet();
+        } else {
+          logger.info('Removal aborted.');
+          return;
+        }
+      } else {
+        logger.info('Packages with installed skills:');
+        for (final pkg in packagesList) {
+          logger.info('  $pkg');
+        }
+        logger.info('Rerun with trailing arguments for each package you want '
+            'to remove skills for, or `all` to remove all skills.');
+        return;
+      }
+    }
+
+    if (packagesToRemove.isEmpty) {
+      logger.info('No packages selected for removal.');
+      return;
+    }
+
     final installer = SkillInstaller(_dialogSupport);
     var totalRemoved = 0;
 
@@ -58,7 +98,7 @@ class RemoveCommand extends SkillsCommand {
         ide: ide,
         rootPath: rootPath,
         manifest: manifest,
-        packageName: packageName,
+        packageNames: packagesToRemove,
       );
       manifest = result.manifest;
       totalRemoved += result.removedCount;
@@ -67,14 +107,14 @@ class RemoveCommand extends SkillsCommand {
       }
     }
 
+    await manifest.save(manifestFile(rootPath));
     if (manifest.isEmpty) {
       await SkillManifest.cleanup(rootPath);
-    } else {
-      await manifest.save(manifestFile(rootPath));
     }
 
-    if (packageName != null) {
-      logger.info('Removed skills from $packageName.');
+    if (totalRemoved > 0) {
+      logger.info('Removed $totalRemoved skill(s) from '
+          '${packagesToRemove.join(', ')}.');
     } else {
       logger.info('Removed $totalRemoved managed skill(s).');
     }

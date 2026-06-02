@@ -31,8 +31,11 @@ class CliUtilDialogSupport implements DialogSupport {
   }
 
   @override
-  Future<Set<int>?> showMultiSelectDialog(List<String> options,
-      {String? title}) async {
+  Future<Set<int>?> showMultiSelectDialog(
+    List<String> options, {
+    String? title,
+    Set<int> initialSelected = const {},
+  }) async {
     if (title != null) io.stdout.writeln(title);
     final result = await cli.showMultiSelectDialog(options, _sharedStdIn);
     if (result != null) {

@@ -16,6 +16,11 @@ abstract interface class DialogSupport {
   /// cancelled or not implemented.
   ///
   /// The [title] will be shown in an implementation specific way if given.
-  Future<Set<int>?> showMultiSelectDialog(List<String> options,
-      {String? title});
+  ///
+  /// If given, [initialSelected] are the initially selected indices.
+  Future<Set<int>?> showMultiSelectDialog(
+    List<String> options, {
+    String? title,
+    Set<int> initialSelected = const {},
+  });
 }

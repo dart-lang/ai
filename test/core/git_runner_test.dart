@@ -1,7 +1,12 @@
+import 'package:logging/logging.dart';
 import 'package:skills/src/core/git_runner.dart';
 import 'package:test/test.dart';
 
 void main() {
+  setUpAll(() {
+    Logger.root.onRecord.listen((r) => printOnFailure(r.toString()));
+  });
+
   group('GitRunner', () {
     test('when override returns false then isAvailable is false', () async {
       const runner = GitRunner(isAvailableOverride: _returnFalse);

@@ -1,8 +1,13 @@
+import 'package:logging/logging.dart';
 import 'package:skills/src/ide/ide.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
 
 void main() {
+  setUpAll(() {
+    Logger.root.onRecord.listen((r) => printOnFailure(r.toString()));
+  });
+
   group('Given a project with a .cursor directory', () {
     test('when detecting IDE then returns cursor', () async {
       await d.dir('cursor_project', [d.dir('.cursor')]).create();

@@ -8,6 +8,10 @@ import 'package:test_descriptor/test_descriptor.dart' as d;
 void main() {
   late Logger logger;
 
+  setUpAll(() {
+    Logger.root.onRecord.listen((r) => printOnFailure(r.toString()));
+  });
+
   group('Given a package with correctly prefixed skills', () {
     late ResolvedPackage package;
 

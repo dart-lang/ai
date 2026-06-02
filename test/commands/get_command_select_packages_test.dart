@@ -1,0 +1,213 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:logging/logging.dart';
+import 'package:path/path.dart' as p;
+import 'package:skills/src/commands/get_command.dart';
+import 'package:skills/src/commands/skills_command_runner.dart';
+import 'package:skills/src/core/git_runner.dart';
+import 'package:skills/src/ide/adapters/agent_skills_adapter.dart';
+import 'package:skills/src/ide/adapters/generic_adapter.dart';
+import 'package:skills/src/ide/ide.dart';
+import 'package:skills/src/models/skill_manifest.dart';
+import '../fake_dialog_support.dart';
+import 'package:test/test.dart';
+import 'package:test_descriptor/test_descriptor.dart' as d;
+
+void main() {
+  group('Given a project with dependencies dep1 and dep2 having skills', () {
+    late String projectPath;
+    late FakeDialogSupport fakeDialogSupport;
+    late AgentSkillsAdapter skillsAdapter;
+
+    setUpAll(() {
+      Logger.root.onRecord.listen((r) => printOnFailure(r.toString()));
+    });
+
+    setUp(() async {
+      final dep1Dir = d.dir('dep1', [
+        d.dir('lib', [d.file('dep1.dart', '')]),
+        d.dir('skills', [
+          d.dir('dep1-skill', [
+            d.file('SKILL.md', '---\nname: dep1-skill\n---\n'),
+          ]),
+        ]),
+      ]);
+      await dep1Dir.create();
+
+      final dep2Dir = d.dir('dep2', [
+        d.dir('lib', [d.file('dep2.dart', '')]),
+        d.dir('skills', [
+          d.dir('dep2-skill', [
+            d.file('SKILL.md', '---\nname: dep2-skill\n---\n'),
+          ]),
+        ]),
+      ]);
+      await dep2Dir.create();
+
+      final projectRootDir = d.dir('project', [
+        d.file('pubspec.yaml', '''
+name: test_app
+environment:
+  sdk: ^3.0.0
+'''),
+        d.dir('.dart_tool', [
+          d.file(
+            'package_config.json',
+            jsonEncode({
+              'configVersion': 2,
+              'packages': [
+                {'name': 'test_app', 'rootUri': '../', 'packageUri': 'lib/'},
+                {
+                  'name': 'dep1',
+                  'rootUri': dep1Dir.io.uri.toString(),
+                  'packageUri': 'lib/'
+                },
+                {
+                  'name': 'dep2',
+                  'rootUri': dep2Dir.io.uri.toString(),
+                  'packageUri': 'lib/'
+                },
+              ],
+            }),
+          ),
+        ]),
+        d.dir('.cursor', [d.dir('skills')]),
+      ]);
+      await projectRootDir.create();
+
+      projectPath = projectRootDir.io.path;
+      fakeDialogSupport = FakeDialogSupport();
+      skillsAdapter = GenericAdapter(projectPath, fakeDialogSupport);
+    });
+
+    test(
+        'when running `skills get` and the user only selects dep1 then only '
+        'dep1 should be installed', () async {
+      fakeDialogSupport.multiSelectResult = {0};
+      final getCommand = GetCommand(
+        dialogSupport: fakeDialogSupport,
+        gitRunner:
+            GitRunner(isAvailableOverride: () async => false), // skip registry
+      );
+      final runner = SkillsCommandRunner('skills', 'Test')
+        ..addCommand(getCommand);
+
+      await runner.run(
+          ['get', '--directory', projectPath, '--ide', Ide.generic.cliName]);
+
+      expect(fakeDialogSupport.lastInitialSelected, equals({0, 1}),
+          reason: 'then all packages should be selected by default');
+
+      final dep1SkillDir = Directory(
+        p.join(skillsAdapter.skillsDirectory, 'dep1-skill'),
+      );
+      final dep2SkillDir = Directory(
+        p.join(skillsAdapter.skillsDirectory, 'dep2-skill'),
+      );
+
+      expect(await dep1SkillDir.exists(), isTrue);
+      expect(await dep2SkillDir.exists(), isFalse);
+
+      final manifestFile = File(SkillManifest.pathIn(projectPath));
+      expect(await manifestFile.exists(), isTrue);
+
+      final manifest = await SkillManifest.loadOrEmpty(manifestFile);
+      final skillNames = manifest
+          .allSkillsForIde(Ide.generic.cliName)
+          .map((e) => e.name)
+          .toSet();
+      expect(skillNames, contains('dep1-skill'));
+      expect(skillNames, isNot(contains('dep2-skill')));
+    });
+
+    test(
+        'when running `skills get dep1` (non-interactive) then only dep1 '
+        'should be installed', () async {
+      final getCommand = GetCommand(
+        dialogSupport: null,
+        gitRunner: GitRunner(isAvailableOverride: () async => false),
+      );
+      final runner = SkillsCommandRunner('skills', 'Test')
+        ..addCommand(getCommand);
+
+      await runner.run([
+        'get',
+        '--directory',
+        projectPath,
+        '--ide',
+        Ide.generic.cliName,
+        'dep1'
+      ]);
+
+      final dep1SkillDir = Directory(
+        p.join(skillsAdapter.skillsDirectory, 'dep1-skill'),
+      );
+      final dep2SkillDir = Directory(
+        p.join(skillsAdapter.skillsDirectory, 'dep2-skill'),
+      );
+
+      expect(await dep1SkillDir.exists(), isTrue);
+      expect(await dep2SkillDir.exists(), isFalse);
+    });
+
+    test(
+        'when running `skills get all` (non-interactive) then all skills '
+        'should be installed', () async {
+      final getCommand = GetCommand(
+        dialogSupport: null,
+        gitRunner: GitRunner(isAvailableOverride: () async => false),
+      );
+      final runner = SkillsCommandRunner('skills', 'Test')
+        ..addCommand(getCommand);
+
+      await runner.run([
+        'get',
+        '--directory',
+        projectPath,
+        '--ide',
+        Ide.generic.cliName,
+        'all'
+      ]);
+
+      final dep1SkillDir = Directory(
+        p.join(skillsAdapter.skillsDirectory, 'dep1-skill'),
+      );
+      final dep2SkillDir = Directory(
+        p.join(skillsAdapter.skillsDirectory, 'dep2-skill'),
+      );
+
+      expect(await dep1SkillDir.exists(), isTrue);
+      expect(await dep2SkillDir.exists(), isTrue);
+    });
+
+    test(
+        'when running `skills get` without package arguments and NO dialog '
+        'support then no skills should be installed', () async {
+      final getCommand = GetCommand(
+        dialogSupport: null,
+        gitRunner: GitRunner(isAvailableOverride: () async => false),
+      );
+      final runner = SkillsCommandRunner('skills', 'Test')
+        ..addCommand(getCommand);
+
+      await runner.run([
+        'get',
+        '--directory',
+        projectPath,
+        '--ide',
+        Ide.generic.cliName,
+      ]);
+
+      final dep1SkillDir = Directory(
+        p.join(skillsAdapter.skillsDirectory, 'dep1-skill'),
+      );
+      final dep2SkillDir = Directory(
+        p.join(skillsAdapter.skillsDirectory, 'dep2-skill'),
+      );
+
+      expect(await dep1SkillDir.exists(), isFalse);
+      expect(await dep2SkillDir.exists(), isFalse);
+    });
+  });
+}

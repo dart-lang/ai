@@ -22,11 +22,11 @@ abstract class SkillsCommand extends Command<void> {
     return const WorkspaceResolver().resolve(path);
   }
 
-  /// The package name from rest arguments, or null if not specified.
-  String? get packageNameArg =>
-      argResults != null && argResults!.rest.isNotEmpty
-          ? argResults!.rest.first
-          : null;
+  /// The package names from rest arguments, or null if not specified.
+  List<String>? get packageNamesArg => switch (argResults?.rest) {
+        List<String> rest when rest.isNotEmpty => rest,
+        _ => null,
+      };
 }
 
 /// Returns the manifest file for the given [rootPath].

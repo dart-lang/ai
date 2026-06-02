@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:logging/logging.dart';
 import 'package:skills/src/core/skill_installer.dart';
 import 'package:skills/src/core/skill_scanner.dart';
 import 'package:skills/src/ide/ide.dart';
@@ -13,6 +14,10 @@ void main() {
   late List<ScannedSkill> pkgASkills;
   late List<ScannedSkill> pkgBSkills;
   late FakeDialogSupport fakeDialogSupport;
+
+  setUpAll(() {
+    Logger.root.onRecord.listen((r) => printOnFailure(r.toString()));
+  });
 
   setUp(() async {
     fakeDialogSupport = FakeDialogSupport();
@@ -206,7 +211,7 @@ Instructions for debugging.
             ide: ide,
             rootPath: rootPath,
             manifest: manifest,
-            packageName: 'pkg_a',
+            packageNames: {'pkg_a'},
           );
           manifest = result.manifest;
         }

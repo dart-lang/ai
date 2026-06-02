@@ -1,11 +1,16 @@
 import 'dart:io';
 
+import 'package:logging/logging.dart';
 import 'package:skills/src/core/skill_scanner.dart';
 import 'package:skills/src/ide/adapters/cursor_adapter.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
 
 void main() {
+  setUpAll(() {
+    Logger.root.onRecord.listen((r) => printOnFailure(r.toString()));
+  });
+
   group('Given a CursorAdapter', () {
     late CursorAdapter adapter;
 
