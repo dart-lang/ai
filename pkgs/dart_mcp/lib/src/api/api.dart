@@ -61,10 +61,10 @@ enum ProtocolVersion {
 
 /// A progress token, used to associate progress notifications with the original
 /// request.
-extension type ProgressToken(/*String|int*/ Object _) {}
+extension type ProgressToken(/*String|int*/ Object _) implements Object {}
 
 /// An opaque token used to represent a cursor for pagination.
-extension type Cursor(String _) {}
+extension type Cursor(String _) implements Object {}
 
 /// Generic metadata passed with most requests.
 ///
@@ -92,7 +92,7 @@ extension type Cursor(String _) {}
 /// - Name: Unless empty, MUST begin and end with an alphanumeric character
 ///   (`[a-z0-9A-Z]`). MAY contain hyphens (`-`), underscores (`_`), dots
 ///   (`.`), and alphanumerics in between.
-extension type Meta.fromMap(Map<String, Object?> _value) {
+extension type Meta.fromMap(Map<String, Object?> _value) implements Object {
   Object? operator [](String key) => _value[key];
 }
 
@@ -100,7 +100,8 @@ extension type Meta.fromMap(Map<String, Object?> _value) {
 ///
 /// Not to be confused with the `_meta` property in the spec, which has a
 /// different purpose.
-extension type BaseMetadata.fromMap(Map<String, Object?> _value) {
+extension type BaseMetadata.fromMap(Map<String, Object?> _value)
+    implements Object {
   factory BaseMetadata({required String name, String? title}) =>
       BaseMetadata.fromMap({Keys.name: name, Keys.title: title});
 
@@ -130,7 +131,8 @@ extension type BaseMetadata.fromMap(Map<String, Object?> _value) {
 /// [ProgressToken] at the key "progressToken".
 ///
 /// Should be "mixed in" by implementing this type from other extension types.
-extension type WithProgressToken.fromMap(Map<String, Object?> _value) {
+extension type WithProgressToken.fromMap(Map<String, Object?> _value)
+    implements Object {
   ProgressToken? get progressToken =>
       _value[Keys.progressToken] as ProgressToken?;
 }
@@ -147,7 +149,8 @@ extension type MetaWithProgressToken.fromMap(Map<String, Object?> _value)
 /// Base interface for all types that can have arbitrary metadata attached.
 ///
 /// Should not be constructed directly, and has no public constructor.
-extension type WithMetadata._fromMap(Map<String, Object?> _value) {
+extension type WithMetadata._fromMap(Map<String, Object?> _value)
+    implements Object {
   /// The `_meta` property/parameter is reserved by MCP to allow clients and
   /// servers to attach additional metadata to their interactions.
   ///
@@ -171,14 +174,14 @@ extension type Request._fromMap(Map<String, Object?> _value)
 }
 
 /// Base interface for all notifications.
-extension type Notification(Map<String, Object?> _value) {
+extension type Notification(Map<String, Object?> _value) implements Object {
   /// This parameter name is reserved by MCP to allow clients and servers to
   /// attach additional metadata to their notifications.
   Meta? get meta => _value[Keys.meta] as Meta?;
 }
 
 /// Base interface for all responses to requests.
-extension type Result._(Map<String, Object?> _value) {
+extension type Result._(Map<String, Object?> _value) implements Object {
   Meta? get meta => _value[Keys.meta] as Meta?;
 }
 
@@ -226,7 +229,7 @@ extension type CancelledNotification.fromMap(Map<String, Object?> _value)
 }
 
 /// An opaque request ID.
-extension type RequestId(/*String|int*/ Parameter _) {}
+extension type RequestId(/*String|int*/ Parameter _) implements Object {}
 
 /// A ping, issued by either the server or the client, to check that the other
 /// party is still alive.
@@ -315,7 +318,7 @@ extension type PaginatedResult._fromMap(Map<String, Object?> _value)
 ///
 /// Doing `is` checks does not work because these are just extension types, they
 /// all have the same runtime type (`Map<String, Object?>`).
-extension type Content._(Map<String, Object?> _value) {
+extension type Content._(Map<String, Object?> _value) implements Object {
   factory Content.fromMap(Map<String, Object?> value) {
     assert(value.containsKey(Keys.type));
     return Content._(value);
@@ -538,13 +541,15 @@ extension type ResourceLink.fromMap(Map<String, Object?> _value)
 /// Base type for objects that include optional annotations for the client.
 ///
 /// The client can use annotations to inform how objects are used or displayed.
-extension type Annotated._fromMap(Map<String, Object?> _value) {
+extension type Annotated._fromMap(Map<String, Object?> _value)
+    implements Object {
   /// Annotations for this object.
   Annotations? get annotations => _value[Keys.annotations] as Annotations?;
 }
 
 /// The annotations for an [Annotated] object.
-extension type Annotations.fromMap(Map<String, Object?> _value) {
+extension type Annotations.fromMap(Map<String, Object?> _value)
+    implements Object {
   factory Annotations({
     List<Role>? audience,
     DateTime? lastModified,
