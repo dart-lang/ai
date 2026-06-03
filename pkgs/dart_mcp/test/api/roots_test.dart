@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'package:async/async.dart';
+import 'package:checks/checks.dart';
 import 'package:dart_mcp/client.dart';
 import 'package:test/test.dart';
 
@@ -17,53 +18,58 @@ void main() {
     await environment.initializeServer();
 
     final client = environment.client;
-    expect(
-      environment.client.capabilities.roots,
-      RootsCapabilities(listChanged: true),
+    check(
+      environment.client.capabilities.roots as Map<String, Object?>?,
+    ).isNotNull().deepEquals(
+      RootsCapabilities(listChanged: true) as Map<String, Object?>,
     );
 
     final server = environment.server;
     final events = StreamQueue(server.rootsListChanged!);
 
-    expect((await server.listRoots()).roots, isEmpty);
+    check((await server.listRoots()).roots).isEmpty();
 
     final a = Root(uri: 'test://a', name: 'a');
     final a2 = Root(uri: 'test://a', name: 'a2');
     final b = Root(uri: 'test://b', name: 'b');
 
-    expect(client.addRoot(a), isTrue);
-    expect(
+    check(client.addRoot(a)).isTrue();
+    check(
       client.addRoot(a2),
-      isFalse,
-      reason: 'Roots are compared only by URI',
-    );
-    expect(client.addRoot(b), isTrue);
+      because: 'Roots are compared only by URI',
+    ).isFalse();
+    check(client.addRoot(b)).isTrue();
 
-    expect(await events.take(2), hasLength(2));
+    check(await events.take(2)).length.equals(2);
 
     environment.serverConnection.sendNotification(
       RootsListChangedNotification.methodName,
     );
-    expect(await events.next, isNull);
+    check(await events.next).isNull();
 
-    expect(
-      (await server.listRoots(ListRootsRequest())).roots,
-      unorderedEquals([a, b]),
-    );
+    final rootsResult = await server.listRoots(ListRootsRequest());
+    check(rootsResult.roots as List<Object?>).unorderedMatches([
+      (it) =>
+          it.isA<Map<String, Object?>>().deepEquals(a as Map<String, Object?>),
+      (it) =>
+          it.isA<Map<String, Object?>>().deepEquals(b as Map<String, Object?>),
+    ]);
 
-    expect(client.removeRoot(a2), true);
-    expect(client.removeRoot(a), false);
-    expect(client.removeRoot(b), true);
+    check(client.removeRoot(a2)).isTrue();
+    check(client.removeRoot(a)).isFalse();
+    check(client.removeRoot(b)).isTrue();
 
-    expect(await events.take(2), hasLength(2));
+    check(await events.take(2)).length.equals(2);
 
-    expect((await server.listRoots(ListRootsRequest())).roots, isEmpty);
+    check((await server.listRoots(ListRootsRequest())).roots).isEmpty();
 
-    expect(events.hasNext, completion(false));
+    final hasNextFuture = check(events.hasNext).completes((it) => it.isFalse());
 
     // Manually shutdown so the event stream can close and `hasNext` will
     // complete.
     await environment.shutdown();
+
+    await hasNextFuture;
   });
 }
 

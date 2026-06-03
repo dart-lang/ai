@@ -4,6 +4,7 @@
 
 import 'dart:async';
 
+import 'package:checks/checks.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:test/test.dart';
 
@@ -16,26 +17,28 @@ void main() {
       TestMCPServerWithCompletions.new,
     );
     final initializeResult = await environment.initializeServer();
-    expect(initializeResult.capabilities.completions, Completions());
+    check(
+      initializeResult.capabilities.completions as Map<String, Object?>?,
+    ).isNotNull().deepEquals(Completions() as Map<String, Object?>);
 
     final serverConnection = environment.serverConnection;
-    expect(
-      (await serverConnection.requestCompletions(
-        CompleteRequest(
-          ref: TestMCPServerWithCompletions.languagePromptRef,
-          argument: CompletionArgument(
-            name:
-                TestMCPServerWithCompletions
-                    .languagePrompt
-                    .arguments!
-                    .single
-                    .name,
-            value: 'c',
-          ),
+    final result = await serverConnection.requestCompletions(
+      CompleteRequest(
+        ref: TestMCPServerWithCompletions.languagePromptRef,
+        argument: CompletionArgument(
+          name:
+              TestMCPServerWithCompletions
+                  .languagePrompt
+                  .arguments!
+                  .single
+                  .name,
+          value: 'c',
         ),
-      )).completion.values,
-      TestMCPServerWithCompletions.cLanguages,
+      ),
     );
+    check(
+      result.completion.values,
+    ).deepEquals(TestMCPServerWithCompletions.cLanguages);
   });
 
   test('client can request resource completions', () async {
@@ -44,27 +47,30 @@ void main() {
       TestMCPServerWithCompletions.new,
     );
     final initializeResult = await environment.initializeServer();
-    expect(initializeResult.capabilities.completions, Completions());
+    check(
+      initializeResult.capabilities.completions as Map<String, Object?>?,
+    ).isNotNull().deepEquals(Completions() as Map<String, Object?>);
 
     final serverConnection = environment.serverConnection;
-    expect(
-      (await serverConnection.requestCompletions(
-        CompleteRequest(
-          ref: TestMCPServerWithCompletions.packageUriTemplateRef,
-          argument: CompletionArgument(name: 'package_name', value: 'a'),
-        ),
-      )).completion.values,
-      TestMCPServerWithCompletions.aPackages,
+    final result1 = await serverConnection.requestCompletions(
+      CompleteRequest(
+        ref: TestMCPServerWithCompletions.packageUriTemplateRef,
+        argument: CompletionArgument(name: 'package_name', value: 'a'),
+      ),
     );
-    expect(
-      (await serverConnection.requestCompletions(
-        CompleteRequest(
-          ref: TestMCPServerWithCompletions.packageUriTemplateRef,
-          argument: CompletionArgument(name: 'path', value: 'a'),
-        ),
-      )).completion.values,
-      TestMCPServerWithCompletions.packagePaths,
+    check(
+      result1.completion.values,
+    ).deepEquals(TestMCPServerWithCompletions.aPackages);
+
+    final result2 = await serverConnection.requestCompletions(
+      CompleteRequest(
+        ref: TestMCPServerWithCompletions.packageUriTemplateRef,
+        argument: CompletionArgument(name: 'path', value: 'a'),
+      ),
     );
+    check(
+      result2.completion.values,
+    ).deepEquals(TestMCPServerWithCompletions.packagePaths);
   });
 
   test('client can request resource completions with context', () async {
@@ -73,19 +79,19 @@ void main() {
       TestMCPServerWithCompletions.new,
     );
     final initializeResult = await environment.initializeServer();
-    expect(initializeResult.capabilities.completions, Completions());
+    check(
+      initializeResult.capabilities.completions as Map<String, Object?>?,
+    ).isNotNull().deepEquals(Completions() as Map<String, Object?>);
 
     final serverConnection = environment.serverConnection;
-    expect(
-      (await serverConnection.requestCompletions(
-        CompleteRequest(
-          ref: TestMCPServerWithCompletions.packageUriTemplateRef,
-          argument: CompletionArgument(name: 'path', value: 'a'),
-          context: CompletionContext(arguments: {'package_name': 'async'}),
-        ),
-      )).completion.values,
-      ['async.dart'],
+    final result = await serverConnection.requestCompletions(
+      CompleteRequest(
+        ref: TestMCPServerWithCompletions.packageUriTemplateRef,
+        argument: CompletionArgument(name: 'path', value: 'a'),
+        context: CompletionContext(arguments: {'package_name': 'async'}),
+      ),
     );
+    check(result.completion.values).deepEquals(['async.dart']);
   });
 }
 
