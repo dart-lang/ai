@@ -158,7 +158,7 @@ Steps to analyze.
       test(
           'when the user chooses to migrate known skills then other '
           'skills are left alone', () async {
-        fakeDialogSupport.singleSelectResult = 0;
+        fakeDialogSupport.singleSelectResults.add(0);
         final migrated = await adapter.migrateSkillsDir(manifest);
         expect(migrated, isTrue);
 
@@ -181,7 +181,7 @@ Steps to analyze.
       test(
           'when the user chooses to migrate all skills then all skills are '
           'moved and .agent is deleted', () async {
-        fakeDialogSupport.singleSelectResult = 1;
+        fakeDialogSupport.singleSelectResults.add(1);
         final migrated = await adapter.migrateSkillsDir(manifest);
         expect(migrated, isTrue);
 
@@ -199,7 +199,7 @@ Steps to analyze.
       test(
           'when the user chooses to leave old skills in place then skills '
           'are not moved', () async {
-        fakeDialogSupport.singleSelectResult = 2;
+        fakeDialogSupport.singleSelectResults.add(2);
         final migrated = await adapter.migrateSkillsDir(manifest);
         expect(migrated, isTrue);
 
@@ -223,7 +223,7 @@ Steps to analyze.
                 d.path('project_migration/.agents/skills/new-skill/SKILL.md'))
             .writeAsString('content');
 
-        fakeDialogSupport.singleSelectResult = 0;
+        fakeDialogSupport.singleSelectResults.add(0);
         final migrated = await adapter.migrateSkillsDir(manifest);
         expect(migrated, isTrue);
         await adapter.ensureSkillsDirectory();
@@ -246,7 +246,7 @@ Steps to analyze.
       test(
           'when migrating skills and user aborts the dialog then skills are not moved',
           () async {
-        fakeDialogSupport.singleSelectResult = 3;
+        fakeDialogSupport.singleSelectResults.add(3);
         final migrated = await adapter.migrateSkillsDir(manifest);
         expect(migrated, isFalse);
 

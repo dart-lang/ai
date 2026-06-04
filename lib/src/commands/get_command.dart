@@ -22,12 +22,29 @@ class GetCommand extends SkillsCommand {
   })  : _dialogSupport = dialogSupport,
         _gitRunner = gitRunner {
     addIdeOption(argParser);
+    argParser.addMultiOption(
+      'package',
+      abbr: 'p',
+      help: 'Install skills from these packages.',
+    );
+    argParser.addMultiOption(
+      'skill',
+      abbr: 's',
+      help: 'Only install these specific skills.',
+    );
+    argParser.addFlag(
+      'all',
+      abbr: 'a',
+      help: 'Install all skills from all packages.',
+      negatable: false,
+    );
   }
 
   GitRunner get _effectiveGitRunner => _gitRunner ?? const GitRunner();
 
   @override
   Future<void> run() async {
+    final argResults = this.argResults!;
     final workspace = await resolveWorkspace();
     final rootPath = workspace.rootPath;
 
@@ -40,6 +57,11 @@ class GetCommand extends SkillsCommand {
     final ides =
         await resolveIdes(argResults: argResults, projectPath: rootPath);
 
+    final packageNames = argResults.multiOption('package').toSet();
+    final skillNames = argResults.multiOption('skill').toSet();
+
+    final allFlag = argResults.flag('all');
+
     await getSkills(
       ides: ides,
       logger: logger,
@@ -47,7 +69,9 @@ class GetCommand extends SkillsCommand {
       dialogSupport: _dialogSupport,
       gitRunner: _effectiveGitRunner,
       usage: usage,
-      packageNames: packageNamesArg?.toSet(),
+      packageNames: packageNames,
+      skillNames: skillNames,
+      allFlag: allFlag,
     );
   }
 }

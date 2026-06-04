@@ -158,6 +158,9 @@ class SkillManifest {
       installations[ide] ?? {};
 
   /// All installed skill entries for a given [ide].
+  ///
+  /// If [packageNames] is given and non-empty, only skills from those packages
+  /// will be returned.
   Iterable<InstalledSkillEntry> allSkillsForIde(String ide) sync* {
     for (final entry in packagesForIde(ide).values) {
       yield* entry.skills;

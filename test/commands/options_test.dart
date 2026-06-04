@@ -56,7 +56,7 @@ void main() {
       test(
           'and the user selects an IDE in the dialog then it returns the selected IDE',
           () async {
-        fakeDialogSupport.multiSelectResult = {1};
+        fakeDialogSupport.multiSelectResults.add({1});
 
         final ides = await resolveIdes(
           argResults: null,
@@ -73,7 +73,7 @@ void main() {
       test(
           'and the user selects nothing in the dialog then it throws UsageException',
           () async {
-        fakeDialogSupport.multiSelectResult = {};
+        fakeDialogSupport.multiSelectResults.add({});
 
         expect(
           () => resolveIdes(

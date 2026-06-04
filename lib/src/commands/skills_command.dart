@@ -21,12 +21,6 @@ abstract class SkillsCommand extends Command<void> {
         dir != null ? p.normalize(p.absolute(dir)) : Directory.current.path;
     return const WorkspaceResolver().resolve(path);
   }
-
-  /// The package names from rest arguments, or null if not specified.
-  List<String>? get packageNamesArg => switch (argResults?.rest) {
-        List<String> rest when rest.isNotEmpty => rest,
-        _ => null,
-      };
 }
 
 /// Returns the manifest file for the given [rootPath].

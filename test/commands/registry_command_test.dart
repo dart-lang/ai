@@ -45,7 +45,7 @@ void main() {
         test(
             'when adding a registry and selecting Global then adds to global config',
             () async {
-          fakeDialogSupport.singleSelectResult = 0; // Select 'Global'
+          fakeDialogSupport.singleSelectResults.add(0); // Select 'Global'
 
           await runner
               .run(['-C', projectPath, 'registry', 'add', 'flutter/skills']);
@@ -60,7 +60,7 @@ void main() {
         test(
             'when adding a registry and selecting Local then adds to local config',
             () async {
-          fakeDialogSupport.singleSelectResult = 1; // Select 'Local'
+          fakeDialogSupport.singleSelectResults.add(1); // Select 'Local'
 
           await runner.run([
             '-C',
@@ -226,7 +226,7 @@ void main() {
           manifest = manifest.withRegistry(repo);
           await manifest.save(File(SkillManifest.pathIn(projectPath)));
 
-          fakeDialogSupport.singleSelectResult = 0; // Select 'Global'
+          fakeDialogSupport.singleSelectResults.add(0); // Select 'Global'
 
           await runner.run([
             '-C',
@@ -262,7 +262,7 @@ void main() {
           manifest = manifest.withRegistry(repo2);
           await manifest.save(File(SkillManifest.pathIn(projectPath)));
 
-          fakeDialogSupport.multiSelectResult = {0}; // Select first option
+          fakeDialogSupport.multiSelectResults.add({0}); // Select first option
 
           await runner.run(['-C', projectPath, 'registry', 'remove']);
 

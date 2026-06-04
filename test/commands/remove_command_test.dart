@@ -91,10 +91,19 @@ environment:
       await manifest.save(File(SkillManifest.pathIn(projectPath)));
     });
 
-    test('when running `skills remove dep1` then removes only dep1 skills',
+    test(
+        'when running `skills remove --package dep1` then removes only dep1 skills',
         () async {
-      await runner.run(
-          ['remove', '--directory', projectPath, '--ide', 'cursor', 'dep1']);
+      fakeDialogSupport.multiSelectResults.add({0, 1});
+      await runner.run([
+        'remove',
+        '--directory',
+        projectPath,
+        '--ide',
+        'cursor',
+        '--package',
+        'dep1'
+      ]);
 
       await d.dir('project', [
         d.dir('.cursor', [
@@ -117,9 +126,10 @@ environment:
       ]).validate();
     });
 
-    test('when running `skills remove all` then removes all skills', () async {
+    test('when running `skills remove --all` then removes all skills',
+        () async {
       await runner.run(
-          ['remove', '--directory', projectPath, '--ide', 'cursor', 'all']);
+          ['remove', '--directory', projectPath, '--ide', 'cursor', '--all']);
 
       await d.dir('project', [
         d.dir('.cursor', [
@@ -136,7 +146,7 @@ environment:
       'when removing all then cache and config directories are cleaned up',
       () async {
         await runner.run(
-            ['remove', '--directory', projectPath, '--ide', 'cursor', 'all']);
+            ['remove', '--directory', projectPath, '--ide', 'cursor', '--all']);
 
         await d.dir('project', [
           d.nothing(SkillManifest.configDirPath),
@@ -159,7 +169,7 @@ environment:
       var projectPath = d.dir('empty_project').io.path;
 
       await runner.run(
-          ['remove', '--directory', projectPath, '--ide', 'cursor', 'all']);
+          ['remove', '--directory', projectPath, '--ide', 'cursor', '--all']);
 
       final manifest =
           await SkillManifest.loadFromRoot(d.path('empty_project'));
@@ -244,7 +254,9 @@ environment:
     test(
         'when running `skills remove` without arguments removes the'
         'selected skills for all IDEs', () async {
-      fakeDialogSupport.multiSelectResult = {0};
+      fakeDialogSupport.multiSelectResults
+        ..add({0}) // select first dep (dep1)
+        ..add({0}); // select first skill
 
       await runner.run(['remove', '--directory', projectPath]);
 
@@ -265,12 +277,17 @@ environment:
     });
 
     test(
-        'when running `skills remove --ide cursor` removes the selected skills'
-        'skills for just cursor', () async {
-      fakeDialogSupport.multiSelectResult = {0};
-
-      await runner
-          .run(['remove', '--directory', projectPath, '--ide', 'cursor']);
+        'when running `skills remove --ide cursor --skill <skill>` removes the '
+        'given skills for just cursor', () async {
+      await runner.run([
+        'remove',
+        '--directory',
+        projectPath,
+        '--ide',
+        'cursor',
+        '--skill',
+        'dep1-skill'
+      ]);
 
       await d.dir('multi_project', [
         d.dir('.cursor', [
@@ -291,7 +308,11 @@ environment:
     test(
         'when running `skills remove` without arguments and NO dialog support '
         'then does nothing and prints packages', () async {
-      await runner
+      final noDialogCommand = RemoveCommand(dialogSupport: null);
+      final noDialogRunner = SkillsCommandRunner('skills', 'test')
+        ..addCommand(noDialogCommand);
+
+      await noDialogRunner
           .run(['remove', '--directory', projectPath, '--ide', 'cursor']);
 
       await d.dir('multi_project', [
@@ -321,8 +342,16 @@ environment:
         '$projectPath/.claude/skills/dep1-skill',
       ).deleteSync(recursive: true);
 
-      await runner.run(
-          ['remove', '--directory', projectPath, '--ide', 'claude', 'dep1']);
+      await runner.run([
+        'remove',
+        '--directory',
+        projectPath,
+        '--ide',
+        'claude',
+        '--package',
+        'dep1',
+        '--all' // all skills from dep1
+      ]);
       final manifest = await SkillManifest.loadFromRoot(projectPath);
       expect(manifest!.packagesForIde('claude').keys,
           allOf(contains('dep2'), isNot(contains('dep1'))));

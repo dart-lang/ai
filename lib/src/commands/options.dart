@@ -9,8 +9,8 @@ import '../ide/ide.dart';
 /// Parses the --ide option from [argResults].
 /// Returns the IDE if --ide was specified, or null if not.
 /// Throws [UsageException] if --ide was specified but invalid.
-Ide? parseIdeOption(ArgResults? argResults) {
-  final ideStr = argResults?['ide'] as String?;
+Ide? parseIdeOption(ArgResults argResults) {
+  final ideStr = argResults.option('ide');
   if (ideStr == null) return null;
   final ide = Ide.fromCliName(ideStr);
   if (ide != null) return ide;

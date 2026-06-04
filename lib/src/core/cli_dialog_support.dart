@@ -37,7 +37,11 @@ class CliUtilDialogSupport implements DialogSupport {
     Set<int> initialSelected = const {},
   }) async {
     if (title != null) io.stdout.writeln(title);
-    final result = await cli.showMultiSelectDialog(options, _sharedStdIn);
+    final result = await cli.showMultiSelectDialog(
+      options,
+      _sharedStdIn,
+      initialSelected: initialSelected,
+    );
     if (result != null) {
       final selectionStr =
           result.isEmpty ? 'None' : result.map((i) => options[i]).join(', ');

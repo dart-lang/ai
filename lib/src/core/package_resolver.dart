@@ -57,11 +57,10 @@ class PackageResolver {
   /// out workspace member packages (those are the user's own code, not
   /// external dependencies that might ship skills).
   ///
-  /// If [packageNames] is provided, only those packages are returned.
-  /// If [packageNames] contains 'all', all packages are returned.
+  /// If [packageNames] is non-empty, only those packages are returned.
   static Future<List<ResolvedPackage>> resolveWorkspace(
     WorkspaceLayout workspace, {
-    Set<String>? packageNames,
+    Set<String> packageNames = const {},
   }) async {
     final memberNames = workspace.packages.map((p) => p.name).toSet();
 
@@ -81,9 +80,7 @@ class PackageResolver {
         if (memberNames.contains(package.name)) continue;
         if (seen.contains(package.name)) continue;
 
-        if (packageNames != null &&
-            !packageNames.contains('all') &&
-            !packageNames.contains(package.name)) {
+        if (packageNames.isNotEmpty && !packageNames.contains(package.name)) {
           continue;
         }
 

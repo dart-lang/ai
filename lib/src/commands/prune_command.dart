@@ -28,6 +28,7 @@ class PruneCommand extends SkillsCommand {
 
   @override
   Future<void> run() async {
+    final argResults = this.argResults!;
     final workspace = await resolveWorkspace();
     final rootPath = workspace.rootPath;
 

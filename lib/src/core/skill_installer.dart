@@ -184,31 +184,58 @@ class SkillInstaller {
 
   /// Removes skills for [ide] from [manifest].
   ///
-  /// If [packageNames] is set, only those packages are removed; otherwise all.
-  /// If [packageNames] contains `all`, then all packages are also removed.
+  /// If [packageNames] is not empty, only those packages skills are removed.
+  /// If [skillNames] is not empty, only those specific skills are removed.
   Future<SkillRemoveResult> removeSkillsForIde({
     required Ide ide,
     required String rootPath,
     required SkillManifest manifest,
-    Set<String>? packageNames,
+    Set<String> packageNames = const {},
+    Set<String> skillNames = const {},
   }) async {
     final adapter = createIdeAdapter(ide, rootPath, _dialogSupport);
     final removed = <RemovedSkillInfo>[];
 
     final pkgs = manifest.packagesForIde(ide.cliName);
 
-    for (final entry in pkgs.entries) {
-      if (packageNames != null &&
-          !packageNames.contains('all') &&
-          !packageNames.contains(entry.key)) {
+    for (final MapEntry(key: pkgName, value: PackageSkillsEntry(skills: skills))
+        in pkgs.entries) {
+      if (packageNames.isNotEmpty && !packageNames.contains(pkgName)) {
         continue;
       }
-      manifest = manifest.withoutPackage(ide.cliName, entry.key);
-      for (final skill in entry.value.skills) {
-        await adapter.removeSkill(skill.name);
-        removed.add(
-          RemovedSkillInfo(ideName: ide.cliName, skillName: skill.name),
-        );
+
+      if (skillNames.isEmpty) {
+        manifest = manifest.withoutPackage(ide.cliName, pkgName);
+        for (final skill in skills) {
+          await adapter.removeSkill(skill.name);
+          removed.add(
+            RemovedSkillInfo(ideName: ide.cliName, skillName: skill.name),
+          );
+        }
+      } else {
+        final skillsToRemove =
+            skills.where((s) => skillNames.contains(s.name)).toList();
+        final skillsToKeep =
+            skills.where((s) => !skillNames.contains(s.name)).toList();
+
+        if (skillsToRemove.isNotEmpty) {
+          for (final skill in skillsToRemove) {
+            await adapter.removeSkill(skill.name);
+            removed.add(
+              RemovedSkillInfo(ideName: ide.cliName, skillName: skill.name),
+            );
+          }
+
+          if (skillsToKeep.isEmpty) {
+            manifest = manifest.withoutPackage(ide.cliName, pkgName);
+          } else {
+            manifest = manifest.withPackage(
+              ide.cliName,
+              pkgName,
+              PackageSkillsEntry(skills: skillsToKeep),
+            );
+          }
+        }
       }
     }
     return SkillRemoveResult(

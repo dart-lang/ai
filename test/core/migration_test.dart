@@ -49,8 +49,8 @@ void main() {
           'when user selects to keep globally then moves to global config '
           'and renames directory', () async {
         const manifest = SkillManifest(version: 1);
-        fakeDialogSupport.singleSelectResult =
-            0; // Select 'keep this installed globally'
+        fakeDialogSupport.singleSelectResults
+            .add(0); // Select 'keep this installed globally'
 
         final updatedManifest = await maybeDoRegistryMigration(
             projectPath, manifest, fakeDialogSupport);
@@ -77,8 +77,8 @@ void main() {
       test('when user selects to keep locally then moves to local config',
           () async {
         const manifest = SkillManifest(version: 1);
-        fakeDialogSupport.singleSelectResult =
-            1; // Select 'keep this installed for this project'
+        fakeDialogSupport.singleSelectResults
+            .add(1); // Select 'keep this installed for this project'
 
         final updatedManifest = await maybeDoRegistryMigration(
             projectPath, manifest, fakeDialogSupport);
@@ -96,8 +96,8 @@ void main() {
           'when user selects to remove then deletes from disk and does not add to config',
           () async {
         const manifest = SkillManifest(version: 1);
-        fakeDialogSupport.singleSelectResult =
-            2; // Select 'remove this registry'
+        fakeDialogSupport.singleSelectResults
+            .add(2); // Select 'remove this registry'
 
         final updatedManifest = await maybeDoRegistryMigration(
             projectPath, manifest, fakeDialogSupport);
@@ -155,13 +155,11 @@ void main() {
           const RegistryRepo(cloneUrl: 'https://github.com/owner1/repo1.git'));
       await globalConfig.save(File(globalConfigPath));
 
-      fakeDialogSupport.singleSelectResult = null; // Should not prompt
-
       final updatedManifest = await maybeDoRegistryMigration(
           projectPath, manifest, fakeDialogSupport);
 
       expect(updatedManifest.version, equals(1));
-      expect(fakeDialogSupport.lastSingleSelectOptions, isNull);
+      expect(fakeDialogSupport.singleSelectCallCount, 0);
     });
 
     test(
@@ -172,8 +170,8 @@ void main() {
 
       await const GlobalConfig().save(File(globalConfigPath));
 
-      fakeDialogSupport.singleSelectResult =
-          0; // Select 'keep this installed globally'
+      fakeDialogSupport.singleSelectResults
+          .add(0); // Select 'keep this installed globally'
 
       final updatedManifest = await maybeDoRegistryMigration(
           projectPath, manifest, fakeDialogSupport);
@@ -222,7 +220,7 @@ void main() {
     test(
         'Given an old .dart_skills dir when running migrations '
         'should first migrate both the manifest and registries', () async {
-      fakeDialogSupport.singleSelectResult = 0; // Keep globally
+      fakeDialogSupport.singleSelectResults.add(0); // Keep globally
 
       await runMigrations(projectPath, fakeDialogSupport);
 

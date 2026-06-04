@@ -4,9 +4,13 @@
 
 - feat: Added a dialog to select which packages to install skills from during
   `skills get` and `skills remove`.
-- feat: Support passing multiple package names as trailing arguments.
-  - **Breaking Change**: `getSkills` now takes a set of package names to install
-    instead of just a single package name.
+- feat: Added a dialog to select which specific skills to install during
+  `skills get` and `skills remove`.
+- **Breaking Change**: Removed support for rest arguments, instead use the new
+  `--package`, `--skill`, or `--all` options, or the built in dialogs.
+- **Breaking Change**: `getSkills` now takes a set of package names to install
+  instead of just a single package name. To install all skills pass the
+  `allFlag: true` argument.
 - refactor: Migrate from `.agent/skills` to `.agents/skills` for the generic IDE
   adapter. When a `.agent/` dir is detected you will be prompted for what action
   to take.
