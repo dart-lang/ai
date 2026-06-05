@@ -4,7 +4,7 @@ This document outlines the high-level architecture of the `dart_mcp_server` and 
 
 ## High-Level Overview
 
-The Dart MCP Server is an implementation of the Model Context Protocol (MCP). It acts as a bridge between an AI-assistant client (like the Gemini CLI or an IDE plugin) and the Dart/Flutter development environment.
+The Dart MCP Server is an implementation of the Model Context Protocol (MCP). It acts as a bridge between an AI-assistant client (like the Antigravity CLI or an IDE plugin) and the Dart/Flutter development environment.
 
 ```mermaid
 flowchart LR
@@ -69,7 +69,7 @@ classDiagram
         +registerPrompt()
         +unregisterPrompt()
     }
-    
+
     class LoggingSupport {
         <<mixin>>
         +log()
@@ -84,8 +84,8 @@ classDiagram
         +start()
     }
 
-    class FlutterLauncherSupport { 
-        <<mixin>> 
+    class FlutterLauncherSupport {
+        <<mixin>>
         +launchApp
         +stopApp
         +listDevices
@@ -93,14 +93,14 @@ classDiagram
         +listRunningApps
     }
 
-    class DartAnalyzerSupport { 
-        <<mixin>> 
+    class DartAnalyzerSupport {
+        <<mixin>>
         +analyzeFiles
         +lsp
     }
 
-    class DartToolingDaemonSupport { 
-        <<mixin>> 
+    class DartToolingDaemonSupport {
+        <<mixin>>
         +dtd
         +getRuntimeErrors
         +getActiveLocation
@@ -111,8 +111,8 @@ classDiagram
         +callVmServiceMethod
     }
 
-    class PubSupport { 
-        <<mixin>> 
+    class PubSupport {
+        <<mixin>>
         +pub
     }
 
