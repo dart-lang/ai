@@ -59,20 +59,62 @@ classDiagram
 
     class ResourcesSupport {
         <<mixin>>
+        +addResource()
+        +updateResource()
+        +removeResource()
     }
 
     class PromptsSupport {
         <<mixin>>
+        +registerPrompt()
+        +unregisterPrompt()
+    }
+    
+    class LoggingSupport {
+        <<mixin>>
+        +log()
+    }
+
+    class RootsTrackingSupport {
+        <<mixin>>
+        +updateRoots()
     }
 
     class DartMCPServer {
         +start()
     }
 
-    class FlutterLauncher { <<mixin>> }
-    class Analyzer { <<mixin>> }
-    class Dtd { <<mixin>> }
-    class Pub { <<mixin>> }
+    class FlutterLauncher { 
+        <<mixin>> 
+        +launch_app
+        +stop_app
+        +list_devices
+        +get_app_logs
+        +list_running_apps
+    }
+
+    class Analyzer { 
+        <<mixin>> 
+        +analyze_files
+        +lsp
+    }
+
+    class Dtd { 
+        <<mixin>> 
+        +dtd
+        +getRuntimeErrors
+        +getActiveLocation
+        +hotRestart
+        +hotReload
+        +widgetInspector
+        +flutterDriver
+        +callVmServiceMethod
+    }
+
+    class Pub { 
+        <<mixin>> 
+        +pub
+    }
 
     MCPBase <|-- MCPServer
     MCPServer <|-- DartMCPServer
@@ -80,6 +122,8 @@ classDiagram
     ToolsSupport <|-- DartMCPServer : with
     ResourcesSupport <|-- DartMCPServer : with
     PromptsSupport <|-- DartMCPServer : with
+    LoggingSupport <|-- DartMCPServer : with
+    RootsTrackingSupport <|-- DartMCPServer : with
 
     FlutterLauncher <|-- DartMCPServer : with
     Analyzer <|-- DartMCPServer : with
