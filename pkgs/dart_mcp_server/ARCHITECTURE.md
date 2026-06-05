@@ -31,7 +31,7 @@ flowchart LR
 The project is split into two primary packages:
 
 1. **`dart_mcp`**: The foundational library implementing the MCP specification. It provides base classes for both Clients and Servers, defining the API types, JSON-RPC communication, and standard MCP capabilities (Tools, Resources, Prompts, etc.) via mixins.
-2. **`dart_mcp_server`**: The concrete implementation of a server tailored for Dart and Flutter. It extends the base `MCPServer` and implements specific tools (like `hot_reload`, `analyze_files`, `launch_app`) by interacting with the Dart CLI, Flutter CLI, and the Dart Tooling Daemon (DTD).
+2. **`dart_mcp_server`**: The concrete implementation of a server tailored for Dart and Flutter. It extends the base `MCPServer` and implements specific tools (like `hotReload`, `analyzeFiles`, `launchApp`) by interacting with the Dart CLI, Flutter CLI, and the Dart Tooling Daemon (DTD).
 
 ## Core Class Architecture & Mixins
 
@@ -84,22 +84,22 @@ classDiagram
         +start()
     }
 
-    class FlutterLauncher { 
+    class FlutterLauncherSupport { 
         <<mixin>> 
-        +launch_app
-        +stop_app
-        +list_devices
-        +get_app_logs
-        +list_running_apps
+        +launchApp
+        +stopApp
+        +listDevices
+        +getAppLogs
+        +listRunningApps
     }
 
-    class Analyzer { 
+    class DartAnalyzerSupport { 
         <<mixin>> 
-        +analyze_files
+        +analyzeFiles
         +lsp
     }
 
-    class Dtd { 
+    class DartToolingDaemonSupport { 
         <<mixin>> 
         +dtd
         +getRuntimeErrors
@@ -111,7 +111,7 @@ classDiagram
         +callVmServiceMethod
     }
 
-    class Pub { 
+    class PubSupport { 
         <<mixin>> 
         +pub
     }
@@ -125,10 +125,10 @@ classDiagram
     LoggingSupport <|-- DartMCPServer : with
     RootsTrackingSupport <|-- DartMCPServer : with
 
-    FlutterLauncher <|-- DartMCPServer : with
-    Analyzer <|-- DartMCPServer : with
-    Dtd <|-- DartMCPServer : with
-    Pub <|-- DartMCPServer : with
+    FlutterLauncherSupport <|-- DartMCPServer : with
+    DartAnalyzerSupport <|-- DartMCPServer : with
+    DartToolingDaemonSupport <|-- DartMCPServer : with
+    PubSupport <|-- DartMCPServer : with
 ```
 
 ### `dart_mcp` Mixins
@@ -143,12 +143,12 @@ The foundational package provides mixins corresponding to MCP specification feat
 ### `dart_mcp_server` Mixins
 
 The concrete server composes tools by mixing in specialized feature sets:
-- **`FlutterLauncher`**: App lifecycle management (`launch_app`, `stop_app`, `list_devices`).
-- **`Analyzer`**: Static analysis of Dart code (`analyze_files`).
-- **`Dtd`**: Dart Tooling Daemon integration for hot reload, hot restart, and widget tree inspection.
-- **`Pub`**: Package management tools.
-- **`PubDevSearch`**: Querying packages from pub.dev.
-- **`Analytics`**: Telemetry and usage tracking.
+- **`FlutterLauncherSupport`**: App lifecycle management (`launchApp`, `stopApp`, `listDevices`).
+- **`DartAnalyzerSupport`**: Static analysis of Dart code (`analyzeFiles`).
+- **`DartToolingDaemonSupport`**: Dart Tooling Daemon integration for hot reload, hot restart, and widget tree inspection.
+- **`PubSupport`**: Package management tools.
+- **`PubDevSearchSupport`**: Querying packages from pub.dev.
+- **`AnalyticsSupport`**: Telemetry and usage tracking.
 
 ## Deep Dive: Key Tooling Subsystems
 
@@ -160,9 +160,9 @@ The `DartToolingDaemonSupport` mixin is responsible for bridging the MCP server 
 When the MCP server connects to a DTD instance, it subscribes to DTD service events (like `ConnectedAppServiceConstants.vmServiceRegistered`) and Editor streams. This allows the MCP server to automatically discover any Dart or Flutter apps connected to that DTD instance, regardless of whether they were launched by an IDE, the CLI, or the MCP server itself. The server automatically establishes VM Service connections to these newly discovered apps and tracks them.
 
 **Supported Features:**
-- **App Lifecycle & Execution:** Tools to trigger `hot_reload` and `hot_restart` on connected applications.
+- **App Lifecycle & Execution:** Tools to trigger `hotReload` and `hotRestart` on connected applications.
 - **Diagnostics:** The `getRuntimeErrors` tool monitors the VM service error stream, capturing and providing access to recent runtime exceptions for the apps.
-- **Widget Inspector:** The `widget_inspector` tool interacts with the `ext.flutter.inspector` service extension to fetch the widget tree, select widgets, and change the selection mode.
+- **Widget Inspector:** The `widgetInspector` tool interacts with the `ext.flutter.inspector` service extension to fetch the widget tree, select widgets, and change the selection mode.
 - **Flutter Driver:** Enables running Flutter Driver commands against connected applications for UI automation.
 - **Direct VM Service access:** The `callVmServiceMethod` tool allows making arbitrary, raw RPC calls to the VM service of a connected app.
 
@@ -174,7 +174,7 @@ The `DartAnalyzerSupport` mixin integrates the Dart Language Server Protocol (LS
 When the client's project workspace roots change (tracked via the `RootsTrackingSupport` mixin), the analyzer mixin dynamically updates the LSP workspace folders. The server remains active in the background, listening for file changes and diagnostics.
 
 **Supported Features:**
-- **Diagnostics & Quick Fixes:** The `analyze_files` tool queries the LSP server for current workspace diagnostics. It can also request the LSP server to apply quick fixes (`dart.edit.fixAllInWorkspace`), which the MCP server translates into filesystem edits via `workspace/applyEdit` events from the language server.
+- **Diagnostics & Quick Fixes:** The `analyzeFiles` tool queries the LSP server for current workspace diagnostics. It can also request the LSP server to apply quick fixes (`dart.edit.fixAllInWorkspace`), which the MCP server translates into filesystem edits via `workspace/applyEdit` events from the language server.
 - **Language Intelligence:** The `lsp` tool exposes deep IDE-like capabilities, including:
   - `hover`: Provides documentation and type information for a specific position in the code.
   - `signatureHelp`: Returns parameter information for function calls.
@@ -192,7 +192,7 @@ sequenceDiagram
     participant Mixin as Tool Mixin (e.g., Dtd)
     participant Exec as External Process (e.g., DTD)
 
-    AI->>Base: Request `tools/call` (name: "hot_reload")
+    AI->>Base: Request `tools/call` (name: "hotReload")
     Base->>Server: Route request to Tool Handler
     Server->>Mixin: Invoke registered callback
     Mixin->>Exec: Call actual service (e.g., ext.flutter.app.hotReload)
