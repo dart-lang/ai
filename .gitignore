@@ -10,3 +10,6 @@ pubspec.lock
 **/.gemini/*
 !**/.gemini/config.yaml
 !**/.gemini/styleguide.md
+
+# Personal skills
+.agents/skills/personal
