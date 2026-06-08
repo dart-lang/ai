@@ -91,9 +91,12 @@ class SkillInstaller {
     }
     await adapter.ensureSkillsDirectory();
 
-    final skillsByPackage = <String, List<ScannedSkill>>{};
+    final skillsByPackage = <String, Map<String, ScannedSkill>>{};
     for (final skill in skills) {
-      skillsByPackage.putIfAbsent(skill.packageName, () => []).add(skill);
+      // de-dupe skills by name, we can find multiple versions of a package
+      // which can result in duplicates.
+      skillsByPackage.putIfAbsent(
+          skill.packageName, () => {})[skill.skillName] ??= skill;
     }
 
     var updatedManifest = manifest;
@@ -101,7 +104,7 @@ class SkillInstaller {
 
     for (final entry in skillsByPackage.entries) {
       final pkgName = entry.key;
-      final pkgSkills = entry.value;
+      final pkgSkills = entry.value.values;
 
       final existingPkgs = updatedManifest.packagesForIde(ide.cliName);
       final existingEntry = existingPkgs[pkgName];

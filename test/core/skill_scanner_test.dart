@@ -49,6 +49,8 @@ Instructions.
       package = ResolvedPackage(
         name: 'my_package',
         rootPath: d.path('my_package'),
+        originalPackageConfigPath:
+            d.path(p.join('.dart_tool', 'package_config.json')),
       );
     });
 
@@ -104,6 +106,8 @@ Body.
         final package = ResolvedPackage(
           name: 'my_package',
           rootPath: d.path('my_package'),
+          originalPackageConfigPath:
+              d.path(p.join('.dart_tool', 'package_config.json')),
         );
 
         final scanner = SkillScanner(logger);
@@ -124,6 +128,8 @@ Body.
       final package = ResolvedPackage(
         name: 'no_skills_package',
         rootPath: d.path('no_skills_package'),
+        originalPackageConfigPath:
+            d.path(p.join('.dart_tool', 'package_config.json')),
       );
 
       final scanner = SkillScanner(logger);
@@ -146,6 +152,8 @@ Body.
       final package = ResolvedPackage(
         name: 'empty_skills',
         rootPath: d.path('empty_skills'),
+        originalPackageConfigPath:
+            d.path(p.join('.dart_tool', 'package_config.json')),
       );
 
       final scanner = SkillScanner(logger);
@@ -186,8 +194,18 @@ Body B.
       ]).create();
 
       final packages = [
-        ResolvedPackage(name: 'pkg_a', rootPath: d.path('pkg_a')),
-        ResolvedPackage(name: 'pkg_b', rootPath: d.path('pkg_b')),
+        ResolvedPackage(
+          name: 'pkg_a',
+          rootPath: d.path('pkg_a'),
+          originalPackageConfigPath:
+              d.path(p.join('.dart_tool', 'package_config.json')),
+        ),
+        ResolvedPackage(
+          name: 'pkg_b',
+          rootPath: d.path('pkg_b'),
+          originalPackageConfigPath:
+              d.path(p.join('.dart_tool', 'package_config.json')),
+        ),
       ];
 
       final scanner = SkillScanner(logger);

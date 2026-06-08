@@ -85,7 +85,7 @@ class WorkspaceResolver {
     if (melosLayout != null) return melosLayout;
 
     // 3. Single-package fallback
-    return _resolveSinglePackage(rootPath, pubspec);
+    return await _resolveSinglePackage(rootPath, pubspec);
   }
 
   /// Scans immediate subdirectories of [rootPath] for Dart packages.
@@ -119,11 +119,13 @@ class WorkspaceResolver {
     return WorkspaceLayout(rootPath: canonicalRoot, packages: packages);
   }
 
+  /// Returns a [WorkspaceLayout] for a pub workspace rooted at [rootPath].
   Future<WorkspaceLayout> _resolvePubWorkspace(
     String rootPath,
     YamlMap pubspec,
     YamlList workspaceEntries,
   ) async {
+    // Workspace root, package config should be right here.
     final sharedConfigPath = p.join(
       rootPath,
       '.dart_tool',
@@ -220,22 +222,50 @@ class WorkspaceResolver {
     return WorkspaceLayout(rootPath: rootPath, packages: packages);
   }
 
-  WorkspaceLayout _resolveSinglePackage(String projectPath, YamlMap pubspec) {
+  Future<WorkspaceLayout> _resolveSinglePackage(
+    String projectPath,
+    YamlMap pubspec,
+  ) async {
     final name = pubspec['name'] as String? ?? p.basename(projectPath);
+    // If this package is a part of a workspace, find that package config.
+    final packageConfigPath = pubspec['resolution'] == 'workspace'
+        ? await _findWorkspacePackageConfigPath(projectPath)
+        : p.join(
+            projectPath,
+            '.dart_tool',
+            'package_config.json',
+          );
+    if (packageConfigPath == null) {
+      throw StateError('Unable to locate workspace for project $projectPath');
+    }
     return WorkspaceLayout(
       rootPath: projectPath,
       packages: [
         WorkspacePackage(
           name: name,
           path: projectPath,
-          packageConfigPath: p.join(
-            projectPath,
-            '.dart_tool',
-            'package_config.json',
-          ),
+          packageConfigPath: packageConfigPath,
         ),
       ],
     );
+  }
+
+  /// Looks up directories to find the root package config path for the
+  /// workspace containing [projectPath].
+  Future<String?> _findWorkspacePackageConfigPath(String projectPath) async {
+    var current = Directory(projectPath);
+    while (current.parent.path != current.path) {
+      current = current.parent;
+      final pubspec = File(p.join(current.path, 'pubspec.yaml'));
+      if (!await pubspec.exists()) continue;
+      final yaml = loadYaml(await pubspec.readAsString());
+      if (yaml is! YamlMap) continue;
+      final workspace = yaml['workspace'];
+      if (workspace != null) {
+        return p.join(current.path, '.dart_tool', 'package_config.json');
+      }
+    }
+    return null;
   }
 
   /// Expands glob patterns relative to [rootPath] to find directories

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:package_config/package_config.dart';
+import 'package:path/path.dart' as p;
 
 import 'workspace_resolver.dart';
 
@@ -9,7 +10,13 @@ class ResolvedPackage {
   final String name;
   final String rootPath;
 
-  const ResolvedPackage({required this.name, required this.rootPath});
+  /// The path to the package config that resolved this package.
+  final String originalPackageConfigPath;
+
+  const ResolvedPackage(
+      {required this.name,
+      required this.rootPath,
+      required this.originalPackageConfigPath});
 }
 
 /// Resolves Dart package dependency locations from package_config.json.
@@ -29,12 +36,14 @@ class PackageResolver {
   /// If [packageName] is provided, only that package is returned.
   /// Returns an empty list if the package is not found.
   Future<List<ResolvedPackage>> resolve({String? packageName}) async {
-    final config = await findPackageConfig(Directory(projectPath));
-    if (config == null) {
+    final configPath = await findPackageConfigPath(Directory(projectPath));
+    if (configPath == null) {
       throw StateError(
         'No package_config.json found. Run "dart pub get" first.',
       );
     }
+    final config = PackageConfig.parseString(
+        await File(configPath).readAsString(), Uri.file(configPath));
 
     final packages = <ResolvedPackage>[];
     for (final package in config.packages) {
@@ -45,7 +54,10 @@ class PackageResolver {
 
       final rootPath = rootUri.toFilePath();
 
-      packages.add(ResolvedPackage(name: package.name, rootPath: rootPath));
+      packages.add(ResolvedPackage(
+          name: package.name,
+          rootPath: rootPath,
+          originalPackageConfigPath: configPath));
     }
 
     return packages;
@@ -68,7 +80,7 @@ class PackageResolver {
     final configPaths =
         workspace.packages.map((p) => p.packageConfigPath).toSet();
 
-    final seen = <String>{};
+    final seenPaths = <String>{};
     final results = <ResolvedPackage>[];
 
     for (final configPath in configPaths) {
@@ -78,7 +90,6 @@ class PackageResolver {
       final config = await loadPackageConfig(configFile);
       for (final package in config.packages) {
         if (memberNames.contains(package.name)) continue;
-        if (seen.contains(package.name)) continue;
 
         if (packageNames.isNotEmpty && !packageNames.contains(package.name)) {
           continue;
@@ -87,13 +98,28 @@ class PackageResolver {
         final rootUri = package.root;
         if (rootUri.scheme != 'file') continue;
 
-        seen.add(package.name);
+        final rootPath = rootUri.toFilePath();
+        if (!seenPaths.add(rootPath)) continue;
+
         results.add(
-          ResolvedPackage(name: package.name, rootPath: rootUri.toFilePath()),
+          ResolvedPackage(
+              name: package.name,
+              rootPath: rootPath,
+              originalPackageConfigPath: configPath),
         );
       }
     }
 
     return results;
+  }
+
+  static Future<String?> findPackageConfigPath(Directory dir) async {
+    while (dir.path != dir.parent.path) {
+      final configFile =
+          File(p.join(dir.path, '.dart_tool', 'package_config.json'));
+      if (await configFile.exists()) return configFile.path;
+      dir = dir.parent;
+    }
+    return null;
   }
 }

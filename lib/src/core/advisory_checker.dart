@@ -41,11 +41,23 @@ class AdvisoryChecker {
       }
     }
 
-    // Queries for all the git and hosted packages.
-    final packagesInfo = await _readPubspecLockInfo(rootPath, logger);
+    // Map from pubspec.lock path to the extracted info.
+    final Map<String, PubspecLockInfoMap> pubspecLockInfos = {};
     for (final package in packages) {
+      final pubspecLockFile = await _findPubspecLock(package);
+      if (pubspecLockFile == null) {
+        logger.warning(
+          'No pubspec.lock found for package ${package.rootPath}, cannot check '
+          'for security advisories.',
+        );
+        continue;
+      }
+
+      final pubspecLockInfo = pubspecLockInfos[pubspecLockFile.path] ??=
+          // Queries for all the git and hosted packages.
+          await _readPubspecLockInfo(pubspecLockFile);
       final (:commit, :version) =
-          packagesInfo[package.name] ?? (commit: null, version: null);
+          pubspecLockInfo[package.name] ?? (commit: null, version: null);
       final query = commit != null
           ? {'commit': commit}
           : version != null
@@ -106,22 +118,25 @@ ${response.body}
     return results;
   }
 
-  /// Reads the pubspec.lock in [rootPath], extracting useful information.
+  /// Finds the pubspec.lock associated with a resolved package, if present.
+  ///
+  /// This will live next to the package config that resolved the package.
+  Future<File?> _findPubspecLock(ResolvedPackage package) async {
+    final file = File(p.join(
+        p.dirname(p.dirname(package.originalPackageConfigPath)),
+        'pubspec.lock'));
+    if (await file.exists()) return file;
+    return null;
+  }
+
+  /// Reads the [pubspecLock], extracting useful information.
   ///
   /// Returns a map from package name to a record of info.
-  Future<Map<String, ({String? commit, String? version})>> _readPubspecLockInfo(
-      String rootPath, Logger logger) async {
+  Future<PubspecLockInfoMap> _readPubspecLockInfo(File pubspecLock) async {
     final result = <String, ({String? commit, String? version})>{};
-    final lockFile = File(p.join(rootPath, 'pubspec.lock'));
-    if (!await lockFile.exists()) {
-      logger.warning(
-          'No pubspec.lock found, cannot check for security advisories '
-          'in $rootPath. See https://github.com/dart-lang/ai/issues/487.');
-      return result;
-    }
 
     try {
-      final content = await lockFile.readAsString();
+      final content = await pubspecLock.readAsString();
       final yaml = loadYaml(content);
       if (yaml is! YamlMap) return result;
 
@@ -154,3 +169,6 @@ ${response.body}
     return result;
   }
 }
+
+/// Maps package names to either the git commit or hosted version.
+typedef PubspecLockInfoMap = Map<String, ({String? commit, String? version})>;
