@@ -25,6 +25,10 @@
   replaces the old hardcoded flutter/skills and serverpod/skills-registry
   registries, and new installs will not get those auto installed.
 
+## 0.3.1
+
+- Allow config version 0.9.x.
+
 ## 0.3.0
 
 - feat: Adds support for OpenCode.
