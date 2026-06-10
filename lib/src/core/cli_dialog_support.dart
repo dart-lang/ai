@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io' as io;
+import 'dart:math' as math;
 
 import 'package:cli_util/cli_components.dart' as cli;
 import 'package:io/io.dart';
@@ -23,7 +24,11 @@ class CliUtilDialogSupport implements DialogSupport {
   Future<int?> showSingleSelectDialog(List<String> options,
       {String? title}) async {
     if (title != null) io.stdout.writeln(title);
-    final result = await cli.showSingleSelectDialog(options, _sharedStdIn);
+    final result = await cli.showSingleSelectDialog(
+      options,
+      _sharedStdIn,
+      maxVisibleItems: _computeMaxVisibleItems(),
+    );
     if (result != null) {
       io.stdout.writeln('> ${options[result]}');
     }
@@ -41,6 +46,7 @@ class CliUtilDialogSupport implements DialogSupport {
       options,
       _sharedStdIn,
       initialSelected: initialSelected,
+      maxVisibleItems: _computeMaxVisibleItems(),
     );
     if (result != null) {
       final selectionStr =
@@ -50,3 +56,19 @@ class CliUtilDialogSupport implements DialogSupport {
     return result;
   }
 }
+
+/// Uses `stdout.terminalLines` when possible to fill up all vertical space,
+/// with sensible defaults and minimums.
+int _computeMaxVisibleItems() {
+  if (!io.stdout.hasTerminal) return _defaultItems;
+  try {
+    // One extra line for the title, and one for padding at bottom, minimum 5.
+    return math.max(io.stdout.terminalLines - 2, _minItems);
+  } on io.StdoutException {
+    return _defaultItems;
+  }
+}
+
+/// Constants for dialog configuration.
+const _minItems = 5;
+const _defaultItems = 10;
