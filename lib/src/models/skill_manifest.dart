@@ -249,21 +249,30 @@ class PackageSkillsEntry {
   }
 }
 
-/// A single installed skill.
 class InstalledSkillEntry {
   final String name;
   final DateTime installedAt;
+  final String? contentHash;
 
-  const InstalledSkillEntry({required this.name, required this.installedAt});
+  const InstalledSkillEntry({
+    required this.name,
+    required this.installedAt,
+    this.contentHash,
+  });
 
   factory InstalledSkillEntry.fromJson(Map<String, dynamic> json) {
     return InstalledSkillEntry(
       name: json['name'] as String,
       installedAt: DateTime.parse(json['installedAt'] as String),
+      contentHash: json['contentHash'] as String?,
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {'name': name, 'installedAt': installedAt.toUtc().toIso8601String()};
+    return {
+      'name': name,
+      'installedAt': installedAt.toUtc().toIso8601String(),
+      if (contentHash != null) 'contentHash': contentHash,
+    };
   }
 }

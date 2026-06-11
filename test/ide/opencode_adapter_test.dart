@@ -54,7 +54,7 @@ Review guidelines here.
       test(
         'when installing then creates skill directory in .opencode/skills/',
         () async {
-          final name = await adapter.installSkill(skill);
+          final name = (await adapter.installSkill(skill)).name;
 
           expect(name, equals('opencode_pkg-code-review'));
 

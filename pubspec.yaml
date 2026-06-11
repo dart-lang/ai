@@ -18,6 +18,7 @@ dependencies:
   cli_util: ^0.5.1
   collection: ^1.19.1
   config: ^0.9.0
+  crypto: ^3.0.7
   glob: ^2.1.0
   http: ^1.6.0
   io: ^1.0.5

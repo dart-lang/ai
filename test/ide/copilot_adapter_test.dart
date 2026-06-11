@@ -54,7 +54,7 @@ Write tests like this.
       test(
         'when installing then creates skill directory in .github/skills/',
         () async {
-          final name = await adapter.installSkill(skill);
+          final name = (await adapter.installSkill(skill)).name;
 
           expect(name, equals('copilot_pkg-testing'));
 

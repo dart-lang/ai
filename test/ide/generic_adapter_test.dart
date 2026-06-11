@@ -23,7 +23,8 @@ void main() {
       ]).create();
 
       fakeDialogSupport = FakeDialogSupport();
-      adapter = GenericAdapter(d.path('project'), fakeDialogSupport);
+      adapter =
+          GenericAdapter(d.path('project'), dialogSupport: fakeDialogSupport);
     });
 
     group('and a scanned skill', () {
@@ -55,7 +56,7 @@ Steps to analyze.
       });
 
       test('when installing then creates in .agents/skills/', () async {
-        final name = await adapter.installSkill(skill);
+        final name = (await adapter.installSkill(skill)).name;
 
         expect(name, equals('ag_pkg-data-analysis'));
 
@@ -151,8 +152,8 @@ Steps to analyze.
 
       setUp(() async {
         fakeDialogSupport = FakeDialogSupport();
-        adapter =
-            GenericAdapter(d.path('project_migration'), fakeDialogSupport);
+        adapter = GenericAdapter(d.path('project_migration'),
+            dialogSupport: fakeDialogSupport);
       });
 
       test(
@@ -263,7 +264,7 @@ Steps to analyze.
 
     group('without dialog support', () {
       setUp(() async {
-        adapter = GenericAdapter(d.path('project_migration'), null);
+        adapter = GenericAdapter(d.path('project_migration'));
       });
 
       test('when migrating skills then known skills are migrated', () async {

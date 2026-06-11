@@ -10,6 +10,8 @@ import 'package:skills/src/models/skill_manifest.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
 
+import '../fake_dialog_support.dart';
+
 void main() {
   setUpAll(() {
     Logger.root.onRecord.listen((r) => printOnFailure(r.toString()));
@@ -78,6 +80,98 @@ void main() {
               .existsSync(),
           isTrue);
       expect(Directory(p.join(rootPath, '.agent')).existsSync(), isFalse);
+    });
+  });
+
+  group('Given an orphaned skill that is not uninstalled', () {
+    late String rootPath;
+    late List<ScannedSkill> scannedSkills;
+    late SkillManifest manifest;
+
+    setUp(() async {
+      await d.dir('project', [
+        d.dir('.agents', [
+          d.dir('skills', [
+            d.dir('pkg_a-skill1', [
+              d.file('SKILL.md', 'local edits'),
+            ]),
+          ]),
+        ]),
+      ]).create();
+
+      // Manifest has skill1 and skill2, but skill1's hash differs from 'local edits'
+      manifest = const SkillManifest().withPackage(
+        'generic',
+        'pkg_a',
+        PackageSkillsEntry(
+          skills: [
+            InstalledSkillEntry(
+              name: 'pkg_a-skill1',
+              installedAt: DateTime.utc(2026),
+              contentHash: 'different_hash',
+            ),
+            InstalledSkillEntry(
+              name: 'pkg_a-skill2',
+              installedAt: DateTime.utc(2026),
+              contentHash: 'hash2',
+            ),
+          ],
+        ),
+      );
+      rootPath = d.path('project');
+
+      await d.dir('pkg_a', [
+        d.dir('skills', [
+          d.dir('pkg_a-skill2', [d.file('SKILL.md', 'Skill2 content')])
+        ])
+      ]).create();
+
+      // Only skill2 is still present upstream
+      scannedSkills = [
+        ScannedSkill(
+          packageName: 'pkg_a',
+          skillName: 'pkg_a-skill2',
+          skillPath: p.join(d.path('pkg_a'), 'skills', 'pkg_a-skill2'),
+        ),
+      ];
+    });
+
+    test('it is removed from the manifest and a message is logged', () async {
+      // Create a FakeDialogSupport that returns 1 ('No') to the overwrite prompt.
+      final dialogSupport = FakeDialogSupport()..singleSelectResults.add(1);
+      final installer = SkillInstaller(dialogSupport);
+      final logs = <LogRecord>[];
+      final sub = Logger.root.onRecord.listen(logs.add);
+      addTearDown(sub.cancel);
+
+      final result = await installer.installSkillsForIde(
+        ide: Ide.generic,
+        rootPath: rootPath,
+        skills: scannedSkills,
+        manifest: manifest,
+        globalConfig: const GlobalConfig(),
+      );
+
+      final newManifest = result!.manifest;
+      final pkgSkills = newManifest.packagesForIde('generic')['pkg_a']!.skills;
+
+      expect(pkgSkills.map((s) => s.name), isNot(contains('pkg_a-skill1')));
+      expect(pkgSkills.map((s) => s.name), contains('pkg_a-skill2'));
+      final printedInstallPath = p.join(
+          Ide.generic.skillsRelativePath
+              .replaceAll(p.url.separator, p.separator),
+          'pkg_a-skill1');
+      expect(
+          logs,
+          contains(isA<LogRecord>().having(
+              (r) => r.message,
+              'message',
+              allOf(
+                contains('The following skills were not uninstalled but were '
+                    'deleted upstream and are now orphaned'),
+                contains('- pkg_a-skill1 (installed at '
+                    '$printedInstallPath)'),
+              ))));
     });
   });
 }

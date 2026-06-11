@@ -81,7 +81,8 @@ environment:
 
       projectPath = projectRootDir.io.path;
       fakeDialogSupport = FakeDialogSupport();
-      skillsAdapter = GenericAdapter(projectPath, fakeDialogSupport);
+      skillsAdapter =
+          GenericAdapter(projectPath, dialogSupport: fakeDialogSupport);
     });
 
     test(
@@ -248,7 +249,8 @@ environment:
 
       projectPath = projectRootDir.io.path;
       fakeDialogSupport = FakeDialogSupport();
-      skillsAdapter = GenericAdapter(projectPath, fakeDialogSupport);
+      skillsAdapter =
+          GenericAdapter(projectPath, dialogSupport: fakeDialogSupport);
     });
 
     test(

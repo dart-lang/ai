@@ -168,11 +168,14 @@ class RemoveCommand extends SkillsCommand {
 
     for (final ide in targetIdes) {
       final result = await installer.removeSkillsForIde(
-          ide: ide,
-          rootPath: rootPath,
-          manifest: manifest,
-          packageNames: packagesToRemove,
-          skillNames: skillsToRemove);
+        ide: ide,
+        rootPath: rootPath,
+        manifest: manifest,
+        packageNames: packagesToRemove,
+        skillNames: skillsToRemove,
+        // Don't worry about local modifications for the remove command
+        force: true,
+      );
       manifest = result.manifest;
       totalRemoved += result.removedCount;
       for (final info in result.removed) {

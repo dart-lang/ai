@@ -1,9 +1,12 @@
 import 'dart:io';
 
+import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 
+import '../../core/hash_utils.dart';
 import '../../core/skill_scanner.dart';
 import '../ide.dart';
+import '../ide_adapter.dart';
 import 'agent_skills_adapter.dart';
 
 /// Claude Code adapter.
@@ -11,15 +14,21 @@ import 'agent_skills_adapter.dart';
 /// Installs skills to `.claude/skills/<skill-name>/` per
 /// [Claude Code skills](https://code.claude.com/docs/en/skills).
 class ClaudeAdapter extends AgentSkillsAdapter {
-  ClaudeAdapter(String projectPath) : super(Ide.claude.skillsPath(projectPath));
+  @override
+  final Logger logger = Logger('ClaudeAdapter');
+
+  ClaudeAdapter(String projectPath, {super.dialogSupport})
+      : super(Ide.claude.skillsPath(projectPath));
 
   @override
-  Future<String> installSkill(ScannedSkill skill) async {
-    final name = await super.installSkill(skill);
+  Future<InstallSkillResult> installSkill(
+    ScannedSkill skill,
+  ) async {
+    var result = await super.installSkill(skill);
 
-    final skillMd = File(
-      p.join(skillsDirectory, skill.skillName, 'SKILL.md'),
-    );
+    final targetDir = Directory(p.join(skillsDirectory, skill.skillName));
+    final skillMd = File(p.join(targetDir.path, 'SKILL.md'));
+
     if (await skillMd.exists()) {
       var content = await skillMd.readAsString();
       if (!content.contains('user-invocable:')) {
@@ -29,10 +38,16 @@ class ClaudeAdapter extends AgentSkillsAdapter {
               'user-invocable: false\n'
               '${content.substring(closingIndex)}';
           await skillMd.writeAsString(content);
+
+          // Re-calculate hash since we modified the file
+          result = (
+            name: result.name,
+            contentHash: await calculateDirectoryHash(targetDir)
+          );
         }
       }
     }
 
-    return name;
+    return result;
   }
 }

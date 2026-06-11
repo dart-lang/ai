@@ -53,7 +53,7 @@ Instructions here.
       });
 
       test('when installing then creates directory with skill name', () async {
-        final name = await adapter.installSkill(skill);
+        final name = (await adapter.installSkill(skill)).name;
 
         expect(name, equals('source_pkg-my-skill'));
 

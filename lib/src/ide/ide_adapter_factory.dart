@@ -12,11 +12,11 @@ import 'ide_adapter.dart';
 IdeAdapter createIdeAdapter(
     Ide ide, String projectPath, DialogSupport? dialogSupport) {
   return switch (ide) {
-    Ide.cursor => CursorAdapter(projectPath),
-    Ide.generic => GenericAdapter(projectPath, dialogSupport),
-    Ide.claude => ClaudeAdapter(projectPath),
-    Ide.copilot => CopilotAdapter(projectPath),
-    Ide.cline => ClineAdapter(projectPath),
-    Ide.opencode => OpenCodeAdapter(projectPath),
+    Ide.cursor => CursorAdapter(projectPath, dialogSupport: dialogSupport),
+    Ide.generic => GenericAdapter(projectPath, dialogSupport: dialogSupport),
+    Ide.claude => ClaudeAdapter(projectPath, dialogSupport: dialogSupport),
+    Ide.copilot => CopilotAdapter(projectPath, dialogSupport: dialogSupport),
+    Ide.cline => ClineAdapter(projectPath, dialogSupport: dialogSupport),
+    Ide.opencode => OpenCodeAdapter(projectPath, dialogSupport: dialogSupport),
   };
 }

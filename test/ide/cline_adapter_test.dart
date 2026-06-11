@@ -54,7 +54,7 @@ Debugging steps.
       test(
         'when installing then creates skill directory in .cline/skills/',
         () async {
-          final name = await adapter.installSkill(skill);
+          final name = (await adapter.installSkill(skill)).name;
 
           expect(name, equals('cline_pkg-debugging'));
 

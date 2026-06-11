@@ -54,7 +54,7 @@ Review guidelines here.
       test(
         'when installing then creates skill directory in .claude/skills/',
         () async {
-          final name = await adapter.installSkill(skill);
+          final name = (await adapter.installSkill(skill)).name;
 
           expect(name, equals('claude_pkg-code-review'));
 

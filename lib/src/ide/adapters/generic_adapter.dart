@@ -1,8 +1,8 @@
 import 'dart:io';
 
+import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
-import 'package:skills/src/core/dialog_support.dart';
 
 import '../../models/skill_manifest.dart';
 import '../ide.dart';
@@ -12,10 +12,12 @@ import 'agent_skills_adapter.dart';
 ///
 /// Installs skills to `.agents/skills/<pkg>-<skill>/SKILL.md`.
 class GenericAdapter extends AgentSkillsAdapter {
-  final String _projectPath;
-  final DialogSupport? _dialogSupport;
+  @override
+  final Logger logger = Logger('GenericAdapter');
 
-  GenericAdapter(this._projectPath, this._dialogSupport)
+  final String _projectPath;
+
+  GenericAdapter(this._projectPath, {super.dialogSupport})
       : super(Ide.generic.skillsPath(_projectPath));
 
   @override
@@ -57,7 +59,7 @@ class GenericAdapter extends AgentSkillsAdapter {
       bool moveAll = false;
 
       // In interactive mode, we give a few more options for the migration.
-      if (_dialogSupport case var dialogSupport?) {
+      if (dialogSupport case var dialogSupport?) {
         final result = await dialogSupport.showSingleSelectDialog([
           'Move ONLY managed skills to .agents/skills',
           'Move ALL skills to .agents/skills',

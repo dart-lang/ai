@@ -1,11 +1,18 @@
 import 'dart:io';
 
 import 'package:logging/logging.dart';
+import 'package:path/path.dart' as p;
+import 'package:skills/src/commands/get_command.dart';
+import 'package:skills/src/core/git_runner.dart';
 import 'package:skills/src/core/skill_scanner.dart';
 import 'package:skills/src/ide/adapters/cursor_adapter.dart';
+import 'package:skills/src/ide/ide.dart';
 import 'package:skills/src/models/skill_manifest.dart';
+import 'package:skills/src/commands/skills_command_runner.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
+
+import '../fake_dialog_support.dart';
 
 void main() {
   setUpAll(() {
@@ -78,10 +85,10 @@ API design guidelines.
 
         final installedEntries = <InstalledSkillEntry>[];
         for (final skill in skills) {
-          final name = await adapter.installSkill(skill);
+          final result = await adapter.installSkill(skill);
           installedEntries.add(
             InstalledSkillEntry(
-              name: name,
+              name: result.name,
               installedAt: DateTime.now().toUtc(),
             ),
           );
@@ -113,7 +120,7 @@ API design guidelines.
           skillPath: d.path('dep_with_skills/skills/dep_with_skills-code-gen'),
         );
 
-        final installedName = await adapter.installSkill(skill);
+        final installedName = (await adapter.installSkill(skill)).name;
 
         var manifest = const SkillManifest();
         manifest = manifest.withPackage(
@@ -221,6 +228,81 @@ New skill body.
       expect(manifest.allIdes, containsAll(['cursor', 'claude']));
       expect(manifest.packagesForIde('cursor')['pkg']!.skills, hasLength(1));
       expect(manifest.packagesForIde('claude')['pkg']!.skills, hasLength(1));
+    });
+  });
+
+  group('GetCommand end-to-end overwrite testing', () {
+    test(
+        'when skill is modified locally, it prompts and skips overwrite if user says no',
+        () async {
+      final fakeDialogSupport = FakeDialogSupport();
+      final getCommand = GetCommand(
+        dialogSupport: fakeDialogSupport,
+        gitRunner: GitRunner(isAvailableOverride: () async => false),
+      );
+      final runner = SkillsCommandRunner('skills', 'Test')
+        ..addCommand(getCommand);
+
+      await d.dir('dep_with_skills', [
+        d.file('pubspec.yaml',
+            'name: dep_with_skills\nenvironment:\n  sdk: ^3.5.0\n'),
+        d.dir('lib', [d.file('dep.dart', '')]),
+        d.dir('skills', [
+          d.dir('dep_with_skills-test-skill', [
+            d.file('SKILL.md',
+                '---\nname: dep_with_skills-test-skill\ndescription: Test\n---\n\nOriginal content'),
+          ]),
+        ]),
+      ]).create();
+
+      await d.dir('project', [
+        d.file('pubspec.yaml', '''
+name: project
+environment:
+  sdk: ^3.5.0
+dependencies:
+  dep_with_skills:
+    path: ../dep_with_skills
+'''),
+      ]).create();
+
+      final projectPath = d.path('project');
+
+      // 1. Initial installation
+      await runner.run([
+        'get',
+        '--directory',
+        projectPath,
+        '--ide',
+        Ide.cursor.cliName,
+        '--all',
+      ]);
+
+      final skillPath = p.join(projectPath, '.cursor', 'skills',
+          'dep_with_skills-test-skill', 'SKILL.md');
+      expect(await File(skillPath).exists(), isTrue);
+
+      // 2. User manually modifies the installed skill file
+      await File(skillPath).writeAsString(
+          '---\nname: dep_with_skills-test-skill\ndescription: Test\n---\n\nModified content');
+
+      // 3. User updates/re-installs and says "No" to the overwrite prompt (index 1 is No)
+      fakeDialogSupport.singleSelectResults.add(1);
+
+      await runner.run([
+        'get',
+        '--directory',
+        projectPath,
+        '--ide',
+        Ide.cursor.cliName,
+        '--all',
+      ]);
+
+      expect(fakeDialogSupport.singleSelectCallCount, 1,
+          reason: 'Expected prompt to be shown during second update');
+      final contentAfterUpdate = await File(skillPath).readAsString();
+      expect(contentAfterUpdate, contains('Modified content'),
+          reason: 'Content should not be overwritten');
     });
   });
 }

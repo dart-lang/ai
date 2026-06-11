@@ -38,6 +38,12 @@ class GetCommand extends SkillsCommand {
       help: 'Install all skills from all packages.',
       negatable: false,
     );
+    argParser.addFlag(
+      'force',
+      abbr: 'f',
+      help: 'Overwrite local modifications without prompting.',
+      negatable: false,
+    );
   }
 
   GitRunner get _effectiveGitRunner => _gitRunner ?? const GitRunner();
@@ -61,6 +67,7 @@ class GetCommand extends SkillsCommand {
     final skillNames = argResults.multiOption('skill').toSet();
 
     final allFlag = argResults.flag('all');
+    final force = argResults.flag('force');
 
     await getSkills(
       ides: ides,
@@ -72,6 +79,7 @@ class GetCommand extends SkillsCommand {
       packageNames: packageNames,
       skillNames: skillNames,
       allFlag: allFlag,
+      force: force,
     );
   }
 }
