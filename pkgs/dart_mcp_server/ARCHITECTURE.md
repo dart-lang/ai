@@ -81,7 +81,7 @@ classDiagram
     }
 
     class DartMCPServer {
-        +start()
+        +run()
     }
 
     class FlutterLauncherSupport {
@@ -116,6 +116,16 @@ classDiagram
         +pub
     }
 
+    class PubDevSearchSupport {
+        <<mixin>>
+        +pubDevSearch
+    }
+
+    class AnalyticsSupport {
+        <<mixin>>
+        +analytics
+    }
+
     MCPBase <|-- MCPServer
     MCPServer <|-- DartMCPServer
 
@@ -129,6 +139,8 @@ classDiagram
     DartAnalyzerSupport <|-- DartMCPServer : with
     DartToolingDaemonSupport <|-- DartMCPServer : with
     PubSupport <|-- DartMCPServer : with
+    PubDevSearchSupport <|-- DartMCPServer : with
+    AnalyticsSupport <|-- DartMCPServer : with
 ```
 
 ### `dart_mcp` Mixins
@@ -205,4 +217,4 @@ sequenceDiagram
 ## Transport Mechanism
 
 By default, the `dart_mcp_server` communicates with clients over standard input/output (`stdio`).
-The `lib/stdio.dart` utility in `dart_mcp` creates a `StreamChannel` wrapping `stdin` and `stdout`, which the `MCPBase` uses for JSON-RPC 2.0 message passing. This allows the server to be seamlessly spawned as a subprocess by clients like the Gemini CLI or IDE extensions.
+The `lib/stdio.dart` utility in `dart_mcp` creates a `StreamChannel` wrapping `stdin` and `stdout`, which the `MCPBase` uses for JSON-RPC 2.0 message passing. This allows the server to be seamlessly spawned as a subprocess by clients like the Antigravity CLI or IDE extensions.
