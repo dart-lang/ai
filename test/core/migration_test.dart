@@ -16,6 +16,11 @@ void main() {
 
     setUp(() async {
       await d.dir('project', [
+        d.file('pubspec.lock', '''
+packages:
+  pkg_a:
+    dependency: "direct main"
+'''),
         d.dir('.dart_tool', [
           d.dir('skills', [
             d.dir('repos', [
@@ -33,8 +38,10 @@ void main() {
       projectPath = d.path('project');
 
       await d.dir('global_config_dir', []).create();
-      globalConfigPath =
-          p.join(d.path('global_config_dir'), 'global_config.json');
+      globalConfigPath = p.join(
+        d.path('global_config_dir'),
+        'global_config.json',
+      );
       GlobalConfig.globalPathOverride = globalConfigPath;
 
       fakeDialogSupport = FakeDialogSupport();
@@ -45,142 +52,186 @@ void main() {
     });
 
     group('Given a version 1 manifest and existing local repos', () {
-      test(
-          'when user selects to keep globally then moves to global config '
+      test('when user selects to keep globally then moves to global config '
           'and renames directory', () async {
         const manifest = SkillManifest(version: 1);
-        fakeDialogSupport.singleSelectResults
-            .add(0); // Select 'keep this installed globally'
+        fakeDialogSupport.singleSelectResults.add(
+          0,
+        ); // Select 'keep this installed globally'
 
         final updatedManifest = await maybeDoRegistryMigration(
-            projectPath, manifest, fakeDialogSupport);
+          projectPath,
+          manifest,
+          fakeDialogSupport,
+        );
 
         expect(updatedManifest.version, equals(1));
-        final globalConfig =
-            await GlobalConfig.loadOrEmpty(File(globalConfigPath));
+        final globalConfig = await GlobalConfig.loadOrEmpty(
+          File(globalConfigPath),
+        );
         expect(globalConfig.registries, hasLength(1));
-        expect(globalConfig.registries.first.cloneUrl,
-            equals('https://github.com/owner1/repo1.git'));
+        expect(
+          globalConfig.registries.first.cloneUrl,
+          equals('https://github.com/owner1/repo1.git'),
+        );
 
         final oldRepoDir = Directory(
-            p.join(projectPath, '.dart_skills', 'repos', 'owner1', 'repo1'));
+          p.join(projectPath, '.dart_skills', 'repos', 'owner1', 'repo1'),
+        );
         expect(await oldRepoDir.exists(), isFalse);
 
-        final newRepoDir = Directory(p.join(
+        final newRepoDir = Directory(
+          p.join(
             projectPath,
             SkillManifest.cacheDirPath,
             'repos',
-            Uri.encodeComponent('https://github.com/owner1/repo1.git')));
+            Uri.encodeComponent('https://github.com/owner1/repo1.git'),
+          ),
+        );
         expect(await newRepoDir.exists(), isTrue);
       });
 
-      test('when user selects to keep locally then moves to local config',
-          () async {
-        const manifest = SkillManifest(version: 1);
-        fakeDialogSupport.singleSelectResults
-            .add(1); // Select 'keep this installed for this project'
+      test(
+        'when user selects to keep locally then moves to local config',
+        () async {
+          const manifest = SkillManifest(version: 1);
+          fakeDialogSupport.singleSelectResults.add(
+            1,
+          ); // Select 'keep this installed for this project'
 
-        final updatedManifest = await maybeDoRegistryMigration(
-            projectPath, manifest, fakeDialogSupport);
+          final updatedManifest = await maybeDoRegistryMigration(
+            projectPath,
+            manifest,
+            fakeDialogSupport,
+          );
 
-        expect(updatedManifest.version, equals(1));
-        final globalConfig =
-            await GlobalConfig.loadOrEmpty(File(globalConfigPath));
-        expect(globalConfig.registries, isEmpty);
-        expect(updatedManifest.registries, hasLength(1));
-        expect(updatedManifest.registries.first.cloneUrl,
-            equals('https://github.com/owner1/repo1.git'));
-      });
+          expect(updatedManifest.version, equals(1));
+          final globalConfig = await GlobalConfig.loadOrEmpty(
+            File(globalConfigPath),
+          );
+          expect(globalConfig.registries, isEmpty);
+          expect(updatedManifest.registries, hasLength(1));
+          expect(
+            updatedManifest.registries.first.cloneUrl,
+            equals('https://github.com/owner1/repo1.git'),
+          );
+        },
+      );
 
       test(
-          'when user selects to remove then deletes from disk and does not add to config',
-          () async {
-        const manifest = SkillManifest(version: 1);
-        fakeDialogSupport.singleSelectResults
-            .add(2); // Select 'remove this registry'
+        'when user selects to remove then deletes from disk and does not add to config',
+        () async {
+          const manifest = SkillManifest(version: 1);
+          fakeDialogSupport.singleSelectResults.add(
+            2,
+          ); // Select 'remove this registry'
 
-        final updatedManifest = await maybeDoRegistryMigration(
-            projectPath, manifest, fakeDialogSupport);
+          final updatedManifest = await maybeDoRegistryMigration(
+            projectPath,
+            manifest,
+            fakeDialogSupport,
+          );
 
-        expect(updatedManifest.version, equals(1));
-        final globalConfig =
-            await GlobalConfig.loadOrEmpty(File(globalConfigPath));
-        expect(globalConfig.registries, isEmpty);
-        expect(updatedManifest.registries, isEmpty);
+          expect(updatedManifest.version, equals(1));
+          final globalConfig = await GlobalConfig.loadOrEmpty(
+            File(globalConfigPath),
+          );
+          expect(globalConfig.registries, isEmpty);
+          expect(updatedManifest.registries, isEmpty);
 
-        final repoDir = Directory(
-            p.join(projectPath, '.dart_skills', 'repos', 'owner1', 'repo1'));
-        expect(await repoDir.exists(), isFalse);
-      });
+          final repoDir = Directory(
+            p.join(projectPath, '.dart_skills', 'repos', 'owner1', 'repo1'),
+          );
+          expect(await repoDir.exists(), isFalse);
+        },
+      );
 
       test('when no dialog support then keeps repos local', () async {
         const manifest = SkillManifest(version: 1);
 
-        final updatedManifest =
-            await maybeDoRegistryMigration(projectPath, manifest, null);
+        final updatedManifest = await maybeDoRegistryMigration(
+          projectPath,
+          manifest,
+          null,
+        );
 
         expect(updatedManifest.version, equals(1));
 
-        final globalConfig =
-            await GlobalConfig.loadOrEmpty(File(globalConfigPath));
+        final globalConfig = await GlobalConfig.loadOrEmpty(
+          File(globalConfigPath),
+        );
         expect(globalConfig.registries, isEmpty);
 
         expect(updatedManifest.registries, hasLength(1));
-        expect(updatedManifest.registries.first.cloneUrl,
-            equals('https://github.com/owner1/repo1.git'));
+        expect(
+          updatedManifest.registries.first.cloneUrl,
+          equals('https://github.com/owner1/repo1.git'),
+        );
       });
     });
 
-    test(
-        'Given a version 2 manifest, when running migration then does nothing '
+    test('Given a version 2 manifest, when running migration then does nothing '
         'and returns same instance', () async {
       const manifest = SkillManifest(version: 2);
 
       final updatedManifest = await maybeDoRegistryMigration(
-          projectPath, manifest, fakeDialogSupport);
+        projectPath,
+        manifest,
+        fakeDialogSupport,
+      );
 
       expect(updatedManifest, equals(manifest));
-      final globalConfig =
-          await GlobalConfig.loadOrEmpty(File(globalConfigPath));
+      final globalConfig = await GlobalConfig.loadOrEmpty(
+        File(globalConfigPath),
+      );
       expect(globalConfig.registries, isEmpty);
     });
 
-    test(
-        'Given a version 1 manifest and repos already in global config, when '
+    test('Given a version 1 manifest and repos already in global config, when '
         'running migration then skips them and does not prompt', () async {
       const manifest = SkillManifest(version: 1);
 
       var globalConfig = const GlobalConfig();
       globalConfig = globalConfig.withRegistry(
-          const RegistryRepo(cloneUrl: 'https://github.com/owner1/repo1.git'));
+        const RegistryRepo(cloneUrl: 'https://github.com/owner1/repo1.git'),
+      );
       await globalConfig.save(File(globalConfigPath));
 
       final updatedManifest = await maybeDoRegistryMigration(
-          projectPath, manifest, fakeDialogSupport);
+        projectPath,
+        manifest,
+        fakeDialogSupport,
+      );
 
       expect(updatedManifest.version, equals(1));
       expect(fakeDialogSupport.singleSelectCallCount, 0);
     });
 
     test(
-        'Given a version 1 manifest and global config already exists, when '
-        'running migration then it still runs and prompts for new repos',
-        () async {
-      const manifest = SkillManifest(version: 1);
+      'Given a version 1 manifest and global config already exists, when '
+      'running migration then it still runs and prompts for new repos',
+      () async {
+        const manifest = SkillManifest(version: 1);
 
-      await const GlobalConfig().save(File(globalConfigPath));
+        await const GlobalConfig().save(File(globalConfigPath));
 
-      fakeDialogSupport.singleSelectResults
-          .add(0); // Select 'keep this installed globally'
+        fakeDialogSupport.singleSelectResults.add(
+          0,
+        ); // Select 'keep this installed globally'
 
-      final updatedManifest = await maybeDoRegistryMigration(
-          projectPath, manifest, fakeDialogSupport);
+        final updatedManifest = await maybeDoRegistryMigration(
+          projectPath,
+          manifest,
+          fakeDialogSupport,
+        );
 
-      expect(updatedManifest.version, equals(1));
-      final globalConfig =
-          await GlobalConfig.loadOrEmpty(File(globalConfigPath));
-      expect(globalConfig.registries, hasLength(1));
-    });
+        expect(updatedManifest.version, equals(1));
+        final globalConfig = await GlobalConfig.loadOrEmpty(
+          File(globalConfigPath),
+        );
+        expect(globalConfig.registries, hasLength(1));
+      },
+    );
   });
 
   group('runMigrations', () {
@@ -206,8 +257,10 @@ void main() {
       projectPath = d.path('project');
 
       await d.dir('global_config_dir', []).create();
-      globalConfigPath =
-          p.join(d.path('global_config_dir'), 'global_config.json');
+      globalConfigPath = p.join(
+        d.path('global_config_dir'),
+        'global_config.json',
+      );
       GlobalConfig.globalPathOverride = globalConfigPath;
 
       fakeDialogSupport = FakeDialogSupport();
@@ -217,8 +270,7 @@ void main() {
       GlobalConfig.globalPathOverride = null;
     });
 
-    test(
-        'Given an old .dart_skills dir when running migrations '
+    test('Given an old .dart_skills dir when running migrations '
         'should first migrate both the manifest and registries', () async {
       fakeDialogSupport.singleSelectResults.add(0); // Keep globally
 
@@ -232,11 +284,14 @@ void main() {
       expect(await newDir.exists(), isTrue);
 
       // Check registry migrated to global config
-      final globalConfig =
-          await GlobalConfig.loadOrEmpty(File(globalConfigPath));
+      final globalConfig = await GlobalConfig.loadOrEmpty(
+        File(globalConfigPath),
+      );
       expect(globalConfig.registries, hasLength(1));
-      expect(globalConfig.registries.first.cloneUrl,
-          equals('https://github.com/owner1/repo1.git'));
+      expect(
+        globalConfig.registries.first.cloneUrl,
+        equals('https://github.com/owner1/repo1.git'),
+      );
 
       // Check manifest updated to current version
       final manifestFile = File(SkillManifest.pathIn(projectPath));
@@ -245,14 +300,18 @@ void main() {
 
       // Check the repo has been moved to the new location
       final oldRepoDir = Directory(
-          p.join(projectPath, '.dart_skills', 'repos', 'owner1', 'repo1'));
+        p.join(projectPath, '.dart_skills', 'repos', 'owner1', 'repo1'),
+      );
       expect(await oldRepoDir.exists(), isFalse);
 
-      final newRepoDir = Directory(p.join(
+      final newRepoDir = Directory(
+        p.join(
           projectPath,
           SkillManifest.cacheDirPath,
           'repos',
-          Uri.encodeComponent('https://github.com/owner1/repo1.git')));
+          Uri.encodeComponent('https://github.com/owner1/repo1.git'),
+        ),
+      );
       expect(await newRepoDir.exists(), isTrue);
     });
   });

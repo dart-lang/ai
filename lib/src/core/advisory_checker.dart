@@ -61,11 +61,11 @@ class AdvisoryChecker {
       final query = commit != null
           ? {'commit': commit}
           : version != null
-              ? {
-                  'package': {'name': package.name, 'ecosystem': 'Pub'},
-                  'version': version
-                }
-              : null;
+          ? {
+              'package': {'name': package.name, 'ecosystem': 'Pub'},
+              'version': version,
+            }
+          : null;
 
       if (query != null) {
         queries.add(query);
@@ -77,11 +77,10 @@ class AdvisoryChecker {
 
     try {
       final response = await (_httpClient?.post ?? http.post)(
-          Uri.parse('https://api.osv.dev/v1/querybatch'),
-          headers: {
-            HttpHeaders.contentTypeHeader: ContentType.json.mimeType,
-          },
-          body: jsonEncode({'queries': queries}));
+        Uri.parse('https://api.osv.dev/v1/querybatch'),
+        headers: {HttpHeaders.contentTypeHeader: ContentType.json.mimeType},
+        body: jsonEncode({'queries': queries}),
+      );
       if (response.statusCode != 200) {
         logger.warning('''
 Error checking for security advisories:
@@ -122,9 +121,12 @@ ${response.body}
   ///
   /// This will live next to the package config that resolved the package.
   Future<File?> _findPubspecLock(ResolvedPackage package) async {
-    final file = File(p.join(
+    final file = File(
+      p.join(
         p.dirname(p.dirname(package.originalPackageConfigPath)),
-        'pubspec.lock'));
+        'pubspec.lock',
+      ),
+    );
     if (await file.exists()) return file;
     return null;
   }

@@ -20,15 +20,9 @@ class RegistryRepo {
   /// Absolute paths where this repo is installed.
   final List<String> installs;
 
-  const RegistryRepo({
-    required this.cloneUrl,
-    this.installs = const [],
-  });
+  const RegistryRepo({required this.cloneUrl, this.installs = const []});
 
-  RegistryRepo copyWith({
-    String? cloneUrl,
-    List<String>? installs,
-  }) {
+  RegistryRepo copyWith({String? cloneUrl, List<String>? installs}) {
     return RegistryRepo(
       cloneUrl: cloneUrl ?? this.cloneUrl,
       installs: installs ?? this.installs,
@@ -42,10 +36,7 @@ class RegistryRepo {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'cloneUrl': cloneUrl,
-      'installs': installs,
-    };
+    return {'cloneUrl': cloneUrl, 'installs': installs};
   }
 
   /// Returns a copy with a new install location added.

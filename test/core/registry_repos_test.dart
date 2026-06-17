@@ -14,18 +14,15 @@ void main() {
       const repo = RegistryRepo(
         cloneUrl: 'https://github.com/flutter/skills.git',
       );
-      expect(repo.pathSegment,
-          equals(Uri.encodeComponent('https://github.com/flutter/skills.git')));
+      expect(
+        repo.pathSegment,
+        equals(Uri.encodeComponent('https://github.com/flutter/skills.git')),
+      );
     });
 
     test('cloneUrl is the provided URL', () {
-      const repo = RegistryRepo(
-        cloneUrl: 'https://example.com/repo.git',
-      );
-      expect(
-        repo.cloneUrl,
-        equals('https://example.com/repo.git'),
-      );
+      const repo = RegistryRepo(cloneUrl: 'https://example.com/repo.git');
+      expect(repo.cloneUrl, equals('https://example.com/repo.git'));
     });
   });
 
@@ -42,8 +39,13 @@ void main() {
       final path = registryRepoPath('/project', repo);
       expect(
         path,
-        contains(p.join(SkillManifest.cacheDirPath, 'repos',
-            Uri.encodeComponent(repo.cloneUrl))),
+        contains(
+          p.join(
+            SkillManifest.cacheDirPath,
+            'repos',
+            Uri.encodeComponent(repo.cloneUrl),
+          ),
+        ),
       );
     });
   });

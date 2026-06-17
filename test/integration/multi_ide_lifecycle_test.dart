@@ -133,10 +133,9 @@ Instructions for debugging.
         isTrue,
       );
 
-      manifest = await SkillInstaller(fakeDialogSupport).removeAllSkills(
-        rootPath: rootPath,
-        manifest: manifest,
-      );
+      manifest = await SkillInstaller(
+        fakeDialogSupport,
+      ).removeAllSkills(rootPath: rootPath, manifest: manifest);
 
       // Verify all skill directories are gone.
       expect(
@@ -286,10 +285,9 @@ Instructions for debugging.
         cursorSkillDir.deleteSync(recursive: true);
 
         // Remove all -- should not throw even though cursor files are gone.
-        manifest = await SkillInstaller(fakeDialogSupport).removeAllSkills(
-          rootPath: rootPath,
-          manifest: manifest,
-        );
+        manifest = await SkillInstaller(
+          fakeDialogSupport,
+        ).removeAllSkills(rootPath: rootPath, manifest: manifest);
 
         expect(manifest.isEmpty, isTrue);
 
@@ -301,8 +299,7 @@ Instructions for debugging.
       },
     );
 
-    test(
-        'when some skills are manually deleted then remaining are still '
+    test('when some skills are manually deleted then remaining are still '
         'removed correctly', () async {
       // Install a second package too.
       var result = await SkillInstaller(fakeDialogSupport).installSkillsForIde(
@@ -320,10 +317,9 @@ Instructions for debugging.
       ).deleteSync(recursive: true);
 
       // Remove all.
-      manifest = await SkillInstaller(fakeDialogSupport).removeAllSkills(
-        rootPath: rootPath,
-        manifest: manifest,
-      );
+      manifest = await SkillInstaller(
+        fakeDialogSupport,
+      ).removeAllSkills(rootPath: rootPath, manifest: manifest);
 
       // Everything should be clean, no errors.
       expect(manifest.isEmpty, isTrue);
@@ -369,14 +365,14 @@ Instructions for debugging.
     test('when reinstalling to one IDE then the other is untouched', () async {
       // Reinstall to Cursor only (simulating `skills get --ide cursor`).
       // SkillInstaller removes existing before installing.
-      final result =
-          await SkillInstaller(fakeDialogSupport).installSkillsForIde(
-        ide: Ide.cursor,
-        rootPath: rootPath,
-        skills: pkgASkills,
-        manifest: manifest,
-        globalConfig: const GlobalConfig(),
-      );
+      final result = await SkillInstaller(fakeDialogSupport)
+          .installSkillsForIde(
+            ide: Ide.cursor,
+            rootPath: rootPath,
+            skills: pkgASkills,
+            manifest: manifest,
+            globalConfig: const GlobalConfig(),
+          );
       manifest = result!.manifest;
 
       // Cursor reinstalled.
@@ -439,8 +435,7 @@ Instructions for debugging.
       expect(manifest.allSkills, hasLength(6));
     });
 
-    test(
-        'when removing all then both Cursor and Claude skill directories '
+    test('when removing all then both Cursor and Claude skill directories '
         'are cleaned up', () async {
       // Verify skill directories exist.
       expect(
@@ -452,10 +447,9 @@ Instructions for debugging.
         isTrue,
       );
 
-      manifest = await SkillInstaller(fakeDialogSupport).removeAllSkills(
-        rootPath: rootPath,
-        manifest: manifest,
-      );
+      manifest = await SkillInstaller(
+        fakeDialogSupport,
+      ).removeAllSkills(rootPath: rootPath, manifest: manifest);
 
       // Agent Skills directories cleaned.
       expect(
@@ -490,20 +484,22 @@ Instructions for debugging.
         final rootPath = d.path('generic_project');
 
         var manifest = const SkillManifest();
-        final result =
-            await SkillInstaller(fakeDialogSupport).installSkillsForIde(
-          ide: Ide.generic,
-          rootPath: rootPath,
-          skills: pkgASkills,
-          manifest: manifest,
-          globalConfig: const GlobalConfig(),
-        );
+        final result = await SkillInstaller(fakeDialogSupport)
+            .installSkillsForIde(
+              ide: Ide.generic,
+              rootPath: rootPath,
+              skills: pkgASkills,
+              manifest: manifest,
+              globalConfig: const GlobalConfig(),
+            );
         manifest = result!.manifest;
 
         expect(manifest.allIdes, equals(['generic']));
         expect(manifest.packagesForIde('generic'), hasLength(1));
         expect(
-            manifest.packagesForIde('generic')['pkg_a']!.skills, hasLength(1));
+          manifest.packagesForIde('generic')['pkg_a']!.skills,
+          hasLength(1),
+        );
         expect(manifest.installations.containsKey('antigravity'), isFalse);
         expect(manifest.installations.containsKey('codex'), isFalse);
       },
@@ -565,10 +561,7 @@ Instructions for debugging.
           equals({'cursor', 'generic', 'claude'}),
         );
         expect(loaded.packagesForIde('cursor')['pkg_a']!.skills, hasLength(1));
-        expect(
-          loaded.packagesForIde('generic')['pkg_a']!.skills,
-          hasLength(1),
-        );
+        expect(loaded.packagesForIde('generic')['pkg_a']!.skills, hasLength(1));
         expect(loaded.packagesForIde('claude')['pkg_b']!.skills, hasLength(1));
       },
     );

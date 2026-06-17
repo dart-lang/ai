@@ -24,9 +24,7 @@ class GlobalConfig {
 
   final List<RegistryRepo> registries;
 
-  const GlobalConfig({
-    this.registries = const [],
-  });
+  const GlobalConfig({this.registries = const []});
 
   factory GlobalConfig.fromJson(Map<String, dynamic> json) {
     final registriesJson = json['registries'] as List<dynamic>? ?? [];
@@ -38,9 +36,7 @@ class GlobalConfig {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'registries': registries.map((r) => r.toJson()).toList(),
-    };
+    return {'registries': registries.map((r) => r.toJson()).toList()};
   }
 
   /// Loads the config from [file], or returns null if it doesn't exist.
@@ -67,9 +63,7 @@ class GlobalConfig {
 
   /// Returns a copy with [repo] added.
   GlobalConfig withRegistry(RegistryRepo repo) {
-    return GlobalConfig(
-      registries: [...registries, repo],
-    );
+    return GlobalConfig(registries: [...registries, repo]);
   }
 
   /// Returns a copy with [repo] removed.

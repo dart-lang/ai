@@ -35,8 +35,9 @@ class RegistryListCommand extends SkillsCommand {
   @override
   Future<void> run() async {
     final workspace = await resolveWorkspace();
-    final manifest =
-        await SkillManifest.loadOrEmptyFromRoot(workspace.rootPath);
+    final manifest = await SkillManifest.loadOrEmptyFromRoot(
+      workspace.rootPath,
+    );
 
     final globalConfigPath = GlobalConfig.globalPath;
     final globalConfig = await GlobalConfig.loadOrEmpty(File(globalConfigPath));
@@ -72,8 +73,11 @@ class RegistryAddCommand extends SkillsCommand {
   final DialogSupport? dialogSupport;
 
   RegistryAddCommand({this.dialogSupport}) {
-    argParser.addFlag('global',
-        help: 'Add to global config.', defaultsTo: null);
+    argParser.addFlag(
+      'global',
+      help: 'Add to global config.',
+      defaultsTo: null,
+    );
   }
 
   @override
@@ -87,9 +91,10 @@ class RegistryAddCommand extends SkillsCommand {
 
     if (isGlobal == null) {
       if (dialogSupport case var dialogSupport?) {
-        final index = await dialogSupport.showSingleSelectDialog(
-            ['Global', 'Local'],
-            title: 'Install globally or locally?');
+        final index = await dialogSupport.showSingleSelectDialog([
+          'Global',
+          'Local',
+        ], title: 'Install globally or locally?');
         if (index != null) {
           isGlobal = index == 0;
         }
@@ -98,7 +103,9 @@ class RegistryAddCommand extends SkillsCommand {
 
     if (isGlobal == null) {
       throw UsageException(
-          'Must specify whether to install globally or locally.', usage);
+        'Must specify whether to install globally or locally.',
+        usage,
+      );
     }
 
     final repos = <RegistryRepo>[];
@@ -116,21 +123,24 @@ class RegistryAddCommand extends SkillsCommand {
           logger.info('Added ${repo.cloneUrl} to global registries.');
         } else {
           logger.info(
-              'Registry ${repo.cloneUrl} already exists in global config.');
+            'Registry ${repo.cloneUrl} already exists in global config.',
+          );
         }
       }
       await globalConfig.save(globalConfigFile);
     } else {
       final workspace = await resolveWorkspace();
-      var manifest =
-          await SkillManifest.loadOrEmptyFromRoot(workspace.rootPath);
+      var manifest = await SkillManifest.loadOrEmptyFromRoot(
+        workspace.rootPath,
+      );
       for (final repo in repos) {
         if (!manifest.registries.any((r) => r.cloneUrl == repo.cloneUrl)) {
           manifest = manifest.withRegistry(repo);
           logger.info('Added ${repo.cloneUrl} to local registries.');
         } else {
           logger.info(
-              'Registry ${repo.cloneUrl} already exists in local config.');
+            'Registry ${repo.cloneUrl} already exists in local config.',
+          );
         }
       }
       await manifest.save(manifestFile(workspace.rootPath));
@@ -149,8 +159,11 @@ class RegistryRemoveCommand extends SkillsCommand {
   final DialogSupport? dialogSupport;
 
   RegistryRemoveCommand({this.dialogSupport}) {
-    argParser.addFlag('global',
-        help: 'Remove from global config.', defaultsTo: null);
+    argParser.addFlag(
+      'global',
+      help: 'Remove from global config.',
+      defaultsTo: null,
+    );
   }
 
   @override
@@ -159,8 +172,9 @@ class RegistryRemoveCommand extends SkillsCommand {
     final isGlobal = argResults?['global'] as bool?;
 
     final workspace = await resolveWorkspace();
-    final manifest =
-        await SkillManifest.loadOrEmptyFromRoot(workspace.rootPath);
+    final manifest = await SkillManifest.loadOrEmptyFromRoot(
+      workspace.rootPath,
+    );
     final globalConfigPath = GlobalConfig.globalPath;
     final globalConfigFile = File(globalConfigPath);
     final globalConfig = await GlobalConfig.loadOrEmpty(globalConfigFile);
@@ -169,19 +183,25 @@ class RegistryRemoveCommand extends SkillsCommand {
         ? _interactiveRemove(globalConfig, manifest)
         : _removeByArgs(rest, isGlobal, globalConfig, manifest));
 
-    await _performRemoval(removalLists.global, removalLists.local, globalConfig,
-        manifest, globalConfigFile, workspace.rootPath);
+    await _performRemoval(
+      removalLists.global,
+      removalLists.local,
+      globalConfig,
+      manifest,
+      globalConfigFile,
+      workspace.rootPath,
+    );
   }
 
   /// Interactive dialog to select registries to remove
   Future<({List<RegistryRepo> global, List<RegistryRepo> local})>
-      _interactiveRemove(
-          GlobalConfig globalConfig, SkillManifest manifest) async {
+  _interactiveRemove(GlobalConfig globalConfig, SkillManifest manifest) async {
     final dialogSupport = this.dialogSupport;
     if (dialogSupport == null) {
       throw UsageException(
-          'Must specify at least one registry to remove when running non-interactively.',
-          usage);
+        'Must specify at least one registry to remove when running non-interactively.',
+        usage,
+      );
     }
 
     final fromGlobal = <RegistryRepo>[];
@@ -232,10 +252,11 @@ class RegistryRemoveCommand extends SkillsCommand {
   }
 
   Future<({List<RegistryRepo> global, List<RegistryRepo> local})> _removeByArgs(
-      List<String> rest,
-      bool? forceGlobal,
-      GlobalConfig globalConfig,
-      SkillManifest manifest) async {
+    List<String> rest,
+    bool? forceGlobal,
+    GlobalConfig globalConfig,
+    SkillManifest manifest,
+  ) async {
     final fromGlobal = <RegistryRepo>[];
     final fromLocal = <RegistryRepo>[];
 
@@ -245,10 +266,12 @@ class RegistryRemoveCommand extends SkillsCommand {
     }
 
     for (final repo in repos) {
-      final globalRegistry = globalConfig.registries
-          .firstWhereOrNull((r) => r.cloneUrl == repo.cloneUrl);
-      final localRegistry = manifest.registries
-          .firstWhereOrNull((r) => r.cloneUrl == repo.cloneUrl);
+      final globalRegistry = globalConfig.registries.firstWhereOrNull(
+        (r) => r.cloneUrl == repo.cloneUrl,
+      );
+      final localRegistry = manifest.registries.firstWhereOrNull(
+        (r) => r.cloneUrl == repo.cloneUrl,
+      );
 
       if (forceGlobal == true) {
         if (globalRegistry case final registry?) {
@@ -267,25 +290,35 @@ class RegistryRemoveCommand extends SkillsCommand {
         if (globalRegistry != null && localRegistry != null) {
           if (dialogSupport case var dialogSupport?) {
             final options = ['Global', 'Local', 'Both'];
-            final index = await dialogSupport.showSingleSelectDialog(options,
-                title: 'Remove ${repo.cloneUrl} from global, local, or both?');
+            final index = await dialogSupport.showSingleSelectDialog(
+              options,
+              title: 'Remove ${repo.cloneUrl} from global, local, or both?',
+            );
             if (index != null) {
               if (index == 0 || index == 2) {
-                fromGlobal.add(globalConfig.registries
-                    .firstWhere((r) => r.cloneUrl == repo.cloneUrl));
+                fromGlobal.add(
+                  globalConfig.registries.firstWhere(
+                    (r) => r.cloneUrl == repo.cloneUrl,
+                  ),
+                );
               }
               if (index == 1 || index == 2) {
-                fromLocal.add(manifest.registries
-                    .firstWhere((r) => r.cloneUrl == repo.cloneUrl));
+                fromLocal.add(
+                  manifest.registries.firstWhere(
+                    (r) => r.cloneUrl == repo.cloneUrl,
+                  ),
+                );
               }
             } else {
               logger.warning(
-                  'Registry removal aborted by user for ${repo.cloneUrl}');
+                'Registry removal aborted by user for ${repo.cloneUrl}',
+              );
             }
           } else {
             throw UsageException(
-                'Registry ${repo.cloneUrl} is in both global and local configs. Use --global to specify which to remove.',
-                usage);
+              'Registry ${repo.cloneUrl} is in both global and local configs. Use --global to specify which to remove.',
+              usage,
+            );
           }
         } else if (globalRegistry != null) {
           fromGlobal.add(globalRegistry);
@@ -302,12 +335,13 @@ class RegistryRemoveCommand extends SkillsCommand {
 
   /// Actually performs the removal of registries from configuration and disk.
   Future<void> _performRemoval(
-      List<RegistryRepo> fromGlobal,
-      List<RegistryRepo> fromLocal,
-      GlobalConfig globalConfig,
-      SkillManifest manifest,
-      File globalConfigFile,
-      String rootPath) async {
+    List<RegistryRepo> fromGlobal,
+    List<RegistryRepo> fromLocal,
+    GlobalConfig globalConfig,
+    SkillManifest manifest,
+    File globalConfigFile,
+    String rootPath,
+  ) async {
     var updatedGlobalConfig = globalConfig;
     var updatedManifest = manifest;
     final removedRepos = <RegistryRepo>{};
@@ -351,8 +385,9 @@ RegistryRepo parseRegistryArg(String arg, String usage) {
     final parts = arg.split('/');
     if (parts.length != 2) {
       throw UsageException(
-          'Invalid registry format: $arg. Expected <owner>/<repo> or a Git URI.',
-          usage);
+        'Invalid registry format: $arg. Expected <owner>/<repo> or a Git URI.',
+        usage,
+      );
     }
     final url = 'https://github.com/${parts[0]}/${parts[1]}.git';
     return RegistryRepo(cloneUrl: url);

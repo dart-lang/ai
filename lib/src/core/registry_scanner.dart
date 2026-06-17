@@ -40,8 +40,10 @@ class RegistryScanner {
 
       final layout = await _inferLayout(skillsDir);
       if (layout == null) {
-        _logger.warning('Error: Repository ${repo.cloneUrl} does not follow a '
-            'recognized skill layout.');
+        _logger.warning(
+          'Error: Repository ${repo.cloneUrl} does not follow a '
+          'recognized skill layout.',
+        );
         continue;
       }
 
@@ -51,7 +53,8 @@ class RegistryScanner {
           break;
         case RegistrySkillLayout.groupedByPackage:
           skills.addAll(
-              await _scanGroupedByPackage(skillsDir, repo.cloneUrl, isGlobal));
+            await _scanGroupedByPackage(skillsDir, repo.cloneUrl, isGlobal),
+          );
           break;
       }
     }
@@ -82,7 +85,10 @@ class RegistryScanner {
 
   /// Flat layout: skills directly under [skillsDir]; dir name = `<package>-<suffix>`.
   Future<List<ScannedSkill>> _scanFlat(
-      Directory skillsDir, String registryUrl, bool isGlobal) async {
+    Directory skillsDir,
+    String registryUrl,
+    bool isGlobal,
+  ) async {
     final skills = <ScannedSkill>[];
     await for (final entity in skillsDir.list()) {
       if (entity is! Directory) continue;
@@ -111,7 +117,10 @@ class RegistryScanner {
   /// Grouped layout: skills under [skillsDir] with one level per package name,
   /// then one level per skill directory (e.g. skills/riverpod/riverpod-get-started).
   Future<List<ScannedSkill>> _scanGroupedByPackage(
-      Directory skillsDir, String registryUrl, bool isGlobal) async {
+    Directory skillsDir,
+    String registryUrl,
+    bool isGlobal,
+  ) async {
     final skills = <ScannedSkill>[];
     await for (final packageEntity in skillsDir.list()) {
       if (packageEntity is! Directory) continue;

@@ -24,6 +24,7 @@
 - feat: Add `registry` command with `add`, `list`, and `remove` commands. This
   replaces the old hardcoded flutter/skills and serverpod/skills-registry
   registries, and new installs will not get those auto installed.
+- fix: **Breaking Change** - Only install skills from immediate dependencies.
 
 ## 0.3.1
 

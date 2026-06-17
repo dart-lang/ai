@@ -15,9 +15,8 @@ class RemoveCommand extends SkillsCommand {
 
   final DialogSupport? _dialogSupport;
 
-  RemoveCommand({
-    DialogSupport? dialogSupport,
-  }) : _dialogSupport = dialogSupport {
+  RemoveCommand({DialogSupport? dialogSupport})
+    : _dialogSupport = dialogSupport {
     addIdeOption(argParser);
     argParser.addMultiOption(
       'package',
@@ -77,8 +76,7 @@ class RemoveCommand extends SkillsCommand {
       final allPackages = {
         for (final ide in targetIdes)
           ...manifest.packagesForIde(ide.cliName).keys,
-      }.toList()
-        ..sort();
+      }.toList()..sort();
       final selectedIndices = await _dialogSupport.showMultiSelectDialog(
         allPackages,
         title: 'Select packages to remove skills for:',
@@ -103,9 +101,8 @@ class RemoveCommand extends SkillsCommand {
           for (final MapEntry(key: package, value: entry)
               in manifest.packagesForIde(ide.cliName).entries)
             if (packagesToRemove.isEmpty || packagesToRemove.contains(package))
-              ...entry.skills.map((skill) => skill.name)
-      }.toList()
-        ..sort();
+              ...entry.skills.map((skill) => skill.name),
+      }.toList()..sort();
       final selectedIndices = await _dialogSupport.showMultiSelectDialog(
         potentialSkills,
         title: 'Select skills to remove',
@@ -124,27 +121,29 @@ class RemoveCommand extends SkillsCommand {
     }
 
     // The fully filtered map of things to remove.
-    final Map< /* IDE */ String, Map< /* Package */ String, PackageSkillsEntry>>
-        filteredSkills = {
+    final Map</* IDE */ String, Map</* Package */ String, PackageSkillsEntry>>
+    filteredSkills = {
       for (final ide in targetIdes)
         ide.cliName: {
           for (final entry in manifest.packagesForIde(ide.cliName).entries)
             if (packagesToRemove.isEmpty ||
                 packagesToRemove.contains(entry.key))
-              entry.key: PackageSkillsEntry(skills: [
-                for (final skill in entry.value.skills)
-                  if (skillsToRemove.isEmpty ||
-                      skillsToRemove.contains(skill.name))
-                    skill,
-              ])
-        }
+              entry.key: PackageSkillsEntry(
+                skills: [
+                  for (final skill in entry.value.skills)
+                    if (skillsToRemove.isEmpty ||
+                        skillsToRemove.contains(skill.name))
+                      skill,
+                ],
+              ),
+        },
     };
 
     // If non-interactive and no arguments, list installed skills and exit
     if (_dialogSupport == null && skillsToRemove.isEmpty && !allFlag) {
       logger.info('Installed skills:');
       final installedSkillsAndIdes =
-          < /* Skill name */ String, Set< /* Installed IDE name */ String>>{};
+          </* Skill name */ String, Set</* Installed IDE name */ String>>{};
       for (final MapEntry(key: ide, value: packages)
           in filteredSkills.entries) {
         for (final entry in packages.values) {

@@ -71,14 +71,17 @@ Future<List<Ide>> resolveIdes({
 
   if (dialogSupport case var dialogSupport?) {
     final options = Ide.values.map((e) => e.cliName).toList();
-    final result = await dialogSupport.showMultiSelectDialog(options,
-        title: 'Unable to auto-detect IDE. Please select one or more:');
+    final result = await dialogSupport.showMultiSelectDialog(
+      options,
+      title: 'Unable to auto-detect IDE. Please select one or more:',
+    );
     if (result != null && result.isNotEmpty) {
       return result.map((e) => Ide.values[e]).toList();
     }
   }
   throw UsageException(
-      'Could not auto-detect IDE and none selected. Use --ide to specify one of: '
-          '${Ide.validNames}',
-      '');
+    'Could not auto-detect IDE and none selected. Use --ide to specify one of: '
+        '${Ide.validNames}',
+    '',
+  );
 }

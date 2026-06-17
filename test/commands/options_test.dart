@@ -28,35 +28,13 @@ void main() {
         dialogSupport: fakeDialogSupport,
       );
 
-      expect(
-        ides,
-        equals([Ide.cursor]),
-      );
+      expect(ides, equals([Ide.cursor]));
     });
 
-    test('and auto-detection succeeds then it returns the detected IDEs',
-        () async {
-      await d.dir('project', [
-        d.dir('.cursor'),
-      ]).create();
-
-      final ides = await resolveIdes(
-        argResults: null,
-        projectPath: projectPath,
-        dialogSupport: fakeDialogSupport,
-      );
-
-      expect(
-        ides,
-        equals([Ide.cursor]),
-      );
-    });
-
-    group('and auto-detection fails', () {
-      test(
-          'and the user selects an IDE in the dialog then it returns the selected IDE',
-          () async {
-        fakeDialogSupport.multiSelectResults.add({1});
+    test(
+      'and auto-detection succeeds then it returns the detected IDEs',
+      () async {
+        await d.dir('project', [d.dir('.cursor')]).create();
 
         final ides = await resolveIdes(
           argResults: null,
@@ -64,38 +42,55 @@ void main() {
           dialogSupport: fakeDialogSupport,
         );
 
-        expect(
-          ides,
-          equals([Ide.values[1]]),
-        );
-      });
+        expect(ides, equals([Ide.cursor]));
+      },
+    );
 
+    group('and auto-detection fails', () {
       test(
-          'and the user selects nothing in the dialog then it throws UsageException',
-          () async {
-        fakeDialogSupport.multiSelectResults.add({});
+        'and the user selects an IDE in the dialog then it returns the selected IDE',
+        () async {
+          fakeDialogSupport.multiSelectResults.add({1});
 
-        expect(
-          () => resolveIdes(
+          final ides = await resolveIdes(
             argResults: null,
             projectPath: projectPath,
             dialogSupport: fakeDialogSupport,
-          ),
-          throwsA(isA<UsageException>()),
-        );
-      });
+          );
 
-      test('and dialog support is missing then it throws UsageException',
-          () async {
-        expect(
-          () => resolveIdes(
-            argResults: null,
-            projectPath: projectPath,
-            dialogSupport: null,
-          ),
-          throwsA(isA<UsageException>()),
-        );
-      });
+          expect(ides, equals([Ide.values[1]]));
+        },
+      );
+
+      test(
+        'and the user selects nothing in the dialog then it throws UsageException',
+        () async {
+          fakeDialogSupport.multiSelectResults.add({});
+
+          expect(
+            () => resolveIdes(
+              argResults: null,
+              projectPath: projectPath,
+              dialogSupport: fakeDialogSupport,
+            ),
+            throwsA(isA<UsageException>()),
+          );
+        },
+      );
+
+      test(
+        'and dialog support is missing then it throws UsageException',
+        () async {
+          expect(
+            () => resolveIdes(
+              argResults: null,
+              projectPath: projectPath,
+              dialogSupport: null,
+            ),
+            throwsA(isA<UsageException>()),
+          );
+        },
+      );
     });
   });
 }

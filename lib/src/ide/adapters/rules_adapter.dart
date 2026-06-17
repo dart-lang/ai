@@ -46,9 +46,7 @@ class RulesAdapter implements IdeAdapter {
   }
 
   @override
-  Future<InstallSkillResult> installSkill(
-    ScannedSkill skill,
-  ) async {
+  Future<InstallSkillResult> installSkill(ScannedSkill skill) async {
     final skillMdFile = File(p.join(skill.skillPath, 'SKILL.md'));
     final metadata = await SkillMetadata.parse(skillMdFile);
 
@@ -69,15 +67,19 @@ class RulesAdapter implements IdeAdapter {
     final hash = await tryCalculateFileHash(targetFile);
     if (hash == null) {
       throw StateError(
-          'Failed to install skill ${skill.skillName} from ${skill.skillPath}');
+        'Failed to install skill ${skill.skillName} from ${skill.skillPath}',
+      );
     }
 
     return (name: skill.skillName, contentHash: hash);
   }
 
   @override
-  Future<bool> removeSkill(String skillName,
-      {String? originalHash, bool force = false}) async {
+  Future<bool> removeSkill(
+    String skillName, {
+    String? originalHash,
+    bool force = false,
+  }) async {
     final targetFile = File(
       p.join(skillsDirectory, '$skillName$fileExtension'),
     );
@@ -88,7 +90,9 @@ class RulesAdapter implements IdeAdapter {
     final currentHash = await tryCalculateFileHash(targetFile);
     if (currentHash == null) {
       throw StateError(
-          'Failed to calculate hash for $skillName at ' '${targetFile.path}');
+        'Failed to calculate hash for $skillName at '
+        '${targetFile.path}',
+      );
     }
     if (!await promptOverwriteIfChanged(
       dialogSupport: dialogSupport,

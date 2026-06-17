@@ -12,5 +12,5 @@ class ClineAdapter extends AgentSkillsAdapter {
   final Logger logger = Logger('ClineAdapter');
 
   ClineAdapter(String projectPath, {super.dialogSupport})
-      : super(Ide.cline.skillsPath(projectPath));
+    : super(Ide.cline.skillsPath(projectPath));
 }

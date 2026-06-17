@@ -31,9 +31,7 @@ abstract class AgentSkillsAdapter implements IdeAdapter {
   Future<bool> performMigrations(SkillManifest manifest) async => true;
 
   @override
-  Future<InstallSkillResult> installSkill(
-    ScannedSkill skill,
-  ) async {
+  Future<InstallSkillResult> installSkill(ScannedSkill skill) async {
     final targetDir = Directory(p.join(skillsDirectory, skill.skillName));
 
     if (await targetDir.exists()) {
@@ -45,25 +43,29 @@ abstract class AgentSkillsAdapter implements IdeAdapter {
 
     return (
       name: skill.skillName,
-      contentHash: await calculateDirectoryHash(targetDir)
+      contentHash: await calculateDirectoryHash(targetDir),
     );
   }
 
   @override
-  Future<bool> removeSkill(String skillName,
-      {String? originalHash, bool force = false}) async {
+  Future<bool> removeSkill(
+    String skillName, {
+    String? originalHash,
+    bool force = false,
+  }) async {
     final targetDir = Directory(p.join(skillsDirectory, skillName));
     if (!await targetDir.exists()) {
       return true;
     }
 
     if (!await promptOverwriteIfChanged(
-        dialogSupport: dialogSupport,
-        skillName: skillName,
-        originalHash: originalHash,
-        currentHash: await calculateDirectoryHash(targetDir),
-        force: force,
-        logger: logger)) {
+      dialogSupport: dialogSupport,
+      skillName: skillName,
+      originalHash: originalHash,
+      currentHash: await calculateDirectoryHash(targetDir),
+      force: force,
+      logger: logger,
+    )) {
       return false;
     }
 

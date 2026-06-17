@@ -70,9 +70,10 @@ void main() {
       );
     });
 
-    test('when old .dart_skills directory exists then it is migrated',
-        () async {
-      final manifestContent = '''
+    test(
+      'when old .dart_skills directory exists then it is migrated',
+      () async {
+        final manifestContent = '''
 {
   "version": 1,
   "installations": {
@@ -86,23 +87,26 @@ void main() {
   }
 }
 ''';
-      await d.dir('.dart_skills', [
-        d.file(SkillManifest.configName, manifestContent),
-      ]).create();
+        await d.dir('.dart_skills', [
+          d.file(SkillManifest.configName, manifestContent),
+        ]).create();
 
-      final manifest = await SkillManifest.loadFromRoot(d.sandbox);
+        final manifest = await SkillManifest.loadFromRoot(d.sandbox);
 
-      expect(manifest, isNotNull);
-      expect(manifest!.allIdes.toList(), equals(['cursor']));
+        expect(manifest, isNotNull);
+        expect(manifest!.allIdes.toList(), equals(['cursor']));
 
-      await d.nothing('.dart_skills').validate();
-      await d.dir(SkillManifest.configDirPath,
-          [d.file(SkillManifest.configName, manifestContent)]).validate();
-    });
+        await d.nothing('.dart_skills').validate();
+        await d.dir(SkillManifest.configDirPath, [
+          d.file(SkillManifest.configName, manifestContent),
+        ]).validate();
+      },
+    );
 
     test('when file does not exist then returns null', () async {
-      final manifest =
-          await SkillManifest.loadFromRoot(d.path('nonexistent_project'));
+      final manifest = await SkillManifest.loadFromRoot(
+        d.path('nonexistent_project'),
+      );
 
       expect(manifest, isNull);
     });

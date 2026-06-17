@@ -10,7 +10,10 @@ import 'ide_adapter.dart';
 
 /// Creates the appropriate [IdeAdapter] for the given [ide] and [projectPath].
 IdeAdapter createIdeAdapter(
-    Ide ide, String projectPath, DialogSupport? dialogSupport) {
+  Ide ide,
+  String projectPath,
+  DialogSupport? dialogSupport,
+) {
   return switch (ide) {
     Ide.cursor => CursorAdapter(projectPath, dialogSupport: dialogSupport),
     Ide.generic => GenericAdapter(projectPath, dialogSupport: dialogSupport),

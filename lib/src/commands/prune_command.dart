@@ -20,9 +20,8 @@ class PruneCommand extends SkillsCommand {
 
   final DialogSupport? _dialogSupport;
 
-  PruneCommand({
-    DialogSupport? dialogSupport,
-  }) : _dialogSupport = dialogSupport {
+  PruneCommand({DialogSupport? dialogSupport})
+    : _dialogSupport = dialogSupport {
     addIdeOption(argParser);
   }
 
@@ -66,8 +65,9 @@ class PruneCommand extends SkillsCommand {
 
     for (final ide in targetIdes) {
       final pkgs = manifest.packagesForIde(ide.cliName);
-      final pkgsToPrune =
-          pkgs.keys.where((name) => !referencedNames.contains(name)).toSet();
+      final pkgsToPrune = pkgs.keys
+          .where((name) => !referencedNames.contains(name))
+          .toSet();
       prunedPackages.addAll(pkgsToPrune);
 
       final result = await installer.removeSkillsForIde(

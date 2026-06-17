@@ -24,9 +24,9 @@ enum Ide {
 
   /// Aliases that map to this IDE in the CLI (e.g. antigravity, codex → generic).
   List<String> get cliAliases => switch (this) {
-        Ide.generic => ['antigravity', 'codex'],
-        _ => [],
-      };
+    Ide.generic => ['antigravity', 'codex'],
+    _ => [],
+  };
 
   /// Returns the absolute skills directory path for this IDE within [projectPath].
   String skillsPath(String projectPath) =>
@@ -42,8 +42,9 @@ enum Ide {
       Ide.cursor => Directory(p.join(projectPath, '.cursor')).existsSync(),
       Ide.generic => Directory(p.join(projectPath, '.agents')).existsSync(),
       Ide.claude => Directory(p.join(projectPath, '.claude')).existsSync(),
-      Ide.cline => Directory(p.join(projectPath, '.cline')).existsSync() ||
-          Directory(p.join(projectPath, '.clinerules')).existsSync(),
+      Ide.cline =>
+        Directory(p.join(projectPath, '.cline')).existsSync() ||
+            Directory(p.join(projectPath, '.clinerules')).existsSync(),
       Ide.copilot => false,
       Ide.opencode => Directory(p.join(projectPath, '.opencode')).existsSync(),
     };

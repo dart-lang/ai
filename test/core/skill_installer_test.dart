@@ -27,9 +27,7 @@ void main() {
       await d.dir('project', [
         d.dir('.agent', [
           d.dir('skills', [
-            d.dir('pkg_a-skill', [
-              d.file('SKILL.md', 'old content'),
-            ]),
+            d.dir('pkg_a-skill', [d.file('SKILL.md', 'old content')]),
           ]),
         ]),
       ]).create();
@@ -50,8 +48,8 @@ void main() {
 
       await d.dir('pkg_a', [
         d.dir('skills', [
-          d.dir('pkg_a-skill', [d.file('SKILL.md', 'Skill content')])
-        ])
+          d.dir('pkg_a-skill', [d.file('SKILL.md', 'Skill content')]),
+        ]),
       ]).create();
       scannedSkills = [
         ScannedSkill(
@@ -76,9 +74,11 @@ void main() {
       expect(result, isNotNull);
 
       expect(
-          Directory(p.join(rootPath, '.agents', 'skills', 'pkg_a-skill'))
-              .existsSync(),
-          isTrue);
+        Directory(
+          p.join(rootPath, '.agents', 'skills', 'pkg_a-skill'),
+        ).existsSync(),
+        isTrue,
+      );
       expect(Directory(p.join(rootPath, '.agent')).existsSync(), isFalse);
     });
   });
@@ -92,9 +92,7 @@ void main() {
       await d.dir('project', [
         d.dir('.agents', [
           d.dir('skills', [
-            d.dir('pkg_a-skill1', [
-              d.file('SKILL.md', 'local edits'),
-            ]),
+            d.dir('pkg_a-skill1', [d.file('SKILL.md', 'local edits')]),
           ]),
         ]),
       ]).create();
@@ -122,8 +120,8 @@ void main() {
 
       await d.dir('pkg_a', [
         d.dir('skills', [
-          d.dir('pkg_a-skill2', [d.file('SKILL.md', 'Skill2 content')])
-        ])
+          d.dir('pkg_a-skill2', [d.file('SKILL.md', 'Skill2 content')]),
+        ]),
       ]).create();
 
       // Only skill2 is still present upstream
@@ -158,20 +156,28 @@ void main() {
       expect(pkgSkills.map((s) => s.name), isNot(contains('pkg_a-skill1')));
       expect(pkgSkills.map((s) => s.name), contains('pkg_a-skill2'));
       final printedInstallPath = p.join(
-          Ide.generic.skillsRelativePath
-              .replaceAll(p.url.separator, p.separator),
-          'pkg_a-skill1');
+        Ide.generic.skillsRelativePath.replaceAll(p.url.separator, p.separator),
+        'pkg_a-skill1',
+      );
       expect(
-          logs,
-          contains(isA<LogRecord>().having(
-              (r) => r.message,
-              'message',
-              allOf(
-                contains('The following skills were not uninstalled but were '
-                    'deleted upstream and are now orphaned'),
-                contains('- pkg_a-skill1 (installed at '
-                    '$printedInstallPath)'),
-              ))));
+        logs,
+        contains(
+          isA<LogRecord>().having(
+            (r) => r.message,
+            'message',
+            allOf(
+              contains(
+                'The following skills were not uninstalled but were '
+                'deleted upstream and are now orphaned',
+              ),
+              contains(
+                '- pkg_a-skill1 (installed at '
+                '$printedInstallPath)',
+              ),
+            ),
+          ),
+        ),
+      );
     });
   });
 }

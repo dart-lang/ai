@@ -50,8 +50,9 @@ Future<bool> getSkills({
 
   if (packageNames.isNotEmpty) {
     if (packages.isEmpty) {
-      logger
-          .severe('None of the requested packages were found in dependencies.');
+      logger.severe(
+        'None of the requested packages were found in dependencies.',
+      );
       return false;
     }
 
@@ -59,8 +60,9 @@ Future<bool> getSkills({
     final missing = packageNames.difference(foundNames);
     if (missing.isNotEmpty) {
       logger.warning(
-          'Warning: The following requested packages were not found in '
-          'dependencies: ${missing.join(', ')}');
+        'Warning: The following requested packages were not found in '
+        'dependencies: ${missing.join(', ')}',
+      );
     }
   }
 
@@ -76,21 +78,26 @@ Future<bool> getSkills({
 
   if (await gitRunner.isAvailable) {
     final registrySync = RegistrySync(
-        repos: [...globalConfig.registries, ...manifest.registries]);
+      repos: [...globalConfig.registries, ...manifest.registries],
+    );
     await registrySync.sync(rootPath, onProgress: logger.info);
 
     final registryScanner = RegistryScanner();
     registrySkills
-      ..addAll(await registryScanner.scan(
-        rootPath,
-        isGlobal: true,
-        repos: globalConfig.registries,
-      ))
-      ..addAll(await registryScanner.scan(
-        rootPath,
-        isGlobal: false,
-        repos: manifest.registries,
-      ));
+      ..addAll(
+        await registryScanner.scan(
+          rootPath,
+          isGlobal: true,
+          repos: globalConfig.registries,
+        ),
+      )
+      ..addAll(
+        await registryScanner.scan(
+          rootPath,
+          isGlobal: false,
+          repos: manifest.registries,
+        ),
+      );
 
     for (final repo in registrySync.repos) {
       final repoPath = registryRepoPath(rootPath, repo);
@@ -100,9 +107,7 @@ Future<bool> getSkills({
       }
     }
   } else {
-    logger.warning(
-      'Warning: git not found. Skipping GitHub registry skills.',
-    );
+    logger.warning('Warning: git not found. Skipping GitHub registry skills.');
   }
 
   final advisoryChecker = AdvisoryChecker();
@@ -147,8 +152,10 @@ Future<bool> getSkills({
     final foundSkillNames = skills.map((s) => s.skillName).toSet();
     final missingSkills = skillNames.difference(foundSkillNames);
     if (missingSkills.isNotEmpty) {
-      logger.warning('Warning: The following requested skills were not found: '
-          '${missingSkills.join(', ')}');
+      logger.warning(
+        'Warning: The following requested skills were not found: '
+        '${missingSkills.join(', ')}',
+      );
     }
     skills.removeWhere((s) => !skillNames.contains(s.skillName));
   } else if (!allFlag) {
@@ -160,10 +167,13 @@ Future<bool> getSkills({
         ..sort((a, b) => a.skillName.compareTo(b.skillName));
       for (final skill in sortedSkills) {
         logger.info(
-            '  ${skill.skillName} (from ${_getSourceDisplayName(skill)})');
+          '  ${skill.skillName} (from ${_getSourceDisplayName(skill)})',
+        );
       }
-      logger.info('Rerun with `--skill <name>`, or `--all` to '
-          'install the chosen skills.');
+      logger.info(
+        'Rerun with `--skill <name>`, or `--all` to '
+        'install the chosen skills.',
+      );
       return false;
     } else {
       // We have dialog support, have the user select the packages to install
@@ -172,18 +182,21 @@ Future<bool> getSkills({
         final packagesWithSkills =
             skills.map((skill) => skill.packageName).toSet().toList()..sort();
         if (packagesWithSkills.isNotEmpty) {
-          final initialSelected =
-              Iterable<int>.generate(packagesWithSkills.length).toSet();
+          final initialSelected = Iterable<int>.generate(
+            packagesWithSkills.length,
+          ).toSet();
           final selectedIndices = await dialogSupport.showMultiSelectDialog(
             packagesWithSkills,
             title: 'Select packages to install skills from:',
             initialSelected: initialSelected,
           );
           if (selectedIndices != null) {
-            final selectedPackages =
-                selectedIndices.map((i) => packagesWithSkills[i]).toSet();
-            skills
-                .removeWhere((s) => !selectedPackages.contains(s.packageName));
+            final selectedPackages = selectedIndices
+                .map((i) => packagesWithSkills[i])
+                .toSet();
+            skills.removeWhere(
+              (s) => !selectedPackages.contains(s.packageName),
+            );
           } else {
             logger.info('Installation aborted by user.');
             return false;
@@ -202,18 +215,21 @@ Future<bool> getSkills({
           ..sort((a, b) {
             final skillA = skillsBySource[a]!.first;
             final skillB = skillsBySource[b]!.first;
-            return _getSourceDisplayName(skillA)
-                .compareTo(_getSourceDisplayName(skillB));
+            return _getSourceDisplayName(
+              skillA,
+            ).compareTo(_getSourceDisplayName(skillB));
           });
 
         for (final sourceId in sortedSourceIds) {
           final sourceSkills = skillsBySource[sourceId]!;
           if (sourceSkills.length > 1) {
             sourceSkills.sort((a, b) => a.skillName.compareTo(b.skillName));
-            final skillNamesList =
-                sourceSkills.map((s) => s.skillName).toList();
-            final initialSelected =
-                Iterable<int>.generate(sourceSkills.length).toSet();
+            final skillNamesList = sourceSkills
+                .map((s) => s.skillName)
+                .toList();
+            final initialSelected = Iterable<int>.generate(
+              sourceSkills.length,
+            ).toSet();
 
             final displayName = _getSourceDisplayName(sourceSkills.first);
             final selectedIndices = await dialogSupport.showMultiSelectDialog(
@@ -223,10 +239,13 @@ Future<bool> getSkills({
             );
 
             if (selectedIndices != null) {
-              final selectedSkills =
-                  selectedIndices.map((i) => sourceSkills[i]).toSet();
-              skills.removeWhere((s) =>
-                  _getSourceId(s) == sourceId && !selectedSkills.contains(s));
+              final selectedSkills = selectedIndices
+                  .map((i) => sourceSkills[i])
+                  .toSet();
+              skills.removeWhere(
+                (s) =>
+                    _getSourceId(s) == sourceId && !selectedSkills.contains(s),
+              );
             } else {
               logger.info('Installation aborted by user.');
               return false;

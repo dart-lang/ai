@@ -8,21 +8,24 @@ import 'package:test_descriptor/test_descriptor.dart' as d;
 
 void main() {
   group('when calculating directory hashes', () {
-    test('then cross-platform path separators resolve to the same hash',
-        () async {
-      await d.dir('dir1', [
-        d.dir('sub', [
-          d.file('file.txt', 'content'),
-        ]),
-      ]).create();
+    test(
+      'then cross-platform path separators resolve to the same hash',
+      () async {
+        await d.dir('dir1', [
+          d.dir('sub', [d.file('file.txt', 'content')]),
+        ]).create();
 
-      final hash = await calculateDirectoryHash(Directory(d.path('dir1')));
-      // Hash of 'sub/file.txt' with 'content'. By running this test on windows
-      // and asserting a specific hash, we validate that the results are the
-      // same across platforms.
-      expect(hash, '1Yt3grcmDxoKP7iufKHLyA==',
-          reason: 'The generated hash should be the same on all platforms');
-    });
+        final hash = await calculateDirectoryHash(Directory(d.path('dir1')));
+        // Hash of 'sub/file.txt' with 'content'. By running this test on windows
+        // and asserting a specific hash, we validate that the results are the
+        // same across platforms.
+        expect(
+          hash,
+          '1Yt3grcmDxoKP7iufKHLyA==',
+          reason: 'The generated hash should be the same on all platforms',
+        );
+      },
+    );
 
     test('then hashing an empty directory works', () async {
       await d.dir('empty').create();
@@ -32,37 +35,43 @@ void main() {
     });
 
     test('then hashing a missing directory throws', () async {
-      expect(calculateDirectoryHash(Directory(d.path('empty'))),
-          throwsA(isA<StateError>()));
+      expect(
+        calculateDirectoryHash(Directory(d.path('empty'))),
+        throwsA(isA<StateError>()),
+      );
     });
 
-    test('then modifying a single deeply nested file produces a different hash',
-        () async {
-      await d.dir('nested1', [
-        d.dir('a', [
-          d.dir('b', [
-            d.dir('c', [
-              d.file('file.txt', 'content1'),
+    test(
+      'then modifying a single deeply nested file produces a different hash',
+      () async {
+        await d.dir('nested1', [
+          d.dir('a', [
+            d.dir('b', [
+              d.dir('c', [d.file('file.txt', 'content1')]),
             ]),
           ]),
-        ]),
-      ]).create();
+        ]).create();
 
-      await d.dir('nested2', [
-        d.dir('a', [
-          d.dir('b', [
-            d.dir('c', [
-              d.file('file.txt', 'content2'), // Modified content
+        await d.dir('nested2', [
+          d.dir('a', [
+            d.dir('b', [
+              d.dir('c', [
+                d.file('file.txt', 'content2'), // Modified content
+              ]),
             ]),
           ]),
-        ]),
-      ]).create();
+        ]).create();
 
-      final hash1 = await calculateDirectoryHash(Directory(d.path('nested1')));
-      final hash2 = await calculateDirectoryHash(Directory(d.path('nested2')));
+        final hash1 = await calculateDirectoryHash(
+          Directory(d.path('nested1')),
+        );
+        final hash2 = await calculateDirectoryHash(
+          Directory(d.path('nested2')),
+        );
 
-      expect(hash1, isNot(equals(hash2)));
-    });
+        expect(hash1, isNot(equals(hash2)));
+      },
+    );
 
     test('then moving a file produces a different hash', () async {
       final file = d.file('file.txt', 'content');

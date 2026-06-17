@@ -22,35 +22,32 @@ void main() {
         // The descriptor for the current [adapterType].
         //
         // Contains `content` if not null, otherwise it should not exist.
-        d.Descriptor installedSkillDescriptor({required String? content}) =>
-            d.dir('project', [
-              d.dir('.cursor', [
-                d.dir('skills', [
-                  switch (adapterType) {
-                    const (CursorAdapter) => switch (content) {
-                        String _ =>
-                          d.dir(skillName, [d.file('SKILL.md', content)]),
-                        null => d.nothing('SKILL.md'),
-                      },
-                    const (RulesAdapter) => switch (content) {
-                        String _ => d.file('$skillName.md', content),
-                        null => d.nothing('$skillName.md'),
-                      },
-                    _ =>
-                      throw StateError('Unexpected adapter type $adapterType'),
-                  }
-                ]),
-              ]),
-            ]);
+        d.Descriptor installedSkillDescriptor({
+          required String? content,
+        }) => d.dir('project', [
+          d.dir('.cursor', [
+            d.dir('skills', [
+              switch (adapterType) {
+                const (CursorAdapter) => switch (content) {
+                  String _ => d.dir(skillName, [d.file('SKILL.md', content)]),
+                  null => d.nothing('SKILL.md'),
+                },
+                const (RulesAdapter) => switch (content) {
+                  String _ => d.file('$skillName.md', content),
+                  null => d.nothing('$skillName.md'),
+                },
+                _ => throw StateError('Unexpected adapter type $adapterType'),
+              },
+            ]),
+          ]),
+        ]);
 
         setUp(() async {
           await installedSkillDescriptor(content: originalSkillText).create();
 
           await d.dir('pkg_source', [
             d.dir('skills', [
-              d.dir(skillName, [
-                d.file('SKILL.md', editedSkillText),
-              ]),
+              d.dir(skillName, [d.file('SKILL.md', editedSkillText)]),
             ]),
           ]).create();
         });
@@ -61,12 +58,14 @@ void main() {
             fakeDialog = FakeDialogSupport();
 
             adapter = switch (adapterType) {
-              const (CursorAdapter) =>
-                CursorAdapter(d.path('project'), dialogSupport: fakeDialog),
+              const (CursorAdapter) => CursorAdapter(
+                d.path('project'),
+                dialogSupport: fakeDialog,
+              ),
               const (RulesAdapter) => RulesAdapter(
-                  skillsDirectory: Ide.cursor.skillsPath(d.path('project')),
-                  dialogSupport: fakeDialog,
-                ),
+                skillsDirectory: Ide.cursor.skillsPath(d.path('project')),
+                dialogSupport: fakeDialog,
+              ),
               _ => throw StateError('unexpected adapter type'),
             };
           });
@@ -79,11 +78,15 @@ void main() {
               originalHash: 'some-original-hash',
             );
 
-            expect(fakeDialog.singleSelectCallCount, 1,
-                reason: 'then it should prompt the user');
+            expect(
+              fakeDialog.singleSelectCallCount,
+              1,
+              reason: 'then it should prompt the user',
+            );
             expect(result, isFalse, reason: 'then it should return false');
-            await installedSkillDescriptor(content: originalSkillText)
-                .validate();
+            await installedSkillDescriptor(
+              content: originalSkillText,
+            ).validate();
           });
 
           test('when the user chooses to overwrite the skill', () async {
@@ -94,8 +97,11 @@ void main() {
               originalHash: 'some-original-hash',
             );
 
-            expect(fakeDialog.singleSelectCallCount, 1,
-                reason: 'then it should prompt the user');
+            expect(
+              fakeDialog.singleSelectCallCount,
+              1,
+              reason: 'then it should prompt the user',
+            );
             expect(result, isTrue, reason: 'then it should return true');
             await installedSkillDescriptor(content: null).validate();
           });
@@ -108,8 +114,11 @@ void main() {
             );
 
             expect(result, isTrue, reason: 'then should return true');
-            expect(fakeDialog.singleSelectCallCount, 0,
-                reason: 'then should not prompt the user');
+            expect(
+              fakeDialog.singleSelectCallCount,
+              0,
+              reason: 'then should not prompt the user',
+            );
 
             await installedSkillDescriptor(content: null).validate();
           });
@@ -120,8 +129,8 @@ void main() {
             adapter = switch (adapterType) {
               const (CursorAdapter) => CursorAdapter(d.path('project')),
               const (RulesAdapter) => RulesAdapter(
-                  skillsDirectory: Ide.cursor.skillsPath(d.path('project')),
-                ),
+                skillsDirectory: Ide.cursor.skillsPath(d.path('project')),
+              ),
               _ => throw StateError('unexpected adapter type'),
             };
           });
@@ -136,15 +145,22 @@ void main() {
             await listener.cancel();
 
             expect(result, isFalse, reason: 'then it should return false');
-            await installedSkillDescriptor(content: originalSkillText)
-                .validate();
+            await installedSkillDescriptor(
+              content: originalSkillText,
+            ).validate();
             expect(
-                logs,
-                contains(isA<LogRecord>().having(
-                    (r) => r.message,
-                    'message',
-                    allOf(contains('Skipped upgrading pkg-skill'),
-                        contains('Re-run with `--force`')))));
+              logs,
+              contains(
+                isA<LogRecord>().having(
+                  (r) => r.message,
+                  'message',
+                  allOf(
+                    contains('Skipped upgrading pkg-skill'),
+                    contains('Re-run with `--force`'),
+                  ),
+                ),
+              ),
+            );
           });
         });
       });

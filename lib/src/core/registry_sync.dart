@@ -15,7 +15,7 @@ class RegistrySync {
   final List<RegistryRepo> repos;
 
   const RegistrySync({GitRunner? gitRunner, this.repos = const []})
-      : gitRunner = gitRunner ?? const GitRunner();
+    : gitRunner = gitRunner ?? const GitRunner();
 
   /// Ensures all [repos] are present and up to date under
   /// [rootPath]/.dart_skills/repos.

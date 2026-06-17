@@ -25,43 +25,29 @@ void main() {
         ]).create();
         final localPath = p.normalize(p.absolute(d.path('local_repo')));
         expect(
-          (await Process.run(
-                  'git',
-                  [
-                    'init',
-                  ],
-                  workingDirectory: localPath))
-              .exitCode,
+          (await Process.run('git', [
+            'init',
+          ], workingDirectory: localPath)).exitCode,
           equals(0),
         );
         // Required for git commit in CI (no global user.name/user.email).
-        await Process.run(
-            'git',
-            [
-              'config',
-              'user.email',
-              'test@test',
-            ],
-            workingDirectory: localPath);
-        await Process.run(
-            'git',
-            [
-              'config',
-              'user.name',
-              'Test',
-            ],
-            workingDirectory: localPath);
+        await Process.run('git', [
+          'config',
+          'user.email',
+          'test@test',
+        ], workingDirectory: localPath);
+        await Process.run('git', [
+          'config',
+          'user.name',
+          'Test',
+        ], workingDirectory: localPath);
         await Process.run('git', ['add', '.'], workingDirectory: localPath);
         expect(
-          (await Process.run(
-                  'git',
-                  [
-                    'commit',
-                    '-m',
-                    'init',
-                  ],
-                  workingDirectory: localPath))
-              .exitCode,
+          (await Process.run('git', [
+            'commit',
+            '-m',
+            'init',
+          ], workingDirectory: localPath)).exitCode,
           equals(0),
         );
 
@@ -74,23 +60,14 @@ void main() {
 
         // Use customCloneUrl to point at local repo so we don't hit network
         final syncWithLocal = RegistrySync(
-          repos: [
-            RegistryRepo(
-              cloneUrl: fileUrl,
-            ),
-          ],
+          repos: [RegistryRepo(cloneUrl: fileUrl)],
         );
         await syncWithLocal.sync(projectPath);
 
         final reposDir = Directory(registryReposPath(projectPath));
         expect(await reposDir.exists(), isTrue);
         final repoDir = Directory(
-          registryRepoPath(
-            projectPath,
-            RegistryRepo(
-              cloneUrl: fileUrl,
-            ),
-          ),
+          registryRepoPath(projectPath, RegistryRepo(cloneUrl: fileUrl)),
         );
         expect(await repoDir.exists(), isTrue);
         final skillDir = Directory(p.join(repoDir.path, 'skills', 'pkg-skill'));

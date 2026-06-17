@@ -13,7 +13,8 @@ import 'package:path/path.dart' as p;
 Future<String> calculateDirectoryHash(Directory dir) async {
   if (!await dir.exists()) {
     throw StateError(
-        'Failed to calculate hash for $dir: Directory does not exist');
+      'Failed to calculate hash for $dir: Directory does not exist',
+    );
   }
 
   final files = await dir
@@ -28,24 +29,26 @@ Future<String> calculateDirectoryHash(Directory dir) async {
 
   final combined = Uint8List(16);
 
-  await Future.wait(files.map((file) async {
-    var relativePath = p.relative(file.path, from: dir.path);
-    if (p.separator != p.url.separator) {
-      relativePath = relativePath.replaceAll(p.separator, p.url.separator);
-    }
+  await Future.wait(
+    files.map((file) async {
+      var relativePath = p.relative(file.path, from: dir.path);
+      if (p.separator != p.url.separator) {
+        relativePath = relativePath.replaceAll(p.separator, p.url.separator);
+      }
 
-    final bytes = await file.readAsBytes();
+      final bytes = await file.readAsBytes();
 
-    final builder = BytesBuilder()
-      ..add(utf8.encode(relativePath))
-      ..add(bytes);
+      final builder = BytesBuilder()
+        ..add(utf8.encode(relativePath))
+        ..add(bytes);
 
-    final hashBytes = md5.convert(builder.takeBytes()).bytes;
-    assert(hashBytes.length == 16);
-    for (var j = 0; j < 16; j++) {
-      combined[j] ^= hashBytes[j];
-    }
-  }));
+      final hashBytes = md5.convert(builder.takeBytes()).bytes;
+      assert(hashBytes.length == 16);
+      for (var j = 0; j < 16; j++) {
+        combined[j] ^= hashBytes[j];
+      }
+    }),
+  );
 
   return base64.encode(combined);
 }

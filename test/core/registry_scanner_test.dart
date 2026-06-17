@@ -47,9 +47,7 @@ void main() {
         final skills = await scanner.scan(
           d.path('project'),
           isGlobal: false,
-          repos: [
-            registryRepo,
-          ],
+          repos: [registryRepo],
         );
 
         expect(skills, hasLength(2));
@@ -104,9 +102,7 @@ void main() {
         final skills = await scanner.scan(
           d.path('project'),
           isGlobal: false,
-          repos: [
-            registryRepo,
-          ],
+          repos: [registryRepo],
         );
 
         expect(skills, hasLength(3));
@@ -148,11 +144,7 @@ void main() {
       final skills = await scanner.scan(
         d.path('project'),
         isGlobal: false,
-        repos: [
-          const RegistryRepo(
-            cloneUrl: 'https://github.com/a/b.git',
-          ),
-        ],
+        repos: [const RegistryRepo(cloneUrl: 'https://github.com/a/b.git')],
       );
       expect(skills, isEmpty);
     });
@@ -178,23 +170,15 @@ void main() {
       final skills = await scanner.scan(
         d.path('project'),
         isGlobal: false,
-        repos: [
-          const RegistryRepo(
-            cloneUrl: 'https://github.com/a/b.git',
-          ),
-        ],
+        repos: [const RegistryRepo(cloneUrl: 'https://github.com/a/b.git')],
       );
       expect(skills, isEmpty);
     });
 
     test('when multiple repos then aggregates skills from all', () async {
       const registryRepos = [
-        RegistryRepo(
-          cloneUrl: 'https://github.com/owner1/repo1.git',
-        ),
-        RegistryRepo(
-          cloneUrl: 'https://github.com/owner2/repo2.git',
-        ),
+        RegistryRepo(cloneUrl: 'https://github.com/owner1/repo1.git'),
+        RegistryRepo(cloneUrl: 'https://github.com/owner2/repo2.git'),
       ];
       await d.dir('project', [
         d.dir('.dart_tool', [

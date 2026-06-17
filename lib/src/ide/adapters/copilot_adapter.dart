@@ -12,5 +12,5 @@ class CopilotAdapter extends AgentSkillsAdapter {
   final Logger logger = Logger('CopilotAdapter');
 
   CopilotAdapter(String projectPath, {super.dialogSupport})
-      : super(Ide.copilot.skillsPath(projectPath));
+    : super(Ide.copilot.skillsPath(projectPath));
 }

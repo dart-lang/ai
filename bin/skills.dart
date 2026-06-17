@@ -18,7 +18,7 @@ Future<void> main(List<String> arguments) async {
       _ when log.level >= Level.WARNING => yellow,
       _ => null,
     };
-    io.stdout.writeln(wrapWith(log.message, [if (color != null) color]));
+    io.stdout.writeln(wrapWith(log.message, [?color]));
   });
 
   DialogSupport? dialogSupport;
@@ -27,21 +27,23 @@ Future<void> main(List<String> arguments) async {
   // ignore: invalid_use_of_visible_for_testing_member
   SharedStdIn? sharedStdIn;
   if (io.stdin.hasTerminal && io.stdout.hasTerminal) {
-    sharedStdIn =
-        SharedStdIn(io.Platform.isWindows ? Win32AnsiStdin() : io.stdin);
+    sharedStdIn = SharedStdIn(
+      io.Platform.isWindows ? Win32AnsiStdin() : io.stdin,
+    );
     dialogSupport = CliUtilDialogSupport(sharedStdIn);
   }
   try {
-    final runner = SkillsCommandRunner(
-      'skills',
-      'Manage AI agent skills for Dart/Flutter packages.',
-      dialogSupport: dialogSupport,
-    )
-      ..addCommand(GetCommand(dialogSupport: dialogSupport))
-      ..addCommand(ListCommand())
-      ..addCommand(PruneCommand(dialogSupport: dialogSupport))
-      ..addCommand(RemoveCommand(dialogSupport: dialogSupport))
-      ..addCommand(RegistryCommand(dialogSupport: dialogSupport));
+    final runner =
+        SkillsCommandRunner(
+            'skills',
+            'Manage AI agent skills for Dart/Flutter packages.',
+            dialogSupport: dialogSupport,
+          )
+          ..addCommand(GetCommand(dialogSupport: dialogSupport))
+          ..addCommand(ListCommand())
+          ..addCommand(PruneCommand(dialogSupport: dialogSupport))
+          ..addCommand(RemoveCommand(dialogSupport: dialogSupport))
+          ..addCommand(RegistryCommand(dialogSupport: dialogSupport));
 
     try {
       await runner.run(arguments);

@@ -17,8 +17,9 @@ abstract class SkillsCommand extends Command<void> {
   /// This allows tests and scripts to run without changing the process cwd.
   Future<WorkspaceLayout> resolveWorkspace() async {
     final dir = globalResults?['directory'] as String?;
-    final path =
-        dir != null ? p.normalize(p.absolute(dir)) : Directory.current.path;
+    final path = dir != null
+        ? p.normalize(p.absolute(dir))
+        : Directory.current.path;
     return const WorkspaceResolver().resolve(path);
   }
 }

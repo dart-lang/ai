@@ -23,8 +23,11 @@ abstract class IdeAdapter {
   ///
   /// Returns `true` if removed successfully or it didn't exist.
   /// Returns `false` if the user aborted the removal.
-  Future<bool> removeSkill(String skillName,
-      {String? originalHash, bool force = false});
+  Future<bool> removeSkill(
+    String skillName, {
+    String? originalHash,
+    bool force = false,
+  });
 
   /// Returns the absolute path to the IDE's skills/rules directory.
   String get skillsDirectory;
@@ -54,15 +57,16 @@ Future<bool> promptOverwriteIfChanged({
   if (force) return true;
   if (dialogSupport == null) {
     logger.warning(
-        'Skipped upgrading $skillName due to local modifications. Re-run with '
-        '`--force` to overwrite.');
+      'Skipped upgrading $skillName due to local modifications. Re-run with '
+      '`--force` to overwrite.',
+    );
     return false;
   }
 
-  final result = await dialogSupport.showSingleSelectDialog(
-    ['Yes', 'No'],
-    title: 'Skill $skillName has local edits. Overwrite them?',
-  );
+  final result = await dialogSupport.showSingleSelectDialog([
+    'Yes',
+    'No',
+  ], title: 'Skill $skillName has local edits. Overwrite them?');
   if (result == 0) return true;
   logger.warning('Skipped upgrading $skillName due to user selection');
   return false;

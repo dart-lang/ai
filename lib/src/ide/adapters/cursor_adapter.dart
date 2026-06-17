@@ -11,5 +11,5 @@ class CursorAdapter extends AgentSkillsAdapter {
   final Logger logger = Logger('CursorAdapter');
 
   CursorAdapter(String projectPath, {super.dialogSupport})
-      : super(Ide.cursor.skillsPath(projectPath));
+    : super(Ide.cursor.skillsPath(projectPath));
 }

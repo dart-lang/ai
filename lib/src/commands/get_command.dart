@@ -16,11 +16,9 @@ class GetCommand extends SkillsCommand {
   final DialogSupport? _dialogSupport;
   final GitRunner? _gitRunner;
 
-  GetCommand({
-    DialogSupport? dialogSupport,
-    GitRunner? gitRunner,
-  })  : _dialogSupport = dialogSupport,
-        _gitRunner = gitRunner {
+  GetCommand({DialogSupport? dialogSupport, GitRunner? gitRunner})
+    : _dialogSupport = dialogSupport,
+      _gitRunner = gitRunner {
     addIdeOption(argParser);
     argParser.addMultiOption(
       'package',
@@ -60,8 +58,10 @@ class GetCommand extends SkillsCommand {
       );
     }
 
-    final ides =
-        await resolveIdes(argResults: argResults, projectPath: rootPath);
+    final ides = await resolveIdes(
+      argResults: argResults,
+      projectPath: rootPath,
+    );
 
     final packageNames = argResults.multiOption('package').toSet();
     final skillNames = argResults.multiOption('skill').toSet();

@@ -1,4 +1,4 @@
-import 'dart:convert';
+import 'dart:io';
 
 import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
@@ -6,6 +6,8 @@ import 'package:skills/src/core/package_resolver.dart';
 import 'package:skills/src/core/workspace_resolver.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
+
+import '../utils.dart';
 
 void main() {
   setUpAll(() {
@@ -16,38 +18,15 @@ void main() {
     late String projectPath;
 
     setUp(() async {
+      await d.dir('dep_a', [pubspec('dep_a')]).create();
+      await d.dir('dep_b', [pubspec('dep_b')]).create();
+
       await d.dir('project', [
-        d.dir('.dart_tool', [
-          d.file(
-            'package_config.json',
-            jsonEncode({
-              'configVersion': 2,
-              'packages': [
-                {
-                  'name': 'dep_a',
-                  'rootUri': '../../dep_a',
-                  'packageUri': 'lib/',
-                },
-                {
-                  'name': 'dep_b',
-                  'rootUri': 'file://${d.path('dep_b')}/',
-                  'packageUri': 'lib/',
-                },
-              ],
-            }),
-          ),
-        ]),
-      ]).create();
-
-      await d.dir('dep_a', [
-        d.dir('lib', [d.file('dep_a.dart', '')]),
-      ]).create();
-
-      await d.dir('dep_b', [
-        d.dir('lib', [d.file('dep_b.dart', '')]),
+        pubspec('project', dependencies: [.new('dep_a'), .new('dep_b')]),
       ]).create();
 
       projectPath = d.path('project');
+      await Process.run('dart', ['pub', 'get'], workingDirectory: projectPath);
     });
 
     test('when resolving all packages then returns both', () async {
@@ -55,12 +34,15 @@ void main() {
       final packages = await resolver.resolve();
 
       expect(
-          packages.map((p) => p.name).toSet(), containsAll(['dep_a', 'dep_b']));
+        packages.map((p) => p.name).toSet(),
+        containsAll(['dep_a', 'dep_b']),
+      );
       for (final package in packages) {
         expect(
           package.originalPackageConfigPath,
           equals(
-              d.path(p.join('project', '.dart_tool', 'package_config.json'))),
+            d.path(p.join('project', '.dart_tool', 'package_config.json')),
+          ),
         );
       }
     });
@@ -88,81 +70,49 @@ void main() {
   });
 
   group('Given a workspace layout', () {
-    test(
-        'when resolveWorkspace is called it merges dependencies and ignores '
+    test('when resolveWorkspace is called it merges dependencies and ignores '
         'members', () async {
+      await d.dir('dep_x', [pubspec('dep_x')]).create();
+      await d.dir('dep_y', [pubspec('dep_y')]).create();
+
       await d.dir('workspace', [
-        d.dir('.dart_tool', [
-          d.file(
-            'package_config.json',
-            jsonEncode({
-              'configVersion': 2,
-              'packages': [
-                {
-                  'name': 'pkg_a',
-                  'rootUri': '../../pkg_a',
-                  'packageUri': 'lib/',
-                },
-                {
-                  'name': 'dep_x',
-                  'rootUri': 'file://${d.path('dep_x')}/',
-                  'packageUri': 'lib/',
-                },
-              ],
-            }),
+        pubspec('pkg_a', dependencies: [.new('dep_x')]),
+        d.dir('pkg_b', [
+          pubspec(
+            'pkg_b',
+            dependencies: [
+              .new('dep_x', path: '../../dep_x'),
+              .new('dep_y', path: '../../dep_y'),
+            ],
           ),
         ]),
-        d.dir('pkg_b', [
-          d.dir('.dart_tool', [
-            d.file(
-              'package_config.json',
-              jsonEncode({
-                'configVersion': 2,
-                'packages': [
-                  {
-                    'name': 'pkg_b',
-                    'rootUri': '../',
-                    'packageUri': 'lib/',
-                  },
-                  {
-                    'name': 'dep_x',
-                    'rootUri': 'file://${d.path('dep_x')}/',
-                    'packageUri': 'lib/',
-                  },
-                  {
-                    'name': 'dep_y',
-                    'rootUri': 'file://${d.path('dep_y')}/',
-                    'packageUri': 'lib/',
-                  },
-                ],
-              }),
-            ),
-          ]),
-        ]),
       ]).create();
 
-      await d.dir('dep_x', [
-        d.dir('lib', [d.file('dep_x.dart', '')]),
-      ]).create();
+      final workspacePath = d.path('workspace');
+      final pkgBPath = d.path(p.join('workspace', 'pkg_b'));
 
-      await d.dir('dep_y', [
-        d.dir('lib', [d.file('dep_y.dart', '')]),
-      ]).create();
+      await Process.run('dart', [
+        'pub',
+        'get',
+      ], workingDirectory: workspacePath);
+      await Process.run('dart', ['pub', 'get'], workingDirectory: pkgBPath);
 
       final layout = WorkspaceLayout(
-        rootPath: d.path('workspace'),
+        rootPath: workspacePath,
         packages: [
           WorkspacePackage(
             name: 'pkg_a',
-            path: d.path(p.join('workspace', 'pkg_a')),
-            packageConfigPath: d
-                .path(p.join('workspace', '.dart_tool', 'package_config.json')),
+            path: workspacePath,
+            packageConfigPath: d.path(
+              p.join('workspace', '.dart_tool', 'package_config.json'),
+            ),
           ),
           WorkspacePackage(
             name: 'pkg_b',
-            path: d.path(p.join('workspace', 'pkg_b')),
-            packageConfigPath: d.path(p.join(
-                'workspace', 'pkg_b', '.dart_tool', 'package_config.json')),
+            path: pkgBPath,
+            packageConfigPath: d.path(
+              p.join('workspace', 'pkg_b', '.dart_tool', 'package_config.json'),
+            ),
           ),
         ],
       );
@@ -173,160 +123,169 @@ void main() {
       expect(names, equals({'dep_x', 'dep_y'}));
 
       final depX = packages.firstWhere((pkg) => pkg.name == 'dep_x');
-      // Could be resolved from either package_config.json since both contain
-      // dep_x
-      expect(
-        [
-          d.path(p.join('workspace', '.dart_tool', 'package_config.json')),
-          d.path(
-              p.join('workspace', 'pkg_b', '.dart_tool', 'package_config.json'))
-        ],
-        contains(depX.originalPackageConfigPath),
-      );
+      expect([
+        d.path(p.join('workspace', '.dart_tool', 'package_config.json')),
+        d.path(
+          p.join('workspace', 'pkg_b', '.dart_tool', 'package_config.json'),
+        ),
+      ], contains(depX.originalPackageConfigPath));
 
       final depY = packages.firstWhere((pkg) => pkg.name == 'dep_y');
       expect(
         depY.originalPackageConfigPath,
-        equals(d.path(
-            p.join('workspace', 'pkg_b', '.dart_tool', 'package_config.json'))),
+        equals(
+          d.path(
+            p.join('workspace', 'pkg_b', '.dart_tool', 'package_config.json'),
+          ),
+        ),
       );
     });
 
-    test(
-        'when resolving a specific package from workspace then returns only '
+    test('when resolving a specific package from workspace then returns only '
         'that one', () async {
+      await d.dir('dep_z', [pubspec('dep_z')]).create();
+
       await d.dir('workspace2', [
-        d.dir('.dart_tool', [
-          d.file(
-            'package_config.json',
-            jsonEncode({
-              'configVersion': 2,
-              'packages': [
-                {
-                  'name': 'pkg_a',
-                  'rootUri': '../../pkg_a',
-                  'packageUri': 'lib/',
-                },
-                {
-                  'name': 'dep_z',
-                  'rootUri': 'file://${d.path('dep_z')}/',
-                  'packageUri': 'lib/',
-                },
-              ],
-            }),
-          ),
-        ]),
+        pubspec('pkg_a', dependencies: [.new('dep_z')]),
       ]).create();
 
-      await d.dir('dep_z', [
-        d.dir('lib', [d.file('dep_z.dart', '')]),
-      ]).create();
+      final workspacePath = d.path('workspace2');
+      await Process.run('dart', [
+        'pub',
+        'get',
+      ], workingDirectory: workspacePath);
 
       final layout = WorkspaceLayout(
-        rootPath: d.path('workspace2'),
+        rootPath: workspacePath,
         packages: [
           WorkspacePackage(
             name: 'pkg_a',
-            path: d.path(p.join('workspace2', 'pkg_a')),
+            path: workspacePath,
             packageConfigPath: d.path(
-                p.join('workspace2', '.dart_tool', 'package_config.json')),
+              p.join('workspace2', '.dart_tool', 'package_config.json'),
+            ),
           ),
         ],
       );
 
-      final packages = await PackageResolver.resolveWorkspace(layout,
-          packageNames: {'dep_z'});
+      final packages = await PackageResolver.resolveWorkspace(
+        layout,
+        packageNames: {'dep_z'},
+      );
       expect(packages, hasLength(1));
       expect(packages.first.name, equals('dep_z'));
 
-      final packages2 = await PackageResolver.resolveWorkspace(layout,
-          packageNames: {'no_such_pkg'});
+      final packages2 = await PackageResolver.resolveWorkspace(
+        layout,
+        packageNames: {'no_such_pkg'},
+      );
       expect(packages2, isEmpty);
     });
 
     test(
-        'when multiple versions of the same package exist then preserves both based on path',
-        () async {
-      final depMV1 = d.dir('dep_m_v1', [
-        d.dir('lib', [d.file('dep_m.dart', '')]),
-      ]);
-      await depMV1.create();
+      'when multiple versions of the same package exist then preserves both based on path',
+      () async {
+        final depMV1 = d.dir('dep_m_v1', [pubspec('dep_m')]);
+        await depMV1.create();
 
-      final depMV2 = d.dir('dep_m_v2', [
-        d.dir('lib', [d.file('dep_m.dart', '')]),
-      ]);
-      await depMV2.create();
-      await d.dir('workspace3', [
-        d.dir('.dart_tool', [
-          d.file(
-            'package_config.json',
-            jsonEncode({
-              'configVersion': 2,
-              'packages': [
-                {
-                  'name': 'pkg_a',
-                  'rootUri': '../../pkg_a',
-                  'packageUri': 'lib/',
-                },
-                {
-                  'name': 'dep_m',
-                  'rootUri': '${depMV1.io.uri}/',
-                  'packageUri': 'lib/',
-                },
-              ],
-            }),
-          ),
-        ]),
-        d.dir('pkg_b', [
-          d.dir('.dart_tool', [
-            d.file(
-              'package_config.json',
-              jsonEncode({
-                'configVersion': 2,
-                'packages': [
-                  {
-                    'name': 'pkg_b',
-                    'rootUri': '../',
-                    'packageUri': 'lib/',
-                  },
-                  {
-                    'name': 'dep_m',
-                    'rootUri': '${depMV2.io.uri}/',
-                    'packageUri': 'lib/',
-                  },
-                ],
-              }),
+        final depMV2 = d.dir('dep_m_v2', [pubspec('dep_m')]);
+        await depMV2.create();
+
+        await d.dir('workspace3', [
+          pubspec('pkg_a', dependencies: [.new('dep_m', path: '../dep_m_v1')]),
+          d.dir('pkg_b', [
+            pubspec(
+              'pkg_b',
+              dependencies: [.new('dep_m', path: '../../dep_m_v2')],
             ),
           ]),
-        ]),
-      ]).create();
+        ]).create();
 
-      final layout = WorkspaceLayout(
-        rootPath: d.path('workspace3'),
-        packages: [
-          WorkspacePackage(
-            name: 'pkg_a',
-            path: d.path(p.join('workspace3', 'pkg_a')),
-            packageConfigPath: d.path(
-                p.join('workspace3', '.dart_tool', 'package_config.json')),
-          ),
-          WorkspacePackage(
-            name: 'pkg_b',
-            path: d.path(p.join('workspace3', 'pkg_b')),
-            packageConfigPath: d.path(p.join(
-                'workspace3', 'pkg_b', '.dart_tool', 'package_config.json')),
-          ),
-        ],
-      );
+        final workspacePath = d.path('workspace3');
+        final pkgBPath = d.path(p.join('workspace3', 'pkg_b'));
 
-      final packages = await PackageResolver.resolveWorkspace(layout);
+        await Process.run('dart', [
+          'pub',
+          'get',
+        ], workingDirectory: workspacePath);
+        await Process.run('dart', ['pub', 'get'], workingDirectory: pkgBPath);
 
-      final mPackages = packages.where((pkg) => pkg.name == 'dep_m').toList();
-      expect(mPackages, hasLength(2));
+        final layout = WorkspaceLayout(
+          rootPath: workspacePath,
+          packages: [
+            WorkspacePackage(
+              name: 'pkg_a',
+              path: workspacePath,
+              packageConfigPath: d.path(
+                p.join('workspace3', '.dart_tool', 'package_config.json'),
+              ),
+            ),
+            WorkspacePackage(
+              name: 'pkg_b',
+              path: pkgBPath,
+              packageConfigPath: d.path(
+                p.join(
+                  'workspace3',
+                  'pkg_b',
+                  '.dart_tool',
+                  'package_config.json',
+                ),
+              ),
+            ),
+          ],
+        );
 
-      final paths = mPackages.map((pkg) => p.normalize(pkg.rootPath)).toSet();
-      expect(paths, containsAll([depMV1.io.path, depMV2.io.path]));
-    });
+        final packages = await PackageResolver.resolveWorkspace(layout);
+
+        final mPackages = packages.where((pkg) => pkg.name == 'dep_m').toList();
+        expect(mPackages, hasLength(2));
+
+        final paths = mPackages.map((pkg) => p.normalize(pkg.rootPath)).toSet();
+        expect(paths, containsAll([depMV1.io.path, depMV2.io.path]));
+      },
+    );
+
+    test(
+      'when a package is a transitive dependency then it is skipped',
+      () async {
+        await d.dir('dep_transitive', [pubspec('dep_transitive')]).create();
+        await d.dir('pkg_c', [
+          pubspec('pkg_c', dependencies: [.new('dep_transitive')]),
+        ]).create();
+
+        await d.dir('workspace4', [
+          pubspec('pkg_a', dependencies: [.new('pkg_c')]),
+        ]).create();
+
+        final workspacePath = d.path('workspace4');
+        await Process.run('dart', [
+          'pub',
+          'get',
+        ], workingDirectory: workspacePath);
+
+        final layout = WorkspaceLayout(
+          rootPath: workspacePath,
+          packages: [
+            WorkspacePackage(
+              name: 'pkg_a',
+              path: workspacePath,
+              packageConfigPath: d.path(
+                p.join('workspace4', '.dart_tool', 'package_config.json'),
+              ),
+            ),
+          ],
+        );
+
+        final packages = await PackageResolver.resolveWorkspace(layout);
+        final names = packages.map((pkg) => pkg.name).toSet();
+
+        expect(names, isNot(contains('dep_transitive')));
+        expect(
+          names,
+          equals({'pkg_c'}),
+        ); // pkg_c is a direct dependency, dep_transitive is transitive
+      },
+    );
   });
 
   group('Given a project without package_config.json', () {

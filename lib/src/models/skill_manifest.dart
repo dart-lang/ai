@@ -53,8 +53,9 @@ class SkillManifest {
     final oldDir = Directory(p.join(rootPath, '.dart_skills'));
     final newCacheDir = Directory(p.join(rootPath, cacheDirPath));
     final newConfigDir = Directory(p.join(rootPath, configDirPath));
-    final oldManifestFile =
-        File(p.join(newCacheDir.path, SkillManifest.configName));
+    final oldManifestFile = File(
+      p.join(newCacheDir.path, SkillManifest.configName),
+    );
 
     if (await oldDir.exists()) {
       if (!await newCacheDir.exists()) {
@@ -64,9 +65,7 @@ class SkillManifest {
           if (!await newConfigDir.exists()) {
             await newConfigDir.create(recursive: true);
           }
-          await oldManifestFile.rename(
-            SkillManifest.pathIn(rootPath),
-          );
+          await oldManifestFile.rename(SkillManifest.pathIn(rootPath));
         }
       }
     }

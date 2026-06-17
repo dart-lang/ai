@@ -101,7 +101,9 @@ class SkillInstaller {
       // de-dupe skills by name, we can find multiple versions of a package
       // which can result in duplicates.
       skillsByPackage.putIfAbsent(
-          skill.packageName, () => {})[skill.skillName] ??= skill;
+        skill.packageName,
+        () => {},
+      )[skill.skillName] ??= skill;
     }
 
     var updatedManifest = manifest;
@@ -119,8 +121,11 @@ class SkillInstaller {
       final abortedSkills = <String>{};
       if (existingEntry != null) {
         for (final existing in existingEntry.skills) {
-          if (!await adapter.removeSkill(existing.name,
-              originalHash: existing.contentHash, force: force)) {
+          if (!await adapter.removeSkill(
+            existing.name,
+            originalHash: existing.contentHash,
+            force: force,
+          )) {
             abortedSkills.add(existing.name);
           }
         }
@@ -132,8 +137,9 @@ class SkillInstaller {
       for (final skill in pkgSkills) {
         // We aborted uninstalling this skill, just copy its old install entry.
         if (abortedSkills.remove(skill.skillName)) {
-          final existing = existingEntry!.skills
-              .firstWhere((s) => s.name == skill.skillName);
+          final existing = existingEntry!.skills.firstWhere(
+            (s) => s.name == skill.skillName,
+          );
           installedSkills.add(existing);
           continue;
         }
@@ -159,12 +165,16 @@ class SkillInstaller {
         );
 
         if (skill.registryUrl case var registryUrl?) {
-          final installLocation =
-              p.join(rootPath, ide.skillsRelativePath, installedName);
+          final installLocation = p.join(
+            rootPath,
+            ide.skillsRelativePath,
+            installedName,
+          );
 
           if (skill.isGlobal) {
-            final index = updatedGlobalConfig.registries
-                .indexWhere((r) => r.cloneUrl == registryUrl);
+            final index = updatedGlobalConfig.registries.indexWhere(
+              (r) => r.cloneUrl == registryUrl,
+            );
             if (index >= 0) {
               final repo = updatedGlobalConfig.registries[index];
               updatedGlobalConfig = GlobalConfig(
@@ -176,8 +186,9 @@ class SkillInstaller {
               );
             }
           } else {
-            final index = updatedManifest.registries
-                .indexWhere((r) => r.cloneUrl == registryUrl);
+            final index = updatedManifest.registries.indexWhere(
+              (r) => r.cloneUrl == registryUrl,
+            );
             if (index >= 0) {
               final repo = updatedManifest.registries[index];
               updatedManifest = SkillManifest(
@@ -195,11 +206,13 @@ class SkillInstaller {
       }
       if (abortedSkills.isNotEmpty) {
         final buffer = StringBuffer(
-            'The following skills were not uninstalled but were deleted '
-            'upstream and are now orphaned:\n\n');
+          'The following skills were not uninstalled but were deleted '
+          'upstream and are now orphaned:\n\n',
+        );
         for (final skill in abortedSkills) {
           buffer.writeln(
-              '- $skill (installed at ${p.relative(p.join(adapter.skillsDirectory, skill), from: rootPath)})');
+            '- $skill (installed at ${p.relative(p.join(adapter.skillsDirectory, skill), from: rootPath)})',
+          );
         }
         logger.warning(buffer.toString());
       }
@@ -213,9 +226,10 @@ class SkillInstaller {
     }
 
     return SkillInstallResult(
-        manifest: updatedManifest,
-        globalConfig: globalConfig,
-        installed: installed);
+      manifest: updatedManifest,
+      globalConfig: globalConfig,
+      installed: installed,
+    );
   }
 
   /// Removes skills for [ide] from [manifest].
@@ -246,22 +260,30 @@ class SkillInstaller {
       if (skillNames.isEmpty) {
         manifest = manifest.withoutPackage(ide.cliName, pkgName);
         for (final skill in skills) {
-          await adapter.removeSkill(skill.name,
-              originalHash: skill.contentHash, force: force);
+          await adapter.removeSkill(
+            skill.name,
+            originalHash: skill.contentHash,
+            force: force,
+          );
           removed.add(
             RemovedSkillInfo(ideName: ide.cliName, skillName: skill.name),
           );
         }
       } else {
-        final skillsToRemove =
-            skills.where((s) => skillNames.contains(s.name)).toList();
-        final skillsToKeep =
-            skills.where((s) => !skillNames.contains(s.name)).toList();
+        final skillsToRemove = skills
+            .where((s) => skillNames.contains(s.name))
+            .toList();
+        final skillsToKeep = skills
+            .where((s) => !skillNames.contains(s.name))
+            .toList();
 
         if (skillsToRemove.isNotEmpty) {
           for (final skill in skillsToRemove) {
-            await adapter.removeSkill(skill.name,
-                originalHash: skill.contentHash, force: force);
+            await adapter.removeSkill(
+              skill.name,
+              originalHash: skill.contentHash,
+              force: force,
+            );
             removed.add(
               RemovedSkillInfo(ideName: ide.cliName, skillName: skill.name),
             );

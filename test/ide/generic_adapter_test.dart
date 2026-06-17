@@ -23,8 +23,10 @@ void main() {
       ]).create();
 
       fakeDialogSupport = FakeDialogSupport();
-      adapter =
-          GenericAdapter(d.path('project'), dialogSupport: fakeDialogSupport);
+      adapter = GenericAdapter(
+        d.path('project'),
+        dialogSupport: fakeDialogSupport,
+      );
     });
 
     group('and a scanned skill', () {
@@ -62,8 +64,8 @@ Steps to analyze.
 
         await d.dir('project', [
           d.dir('.agents', [
-            d.dir('skills', [d.dir('ag_pkg-data-analysis')])
-          ])
+            d.dir('skills', [d.dir('ag_pkg-data-analysis')]),
+          ]),
         ]).validate();
       });
 
@@ -81,9 +83,9 @@ Steps to analyze.
                     contains('# Data Analysis'),
                   ),
                 ),
-              ])
-            ])
-          ])
+              ]),
+            ]),
+          ]),
         ]).validate();
       });
     });
@@ -107,186 +109,183 @@ Steps to analyze.
 
       await d.dir('project', [
         d.dir('.agents', [
-          d.dir('skills', [d.nothing('pkg-skill')])
-        ])
+          d.dir('skills', [d.nothing('pkg-skill')]),
+        ]),
       ]).validate();
     });
   });
 
   group(
-      'Given an existing ".agent" directory with skills and a generic adapter',
-      () {
-    late GenericAdapter adapter;
-    late SkillManifest manifest;
-
-    setUp(() async {
-      await d.dir('project_migration', [
-        d.dir('.agent', [
-          d.dir('skills', [
-            d.dir('old-skill', [
-              d.file('SKILL.md', 'content'),
-            ]),
-            d.dir('unregistered-skill', [
-              d.file('SKILL.md', 'content'),
-            ]),
-          ]),
-        ]),
-      ]).create();
-
-      manifest = const SkillManifest().withPackage(
-        'generic',
-        'pkg_a',
-        PackageSkillsEntry(
-          skills: [
-            InstalledSkillEntry(
-              name: 'old-skill',
-              installedAt: DateTime.utc(2026),
-            ),
-          ],
-        ),
-      );
-    });
-
-    group('with dialog support', () {
-      late FakeDialogSupport fakeDialogSupport;
+    'Given an existing ".agent" directory with skills and a generic adapter',
+    () {
+      late GenericAdapter adapter;
+      late SkillManifest manifest;
 
       setUp(() async {
-        fakeDialogSupport = FakeDialogSupport();
-        adapter = GenericAdapter(d.path('project_migration'),
-            dialogSupport: fakeDialogSupport);
-      });
-
-      test(
-          'when the user chooses to migrate known skills then other '
-          'skills are left alone', () async {
-        fakeDialogSupport.singleSelectResults.add(0);
-        final migrated = await adapter.migrateSkillsDir(manifest);
-        expect(migrated, isTrue);
-
         await d.dir('project_migration', [
           d.dir('.agent', [
             d.dir('skills', [
-              d.nothing('old-skill'),
-              d.dir('unregistered-skill'),
+              d.dir('old-skill', [d.file('SKILL.md', 'content')]),
+              d.dir('unregistered-skill', [d.file('SKILL.md', 'content')]),
             ]),
           ]),
-          d.dir('.agents', [
-            d.dir('skills', [
-              d.dir('old-skill'),
-              d.nothing('unregistered-skill'),
-            ])
-          ]),
-        ]).validate();
+        ]).create();
+
+        manifest = const SkillManifest().withPackage(
+          'generic',
+          'pkg_a',
+          PackageSkillsEntry(
+            skills: [
+              InstalledSkillEntry(
+                name: 'old-skill',
+                installedAt: DateTime.utc(2026),
+              ),
+            ],
+          ),
+        );
       });
 
-      test(
-          'when the user chooses to migrate all skills then all skills are '
-          'moved and .agent is deleted', () async {
-        fakeDialogSupport.singleSelectResults.add(1);
-        final migrated = await adapter.migrateSkillsDir(manifest);
-        expect(migrated, isTrue);
+      group('with dialog support', () {
+        late FakeDialogSupport fakeDialogSupport;
 
-        await d.dir('project_migration', [
-          d.nothing('.agent'),
-          d.dir('.agents', [
-            d.dir('skills', [
-              d.dir('old-skill'),
-              d.dir('unregistered-skill'),
-            ])
-          ]),
-        ]).validate();
-      });
+        setUp(() async {
+          fakeDialogSupport = FakeDialogSupport();
+          adapter = GenericAdapter(
+            d.path('project_migration'),
+            dialogSupport: fakeDialogSupport,
+          );
+        });
 
-      test(
-          'when the user chooses to leave old skills in place then skills '
-          'are not moved', () async {
-        fakeDialogSupport.singleSelectResults.add(2);
-        final migrated = await adapter.migrateSkillsDir(manifest);
-        expect(migrated, isTrue);
+        test('when the user chooses to migrate known skills then other '
+            'skills are left alone', () async {
+          fakeDialogSupport.singleSelectResults.add(0);
+          final migrated = await adapter.migrateSkillsDir(manifest);
+          expect(migrated, isTrue);
 
-        await d.dir('project_migration', [
-          d.dir('.agent', [
-            d.dir('skills', [
-              d.dir('old-skill'),
-              d.dir('unregistered-skill'),
+          await d.dir('project_migration', [
+            d.dir('.agent', [
+              d.dir('skills', [
+                d.nothing('old-skill'),
+                d.dir('unregistered-skill'),
+              ]),
             ]),
-          ]),
-          d.nothing('.agents'),
-        ]).validate();
-      });
+            d.dir('.agents', [
+              d.dir('skills', [
+                d.dir('old-skill'),
+                d.nothing('unregistered-skill'),
+              ]),
+            ]),
+          ]).validate();
+        });
 
-      test('when existing .agents skills exist then they are merged', () async {
-        // Add something to .agents before migration
-        final newSkillDir =
-            Directory(d.path('project_migration/.agents/skills/new-skill'));
-        await newSkillDir.create(recursive: true);
-        await File(
-                d.path('project_migration/.agents/skills/new-skill/SKILL.md'))
-            .writeAsString('content');
+        test('when the user chooses to migrate all skills then all skills are '
+            'moved and .agent is deleted', () async {
+          fakeDialogSupport.singleSelectResults.add(1);
+          final migrated = await adapter.migrateSkillsDir(manifest);
+          expect(migrated, isTrue);
 
-        fakeDialogSupport.singleSelectResults.add(0);
-        final migrated = await adapter.migrateSkillsDir(manifest);
-        expect(migrated, isTrue);
-        await adapter.ensureSkillsDirectory();
+          await d.dir('project_migration', [
+            d.nothing('.agent'),
+            d.dir('.agents', [
+              d.dir('skills', [
+                d.dir('old-skill'),
+                d.dir('unregistered-skill'),
+              ]),
+            ]),
+          ]).validate();
+        });
 
-        await d.dir('project_migration', [
-          d.dir('.agents', [
-            d.dir('skills', [
-              d.dir('old-skill'),
-              d.dir('new-skill'),
-            ])
-          ]),
-          d.dir('.agent', [
-            d.dir('skills', [
-              d.nothing('old-skill'),
-            ])
-          ]),
-        ]).validate();
-      });
+        test('when the user chooses to leave old skills in place then skills '
+            'are not moved', () async {
+          fakeDialogSupport.singleSelectResults.add(2);
+          final migrated = await adapter.migrateSkillsDir(manifest);
+          expect(migrated, isTrue);
 
-      test(
+          await d.dir('project_migration', [
+            d.dir('.agent', [
+              d.dir('skills', [
+                d.dir('old-skill'),
+                d.dir('unregistered-skill'),
+              ]),
+            ]),
+            d.nothing('.agents'),
+          ]).validate();
+        });
+
+        test(
+          'when existing .agents skills exist then they are merged',
+          () async {
+            // Add something to .agents before migration
+            final newSkillDir = Directory(
+              d.path('project_migration/.agents/skills/new-skill'),
+            );
+            await newSkillDir.create(recursive: true);
+            await File(
+              d.path('project_migration/.agents/skills/new-skill/SKILL.md'),
+            ).writeAsString('content');
+
+            fakeDialogSupport.singleSelectResults.add(0);
+            final migrated = await adapter.migrateSkillsDir(manifest);
+            expect(migrated, isTrue);
+            await adapter.ensureSkillsDirectory();
+
+            await d.dir('project_migration', [
+              d.dir('.agents', [
+                d.dir('skills', [d.dir('old-skill'), d.dir('new-skill')]),
+              ]),
+              d.dir('.agent', [
+                d.dir('skills', [d.nothing('old-skill')]),
+              ]),
+            ]).validate();
+          },
+        );
+
+        test(
           'when migrating skills and user aborts the dialog then skills are not moved',
           () async {
-        fakeDialogSupport.singleSelectResults.add(3);
-        final migrated = await adapter.migrateSkillsDir(manifest);
-        expect(migrated, isFalse);
+            fakeDialogSupport.singleSelectResults.add(3);
+            final migrated = await adapter.migrateSkillsDir(manifest);
+            expect(migrated, isFalse);
 
-        await d.dir('project_migration', [
-          d.dir('.agent', [
-            d.dir('skills', [
-              d.dir('old-skill'),
-            ])
-          ]),
-          d.nothing('.agents'),
-        ]).validate();
-      });
-    });
-
-    group('without dialog support', () {
-      setUp(() async {
-        adapter = GenericAdapter(d.path('project_migration'));
+            await d.dir('project_migration', [
+              d.dir('.agent', [
+                d.dir('skills', [d.dir('old-skill')]),
+              ]),
+              d.nothing('.agents'),
+            ]).validate();
+          },
+        );
       });
 
-      test('when migrating skills then known skills are migrated', () async {
-        final migrated = await adapter.migrateSkillsDir(manifest);
-        expect(migrated, isTrue);
-        await adapter.ensureSkillsDirectory();
+      group('without dialog support', () {
+        setUp(() async {
+          adapter = GenericAdapter(
+            d.path('project_migration'),
+            dialogSupport: null,
+          );
+        });
 
-        await d.dir('project_migration', [
-          d.dir('.agents', [
-            d.dir('skills', [
-              d.dir('old-skill'),
-              d.nothing('unregistered-skill'),
-            ])
-          ]),
-          d.dir('.agent', [
-            d.dir('skills', [
-              d.nothing('old-skill'),
-              d.dir('unregistered-skill'),
-            ])
-          ]),
-        ]).validate();
+        test('when migrating skills then known skills are migrated', () async {
+          final migrated = await adapter.migrateSkillsDir(manifest);
+          expect(migrated, isTrue);
+          await adapter.ensureSkillsDirectory();
+
+          await d.dir('project_migration', [
+            d.dir('.agents', [
+              d.dir('skills', [
+                d.dir('old-skill'),
+                d.nothing('unregistered-skill'),
+              ]),
+            ]),
+            d.dir('.agent', [
+              d.dir('skills', [
+                d.nothing('old-skill'),
+                d.dir('unregistered-skill'),
+              ]),
+            ]),
+          ]).validate();
+        });
       });
-    });
-  });
+    },
+  );
 }

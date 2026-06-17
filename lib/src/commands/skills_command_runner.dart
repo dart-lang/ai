@@ -8,8 +8,11 @@ import '../core/migration.dart';
 class SkillsCommandRunner extends CommandRunner<void> {
   final DialogSupport? dialogSupport;
 
-  SkillsCommandRunner(super.executableName, super.description,
-      {this.dialogSupport}) {
+  SkillsCommandRunner(
+    super.executableName,
+    super.description, {
+    this.dialogSupport,
+  }) {
     argParser.addOption(
       'directory',
       abbr: 'C',
@@ -22,8 +25,9 @@ class SkillsCommandRunner extends CommandRunner<void> {
     final argResults = parse(args);
 
     final dir = argResults.option('directory');
-    final rootPath =
-        dir != null ? p.normalize(p.absolute(dir)) : Directory.current.path;
+    final rootPath = dir != null
+        ? p.normalize(p.absolute(dir))
+        : Directory.current.path;
 
     if (!argResults.flag('help')) {
       await runMigrations(rootPath, dialogSupport);

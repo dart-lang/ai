@@ -181,8 +181,9 @@ class WorkspaceResolver {
     }
 
     // Check for melos section in pubspec.yaml (Melos 7.3.0+)
-    melosConfig ??=
-        pubspec['melos'] is YamlMap ? pubspec['melos'] as YamlMap : null;
+    melosConfig ??= pubspec['melos'] is YamlMap
+        ? pubspec['melos'] as YamlMap
+        : null;
 
     if (melosConfig == null) return null;
 
@@ -230,11 +231,7 @@ class WorkspaceResolver {
     // If this package is a part of a workspace, find that package config.
     final packageConfigPath = pubspec['resolution'] == 'workspace'
         ? await _findWorkspacePackageConfigPath(projectPath)
-        : p.join(
-            projectPath,
-            '.dart_tool',
-            'package_config.json',
-          );
+        : p.join(projectPath, '.dart_tool', 'package_config.json');
     if (packageConfigPath == null) {
       throw StateError('Unable to locate workspace for project $projectPath');
     }
