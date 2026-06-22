@@ -645,6 +645,13 @@ base mixin DartAnalyzerSupport
     _currentWorkspaceFolders.clear();
 
     server?.kill();
+    await server?.exitCode.timeout(
+      const Duration(seconds: 1),
+      onTimeout: () {
+        server.kill(ProcessSignal.sigkill);
+        return server.exitCode;
+      },
+    );
     await connection?.close();
   }
 

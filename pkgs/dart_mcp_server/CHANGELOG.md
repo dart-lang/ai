@@ -1,3 +1,8 @@
+## 1.0.2
+
+- Send a SIGKILL to the analysis server if it doesn't respond to a SIGTERM in
+  time.
+
 ## 1.0.1
 
 - Minor changes to improve pub score.
