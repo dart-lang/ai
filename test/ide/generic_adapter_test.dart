@@ -1,11 +1,13 @@
 import 'dart:io';
 
 import 'package:logging/logging.dart';
+import 'package:skills/src/core/hash_utils.dart';
 import 'package:skills/src/core/skill_scanner.dart';
 import 'package:skills/src/ide/adapters/generic_adapter.dart';
 import 'package:skills/src/models/skill_manifest.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
+import 'package:path/path.dart' as p;
 
 import '../fake_dialog_support.dart';
 
@@ -112,6 +114,34 @@ Steps to analyze.
           d.dir('skills', [d.nothing('pkg-skill')]),
         ]),
       ]).validate();
+    });
+
+    group('computeInstalledSkillHash', () {
+      test('when skill exists then returns hash', () async {
+        await d.dir('project', [
+          d.dir('.agents', [
+            d.dir('skills', [
+              d.dir('test-skill', [d.file('SKILL.md', 'content')]),
+            ]),
+          ]),
+        ]).create();
+
+        final targetDir = Directory(
+          p.join(adapter.skillsDirectory, 'test-skill'),
+        );
+        final expectedHash = await tryCalculateDirectoryHash(targetDir);
+        expect(
+          await adapter.computeInstalledSkillHash('test-skill'),
+          equals(expectedHash),
+        );
+      });
+
+      test('when skill does not exist then returns null', () async {
+        expect(
+          await adapter.computeInstalledSkillHash('non-existent-skill'),
+          isNull,
+        );
+      });
     });
   });
 

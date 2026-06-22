@@ -88,12 +88,12 @@ void main() {
         expect(fakeDialogSupport.allMultiSelectOptions, hasLength(1));
         expect(
           fakeDialogSupport.allMultiSelectOptions[0],
-          unorderedEquals(['dep1-skill1', 'dep1-skill2']),
+          unorderedEquals([contains('dep1-skill1'), contains('dep1-skill2')]),
         );
-        expect(fakeDialogSupport.allInitialSelected[0], equals({0, 1}));
+        expect(fakeDialogSupport.allInitialSelected[0], isEmpty);
         expect(
           fakeDialogSupport.allTitles[0],
-          equals('Select skills to install from package dep1:'),
+          equals('Select skills to install/update from package dep1:'),
         );
 
         final dep1Skill1Dir = Directory(
@@ -115,6 +115,7 @@ void main() {
           fakeDialogSupport.multiSelectResults = [
             {0, 1}, // Select both packages
             {0}, // Select dep1-skill1 from dep1 skills
+            {0}, // Select dep2-skill1 from dep2 skills
           ];
 
           final getCommand = GetCommand(
@@ -132,18 +133,21 @@ void main() {
             Ide.generic.cliName,
           ]);
 
-          expect(fakeDialogSupport.allMultiSelectOptions, hasLength(2));
+          expect(fakeDialogSupport.allMultiSelectOptions, hasLength(3));
           expect(
             fakeDialogSupport.allMultiSelectOptions[0],
             unorderedEquals(['dep1', 'dep2']),
           );
           expect(
             fakeDialogSupport.allMultiSelectOptions[1],
-            equals(['dep1-skill1', 'dep1-skill2']),
+            unorderedEquals([
+              contains('dep1-skill1 (New)'),
+              contains('dep1-skill2 (New)'),
+            ]),
           );
           expect(
             fakeDialogSupport.allTitles[1],
-            equals('Select skills to install from package dep1:'),
+            equals('Select skills to install/update from package dep1:'),
           );
 
           final dep1Skill1Dir = Directory(
@@ -247,21 +251,27 @@ void main() {
         );
         expect(
           fakeDialogSupport.allMultiSelectOptions[1],
-          equals(['dep1-skill1', 'dep1-skill2']),
+          unorderedEquals([
+            contains('dep1-skill1 (New)'),
+            contains('dep1-skill2 (New)'),
+          ]),
         );
         expect(
           fakeDialogSupport.allMultiSelectOptions[2],
-          equals(['dep2-skill1', 'dep2-skill2']),
+          unorderedEquals([
+            contains('dep2-skill1 (New)'),
+            contains('dep2-skill2 (New)'),
+          ]),
         );
 
         // Sorted by display name: package dep1, package dep2
         expect(
           fakeDialogSupport.allTitles[1],
-          equals('Select skills to install from package dep1:'),
+          equals('Select skills to install/update from package dep1:'),
         );
         expect(
           fakeDialogSupport.allTitles[2],
-          equals('Select skills to install from package dep2:'),
+          equals('Select skills to install/update from package dep2:'),
         );
 
         final dep1Skill1Dir = Directory(

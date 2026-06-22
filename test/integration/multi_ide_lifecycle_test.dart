@@ -108,7 +108,7 @@ Instructions for debugging.
         ide: Ide.cursor,
         rootPath: rootPath,
         skills: [...pkgASkills, ...pkgBSkills],
-        manifest: manifest,
+        previousManifest: manifest,
         globalConfig: const GlobalConfig(),
       );
       manifest = result!.manifest;
@@ -116,7 +116,7 @@ Instructions for debugging.
         ide: Ide.generic,
         rootPath: rootPath,
         skills: [...pkgASkills, ...pkgBSkills],
-        manifest: manifest,
+        previousManifest: manifest,
         globalConfig: const GlobalConfig(),
       );
       manifest = result!.manifest;
@@ -260,7 +260,7 @@ Instructions for debugging.
         ide: Ide.cursor,
         rootPath: rootPath,
         skills: pkgASkills,
-        manifest: manifest,
+        previousManifest: manifest,
         globalConfig: const GlobalConfig(),
       );
       manifest = result!.manifest;
@@ -268,7 +268,7 @@ Instructions for debugging.
         ide: Ide.generic,
         rootPath: rootPath,
         skills: pkgASkills,
-        manifest: manifest,
+        previousManifest: manifest,
         globalConfig: const GlobalConfig(),
       );
       manifest = result!.manifest;
@@ -305,8 +305,8 @@ Instructions for debugging.
       var result = await SkillInstaller(fakeDialogSupport).installSkillsForIde(
         ide: Ide.cursor,
         rootPath: rootPath,
-        skills: pkgBSkills,
-        manifest: manifest,
+        skills: [...pkgASkills, ...pkgBSkills],
+        previousManifest: manifest,
         globalConfig: const GlobalConfig(),
       );
       manifest = result!.manifest;
@@ -348,7 +348,7 @@ Instructions for debugging.
         ide: Ide.cursor,
         rootPath: rootPath,
         skills: pkgASkills,
-        manifest: manifest,
+        previousManifest: manifest,
         globalConfig: const GlobalConfig(),
       );
       manifest = result!.manifest;
@@ -356,7 +356,7 @@ Instructions for debugging.
         ide: Ide.generic,
         rootPath: rootPath,
         skills: pkgASkills,
-        manifest: manifest,
+        previousManifest: manifest,
         globalConfig: const GlobalConfig(),
       );
       manifest = result!.manifest;
@@ -370,7 +370,7 @@ Instructions for debugging.
             ide: Ide.cursor,
             rootPath: rootPath,
             skills: pkgASkills,
-            manifest: manifest,
+            previousManifest: manifest,
             globalConfig: const GlobalConfig(),
           );
       manifest = result!.manifest;
@@ -409,7 +409,7 @@ Instructions for debugging.
         ide: Ide.cursor,
         rootPath: rootPath,
         skills: [...pkgASkills, ...pkgBSkills],
-        manifest: manifest,
+        previousManifest: manifest,
         globalConfig: const GlobalConfig(),
       );
       manifest = result!.manifest;
@@ -417,7 +417,7 @@ Instructions for debugging.
         ide: Ide.claude,
         rootPath: rootPath,
         skills: [...pkgASkills, ...pkgBSkills],
-        manifest: manifest,
+        previousManifest: manifest,
         globalConfig: const GlobalConfig(),
       );
       manifest = result!.manifest;
@@ -489,7 +489,7 @@ Instructions for debugging.
               ide: Ide.generic,
               rootPath: rootPath,
               skills: pkgASkills,
-              manifest: manifest,
+              previousManifest: manifest,
               globalConfig: const GlobalConfig(),
             );
         manifest = result!.manifest;

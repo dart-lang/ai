@@ -57,7 +57,11 @@ void main() {
         final projectPath = p.join(testRootPath, 'project');
 
         final getCommand = GetCommand(
-          dialogSupport: FakeDialogSupport()..multiSelectResults.add({0}),
+          dialogSupport: FakeDialogSupport()
+            ..multiSelectResults.addAll([
+              {0},
+              {0},
+            ]),
           gitRunner: GitRunner(isAvailableOverride: _gitUnavailable),
         );
         final runner = SkillsCommandRunner('skills', 'Test')
@@ -131,7 +135,11 @@ void main() {
       await globalConfig.save(File(globalConfigPath));
 
       final getCommand = GetCommand(
-        dialogSupport: FakeDialogSupport()..multiSelectResults.add({0}),
+        dialogSupport: FakeDialogSupport()
+          ..multiSelectResults.addAll([
+            {0},
+            {0},
+          ]),
       );
 
       final runner = SkillsCommandRunner('skills', 'Test')

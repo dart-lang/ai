@@ -67,7 +67,10 @@ void main() {
 
     test('when running `skills get` and the user only selects dep1 then only '
         'dep1 should be installed', () async {
-      fakeDialogSupport.multiSelectResults.add({0});
+      fakeDialogSupport.multiSelectResults.addAll([
+        {0},
+        {0},
+      ]);
       final getCommand = GetCommand(
         dialogSupport: fakeDialogSupport,
         gitRunner: GitRunner(
@@ -86,9 +89,14 @@ void main() {
       ]);
 
       expect(
-        fakeDialogSupport.allInitialSelected.last,
+        fakeDialogSupport.allInitialSelected.first,
         equals({0, 1}),
         reason: 'then all packages should be selected by default',
+      );
+      expect(
+        fakeDialogSupport.allInitialSelected.last,
+        isEmpty,
+        reason: 'then new skills should not be selected by default',
       );
 
       final dep1SkillDir = Directory(
@@ -237,6 +245,61 @@ void main() {
           logMessages,
           contains('No skills found in the given package dep3.'),
         );
+      },
+    );
+
+    test(
+      'when running `skills get --package dep1` it does not uninstall dep2 skills',
+      () async {
+        final getCommand = GetCommand(
+          dialogSupport: fakeDialogSupport,
+          gitRunner: GitRunner(isAvailableOverride: () async => false),
+        );
+        final runner = SkillsCommandRunner('skills', 'Test')
+          ..addCommand(getCommand);
+
+        // First, install both dep1 and dep2 skills
+        fakeDialogSupport.multiSelectResults.addAll([
+          {0, 1}, // select both dep1 and dep2
+          {0}, // select dep1-skill
+          {0}, // select dep2-skill
+        ]);
+
+        await runner.run([
+          'get',
+          '--directory',
+          projectPath,
+          '--ide',
+          Ide.generic.cliName,
+        ]);
+
+        // Verify both are installed
+        await d.dir('project', [
+          d.dir('.agents', [
+            d.dir('skills', [d.dir('dep1-skill'), d.dir('dep2-skill')]),
+          ]),
+        ]).validate();
+
+        fakeDialogSupport.reset();
+
+        // Now run `skills get --package dep1 --all` (to skip prompt)
+        await runner.run([
+          'get',
+          '--directory',
+          projectPath,
+          '--ide',
+          Ide.generic.cliName,
+          '--package',
+          'dep1',
+          '--all',
+        ]);
+
+        // Verify dep2-skill is STILL installed
+        await d.dir('project', [
+          d.dir('.agents', [
+            d.dir('skills', [d.dir('dep1-skill'), d.dir('dep2-skill')]),
+          ]),
+        ]).validate();
       },
     );
   });

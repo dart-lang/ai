@@ -15,7 +15,7 @@ void main() {
           d.dir('sub', [d.file('file.txt', 'content')]),
         ]).create();
 
-        final hash = await calculateDirectoryHash(Directory(d.path('dir1')));
+        final hash = await tryCalculateDirectoryHash(Directory(d.path('dir1')));
         // Hash of 'sub/file.txt' with 'content'. By running this test on windows
         // and asserting a specific hash, we validate that the results are the
         // same across platforms.
@@ -30,14 +30,14 @@ void main() {
     test('then hashing an empty directory works', () async {
       await d.dir('empty').create();
 
-      final hash = await calculateDirectoryHash(Directory(d.path('empty')));
+      final hash = await tryCalculateDirectoryHash(Directory(d.path('empty')));
       expect(hash, base64.encode(md5.convert([]).bytes));
     });
 
-    test('then hashing a missing directory throws', () async {
+    test('then hashing a missing directory returns null', () async {
       expect(
-        calculateDirectoryHash(Directory(d.path('empty'))),
-        throwsA(isA<StateError>()),
+        await tryCalculateDirectoryHash(Directory(d.path('empty'))),
+        isNull,
       );
     });
 
@@ -62,10 +62,10 @@ void main() {
           ]),
         ]).create();
 
-        final hash1 = await calculateDirectoryHash(
+        final hash1 = await tryCalculateDirectoryHash(
           Directory(d.path('nested1')),
         );
-        final hash2 = await calculateDirectoryHash(
+        final hash2 = await tryCalculateDirectoryHash(
           Directory(d.path('nested2')),
         );
 
@@ -76,14 +76,42 @@ void main() {
     test('then moving a file produces a different hash', () async {
       final file = d.file('file.txt', 'content');
       await file.create();
-      final originalHash = await calculateDirectoryHash(Directory(d.sandbox));
+      final originalHash = await tryCalculateDirectoryHash(
+        Directory(d.sandbox),
+      );
 
       await file.io.rename(file.io.uri.resolve('new_file.txt').toFilePath());
       await d.file('new_file.txt', 'content').validate();
       await d.nothing('file.txt').validate();
 
-      final changedHash = await calculateDirectoryHash(Directory(d.sandbox));
+      final changedHash = await tryCalculateDirectoryHash(Directory(d.sandbox));
       expect(originalHash, isNot(equals(changedHash)));
+    });
+  });
+
+  group('when calculating file hashes', () {
+    test('then missing file returns null', () async {
+      final file = File(d.path('missing.txt'));
+      expect(await tryCalculateFileHash(file), isNull);
+    });
+
+    test('then file with content returns expected hash', () async {
+      await d.file('file.txt', 'content').create();
+      final hash = await tryCalculateFileHash(File(d.path('file.txt')));
+      expect(
+        hash,
+        equals(base64.encode(md5.convert(utf8.encode('content')).bytes)),
+      );
+    });
+
+    test('then modifying file content produces different hash', () async {
+      await d.file('file.txt', 'content1').create();
+      final hash1 = await tryCalculateFileHash(File(d.path('file.txt')));
+
+      await d.file('file.txt', 'content2').create();
+      final hash2 = await tryCalculateFileHash(File(d.path('file.txt')));
+
+      expect(hash1, isNot(equals(hash2)));
     });
   });
 }

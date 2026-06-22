@@ -9,7 +9,12 @@ import 'package_resolver.dart';
 class ScannedSkill {
   final String packageName;
   final String skillName;
-  final String skillPath;
+
+  /// Nullable because of "orphaned" skills, which are a subtype of these skills
+  /// and were previously installed [ScannedSkill]s which no longer exist in the
+  /// source package, and thus don't have a path.
+  final String? skillPath;
+
   final String? registryUrl;
   final bool isGlobal;
 

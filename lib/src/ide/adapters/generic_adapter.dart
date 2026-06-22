@@ -18,7 +18,7 @@ class GenericAdapter extends AgentSkillsAdapter {
   final String _projectPath;
 
   GenericAdapter(this._projectPath, {super.dialogSupport})
-    : super(Ide.generic.skillsPath(_projectPath));
+    : super(Ide.generic, Ide.generic.skillsPath(_projectPath));
 
   @override
   Future<bool> performMigrations(SkillManifest manifest) async {

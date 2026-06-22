@@ -2,13 +2,13 @@ import 'dart:io';
 
 import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
-import 'package:skills/src/commands/get_command.dart';
+import 'package:skills/skills.dart';
+import 'package:skills/src/commands/skills_command_runner.dart';
 import 'package:skills/src/core/git_runner.dart';
 import 'package:skills/src/core/skill_scanner.dart';
 import 'package:skills/src/ide/adapters/cursor_adapter.dart';
 import 'package:skills/src/ide/ide.dart';
 import 'package:skills/src/models/skill_manifest.dart';
-import 'package:skills/src/commands/skills_command_runner.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
 
@@ -234,94 +234,89 @@ New skill body.
   });
 
   group('GetCommand end-to-end overwrite testing', () {
-    test(
-      'when skill is modified locally, it prompts and skips overwrite if user says no',
-      () async {
-        final fakeDialogSupport = FakeDialogSupport();
-        final getCommand = GetCommand(
-          dialogSupport: fakeDialogSupport,
-          gitRunner: GitRunner(isAvailableOverride: () async => false),
-        );
-        final runner = SkillsCommandRunner('skills', 'Test')
-          ..addCommand(getCommand);
+    test('when skill is modified locally', () async {
+      final fakeDialogSupport = FakeDialogSupport();
+      final getCommand = GetCommand(
+        dialogSupport: fakeDialogSupport,
+        gitRunner: GitRunner(isAvailableOverride: () async => false),
+      );
+      final runner = SkillsCommandRunner('skills', 'Test')
+        ..addCommand(getCommand);
 
-        await d.dir('dep_with_skills', [
-          d.file(
-            'pubspec.yaml',
-            'name: dep_with_skills\nenvironment:\n  sdk: ^3.5.0\n',
-          ),
-          d.dir('lib', [d.file('dep.dart', '')]),
-          d.dir('skills', [
-            d.dir('dep_with_skills-test-skill', [
-              d.file(
-                'SKILL.md',
-                '---\nname: dep_with_skills-test-skill\ndescription: Test\n---\n\nOriginal content',
-              ),
-            ]),
+      await d.dir('dep_with_skills', [
+        pubspec('dep_with_skills'),
+        d.dir('skills', [
+          d.dir('dep_with_skills-test-skill', [
+            d.file(
+              'SKILL.md',
+              '---\nname: dep_with_skills-test-skill\ndescription: Test\n---\n\nOriginal content',
+            ),
           ]),
-        ]).create();
+        ]),
+      ]).create();
 
-        await d.dir('project', [
-          d.file('pubspec.yaml', '''
-name: project
-environment:
-  sdk: ^3.5.0
-dependencies:
-  dep_with_skills:
-    path: ../dep_with_skills
-'''),
-        ]).create();
+      await d.dir('project', [
+        pubspec('project', dependencies: [.new('dep_with_skills')]),
+      ]).create();
 
-        final projectPath = d.path('project');
+      final projectPath = d.path('project');
 
-        // 1. Initial installation
-        await runner.run([
-          'get',
-          '--directory',
-          projectPath,
-          '--ide',
-          Ide.cursor.cliName,
-          '--all',
-        ]);
+      // 1. Initial installation
+      await runner.run([
+        'get',
+        '--directory',
+        projectPath,
+        '--ide',
+        Ide.cursor.cliName,
+        '--all',
+      ]);
 
-        final skillPath = p.join(
-          projectPath,
-          '.cursor',
-          'skills',
-          'dep_with_skills-test-skill',
-          'SKILL.md',
-        );
-        expect(await File(skillPath).exists(), isTrue);
+      final skillPath = p.join(
+        projectPath,
+        '.cursor',
+        'skills',
+        'dep_with_skills-test-skill',
+        'SKILL.md',
+      );
+      expect(await File(skillPath).exists(), isTrue);
 
-        // 2. User manually modifies the installed skill file
-        await File(skillPath).writeAsString(
-          '---\nname: dep_with_skills-test-skill\ndescription: Test\n---\n\nModified content',
-        );
+      // 2. User manually modifies the installed skill file
+      await File(skillPath).writeAsString(
+        '---\nname: dep_with_skills-test-skill\ndescription: Test\n---\n\nModified content',
+      );
 
-        // 3. User updates/re-installs and says "No" to the overwrite prompt (index 1 is No)
-        fakeDialogSupport.singleSelectResults.add(1);
+      // 3. User selects nothing to update
+      fakeDialogSupport.multiSelectResults.add({});
 
-        await runner.run([
-          'get',
-          '--directory',
-          projectPath,
-          '--ide',
-          Ide.cursor.cliName,
-          '--all',
-        ]);
+      await runner.run([
+        'get',
+        '--directory',
+        projectPath,
+        '--ide',
+        Ide.cursor.cliName,
+        '-p',
+        'dep_with_skills',
+      ]);
 
-        expect(
-          fakeDialogSupport.singleSelectCallCount,
-          1,
-          reason: 'Expected prompt to be shown during second update',
-        );
-        final contentAfterUpdate = await File(skillPath).readAsString();
-        expect(
-          contentAfterUpdate,
-          contains('Modified content'),
-          reason: 'Content should not be overwritten',
-        );
-      },
-    );
+      expect(
+        fakeDialogSupport.allMultiSelectOptions,
+        [
+          [contains('dep_with_skills-test-skill (Local edits)')],
+        ],
+        reason: 'then a prompt should be shown during second update',
+      );
+      expect(
+        fakeDialogSupport.allInitialSelected,
+        [isEmpty],
+        reason:
+            'then skills with local edits should not be selected by default',
+      );
+      final contentAfterUpdate = await File(skillPath).readAsString();
+      expect(
+        contentAfterUpdate,
+        contains('Modified content'),
+        reason: 'Content should not be overwritten',
+      );
+    });
   });
 }

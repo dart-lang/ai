@@ -1,10 +1,17 @@
+import 'dart:io';
+
 import 'package:logging/logging.dart';
 
-import '../core/dialog_support.dart';
 import '../core/skill_scanner.dart';
+
+import 'ide.dart';
 
 /// Abstract interface for IDE-specific skill installation and removal.
 abstract class IdeAdapter {
+  final Ide ide;
+
+  IdeAdapter(this.ide);
+
   /// Installs a skill from the scanned location into the IDE's directory.
   ///
   /// Returns the skill name as installed and its content hash (if any).
@@ -15,59 +22,29 @@ abstract class IdeAdapter {
 
   /// Removes a previously installed skill by its name.
   ///
-  /// If [originalHash] is provided, then it will check the current hash of the
-  /// directory and prompt the user if they want to overwrite it, if there have
-  /// been any manual changes since it was installed. If we do not have dialog
-  /// support then it will log a warning advertising the `--force` flag and
-  /// return `false`.
-  ///
   /// Returns `true` if removed successfully or it didn't exist.
-  /// Returns `false` if the user aborted the removal.
-  Future<bool> removeSkill(
-    String skillName, {
-    String? originalHash,
-    bool force = false,
-  });
+  /// Returns `false` if the removal failed.
+  Future<bool> removeSkill(String skillName);
 
   /// Returns the absolute path to the IDE's skills/rules directory.
   String get skillsDirectory;
 
   /// Creates the skills directory if it doesn't exist.
   Future<void> ensureSkillsDirectory();
+
+  /// Returns the current hash of an installed [skill] as currently installed.
+  ///
+  /// Returns `null` if it cannot be computed (typically due to the directory
+  /// not existing).
+  Future<String?> computeInstalledSkillHash(String skill);
+
+  /// Returns the current hash of a skill located at [skillDir], as it would be
+  /// if installed by this package.
+  ///
+  /// Returns `null` if it cannot be computed (typically due to the directory
+  /// not existing).
+  Future<String?> computeSourceSkillHash(Directory skillDir);
 }
 
 /// The result type for [IdeAdapter.installSkill].
 typedef InstallSkillResult = ({String name, String contentHash});
-
-/// Helper method to prompt the user if they want to overwrite a skill that has
-/// been modified locally since it was installed.
-///
-/// Returns `true` if the user approves it, [originalHash] was null, or the
-/// hashes were equal.
-Future<bool> promptOverwriteIfChanged({
-  required DialogSupport? dialogSupport,
-  required String skillName,
-  required String? originalHash,
-  required String currentHash,
-  required Logger logger,
-  bool force = false,
-}) async {
-  if (originalHash == null) return true;
-  if (currentHash == originalHash) return true;
-  if (force) return true;
-  if (dialogSupport == null) {
-    logger.warning(
-      'Skipped upgrading $skillName due to local modifications. Re-run with '
-      '`--force` to overwrite.',
-    );
-    return false;
-  }
-
-  final result = await dialogSupport.showSingleSelectDialog([
-    'Yes',
-    'No',
-  ], title: 'Skill $skillName has local edits. Overwrite them?');
-  if (result == 0) return true;
-  logger.warning('Skipped upgrading $skillName due to user selection');
-  return false;
-}

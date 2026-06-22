@@ -12,5 +12,5 @@ class OpenCodeAdapter extends AgentSkillsAdapter {
   final Logger logger = Logger('OpenCodeAdapter');
 
   OpenCodeAdapter(String projectPath, {super.dialogSupport})
-    : super(Ide.opencode.skillsPath(projectPath));
+    : super(Ide.opencode, Ide.opencode.skillsPath(projectPath));
 }

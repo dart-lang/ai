@@ -26,6 +26,17 @@ class FakeDialogSupport implements DialogSupport {
   // All the titles given for dialogs in order.
   final List<String?> allTitles = [];
 
+  void reset() {
+    _singleSelectCallCount = 0;
+    _multiSelectCallCount = 0;
+    multiSelectResults.clear();
+    singleSelectResults.clear();
+    allMultiSelectOptions.clear();
+    allInitialSelected.clear();
+    allTitles.clear();
+    lastSingleSelectOptions.clear();
+  }
+
   @override
   Future<int?> showSingleSelectDialog(
     List<String> options, {

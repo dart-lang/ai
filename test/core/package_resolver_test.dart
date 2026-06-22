@@ -102,14 +102,14 @@ void main() {
         packages: [
           WorkspacePackage(
             name: 'pkg_a',
-            path: workspacePath,
+            path: d.path(p.join('workspace', 'pkg_a')),
             packageConfigPath: d.path(
               p.join('workspace', '.dart_tool', 'package_config.json'),
             ),
           ),
           WorkspacePackage(
             name: 'pkg_b',
-            path: pkgBPath,
+            path: d.path(p.join('workspace', 'pkg_b')),
             packageConfigPath: d.path(
               p.join('workspace', 'pkg_b', '.dart_tool', 'package_config.json'),
             ),
@@ -123,6 +123,8 @@ void main() {
       expect(names, equals({'dep_x', 'dep_y'}));
 
       final depX = packages.firstWhere((pkg) => pkg.name == 'dep_x');
+      // Could be resolved from either package_config.json since both contain
+      // dep_x
       expect([
         d.path(p.join('workspace', '.dart_tool', 'package_config.json')),
         d.path(

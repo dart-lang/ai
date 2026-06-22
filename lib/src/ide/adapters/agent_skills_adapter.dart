@@ -12,12 +12,12 @@ import '../ide_adapter.dart';
 ///
 /// Copies the full skill directory (SKILL.md + scripts/ + references/ + assets/)
 /// using the skill's own name as the target directory name.
-abstract class AgentSkillsAdapter implements IdeAdapter {
+abstract class AgentSkillsAdapter extends IdeAdapter {
   @override
   final String skillsDirectory;
   final DialogSupport? dialogSupport;
 
-  AgentSkillsAdapter(this.skillsDirectory, {this.dialogSupport});
+  AgentSkillsAdapter(super.ide, this.skillsDirectory, {this.dialogSupport});
 
   @override
   Future<void> ensureSkillsDirectory() async {
@@ -38,40 +38,36 @@ abstract class AgentSkillsAdapter implements IdeAdapter {
       await targetDir.delete(recursive: true);
     }
     await targetDir.create(recursive: true);
-
-    await _copyDirectory(Directory(skill.skillPath), targetDir);
-
-    return (
-      name: skill.skillName,
-      contentHash: await calculateDirectoryHash(targetDir),
-    );
+    assert(skill.skillPath != null, 'Cannot install a skill without a path');
+    await _copyDirectory(Directory(skill.skillPath!), targetDir);
+    final hash = await computeInstalledSkillHash(skill.skillName);
+    if (hash == null) {
+      throw StateError('Failed to install skill at ${targetDir.path}.');
+    }
+    return (name: skill.skillName, contentHash: hash);
   }
 
   @override
-  Future<bool> removeSkill(
-    String skillName, {
-    String? originalHash,
-    bool force = false,
-  }) async {
+  Future<bool> removeSkill(String skillName) async {
     final targetDir = Directory(p.join(skillsDirectory, skillName));
     if (!await targetDir.exists()) {
       return true;
     }
 
-    if (!await promptOverwriteIfChanged(
-      dialogSupport: dialogSupport,
-      skillName: skillName,
-      originalHash: originalHash,
-      currentHash: await calculateDirectoryHash(targetDir),
-      force: force,
-      logger: logger,
-    )) {
-      return false;
-    }
-
+    // Prompting is handled by the calling layer (e.g. `skills get` dialog).
     await targetDir.delete(recursive: true);
     return true;
   }
+
+  @override
+  Future<String?> computeInstalledSkillHash(String skill) async =>
+      await tryCalculateDirectoryHash(
+        Directory(p.join(skillsDirectory, skill)),
+      );
+
+  @override
+  Future<String?> computeSourceSkillHash(Directory skillDir) async =>
+      await tryCalculateDirectoryHash(skillDir);
 
   Future<void> _copyDirectory(Directory source, Directory target) async {
     await for (final entity in source.list(recursive: false)) {

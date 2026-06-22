@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
@@ -16,6 +17,8 @@ class PubRunner {
   final String projectPath;
 
   const PubRunner(this.projectPath);
+
+  static final logger = Logger('PubRunner');
 
   /// Detects whether the project uses Flutter (has flutter SDK dependency).
   bool get isFlutterProject {
@@ -45,7 +48,7 @@ class PubRunner {
       args = ['pub', 'get'];
     }
 
-    stdout.writeln('Running $executable ${args.join(' ')}...');
+    logger.info('Running $executable ${args.join(' ')}...');
 
     final result = await Process.run(
       executable,
@@ -54,8 +57,8 @@ class PubRunner {
     );
 
     if (result.exitCode != 0) {
-      stderr.writeln('$executable pub get failed:');
-      stderr.writeln(result.stderr);
+      logger.warning('$executable pub get failed:');
+      logger.warning(result.stderr);
     }
 
     return result.exitCode;

@@ -7,15 +7,11 @@ import 'package:path/path.dart' as p;
 
 /// Computes a hash of the directory contents.
 ///
-/// If [dir] does not exist, this throws a [StateError].
+/// If [dir] does not exist, returns `null`.
 ///
 /// Returns a base64 encoded md5 hash.
-Future<String> calculateDirectoryHash(Directory dir) async {
-  if (!await dir.exists()) {
-    throw StateError(
-      'Failed to calculate hash for $dir: Directory does not exist',
-    );
-  }
+Future<String?> tryCalculateDirectoryHash(Directory dir) async {
+  if (!await dir.exists()) return null;
 
   final files = await dir
       .list(recursive: true)
