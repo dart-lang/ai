@@ -2,126 +2,107 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'package:checks/checks.dart';
 import 'package:dart_mcp/client.dart';
 import 'package:test/test.dart';
 
 void main() {
   test('protocol versions can be compared', () {
-    expect(
+    check(
       ProtocolVersion.latestSupported > ProtocolVersion.oldestSupported,
-      true,
-    );
-    expect(
+    ).isTrue();
+    check(
       ProtocolVersion.latestSupported >= ProtocolVersion.oldestSupported,
-      true,
-    );
-    expect(
+    ).isTrue();
+    check(
       ProtocolVersion.latestSupported < ProtocolVersion.oldestSupported,
-      false,
-    );
-    expect(
+    ).isFalse();
+    check(
       ProtocolVersion.latestSupported <= ProtocolVersion.oldestSupported,
-      false,
-    );
+    ).isFalse();
 
-    expect(
+    check(
       ProtocolVersion.oldestSupported > ProtocolVersion.latestSupported,
-      false,
-    );
-    expect(
+    ).isFalse();
+    check(
       ProtocolVersion.oldestSupported >= ProtocolVersion.latestSupported,
-      false,
-    );
-    expect(
+    ).isFalse();
+    check(
       ProtocolVersion.oldestSupported < ProtocolVersion.latestSupported,
-      true,
-    );
-    expect(
+    ).isTrue();
+    check(
       ProtocolVersion.oldestSupported <= ProtocolVersion.latestSupported,
-      true,
-    );
+    ).isTrue();
 
-    expect(
+    check(
       ProtocolVersion.latestSupported <= ProtocolVersion.latestSupported,
-      true,
-    );
-    expect(
+    ).isTrue();
+    check(
       ProtocolVersion.latestSupported >= ProtocolVersion.latestSupported,
-      true,
-    );
-    expect(
+    ).isTrue();
+    check(
       ProtocolVersion.latestSupported < ProtocolVersion.latestSupported,
-      false,
-    );
-    expect(
+    ).isFalse();
+    check(
       ProtocolVersion.latestSupported > ProtocolVersion.latestSupported,
-      false,
-    );
+    ).isFalse();
   });
 
   group('API object validation', () {
     test('throws when required fields are missing', () {
-      expect(() => Root.fromMap({}).uri, throwsA(isA<ArgumentError>()));
-      expect(
+      check(() => Root.fromMap({}).uri).throws<ArgumentError>();
+      check(
         () => Implementation.fromMap({'name': 'test'}).version,
-        throwsA(isA<ArgumentError>()),
-      );
-      expect(
-        () => BaseMetadata.fromMap({}).name,
-        throwsA(isA<ArgumentError>()),
-      );
+      ).throws<ArgumentError>();
+      check(() => BaseMetadata.fromMap({}).name).throws<ArgumentError>();
 
       final empty = <String, Object?>{};
 
       // Initialization
-      expect(
+      check(
         () => (empty as InitializeRequest).capabilities,
-        throwsArgumentError,
-      );
-      expect(
+      ).throws<ArgumentError>();
+      check(
         () => (empty as InitializeRequest).clientInfo,
-        throwsArgumentError,
-      );
+      ).throws<ArgumentError>();
 
       // Tools
-      expect(() => (empty as CallToolRequest).name, throwsArgumentError);
+      check(() => (empty as CallToolRequest).name).throws<ArgumentError>();
 
       // Resources
-      expect(() => (empty as ReadResourceRequest).uri, throwsArgumentError);
-      expect(() => (empty as SubscribeRequest).uri, throwsArgumentError);
-      expect(() => (empty as UnsubscribeRequest).uri, throwsArgumentError);
+      check(() => (empty as ReadResourceRequest).uri).throws<ArgumentError>();
+      check(() => (empty as SubscribeRequest).uri).throws<ArgumentError>();
+      check(() => (empty as UnsubscribeRequest).uri).throws<ArgumentError>();
 
       // Roots
-      expect(() => (empty as ListRootsResult).roots, throwsArgumentError);
+      check(() => (empty as ListRootsResult).roots).throws<ArgumentError>();
 
       // Prompts
-      expect(() => (empty as GetPromptRequest).name, throwsArgumentError);
+      check(() => (empty as GetPromptRequest).name).throws<ArgumentError>();
 
       // Completions
-      expect(() => (empty as CompleteRequest).ref, throwsArgumentError);
-      expect(() => (empty as CompleteRequest).argument, throwsArgumentError);
+      check(() => (empty as CompleteRequest).ref).throws<ArgumentError>();
+      check(() => (empty as CompleteRequest).argument).throws<ArgumentError>();
 
       // Logging
-      expect(() => (empty as SetLevelRequest).level, throwsArgumentError);
+      check(() => (empty as SetLevelRequest).level).throws<ArgumentError>();
 
       // Sampling
-      expect(
+      check(
         () => (empty as CreateMessageRequest).messages,
-        throwsArgumentError,
-      );
-      expect(
+      ).throws<ArgumentError>();
+      check(
         () => (empty as CreateMessageRequest).maxTokens,
-        throwsArgumentError,
-      );
+      ).throws<ArgumentError>();
     });
     test('meta field is parsed correctly', () {
       final root = Root.fromMap({
         'uri': 'file:///foo/bar',
         '_meta': {'foo': 'bar'},
       });
-      expect(root.meta, isNotNull);
+      check(root.meta).isNotNull();
       final metaMap = root.meta as Map;
-      expect(metaMap['foo'], 'bar');
+      check(metaMap['foo']).equals('bar');
     });
   });
 }

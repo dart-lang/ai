@@ -5,6 +5,7 @@ pubspec.lock
 .vscode
 .idea
 *.iml
+.agents
 
 # Gemini specific ignores
 **/.gemini/*

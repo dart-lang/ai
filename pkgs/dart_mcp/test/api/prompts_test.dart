@@ -4,6 +4,8 @@
 
 import 'dart:async';
 
+import 'package:async/async.dart';
+import 'package:checks/checks.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:test/test.dart';
 
@@ -17,15 +19,17 @@ void main() {
     );
     final initializeResult = await environment.initializeServer();
 
-    expect(
-      initializeResult.capabilities,
-      ServerCapabilities(prompts: Prompts(listChanged: true)),
+    check(initializeResult.capabilities as Map<String, Object?>).deepEquals(
+      ServerCapabilities(prompts: Prompts(listChanged: true))
+          as Map<String, Object?>,
     );
 
     final serverConnection = environment.serverConnection;
 
     final promptsResult = await serverConnection.listPrompts();
-    expect(promptsResult.prompts, [TestMCPServerWithPrompts.greeting]);
+    check(
+      promptsResult.prompts as List<Object?>,
+    ).deepEquals([TestMCPServerWithPrompts.greeting as Map<String, Object?>]);
 
     final greetingResult = await serverConnection.getPrompt(
       GetPromptRequest(
@@ -34,12 +38,12 @@ void main() {
       ),
     );
 
-    expect(
-      greetingResult.messages.single,
+    check(greetingResult.messages.single as Map<String, Object?>).deepEquals(
       PromptMessage(
-        role: Role.user,
-        content: TextContent(text: 'Please greet me joyously'),
-      ),
+            role: Role.user,
+            content: TextContent(text: 'Please greet me joyously'),
+          )
+          as Map<String, Object?>,
     );
   });
 
@@ -51,15 +55,25 @@ void main() {
     await environment.initializeServer();
 
     final serverConnection = environment.serverConnection;
-    expect(
-      serverConnection.promptListChanged,
-      emitsInOrder([
-        PromptListChangedNotification(),
-        PromptListChangedNotification(),
-        null,
-      ]),
-      reason: 'We should get a notification for new and removed prompts',
-    );
+    final queue = StreamQueue(serverConnection.promptListChanged);
+
+    final inOrderFuture = check(queue).inOrder([
+      (s) => s.emits(
+        (e) => e
+            .has((x) => x as Map<String, Object?>, 'as Map')
+            .deepEquals(
+              PromptListChangedNotification() as Map<String, Object?>,
+            ),
+      ),
+      (s) => s.emits(
+        (e) => e
+            .has((x) => x as Map<String, Object?>, 'as Map')
+            .deepEquals(
+              PromptListChangedNotification() as Map<String, Object?>,
+            ),
+      ),
+      (s) => s.emits((e) => e.isNull()),
+    ]);
 
     final server = environment.server;
     server.addPrompt(
@@ -70,6 +84,9 @@ void main() {
     server.sendNotification(PromptListChangedNotification.methodName);
     // Give the notifications a chance to propagate.
     await pumpEventQueue();
+
+    await inOrderFuture;
+    await queue.cancel();
 
     // We need to manually shut down so that the queue of prompt changes doesn't
     // keep the test active.
