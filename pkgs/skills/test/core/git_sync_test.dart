@@ -4,6 +4,7 @@ import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 import 'package:skills/src/core/git_repos.dart';
 import 'package:skills/src/core/git_sync.dart';
+import 'package:skills/src/models/skill_manifest.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
 
@@ -59,18 +60,21 @@ void main() {
         }
 
         // Use customCloneUrl to point at local repo so we don't hit network
-        final syncWithLocal = GitSync(repos: [GitRepo(cloneUrl: fileUrl)]);
+        final gitRepo = GitRepo(cloneUrl: fileUrl);
+        final syncWithLocal = GitSync(repos: [gitRepo]);
         await syncWithLocal.sync(projectPath);
 
-        final reposDir = Directory(gitReposPath(projectPath));
-        expect(await reposDir.exists(), isTrue);
-        final repoDir = Directory(
-          gitRepoPath(projectPath, GitRepo(cloneUrl: fileUrl)),
-        );
-        expect(await repoDir.exists(), isTrue);
-        final skillDir = Directory(p.join(repoDir.path, 'skills', 'pkg-skill'));
-        expect(await skillDir.exists(), isTrue);
-        expect(await File(p.join(skillDir.path, 'SKILL.md')).exists(), isTrue);
+        await d.dir('project', [
+          d.dir(SkillManifest.cacheDirPath, [
+            d.dir('repos', [
+              d.dir(gitRepo.pathSegment, [
+                d.dir('skills', [
+                  d.dir('pkg-skill', [d.file('SKILL.md')]),
+                ]),
+              ]),
+            ]),
+          ]),
+        ]).validate();
       },
     );
 
