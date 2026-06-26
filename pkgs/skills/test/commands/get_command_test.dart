@@ -304,13 +304,9 @@ New skill body.
         'dep_with_skills',
       ]);
 
-      expect(
-        fakeDialogSupport.allMultiSelectOptions,
-        [
-          [contains('dep_with_skills-test-skill (Local edits)')],
-        ],
-        reason: 'then a prompt should be shown during second update',
-      );
+      expect(fakeDialogSupport.allMultiSelectOptions, [
+        [contains('dep_with_skills-test-skill (Local edits)')],
+      ], reason: 'then a prompt should be shown during second update');
       expect(
         fakeDialogSupport.allInitialSelected,
         [isEmpty],
