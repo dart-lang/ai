@@ -8,10 +8,12 @@ A general repository for AI / GenAI packages and explorations.
 | --- | --- | --- | --- |
 | [dart_mcp](pkgs/dart_mcp/) | A package for making MCP servers and clients. | ![issues][dart_mcp_issues] | [![pub package](https://img.shields.io/pub/v/dart_mcp.svg)](https://pub.dev/packages/dart_mcp) |
 | [dart_mcp_server](pkgs/dart_mcp_server/) | An MCP server for Dart projects, exposing various developer tools to AI models. | ![issues][dart_mcp_server_issues] | n/a |
+| [skills](pkgs/skills/) | A CLI for managing skills shipped in packages and from git repos | ![issues][skills_issues] | n/a |
 
 
 [dart_mcp_issues]: https://img.shields.io/github/issues-search?label=issues&query=is%3Aissue+is%3Aopen+label%3Apackage%3Adart_mcp+repo%3Adart-lang/ai
 [dart_mcp_server_issues]: https://img.shields.io/github/issues-search?label=issues&query=is%3Aissue+is%3Aopen+label%3Apackage%3Adart_mcp_server+repo%3Adart-lang/ai
+[skills_issues]: https://img.shields.io/github/issues-search?label=issues&query=is%3Aissue+is%3Aopen+label%3Apackage%3Askills+repo%3Adart-lang/ai
 
 <!--
 ## Publishing automation

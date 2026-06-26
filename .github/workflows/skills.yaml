@@ -1,0 +1,47 @@
+name: package:skills
+permissions: read-all
+
+on:
+  # Run CI on all PRs (against any branch) and on pushes to the main branch.
+  pull_request:
+    paths:
+      - ".github/workflows/skills.yaml"
+      - "pkgs/skills/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/skills.yaml"
+      - "pkgs/skills/**"
+  schedule:
+    - cron: "0 0 * * 0" # weekly
+
+defaults:
+  run:
+    working-directory: pkgs/skills
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        sdk:
+          - stable
+          - dev
+        os:
+          - ubuntu-latest
+          - windows-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260
+        with:
+          sdk: ${{ matrix.sdk }}
+
+      - run: dart pub get
+
+      - run: dart analyze --fatal-infos
+
+      - run: dart format --output=none --set-exit-if-changed .
+        if: ${{ matrix.sdk == 'dev' }}
+
+      - run: dart test -p vm -c kernel,exe
