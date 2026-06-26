@@ -32,6 +32,10 @@ jobs:
           - ubuntu-latest
           - windows-latest
     steps:
+      # Enables git to use long paths on windows
+      - name: Enable long paths in Git
+        run: git config --global core.longpaths true
+        working-directory: ${{ github.workspace }}
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260
         with:
