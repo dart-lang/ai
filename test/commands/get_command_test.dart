@@ -125,10 +125,10 @@ API design guidelines.
         final installedName = (await adapter.installSkill(skill)).name;
 
         var manifest = const SkillManifest();
-        manifest = manifest.withPackage(
+        manifest = manifest.withSourceUri(
           'cursor',
-          'dep_with_skills',
-          PackageSkillsEntry(
+          'package:dep_with_skills',
+          SkillsEntry(
             skills: [
               InstalledSkillEntry(
                 name: installedName,
@@ -145,7 +145,7 @@ API design guidelines.
         expect(loaded, isNotNull);
         expect(
           loaded!
-              .packagesForIde('cursor')['dep_with_skills']!
+              .sourceUrisForIde('cursor')['package:dep_with_skills']!
               .skills
               .first
               .name,
@@ -215,7 +215,7 @@ New skill body.
     test('when installing for two IDEs then manifest tracks both', () async {
       var manifest = const SkillManifest();
 
-      final entry = PackageSkillsEntry(
+      final entry = SkillsEntry(
         skills: [
           InstalledSkillEntry(
             name: 'pkg-skill-a',
@@ -224,12 +224,18 @@ New skill body.
         ],
       );
 
-      manifest = manifest.withPackage('cursor', 'pkg', entry);
-      manifest = manifest.withPackage('claude', 'pkg', entry);
+      manifest = manifest.withSourceUri('cursor', 'package:pkg', entry);
+      manifest = manifest.withSourceUri('claude', 'package:pkg', entry);
 
       expect(manifest.allIdes, containsAll(['cursor', 'claude']));
-      expect(manifest.packagesForIde('cursor')['pkg']!.skills, hasLength(1));
-      expect(manifest.packagesForIde('claude')['pkg']!.skills, hasLength(1));
+      expect(
+        manifest.sourceUrisForIde('cursor')['package:pkg']!.skills,
+        hasLength(1),
+      );
+      expect(
+        manifest.sourceUrisForIde('claude')['package:pkg']!.skills,
+        hasLength(1),
+      );
     });
   });
 

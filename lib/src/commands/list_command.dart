@@ -28,7 +28,7 @@ class ListCommand extends SkillsCommand {
       ..writeln();
 
     for (final ide in manifest.allIdes) {
-      final pkgs = manifest.packagesForIde(ide);
+      final pkgs = manifest.sourceUrisForIde(ide);
       if (pkgs.isEmpty) continue;
 
       buffer.writeln('  $ide:');

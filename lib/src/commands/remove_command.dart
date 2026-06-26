@@ -1,3 +1,6 @@
+import 'package:args/command_runner.dart';
+import 'package:skills/src/core/git_repos.dart';
+
 import '../core/skill_installer.dart';
 import '../ide/ide.dart';
 import '../models/skill_manifest.dart';
@@ -18,22 +21,24 @@ class RemoveCommand extends SkillsCommand {
   RemoveCommand({DialogSupport? dialogSupport})
     : _dialogSupport = dialogSupport {
     addIdeOption(argParser);
-    argParser.addMultiOption(
-      'package',
-      abbr: 'p',
-      help: 'Remove skills for these packages.',
-    );
-    argParser.addMultiOption(
-      'skill',
-      abbr: 's',
-      help: 'Remove specific skills.',
-    );
-    argParser.addFlag(
-      'all',
-      abbr: 'a',
-      help: 'Remove all managed skills.',
-      negatable: false,
-    );
+    argParser
+      ..addMultiOption(
+        'package',
+        abbr: 'p',
+        help: 'Remove skills for these packages.',
+      )
+      ..addMultiOption('git', help: 'Remove skills from these git repos only.')
+      ..addMultiOption(
+        'skill',
+        abbr: 's',
+        help: 'Only remove these specific skills.',
+      )
+      ..addFlag(
+        'all',
+        abbr: 'a',
+        help: 'Remove all managed skills.',
+        negatable: false,
+      );
   }
 
   @override
@@ -52,8 +57,21 @@ class RemoveCommand extends SkillsCommand {
     var manifest = loaded;
 
     final packagesToRemove = argResults.multiOption('package').toSet();
+    final sourcesToRemove = {
+      ...packagesToRemove.map((p) => 'package:$p'),
+      ...argResults
+          .multiOption('git')
+          .map((arg) => parseGitRepoArg(arg, usage).cloneUrl),
+    };
     final skillsToRemove = argResults.multiOption('skill').toSet();
     final allFlag = argResults.flag('all');
+    if (skillsToRemove.isNotEmpty && allFlag) {
+      throw UsageException(
+        '--all and --skill are mutually exclusive arguments, please provide '
+        'only one',
+        usage,
+      );
+    }
 
     // Determine which IDEs to remove from: --ide narrows to one,
     // otherwise all IDEs in the manifest.
@@ -71,24 +89,24 @@ class RemoveCommand extends SkillsCommand {
     // Prompt the user for the packages to remove if possible and not given.
     if (_dialogSupport != null &&
         !allFlag &&
-        packagesToRemove.isEmpty &&
+        sourcesToRemove.isEmpty &&
         skillsToRemove.isEmpty) {
       final allPackages = {
         for (final ide in targetIdes)
-          ...manifest.packagesForIde(ide.cliName).keys,
+          ...manifest.sourceUrisForIde(ide.cliName).keys,
       }.toList()..sort();
       final selectedIndices = await _dialogSupport.showMultiSelectDialog(
         allPackages,
-        title: 'Select packages to remove skills for:',
+        title: 'Select sources to remove skills for:',
       );
       if (selectedIndices != null) {
-        packagesToRemove.addAll(selectedIndices.map((i) => allPackages[i]));
+        sourcesToRemove.addAll(selectedIndices.map((i) => allPackages[i]));
       } else {
         logger.info('Skill removal aborted.');
         return;
       }
-      if (packagesToRemove.isEmpty) {
-        logger.info('No packages selected for removal.');
+      if (sourcesToRemove.isEmpty) {
+        logger.info('No sources selected for removal.');
         return;
       }
     }
@@ -98,9 +116,9 @@ class RemoveCommand extends SkillsCommand {
       // All the available skills filtered by selected packages
       final potentialSkills = {
         for (final ide in targetIdes)
-          for (final MapEntry(key: package, value: entry)
-              in manifest.packagesForIde(ide.cliName).entries)
-            if (packagesToRemove.isEmpty || packagesToRemove.contains(package))
+          for (final MapEntry(key: sourceUri, value: entry)
+              in manifest.sourceUrisForIde(ide.cliName).entries)
+            if (sourcesToRemove.isEmpty || sourcesToRemove.contains(sourceUri))
               ...entry.skills.map((skill) => skill.name),
       }.toList()..sort();
       final selectedIndices = await _dialogSupport.showMultiSelectDialog(
@@ -121,16 +139,19 @@ class RemoveCommand extends SkillsCommand {
     }
 
     // The fully filtered map of things to remove.
-    final Map</* IDE */ String, Map</* Package */ String, PackageSkillsEntry>>
+    final Map</* IDE */ String, Map</* Source URI */ String, SkillsEntry>>
     filteredSkills = {
       for (final ide in targetIdes)
         ide.cliName: {
-          for (final entry in manifest.packagesForIde(ide.cliName).entries)
-            if (packagesToRemove.isEmpty ||
-                packagesToRemove.contains(entry.key))
-              entry.key: PackageSkillsEntry(
+          for (final MapEntry(
+                key: sourceUri,
+                value: SkillsEntry(skills: skills),
+              )
+              in manifest.sourceUrisForIde(ide.cliName).entries)
+            if (sourcesToRemove.isEmpty || sourcesToRemove.contains(sourceUri))
+              sourceUri: SkillsEntry(
                 skills: [
-                  for (final skill in entry.value.skills)
+                  for (final skill in skills)
                     if (skillsToRemove.isEmpty ||
                         skillsToRemove.contains(skill.name))
                       skill,
@@ -170,7 +191,7 @@ class RemoveCommand extends SkillsCommand {
         ide: ide,
         rootPath: rootPath,
         manifest: manifest,
-        packageNames: packagesToRemove,
+        sourceUris: sourcesToRemove,
         skillNames: skillsToRemove,
       );
       manifest = result.manifest;

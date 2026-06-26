@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-import '../core/registry_repos.dart';
+import '../core/git_repos.dart';
 
 /// Tracks which skills are installed, per IDE and per package.
 class SkillManifest {
@@ -36,16 +36,13 @@ class SkillManifest {
   /// The version of the manifest when it was loaded.
   final int version;
 
-  /// Outer key: IDE name, inner key: package name.
-  final Map<String, Map<String, PackageSkillsEntry>> installations;
+  /// Outer key: IDE name, inner key: package uri or git uri.
+  final Map<String, Map<String, SkillsEntry>> installations;
 
-  /// Configured registries for this workspace.
-  final List<RegistryRepo> registries;
-
+  /// Configured git repos for this workspace.
   const SkillManifest({
     this.version = currentVersion,
     this.installations = const {},
-    this.registries = const [],
   });
 
   /// Migrates existing state from `.dart_skills` to `.dart_tool/skills`.
@@ -111,34 +108,24 @@ class SkillManifest {
       final pkgs = pkgsJson.map(
         (pkgKey, pkgValue) => MapEntry(
           pkgKey,
-          PackageSkillsEntry.fromJson(pkgValue as Map<String, dynamic>),
+          SkillsEntry.fromJson(pkgValue as Map<String, dynamic>),
         ),
       );
       return MapEntry(ideKey, pkgs);
     });
 
-    final registriesJson = json['registries'] as List<dynamic>? ?? [];
-    final registries = registriesJson
-        .map((r) => RegistryRepo.fromJson(r as Map<String, dynamic>))
-        .toList();
-
-    return SkillManifest(
-      version: version,
-      installations: installations,
-      registries: registries,
-    );
+    return SkillManifest(version: version, installations: installations);
   }
 
   Map<String, dynamic> toJson() {
     return {
       'version': currentVersion,
       'installations': installations.map(
-        (ideKey, pkgs) => MapEntry(
-          ideKey,
-          pkgs.map((pkgKey, entry) => MapEntry(pkgKey, entry.toJson())),
+        (ide, entries) => MapEntry(
+          ide,
+          entries.map((uri, entry) => MapEntry(uri, entry.toJson())),
         ),
       ),
-      'registries': registries.map((r) => r.toJson()).toList(),
     };
   }
 
@@ -153,15 +140,29 @@ class SkillManifest {
   Iterable<String> get allIdes => installations.keys;
 
   /// Returns the packages map for a given [ide], or empty if none.
-  Map<String, PackageSkillsEntry> packagesForIde(String ide) =>
+  Map<String, SkillsEntry> sourceUrisForIde(String ide) =>
       installations[ide] ?? {};
+
+  /// Dynamically infers all git repositories currently installed by scanning
+  /// source URIs for all non-package: URIs.
+  List<GitRepo> get gitRepos {
+    final uris = <String>{};
+    for (final ide in installations.values) {
+      for (final uri in ide.keys) {
+        if (!uri.startsWith('package:')) {
+          uris.add(uri);
+        }
+      }
+    }
+    return uris.map((uri) => GitRepo(cloneUrl: uri)).toList();
+  }
 
   /// All installed skill entries for a given [ide].
   ///
   /// If [packageNames] is given and non-empty, only skills from those packages
   /// will be returned.
   Iterable<InstalledSkillEntry> allSkillsForIde(String ide) sync* {
-    for (final entry in packagesForIde(ide).values) {
+    for (final entry in sourceUrisForIde(ide).values) {
       yield* entry.skills;
     }
   }
@@ -178,65 +179,44 @@ class SkillManifest {
       installations.isEmpty ||
       installations.values.every((pkgs) => pkgs.isEmpty);
 
-  /// Returns a copy with [entry] set for [ide] + [packageName].
-  SkillManifest withPackage(
-    String ide,
-    String packageName,
-    PackageSkillsEntry entry,
-  ) {
+  /// Returns a copy with [entry] set for [ide] + [sourceUri].
+  SkillManifest withSourceUri(String ide, String sourceUri, SkillsEntry entry) {
     final updated = _deepCopy();
-    updated.putIfAbsent(ide, () => {});
-    updated[ide]![packageName] = entry;
-    return SkillManifest(installations: updated, registries: registries);
+    updated.putIfAbsent(ide, () => {})[sourceUri] = entry;
+    return SkillManifest(version: version, installations: updated);
   }
 
-  /// Returns a copy with [packageName] removed from [ide].
-  SkillManifest withoutPackage(String ide, String packageName) {
+  /// Returns a copy with [sourceUri] removed from [ide].
+  SkillManifest withoutSourceUri(String ide, String sourceUri) {
     final updated = _deepCopy();
-    updated[ide]?.remove(packageName);
+    updated[ide]?.remove(sourceUri);
     if (updated[ide]?.isEmpty ?? false) updated.remove(ide);
-    return SkillManifest(installations: updated, registries: registries);
+    return SkillManifest(version: version, installations: updated);
   }
 
   /// Returns a copy with all packages removed for [ide].
   SkillManifest withoutIde(String ide) {
     final updated = _deepCopy();
     updated.remove(ide);
-    return SkillManifest(installations: updated, registries: registries);
+    return SkillManifest(version: version, installations: updated);
   }
 
-  /// Returns a copy with [repo] added.
-  SkillManifest withRegistry(RegistryRepo repo) {
-    return SkillManifest(
-      installations: installations,
-      registries: [...registries, repo],
-    );
-  }
-
-  /// Returns a copy with [repo] removed.
-  SkillManifest withoutRegistry(RegistryRepo repo) {
-    return SkillManifest(
-      installations: installations,
-      registries: registries.where((r) => r.cloneUrl != repo.cloneUrl).toList(),
-    );
-  }
-
-  Map<String, Map<String, PackageSkillsEntry>> _deepCopy() {
+  Map<String, Map<String, SkillsEntry>> _deepCopy() {
     return installations.map(
-      (ide, pkgs) => MapEntry(ide, Map<String, PackageSkillsEntry>.from(pkgs)),
+      (ide, pkgs) => MapEntry(ide, Map<String, SkillsEntry>.from(pkgs)),
     );
   }
 }
 
-/// Skills installed from a single package.
-class PackageSkillsEntry {
+/// Skills installed from a single package or git source.
+class SkillsEntry {
   final List<InstalledSkillEntry> skills;
 
-  const PackageSkillsEntry({this.skills = const []});
+  const SkillsEntry({this.skills = const []});
 
-  factory PackageSkillsEntry.fromJson(Map<String, dynamic> json) {
+  factory SkillsEntry.fromJson(Map<String, dynamic> json) {
     final skillsList = json['skills'] as List<dynamic>? ?? [];
-    return PackageSkillsEntry(
+    return SkillsEntry(
       skills: skillsList
           .map((s) => InstalledSkillEntry.fromJson(s as Map<String, dynamic>))
           .toList(),

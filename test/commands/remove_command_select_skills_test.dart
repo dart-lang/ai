@@ -47,7 +47,7 @@ void main() {
       manifest = SkillManifest(
         installations: {
           'cursor': {
-            'dep1': PackageSkillsEntry(
+            'package:dep1': SkillsEntry(
               skills: [
                 InstalledSkillEntry(
                   name: 'dep1-skill-1',
@@ -59,7 +59,7 @@ void main() {
                 ),
               ],
             ),
-            'dep2': PackageSkillsEntry(
+            'package:dep2': SkillsEntry(
               skills: [
                 InstalledSkillEntry(
                   name: 'dep2-skill-1',
@@ -123,7 +123,7 @@ void main() {
           projectPath,
         );
         final dep1Skills = updatedManifest
-            .packagesForIde('cursor')['dep1']!
+            .sourceUrisForIde('cursor')['package:dep1']!
             .skills
             .map((s) => s.name)
             .toList();
@@ -154,7 +154,7 @@ void main() {
         expect(fakeDialogSupport.allMultiSelectOptions, hasLength(2));
         expect(
           fakeDialogSupport.allMultiSelectOptions[0],
-          unorderedEquals(['dep1', 'dep2']),
+          unorderedEquals(['package:dep1', 'package:dep2']),
         );
         expect(
           fakeDialogSupport.allMultiSelectOptions[1],
@@ -186,13 +186,13 @@ void main() {
           projectPath,
         );
         final dep1Skills = updatedManifest
-            .packagesForIde('cursor')['dep1']!
+            .sourceUrisForIde('cursor')['package:dep1']!
             .skills
             .map((s) => s.name)
             .toList();
         expect(dep1Skills, equals(['dep1-skill-2']));
         final dep2Skills = updatedManifest
-            .packagesForIde('cursor')['dep2']!
+            .sourceUrisForIde('cursor')['package:dep2']!
             .skills
             .map((s) => s.name)
             .toList();

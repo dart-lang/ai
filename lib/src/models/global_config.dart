@@ -5,9 +5,9 @@ import 'package:cli_util/cli_util.dart';
 import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 
-import '../core/registry_repos.dart';
+import '../core/git_repos.dart';
 
-/// Global configuration for skill registries.
+/// Global configuration for skill git repos.
 class GlobalConfig {
   static const String baseName = 'global_config.json';
 
@@ -15,28 +15,30 @@ class GlobalConfig {
   @visibleForTesting
   static String? globalPathOverride;
 
-  /// Returns the platform-correct path to the global registries file.
+  /// Returns the platform-correct path to the global config file.
   static String get globalPath {
     if (globalPathOverride != null) return globalPathOverride!;
     final configDir = BaseDirectories('dart_skills').configHome;
     return p.join(configDir, baseName);
   }
 
-  final List<RegistryRepo> registries;
+  final List<GitRepo> gitRepos;
 
-  const GlobalConfig({this.registries = const []});
+  const GlobalConfig({this.gitRepos = const []});
 
   factory GlobalConfig.fromJson(Map<String, dynamic> json) {
-    final registriesJson = json['registries'] as List<dynamic>? ?? [];
-    final registries = registriesJson
-        .map((r) => RegistryRepo.fromJson(r as Map<String, dynamic>))
+    // Fallback to 'registries' for backwards compatibility
+    final reposJson =
+        (json['gitRepos'] ?? json['registries']) as List<dynamic>? ?? [];
+    final gitRepos = reposJson
+        .map((r) => GitRepo.fromJson(r as Map<String, dynamic>))
         .toList();
 
-    return GlobalConfig(registries: registries);
+    return GlobalConfig(gitRepos: gitRepos);
   }
 
   Map<String, dynamic> toJson() {
-    return {'registries': registries.map((r) => r.toJson()).toList()};
+    return {'gitRepos': gitRepos.map((r) => r.toJson()).toList()};
   }
 
   /// Loads the config from [file], or returns null if it doesn't exist.
@@ -62,14 +64,15 @@ class GlobalConfig {
   }
 
   /// Returns a copy with [repo] added.
-  GlobalConfig withRegistry(RegistryRepo repo) {
-    return GlobalConfig(registries: [...registries, repo]);
+  GlobalConfig withGitRepo(GitRepo repo) {
+    if (gitRepos.any((r) => r.cloneUrl == repo.cloneUrl)) return this;
+    return GlobalConfig(gitRepos: [...gitRepos, repo]);
   }
 
   /// Returns a copy with [repo] removed.
-  GlobalConfig withoutRegistry(RegistryRepo repo) {
+  GlobalConfig withoutGitRepo(GitRepo repo) {
     return GlobalConfig(
-      registries: registries.where((r) => r.cloneUrl != repo.cloneUrl).toList(),
+      gitRepos: gitRepos.where((r) => r.cloneUrl != repo.cloneUrl).toList(),
     );
   }
 }

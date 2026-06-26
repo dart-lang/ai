@@ -75,7 +75,7 @@ void main() {
         dialogSupport: fakeDialogSupport,
         gitRunner: GitRunner(
           isAvailableOverride: () async => false,
-        ), // skip registry
+        ), // skip git repos
       );
       final runner = SkillsCommandRunner('skills', 'Test')
         ..addCommand(getCommand);
@@ -243,7 +243,7 @@ void main() {
 
         expect(
           logMessages,
-          contains('No skills found in the given package dep3.'),
+          contains('No skills found in the given source package:dep3.'),
         );
       },
     );

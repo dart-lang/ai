@@ -1,5 +1,7 @@
+import 'package:args/command_runner.dart';
 import 'package:skills/src/commands/get_skills.dart';
 import 'package:skills/src/core/dialog_support.dart';
+import 'package:skills/src/core/git_repos.dart';
 
 import '../core/git_runner.dart';
 import 'options.dart';
@@ -20,22 +22,24 @@ class GetCommand extends SkillsCommand {
     : _dialogSupport = dialogSupport,
       _gitRunner = gitRunner {
     addIdeOption(argParser);
-    argParser.addMultiOption(
-      'package',
-      abbr: 'p',
-      help: 'Install skills from these packages.',
-    );
-    argParser.addMultiOption(
-      'skill',
-      abbr: 's',
-      help: 'Only install these specific skills.',
-    );
-    argParser.addFlag(
-      'all',
-      abbr: 'a',
-      help: 'Install all skills from all packages.',
-      negatable: false,
-    );
+    argParser
+      ..addMultiOption(
+        'package',
+        abbr: 'p',
+        help: 'Install/update skills from these packages only.',
+      )
+      ..addMultiOption('git', help: 'Update skills from these git repos only.')
+      ..addMultiOption(
+        'skill',
+        abbr: 's',
+        help: 'Only install these specific skills.',
+      )
+      ..addFlag(
+        'all',
+        abbr: 'a',
+        help: 'Install/update all skills from all sources.',
+        negatable: false,
+      );
   }
 
   GitRunner get _effectiveGitRunner => _gitRunner ?? const GitRunner();
@@ -55,12 +59,25 @@ class GetCommand extends SkillsCommand {
     final ides = await resolveIdes(
       argResults: argResults,
       projectPath: rootPath,
+      dialogSupport: _dialogSupport,
     );
 
-    final packageNames = argResults.multiOption('package').toSet();
+    final packageUris = argResults
+        .multiOption('package')
+        .map((p) => 'package:$p');
+    final gitUris = argResults
+        .multiOption('git')
+        .map((arg) => parseGitRepoArg(arg, usage).cloneUrl);
+    final sourceUris = {...packageUris, ...gitUris};
     final skillNames = argResults.multiOption('skill').toSet();
-
     final allFlag = argResults.flag('all');
+    if (skillNames.isNotEmpty && allFlag) {
+      throw UsageException(
+        '--all and --skill are mutually exclusive arguments, please provide '
+        'only one',
+        usage,
+      );
+    }
 
     await getSkills(
       ides: ides,
@@ -69,7 +86,7 @@ class GetCommand extends SkillsCommand {
       dialogSupport: _dialogSupport,
       gitRunner: _effectiveGitRunner,
       usage: usage,
-      packageNames: packageNames,
+      sourceUris: sourceUris,
       skillNames: skillNames,
       allFlag: allFlag,
     );

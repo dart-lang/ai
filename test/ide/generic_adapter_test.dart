@@ -161,10 +161,10 @@ Steps to analyze.
           ]),
         ]).create();
 
-        manifest = const SkillManifest().withPackage(
+        manifest = const SkillManifest().withSourceUri(
           'generic',
-          'pkg_a',
-          PackageSkillsEntry(
+          'package:pkg_a',
+          SkillsEntry(
             skills: [
               InstalledSkillEntry(
                 name: 'old-skill',

@@ -17,7 +17,7 @@ void main() {
       manifest = SkillManifest(
         installations: {
           'cursor': {
-            'pkg_a': PackageSkillsEntry(
+            'pkg_a': SkillsEntry(
               skills: [
                 InstalledSkillEntry(
                   name: 'pkg_a-code-gen',
@@ -29,7 +29,7 @@ void main() {
                 ),
               ],
             ),
-            'pkg_b': PackageSkillsEntry(
+            'pkg_b': SkillsEntry(
               skills: [
                 InstalledSkillEntry(
                   name: 'pkg_b-testing',
@@ -39,7 +39,7 @@ void main() {
             ),
           },
           'claude': {
-            'pkg_a': PackageSkillsEntry(
+            'pkg_a': SkillsEntry(
               skills: [
                 InstalledSkillEntry(
                   name: 'pkg_a-code-gen',
@@ -57,12 +57,12 @@ void main() {
 
     test('when listing then all IDEs and packages are present', () {
       expect(manifest.allIdes, containsAll(['cursor', 'claude']));
-      expect(manifest.packagesForIde('cursor'), hasLength(2));
-      expect(manifest.packagesForIde('claude'), hasLength(1));
+      expect(manifest.sourceUrisForIde('cursor'), hasLength(2));
+      expect(manifest.sourceUrisForIde('claude'), hasLength(1));
     });
 
     test('when listing then cursor skills are correct', () {
-      final cursorPkgA = manifest.packagesForIde('cursor')['pkg_a']!.skills;
+      final cursorPkgA = manifest.sourceUrisForIde('cursor')['pkg_a']!.skills;
       expect(
         cursorPkgA.map((s) => s.name),
         containsAll(['pkg_a-code-gen', 'pkg_a-api-helper']),
@@ -70,7 +70,7 @@ void main() {
     });
 
     test('when listing then claude skills are correct', () {
-      final claudePkgA = manifest.packagesForIde('claude')['pkg_a']!.skills;
+      final claudePkgA = manifest.sourceUrisForIde('claude')['pkg_a']!.skills;
       expect(claudePkgA.map((s) => s.name), equals(['pkg_a-code-gen']));
     });
 

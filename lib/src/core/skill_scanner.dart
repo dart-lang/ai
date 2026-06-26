@@ -5,26 +5,32 @@ import 'package:path/path.dart' as p;
 
 import 'package_resolver.dart';
 
-/// A skill found within a package's skills/ directory.
+/// A scanned skill.
 class ScannedSkill {
-  final String packageName;
+  /// The package name if this skill came from a pub dependency.
+  final String? packageName;
+
+  /// The git repo URL if this skill came from a git repo.
+  final String? gitUrl;
+
   final String skillName;
 
   /// Nullable because of "orphaned" skills, which are a subtype of these skills
   /// and were previously installed [ScannedSkill]s which no longer exist in the
-  /// source package, and thus don't have a path.
+  /// source package/repo, and thus don't have a path.
   final String? skillPath;
 
-  final String? registryUrl;
   final bool isGlobal;
 
   const ScannedSkill({
-    required this.packageName,
+    this.packageName,
+    this.gitUrl,
     required this.skillName,
     required this.skillPath,
-    this.registryUrl,
     this.isGlobal = false,
   });
+
+  String get sourceUri => gitUrl ?? 'package:$packageName';
 }
 
 /// Scans resolved packages for skills/ directories containing Agent Skills.

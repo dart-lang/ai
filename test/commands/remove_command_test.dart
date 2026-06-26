@@ -51,7 +51,7 @@ void main() {
       manifest = SkillManifest(
         installations: {
           'cursor': {
-            'dep1': PackageSkillsEntry(
+            'package:dep1': SkillsEntry(
               skills: [
                 InstalledSkillEntry(
                   name: 'dep1-skill-1',
@@ -63,7 +63,7 @@ void main() {
                 ),
               ],
             ),
-            'dep2': PackageSkillsEntry(
+            'package:dep2': SkillsEntry(
               skills: [
                 InstalledSkillEntry(
                   name: 'dep2-skill-3',
@@ -224,7 +224,7 @@ void main() {
 
       projectPath = d.path('multi_project');
 
-      final dep1SkillsEntry = PackageSkillsEntry(
+      final dep1SkillsEntry = SkillsEntry(
         skills: [
           InstalledSkillEntry(
             name: 'dep1-skill',
@@ -232,7 +232,7 @@ void main() {
           ),
         ],
       );
-      final dep2SkillsEntry = PackageSkillsEntry(
+      final dep2SkillsEntry = SkillsEntry(
         skills: [
           InstalledSkillEntry(
             name: 'dep2-skill',
@@ -242,8 +242,14 @@ void main() {
       );
       manifest = SkillManifest(
         installations: {
-          'cursor': {'dep1': dep1SkillsEntry, 'dep2': dep2SkillsEntry},
-          'claude': {'dep1': dep1SkillsEntry, 'dep2': dep2SkillsEntry},
+          'cursor': {
+            'package:dep1': dep1SkillsEntry,
+            'package:dep2': dep2SkillsEntry,
+          },
+          'claude': {
+            'package:dep1': dep1SkillsEntry,
+            'package:dep2': dep2SkillsEntry,
+          },
         },
       );
 
@@ -341,9 +347,107 @@ void main() {
       ]);
       final manifest = await SkillManifest.loadFromRoot(projectPath);
       expect(
-        manifest!.packagesForIde('claude').keys,
-        allOf(contains('dep2'), isNot(contains('dep1'))),
+        manifest!.sourceUrisForIde('claude').keys,
+        allOf(contains('package:dep2'), isNot(contains('package:dep1'))),
       );
     });
+  });
+
+  group('Given a project with skills from a git repo', () {
+    late String projectPath;
+    late SkillManifest manifest;
+
+    setUp(() async {
+      final projectRootDir = d.dir('project2', [
+        pubspec('test_app'),
+        d.dir('.cursor', [
+          d.dir('skills', [
+            d.dir('git-repo-skill-1', [d.file('SKILL.md', 'content')]),
+            d.dir('ssh-git-repo-skill-1', [d.file('SKILL.md', 'ssh content')]),
+          ]),
+        ]),
+      ]);
+      await projectRootDir.create();
+
+      projectPath = projectRootDir.io.path;
+      await Process.run('dart', ['pub', 'get'], workingDirectory: projectPath);
+
+      manifest = SkillManifest(
+        installations: {
+          'cursor': {
+            'https://github.com/foo/bar.git': SkillsEntry(
+              skills: [
+                InstalledSkillEntry(
+                  name: 'git-repo-skill-1',
+                  installedAt: DateTime.utc(2026),
+                ),
+              ],
+            ),
+            'git@github.com:zip/zap.git': SkillsEntry(
+              skills: [
+                InstalledSkillEntry(
+                  name: 'ssh-git-repo-skill-1',
+                  installedAt: DateTime.utc(2026),
+                ),
+              ],
+            ),
+          },
+        },
+      );
+
+      await manifest.save(File(SkillManifest.pathIn(projectPath)));
+    });
+
+    test(
+      'when running `skills remove --git https://github.com/foo/bar.git` then removes only those skills',
+      () async {
+        fakeDialogSupport.multiSelectResults.add({0});
+        await runner.run([
+          'remove',
+          '--directory',
+          projectPath,
+          '--ide',
+          'cursor',
+          '--git',
+          'https://github.com/foo/bar.git',
+        ]);
+
+        await d.dir('project2', [
+          d.dir('.cursor', [
+            d.dir('skills', [
+              d.nothing('git-repo-skill-1'),
+              d.dir('ssh-git-repo-skill-1'),
+            ]),
+          ]),
+          d.dir(SkillManifest.configDirPath),
+        ]).validate();
+      },
+    );
+
+    test(
+      'when running `skills remove --git git@github.com:zip/zap.git` then removes only those skills',
+      () async {
+        fakeDialogSupport.multiSelectResults.add({0});
+        await runner.run([
+          'remove',
+          '--directory',
+          projectPath,
+          '--ide',
+          'cursor',
+          '--git',
+          'git@github.com:zip/zap.git',
+        ]);
+
+        await d.dir('project2', [
+          d.dir('.cursor', [
+            d.dir('skills', [
+              d.dir('git-repo-skill-1'),
+              d.nothing('ssh-git-repo-skill-1'),
+            ]),
+          ]),
+          d.dir(SkillManifest.configDirPath),
+        ]).validate();
+      },
+    );
   });
 }

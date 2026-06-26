@@ -7,7 +7,7 @@ import 'package:io/io.dart';
 import 'package:logging/logging.dart';
 import 'package:skills/skills.dart';
 import 'package:skills/src/commands/prune_command.dart';
-import 'package:skills/src/commands/registry_command.dart';
+import 'package:skills/src/commands/add_command.dart';
 import 'package:skills/src/commands/skills_command_runner.dart';
 import 'package:skills/src/core/exceptions.dart';
 
@@ -43,7 +43,7 @@ Future<void> main(List<String> arguments) async {
           ..addCommand(ListCommand())
           ..addCommand(PruneCommand(dialogSupport: dialogSupport))
           ..addCommand(RemoveCommand(dialogSupport: dialogSupport))
-          ..addCommand(RegistryCommand(dialogSupport: dialogSupport));
+          ..addCommand(AddCommand(dialogSupport: dialogSupport));
 
     try {
       await runner.run(arguments);

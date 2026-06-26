@@ -15,7 +15,7 @@ class AdvisoryChecker {
   AdvisoryChecker({http.Client? httpClient}) : _httpClient = httpClient;
 
   /// Checks for vulnerabilities for the given [packages] and
-  /// [registryRepoCommits].
+  /// [gitRepoCommits].
   ///
   /// Returns a map from package name to a list of vulnerability summaries.
   ///
@@ -26,16 +26,16 @@ class AdvisoryChecker {
     List<ResolvedPackage> packages,
     String rootPath,
     Logger logger, {
-    Map<String, String>? registryRepoCommits,
+    Map<String, String>? gitRepoCommits,
   }) async {
     final results = <String, List<String>>{};
     final queries = <Map<String, dynamic>>[];
     // Package names or git URIs that were queried.
     final queriedSources = <String>[];
 
-    /// Queries for all the registry repositories.
-    if (registryRepoCommits != null) {
-      for (final entry in registryRepoCommits.entries) {
+    /// Queries for all the git repositories.
+    if (gitRepoCommits != null) {
+      for (final entry in gitRepoCommits.entries) {
         queriedSources.add(entry.key);
         queries.add({'commit': entry.value});
       }

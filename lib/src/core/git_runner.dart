@@ -2,8 +2,9 @@ import 'dart:io';
 
 /// Checks whether git is available on the system.
 ///
-/// Used to decide whether to clone/update GitHub registry repos;
-/// if git is not installed, registry skills are skipped and a warning is shown.
+/// Used to decide whether to clone/update git repos;
+///
+/// if git is not installed, repo skills are skipped and a warning is shown.
 class GitRunner {
   /// If set, used instead of actually running git (for tests).
   final Future<bool> Function()? isAvailableOverride;

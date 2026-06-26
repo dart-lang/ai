@@ -57,7 +57,7 @@ void main() {
         final manifest = SkillManifest(
           installations: {
             'cursor': {
-              'pkg_a': PackageSkillsEntry(
+              'package:pkg_a': SkillsEntry(
                 skills: [
                   InstalledSkillEntry(
                     name: 'pkg_a-skill-1',
@@ -65,7 +65,7 @@ void main() {
                   ),
                 ],
               ),
-              'pkg_b': PackageSkillsEntry(
+              'package:pkg_b': SkillsEntry(
                 skills: [
                   InstalledSkillEntry(
                     name: 'pkg_b-skill-2',
@@ -100,8 +100,14 @@ void main() {
 
         final loaded = await SkillManifest.loadFromRoot(projectPath);
         expect(loaded, isNotNull);
-        expect(loaded!.packagesForIde('cursor').keys, contains('pkg_a'));
-        expect(loaded.packagesForIde('cursor').keys, isNot(contains('pkg_b')));
+        expect(
+          loaded!.sourceUrisForIde('cursor').keys,
+          contains('package:pkg_a'),
+        );
+        expect(
+          loaded.sourceUrisForIde('cursor').keys,
+          isNot(contains('package:pkg_b')),
+        );
       },
     );
 
@@ -137,7 +143,7 @@ void main() {
         final manifest = SkillManifest(
           installations: {
             'cursor': {
-              'old_pkg': PackageSkillsEntry(
+              'package:old_pkg': SkillsEntry(
                 skills: [
                   InstalledSkillEntry(
                     name: 'old_pkg-skill',
@@ -254,7 +260,7 @@ void main() {
       final manifest = SkillManifest(
         installations: {
           'cursor': {
-            'pkg_a': PackageSkillsEntry(
+            'package:pkg_a': SkillsEntry(
               skills: [
                 InstalledSkillEntry(
                   name: 'pkg_a-skill',
@@ -262,7 +268,7 @@ void main() {
                 ),
               ],
             ),
-            'unref_pkg': PackageSkillsEntry(
+            'package:unref_pkg': SkillsEntry(
               skills: [
                 InstalledSkillEntry(
                   name: 'unref-skill',
@@ -272,7 +278,7 @@ void main() {
             ),
           },
           'claude': {
-            'pkg_a': PackageSkillsEntry(
+            'package:pkg_a': SkillsEntry(
               skills: [
                 InstalledSkillEntry(
                   name: 'pkg_a-skill',
@@ -280,7 +286,7 @@ void main() {
                 ),
               ],
             ),
-            'unref_pkg': PackageSkillsEntry(
+            'package:unref_pkg': SkillsEntry(
               skills: [
                 InstalledSkillEntry(
                   name: 'unref-skill',
@@ -315,14 +321,17 @@ void main() {
 
       final loaded = await SkillManifest.loadFromRoot(projectPath);
       expect(loaded, isNotNull);
-      expect(loaded!.packagesForIde('cursor').keys, contains('pkg_a'));
       expect(
-        loaded.packagesForIde('cursor').keys,
-        isNot(contains('unref_pkg')),
+        loaded!.sourceUrisForIde('cursor').keys,
+        contains('package:pkg_a'),
       );
       expect(
-        loaded.packagesForIde('claude').keys,
-        containsAll(['pkg_a', 'unref_pkg']),
+        loaded.sourceUrisForIde('cursor').keys,
+        isNot(contains('package:unref_pkg')),
+      );
+      expect(
+        loaded.sourceUrisForIde('claude').keys,
+        containsAll(['package:pkg_a', 'package:unref_pkg']),
       );
     });
   });

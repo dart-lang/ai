@@ -15,7 +15,7 @@ void main() {
       final manifest = SkillManifest(
         installations: {
           'cursor': {
-            'my_package': PackageSkillsEntry(
+            'package:my_package': SkillsEntry(
               skills: [
                 InstalledSkillEntry(
                   name: 'my_package-code-gen',
@@ -31,11 +31,11 @@ void main() {
       final restored = SkillManifest.fromJson(json);
 
       expect(restored.allIdes, contains('cursor'));
-      final pkgs = restored.packagesForIde('cursor');
+      final pkgs = restored.sourceUrisForIde('cursor');
       expect(pkgs, hasLength(1));
-      expect(pkgs['my_package']!.skills, hasLength(1));
+      expect(pkgs['package:my_package']!.skills, hasLength(1));
       expect(
-        pkgs['my_package']!.skills.first.name,
+        pkgs['package:my_package']!.skills.first.name,
         equals('my_package-code-gen'),
       );
     });
@@ -65,7 +65,7 @@ void main() {
       expect(manifest, isNotNull);
       expect(manifest!.allIdes.toList(), equals(['cursor']));
       expect(
-        manifest.packagesForIde('cursor')['pkg_a']!.skills.first.name,
+        manifest.sourceUrisForIde('cursor')['pkg_a']!.skills.first.name,
         equals('pkg_a-skill-1'),
       );
     });
@@ -117,7 +117,7 @@ void main() {
       final manifest = SkillManifest(
         installations: {
           'cursor': {
-            'pkg': PackageSkillsEntry(
+            'package:pkg': SkillsEntry(
               skills: [
                 InstalledSkillEntry(
                   name: 'pkg-skill-a',
@@ -135,7 +135,7 @@ void main() {
       final loaded = await SkillManifest.loadFromRoot(d.sandbox);
       expect(loaded, isNotNull);
       expect(
-        loaded!.packagesForIde('cursor')['pkg']!.skills.first.name,
+        loaded!.sourceUrisForIde('cursor')['package:pkg']!.skills.first.name,
         equals('pkg-skill-a'),
       );
     });
@@ -145,7 +145,7 @@ void main() {
     final base = SkillManifest(
       installations: {
         'cursor': {
-          'pkg_a': PackageSkillsEntry(
+          'package:pkg_a': SkillsEntry(
             skills: [
               InstalledSkillEntry(
                 name: 'pkg_a-skill-1',
@@ -158,10 +158,10 @@ void main() {
     );
 
     test('when adding a package to an IDE then it appears', () {
-      final updated = base.withPackage(
+      final updated = base.withSourceUri(
         'cursor',
-        'pkg_b',
-        PackageSkillsEntry(
+        'package:pkg_b',
+        SkillsEntry(
           skills: [
             InstalledSkillEntry(
               name: 'pkg_b-skill-2',
@@ -171,15 +171,15 @@ void main() {
         ),
       );
 
-      expect(updated.packagesForIde('cursor'), hasLength(2));
-      expect(updated.packagesForIde('cursor'), contains('pkg_b'));
+      expect(updated.sourceUrisForIde('cursor'), hasLength(2));
+      expect(updated.sourceUrisForIde('cursor'), contains('package:pkg_b'));
     });
 
     test('when adding a package to a new IDE then both IDEs exist', () {
-      final updated = base.withPackage(
+      final updated = base.withSourceUri(
         'claude',
-        'pkg_a',
-        PackageSkillsEntry(
+        'package:pkg_a',
+        SkillsEntry(
           skills: [
             InstalledSkillEntry(
               name: 'pkg_a-skill-1',
@@ -193,9 +193,9 @@ void main() {
     });
 
     test('when removing a package from an IDE then it is gone', () {
-      final updated = base.withoutPackage('cursor', 'pkg_a');
+      final updated = base.withoutSourceUri('cursor', 'package:pkg_a');
 
-      expect(updated.packagesForIde('cursor'), isEmpty);
+      expect(updated.sourceUrisForIde('cursor'), isEmpty);
     });
 
     test('when removing an entire IDE then it is gone', () {
@@ -205,10 +205,10 @@ void main() {
     });
 
     test('when iterating allSkills then returns all entries across IDEs', () {
-      final multi = base.withPackage(
+      final multi = base.withSourceUri(
         'claude',
-        'pkg_c',
-        PackageSkillsEntry(
+        'package:pkg_c',
+        SkillsEntry(
           skills: [
             InstalledSkillEntry(
               name: 'pkg_c-s',

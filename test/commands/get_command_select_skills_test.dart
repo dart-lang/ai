@@ -93,7 +93,7 @@ void main() {
         expect(fakeDialogSupport.allInitialSelected[0], isEmpty);
         expect(
           fakeDialogSupport.allTitles[0],
-          equals('Select skills to install/update from package dep1:'),
+          equals('Select skills to install/update from package:dep1:'),
         );
 
         final dep1Skill1Dir = Directory(
@@ -136,7 +136,7 @@ void main() {
           expect(fakeDialogSupport.allMultiSelectOptions, hasLength(3));
           expect(
             fakeDialogSupport.allMultiSelectOptions[0],
-            unorderedEquals(['dep1', 'dep2']),
+            unorderedEquals(['package:dep1', 'package:dep2']),
           );
           expect(
             fakeDialogSupport.allMultiSelectOptions[1],
@@ -147,7 +147,7 @@ void main() {
           );
           expect(
             fakeDialogSupport.allTitles[1],
-            equals('Select skills to install/update from package dep1:'),
+            equals('Select skills to install/update from package:dep1:'),
           );
 
           final dep1Skill1Dir = Directory(
@@ -247,7 +247,7 @@ void main() {
         expect(fakeDialogSupport.allMultiSelectOptions, hasLength(3));
         expect(
           fakeDialogSupport.allMultiSelectOptions[0],
-          unorderedEquals(['dep1', 'dep2']),
+          unorderedEquals(['package:dep1', 'package:dep2']),
         );
         expect(
           fakeDialogSupport.allMultiSelectOptions[1],
@@ -267,11 +267,11 @@ void main() {
         // Sorted by display name: package dep1, package dep2
         expect(
           fakeDialogSupport.allTitles[1],
-          equals('Select skills to install/update from package dep1:'),
+          equals('Select skills to install/update from package:dep1:'),
         );
         expect(
           fakeDialogSupport.allTitles[2],
-          equals('Select skills to install/update from package dep2:'),
+          equals('Select skills to install/update from package:dep2:'),
         );
 
         final dep1Skill1Dir = Directory(

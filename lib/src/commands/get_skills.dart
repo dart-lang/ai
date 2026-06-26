@@ -9,11 +9,10 @@ import 'package:skills/src/core/advisory_checker.dart';
 import 'package:skills/src/core/git_runner.dart';
 import 'package:skills/src/core/package_resolver.dart';
 import 'package:skills/src/core/pub_runner.dart';
-import 'package:skills/src/core/registry_scanner.dart';
-import 'package:skills/src/core/registry_sync.dart';
-import 'package:skills/src/core/registry_repos.dart';
+import 'package:skills/src/core/git_scanner.dart';
+import 'package:skills/src/core/git_sync.dart';
+import 'package:skills/src/core/git_repos.dart';
 import 'package:skills/src/core/skill_installer.dart';
-import 'package:skills/src/core/skill_merger.dart';
 import 'package:skills/src/core/skill_scanner.dart';
 import 'package:skills/src/core/workspace_resolver.dart';
 import 'package:skills/src/ide/ide.dart';
@@ -24,10 +23,13 @@ import 'package:skills/src/models/global_config.dart';
 import '../models/skill_manifest.dart';
 import '../ide/ide_adapter.dart';
 
-/// Installs skills from package dependencies for [ides].
+/// Installs skills from package dependencies and git repos for [ides].
 ///
-/// If [packageNames] or [skillNames] are provided and non-empty then only
-/// skills from those packages or matching those names will be installed.
+/// If [sourceUris] or [skillNames] are provided and non-empty then only
+/// skills from those sources/repos or matching those names will be installed.
+/// For packages, entries in [sourceUris] should look like `package:<name>`,
+/// and otherwise they should be git URIs which are compatible with the `git`
+/// CLI tool.
 ///
 /// Returns `true` on success or `false` otherwise.
 Future<bool> getSkills({
@@ -37,7 +39,7 @@ Future<bool> getSkills({
   DialogSupport? dialogSupport,
   GitRunner gitRunner = const GitRunner(),
   String usage = '',
-  Set<String> packageNames = const {},
+  Set<String> sourceUris = const {},
   Set<String> skillNames = const {},
   bool allFlag = false,
 }) async {
@@ -46,12 +48,27 @@ Future<bool> getSkills({
     throw UsageException('Failed to run pub get.', usage);
   }
 
-  final packages = await PackageResolver.resolveWorkspace(
-    workspace,
-    packageNames: packageNames,
-  );
+  // Separate out the package: URIs from git URIs and extract the package
+  // name from package URIs.
+  final requestedPackages = <String>{};
+  final requestedGitUris = <String>{};
+  for (var uri in sourceUris) {
+    if (uri.startsWith('package:')) {
+      requestedPackages.add(uri.substring('package:'.length));
+    } else {
+      requestedGitUris.add(uri);
+    }
+  }
 
-  if (packageNames.isNotEmpty) {
+  // If git urls were given, but no packages, don't update any packages.
+  final packages = sourceUris.isNotEmpty && requestedPackages.isEmpty
+      ? const <ResolvedPackage>[]
+      : await PackageResolver.resolveWorkspace(
+          workspace,
+          packageNames: requestedPackages,
+        );
+
+  if (requestedPackages.isNotEmpty) {
     if (packages.isEmpty) {
       logger.severe(
         'None of the requested packages were found in dependencies.',
@@ -60,7 +77,7 @@ Future<bool> getSkills({
     }
 
     final foundNames = packages.map((p) => p.name).toSet();
-    final missing = packageNames.difference(foundNames);
+    final missing = requestedPackages.difference(foundNames);
     if (missing.isNotEmpty) {
       logger.warning(
         'Warning: The following requested packages were not found in '
@@ -76,30 +93,29 @@ Future<bool> getSkills({
   final globalConfigFile = io.File(globalConfigPath);
   var globalConfig = await GlobalConfig.loadOrEmpty(globalConfigFile);
 
-  final registryData = await _syncAndScanRegistries(
-    gitRunner: gitRunner,
-    globalConfig: globalConfig,
-    manifest: manifest,
-    rootPath: rootPath,
-    logger: logger,
-  );
+  // If packages were given, but no git repos, don't sync any git repos.
+  final _GitData gitData = sourceUris.isNotEmpty && requestedGitUris.isEmpty
+      ? const (gitRepoCommits: {}, gitSkills: [])
+      : await _syncAndScanGitRepos(
+          gitRunner: gitRunner,
+          gitUris: requestedGitUris,
+          globalConfig: globalConfig,
+          manifest: manifest,
+          rootPath: rootPath,
+          logger: logger,
+        );
 
   await _checkSecurityAdvisories(
     packages: packages,
     rootPath: rootPath,
     logger: logger,
-    registryRepoCommits: registryData.registryRepoCommits,
+    gitRepoCommits: gitData.gitRepoCommits,
   );
 
   final scanner = SkillScanner(logger);
   final dartSkills = await scanner.scan(packages);
 
-  final resolvedPackageNames = packages.map((p) => p.name).toSet();
-  var skills = mergeSkills(
-    dartSkills: dartSkills,
-    registrySkills: registryData.registrySkills,
-    resolvedPackageNames: resolvedPackageNames,
-  );
+  final skills = [...dartSkills, ...gitData.gitSkills];
 
   Map<Ide, Set<String>>? selectedSkillNamesByIde;
 
@@ -123,13 +139,13 @@ Future<bool> getSkills({
     skills: skills,
     ideAdapters: ideAdapters,
     manifest: manifest,
-    packageNames: packageNames,
+    sourceUris: sourceUris,
   );
 
   if (skillsBySource.isEmpty) {
-    final plural = resolvedPackageNames.length > 1 ? 's' : '';
-    final filterDescription = resolvedPackageNames.isNotEmpty
-        ? ' in the given package$plural ${resolvedPackageNames.join(', ')}'
+    final plural = sourceUris.length > 1 ? 's' : '';
+    final filterDescription = sourceUris.isNotEmpty
+        ? ' in the given source$plural ${sourceUris.join(', ')}'
         : '';
     logger.info('No skills found$filterDescription.');
     return false;
@@ -149,9 +165,9 @@ Future<bool> getSkills({
 
   if (!allFlag &&
       dialogSupport != null &&
-      packageNames.isEmpty &&
+      sourceUris.isEmpty &&
       skillNames.isEmpty) {
-    final continueInstall = await _promptForPackagesWithDiffs(
+    final continueInstall = await _promptForSourcesWithDiffs(
       sourceIdsWithDiff: sourceIdsWithDiff,
       skillsBySource: skillsBySource,
       sortedSourceIds: sortedSourceIds,
@@ -197,7 +213,7 @@ Future<bool> getSkills({
       selectedSkills: selectedSkillNamesByIde?[ide],
       previousManifest: manifest,
       globalConfig: globalConfig,
-      packageNames: packageNames,
+      sourceUris: sourceUris, // this still acts as source filter
     );
     if (result == null) {
       logger.warning('Installation aborted for IDE ${ide.cliName}');
@@ -219,76 +235,85 @@ Future<bool> getSkills({
   return true;
 }
 
-/// Syncs and scans skill registries from [globalConfig] and [manifest].
+/// Syncs and scans git repos from [globalConfig] and [manifest].
 ///
 /// If git is available, it syncs the repositories, scans for global and local
-/// registry skills, and records the git commits for each repo.
-Future<_RegistryData> _syncAndScanRegistries({
+/// git skills, and records the git commits for each repo.
+///
+/// If [gitUris] is not empty, only those git repos are synced and checked.
+Future<_GitData> _syncAndScanGitRepos({
   required GitRunner gitRunner,
   required GlobalConfig globalConfig,
   required SkillManifest manifest,
   required String rootPath,
   required Logger logger,
+  Set<String> gitUris = const {},
 }) async {
-  final registrySkills = <ScannedSkill>[];
-  final registryRepoCommits = <String, String>{};
+  final gitSkills = <ScannedSkill>[];
+  final gitRepoCommits = <String, String>{};
 
   if (await gitRunner.isAvailable) {
-    final registrySync = RegistrySync(
-      repos: [...globalConfig.registries, ...manifest.registries],
+    final gitSync = GitSync(
+      repos: [
+        for (var repo in globalConfig.gitRepos.followedBy(manifest.gitRepos))
+          if (gitUris.isEmpty || gitUris.contains(repo.cloneUrl)) repo,
+      ],
     );
-    await registrySync.sync(rootPath, onProgress: logger.info);
+    await gitSync.sync(rootPath, onProgress: logger.info);
 
-    final registryScanner = RegistryScanner();
-    registrySkills
+    final gitScanner = GitScanner();
+    gitSkills
       ..addAll(
-        await registryScanner.scan(
+        await gitScanner.scan(
           rootPath,
           isGlobal: true,
-          repos: globalConfig.registries,
+          repos: [
+            for (var repo in globalConfig.gitRepos)
+              if (gitUris.isEmpty || gitUris.contains(repo.cloneUrl)) repo,
+          ],
         ),
       )
       ..addAll(
-        await registryScanner.scan(
+        await gitScanner.scan(
           rootPath,
           isGlobal: false,
-          repos: manifest.registries,
+          repos: [
+            for (var repo in manifest.gitRepos)
+              if (gitUris.isEmpty || gitUris.contains(repo.cloneUrl)) repo,
+          ],
         ),
       );
 
-    for (final repo in registrySync.repos) {
-      final repoPath = registryRepoPath(rootPath, repo);
+    for (final repo in gitSync.repos) {
+      final repoPath = gitRepoPath(rootPath, repo);
       final commit = await _getGitCommit(repoPath);
       if (commit != null) {
-        registryRepoCommits[repo.cloneUrl] = commit;
+        gitRepoCommits[repo.cloneUrl] = commit;
       }
     }
   } else {
-    logger.warning('Warning: git not found. Skipping GitHub registry skills.');
+    logger.warning('Warning: git not found. Skipping git repo skills.');
   }
 
-  return (
-    registrySkills: registrySkills,
-    registryRepoCommits: registryRepoCommits,
-  );
+  return (gitSkills: gitSkills, gitRepoCommits: gitRepoCommits);
 }
 
 /// Checks for security advisories for the given [packages] using OSV.dev.
 ///
 /// Logs warnings if any known security advisories exist for the given packages
-/// or registry commits.
+/// or git commits.
 Future<void> _checkSecurityAdvisories({
   required List<ResolvedPackage> packages,
   required String rootPath,
   required Logger logger,
-  required Map<String, String> registryRepoCommits,
+  required Map<String, String> gitRepoCommits,
 }) async {
   final advisoryChecker = AdvisoryChecker();
   final advisories = await advisoryChecker.checkAdvisories(
     packages,
     rootPath,
     logger,
-    registryRepoCommits: registryRepoCommits,
+    gitRepoCommits: gitRepoCommits,
   );
   if (advisories.isNotEmpty) {
     final buffer = StringBuffer()
@@ -303,41 +328,44 @@ Future<void> _checkSecurityAdvisories({
   }
 }
 
-/// Groups scanned [skills] by their source ID (package or registry URL).
+/// Groups scanned [skills] by their source URI.
 ///
 /// It also compares the scanned skills against the previously installed skills
 /// from the [manifest] to identify any skills that were removed or are no
-/// longer present in the dependencies, returning them as `RemovedSkill` instances.
+/// longer present in the dependencies, returning them as [OrphanedSkill]
+/// instances.
+///
+/// If [sourceUris] is non-empty, then only skills from those sources are
+/// returned.
 Map<String, List<ScannedSkill>> _groupSkillsBySourceAndFindRemoved({
   required List<ScannedSkill> skills,
   required List<IdeAdapter> ideAdapters,
   required SkillManifest manifest,
-  required Set<String> packageNames,
+  required Set<String> sourceUris,
 }) {
   final skillsBySource = <String, List<ScannedSkill>>{};
   for (final skill in skills) {
-    final sourceId = _getSourceId(skill);
+    final sourceId = skill.sourceUri;
     skillsBySource.putIfAbsent(sourceId, () => []).add(skill);
   }
 
   for (final adapter in ideAdapters) {
-    final existingPkgs = manifest.packagesForIde(adapter.ide.cliName);
-    for (final MapEntry(key: pkgName, value: entry) in existingPkgs.entries) {
-      if (packageNames.isNotEmpty && !packageNames.contains(pkgName)) {
-        continue;
-      }
+    final existingPkgs = manifest.sourceUrisForIde(adapter.ide.cliName);
+    for (final MapEntry(key: sourceUri, value: entry) in existingPkgs.entries) {
+      if (sourceUris.isNotEmpty && !sourceUris.contains(sourceUri)) continue;
+
       for (final existingSkill in entry.skills) {
         if (!existingSkill.isInstalled) continue;
 
         final isStillPresent = skills.any(
-          (s) => s.packageName == pkgName && s.skillName == existingSkill.name,
+          (s) => s.sourceUri == sourceUri && s.skillName == existingSkill.name,
         );
         if (!isStillPresent) {
           final orphanedSkill = OrphanedSkill(
-            packageName: pkgName,
+            sourceUri: sourceUri,
             skillName: existingSkill.name,
           );
-          final sourceId = _getSourceId(orphanedSkill);
+          final sourceId = orphanedSkill.sourceUri;
           final list = skillsBySource.putIfAbsent(sourceId, () => []);
           if (list.where((s) => s.skillName == existingSkill.name).isEmpty) {
             list.add(orphanedSkill);
@@ -380,7 +408,7 @@ Future<_SkillStatesResult> _computeSkillStates({
         };
         var state = _SkillState.isNew;
         final currentSkillEntry = manifest
-            .packagesForIde(adapter.ide.cliName)[skill.packageName]
+            .sourceUrisForIde(adapter.ide.cliName)[skill.sourceUri]
             ?.skills
             .where((s) => s.name == skill.skillName)
             .firstOrNull;
@@ -415,14 +443,14 @@ Future<_SkillStatesResult> _computeSkillStates({
   return (allSkillStates: allSkillStates, sourceIdsWithDiff: sourceIdsWithDiff);
 }
 
-/// Prompts the user to filter skills by the packages they come from.
+/// Prompts the user to filter skills by the sources they come from.
 ///
-/// If there are skills with differences across multiple packages, a dialog is
-/// shown for the user to select which packages to include. Unselected packages
+/// If there are skills with differences across multiple sources, a dialog is
+/// shown for the user to select which sources to include. Unselected sources
 /// and their skills are removed from the input sets.
 ///
 /// Returns `true` if the installation should continue, or `false` if aborted.
-Future<bool> _promptForPackagesWithDiffs({
+Future<bool> _promptForSourcesWithDiffs({
   required Set<String> sourceIdsWithDiff,
   required Map<String, List<ScannedSkill>> skillsBySource,
   required List<String> sortedSourceIds,
@@ -430,39 +458,31 @@ Future<bool> _promptForPackagesWithDiffs({
   required DialogSupport dialogSupport,
   required Logger logger,
 }) async {
-  final packagesWithDiffs = <String>{};
-  for (final sourceId in sourceIdsWithDiff) {
-    final firstSkill = skillsBySource[sourceId]!.first;
-    if (firstSkill.registryUrl == null) {
-      packagesWithDiffs.add(firstSkill.packageName);
-    }
-  }
-
-  final packagesWithSkills = packagesWithDiffs.toList()..sort();
-  if (packagesWithSkills.isNotEmpty) {
+  final sourcesWithSkills = sourceIdsWithDiff.toList()..sort();
+  if (sourcesWithSkills.isNotEmpty) {
     final initialSelected = Iterable<int>.generate(
-      packagesWithSkills.length,
+      sourcesWithSkills.length,
     ).toSet();
     final selectedIndices = await dialogSupport.showMultiSelectDialog(
-      packagesWithSkills,
-      title: 'Select packages to install skills from:',
+      sourcesWithSkills,
+      title: 'Select sources to install skills from:',
       initialSelected: initialSelected,
     );
     if (selectedIndices != null) {
-      final selectedPackages = selectedIndices
-          .map((i) => packagesWithSkills[i])
+      final selectedSources = selectedIndices
+          .map((i) => sourcesWithSkills[i])
           .toSet();
       skills.removeWhere(
         (s) =>
-            packagesWithDiffs.contains(s.packageName) &&
-            !selectedPackages.contains(s.packageName),
+            sourceIdsWithDiff.contains(s.sourceUri) &&
+            !selectedSources.contains(s.sourceUri),
       );
 
       for (final list in skillsBySource.values) {
         list.removeWhere(
           (s) =>
-              packagesWithDiffs.contains(s.packageName) &&
-              !selectedPackages.contains(s.packageName),
+              sourceIdsWithDiff.contains(s.sourceUri) &&
+              !selectedSources.contains(s.sourceUri),
         );
       }
       skillsBySource.removeWhere((k, v) => v.isEmpty);
@@ -554,7 +574,7 @@ Future<_PromptResult> _promptForSkillsToInstall({
       }
     }
 
-    final displayName = _getSourceDisplayName(sourceSkills.first);
+    final displayName = sourceId;
 
     if (dialogSupport == null) {
       logger.info('Available skills from $displayName:');
@@ -618,18 +638,6 @@ Future<String?> _getGitCommit(String repoPath) async {
   return null;
 }
 
-String _getSourceId(ScannedSkill skill) {
-  return skill.registryUrl ?? 'pkg:${skill.packageName}';
-}
-
-String _getSourceDisplayName(ScannedSkill skill) {
-  if (skill.registryUrl != null) {
-    return 'registry ${skill.registryUrl!}';
-  } else {
-    return 'package ${skill.packageName}';
-  }
-}
-
 enum _SkillState {
   localEdits('Local edits', false),
   isNew('New', false),
@@ -656,9 +664,9 @@ enum _SkillState {
   }
 }
 
-typedef _RegistryData = ({
-  List<ScannedSkill> registrySkills,
-  Map<String, String> registryRepoCommits,
+typedef _GitData = ({
+  List<ScannedSkill> gitSkills,
+  Map<String, String> gitRepoCommits,
 });
 
 typedef _SkillStatesResult = ({
@@ -690,10 +698,10 @@ class OrphanedSkill implements ScannedSkill {
   bool get isGlobal => false;
 
   @override
-  final String packageName;
+  final String? packageName;
 
   @override
-  String? get registryUrl => null;
+  final String? gitUrl;
 
   @override
   final String skillName;
@@ -702,5 +710,16 @@ class OrphanedSkill implements ScannedSkill {
   @override
   String? get skillPath => null;
 
-  OrphanedSkill({required this.packageName, required this.skillName});
+  @override
+  String get sourceUri => gitUrl ?? 'package:${packageName!}';
+
+  OrphanedSkill({required String sourceUri, required this.skillName})
+    : packageName = sourceUri.startsWith('package:')
+          ? sourceUri.substring(8)
+          : null,
+      gitUrl = sourceUri.startsWith('package:') ? null : sourceUri {
+    if (gitUrl == null && packageName == null) {
+      throw StateError('One of $gitUrl or $packageName must be non-null');
+    }
+  }
 }

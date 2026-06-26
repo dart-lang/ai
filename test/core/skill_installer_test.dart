@@ -32,10 +32,10 @@ void main() {
         ]),
       ]).create();
       // Create a manifest that knows about the old skill
-      manifest = const SkillManifest().withPackage(
+      manifest = const SkillManifest().withSourceUri(
         'generic',
-        'pkg_a',
-        PackageSkillsEntry(
+        'package:pkg_a',
+        SkillsEntry(
           skills: [
             InstalledSkillEntry(
               name: 'pkg_a-skill',
@@ -98,10 +98,10 @@ void main() {
       ]).create();
 
       // Manifest has skill1 and skill2, but skill1's hash differs from 'local edits'
-      manifest = const SkillManifest().withPackage(
+      manifest = const SkillManifest().withSourceUri(
         'generic',
-        'pkg_a',
-        PackageSkillsEntry(
+        'package:pkg_a',
+        SkillsEntry(
           skills: [
             InstalledSkillEntry(
               name: 'pkg_a-skill1',
@@ -151,7 +151,9 @@ void main() {
       );
 
       final newManifest = result!.manifest;
-      final pkgSkills = newManifest.packagesForIde('generic')['pkg_a']!.skills;
+      final pkgSkills = newManifest
+          .sourceUrisForIde('generic')['package:pkg_a']!
+          .skills;
 
       expect(
         pkgSkills.map((s) => s.name),

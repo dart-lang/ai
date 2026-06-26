@@ -243,8 +243,8 @@ packages:
     });
   });
 
-  test('Given some git registries when AdvisoryChecker.checkAdvisories is '
-      'called then it queries by the current registry commit hash', () async {
+  test('Given some git repos when AdvisoryChecker.checkAdvisories is '
+      'called then it queries by the current commit hash', () async {
     final checker = AdvisoryChecker(
       httpClient: MockClient((request) async {
         expect(request.body, contains('"commit":"commit456"'));
@@ -263,7 +263,7 @@ packages:
       [],
       d.sandbox,
       logger,
-      registryRepoCommits: {'owner/repo': 'commit456'},
+      gitRepoCommits: {'https://github.com/a/b.git': '123'},
     );
   });
 }

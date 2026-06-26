@@ -32,7 +32,7 @@ class GenericAdapter extends AgentSkillsAdapter {
     final newDir = Directory(p.join(_projectPath, '.agents'));
     final newSkillsDir = Directory(p.join(newDir.path, 'skills'));
 
-    final genericPkgs = manifest.packagesForIde('generic');
+    final genericPkgs = manifest.sourceUrisForIde('generic');
     final manifestSkills = <String>{};
     for (final pkg in genericPkgs.values) {
       for (final skill in pkg.skills) {

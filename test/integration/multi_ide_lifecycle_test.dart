@@ -196,7 +196,7 @@ Instructions for debugging.
       );
 
       expect(manifest.allIdes, equals(['generic']));
-      expect(manifest.packagesForIde('generic'), hasLength(2));
+      expect(manifest.sourceUrisForIde('generic'), hasLength(2));
     });
 
     test(
@@ -210,7 +210,7 @@ Instructions for debugging.
             ide: ide,
             rootPath: rootPath,
             manifest: manifest,
-            packageNames: {'pkg_a'},
+            sourceUris: {'package:pkg_a'},
           );
           manifest = result.manifest;
         }
@@ -235,9 +235,12 @@ Instructions for debugging.
           isTrue,
         );
 
-        expect(manifest.packagesForIde('cursor'), contains('pkg_b'));
-        expect(manifest.packagesForIde('generic'), contains('pkg_b'));
-        expect(manifest.packagesForIde('cursor'), isNot(contains('pkg_a')));
+        expect(manifest.sourceUrisForIde('cursor'), contains('package:pkg_b'));
+        expect(manifest.sourceUrisForIde('generic'), contains('package:pkg_b'));
+        expect(
+          manifest.sourceUrisForIde('cursor'),
+          isNot(contains('package:pkg_a')),
+        );
       },
     );
   });
@@ -426,8 +429,8 @@ Instructions for debugging.
     test('when listing then manifest reports both IDEs correctly', () {
       expect(manifest.allIdes, containsAll(['cursor', 'claude']));
 
-      expect(manifest.packagesForIde('cursor'), hasLength(2));
-      expect(manifest.packagesForIde('claude'), hasLength(2));
+      expect(manifest.sourceUrisForIde('cursor'), hasLength(2));
+      expect(manifest.sourceUrisForIde('claude'), hasLength(2));
 
       expect(manifest.allSkillsForIde('cursor'), hasLength(3));
       expect(manifest.allSkillsForIde('claude'), hasLength(3));
@@ -495,9 +498,9 @@ Instructions for debugging.
         manifest = result!.manifest;
 
         expect(manifest.allIdes, equals(['generic']));
-        expect(manifest.packagesForIde('generic'), hasLength(1));
+        expect(manifest.sourceUrisForIde('generic'), hasLength(1));
         expect(
-          manifest.packagesForIde('generic')['pkg_a']!.skills,
+          manifest.sourceUrisForIde('generic')['package:pkg_a']!.skills,
           hasLength(1),
         );
         expect(manifest.installations.containsKey('antigravity'), isFalse);
@@ -514,10 +517,10 @@ Instructions for debugging.
         final rootPath = d.path('persist_project');
 
         var manifest = const SkillManifest();
-        manifest = manifest.withPackage(
+        manifest = manifest.withSourceUri(
           'cursor',
-          'pkg_a',
-          PackageSkillsEntry(
+          'package:pkg_a',
+          SkillsEntry(
             skills: [
               InstalledSkillEntry(
                 name: 'pkg_a-code-gen',
@@ -526,10 +529,10 @@ Instructions for debugging.
             ],
           ),
         );
-        manifest = manifest.withPackage(
+        manifest = manifest.withSourceUri(
           'generic',
-          'pkg_a',
-          PackageSkillsEntry(
+          'package:pkg_a',
+          SkillsEntry(
             skills: [
               InstalledSkillEntry(
                 name: 'pkg_a-code-gen',
@@ -538,10 +541,10 @@ Instructions for debugging.
             ],
           ),
         );
-        manifest = manifest.withPackage(
+        manifest = manifest.withSourceUri(
           'claude',
-          'pkg_b',
-          PackageSkillsEntry(
+          'package:pkg_b',
+          SkillsEntry(
             skills: [
               InstalledSkillEntry(
                 name: 'pkg_b-testing',
@@ -560,9 +563,18 @@ Instructions for debugging.
           loaded!.allIdes.toSet(),
           equals({'cursor', 'generic', 'claude'}),
         );
-        expect(loaded.packagesForIde('cursor')['pkg_a']!.skills, hasLength(1));
-        expect(loaded.packagesForIde('generic')['pkg_a']!.skills, hasLength(1));
-        expect(loaded.packagesForIde('claude')['pkg_b']!.skills, hasLength(1));
+        expect(
+          loaded.sourceUrisForIde('cursor')['package:pkg_a']!.skills,
+          hasLength(1),
+        );
+        expect(
+          loaded.sourceUrisForIde('generic')['package:pkg_a']!.skills,
+          hasLength(1),
+        );
+        expect(
+          loaded.sourceUrisForIde('claude')['package:pkg_b']!.skills,
+          hasLength(1),
+        );
       },
     );
   });
