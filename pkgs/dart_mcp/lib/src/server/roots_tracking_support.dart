@@ -66,6 +66,9 @@ base mixin RootsTrackingSupport on LoggingSupport {
 
   /// Updates the list of [roots] by calling [listRoots].
   ///
+  /// Normalizes file paths to file: URIs to handle clients which do not
+  /// follow the spec exactly.
+  ///
   /// If the current [_rootsCompleter] was not yet completed, then we wait to
   /// complete it until we get an updated list of roots, so that we don't get
   /// stale results from [listRoots] requests that are still in flight during
@@ -94,7 +97,34 @@ base mixin RootsTrackingSupport on LoggingSupport {
       // Only complete the completer if it's still the one we created. Otherwise
       // we wait for the next result to come back and throw away this result.
       if (_rootsCompleter == newCompleter) {
-        final roots = result == null ? <Root>[] : result.roots;
+        final roots =
+            (result == null ? <Root>[] : result.roots)
+                .map<Root?>((root) {
+                  // Some clients just give file paths, but the spec states they
+                  // should be file: URIs. This converts paths to file: URIs to
+                  // paper over that issue.
+                  final parsedUri = Uri.tryParse(root.uri);
+                  if (parsedUri == null) {
+                    log(
+                      LoggingLevel.warning,
+                      'Invalid root given from client ${root.uri}',
+                    );
+                    return null;
+                  }
+                  // No scheme or the scheme actually looks like a windows drive
+                  // letter, convert it to a file: URI.
+                  if (!parsedUri.hasScheme || parsedUri.scheme.length == 1) {
+                    return Root(
+                      uri: Uri.file(root.uri).toString(),
+                      name: root.name,
+                    );
+                  }
+                  return root;
+                })
+                // `.nonNulls` gives us a type of Object here due to the
+                // extension types, so we use `whereType` instead
+                .whereType<Root>()
+                .toList();
         newCompleter.complete(roots);
         _roots = roots;
         _rootsCompleter = null;

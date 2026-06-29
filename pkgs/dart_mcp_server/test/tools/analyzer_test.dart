@@ -120,6 +120,52 @@ void main() {
       );
     });
 
+    test('can analyze a project when roots use schemeless paths (Cursor '
+        'regression #506)', () async {
+      final example = d.dir('example', [
+        d.file('main.dart', 'void main() => 1 + "2";'),
+      ]);
+      await example.create();
+
+      // Instead of file:// URI, use the raw absolute path as the client root.
+      final schemelessRoot = Root(uri: example.io.path, name: 'example');
+      testHarness.mcpClient.addRoot(schemelessRoot);
+
+      await pumpEventQueue();
+
+      final request = CallToolRequest(
+        name: analyzeTool.name,
+        arguments: {
+          ParameterNames.roots: [
+            {
+              // Request uses file:// uri which doesn't match the root as
+              // provided in roots/list, but should normalize to the same URI.
+              ParameterNames.root: Uri.file(example.io.path).toString(),
+            },
+          ],
+        },
+      );
+      final result = await testHarness.callTool(request);
+      expect(result.isError, isNot(true));
+
+      final expectedUri = Uri.file(example.io.path).toString();
+      expect(result.content, [
+        isA<TextContent>().having(
+          (t) => t.text,
+          'text',
+          contains('# Diagnostics for root $expectedUri'),
+        ),
+        isA<TextContent>().having(
+          (t) => t.text,
+          'text',
+          contains(
+            "error • main.dart:1:20 • The argument type 'String' can't be "
+            "assigned to the parameter type 'num'.",
+          ),
+        ),
+      ]);
+    });
+
     test('can analyze a specific file', () async {
       final example = d.dir('example', [
         d.file('main.dart', 'void main() => 1 + "2";'),

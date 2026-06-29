@@ -1,3 +1,8 @@
+## 0.5.2
+
+- Update `listRoots` to normalize URIs to file: scheme variants when given raw
+  file paths. This fixes non-spec compliant clients.
+
 ## 0.5.1
 
 - Always send a properties object for tool input schemas, see
