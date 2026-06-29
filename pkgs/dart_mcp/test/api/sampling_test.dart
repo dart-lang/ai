@@ -4,6 +4,7 @@
 
 import 'dart:async';
 
+import 'package:checks/checks.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp/src/client/client.dart';
 import 'package:test/test.dart';
@@ -18,7 +19,7 @@ void main() {
     );
     await environment.initializeServer();
     final server = environment.server;
-    expect(server.clientCapabilities.sampling, isNotNull);
+    check(server.clientCapabilities.sampling).isNotNull();
 
     final client = environment.client;
     final expectedResult =
@@ -28,12 +29,12 @@ void main() {
           model: 'fakeModel',
         );
 
-    expect(
-      await server.createMessage(
-        CreateMessageRequest(messages: [], maxTokens: 100),
-      ),
-      expectedResult,
+    final result = await server.createMessage(
+      CreateMessageRequest(messages: [], maxTokens: 100),
     );
+    check(
+      result as Map<String, Object?>,
+    ).deepEquals(expectedResult as Map<String, Object?>);
   });
 }
 

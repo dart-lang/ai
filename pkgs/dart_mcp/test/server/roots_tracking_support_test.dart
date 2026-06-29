@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 import 'dart:async';
 
+import 'package:checks/checks.dart';
 import 'package:dart_mcp/client.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:test/test.dart';
@@ -29,37 +30,57 @@ void main() {
     final b = Root(uri: 'test://b', name: 'b');
 
     /// Basic interactions, add and remove some roots.
-    expect(await server.roots, isEmpty);
-    expect(client.addRoot(a), isTrue);
+    check(await server.roots).isEmpty();
+    check(client.addRoot(a)).isTrue();
     await pumpEventQueue();
-    expect(await server.roots, [a]);
-    expect(client.addRoot(b), isTrue);
+    check(
+      (await server.roots) as List<Object?>,
+    ).deepEquals([a as Map<String, Object?>]);
+    check(client.addRoot(b)).isTrue();
     await pumpEventQueue();
-    expect(await server.roots, unorderedEquals([a, b]));
+    check((await server.roots) as List<Object?>).unorderedMatches([
+      (it) =>
+          it.isA<Map<String, Object?>>().deepEquals(a as Map<String, Object?>),
+      (it) =>
+          it.isA<Map<String, Object?>>().deepEquals(b as Map<String, Object?>),
+    ]);
 
     final completer = Completer<void>();
     client.waitToRespond = completer.future;
     final c = Root(uri: 'test://c', name: 'c');
     final d = Root(uri: 'test://d', name: 'd');
-    expect(client.addRoot(c), isTrue);
+    check(client.addRoot(c)).isTrue();
     await pumpEventQueue();
-    expect(
-      server.roots,
-      isA<Future>(),
-      reason: 'Server is waiting to fetch new roots',
+    check(server.roots).isA<Future<dynamic>>();
+
+    final rootsFuture = check(server.roots).isA<Future<List<Root>>>().completes(
+      (it) => it.isA<List<Object?>>().unorderedMatches([
+        (it) => it.isA<Map<String, Object?>>().deepEquals(
+          b as Map<String, Object?>,
+        ),
+        (it) => it.isA<Map<String, Object?>>().deepEquals(
+          c as Map<String, Object?>,
+        ),
+        (it) => it.isA<Map<String, Object?>>().deepEquals(
+          d as Map<String, Object?>,
+        ),
+      ]),
     );
-    expect(
-      server.roots,
-      completion(unorderedEquals([b, c, d])),
-      reason: 'Should not see intermediate states',
-    );
-    expect(client.addRoot(d), isTrue);
+    check(client.addRoot(d)).isTrue();
     await pumpEventQueue();
-    expect(client.removeRoot(a), isTrue);
+    check(client.removeRoot(a)).isTrue();
     await pumpEventQueue();
     completer.complete();
     client.waitToRespond = null;
-    expect(await server.roots, unorderedEquals([b, c, d]));
+    await rootsFuture;
+    check((await server.roots) as List<Object?>).unorderedMatches([
+      (it) =>
+          it.isA<Map<String, Object?>>().deepEquals(b as Map<String, Object?>),
+      (it) =>
+          it.isA<Map<String, Object?>>().deepEquals(c as Map<String, Object?>),
+      (it) =>
+          it.isA<Map<String, Object?>>().deepEquals(d as Map<String, Object?>),
+    ]);
   });
 
   test('server normalizes absolute paths to file URIs', () async {

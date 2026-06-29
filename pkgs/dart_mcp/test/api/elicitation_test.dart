@@ -4,6 +4,7 @@
 
 import 'dart:async';
 
+import 'package:checks/checks.dart';
 import 'package:dart_mcp/client.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:test/test.dart';
@@ -50,8 +51,8 @@ void main() {
       );
 
       final result = await elicitationRequest;
-      expect(result.action, ElicitationAction.accept);
-      expect(result.content, {'name': 'John Doe'});
+      check(result.action).equals(ElicitationAction.accept);
+      check(result.content).isNotNull().deepEquals({'name': 'John Doe'});
     });
   });
 }

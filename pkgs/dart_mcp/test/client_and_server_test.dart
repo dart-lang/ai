@@ -5,6 +5,7 @@
 import 'dart:async';
 
 import 'package:async/async.dart';
+import 'package:checks/checks.dart';
 import 'package:dart_mcp/client.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:json_rpc_2/error_code.dart';
@@ -19,68 +20,75 @@ void main() {
     final environment = TestEnvironment(TestMCPClient(), TestMCPServer.new);
     final initializeResult = await environment.initializeServer();
 
-    expect(initializeResult.capabilities, isEmpty);
-    expect(initializeResult.instructions, environment.server.instructions);
-    expect(initializeResult.protocolVersion, ProtocolVersion.latestSupported);
+    check(initializeResult.capabilities as Map<String, Object?>).isEmpty();
+    check(
+      initializeResult.instructions,
+    ).equals(environment.server.instructions);
+    check(
+      initializeResult.protocolVersion,
+    ).equals(ProtocolVersion.latestSupported);
 
-    expect(environment.server.clientInfo, environment.client.implementation);
-    expect(
-      environment.serverConnection.serverInfo,
-      environment.server.implementation,
-    );
+    check(environment.server.clientInfo as Map<String, Object?>?)
+        .isNotNull()
+        .deepEquals(environment.client.implementation as Map<String, Object?>);
+    check(environment.serverConnection.serverInfo as Map<String, Object?>?)
+        .isNotNull()
+        .deepEquals(environment.server.implementation as Map<String, Object?>);
 
-    expect(
+    await check(
       environment.serverConnection.listTools(ListToolsRequest()),
-      throwsA(
-        isA<RpcException>().having((e) => e.code, 'code', METHOD_NOT_FOUND),
-      ),
-      reason: 'The client calling unsupported methods should throw',
+    ).throws<RpcException>(
+      (it) => it.has((e) => e.code, 'code').equals(METHOD_NOT_FOUND),
     );
 
-    expect(
+    await check(
       environment.server.createMessage(
         CreateMessageRequest(messages: [], maxTokens: 1),
       ),
-      throwsA(
-        isA<RpcException>().having((e) => e.code, 'code', METHOD_NOT_FOUND),
-      ),
-      reason: 'The server calling unsupported methods should throw',
+    ).throws<RpcException>(
+      (it) => it.has((e) => e.code, 'code').equals(METHOD_NOT_FOUND),
     );
   });
 
   test('client and server can capture protocol messages', () async {
     final clientLog = StreamController<String>();
     final serverLog = StreamController<String>();
+    final clientLogQueue = StreamQueue(clientLog.stream);
+    final serverLogQueue = StreamQueue(serverLog.stream);
     final environment = TestEnvironment(
       TestMCPClient(),
       (c) => TestMCPServer(c, protocolLogSink: serverLog.sink),
       protocolLogSink: clientLog.sink,
     );
     await environment.initializeServer();
-    expect(
-      clientLog.stream,
-      emitsInOrder([
-        allOf(startsWith('>>>'), contains('initialize')),
-        allOf(startsWith('<<<'), contains('serverInfo')),
-        allOf(startsWith('>>>'), contains('notifications/initialized')),
-      ]),
-    );
-    expect(
-      serverLog.stream,
-      emitsInOrder([
-        allOf(startsWith('<<<'), contains('initialize')),
-        allOf(startsWith('>>>'), contains('serverInfo')),
-        allOf(startsWith('<<<'), contains('notifications/initialized')),
-      ]),
-    );
+
+    check(await clientLogQueue.next)
+      ..startsWith('>>>')
+      ..contains('initialize');
+    check(await clientLogQueue.next)
+      ..startsWith('<<<')
+      ..contains('serverInfo');
+    check(await clientLogQueue.next)
+      ..startsWith('>>>')
+      ..contains('notifications/initialized');
+
+    check(await serverLogQueue.next)
+      ..startsWith('<<<')
+      ..contains('initialize');
+    check(await serverLogQueue.next)
+      ..startsWith('>>>')
+      ..contains('serverInfo');
+    check(await serverLogQueue.next)
+      ..startsWith('<<<')
+      ..contains('notifications/initialized');
   });
 
   test('client and server can ping each other', () async {
     final environment = TestEnvironment(TestMCPClient(), TestMCPServer.new);
     await environment.initializeServer();
 
-    expect(await environment.serverConnection.ping(), true);
-    expect(await environment.server.ping(), true);
+    check(await environment.serverConnection.ping()).isTrue();
+    check(await environment.server.ping()).isTrue();
   });
 
   test('client can handle ping timeouts', () async {
@@ -98,12 +106,11 @@ void main() {
     });
     await environment.initializeServer();
 
-    expect(
+    check(
       await environment.serverConnection.ping(
         timeout: const Duration(milliseconds: 1),
       ),
-      false,
-    );
+    ).isFalse();
   });
 
   test('server can handle ping timeouts', () async {
@@ -121,10 +128,9 @@ void main() {
     });
     await environment.initializeServer();
 
-    expect(
+    check(
       await environment.server.ping(timeout: const Duration(milliseconds: 1)),
-      false,
-    );
+    ).isFalse();
   });
 
   // Regression test for https://github.com/dart-lang/ai/issues/238.
@@ -132,14 +138,10 @@ void main() {
     final environment = TestEnvironment(TestMCPClient(), TestMCPServer.new);
     await environment.initializeServer();
 
-    await expectLater(
+    await check(
       environment.serverConnection.ping(request: PingRequest()),
-      completes,
-    );
-    await expectLater(
-      environment.server.ping(request: PingRequest()),
-      completes,
-    );
+    ).completes();
+    await check(environment.server.ping(request: PingRequest())).completes();
   });
 
   test(
@@ -147,6 +149,7 @@ void main() {
     () async {
       for (final initializedMessage in [null, InitializedNotification()]) {
         final serverLog = StreamController<String>();
+        final serverLogQueue = StreamQueue(serverLog.stream);
         final environment = TestEnvironment(
           TestMCPClient(),
           (c) => TestMCPServer(c, protocolLogSink: serverLog.sink),
@@ -161,15 +164,24 @@ void main() {
         // Send a notification that doesn't have any parameters.
         environment.serverConnection.notifyInitialized(initializedMessage);
         final result = await environment.server.initialized;
-        expect(result, initializedMessage);
-        expect(
-          serverLog.stream,
-          emitsInOrder([
-            allOf(startsWith('<<<'), contains('initialize')),
-            allOf(startsWith('>>>'), contains('serverInfo')),
-            allOf(startsWith('<<<'), contains('notifications/initialized')),
-          ]),
-        );
+        if (initializedMessage == null) {
+          check(result).isNull();
+        } else {
+          check(
+            result as Map<String, Object?>?,
+          ).isNotNull().deepEquals(initializedMessage as Map<String, Object?>);
+        }
+
+        check(await serverLogQueue.next)
+          ..startsWith('<<<')
+          ..contains('initialize');
+        check(await serverLogQueue.next)
+          ..startsWith('>>>')
+          ..contains('serverInfo');
+        check(await serverLogQueue.next)
+          ..startsWith('<<<')
+          ..contains('notifications/initialized');
+
         await environment.client.shutdown();
       }
     },
@@ -188,26 +200,8 @@ void main() {
       meta: MetaWithProgressToken(progressToken: ProgressToken(1337)),
     );
 
-    expect(
-      serverConnection.onProgress(request),
-      emits(
-        ProgressNotification(
-          progressToken: request.meta!.progressToken!,
-          progress: 50,
-        ),
-      ),
-    );
-
-    expect(
-      serverConnection.onProgress(request),
-      neverEmits(
-        ProgressNotification(
-          progressToken: request.meta!.progressToken!,
-          progress: 100,
-        ),
-      ),
-      reason: 'Should not receive progress events for completed requests',
-    );
+    final events = <ProgressNotification>[];
+    final sub = serverConnection.onProgress(request).listen(events.add);
 
     // Ensure the subscription is set up before calling the tool.
     await pumpEventQueue();
@@ -218,6 +212,16 @@ void main() {
 
     // Give the bad notification time to hit our stream.
     await pumpEventQueue();
+
+    check(events as List<Object?>).deepEquals([
+      ProgressNotification(
+            progressToken: request.meta!.progressToken!,
+            progress: 50,
+          )
+          as Map<String, Object?>,
+    ]);
+
+    await sub.cancel();
   });
 
   test('servers can handle progress notifications', () async {
@@ -245,6 +249,9 @@ void main() {
       meta: MetaWithProgressToken(progressToken: ProgressToken(1337)),
     );
 
+    final events = <ProgressNotification>[];
+    final sub = server.onProgress(request).listen(events.add);
+
     // Ensure the subscription is set up before calling the tool.
     await pumpEventQueue();
 
@@ -253,30 +260,30 @@ void main() {
       progressToken: request.meta!.progressToken!,
       progress: 50,
     );
-    expect(server.onProgress(request), emits(expectedNotification));
+
+    environment.serverConnection.notifyProgress(expectedNotification);
+    await onDone;
 
     final lateNotification = ProgressNotification(
       progressToken: request.meta!.progressToken!,
       progress: 100,
     );
-    expect(
-      server.onProgress(request),
-      neverEmits(lateNotification),
-      reason: 'Should not receive progress events for completed requests',
-    );
-
-    environment.serverConnection.notifyProgress(expectedNotification);
-    await onDone;
     environment.serverConnection.notifyProgress(lateNotification);
 
     // Give the bad notification time to hit our stream.
     await pumpEventQueue();
+
+    check(
+      events as List<Object?>,
+    ).deepEquals([expectedNotification as Map<String, Object?>]);
+
+    await sub.cancel();
   });
 
   test('closing a server removes the connection', () async {
     final environment = TestEnvironment(TestMCPClient(), TestMCPServer.new);
     await environment.serverConnection.shutdown();
-    expect(environment.client.connections, isEmpty);
+    check(environment.client.connections).isEmpty();
   });
 
   group('version negotiation', () {
@@ -290,8 +297,12 @@ void main() {
           clientInfo: environment.client.implementation,
         ),
       );
-      expect(initializeResult.protocolVersion, ProtocolVersion.oldestSupported);
-      expect(serverConnection.protocolVersion, ProtocolVersion.oldestSupported);
+      check(
+        initializeResult.protocolVersion,
+      ).equals(ProtocolVersion.oldestSupported);
+      check(
+        serverConnection.protocolVersion,
+      ).equals(ProtocolVersion.oldestSupported);
     });
     test('server can downgrade the version', () async {
       final environment = TestEnvironment(
@@ -300,7 +311,9 @@ void main() {
       );
 
       final initializeResult = await environment.initializeServer();
-      expect(initializeResult.protocolVersion, ProtocolVersion.oldestSupported);
+      check(
+        initializeResult.protocolVersion,
+      ).equals(ProtocolVersion.oldestSupported);
     });
 
     test('server can accept a lower version', () async {
@@ -308,7 +321,9 @@ void main() {
       final initializeResult = await environment.initializeServer(
         protocolVersion: ProtocolVersion.oldestSupported,
       );
-      expect(initializeResult.protocolVersion, ProtocolVersion.oldestSupported);
+      check(
+        initializeResult.protocolVersion,
+      ).equals(ProtocolVersion.oldestSupported);
     });
 
     test(
@@ -319,8 +334,8 @@ void main() {
           TestUnrecognizedVersionMcpServer.new,
         );
         await environment.initializeServer();
-        expect(environment.client.connections, isEmpty);
-        expect(environment.serverConnection.isActive, false);
+        check(environment.client.connections).isEmpty();
+        check(environment.serverConnection.isActive).isFalse();
       },
     );
   });
@@ -328,35 +343,49 @@ void main() {
   group('error handling', () {
     test('client can handle invalid protocol messages', () async {
       final protocolController = StreamController<String>();
+      final logEvents = <String>[];
+      final sub = protocolController.stream.listen(logEvents.add);
       final environment = TestEnvironment(
         TestMCPClient(),
         TestMCPServer.new,
         protocolLogSink: protocolController.sink,
       );
       environment.serverChannel.sink.add('Just some random text');
-      expect(
-        protocolController.stream,
-        emitsThrough(allOf(startsWith('>>>'), contains('Invalid JSON'))),
+
+      await check(environment.initializeServer()).completes();
+
+      await sub.cancel();
+      check(logEvents).any(
+        (it) =>
+            it.isA<String>()
+              ..startsWith('>>>')
+              ..contains('Invalid JSON'),
       );
-      expect(environment.initializeServer(), completes);
     });
 
     test('server can handle invalid protocol messages', () async {
       final protocolController = StreamController<String>();
+      final logEvents = <String>[];
+      final sub = protocolController.stream.listen(logEvents.add);
       final environment = TestEnvironment(
         TestMCPClient(),
         TestMCPServer.new,
         protocolLogSink: protocolController.sink,
       );
       environment.clientChannel.sink.add('Just some random text');
-      expect(
-        protocolController.stream,
-        emitsThrough(allOf(startsWith('<<<'), contains('Invalid JSON'))),
+
+      await check(environment.initializeServer()).completes();
+
+      await sub.cancel();
+      check(logEvents).any(
+        (it) =>
+            it.isA<String>()
+              ..startsWith('<<<')
+              ..contains('Invalid JSON'),
       );
-      expect(environment.initializeServer(), completes);
     });
 
-    test('server exits before initialization', () {
+    test('server exits before initialization', () async {
       final client = TestMCPClient();
       final clientController = StreamController<String>();
       final serverController = StreamController<String>();
@@ -370,7 +399,7 @@ void main() {
       );
       final connection = client.connectServer(clientChannel);
 
-      expect(
+      final initFuture = check(
         connection.initialize(
           InitializeRequest(
             protocolVersion: ProtocolVersion.latestSupported,
@@ -378,23 +407,22 @@ void main() {
             clientInfo: Implementation(name: '', version: ''),
           ),
         ),
-        throwsA(
-          isA<StateError>().having(
-            (e) => e.message,
-            'message',
-            'The client closed with pending request "initialize".',
-          ),
-        ),
+      ).throws<StateError>(
+        (it) => it
+            .has((e) => e.message, 'message')
+            .equals('The client closed with pending request "initialize".'),
       );
 
       // This shuts down the channel between the client and server, so it
       // happens during the initialization request (which the server never)
       // responds to.
-      serverChannel.sink.close();
+      unawaited(serverChannel.sink.close());
+
+      await initFuture;
 
       addTearDown(() {
-        expect(connection.isActive, false);
-        expect(client.connections, isEmpty);
+        check(connection.isActive).isFalse();
+        check(client.connections).isEmpty();
       });
     });
   });
