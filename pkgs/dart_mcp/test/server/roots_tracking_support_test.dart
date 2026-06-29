@@ -95,7 +95,7 @@ void main() {
     expect(roots.length, 1);
     expect(roots.first.uri, 'file:///C:/Users/demo/todo');
     expect(roots.first.name, 'file_uri');
-  }, testOn: 'windows');
+  }, testOn: 'windows && vm');
 }
 
 final class TestMCPClientWithRoots extends TestMCPClient with RootsSupport {
