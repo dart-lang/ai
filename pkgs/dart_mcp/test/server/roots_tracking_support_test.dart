@@ -10,16 +10,21 @@ import 'package:test/test.dart';
 import '../test_utils.dart';
 
 void main() {
-  test('server can track the workspace roots if enabled', () async {
+  late TestMCPClientWithRoots client;
+  late TestMCPServerWithRootsTracking server;
+
+  setUp(() async {
     final environment = TestEnvironment(
       TestMCPClientWithRoots(),
       TestMCPServerWithRootsTracking.new,
     );
     await environment.initializeServer();
 
-    final client = environment.client;
-    final server = environment.server;
+    client = environment.client;
+    server = environment.server;
+  });
 
+  test('server can track the workspace roots if enabled', () async {
     final a = Root(uri: 'test://a', name: 'a');
     final b = Root(uri: 'test://b', name: 'b');
 
@@ -56,6 +61,41 @@ void main() {
     client.waitToRespond = null;
     expect(await server.roots, unorderedEquals([b, c, d]));
   });
+
+  test('server normalizes absolute paths to file URIs', () async {
+    // Unix style absolute path
+    final unixRoot = Root(uri: '/Users/demo/todo', name: 'unix');
+    client.addRoot(unixRoot);
+    await pumpEventQueue();
+
+    final roots = await server.roots;
+    expect(roots.length, 1);
+    expect(roots.first.uri, 'file:///Users/demo/todo');
+    expect(roots.first.name, 'unix');
+  });
+
+  test('server normalizes windows drive letter paths to file URIs', () async {
+    // Windows style absolute path
+    final windowsRoot = Root(uri: r'C:\Users\demo\todo', name: 'windows');
+    client.addRoot(windowsRoot);
+    await pumpEventQueue();
+
+    var roots = await server.roots;
+    expect(roots.length, 1);
+    expect(roots.first.uri, 'file:///C:/Users/demo/todo');
+    expect(roots.first.name, 'windows');
+    client.removeRoot(windowsRoot);
+
+    // Existing file:// URIs should pass through untouched
+    final fileRoot = Root(uri: 'file:///C:/Users/demo/todo', name: 'file_uri');
+    client.addRoot(fileRoot);
+    await pumpEventQueue();
+
+    roots = await server.roots;
+    expect(roots.length, 1);
+    expect(roots.first.uri, 'file:///C:/Users/demo/todo');
+    expect(roots.first.name, 'file_uri');
+  }, testOn: 'windows');
 }
 
 final class TestMCPClientWithRoots extends TestMCPClient with RootsSupport {
