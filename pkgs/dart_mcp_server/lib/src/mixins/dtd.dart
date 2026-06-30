@@ -124,9 +124,15 @@ base mixin DartToolingDaemonSupport
 
   /// Connects to [vmServiceUri] and adds it to the [activeVmServices].
   Future<void> _addVmService(String vmServiceUri, {String? name}) async {
-    final vmServiceFuture = activeVmServices[vmServiceUri] =
+    final vmServiceFuture = activeVmServices[vmServiceUri] = 
         vmServiceConnectUri(vmServiceUri);
-    final vmService = await vmServiceFuture;
+    final VmService vmService;
+    try {
+      vmService = await vmServiceFuture;
+    } catch (e) {
+      activeVmServices.remove(vmServiceUri);
+      rethrow;
+    }
     // Start listening for and collecting errors immediately.
     final errorService = await _AppListener.forVmService(vmService, this);
     final resource = Resource(
