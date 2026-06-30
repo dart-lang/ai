@@ -124,13 +124,13 @@ base mixin DartToolingDaemonSupport
 
   /// Connects to [vmServiceUri] and adds it to the [activeVmServices].
   Future<void> _addVmService(String vmServiceUri, {String? name}) async {
-    final vmServiceFuture = activeVmServices[vmServiceUri] = 
+    final vmServiceFuture = activeVmServices[vmServiceUri] =
         vmServiceConnectUri(vmServiceUri);
     final VmService vmService;
     try {
       vmService = await vmServiceFuture;
     } catch (e) {
-      activeVmServices.remove(vmServiceUri);
+      unawaited(activeVmServices.remove(vmServiceUri));
       rethrow;
     }
     // Start listening for and collecting errors immediately.
@@ -199,9 +199,15 @@ base mixin DartToolingDaemonSupport
         continue;
       }
 
-      dtd.vmServiceUris.add(vmServiceUri);
-
-      await _addVmService(vmServiceUri, name: vmServiceInfo.name);
+      try {
+        await _addVmService(vmServiceUri, name: vmServiceInfo.name);
+        dtd.vmServiceUris.add(vmServiceUri);
+      } catch (e) {
+        log(
+          LoggingLevel.warning,
+          'Failed to connect to VM service at $vmServiceUri: $e',
+        );
+      }
     }
     return vmServiceInfos;
   }
@@ -526,7 +532,7 @@ base mixin DartToolingDaemonSupport
       }
     }
 
-    // Include other apps as well that are not associated with a DTD isntance.
+    // Include other apps as well that are not associated with a DTD instance.
     final standaloneApps = activeVmServices.keys.where(
       (uri) => !loggedAppUris.contains(uri),
     );
@@ -535,7 +541,9 @@ base mixin DartToolingDaemonSupport
         for (final uri in standaloneApps) VmServiceInfo(uri: uri).toJson(),
       ];
       textResult.add(
-        TextContent(text: '## Standlone Apps:\n${standaloneApps.join('\n')}\n'),
+        TextContent(
+          text: '## Standalone Apps:\n${standaloneApps.join('\n')}\n',
+        ),
       );
     }
 
@@ -1513,6 +1521,14 @@ base mixin DartToolingDaemonSupport
         }
 
       case VmServiceCommand.disconnect:
+        if (uriString == null) {
+          return CallToolResult(
+            isError: true,
+            content: [
+              TextContent(text: 'No URI provided for connect command.'),
+            ],
+          )..failureReason = CallToolFailureReason.argumentError;
+        }
         final vmServiceFuture = activeVmServices.remove(uriString);
         if (vmServiceFuture == null) {
           return CallToolResult(
