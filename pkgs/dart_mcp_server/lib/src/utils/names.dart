@@ -49,7 +49,6 @@ enum ToolNames {
   getRuntimeErrors('get_runtime_errors'),
   hotReload('hot_reload'),
   hotRestart('hot_restart'),
-  callVmServiceMethod('call_vm_service_method'),
   launchApp('launch_app'),
   listDevices('list_devices'),
   listRunningApps('list_running_apps'),
@@ -61,6 +60,7 @@ enum ToolNames {
   roots('roots'),
   runTests('run_tests'),
   stopApp('stop_app'),
+  vmService('vm_service'),
   widgetInspector('widget_inspector');
 
   final String name;
