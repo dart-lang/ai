@@ -1,0 +1,19 @@
+{
+  "name": "dart-flutter-marketplace",
+  "owner": {
+    "name": "Dart and Flutter Team",
+  },
+  "plugins": [
+    {
+      "name": "dart-flutter",
+      "description": "Official Claude plugin for Dart and Flutter. Provide skills for happy path Dart and Flutter workflows",
+      "category": "development",
+      "tags": [
+        "dart",
+        "flutter",
+        "mobile"
+      ],
+      "source": "./"
+    }
+  ]
+}
