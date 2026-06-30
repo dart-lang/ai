@@ -11,7 +11,7 @@ else
 fi
 
 TARGET_DIR="$REPO_ROOT/plugins/skills"
-TEMP_DIR=$(mktemp -d)
+TEMP_DIR=$(mktemp -d)\ntrap 'rm -rf "$TEMP_DIR"' EXIT
 
 echo "Repository root correctly detected at: $REPO_ROOT"
 
