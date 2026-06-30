@@ -178,7 +178,6 @@ available to the agent. For example, in a GEMINI.md file in your project:
 | Tool Name | Title | Description | Categories | Enabled |
 | --- | --- | --- | --- | --- |
 | `analyze_files` | Analyze projects | Analyzes specific paths, or the entire project, for errors. | analysis | Yes |
-| `call_vm_service_method` | Invoke VM Service Method | Invoke VM service methods on a connected app. See the Public RPCs section of https://raw.githubusercontent.com/dart-lang/sdk/refs/heads/main/runtime/vm/service/service.md | dart_tooling_daemon | Yes |
 | `create_project` | Create project | Creates a new Dart or Flutter project. | cli | No |
 | `dart_fix` | Dart fix | Runs `dart fix --apply` for the given project roots. | cli | No |
 | `dart_format` | Dart format | Runs `dart format .` for the given project roots. | cli | No |
@@ -200,6 +199,7 @@ available to the agent. For example, in a GEMINI.md file in your project:
 | `roots` |  | Manage project roots. | None | Yes |
 | `run_tests` | Run tests | Run Dart or Flutter tests with an agent centric UX. ALWAYS use instead of `dart test` or `flutter test` shell commands. | cli | No |
 | `stop_app` |  | Kills a running Flutter process started by the launch_app tool. | flutter, flutter_app_lifecycle | No |
+| `vm_service` | VM Service | Manage and interact with VM service connections. This tool allows you to connect to an app using its VM service URI, disconnect from it, or invoke VM service methods directly. Connecting allows features like hot reload to work on apps not launched via DTD. | dart_tooling_daemon | Yes |
 | `widget_inspector` | Widget Inspector | Interact with the Flutter widget inspector in the active Flutter application. Requires an active DTD connection. | flutter | Yes |
 
 <!-- generated -->
