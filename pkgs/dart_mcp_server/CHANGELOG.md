@@ -1,3 +1,8 @@
+## 1.1.0-wip
+
+- Create vm_service meta tool, which allows direct connections to apps via vm
+  service URIs, and also handles the direct vm service method calls.
+
 ## 1.0.2
 
 - Send a SIGKILL to the analysis server if it doesn't respond to a SIGTERM in
