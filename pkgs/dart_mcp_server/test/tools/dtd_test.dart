@@ -1289,8 +1289,9 @@ void main() {
         final isolateId = await _getIsolateId(testHarness);
         final result = await testHarness.callToolWithRetry(
           CallToolRequest(
-            name: ToolNames.callVmServiceMethod.name,
+            name: ToolNames.vmService.name,
             arguments: {
+              ParameterNames.command: 'callMethod',
               ParameterNames.method: 'ext.test.echo',
               ParameterNames.arguments: {'message': 'hello'},
               ParameterNames.isolateId: isolateId,
@@ -1319,8 +1320,9 @@ void main() {
         final isolateId = await _getIsolateId(testHarness);
         final result = await testHarness.callToolWithRetry(
           CallToolRequest(
-            name: ToolNames.callVmServiceMethod.name,
+            name: ToolNames.vmService.name,
             arguments: {
+              ParameterNames.command: 'callMethod',
               ParameterNames.method: 'ext.test.failure',
               ParameterNames.arguments: {'message': 'hello'},
               ParameterNames.isolateId: isolateId,
@@ -1447,6 +1449,88 @@ void main() {
     final retryResult = await testHarness.connectToDtd();
     expect(retryResult.isError, isNot(true));
   });
+
+  group('vmService tools', () {
+    test('can connect and disconnect directly to a VM service URI', () async {
+      final testHarness = await TestHarness.start(inProcess: true);
+      final debugSession = await testHarness.startDebugSession(
+        dartCliAppsPath,
+        'bin/infinite_wait.dart',
+        isFlutter: false,
+      );
+      await debugSession.appProcess.stdout.next;
+
+      // Connect
+      final connectResult = await testHarness.callTool(
+        CallToolRequest(
+          name: ToolNames.vmService.name,
+          arguments: {
+            ParameterNames.command: 'connect',
+            ParameterNames.appUri: debugSession.vmServiceUri.toString(),
+          },
+        ),
+      );
+
+      expect(connectResult.isError, isNot(true));
+      expect(
+        (connectResult.content.first as TextContent).text,
+        contains('Successfully connected'),
+      );
+
+      // Verify we can call a method (since it populates activeVmServices)
+      final isolateId = await _getIsolateId(testHarness);
+      final callResult = await testHarness.callToolWithRetry(
+        CallToolRequest(
+          name: ToolNames.vmService.name,
+          arguments: {
+            ParameterNames.command: 'callMethod',
+            ParameterNames.method: 'ext.test.echo',
+            ParameterNames.arguments: {'message': 'ping'},
+            ParameterNames.isolateId: isolateId,
+          },
+        ),
+      );
+      expect(callResult.isError, isNot(true));
+
+      // Disconnect
+      final disconnectResult = await testHarness.callTool(
+        CallToolRequest(
+          name: ToolNames.vmService.name,
+          arguments: {
+            ParameterNames.command: 'disconnect',
+            ParameterNames.appUri: debugSession.vmServiceUri.toString(),
+          },
+        ),
+      );
+      expect(disconnectResult.isError, isNot(true));
+      expect(
+        (disconnectResult.content.first as TextContent).text,
+        contains('Disconnected from'),
+      );
+
+      // Calling a method after disconnect should fail
+      final failResult = await testHarness.callToolWithRetry(
+        CallToolRequest(
+          name: ToolNames.vmService.name,
+          arguments: {
+            ParameterNames.command: 'callMethod',
+            ParameterNames.method: 'ext.test.echo',
+            ParameterNames.arguments: {'message': 'ping'},
+            ParameterNames.isolateId: isolateId,
+          },
+        ),
+        expectError: true,
+      );
+      expect(failResult.isError, isTrue);
+      expect(
+        (failResult.content.first as TextContent).text,
+        contains('No active debug session'),
+      );
+
+      debugSession.appProcess.stdin.writeln('q');
+      await testHarness.stopDebugSession(debugSession);
+    });
+  });
 }
 
 extension on Iterable<Resource> {
@@ -1491,8 +1575,11 @@ Future<void> _deleteWithRetry(Directory dir) async {
 Future<String> _getIsolateId(TestHarness testHarness) async {
   final getVmResponse = await testHarness.callTool(
     CallToolRequest(
-      name: ToolNames.callVmServiceMethod.name,
-      arguments: {ParameterNames.method: 'getVM'},
+      name: ToolNames.vmService.name,
+      arguments: {
+        ParameterNames.command: 'callMethod',
+        ParameterNames.method: 'getVM',
+      },
     ),
   );
   if (getVmResponse case CallToolResult(
