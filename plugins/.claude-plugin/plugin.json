@@ -1,0 +1,18 @@
+{
+  "name": "dart-flutter",
+  "displayName": "Dart and Flutter",
+  "version": "1.0.0",
+  "description": "Official Claude plugin for Dart and Flutter. Provides skills for happy path Dart and Flutter development workflows.",
+  "author": {
+    "name": "Dart and Flutter",
+    "url": "https://flutter.dev"
+  },
+  "homepage": "https://github.com/dart-lang/ai/tree/main/plugins",
+  "repository": "https://github.com/dart-lang/ai",
+  "license": "BSD-3-Clause",
+  "keywords": [
+    "flutter",
+    "dart",
+    "mobile"
+  ]
+}

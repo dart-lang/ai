@@ -1,0 +1,21 @@
+{
+  "name": "dart-flutter-marketplace",
+  "owner": {
+    "name": "Dart and Flutter Team",
+    "email": "stores@flutter.io"
+  },
+  "description": "Official Claude Marketplace for Dart and Flutter plugins",
+  "plugins": [
+    {
+      "name": "dart-flutter",
+      "description": "Official Claude plugin for Dart and Flutter. Provide skills for happy path Dart and Flutter workflows",
+      "category": "development",
+      "tags": [
+        "dart",
+        "flutter",
+        "mobile"
+      ],
+      "source": "./"
+    }
+  ]
+}
