@@ -16,7 +16,7 @@ with Flutter and Dart more effectively.
 claude plugin marketplace add dart-lang/ai/plugins
 ```
 
-Install the Claude plugin for Firebase:
+Install the Claude plugin for Dart and Flutter:
 
 ```bash
 claude plugin install dart-flutter@dart-flutter-marketplace
