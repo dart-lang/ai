@@ -19,7 +19,7 @@ claude plugin marketplace add dart-lang/ai/plugins
 Install the Claude plugin for Dart and Flutter:
 
 ```bash
-claude plugin install dart-flutter@dart-flutter-marketplace
+claude plugin install dart-flutter@dart-flutter
 ```
 
 Verify the installation:
