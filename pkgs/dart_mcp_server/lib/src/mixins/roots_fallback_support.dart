@@ -102,7 +102,7 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
         return CallToolResult(
           isError: true,
           content: [TextContent(text: 'Unknown command: $command')],
-        )..failureReason ??= CallToolFailureReason.noSuchCommand;
+        )..failureReason = CallToolFailureReason.noSuchCommand;
     }
   }
 
