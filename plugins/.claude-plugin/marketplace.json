@@ -8,7 +8,7 @@
   "plugins": [
     {
       "name": "dart-flutter",
-      "description": "Official Claude plugin for Dart and Flutter. Provide skills for happy path Dart and Flutter workflows",
+      "description": "Official Claude plugin for Dart and Flutter. Provides MCP server and skills to assist with Dart and Flutter development workflows.",
       "category": "development",
       "tags": [
         "dart",

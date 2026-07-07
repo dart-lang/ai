@@ -2,9 +2,7 @@
   Dart and Flutter Plugins
 </h1>
 
-A collection of [Dart](https://github.com/dart-lang/skills) and [Flutter](https://github.com/flutter/skills) skills and MCP server for AI coding agents, to help them understand and work
-with Flutter and Dart more effectively.
-
+This plugin provides a collection of [Dart](https://github.com/dart-lang/skills) and [Flutter](https://github.com/flutter/skills) skills and an MCP server for AI coding agents. These resources/tools help agents understand and work more effectively with Flutter and Dart.
 
 ## Installation
 
