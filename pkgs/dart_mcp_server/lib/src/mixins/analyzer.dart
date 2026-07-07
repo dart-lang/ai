@@ -491,7 +491,7 @@ base mixin DartAnalyzerSupport
         _ => CallToolResult(
           isError: true,
           content: [TextContent(text: 'Unknown LSP command: $command')],
-        ),
+        )..failureReason ??= CallToolFailureReason.noSuchCommand,
       };
       return result
         ..customMetrics = AnalysisMetrics(

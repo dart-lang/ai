@@ -504,7 +504,7 @@ base mixin DartToolingDaemonSupport
         return CallToolResult(
           isError: true,
           content: [TextContent(text: 'Unknown command: $command')],
-        );
+        )..failureReason ??= CallToolFailureReason.noSuchCommand;
     }
   }
 
@@ -839,7 +839,7 @@ base mixin DartToolingDaemonSupport
                 '${WidgetInspectorCommand.setWidgetSelectionMode}.',
           ),
         ],
-      )..failureReason = CallToolFailureReason.argumentError,
+      )..failureReason = CallToolFailureReason.noSuchCommand,
     };
   }
 
@@ -1534,7 +1534,7 @@ base mixin DartToolingDaemonSupport
           return CallToolResult(
             isError: true,
             content: [TextContent(text: 'Not connected to $uriString.')],
-          );
+          )..failureReason = CallToolFailureReason.applicationNotFound;
         }
         try {
           final vmService = await vmServiceFuture;
@@ -1563,7 +1563,7 @@ base mixin DartToolingDaemonSupport
         return CallToolResult(
           isError: true,
           content: [TextContent(text: 'Unknown command: $command')],
-        );
+        )..failureReason = CallToolFailureReason.noSuchCommand;
     }
   }
 
