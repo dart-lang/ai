@@ -2,6 +2,7 @@
 
 - Create vm_service meta tool, which allows direct connections to apps via vm
   service URIs, and also handles the direct vm service method calls.
+- Add additional failure reasons to tool call analytics.
 
 ## 1.0.2
 
