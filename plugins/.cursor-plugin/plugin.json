@@ -15,5 +15,6 @@
     "dart",
     "mobile"
   ],
+  "mcpServers": "./.mcp.json",
   "skills": "./skills/"
 }
