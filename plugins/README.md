@@ -28,24 +28,19 @@ claude plugin marketplace list
 
 ### Cursor Plugin
 
-You can install this plugin into Cursor using a Team Marketplace or by linking it locally.
+You can test this plugin locally by copying it to your Cursor plugins directory.
 
-#### Method 1: Local Installation (for testing)
-
-1. Link the `plugins` directory to your local Cursor plugins folder:
+1. Copy the `plugins` directory to your local Cursor plugins folder:
 
 ```bash
 mkdir -p ~/.cursor/plugins/local
-ln -s /path/to/dart-lang/ai/plugins ~/.cursor/plugins/local/dart-flutter
+cp -r /path/to/dart-lang/ai/plugins ~/.cursor/plugins/local/dart-flutter
 ```
 
 2. Restart Cursor. The editor will automatically discover and load the skills under `skills/` and configure the MCP server defined in `mcp.json`.
 
-#### Method 2: Team Marketplace
-
-If you are using Cursor Teams/Enterprise, you can add this repository to your Team Marketplace:
-
-1. Go to **Cursor Settings > Team > Team Marketplaces**.
-2. Add the URL of the repository (pointing to the `plugins/` directory where the `.cursor-plugin` folder resides).
-3. Members of your team can then install the **Dart and Flutter** plugin directly from the team marketplace tab in the Extensions panel.
-
+For more details about developing Cursor plugins, see the following resources:
+- **Creating plugins**: [cursor.com/docs/plugins#creating-plugins](https://cursor.com/docs/plugins#creating-plugins)
+- **Testing plugins**: [cursor.com/docs/plugins#test-plugins-locally](https://cursor.com/docs/plugins#test-plugins-locally)
+- **Publishing plugins**: [cursor.com/marketplace/publish](https://cursor.com/marketplace/publish)
+- **Plugin template**: [github.com/cursor/plugin-template](https://github.com/cursor/plugin-template)
