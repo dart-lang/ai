@@ -3,6 +3,8 @@
 - Create vm_service meta tool, which allows direct connections to apps via vm
   service URIs, and also handles the direct vm service method calls.
 - Add additional failure reasons to tool call analytics.
+- Move `SdkSupport` to `implements` instead of `on` in
+  `DartToolingDaemonSupport`.
 
 ## 1.0.2
 

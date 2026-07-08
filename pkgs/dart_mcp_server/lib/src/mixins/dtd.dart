@@ -41,8 +41,8 @@ extension McpServiceConstants on Never {
 ///
 /// The MCPServer must already have the [ToolsSupport] mixin applied.
 base mixin DartToolingDaemonSupport
-    on ToolsSupport, LoggingSupport, ResourcesSupport, SdkSupport
-    implements AnalyticsSupport, ProcessManagerSupport {
+    on ToolsSupport, LoggingSupport, ResourcesSupport
+    implements AnalyticsSupport, ProcessManagerSupport, SdkSupport {
   /// The DTD instances that this server is connected to.
   final List<DartToolingDaemon> _dtds = [];
 
