@@ -25,3 +25,12 @@ Verify the installation:
 ```bash
 claude plugin marketplace list
 ```
+
+### Kiro Power
+
+To install the Dart and Flutter power in Kiro:
+
+1. Open Kiro and navigate to the **Powers** panel.
+2. Click **Add Custom Power** -> **Import power from GitHub**.
+3. Enter the repository URL: `https://github.com/dart-lang/ai` (or select **Import power from a folder** and select the `plugins/power-dart-flutter` directory if you are developing locally).
+
