@@ -25,3 +25,16 @@ Verify the installation:
 ```bash
 claude plugin marketplace list
 ```
+
+### Codex Plugin
+
+Add the Dart and Flutter marketplace for Codex plugins:
+
+```bash
+codex plugin marketplace add dart-lang/ai/plugins
+```
+
+Install the Dart and Flutter plugin:
+
+```bash
+codex plugin add dart-flutter@dart-flutter
