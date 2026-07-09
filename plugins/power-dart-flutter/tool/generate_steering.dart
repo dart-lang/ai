@@ -1,8 +1,19 @@
 import 'dart:io';
 
 void main() {
-  final skillsDir = Directory('plugins/skills');
-  final targetDir = Directory('plugins/power-dart-flutter/steering');
+  final scriptFile = File(Platform.script.toFilePath());
+  final toolDir = scriptFile.parent;
+  final powerDir = toolDir.parent;
+  final pluginsDir = powerDir.parent;
+
+  final skillsDir = Directory('${pluginsDir.path}/skills');
+  final targetDir = Directory('${powerDir.path}/steering');
+  final powerFile = File('${powerDir.path}/POWER.md');
+
+  if (!skillsDir.existsSync()) {
+    print('Error: Skills directory not found at ${skillsDir.path}');
+    exit(1);
+  }
 
   if (!targetDir.existsSync()) {
     targetDir.createSync(recursive: true);
@@ -39,7 +50,6 @@ void main() {
 
   mappings.sort();
 
-  final powerFile = File('plugins/power-dart-flutter/POWER.md');
   if (powerFile.existsSync()) {
     final lines = powerFile.readAsLinesSync();
     final headerIndex = lines.indexWhere((l) => l.trim() == '# When to Load Steering Files');
