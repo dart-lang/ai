@@ -1530,6 +1530,50 @@ void main() {
       debugSession.appProcess.stdin.writeln('q');
       await testHarness.stopDebugSession(debugSession);
     });
+
+    test('handles dropped VM service connections without hanging', () async {
+      final testHarness = await TestHarness.start(inProcess: true);
+      final debugSession = await testHarness.startDebugSession(
+        dartCliAppsPath,
+        'bin/infinite_wait.dart',
+        isFlutter: false,
+      );
+      await debugSession.appProcess.stdout.next;
+
+      final connectResult = await testHarness.callTool(
+        CallToolRequest(
+          name: ToolNames.vmService.name,
+          arguments: {
+            ParameterNames.command: 'connect',
+            ParameterNames.appUri: debugSession.vmServiceUri.toString(),
+          },
+        ),
+      );
+      expect(connectResult.isError, isNot(true));
+
+      // Simulate a dropped connection.
+      await testHarness.stopDebugSession(debugSession);
+
+      // Calling a method on a dropped VM service connection should fail and NOT
+      // hang.
+      final callResult = await testHarness.callTool(
+        CallToolRequest(
+          name: ToolNames.vmService.name,
+          arguments: {
+            ParameterNames.command: 'callMethod',
+            ParameterNames.method: 'ext.test.echo',
+            ParameterNames.arguments: {'message': 'ping'},
+            ParameterNames.isolateId: 'isolates/1',
+          },
+        ),
+        expectError: true,
+      );
+      expect(callResult.isError, isTrue);
+      expect(
+        (callResult.content.first as TextContent).text,
+        contains('Service connection disposed'),
+      );
+    });
   });
 }
 
