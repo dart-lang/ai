@@ -129,6 +129,15 @@ base mixin DartToolingDaemonSupport
     final VmService vmService;
     try {
       vmService = await vmServiceFuture;
+      unawaited(
+        vmService.onDone.then((_) {
+          // If our exact instance is still in the active vm services
+          // for this uri, remove it.
+          if (activeVmServices[vmServiceUri] == vmServiceFuture) {
+            activeVmServices.remove(vmServiceUri);
+          }
+        }),
+      );
     } catch (e) {
       unawaited(activeVmServices.remove(vmServiceUri));
       rethrow;
@@ -175,7 +184,6 @@ base mixin DartToolingDaemonSupport
     unawaited(
       vmService.onDone.then((_) {
         removeResource(resource.uri);
-        activeVmServices.remove(vmServiceUri);
       }),
     );
   }
@@ -310,7 +318,6 @@ base mixin DartToolingDaemonSupport
     final args =
         request.arguments?[ParameterNames.arguments] as Map<String, Object?>?;
     final appUri = request.arguments?[ParameterNames.appUri] as String?;
-
     return _callOnVmService(
       appUri: appUri,
       callback: (vmService) async {
@@ -1058,7 +1065,16 @@ base mixin DartToolingDaemonSupport
       selectedAppUri = activeVmServices.keys.first;
     }
 
-    return await callback(await activeVmServices[selectedAppUri]!);
+    final vmService = await activeVmServices[selectedAppUri]!;
+    return await Future.any([
+      callback(vmService),
+      vmService.onDone.then<CallToolResult>((_) {
+        return CallToolResult(
+          isError: true,
+          content: [TextContent(text: 'Service connection disposed.')],
+        )..failureReason = CallToolFailureReason.alreadyDisconnected;
+      }),
+    ]);
   }
 
   /// Retrieves the active location from the editor.

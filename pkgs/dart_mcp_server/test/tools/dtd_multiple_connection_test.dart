@@ -258,6 +258,7 @@ void main() async {
           name: ToolNames.getRuntimeErrors.name,
           arguments: {ParameterNames.appUri: session1.vmServiceUri},
         ),
+        retryUntil: (result) => result.content.length > 1,
       );
       expect(
         (errors1.content[1] as TextContent).text,
