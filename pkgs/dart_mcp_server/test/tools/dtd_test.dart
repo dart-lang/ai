@@ -1573,7 +1573,7 @@ void main() {
         (callResult.content.first as TextContent).text,
         anyOf(
           // If it got disconnected mid-call
-          contains('Service connection disposed'), 
+          contains('Service connection disposed'),
           // If it was disposed prior to the call
           contains('No active debug session'),
         ),
