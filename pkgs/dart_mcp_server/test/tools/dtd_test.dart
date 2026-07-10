@@ -1571,7 +1571,12 @@ void main() {
       expect(callResult.isError, isTrue);
       expect(
         (callResult.content.first as TextContent).text,
-        contains('Service connection disposed'),
+        anyOf(
+          // If it got disconnected mid-call
+          contains('Service connection disposed'), 
+          // If it was disposed prior to the call
+          contains('No active debug session'),
+        ),
       );
     });
   });
