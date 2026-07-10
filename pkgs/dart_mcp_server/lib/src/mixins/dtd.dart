@@ -184,7 +184,6 @@ base mixin DartToolingDaemonSupport
     unawaited(
       vmService.onDone.then((_) {
         removeResource(resource.uri);
-        activeVmServices.remove(vmServiceUri);
       }),
     );
   }
