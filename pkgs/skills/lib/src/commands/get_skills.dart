@@ -288,17 +288,18 @@ Future<DashSkillsPromptResult> _maybePromptToInstallDashSkills({
   const flutterSkillsRepo = 'https://github.com/flutter/skills.git';
   const dartSkillsRepo = 'https://github.com/dart-lang/skills.git';
   final suggestedRepos = <String>[];
-  if (!manifest.suggestedRepos.contains(dartSkillsRepo) &&
-      !globalConfig.gitRepos.any((r) => r.cloneUrl == dartSkillsRepo) &&
-      !manifest.gitRepos.any((r) => r.cloneUrl == dartSkillsRepo)) {
+  bool shouldSuggest(String repoUrl) {
+    return !manifest.suggestedRepos.contains(repoUrl) &&
+        !globalConfig.gitRepos.any((r) => r.cloneUrl == repoUrl) &&
+        !manifest.gitRepos.any((r) => r.cloneUrl == repoUrl);
+  }
+
+  if (shouldSuggest(dartSkillsRepo)) {
     suggestedRepos.add(dartSkillsRepo);
   }
 
   final hasFlutter = resolvedPackages.any((p) => p.name == 'flutter');
-  if (hasFlutter &&
-      !manifest.suggestedRepos.contains(flutterSkillsRepo) &&
-      !globalConfig.gitRepos.any((r) => r.cloneUrl == flutterSkillsRepo) &&
-      !manifest.gitRepos.any((r) => r.cloneUrl == flutterSkillsRepo)) {
+  if (hasFlutter && shouldSuggest(flutterSkillsRepo)) {
     suggestedRepos.add(flutterSkillsRepo);
   }
 
