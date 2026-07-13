@@ -19,6 +19,10 @@ import '../fake_dialog_support.dart';
 import '../utils.dart';
 
 void main() {
+  setUpAll(() {
+    Logger.root.onRecord.listen((r) => printOnFailure(r.toString()));
+  });
+
   group('Suggested skills dialog', () {
     late String projectPath;
     late String globalConfigPath;
