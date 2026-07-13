@@ -41,10 +41,10 @@ class PubRunner {
     final List<String> args;
 
     if (isFlutterProject) {
-      executable = 'flutter';
+      executable = 'flutter${Platform.isWindows ? '.bat' : ''}';
       args = ['pub', 'get'];
     } else {
-      executable = 'dart';
+      executable = 'dart${Platform.isWindows ? '.exe' : ''}';
       args = ['pub', 'get'];
     }
 
