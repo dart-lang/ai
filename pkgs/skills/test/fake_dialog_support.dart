@@ -26,6 +26,11 @@ class FakeDialogSupport implements DialogSupport {
   // All the titles given for dialogs in order.
   final List<String?> allTitles = [];
 
+  // If `true`, then prompts for suggested repos will return an empty selection.
+  final bool skipSuggestedRepos;
+
+  FakeDialogSupport({this.skipSuggestedRepos = true});
+
   void reset() {
     _singleSelectCallCount = 0;
     _multiSelectCallCount = 0;
@@ -52,6 +57,12 @@ class FakeDialogSupport implements DialogSupport {
     String? title,
     Set<int> initialSelected = const {},
   }) async {
+    if (skipSuggestedRepos &&
+        title ==
+            'Would you like to install the official Dart or Flutter skills?') {
+      return const {};
+    }
+
     allMultiSelectOptions.add(options);
     allInitialSelected.add(initialSelected);
     allTitles.add(title);

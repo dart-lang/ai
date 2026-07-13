@@ -30,6 +30,8 @@
   `npx skills` for `dart run skills@`.
   - The `get` command now supports `--git` arguments for git repos to update
     skills from.
+- feat: Oncer per machine/project, suggest installing the dart and flutter
+  skill repos, if they are not already installed.
 
 ## 0.3.1
 

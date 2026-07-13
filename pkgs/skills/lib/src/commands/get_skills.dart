@@ -93,6 +93,26 @@ Future<bool> getSkills({
   final globalConfigFile = io.File(globalConfigPath);
   var globalConfig = await GlobalConfig.loadOrEmpty(globalConfigFile);
 
+  {
+    var (originalGlobalConfig, originalManifest) = (globalConfig, manifest);
+    (:globalConfig, :manifest) = await _maybePromptToInstallDashSkills(
+      dialogSupport: dialogSupport,
+      globalConfig: globalConfig,
+      ides: ides,
+      manifest: manifest,
+      resolvedPackages: packages,
+      sourceUris: sourceUris,
+      skillNames: skillNames,
+    );
+    // Save any decisions from the prompt
+    if (globalConfig != originalGlobalConfig) {
+      await globalConfig.save(globalConfigFile);
+    }
+    if (manifest != originalManifest) {
+      await manifest.save(manifestFile(rootPath));
+    }
+  }
+
   // If packages were given, but no git repos, don't sync any git repos.
   final _GitData gitData = sourceUris.isNotEmpty && requestedGitUris.isEmpty
       ? const (gitRepoCommits: {}, gitSkills: [])
@@ -233,6 +253,100 @@ Future<bool> getSkills({
   await manifest.save(manifestFile(rootPath));
 
   return true;
+}
+
+typedef DashSkillsPromptResult = ({
+  GlobalConfig globalConfig,
+  SkillManifest manifest,
+});
+
+/// Prompts the user to install dash skill repos if they have not already
+/// been prompted for this package, haven't globally opted out of these prompts,
+/// and [dialogSupport] exists.
+Future<DashSkillsPromptResult> _maybePromptToInstallDashSkills({
+  required DialogSupport? dialogSupport,
+  required GlobalConfig globalConfig,
+  required List<Ide> ides,
+  required SkillManifest manifest,
+  required List<ResolvedPackage> resolvedPackages,
+  required Set<String> sourceUris,
+  required Set<String> skillNames,
+}) async {
+  // Only prompt when we can have dialog support, and the user didn't already
+  // specify specific skills or sources.
+  if (globalConfig.neverPromptForSuggestedSkills ||
+      dialogSupport == null ||
+      sourceUris.isNotEmpty ||
+      skillNames.isNotEmpty) {
+    return (globalConfig: globalConfig, manifest: manifest);
+  }
+
+  const flutterSkillsRepo = 'https://github.com/flutter/skills.git';
+  const dartSkillsRepo = 'https://github.com/dart-lang/skills.git';
+  final suggestedRepos = <String>[];
+  if (!manifest.suggestedRepos.contains(dartSkillsRepo) &&
+      !globalConfig.gitRepos.any((r) => r.cloneUrl == dartSkillsRepo) &&
+      !manifest.gitRepos.any((r) => r.cloneUrl == dartSkillsRepo)) {
+    suggestedRepos.add(dartSkillsRepo);
+  }
+
+  final hasFlutter = resolvedPackages.any((p) => p.name == 'flutter');
+  if (hasFlutter &&
+      !manifest.suggestedRepos.contains(flutterSkillsRepo) &&
+      !globalConfig.gitRepos.any((r) => r.cloneUrl == flutterSkillsRepo) &&
+      !manifest.gitRepos.any((r) => r.cloneUrl == flutterSkillsRepo)) {
+    suggestedRepos.add(flutterSkillsRepo);
+  }
+
+  if (suggestedRepos.isNotEmpty) {
+    final options = [...suggestedRepos, 'Never ask again on this machine'];
+    final selectedIndices = await dialogSupport.showMultiSelectDialog(
+      options,
+      title: 'Would you like to install the official Dart or Flutter skills?',
+      initialSelected: {for (var i = 0; i < suggestedRepos.length; i++) i},
+    );
+    // Record that we prompted regardless of result, even if they skipped it.
+    manifest = manifest.withPromptedSuggestedRepos(suggestedRepos.toSet());
+
+    if (selectedIndices != null) {
+      final neverAskAgainIndex = options.length - 1;
+      if (selectedIndices.contains(neverAskAgainIndex)) {
+        globalConfig = globalConfig.withNeverPromptForSuggestedSkills(true);
+      }
+
+      final selectedRepos = <String>[];
+      for (var i = 0; i < suggestedRepos.length; i++) {
+        if (selectedIndices.contains(i)) {
+          selectedRepos.add(suggestedRepos[i]);
+        }
+      }
+
+      if (selectedRepos.isNotEmpty) {
+        final result = await dialogSupport.showSingleSelectDialog([
+          'Local (this package only)',
+          'Global (all packages)',
+        ], title: 'Install suggested repos globally or locally?');
+
+        if (result == 0) {
+          for (final ide in ides) {
+            for (final repo in selectedRepos) {
+              manifest = manifest.withSourceUri(
+                ide.cliName,
+                repo,
+                const SkillsEntry(),
+              );
+            }
+          }
+        } else if (result == 1) {
+          for (final repo in selectedRepos) {
+            globalConfig = globalConfig.withGitRepo(GitRepo(cloneUrl: repo));
+          }
+        }
+      }
+    }
+  }
+
+  return (globalConfig: globalConfig, manifest: manifest);
 }
 
 /// Syncs and scans git repos from [globalConfig] and [manifest].

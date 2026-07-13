@@ -39,10 +39,15 @@ class SkillManifest {
   /// Outer key: IDE name, inner key: package uri or git uri.
   final Map<String, Map<String, SkillsEntry>> installations;
 
+  /// Repos that have already been suggested in this workspace (these will not
+  /// be suggested in the future).
+  final Set<String> suggestedRepos;
+
   /// Configured git repos for this workspace.
   const SkillManifest({
     this.version = currentVersion,
     this.installations = const {},
+    this.suggestedRepos = const {},
   });
 
   /// Migrates existing state from `.dart_skills` to `.dart_tool/skills`.
@@ -114,7 +119,17 @@ class SkillManifest {
       return MapEntry(ideKey, pkgs);
     });
 
-    return SkillManifest(version: version, installations: installations);
+    final suggestedRepos =
+        (json['suggestedRepos'] as List<dynamic>?)
+            ?.map((e) => e as String)
+            .toSet() ??
+        const {};
+
+    return SkillManifest(
+      version: version,
+      installations: installations,
+      suggestedRepos: suggestedRepos,
+    );
   }
 
   Map<String, dynamic> toJson() {
@@ -126,6 +141,7 @@ class SkillManifest {
           entries.map((uri, entry) => MapEntry(uri, entry.toJson())),
         ),
       ),
+      if (suggestedRepos.isNotEmpty) 'suggestedRepos': suggestedRepos.toList(),
     };
   }
 
@@ -183,7 +199,20 @@ class SkillManifest {
   SkillManifest withSourceUri(String ide, String sourceUri, SkillsEntry entry) {
     final updated = _deepCopy();
     updated.putIfAbsent(ide, () => {})[sourceUri] = entry;
-    return SkillManifest(version: version, installations: updated);
+    return SkillManifest(
+      version: version,
+      installations: updated,
+      suggestedRepos: suggestedRepos,
+    );
+  }
+
+  /// Returns a copy with [repos] added to [suggestedRepos].
+  SkillManifest withPromptedSuggestedRepos(Set<String> repos) {
+    return SkillManifest(
+      version: version,
+      installations: installations,
+      suggestedRepos: {...suggestedRepos, ...repos},
+    );
   }
 
   /// Returns a copy with [sourceUri] removed from [ide].
@@ -191,14 +220,22 @@ class SkillManifest {
     final updated = _deepCopy();
     updated[ide]?.remove(sourceUri);
     if (updated[ide]?.isEmpty ?? false) updated.remove(ide);
-    return SkillManifest(version: version, installations: updated);
+    return SkillManifest(
+      version: version,
+      installations: updated,
+      suggestedRepos: suggestedRepos,
+    );
   }
 
   /// Returns a copy with all packages removed for [ide].
   SkillManifest withoutIde(String ide) {
     final updated = _deepCopy();
     updated.remove(ide);
-    return SkillManifest(version: version, installations: updated);
+    return SkillManifest(
+      version: version,
+      installations: updated,
+      suggestedRepos: suggestedRepos,
+    );
   }
 
   Map<String, Map<String, SkillsEntry>> _deepCopy() {
