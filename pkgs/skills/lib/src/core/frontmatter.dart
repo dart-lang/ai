@@ -55,14 +55,14 @@ class SkillFrontmatter {
     if (!content.startsWith('---')) {
       throw FormatException('Skill must start with `---` frontmatter', content);
     }
-    final frontMatterEnd = content.substring(3).indexOf('---');
+    final frontMatterEnd = content.indexOf('---', 3);
     if (frontMatterEnd == -1) {
       throw FormatException(
         'Skill must have front matter ending delimiter ---',
         content,
       );
     }
-    final yamlContent = content.substring(3, frontMatterEnd + 3);
+    final yamlContent = content.substring(3, frontMatterEnd);
     return SkillFrontmatter.fromYaml(
       loadYamlDocument(yamlContent, sourceUrl: sourceUri),
     );
