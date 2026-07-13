@@ -18,7 +18,7 @@ import 'skill_scanner.dart';
 class GitScanner {
   const GitScanner();
 
-  static final _logger = Logger('GitScanner'); 
+  static final _logger = Logger('GitScanner');
 
   /// Scans all [repos] under [rootPath] and returns [ScannedSkill]s.
   Future<List<ScannedSkill>> scan(
