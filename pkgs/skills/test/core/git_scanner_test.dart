@@ -85,7 +85,12 @@ void main() {
                       ]),
                     ]),
                     d.dir('flutter_riverpod', [
-                      d.dir('flutter_riverpod-hooks', [d.file('SKILL.md', '')]),
+                      d.dir('flutter_riverpod-hooks', [
+                        d.file(
+                          'SKILL.md',
+                          '---\nname: flutter_riverpod-hooks\n---\n',
+                        ),
+                      ]),
                     ]),
                   ]),
                 ]),
@@ -117,17 +122,19 @@ void main() {
       },
     );
 
-    test('when skill dir has no hyphen then skipped in flat layout', () async {
+    test('when skill is internal then it is skipped', () async {
+      final repo = const GitRepo(cloneUrl: 'https://github.com/a/b.git');
       await d.dir('project', [
         d.dir('.dart_tool', [
           d.dir('skills', [
             d.dir('repos', [
-              d.dir('a', [
-                d.dir('b', [
-                  d.dir('skills', [
-                    d.dir('no_hyphen', [
-                      d.file('SKILL.md', '---\nname: no_hyphen\n---\n'),
-                    ]),
+              d.dir(repo.pathSegment, [
+                d.dir('skills', [
+                  d.dir('pkg-internal', [
+                    d.file(
+                      'SKILL.md',
+                      '---\nname: pkg-internal\nmetadata:\n  internal: true\n---\n',
+                    ),
                   ]),
                 ]),
               ]),
@@ -140,21 +147,20 @@ void main() {
       final skills = await scanner.scan(
         d.path('project'),
         isGlobal: false,
-        repos: [const GitRepo(cloneUrl: 'https://github.com/a/b.git')],
+        repos: [repo],
       );
       expect(skills, isEmpty);
     });
 
     test('when skill dir has no SKILL.md then skipped', () async {
+      final repo = const GitRepo(cloneUrl: 'https://github.com/a/b.git');
       await d.dir('project', [
         d.dir('.dart_tool', [
           d.dir('skills', [
             d.dir('repos', [
-              d.dir('a', [
-                d.dir('b', [
-                  d.dir('skills', [
-                    d.dir('pkg-skill', [d.file('README.md', 'not a skill')]),
-                  ]),
+              d.dir(repo.pathSegment, [
+                d.dir('skills', [
+                  d.dir('pkg-skill', [d.file('README.md', 'not a skill')]),
                 ]),
               ]),
             ]),
@@ -166,7 +172,7 @@ void main() {
       final skills = await scanner.scan(
         d.path('project'),
         isGlobal: false,
-        repos: [const GitRepo(cloneUrl: 'https://github.com/a/b.git')],
+        repos: [repo],
       );
       expect(skills, isEmpty);
     });
@@ -182,12 +188,16 @@ void main() {
             d.dir('repos', [
               d.dir(gitRepos[0].pathSegment, [
                 d.dir('skills', [
-                  d.dir('pkg-a', [d.file('SKILL.md', '')]),
+                  d.dir('pkg-a', [
+                    d.file('SKILL.md', '---\nname: pkg-a\n---\n'),
+                  ]),
                 ]),
               ]),
               d.dir(gitRepos[1].pathSegment, [
                 d.dir('skills', [
-                  d.dir('pkg-b', [d.file('SKILL.md', '')]),
+                  d.dir('pkg-b', [
+                    d.file('SKILL.md', '---\nname: pkg-b\n---\n'),
+                  ]),
                 ]),
               ]),
             ]),
