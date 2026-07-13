@@ -30,6 +30,8 @@
   `npx skills` for `dart run skills@`.
   - The `get` command now supports `--git` arguments for git repos to update
     skills from.
+- feat: Support `internal: true` metadata in frontmatter to skill internal
+  skills, unless the `INSTALL_INTERNAL_SKILLS=1` environment variable is set. 
 
 ## 0.3.1
 
