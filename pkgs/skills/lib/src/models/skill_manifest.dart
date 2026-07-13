@@ -125,7 +125,7 @@ class SkillManifest {
 
     final suggestedRepos =
         (json['suggestedRepos'] as List<dynamic>?)
-            ?.map((e) => e as String)
+            ?.cast<String>()
             .toSet() ??
         const {};
 
