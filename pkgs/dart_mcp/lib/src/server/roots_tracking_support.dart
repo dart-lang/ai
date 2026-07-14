@@ -31,20 +31,22 @@ base mixin RootsTrackingSupport on LoggingSupport {
 
   /// Whether or not the connected client supports [listRoots].
   ///
-  /// Only safe to call after calling [initializeLegacy] on `super` since this
+  /// Only safe to call after calling [initialize] on `super` since this
   /// is based on the client capabilities.
   bool get supportsRoots => clientCapabilities.roots != null;
 
   /// Whether or not the connected client supports reporting changes to the
   /// list of roots.
   ///
-  /// Only safe to call after calling [initializeLegacy] on `super` since this
+  /// Only safe to call after calling [initialize] on `super` since this
   /// is based on the client capabilities.
   bool get supportsRootsChanged =>
       clientCapabilities.roots?.listChanged == true;
 
   @override
-  FutureOr<InitializeResult> initializeLegacy(InitializeRequest request) {
+  FutureOr<ServerCapabilities> initialize(
+    MCPServerInitialization initialization,
+  ) {
     initialized.then((_) async {
       if (!supportsRoots) {
         log(
@@ -61,7 +63,7 @@ base mixin RootsTrackingSupport on LoggingSupport {
         await updateRoots();
       }
     });
-    return super.initializeLegacy(request);
+    return super.initialize(initialization);
   }
 
   /// Updates the list of [roots] by calling [listRoots].

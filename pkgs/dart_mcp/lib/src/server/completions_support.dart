@@ -10,11 +10,11 @@ part of 'server.dart';
 base mixin CompletionsSupport on MCPServer {
   @override
   FutureOr<ServerCapabilities> initialize(
-    ClientCapabilities clientCapabilities,
+    MCPServerInitialization initialization,
   ) async {
     registerRequestHandler(CompleteRequest.methodName, handleComplete);
 
-    return (await super.initialize(clientCapabilities))
+    return (await super.initialize(initialization))
       ..completions ??= Completions();
   }
 

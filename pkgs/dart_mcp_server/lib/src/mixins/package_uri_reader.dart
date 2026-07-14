@@ -25,11 +25,9 @@ import '../utils/package_uris.dart';
 base mixin PackageUriSupport on ToolsSupport, RootsTrackingSupport
     implements FileSystemSupport {
   @override
-  FutureOr<ServerCapabilities> initialize(
-    ClientCapabilities clientCapabilities,
-  ) {
+  FutureOr<InitializeResult> initialize(InitializeRequest request) {
     registerTool(readPackageUris, _readPackageUris);
-    return super.initialize(clientCapabilities);
+    return super.initialize(request);
   }
 
   @visibleForTesting

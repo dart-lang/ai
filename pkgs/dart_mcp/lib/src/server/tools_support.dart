@@ -28,12 +28,12 @@ base mixin ToolsSupport on MCPServer {
   /// will notify the client
   @override
   FutureOr<ServerCapabilities> initialize(
-    ClientCapabilities clientCapabilities,
+    MCPServerInitialization initialization,
   ) async {
     registerRequestHandler(ListToolsRequest.methodName, listTools);
     registerRequestHandler(CallToolRequest.methodName, callTool);
 
-    final capabilities = await super.initialize(clientCapabilities);
+    final capabilities = await super.initialize(initialization);
     (capabilities.tools ??= Tools()).listChanged = true;
     return capabilities;
   }

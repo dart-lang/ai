@@ -48,8 +48,7 @@ classDiagram
 
     class MCPServer {
         <<abstract>>
-        +initialize(clientCapabilities)
-        +initializeLegacy(request)
+        +initialize()
     }
 
     class ToolsSupport {

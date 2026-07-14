@@ -39,7 +39,7 @@ base class MCPServerWithElicitation extends MCPServer
 
   @override
   FutureOr<ServerCapabilities> initialize(
-    ClientCapabilities clientCapabilities,
+    MCPServerInitialization initialization,
   ) {
     registerTool(
       Tool(
@@ -49,7 +49,7 @@ base class MCPServerWithElicitation extends MCPServer
       ),
       _handleNeedsPermissionTool,
     );
-    return super.initialize(clientCapabilities);
+    return super.initialize(initialization);
   }
 
   Future<CallToolResult> _handleNeedsPermissionTool(

@@ -61,7 +61,7 @@ base mixin ResourcesSupport on MCPServer {
   /// subscription preferences.
   @override
   FutureOr<ServerCapabilities> initialize(
-    ClientCapabilities clientCapabilities,
+    MCPServerInitialization initialization,
   ) async {
     registerRequestHandler(ListResourcesRequest.methodName, listResources);
     registerRequestHandler(
@@ -74,7 +74,7 @@ base mixin ResourcesSupport on MCPServer {
     registerRequestHandler(SubscribeRequest.methodName, subscribeResource);
     registerRequestHandler(UnsubscribeRequest.methodName, unsubscribeResource);
 
-    final capabilities = await super.initialize(clientCapabilities);
+    final capabilities = await super.initialize(initialization);
     (capabilities.resources ??= Resources())
       ..listChanged = true
       ..subscribe = true;

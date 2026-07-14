@@ -19,18 +19,41 @@ part 'resources_support.dart';
 part 'roots_tracking_support.dart';
 part 'tools_support.dart';
 
+/// The client context used to initialize an [MCPServer].
+///
+/// Legacy transports provide this once per connection after negotiating a
+/// protocol version. Request-scoped transports provide it once per request.
+final class MCPServerInitialization {
+  const MCPServerInitialization({
+    required this.protocolVersion,
+    required this.clientCapabilities,
+    required this.clientInfo,
+  });
+
+  /// The protocol version used for this connection or request.
+  final ProtocolVersion protocolVersion;
+
+  /// The capabilities declared by the client.
+  final ClientCapabilities clientCapabilities;
+
+  /// The implementation information declared by the client.
+  final Implementation clientInfo;
+}
+
 /// Base class to extend when implementing an MCP server.
 ///
 /// Actual functionality beyond server initialization is done by mixing in
 /// additional support mixins such as [ToolsSupport], [ResourcesSupport] etc.
 abstract base class MCPServer extends MCPBase {
-  /// Completes when this legacy server connection has finished initialization
-  /// and gotten the final ack from the client.
+  /// Completes when this server has finished initialization.
+  ///
+  /// Legacy transports complete this after the final acknowledgement from the
+  /// client. Request-scoped transports should call [handleInitialized] after
+  /// [initialize] and any transport-specific setup have completed.
   Future<InitializedNotification?> get initialized => _initialized.future;
   final Completer<InitializedNotification?> _initialized = Completer();
 
-  /// Whether this server is still active and has completed legacy
-  /// initialization.
+  /// Whether this server is still active and has completed initialization.
   bool get ready => isActive && _initialized.isCompleted;
 
   /// The name, current version, and other info to give to the client.
@@ -43,17 +66,17 @@ abstract base class MCPServer extends MCPBase {
 
   /// The negotiated protocol version.
   ///
-  /// Only assigned after [initializeLegacy] has been called.
+  /// Only assigned after [initialize] has been called.
   late ProtocolVersion protocolVersion;
 
   /// The capabilities of the client.
   ///
-  /// Only assigned after [initializeLegacy] has been called.
+  /// Only assigned after [initialize] has been called.
   late ClientCapabilities clientCapabilities;
 
   /// The client implementation information provided during initialization.
   ///
-  /// Only assigned after [initializeLegacy] has been called.
+  /// Only assigned after [initialize] has been called.
   late Implementation clientInfo;
 
   @override
@@ -91,7 +114,7 @@ abstract base class MCPServer extends MCPBase {
   }
 
   @mustCallSuper
-  /// Registers the features available to a client with [clientCapabilities].
+  /// Registers the features available to a client with [initialization].
   ///
   /// Mixins and subclasses should register request handlers and other features
   /// in this method, as well as editing the returned [ServerCapabilities].
@@ -99,8 +122,21 @@ abstract base class MCPServer extends MCPBase {
   /// Transport-specific initialization, including the legacy MCP initialize
   /// request, is handled separately.
   FutureOr<ServerCapabilities> initialize(
-    ClientCapabilities clientCapabilities,
-  ) => ServerCapabilities();
+    MCPServerInitialization initialization,
+  ) {
+    protocolVersion = initialization.protocolVersion;
+    clientCapabilities = initialization.clientCapabilities;
+    clientInfo = initialization.clientInfo;
+    if (clientCapabilities.roots?.listChanged == true) {
+      _rootsListChangedController =
+          StreamController<RootsListChangedNotification?>.broadcast();
+      registerNotificationHandler(
+        RootsListChangedNotification.methodName,
+        _rootsListChangedController!.sink.add,
+      );
+    }
+    return ServerCapabilities();
+  }
 
   @mustCallSuper
   /// Handles the initialize request used by legacy MCP protocols.
@@ -113,37 +149,34 @@ abstract base class MCPServer extends MCPBase {
     // that we do support. If the client doesn't support that version they will
     // terminate the connection.
     final clientProtocolVersion = request.protocolVersion;
-    if (clientProtocolVersion == null || !clientProtocolVersion.isSupported) {
-      protocolVersion = ProtocolVersion.latestSupported;
-    } else {
-      protocolVersion = clientProtocolVersion;
-    }
-
-    clientCapabilities = request.capabilities;
-    if (clientCapabilities.roots?.listChanged == true) {
-      _rootsListChangedController =
-          StreamController<RootsListChangedNotification?>.broadcast();
-      registerNotificationHandler(
-        RootsListChangedNotification.methodName,
-        _rootsListChangedController!.sink.add,
-      );
-    }
-
-    clientInfo = request.clientInfo;
+    final negotiatedProtocolVersion =
+        clientProtocolVersion == null || !clientProtocolVersion.isSupported
+            ? ProtocolVersion.latestSupported
+            : clientProtocolVersion;
 
     assert(!_initialized.isCompleted);
-    final serverCapabilities = await initialize(clientCapabilities);
+    final serverCapabilities = await initialize(
+      MCPServerInitialization(
+        protocolVersion: negotiatedProtocolVersion,
+        clientCapabilities: request.capabilities,
+        clientInfo: request.clientInfo,
+      ),
+    );
     return InitializeResult(
-      protocolVersion: protocolVersion,
+      protocolVersion: negotiatedProtocolVersion,
       serverCapabilities: serverCapabilities,
       serverInfo: implementation,
       instructions: instructions,
     );
   }
 
-  /// Called by the client after accepting our [InitializeResult].
+  /// Completes [initialized].
   ///
-  /// The server should not respond.
+  /// Legacy clients call this handler after accepting our [InitializeResult].
+  /// Request-scoped transports may call it without a notification after
+  /// [initialize] and transport-specific setup have completed.
+  ///
+  /// The server should not send a response.
   @mustCallSuper
   void handleInitialized([InitializedNotification? notification]) {
     _initialized.complete(notification);

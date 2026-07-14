@@ -2,8 +2,9 @@
 
 - **BREAKING**:
   - Separate server feature registration from the legacy protocol handshake.
-    `MCPServer.initialize` now accepts `ClientCapabilities` and returns
-    `ServerCapabilities`.
+    `MCPServer.initialize` now accepts an `MCPServerInitialization` containing
+    the protocol version, client information, and client capabilities, and
+    returns `ServerCapabilities`.
   - Override `MCPServer.initializeLegacy` only to customize the legacy
     initialize response or version negotiation.
 

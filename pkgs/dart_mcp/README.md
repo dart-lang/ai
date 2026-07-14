@@ -19,11 +19,13 @@ provide implementations of methods, while others may just expose new methods
 that you can call.
 
 Register server-specific tools, resources, prompts, and request handlers by
-overriding `MCPServer.initialize(ClientCapabilities)`. Always call the super
-method and return its `ServerCapabilities`, including any capability changes
-made by your server. This hook can be used independently of the legacy MCP
-handshake; it does not perform protocol negotiation or complete the legacy
-initialization lifecycle.
+overriding `MCPServer.initialize(MCPServerInitialization)`. Always call the
+super method and return its `ServerCapabilities`, including any capability
+changes made by your server. This hook can be used independently of the legacy
+MCP handshake; the context supplies the protocol version, client information,
+and client capabilities for either lifecycle. A request-scoped transport
+completes `MCPServer.initialized` by calling `handleInitialized()` after this
+hook and any transport-specific setup have finished.
 
 `MCPServer.initializeLegacy(InitializeRequest)` handles protocol negotiation
 and the legacy initialize response. Override it only when you need to customize
@@ -41,8 +43,9 @@ client by reading the `MCPServer.clientCapabilities`.
 
 Alternatively, if your server requires certain capabilities from the client for
 all operations, you may check the `ClientCapabilities` passed to
-`MCPServer.initialize` and return an error, which may result in a better UX for
-the users of the client.
+`MCPServer.initialize` through `MCPServerInitialization.clientCapabilities`
+and return an error, which may result in a better UX for the users of the
+client.
 
 ## Implementing Clients
 

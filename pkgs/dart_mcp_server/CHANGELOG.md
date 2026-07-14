@@ -1,6 +1,5 @@
 ## 1.1.0-wip
 
-- Update to the `dart_mcp` 0.6.0 server lifecycle APIs.
 - Create vm_service meta tool, which allows direct connections to apps via vm
   service URIs, and also handles the direct vm service method calls.
 - Add additional failure reasons to tool call analytics.

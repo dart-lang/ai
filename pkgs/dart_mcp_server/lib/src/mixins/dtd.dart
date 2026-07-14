@@ -221,9 +221,7 @@ base mixin DartToolingDaemonSupport
   }
 
   @override
-  FutureOr<ServerCapabilities> initialize(
-    ClientCapabilities clientCapabilities,
-  ) {
+  FutureOr<InitializeResult> initialize(InitializeRequest request) async {
     registerTool(dtdTool, _dtd);
     registerTool(getRuntimeErrorsTool, runtimeErrors);
     registerTool(getActiveLocationTool, _getActiveLocation);
@@ -233,7 +231,7 @@ base mixin DartToolingDaemonSupport
     registerTool(flutterDriverTool, _callFlutterDriver);
     registerTool(vmServiceTool, _vmService);
 
-    return super.initialize(clientCapabilities);
+    return super.initialize(request);
   }
 
   @visibleForTesting

@@ -18,17 +18,31 @@ void main() {
     final clientCapabilities = ClientCapabilities(
       roots: RootsCapabilities(listChanged: true),
     );
+    final clientInfo = Implementation(name: 'test client', version: '1.0.0');
+    final initialization = MCPServerInitialization(
+      protocolVersion: ProtocolVersion.latestSupported,
+      clientCapabilities: clientCapabilities,
+      clientInfo: clientInfo,
+    );
 
     final serverCapabilities = await environment.server.initialize(
-      clientCapabilities,
+      initialization,
     );
 
     expect(serverCapabilities.tools, equals(Tools(listChanged: true)));
-    expect(environment.server.initializedWith, same(clientCapabilities));
+    expect(environment.server.initializedWith, same(initialization));
+    expect(environment.server.protocolVersion, ProtocolVersion.latestSupported);
+    expect(environment.server.clientCapabilities, same(clientCapabilities));
+    expect(environment.server.clientInfo, same(clientInfo));
+    expect(environment.server.ready, isFalse);
     expect(
       (await environment.server.listTools(ListToolsRequest())).tools,
       hasLength(2),
     );
+
+    environment.server.handleInitialized();
+    expect(await environment.server.initialized, isNull);
+    expect(environment.server.ready, isTrue);
   });
 
   test('client can list and invoke tools from the server', () async {
@@ -39,14 +53,29 @@ void main() {
     environment.client.capabilities.roots = RootsCapabilities(
       listChanged: true,
     );
-    final initializeResult = await environment.initializeServer();
+    final initializeResult = await environment.initializeServer(
+      protocolVersion: ProtocolVersion.oldestSupported,
+    );
+    expect(initializeResult.protocolVersion, ProtocolVersion.oldestSupported);
     expect(
       initializeResult.capabilities.tools,
       equals(Tools(listChanged: true)),
     );
     expect(
-      environment.server.initializedWith?.roots,
+      environment.server.initializedWith?.clientCapabilities.roots,
       equals(environment.client.capabilities.roots),
+    );
+    expect(
+      environment.server.initializedWith?.protocolVersion,
+      ProtocolVersion.oldestSupported,
+    );
+    expect(
+      environment.server.initializedWith?.clientInfo.name,
+      environment.client.implementation.name,
+    );
+    expect(
+      environment.server.initializedWith?.clientInfo.version,
+      environment.client.implementation.version,
     );
 
     final serverConnection = environment.serverConnection;
@@ -149,19 +178,19 @@ void main() {
 final class TestMCPServerWithTools extends TestMCPServer with ToolsSupport {
   TestMCPServerWithTools(super.channel);
 
-  ClientCapabilities? initializedWith;
+  MCPServerInitialization? initializedWith;
 
   @override
   FutureOr<ServerCapabilities> initialize(
-    ClientCapabilities clientCapabilities,
+    MCPServerInitialization initialization,
   ) {
-    initializedWith = clientCapabilities;
+    initializedWith = initialization;
     registerTool(
       helloWorld,
       (_) => CallToolResult(content: [helloWorldContent]),
     );
     registerTool(TestMCPServerWithTools.echo, TestMCPServerWithTools.echoImpl);
-    return super.initialize(clientCapabilities);
+    return super.initialize(initialization);
   }
 
   static final echo = Tool(

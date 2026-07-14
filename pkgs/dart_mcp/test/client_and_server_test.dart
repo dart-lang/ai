@@ -406,10 +406,10 @@ final class InitializeProgressTestMCPServer extends TestMCPServer
 
   @override
   FutureOr<ServerCapabilities> initialize(
-    ClientCapabilities clientCapabilities,
+    MCPServerInitialization initialization,
   ) {
     registerTool(myProgressTool, _myToolImpl);
-    return super.initialize(clientCapabilities);
+    return super.initialize(initialization);
   }
 
   Future<CallToolResult> _myToolImpl(CallToolRequest request) async {

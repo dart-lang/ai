@@ -244,7 +244,7 @@ final class TestMCPServerWithResources extends TestMCPServer
 
   @override
   FutureOr<ServerCapabilities> initialize(
-    ClientCapabilities clientCapabilities,
+    MCPServerInitialization initialization,
   ) {
     addResource(
       helloWorld,
@@ -255,7 +255,7 @@ final class TestMCPServerWithResources extends TestMCPServer
       ),
     );
     addResourceTemplate(packageUriTemplate, _readPackageResource);
-    return super.initialize(clientCapabilities);
+    return super.initialize(initialization);
   }
 
   Future<ReadResourceResult?> _readPackageResource(

@@ -16,7 +16,7 @@ dependencies:
   async: ^2.13.0
   cli_util: ^0.5.0
   collection: ^1.19.1
-  dart_mcp: ^0.6.0
+  dart_mcp: ^0.5.0
   dds_service_extensions: ^2.0.1
   devtools_shared: ^13.0.0
   dtd: ^4.0.0
@@ -47,7 +47,3 @@ dev_dependencies:
 
 executables:
   dart_mcp_server: dart_mcp_server
-
-dependency_overrides:
-  dart_mcp:
-    path: ../dart_mcp

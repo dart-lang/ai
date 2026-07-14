@@ -2248,9 +2248,9 @@ base class TestMCPServerWithTools extends TestMCPServer with ToolsSupport {
 
   @override
   FutureOr<ServerCapabilities> initialize(
-    ClientCapabilities clientCapabilities,
+    MCPServerInitialization initialization,
   ) async {
-    final capabilities = await super.initialize(clientCapabilities);
+    final capabilities = await super.initialize(initialization);
     for (final tool in _initialTools) {
       final handler = _initialToolHandlers[tool.name];
       if (handler != null) {

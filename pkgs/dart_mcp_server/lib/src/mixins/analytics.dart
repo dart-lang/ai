@@ -15,10 +15,10 @@ base mixin AnalyticsEvents
     on ToolsSupport, PromptsSupport, ResourcesSupport, LoggingSupport
     implements AnalyticsSupport {
   @override
-  /// Tracks [initializeLegacy] calls, so we can detect clients that connect but
+  /// Tracks [initialize] calls, so we can detect clients that connect but
   /// never interact with the server directly.
-  Future<InitializeResult> initializeLegacy(InitializeRequest request) async {
-    final result = await super.initializeLegacy(request);
+  Future<InitializeResult> initialize(InitializeRequest request) async {
+    final result = await super.initialize(request);
     analytics?.send(
       Event.dartMCPEvent(
         client: clientInfo.name,

@@ -28,13 +28,13 @@ final class SimpleFileSystemServer extends MCPServer
 
   @override
   FutureOr<ServerCapabilities> initialize(
-    ClientCapabilities clientCapabilities,
+    MCPServerInitialization initialization,
   ) {
     registerTool(readFileTool, _readFile);
     registerTool(writeFileTool, _writeFile);
     registerTool(deleteFileTool, _deleteFile);
     registerTool(listFilesTool, _listFiles);
-    return super.initialize(clientCapabilities);
+    return super.initialize(initialization);
   }
 
   /// Checks if [path] is under any of the known [roots].

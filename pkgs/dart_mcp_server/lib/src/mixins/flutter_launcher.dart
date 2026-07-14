@@ -47,15 +47,13 @@ base mixin FlutterLauncherSupport
   };
 
   @override
-  FutureOr<ServerCapabilities> initialize(
-    ClientCapabilities clientCapabilities,
-  ) {
+  FutureOr<InitializeResult> initialize(InitializeRequest request) {
     registerTool(launchAppTool, _launchApp);
     registerTool(stopAppTool, _stopApp);
     registerTool(listDevicesTool, _listDevices);
     registerTool(getAppLogsTool, _getAppLogs);
     registerTool(listRunningAppsTool, _listRunningApps);
-    return super.initialize(clientCapabilities);
+    return super.initialize(request);
   }
 
   @visibleForTesting

@@ -28,11 +28,9 @@ base mixin PubDevSupport on ToolsSupport {
   final _client = Client();
 
   @override
-  FutureOr<ServerCapabilities> initialize(
-    ClientCapabilities clientCapabilities,
-  ) {
+  FutureOr<InitializeResult> initialize(InitializeRequest request) {
     registerTool(pubDevTool, _runPubDevSearch);
-    return super.initialize(clientCapabilities);
+    return super.initialize(request);
   }
 
   @visibleForTesting

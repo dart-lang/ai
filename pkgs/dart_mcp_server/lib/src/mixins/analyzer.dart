@@ -78,24 +78,25 @@ base mixin DartAnalyzerSupport
       );
 
   @override
-  FutureOr<ServerCapabilities> initialize(
-    ClientCapabilities clientCapabilities,
-  ) async {
-    final capabilities = await super.initialize(clientCapabilities);
-    final unsupportedReasons = _unsupportedReasons(clientCapabilities);
+  FutureOr<InitializeResult> initialize(InitializeRequest request) async {
+    // This should come first, assigns `clientCapabilities`.
+    final result = await super.initialize(request);
+
+    // We check for requirements and store a message to log after initialization
+    // if some requirement isn't satisfied.
+    final unsupportedReasons = <String>[
+      if (!supportsRoots)
+        'Project analysis requires the "roots" capability which is not '
+            'supported. Analysis tools have been disabled.',
+      if (sdk.dartSdkPath == null)
+        'Project analysis requires a Dart SDK but none was given. Analysis '
+            'tools have been disabled.',
+    ];
 
     if (unsupportedReasons.isEmpty) {
       registerTool(analyzeFilesTool, _analyzeFiles);
       registerTool(lspTool, _lsp);
     }
-
-    return capabilities;
-  }
-
-  @override
-  FutureOr<InitializeResult> initializeLegacy(InitializeRequest request) async {
-    final result = await super.initializeLegacy(request);
-    final unsupportedReasons = _unsupportedReasons(request.capabilities);
 
     // Don't call any methods on the client until we are fully initialized
     // (even logging).
@@ -109,15 +110,6 @@ base mixin DartAnalyzerSupport
 
     return result;
   }
-
-  List<String> _unsupportedReasons(ClientCapabilities clientCapabilities) => [
-    if (clientCapabilities.roots == null)
-      'Project analysis requires the "roots" capability which is not '
-          'supported. Analysis tools have been disabled.',
-    if (sdk.dartSdkPath == null)
-      'Project analysis requires a Dart SDK but none was given. Analysis '
-          'tools have been disabled.',
-  ];
 
   @visibleForTesting
   static final List<Tool> allTools = [analyzeFilesTool, lspTool];
