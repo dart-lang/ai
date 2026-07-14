@@ -1,3 +1,5 @@
+## 0.5.3-wip
+
 ## 0.5.2
 
 - Update `listRoots` to normalize URIs to file: scheme variants when given raw
