@@ -51,13 +51,15 @@ base class MCPServerWithRootsTrackingSupport extends MCPServer
   }
 
   @override
-  Future<InitializeResult> initialize(InitializeRequest request) async {
+  Future<ServerCapabilities> initialize(
+    ClientCapabilities clientCapabilities,
+  ) async {
     // We require the client to support roots.
-    if (request.capabilities.roots == null) {
+    if (clientCapabilities.roots == null) {
       throw StateError('Client doesn\'t support roots!');
     }
 
-    return await super.initialize(request);
+    return await super.initialize(clientCapabilities);
   }
 
   /// Logs the current list of roots.

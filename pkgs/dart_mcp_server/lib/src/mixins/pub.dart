@@ -25,11 +25,13 @@ import '../utils/sdk.dart';
 base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
     implements ProcessManagerSupport, FileSystemSupport, SdkSupport {
   @override
-  FutureOr<InitializeResult> initialize(InitializeRequest request) {
+  FutureOr<ServerCapabilities> initialize(
+    ClientCapabilities clientCapabilities,
+  ) {
     try {
-      return super.initialize(request);
+      return super.initialize(clientCapabilities);
     } finally {
-      if (supportsRoots) {
+      if (clientCapabilities.roots != null) {
         registerTool(pubTool, _runDartPubTool);
       }
     }

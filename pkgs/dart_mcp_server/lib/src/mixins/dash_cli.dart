@@ -25,12 +25,13 @@ import '../utils/sdk.dart';
 base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
     implements ProcessManagerSupport, FileSystemSupport, SdkSupport {
   @override
-  FutureOr<InitializeResult> initialize(InitializeRequest request) {
+  FutureOr<ServerCapabilities> initialize(
+    ClientCapabilities clientCapabilities,
+  ) {
     try {
-      return super.initialize(request);
+      return super.initialize(clientCapabilities);
     } finally {
-      // Can't call `supportsRoots` until after `super.initialize`.
-      if (supportsRoots && sdk.dartSdkPath != null) {
+      if (clientCapabilities.roots != null && sdk.dartSdkPath != null) {
         registerTool(dartFixTool, _runDartFixTool);
         registerTool(dartFormatTool, _runDartFormatTool);
         registerTool(runTestsTool, _runTests);

@@ -27,9 +27,11 @@ base mixin GrepSupport
     on ToolsSupport, RootsTrackingSupport, ElicitationRequestSupport
     implements FileSystemSupport, ProcessManagerSupport {
   @override
-  FutureOr<InitializeResult> initialize(InitializeRequest request) {
+  FutureOr<ServerCapabilities> initialize(
+    ClientCapabilities clientCapabilities,
+  ) {
     registerTool(ripGrepPackagesTool, _ripGrepPackages);
-    return super.initialize(request);
+    return super.initialize(clientCapabilities);
   }
 
   @visibleForTesting

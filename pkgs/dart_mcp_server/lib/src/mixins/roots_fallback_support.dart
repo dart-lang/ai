@@ -55,9 +55,11 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
       StreamController<RootsListChangedNotification?>.broadcast();
 
   @override
-  FutureOr<InitializeResult> initialize(InitializeRequest request) async {
+  FutureOr<ServerCapabilities> initialize(
+    ClientCapabilities clientCapabilities,
+  ) async {
     try {
-      return await super.initialize(request);
+      return await super.initialize(clientCapabilities);
     } finally {
       registerTool(rootsTool, _roots);
     }

@@ -22,14 +22,16 @@ base mixin PromptsSupport on MCPServer {
   _promptImpls = {};
 
   @override
-  FutureOr<InitializeResult> initialize(InitializeRequest request) async {
+  FutureOr<ServerCapabilities> initialize(
+    ClientCapabilities clientCapabilities,
+  ) async {
     registerRequestHandler(ListPromptsRequest.methodName, listPrompts);
 
     registerRequestHandler(GetPromptRequest.methodName, getPrompt);
 
-    final result = await super.initialize(request);
-    (result.capabilities.prompts ??= Prompts()).listChanged = true;
-    return result;
+    final capabilities = await super.initialize(clientCapabilities);
+    (capabilities.prompts ??= Prompts()).listChanged = true;
+    return capabilities;
   }
 
   /// Lists the available prompts.

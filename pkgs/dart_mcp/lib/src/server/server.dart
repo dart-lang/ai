@@ -24,12 +24,13 @@ part 'tools_support.dart';
 /// Actual functionality beyond server initialization is done by mixing in
 /// additional support mixins such as [ToolsSupport], [ResourcesSupport] etc.
 abstract base class MCPServer extends MCPBase {
-  /// Completes when this server has finished initialization and gotten the
-  /// final ack from the client.
+  /// Completes when this legacy server connection has finished initialization
+  /// and gotten the final ack from the client.
   Future<InitializedNotification?> get initialized => _initialized.future;
   final Completer<InitializedNotification?> _initialized = Completer();
 
-  /// Whether this server is still active and has completed initialization.
+  /// Whether this server is still active and has completed legacy
+  /// initialization.
   bool get ready => isActive && _initialized.isCompleted;
 
   /// The name, current version, and other info to give to the client.
@@ -42,17 +43,17 @@ abstract base class MCPServer extends MCPBase {
 
   /// The negotiated protocol version.
   ///
-  /// Only assigned after `initialize` has been called.
+  /// Only assigned after [initializeLegacy] has been called.
   late ProtocolVersion protocolVersion;
 
   /// The capabilities of the client.
   ///
-  /// Only assigned after `initialize` has been called.
+  /// Only assigned after [initializeLegacy] has been called.
   late ClientCapabilities clientCapabilities;
 
   /// The client implementation information provided during initialization.
   ///
-  /// Only assigned after `initialize` has been called.
+  /// Only assigned after [initializeLegacy] has been called.
   late Implementation clientInfo;
 
   @override
@@ -75,7 +76,7 @@ abstract base class MCPServer extends MCPBase {
     this.instructions,
     super.protocolLogSink,
   }) {
-    registerRequestHandler(InitializeRequest.methodName, initialize);
+    registerRequestHandler(InitializeRequest.methodName, initializeLegacy);
 
     registerNotificationHandler(
       InitializedNotification.methodName,
@@ -90,9 +91,24 @@ abstract base class MCPServer extends MCPBase {
   }
 
   @mustCallSuper
-  /// Mixins should register their methods in this method, as well as editing
-  /// the [InitializeResult.capabilities] as needed.
-  FutureOr<InitializeResult> initialize(InitializeRequest request) {
+  /// Registers the features available to a client with [clientCapabilities].
+  ///
+  /// Mixins and subclasses should register request handlers and other features
+  /// in this method, as well as editing the returned [ServerCapabilities].
+  ///
+  /// Transport-specific initialization, including the legacy MCP initialize
+  /// request, is handled separately.
+  FutureOr<ServerCapabilities> initialize(
+    ClientCapabilities clientCapabilities,
+  ) => ServerCapabilities();
+
+  @mustCallSuper
+  /// Handles the initialize request used by legacy MCP protocols.
+  ///
+  /// Most servers should override [initialize] to register features. Override
+  /// this method only to customize legacy protocol negotiation or its wire
+  /// response.
+  FutureOr<InitializeResult> initializeLegacy(InitializeRequest request) async {
     // If we don't support or understand the version, set it to the latest one
     // that we do support. If the client doesn't support that version they will
     // terminate the connection.
@@ -116,9 +132,10 @@ abstract base class MCPServer extends MCPBase {
     clientInfo = request.clientInfo;
 
     assert(!_initialized.isCompleted);
+    final serverCapabilities = await initialize(clientCapabilities);
     return InitializeResult(
       protocolVersion: protocolVersion,
-      serverCapabilities: ServerCapabilities(),
+      serverCapabilities: serverCapabilities,
       serverInfo: implementation,
       instructions: instructions,
     );

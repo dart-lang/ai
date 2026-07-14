@@ -51,7 +51,7 @@ base mixin ResourcesSupport on MCPServer {
   /// Override this getter in subtypes in order to configure the delay.
   Duration get resourceUpdateThrottleDelay => const Duration(milliseconds: 500);
 
-  /// Invoked by the client as a part of initialization.
+  /// Invoked during server feature registration.
   ///
   /// Resources should usually be added in this function using [addResource]
   /// when possible.
@@ -60,7 +60,9 @@ base mixin ResourcesSupport on MCPServer {
   /// then the client will be notified of the changes based on their
   /// subscription preferences.
   @override
-  FutureOr<InitializeResult> initialize(InitializeRequest request) async {
+  FutureOr<ServerCapabilities> initialize(
+    ClientCapabilities clientCapabilities,
+  ) async {
     registerRequestHandler(ListResourcesRequest.methodName, listResources);
     registerRequestHandler(
       ListResourceTemplatesRequest.methodName,
@@ -72,8 +74,8 @@ base mixin ResourcesSupport on MCPServer {
     registerRequestHandler(SubscribeRequest.methodName, subscribeResource);
     registerRequestHandler(UnsubscribeRequest.methodName, unsubscribeResource);
 
-    final result = await super.initialize(request);
-    (result.capabilities.resources ??= Resources())
+    final capabilities = await super.initialize(clientCapabilities);
+    (capabilities.resources ??= Resources())
       ..listChanged = true
       ..subscribe = true;
     _resourceListChangedController.stream
@@ -84,7 +86,7 @@ base mixin ResourcesSupport on MCPServer {
             ResourceListChangedNotification(),
           ),
         );
-    return result;
+    return capabilities;
   }
 
   @override

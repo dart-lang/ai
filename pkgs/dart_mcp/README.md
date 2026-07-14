@@ -18,6 +18,17 @@ Each mixin has doc comments explaining how to use it - some may require you to
 provide implementations of methods, while others may just expose new methods
 that you can call.
 
+Register server-specific tools, resources, prompts, and request handlers by
+overriding `MCPServer.initialize(ClientCapabilities)`. Always call the super
+method and return its `ServerCapabilities`, including any capability changes
+made by your server. This hook can be used independently of the legacy MCP
+handshake; it does not perform protocol negotiation or complete the legacy
+initialization lifecycle.
+
+`MCPServer.initializeLegacy(InitializeRequest)` handles protocol negotiation
+and the legacy initialize response. Override it only when you need to customize
+that handshake; feature registration belongs in `MCPServer.initialize`.
+
 See the [examples](example/) for some example code (server examples end in `_server.dart`).
 
 ### Invoking Client Capabilities
@@ -29,8 +40,9 @@ Before attempting to call these methods, you must first wait for the
 client by reading the `MCPServer.clientCapabilities`.
 
 Alternatively, if your server requires certain capabilities from the client for
-all operations, you may override the `MCPServer.initialize` function and return
-an error, which may result in a better UX for the users of the client.
+all operations, you may check the `ClientCapabilities` passed to
+`MCPServer.initialize` and return an error, which may result in a better UX for
+the users of the client.
 
 ## Implementing Clients
 

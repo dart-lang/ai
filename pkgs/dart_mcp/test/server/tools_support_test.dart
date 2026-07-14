@@ -10,15 +10,43 @@ import 'package:test/test.dart';
 import '../test_utils.dart';
 
 void main() {
+  test('features can be initialized without a legacy handshake', () async {
+    final environment = TestEnvironment(
+      TestMCPClient(),
+      TestMCPServerWithTools.new,
+    );
+    final clientCapabilities = ClientCapabilities(
+      roots: RootsCapabilities(listChanged: true),
+    );
+
+    final serverCapabilities = await environment.server.initialize(
+      clientCapabilities,
+    );
+
+    expect(serverCapabilities.tools, equals(Tools(listChanged: true)));
+    expect(environment.server.initializedWith, same(clientCapabilities));
+    expect(
+      (await environment.server.listTools(ListToolsRequest())).tools,
+      hasLength(2),
+    );
+  });
+
   test('client can list and invoke tools from the server', () async {
     final environment = TestEnvironment(
       TestMCPClient(),
       TestMCPServerWithTools.new,
     );
+    environment.client.capabilities.roots = RootsCapabilities(
+      listChanged: true,
+    );
     final initializeResult = await environment.initializeServer();
     expect(
       initializeResult.capabilities.tools,
       equals(Tools(listChanged: true)),
+    );
+    expect(
+      environment.server.initializedWith?.roots,
+      equals(environment.client.capabilities.roots),
     );
 
     final serverConnection = environment.serverConnection;
@@ -121,14 +149,19 @@ void main() {
 final class TestMCPServerWithTools extends TestMCPServer with ToolsSupport {
   TestMCPServerWithTools(super.channel);
 
+  ClientCapabilities? initializedWith;
+
   @override
-  FutureOr<InitializeResult> initialize(InitializeRequest request) {
+  FutureOr<ServerCapabilities> initialize(
+    ClientCapabilities clientCapabilities,
+  ) {
+    initializedWith = clientCapabilities;
     registerTool(
       helloWorld,
       (_) => CallToolResult(content: [helloWorldContent]),
     );
     registerTool(TestMCPServerWithTools.echo, TestMCPServerWithTools.echoImpl);
-    return super.initialize(request);
+    return super.initialize(clientCapabilities);
   }
 
   static final echo = Tool(

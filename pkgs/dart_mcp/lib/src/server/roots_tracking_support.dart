@@ -31,20 +31,20 @@ base mixin RootsTrackingSupport on LoggingSupport {
 
   /// Whether or not the connected client supports [listRoots].
   ///
-  /// Only safe to call after calling [initialize] on `super` since this is
-  /// based on the client capabilities.
+  /// Only safe to call after calling [initializeLegacy] on `super` since this
+  /// is based on the client capabilities.
   bool get supportsRoots => clientCapabilities.roots != null;
 
   /// Whether or not the connected client supports reporting changes to the
   /// list of roots.
   ///
-  /// Only safe to call after calling [initialize] on `super` since this is
-  /// based on the client capabilities.
+  /// Only safe to call after calling [initializeLegacy] on `super` since this
+  /// is based on the client capabilities.
   bool get supportsRootsChanged =>
       clientCapabilities.roots?.listChanged == true;
 
   @override
-  FutureOr<InitializeResult> initialize(InitializeRequest request) {
+  FutureOr<InitializeResult> initializeLegacy(InitializeRequest request) {
     initialized.then((_) async {
       if (!supportsRoots) {
         log(
@@ -61,7 +61,7 @@ base mixin RootsTrackingSupport on LoggingSupport {
         await updateRoots();
       }
     });
-    return super.initialize(request);
+    return super.initializeLegacy(request);
   }
 
   /// Updates the list of [roots] by calling [listRoots].
