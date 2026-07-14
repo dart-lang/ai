@@ -57,12 +57,9 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
   @override
   FutureOr<ServerCapabilities> initialize(
     ClientCapabilities clientCapabilities,
-  ) async {
-    try {
-      return await super.initialize(clientCapabilities);
-    } finally {
-      registerTool(rootsTool, _roots);
-    }
+  ) {
+    registerTool(rootsTool, _roots);
+    return super.initialize(clientCapabilities);
   }
 
   @visibleForTesting

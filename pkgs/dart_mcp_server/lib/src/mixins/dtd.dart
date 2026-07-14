@@ -223,7 +223,7 @@ base mixin DartToolingDaemonSupport
   @override
   FutureOr<ServerCapabilities> initialize(
     ClientCapabilities clientCapabilities,
-  ) async {
+  ) {
     registerTool(dtdTool, _dtd);
     registerTool(getRuntimeErrorsTool, runtimeErrors);
     registerTool(getActiveLocationTool, _getActiveLocation);

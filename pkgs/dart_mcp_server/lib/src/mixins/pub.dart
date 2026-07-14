@@ -28,13 +28,10 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
   FutureOr<ServerCapabilities> initialize(
     ClientCapabilities clientCapabilities,
   ) {
-    try {
-      return super.initialize(clientCapabilities);
-    } finally {
-      if (clientCapabilities.roots != null) {
-        registerTool(pubTool, _runDartPubTool);
-      }
+    if (clientCapabilities.roots != null) {
+      registerTool(pubTool, _runDartPubTool);
     }
+    return super.initialize(clientCapabilities);
   }
 
   @visibleForTesting

@@ -28,22 +28,19 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
   FutureOr<ServerCapabilities> initialize(
     ClientCapabilities clientCapabilities,
   ) {
-    try {
-      return super.initialize(clientCapabilities);
-    } finally {
-      if (clientCapabilities.roots != null && sdk.dartSdkPath != null) {
-        registerTool(dartFixTool, _runDartFixTool);
-        registerTool(dartFormatTool, _runDartFormatTool);
-        registerTool(runTestsTool, _runTests);
-        registerTool(
-          createProjectTool,
-          _runCreateProjectTool,
-          // This function does its own validation, as it validates other
-          // things and collects all the errors.
-          validateArguments: false,
-        );
-      }
+    if (clientCapabilities.roots != null && sdk.dartSdkPath != null) {
+      registerTool(dartFixTool, _runDartFixTool);
+      registerTool(dartFormatTool, _runDartFormatTool);
+      registerTool(runTestsTool, _runTests);
+      registerTool(
+        createProjectTool,
+        _runCreateProjectTool,
+        // This function does its own validation, as it validates other
+        // things and collects all the errors.
+        validateArguments: false,
+      );
     }
+    return super.initialize(clientCapabilities);
   }
 
   @visibleForTesting
