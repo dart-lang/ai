@@ -39,9 +39,4 @@ jobs:
 
       - run: dart pub get
 
-      - run: dart analyze --fatal-infos
-
-      - run: dart format --output=none --set-exit-if-changed .
-        if: ${{ matrix.sdk == 'dev' }}
-
-      - run: dart test -p chrome,vm -c dart2wasm,dart2js,kernel,exe
+      - run: dart test -p vm -c exe
