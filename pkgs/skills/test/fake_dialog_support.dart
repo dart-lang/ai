@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:async';
+import 'package:skills/src/commands/get_skills.dart';
 import 'package:skills/src/core/dialog_support.dart';
 
 /// A fake implementation of [DialogSupport] for testing.
@@ -57,9 +58,8 @@ class FakeDialogSupport implements DialogSupport {
     String? title,
     Set<int> initialSelected = const {},
   }) async {
-    if (skipSuggestedRepos &&
-        title ==
-            'Would you like to install the official Dart or Flutter skills?') {
+    if (skipSuggestedRepos && title == installDartSkillsText ||
+        title == installDartOrFlutterSkillsText) {
       return const {};
     }
 

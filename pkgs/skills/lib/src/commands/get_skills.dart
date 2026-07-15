@@ -8,6 +8,7 @@ import 'package:io/ansi.dart' as ansi;
 
 import 'package:args/command_runner.dart';
 import 'package:logging/logging.dart';
+import 'package:meta/meta.dart';
 import 'package:skills/src/commands/skills_command.dart';
 import 'package:skills/src/core/advisory_checker.dart';
 import 'package:skills/src/core/git_runner.dart';
@@ -285,7 +286,7 @@ Future<DashSkillsPromptResult> _maybePromptToInstallDashSkills({
     return (globalConfig: globalConfig, manifest: manifest);
   }
 
-  const flutterSkillsRepo = 'https://github.com/flutter/skills.git';
+  const flutterSkillsRepo = 'https://github.com/flutter/agent-plugins.git';
   const dartSkillsRepo = 'https://github.com/dart-lang/skills.git';
   final suggestedRepos = <String>[];
   bool shouldSuggest(String repoUrl) {
@@ -307,7 +308,9 @@ Future<DashSkillsPromptResult> _maybePromptToInstallDashSkills({
     final options = [...suggestedRepos, 'Never ask again on this machine'];
     final selectedIndices = await dialogSupport.showMultiSelectDialog(
       options,
-      title: 'Would you like to install the official Dart or Flutter skills?',
+      title: hasFlutter
+          ? installDartOrFlutterSkillsText
+          : installDartSkillsText,
       initialSelected: {for (var i = 0; i < suggestedRepos.length; i++) i},
     );
     // Record that we prompted regardless of result, even if they skipped it.
@@ -353,6 +356,14 @@ Future<DashSkillsPromptResult> _maybePromptToInstallDashSkills({
 
   return (globalConfig: globalConfig, manifest: manifest);
 }
+
+@visibleForTesting
+const installDartSkillsText =
+    'Would you like to install the official Dart skills?';
+
+@visibleForTesting
+const installDartOrFlutterSkillsText =
+    'Would you like to install the official Dart or Flutter skills?';
 
 /// Syncs and scans git repos from [globalConfig] and [manifest].
 ///

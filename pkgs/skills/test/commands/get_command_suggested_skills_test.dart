@@ -74,7 +74,7 @@ void main() {
         globalConfig.gitRepos.map((r) => r.cloneUrl).toList(),
         containsAll([
           'https://github.com/dart-lang/skills.git',
-          'https://github.com/flutter/skills.git',
+          'https://github.com/flutter/agent-plugins.git',
         ]),
       );
       expect(globalConfig.neverPromptForSuggestedSkills, isFalse);
@@ -137,7 +137,7 @@ void main() {
       await manifest
           .withPromptedSuggestedRepos({
             'https://github.com/dart-lang/skills.git',
-            'https://github.com/flutter/skills.git',
+            'https://github.com/flutter/agent-plugins.git',
           })
           .save(manifestFile);
 
@@ -155,7 +155,9 @@ void main() {
             const GitRepo(cloneUrl: 'https://github.com/dart-lang/skills.git'),
           )
           .withGitRepo(
-            const GitRepo(cloneUrl: 'https://github.com/flutter/skills.git'),
+            const GitRepo(
+              cloneUrl: 'https://github.com/flutter/agent-plugins.git',
+            ),
           )
           .save(File(globalConfigPath));
 
@@ -175,7 +177,7 @@ void main() {
           )
           .withSourceUri(
             'cursor',
-            'https://github.com/flutter/skills.git',
+            'https://github.com/flutter/agent-plugins.git',
             const SkillsEntry(),
           )
           .save(manifestFile);
