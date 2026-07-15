@@ -1,8 +1,14 @@
+// Copyright (c) 2026, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
 import 'dart:io';
 
 import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 
+import 'constants.dart';
+import 'frontmatter.dart';
 import 'package_resolver.dart';
 
 /// A scanned skill.
@@ -70,6 +76,20 @@ class SkillScanner {
 
       final skillMdFile = File(p.join(entity.path, 'SKILL.md'));
       if (!await skillMdFile.exists()) continue;
+
+      SkillFrontmatter? frontmatter;
+      try {
+        frontmatter = SkillFrontmatter.fromSkillContent(
+          await skillMdFile.readAsString(),
+        );
+      } on FormatException catch (e) {
+        logger.warning(
+          'Skipping skill at path ${entity.path} due to formatting '
+          'error: $e',
+        );
+        continue;
+      }
+      if (frontmatter.isInternal && !shouldInstallInternalSkills) continue;
 
       if (!skillName.startsWith(prefix)) {
         logger.warning(

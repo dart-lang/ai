@@ -167,6 +167,40 @@ Body.
     });
   });
 
+  group('Given a package with an internal skill', () {
+    test('when scanning then the internal skill is skipped', () async {
+      await d.dir('pkg_internal', [
+        d.dir('skills', [
+          d.dir('pkg_internal-skill', [
+            d.file('SKILL.md', '''
+---
+name: pkg_internal-skill
+description: Internal skill.
+metadata:
+  internal: true
+---
+
+Body.
+'''),
+          ]),
+        ]),
+      ]).create();
+
+      final package = ResolvedPackage(
+        name: 'pkg_internal',
+        rootPath: d.path('pkg_internal'),
+        originalPackageConfigPath: d.path(
+          p.join('.dart_tool', 'package_config.json'),
+        ),
+      );
+
+      final scanner = SkillScanner(logger);
+      final skills = await scanner.scanPackage(package);
+
+      expect(skills, isEmpty);
+    });
+  });
+
   group('Given multiple packages', () {
     test('when scanning all then aggregates skills from each', () async {
       await d.dir('pkg_a', [
