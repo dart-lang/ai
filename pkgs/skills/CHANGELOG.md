@@ -32,6 +32,8 @@
     skills from.
 - feat: Once per machine/project, suggest installing the dart and flutter
   skill repos, if they are not already installed.
+- feat: Support `internal: true` metadata in frontmatter to skill internal
+  skills, unless the `INSTALL_INTERNAL_SKILLS=1` environment variable is set.
 
 ## 0.3.1
 
