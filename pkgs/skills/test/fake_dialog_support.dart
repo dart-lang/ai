@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:async';
+import 'package:skills/src/commands/get_skills.dart';
 import 'package:skills/src/core/dialog_support.dart';
 
 /// A fake implementation of [DialogSupport] for testing.
@@ -25,6 +26,11 @@ class FakeDialogSupport implements DialogSupport {
   final List<Set<int>> allInitialSelected = [];
   // All the titles given for dialogs in order.
   final List<String?> allTitles = [];
+
+  // If `true`, then prompts for suggested repos will return an empty selection.
+  final bool skipSuggestedRepos;
+
+  FakeDialogSupport({this.skipSuggestedRepos = true});
 
   void reset() {
     _singleSelectCallCount = 0;
@@ -52,6 +58,12 @@ class FakeDialogSupport implements DialogSupport {
     String? title,
     Set<int> initialSelected = const {},
   }) async {
+    if (skipSuggestedRepos &&
+        (title == installDartSkillsText ||
+            title == installDartOrFlutterSkillsText)) {
+      return const {};
+    }
+
     allMultiSelectOptions.add(options);
     allInitialSelected.add(initialSelected);
     allTitles.add(title);

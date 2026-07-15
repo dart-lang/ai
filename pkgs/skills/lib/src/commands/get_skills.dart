@@ -1,9 +1,14 @@
+// Copyright (c) 2026, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
 import 'dart:io' as io;
 
 import 'package:io/ansi.dart' as ansi;
 
 import 'package:args/command_runner.dart';
 import 'package:logging/logging.dart';
+import 'package:meta/meta.dart';
 import 'package:skills/src/commands/skills_command.dart';
 import 'package:skills/src/core/advisory_checker.dart';
 import 'package:skills/src/core/git_runner.dart';
@@ -92,6 +97,26 @@ Future<bool> getSkills({
   final globalConfigPath = GlobalConfig.globalPath;
   final globalConfigFile = io.File(globalConfigPath);
   var globalConfig = await GlobalConfig.loadOrEmpty(globalConfigFile);
+
+  {
+    var (originalGlobalConfig, originalManifest) = (globalConfig, manifest);
+    (:globalConfig, :manifest) = await _maybePromptToInstallDashSkills(
+      dialogSupport: dialogSupport,
+      globalConfig: globalConfig,
+      agents: agents,
+      manifest: manifest,
+      resolvedPackages: packages,
+      sourceUris: sourceUris,
+      skillNames: skillNames,
+    );
+    // Save any decisions from the prompt
+    if (globalConfig != originalGlobalConfig) {
+      await globalConfig.save(globalConfigFile);
+    }
+    if (manifest != originalManifest) {
+      await manifest.save(manifestFile(rootPath));
+    }
+  }
 
   // If packages were given, but no git repos, don't sync any git repos.
   final _GitData gitData = sourceUris.isNotEmpty && requestedGitUris.isEmpty
@@ -235,6 +260,111 @@ Future<bool> getSkills({
 
   return true;
 }
+
+typedef DashSkillsPromptResult = ({
+  GlobalConfig globalConfig,
+  SkillManifest manifest,
+});
+
+/// Prompts the user to install dash skill repos if they have not already
+/// been prompted for this package, haven't globally opted out of these prompts,
+/// and [dialogSupport] exists.
+Future<DashSkillsPromptResult> _maybePromptToInstallDashSkills({
+  required DialogSupport? dialogSupport,
+  required GlobalConfig globalConfig,
+  required List<Agent> agents,
+  required SkillManifest manifest,
+  required List<ResolvedPackage> resolvedPackages,
+  required Set<String> sourceUris,
+  required Set<String> skillNames,
+}) async {
+  // Only prompt when we can have dialog support, and the user didn't already
+  // specify specific skills or sources.
+  if (globalConfig.neverPromptForSuggestedSkills ||
+      dialogSupport == null ||
+      sourceUris.isNotEmpty ||
+      skillNames.isNotEmpty) {
+    return (globalConfig: globalConfig, manifest: manifest);
+  }
+
+  const flutterSkillsRepo = 'https://github.com/flutter/agent-plugins.git';
+  const dartSkillsRepo = 'https://github.com/dart-lang/skills.git';
+  final suggestedRepos = <String>[];
+  bool shouldSuggest(String repoUrl) {
+    return !manifest.suggestedRepos.contains(repoUrl) &&
+        !globalConfig.gitRepos.any((r) => r.cloneUrl == repoUrl) &&
+        !manifest.gitRepos.any((r) => r.cloneUrl == repoUrl);
+  }
+
+  if (shouldSuggest(dartSkillsRepo)) {
+    suggestedRepos.add(dartSkillsRepo);
+  }
+
+  final hasFlutter = resolvedPackages.any((p) => p.name == 'flutter');
+  if (hasFlutter && shouldSuggest(flutterSkillsRepo)) {
+    suggestedRepos.add(flutterSkillsRepo);
+  }
+
+  if (suggestedRepos.isNotEmpty) {
+    final options = [...suggestedRepos, 'Never ask again on this machine'];
+    final selectedIndices = await dialogSupport.showMultiSelectDialog(
+      options,
+      title: hasFlutter
+          ? installDartOrFlutterSkillsText
+          : installDartSkillsText,
+      initialSelected: {for (var i = 0; i < suggestedRepos.length; i++) i},
+    );
+    // Record that we prompted regardless of result, even if they skipped it.
+    manifest = manifest.withPromptedSuggestedRepos(suggestedRepos.toSet());
+
+    if (selectedIndices != null) {
+      final neverAskAgainIndex = options.length - 1;
+      if (selectedIndices.contains(neverAskAgainIndex)) {
+        globalConfig = globalConfig.withNeverPromptForSuggestedSkills(true);
+      }
+
+      final selectedRepos = <String>[];
+      for (var i = 0; i < suggestedRepos.length; i++) {
+        if (selectedIndices.contains(i)) {
+          selectedRepos.add(suggestedRepos[i]);
+        }
+      }
+
+      if (selectedRepos.isNotEmpty) {
+        final result = await dialogSupport.showSingleSelectDialog([
+          'Local (this package only)',
+          'Global (all packages)',
+        ], title: 'Install suggested repos globally or locally?');
+
+        if (result == 0) {
+          for (final ide in agents) {
+            for (final repo in selectedRepos) {
+              manifest = manifest.withSourceUri(
+                ide.cliName,
+                repo,
+                const SkillsEntry(),
+              );
+            }
+          }
+        } else if (result == 1) {
+          for (final repo in selectedRepos) {
+            globalConfig = globalConfig.withGitRepo(GitRepo(cloneUrl: repo));
+          }
+        }
+      }
+    }
+  }
+
+  return (globalConfig: globalConfig, manifest: manifest);
+}
+
+@visibleForTesting
+const installDartSkillsText =
+    'Would you like to install the official Dart skills?';
+
+@visibleForTesting
+const installDartOrFlutterSkillsText =
+    'Would you like to install the official Dart or Flutter skills?';
 
 /// Syncs and scans git repos from [globalConfig] and [manifest].
 ///

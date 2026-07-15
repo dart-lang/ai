@@ -1,3 +1,7 @@
+// Copyright (c) 2026, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -39,10 +43,15 @@ class SkillManifest {
   /// Outer key: agent name, inner key: package uri or git uri.
   final Map<String, Map<String, SkillsEntry>> installations;
 
+  /// Repos that have already been suggested in this workspace (these will not
+  /// be suggested in the future).
+  final Set<String> suggestedRepos;
+
   /// Configured git repos for this workspace.
   const SkillManifest({
     this.version = currentVersion,
     this.installations = const {},
+    this.suggestedRepos = const {},
   });
 
   /// Migrates existing state from `.dart_skills` to `.dart_tool/skills`.
@@ -114,7 +123,15 @@ class SkillManifest {
       return MapEntry(agentKey, pkgs);
     });
 
-    return SkillManifest(version: version, installations: installations);
+    final suggestedRepos =
+        (json['suggestedRepos'] as List<dynamic>?)?.cast<String>().toSet() ??
+        const {};
+
+    return SkillManifest(
+      version: version,
+      installations: installations,
+      suggestedRepos: suggestedRepos,
+    );
   }
 
   Map<String, dynamic> toJson() {
@@ -126,6 +143,7 @@ class SkillManifest {
           entries.map((uri, entry) => MapEntry(uri, entry.toJson())),
         ),
       ),
+      if (suggestedRepos.isNotEmpty) 'suggestedRepos': suggestedRepos.toList(),
     };
   }
 
@@ -187,7 +205,20 @@ class SkillManifest {
   ) {
     final updated = _deepCopy();
     updated.putIfAbsent(agent, () => {})[sourceUri] = entry;
-    return SkillManifest(version: version, installations: updated);
+    return SkillManifest(
+      version: version,
+      installations: updated,
+      suggestedRepos: suggestedRepos,
+    );
+  }
+
+  /// Returns a copy with [repos] added to [suggestedRepos].
+  SkillManifest withPromptedSuggestedRepos(Set<String> repos) {
+    return SkillManifest(
+      version: version,
+      installations: installations,
+      suggestedRepos: {...suggestedRepos, ...repos},
+    );
   }
 
   /// Returns a copy with [sourceUri] removed from [agent].
@@ -195,14 +226,22 @@ class SkillManifest {
     final updated = _deepCopy();
     updated[agent]?.remove(sourceUri);
     if (updated[agent]?.isEmpty ?? false) updated.remove(agent);
-    return SkillManifest(version: version, installations: updated);
+    return SkillManifest(
+      version: version,
+      installations: updated,
+      suggestedRepos: suggestedRepos,
+    );
   }
 
   /// Returns a copy with all packages removed for [agent].
   SkillManifest withoutAgent(String agent) {
     final updated = _deepCopy();
     updated.remove(agent);
-    return SkillManifest(version: version, installations: updated);
+    return SkillManifest(
+      version: version,
+      installations: updated,
+      suggestedRepos: suggestedRepos,
+    );
   }
 
   Map<String, Map<String, SkillsEntry>> _deepCopy() {

@@ -12,10 +12,14 @@ void main() {
 
   group('GitRepo', () {
     test('pathSegment encodes cloneUrl', () {
-      const repo = GitRepo(cloneUrl: 'https://github.com/flutter/skills.git');
+      const repo = GitRepo(
+        cloneUrl: 'https://github.com/flutter/agent-plugins.git',
+      );
       expect(
         repo.pathSegment,
-        equals(Uri.encodeComponent('https://github.com/flutter/skills.git')),
+        equals(
+          Uri.encodeComponent('https://github.com/flutter/agent-plugins.git'),
+        ),
       );
     });
   });
@@ -27,7 +31,9 @@ void main() {
     });
 
     test('gitRepoPath includes host, owner and repo', () {
-      const repo = GitRepo(cloneUrl: 'https://github.com/flutter/skills.git');
+      const repo = GitRepo(
+        cloneUrl: 'https://github.com/flutter/agent-plugins.git',
+      );
       final path = gitRepoPath('/project', repo);
       expect(
         path,

@@ -1,3 +1,7 @@
+// Copyright (c) 2026, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -24,7 +28,14 @@ class GlobalConfig {
 
   final List<GitRepo> gitRepos;
 
-  const GlobalConfig({this.gitRepos = const []});
+  /// Whether or not the user has permanently opted out of skill repo
+  /// suggestions
+  final bool neverPromptForSuggestedSkills;
+
+  const GlobalConfig({
+    this.gitRepos = const [],
+    this.neverPromptForSuggestedSkills = false,
+  });
 
   factory GlobalConfig.fromJson(Map<String, dynamic> json) {
     // Fallback to 'registries' for backwards compatibility
@@ -33,12 +44,19 @@ class GlobalConfig {
     final gitRepos = reposJson
         .map((r) => GitRepo.fromJson(r as Map<String, dynamic>))
         .toList();
+    final neverPrompt = json['neverPromptForSuggestedSkills'] as bool? ?? false;
 
-    return GlobalConfig(gitRepos: gitRepos);
+    return GlobalConfig(
+      gitRepos: gitRepos,
+      neverPromptForSuggestedSkills: neverPrompt,
+    );
   }
 
   Map<String, dynamic> toJson() {
-    return {'gitRepos': gitRepos.map((r) => r.toJson()).toList()};
+    return {
+      'gitRepos': gitRepos.map((r) => r.toJson()).toList(),
+      if (neverPromptForSuggestedSkills) 'neverPromptForSuggestedSkills': true,
+    };
   }
 
   /// Loads the config from [file], or returns null if it doesn't exist.
@@ -66,13 +84,25 @@ class GlobalConfig {
   /// Returns a copy with [repo] added.
   GlobalConfig withGitRepo(GitRepo repo) {
     if (gitRepos.any((r) => r.cloneUrl == repo.cloneUrl)) return this;
-    return GlobalConfig(gitRepos: [...gitRepos, repo]);
+    return GlobalConfig(
+      gitRepos: [...gitRepos, repo],
+      neverPromptForSuggestedSkills: neverPromptForSuggestedSkills,
+    );
   }
 
   /// Returns a copy with [repo] removed.
   GlobalConfig withoutGitRepo(GitRepo repo) {
     return GlobalConfig(
       gitRepos: gitRepos.where((r) => r.cloneUrl != repo.cloneUrl).toList(),
+      neverPromptForSuggestedSkills: neverPromptForSuggestedSkills,
+    );
+  }
+
+  /// Returns a copy with [neverPrompt] set.
+  GlobalConfig withNeverPromptForSuggestedSkills(bool neverPrompt) {
+    return GlobalConfig(
+      gitRepos: gitRepos,
+      neverPromptForSuggestedSkills: neverPrompt,
     );
   }
 }
