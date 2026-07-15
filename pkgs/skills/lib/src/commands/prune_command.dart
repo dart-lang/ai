@@ -3,7 +3,7 @@ import 'package:args/command_runner.dart';
 import '../core/package_resolver.dart';
 import '../core/pub_runner.dart';
 import '../core/skill_installer.dart';
-import '../ide/ide.dart';
+import '../agent/agent.dart';
 import '../models/skill_manifest.dart';
 import 'options.dart';
 import 'skills_command.dart';
@@ -22,7 +22,7 @@ class PruneCommand extends SkillsCommand {
 
   PruneCommand({DialogSupport? dialogSupport})
     : _dialogSupport = dialogSupport {
-    addIdeOption(argParser);
+    addAgentOption(argParser);
   }
 
   @override
@@ -48,14 +48,14 @@ class PruneCommand extends SkillsCommand {
 
     var manifest = loaded;
 
-    final List<Ide> targetIdes;
-    final parsedIde = parseIdeOption(argResults);
-    if (parsedIde != null) {
-      targetIdes = [parsedIde];
+    final List<Agent> targetIdes;
+    final parsedAgents = parseAgentOption(argResults);
+    if (parsedAgents.isNotEmpty) {
+      targetIdes = parsedAgents;
     } else {
-      targetIdes = manifest.allIdes
-          .map((name) => Ide.fromCliName(name))
-          .whereType<Ide>()
+      targetIdes = manifest.allAgents
+          .map((name) => Agent.fromCliName(name))
+          .whereType<Agent>()
           .toList();
     }
 
@@ -63,8 +63,8 @@ class PruneCommand extends SkillsCommand {
     var totalRemoved = 0;
     final prunedPackages = <String>{};
 
-    for (final ide in targetIdes) {
-      final pkgs = manifest.sourceUrisForIde(ide.cliName);
+    for (final agent in targetIdes) {
+      final pkgs = manifest.sourceUrisForAgent(agent.cliName);
       final pkgsToPrune = pkgs.keys
           .where(
             (uri) =>
@@ -76,7 +76,7 @@ class PruneCommand extends SkillsCommand {
       if (pkgsToPrune.isEmpty) continue;
 
       final result = await installer.removeSkillsForIde(
-        ide: ide,
+        agent: agent,
         rootPath: rootPath,
         manifest: manifest,
         sourceUris: pkgsToPrune,
@@ -84,7 +84,7 @@ class PruneCommand extends SkillsCommand {
       manifest = result.manifest;
       totalRemoved += result.removedCount;
       for (final info in result.removed) {
-        logger.info('  [${info.ideName}] Removed ${info.skillName}');
+        logger.info('  [${info.agentName}] Removed ${info.skillName}');
       }
     }
 

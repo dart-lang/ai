@@ -12,7 +12,7 @@
   instead of just a single package name. To install all skills pass the
   `allFlag: true` argument. Packages should be provided in `package:<name>`
   format instead of just by name.
-- refactor: Migrate from `.agent/skills` to `.agents/skills` for the generic IDE
+- refactor: Migrate from `.agent/skills` to `.agents/skills` for the generic agent
   adapter. When a `.agent/` dir is detected you will be prompted for what action
   to take.
 - feat: Added `DialogSupport` interface and optional parameter to `getSkills`,
@@ -21,7 +21,7 @@
   `getSkills` and replaced them with a required `Logger logger`.
 - feat: Check packages for security advisories on install.
 - chore: Move cache dir to `.dart_tool/skills` from `.dart_skills`.
-- feat: Allow the user to select an IDE if none is detected.
+- feat: Allow the user to select an agent if none is detected.
 - fix: **Breaking Change** - Only install skills from immediate dependencies.
 - chore: **Breaking Change** - Drop support for the built in "registry" concept.
 - feat: Add a general install from git concept, through the new `add` command,
@@ -31,7 +31,10 @@
   - The `get` command now supports `--git` arguments for git repos to update
     skills from.
 - feat: Support `internal: true` metadata in frontmatter to skill internal
-  skills, unless the `INSTALL_INTERNAL_SKILLS=1` environment variable is set. 
+  skills, unless the `INSTALL_INTERNAL_SKILLS=1` environment variable is set.
+- chore: Rename `--ide` option to `--agent` option, `--ide` will still work
+  as an alias for some time.
+- chore: **Breaking Change**: Renamed `IDE` enum to `Agent`.
 
 ## 0.3.1
 
@@ -66,7 +69,7 @@
 
 ## 0.1.3
 
-- fix: Uses correct skills format for all IDEs.
+- fix: Uses correct skills format for all agents.
 
 ## 0.1.2
 

@@ -86,7 +86,7 @@ void main() {
           'remove',
           '--directory',
           projectPath,
-          '--ide',
+          '--agent',
           'cursor',
           '--package',
           'dep1',
@@ -121,7 +121,7 @@ void main() {
           'remove',
           '--directory',
           projectPath,
-          '--ide',
+          '--agent',
           'cursor',
           '--all',
         ]);
@@ -143,7 +143,7 @@ void main() {
           'remove',
           '--directory',
           projectPath,
-          '--ide',
+          '--agent',
           'cursor',
           '--all',
         ]);
@@ -168,7 +168,7 @@ void main() {
         'remove',
         '--directory',
         projectPath,
-        '--ide',
+        '--agent',
         'cursor',
         '--all',
       ]);
@@ -181,7 +181,7 @@ void main() {
     });
   });
 
-  group('Given a project with multi-IDE installations (Cursor + Claude)', () {
+  group('Given a project with multi-agent installations (Cursor + Claude)', () {
     late String projectPath;
     late SkillManifest manifest;
 
@@ -257,7 +257,7 @@ void main() {
     });
 
     test('when running `skills remove` without arguments removes the'
-        'selected skills for all IDEs', () async {
+        'selected skills for all agents', () async {
       fakeDialogSupport.multiSelectResults
         ..add({0}) // select first dep (dep1)
         ..add({0}); // select first skill
@@ -275,14 +275,14 @@ void main() {
     });
 
     test(
-      'when running `skills remove --ide cursor --skill <skill>` removes the '
+      'when running `skills remove --agent cursor --skill <skill>` removes the '
       'given skills for just cursor',
       () async {
         await runner.run([
           'remove',
           '--directory',
           projectPath,
-          '--ide',
+          '--agent',
           'cursor',
           '--skill',
           'dep1-skill',
@@ -309,7 +309,7 @@ void main() {
         'remove',
         '--directory',
         projectPath,
-        '--ide',
+        '--agent',
         'cursor',
       ]);
 
@@ -339,7 +339,7 @@ void main() {
         'remove',
         '--directory',
         projectPath,
-        '--ide',
+        '--agent',
         'claude',
         '--package',
         'dep1',
@@ -347,7 +347,7 @@ void main() {
       ]);
       final manifest = await SkillManifest.loadFromRoot(projectPath);
       expect(
-        manifest!.sourceUrisForIde('claude').keys,
+        manifest!.sourceUrisForAgent('claude').keys,
         allOf(contains('package:dep2'), isNot(contains('package:dep1'))),
       );
     });
@@ -406,7 +406,7 @@ void main() {
           'remove',
           '--directory',
           projectPath,
-          '--ide',
+          '--agent',
           'cursor',
           '--git',
           'https://github.com/foo/bar.git',
@@ -432,7 +432,7 @@ void main() {
           'remove',
           '--directory',
           projectPath,
-          '--ide',
+          '--agent',
           'cursor',
           '--git',
           'git@github.com:zip/zap.git',

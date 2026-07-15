@@ -46,7 +46,7 @@ void main() {
     test('throws if no git repos provided', () async {
       expect(
         () =>
-            runner.run(['add', '--directory', projectPath, '--ide', 'cursor']),
+            runner.run(['add', '--directory', projectPath, '--agent', 'cursor']),
         throwsA(isA<UsageException>()),
       );
     });
@@ -57,7 +57,7 @@ void main() {
           'add',
           '--directory',
           projectPath,
-          '--ide',
+          '--agent',
           'cursor',
           '--all',
           '--skill',
@@ -69,7 +69,7 @@ void main() {
     });
 
     test('adds to global config when --global is passed', () async {
-      await runner.run(['add', '--global', '--ide', 'cursor', 'owner/repo']);
+      await runner.run(['add', '--global', '--agent', 'cursor', 'owner/repo']);
 
       final globalConfig = await GlobalConfig.loadOrEmpty(
         File(globalConfigPath),
@@ -86,7 +86,7 @@ void main() {
         'add',
         '--directory',
         projectPath,
-        '--ide',
+        '--agent',
         'cursor',
         'owner/repo',
       ]);
@@ -95,7 +95,7 @@ void main() {
       final manifest = await SkillManifest.loadOrEmpty(localFile);
       expect(
         manifest
-            .sourceUrisForIde('cursor')
+            .sourceUrisForAgent('cursor')
             .containsKey('https://github.com/owner/repo.git'),
         isTrue,
       );
@@ -106,7 +106,7 @@ void main() {
         'add',
         '--directory',
         projectPath,
-        '--ide',
+        '--agent',
         'cursor',
         '--all',
         'owner/repo',
@@ -116,7 +116,7 @@ void main() {
       final manifest = await SkillManifest.loadOrEmpty(localFile);
       expect(
         manifest
-            .sourceUrisForIde('cursor')
+            .sourceUrisForAgent('cursor')
             .containsKey('https://github.com/owner/repo.git'),
         isTrue,
       );
@@ -127,7 +127,7 @@ void main() {
         'add',
         '--directory',
         projectPath,
-        '--ide',
+        '--agent',
         'cursor',
         '--skill',
         'my-skill',
@@ -138,7 +138,7 @@ void main() {
       final manifest = await SkillManifest.loadOrEmpty(localFile);
       expect(
         manifest
-            .sourceUrisForIde('cursor')
+            .sourceUrisForAgent('cursor')
             .containsKey('https://github.com/owner/repo.git'),
         isTrue,
       );

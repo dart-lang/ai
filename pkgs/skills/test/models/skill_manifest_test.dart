@@ -30,8 +30,8 @@ void main() {
       final json = manifest.toJson();
       final restored = SkillManifest.fromJson(json);
 
-      expect(restored.allIdes, contains('cursor'));
-      final pkgs = restored.sourceUrisForIde('cursor');
+      expect(restored.allAgents, contains('cursor'));
+      final pkgs = restored.sourceUrisForAgent('cursor');
       expect(pkgs, hasLength(1));
       expect(pkgs['package:my_package']!.skills, hasLength(1));
       expect(
@@ -63,9 +63,9 @@ void main() {
       final manifest = await SkillManifest.loadFromRoot(d.sandbox);
 
       expect(manifest, isNotNull);
-      expect(manifest!.allIdes.toList(), equals(['cursor']));
+      expect(manifest!.allAgents.toList(), equals(['cursor']));
       expect(
-        manifest.sourceUrisForIde('cursor')['pkg_a']!.skills.first.name,
+        manifest.sourceUrisForAgent('cursor')['pkg_a']!.skills.first.name,
         equals('pkg_a-skill-1'),
       );
     });
@@ -94,7 +94,7 @@ void main() {
         final manifest = await SkillManifest.loadFromRoot(d.sandbox);
 
         expect(manifest, isNotNull);
-        expect(manifest!.allIdes.toList(), equals(['cursor']));
+        expect(manifest!.allAgents.toList(), equals(['cursor']));
 
         await d.nothing('.dart_skills').validate();
         await d.dir(SkillManifest.configDirPath, [
@@ -135,7 +135,7 @@ void main() {
       final loaded = await SkillManifest.loadFromRoot(d.sandbox);
       expect(loaded, isNotNull);
       expect(
-        loaded!.sourceUrisForIde('cursor')['package:pkg']!.skills.first.name,
+        loaded!.sourceUrisForAgent('cursor')['package:pkg']!.skills.first.name,
         equals('pkg-skill-a'),
       );
     });
@@ -157,7 +157,7 @@ void main() {
       },
     );
 
-    test('when adding a package to an IDE then it appears', () {
+    test('when adding a package to an agent then it appears', () {
       final updated = base.withSourceUri(
         'cursor',
         'package:pkg_b',
@@ -171,11 +171,11 @@ void main() {
         ),
       );
 
-      expect(updated.sourceUrisForIde('cursor'), hasLength(2));
-      expect(updated.sourceUrisForIde('cursor'), contains('package:pkg_b'));
+      expect(updated.sourceUrisForAgent('cursor'), hasLength(2));
+      expect(updated.sourceUrisForAgent('cursor'), contains('package:pkg_b'));
     });
 
-    test('when adding a package to a new IDE then both IDEs exist', () {
+    test('when adding a package to a new agent then both agents exist', () {
       final updated = base.withSourceUri(
         'claude',
         'package:pkg_a',
@@ -189,22 +189,22 @@ void main() {
         ),
       );
 
-      expect(updated.allIdes, containsAll(['cursor', 'claude']));
+      expect(updated.allAgents, containsAll(['cursor', 'claude']));
     });
 
-    test('when removing a package from an IDE then it is gone', () {
+    test('when removing a package from an agent then it is gone', () {
       final updated = base.withoutSourceUri('cursor', 'package:pkg_a');
 
-      expect(updated.sourceUrisForIde('cursor'), isEmpty);
+      expect(updated.sourceUrisForAgent('cursor'), isEmpty);
     });
 
-    test('when removing an entire IDE then it is gone', () {
-      final updated = base.withoutIde('cursor');
+    test('when removing an entire agent then it is gone', () {
+      final updated = base.withoutAgent('cursor');
 
-      expect(updated.allIdes, isEmpty);
+      expect(updated.allAgents, isEmpty);
     });
 
-    test('when iterating allSkills then returns all entries across IDEs', () {
+    test('when iterating allSkills then returns all entries across agents', () {
       final multi = base.withSourceUri(
         'claude',
         'package:pkg_c',

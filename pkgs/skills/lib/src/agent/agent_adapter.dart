@@ -4,20 +4,20 @@ import 'package:logging/logging.dart';
 
 import '../core/skill_scanner.dart';
 
-import 'ide.dart';
+import 'agent.dart';
 
-/// Abstract interface for IDE-specific skill installation and removal.
-abstract class IdeAdapter {
-  final Ide ide;
+/// Abstract interface for agent-specific skill installation and removal.
+abstract class AgentAdapter {
+  final Agent agent;
 
-  IdeAdapter(this.ide);
+  AgentAdapter(this.agent);
 
-  /// Installs a skill from the scanned location into the IDE's directory.
+  /// Installs a skill from the scanned location into the agent's directory.
   ///
   /// Returns the skill name as installed and its content hash (if any).
   Future<InstallSkillResult> installSkill(ScannedSkill skill);
 
-  /// A logger for this IDE Adapter. Should contain the name of the IDE.
+  /// A logger for this agent Adapter. Should contain the name of the agent.
   Logger get logger;
 
   /// Removes a previously installed skill by its name.
@@ -26,7 +26,7 @@ abstract class IdeAdapter {
   /// Returns `false` if the removal failed.
   Future<bool> removeSkill(String skillName);
 
-  /// Returns the absolute path to the IDE's skills/rules directory.
+  /// Returns the absolute path to the agent's skills/rules directory.
   String get skillsDirectory;
 
   /// Creates the skills directory if it doesn't exist.
@@ -46,5 +46,5 @@ abstract class IdeAdapter {
   Future<String?> computeSourceSkillHash(Directory skillDir);
 }
 
-/// The result type for [IdeAdapter.installSkill].
+/// The result type for [AgentAdapter.installSkill].
 typedef InstallSkillResult = ({String name, String contentHash});

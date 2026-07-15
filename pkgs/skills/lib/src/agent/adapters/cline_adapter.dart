@@ -1,6 +1,6 @@
 import 'package:logging/logging.dart';
 
-import '../ide.dart';
+import '../agent.dart';
 import 'agent_skills_adapter.dart';
 
 /// Cline adapter (experimental).
@@ -12,5 +12,5 @@ class ClineAdapter extends AgentSkillsAdapter {
   final Logger logger = Logger('ClineAdapter');
 
   ClineAdapter(String projectPath, {super.dialogSupport})
-    : super(Ide.cline, Ide.cline.skillsPath(projectPath));
+    : super(Agent.cline, Agent.cline.skillsPath(projectPath));
 }

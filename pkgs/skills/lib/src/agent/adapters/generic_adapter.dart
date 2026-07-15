@@ -5,10 +5,10 @@ import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 
 import '../../models/skill_manifest.dart';
-import '../ide.dart';
+import '../agent.dart';
 import 'agent_skills_adapter.dart';
 
-/// Generic agent IDE adapter for Antigravity, Codex, or generic.
+/// Generic agent agent adapter for Antigravity, Codex, or generic.
 ///
 /// Installs skills to `.agents/skills/<pkg>-<skill>/SKILL.md`.
 class GenericAdapter extends AgentSkillsAdapter {
@@ -18,7 +18,7 @@ class GenericAdapter extends AgentSkillsAdapter {
   final String _projectPath;
 
   GenericAdapter(this._projectPath, {super.dialogSupport})
-    : super(Ide.generic, Ide.generic.skillsPath(_projectPath));
+    : super(Agent.generic, Agent.generic.skillsPath(_projectPath));
 
   @override
   Future<bool> performMigrations(SkillManifest manifest) async {
@@ -32,7 +32,7 @@ class GenericAdapter extends AgentSkillsAdapter {
     final newDir = Directory(p.join(_projectPath, '.agents'));
     final newSkillsDir = Directory(p.join(newDir.path, 'skills'));
 
-    final genericPkgs = manifest.sourceUrisForIde('generic');
+    final genericPkgs = manifest.sourceUrisForAgent('generic');
     final manifestSkills = <String>{};
     for (final pkg in genericPkgs.values) {
       for (final skill in pkg.skills) {

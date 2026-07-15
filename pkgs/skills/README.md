@@ -1,10 +1,10 @@
 # Skills
 
-A CLI that brings AI agent skills from your Dart and Flutter package dependencies directly into your IDE.
+A CLI that brings AI agent skills from your Dart and Flutter package dependencies directly into your agent.
 
 > Note: The Dart team is working on a [similar solution](https://docs.google.com/document/d/1k_X-Sp4GQyZP6k9lvZ1Itj0GvzQZuWl3iKzi5AIa69Q/edit?tab=t.0) based on Dart's MCP server. When that is released, we will provide scripts to convert your skills to Dart's new format. This package will then either adopt the Dart MCP standard for delivering skills or be deprecated (assuming the MCP solution is equally capable).
 
-Dart packages can ship a `skills/` directory containing [Agent Skills](https://agentskills.io/specification), structured instructions that teach AI coding assistants how to use the package effectively. The `skills` CLI finds those skills in your dependency tree and installs them into your IDE so your AI assistant better understands your stack.
+Dart packages can ship a `skills/` directory containing [Agent Skills](https://agentskills.io/specification), structured instructions that teach AI coding assistants how to use the package effectively. The `skills` CLI finds those skills in your dependency tree and installs them into your agent so your AI assistant better understands your stack.
 
 > If you want to discuss or contribute to the `skills` package, please join the `#skills` channel on the [Serverpod Discord](https://serverpod.dev/discord) server.
 
@@ -56,43 +56,43 @@ skills remove
 skills remove serverpod
 ```
 
-The CLI will automatically run `pub get` if needed, scan your dependency packages for `skills/` directories, and install them in the right location for your IDE. If you are using a monorepo, `skills` will locate your different packages and get the skills for all of them.
+The CLI will automatically run `pub get` if needed, scan your dependency packages for `skills/` directories, and install them in the right location for your agent. If you are using a monorepo, `skills` will locate your different packages and get the skills for all of them.
 
 If **git** is installed, `skills get` also fetches skills from GitHub registries (see [GitHub registries](#github-registries) below). Skills that come from a Dart package in your dependency tree always take precedence over registry skills for that same package, allowing package maintainers to override the skills in the registry.
 
 ### Pruning removed dependencies
 
-When you remove a package from your `pubspec.yaml`, its skills stay in your IDE directories until you clean them up. Run:
+When you remove a package from your `pubspec.yaml`, its skills stay in your agent directories until you clean them up. Run:
 
 ```bash
 skills prune
 ```
 
-This removes only skills whose package is no longer in your dependency tree and updates the manifest. Use `--ide <ide>` to prune a single IDE. If you have no managed skills, `skills prune` reports that and exits.
+This removes only skills whose package is no longer in your dependency tree and updates the manifest. Use `--agent <agent>` to prune a single agent. If you have no managed skills, `skills prune` reports that and exits.
 
 ### Version control and .gitignore
 
-- If you version-control your IDE config (e.g. `.cursor/`), add `.dart_skills/repos/` to your `.gitignore` so cloned registry repos are not committed.
-- If you ignore your IDE directory (e.g. `.cursor/`), you can ignore the whole `.dart_skills/` directory.
+- If you version-control your agent config (e.g. `.cursor/`), add `.dart_skills/repos/` to your `.gitignore` so cloned registry repos are not committed.
+- If you ignore your agent directory (e.g. `.cursor/`), you can ignore the whole `.dart_skills/` directory.
 
-## Supported IDEs
+## Supported agents
 
-The CLI auto-detects your IDE from project directory markers. If multiple IDEs are detected, it installs to all of them. You can also pass `--ide` explicitly or set the `SKILLS_IDE` environment variable to target a single IDE.
+The CLI auto-detects your agent from project directory markers. If multiple agents are detected, it installs to all of them. You can also pass `--agent` explicitly or set the `SKILLS_AGENT` environment variable to target a single agent.
 
-| IDE | Flag | Install location | Spec |
+| agent | Flag | Install location | Spec |
 | --- | ---- | ---------------- | ---- |
-| [Antigravity](https://antigravity.google/docs/skills) | `--ide antigravity` | `.agents/skills/` | Agent Skills |
-| [Claude Code](https://code.claude.com/docs/en/skills) | `--ide claude` | `.claude/skills/` | Agent Skills |
-| [Cline](https://docs.cline.bot/customization/skills) | `--ide cline` | `.cline/skills/` | Agent Skills |
-| [Codex](https://developers.openai.com/codex/skills/) | `--ide codex` | `.agents/skills/` | Agent Skills |
-| [Cursor](https://cursor.com/docs/skills) | `--ide cursor` | `.cursor/skills/` | Agent Skills |
-| [GitHub Copilot](https://docs.github.com/en/copilot/concepts/agents/about-agent-skills) | `--ide copilot` | `.github/skills/` | Agent Skills |
-| [OpenCode](https://opencode.ai) | `--ide opencode` | `.opencode/skills/` | Agent Skills |
-| Generic | `--ide generic` | `.agents/skills/` | Agent Skills |
+| [Antigravity](https://antigravity.google/docs/skills) | `--agent antigravity` | `.agents/skills/` | Agent Skills |
+| [Claude Code](https://code.claude.com/docs/en/skills) | `--agent claude` | `.claude/skills/` | Agent Skills |
+| [Cline](https://docs.cline.bot/customization/skills) | `--agent cline` | `.cline/skills/` | Agent Skills |
+| [Codex](https://developers.openai.com/codex/skills/) | `--agent codex` | `.agents/skills/` | Agent Skills |
+| [Cursor](https://cursor.com/docs/skills) | `--agent cursor` | `.cursor/skills/` | Agent Skills |
+| [GitHub Copilot](https://docs.github.com/en/copilot/concepts/agents/about-agent-skills) | `--agent copilot` | `.github/skills/` | Agent Skills |
+| [OpenCode](https://opencode.ai) | `--agent opencode` | `.opencode/skills/` | Agent Skills |
+| Generic | `--agent generic` | `.agents/skills/` | Agent Skills |
 
-Antigravity, Codex, and generic all install to the same `.agents/skills/` directory (only `generic` is stored in the config). GitHub Copilot is not auto-detected (`.github/` is often used for other purposes); use `--ide copilot` to install skills for Copilot explicitly.
+Antigravity, Codex, and generic all install to the same `.agents/skills/` directory (only `generic` is stored in the config). GitHub Copilot is not auto-detected (`.github/` is often used for other purposes); use `--agent copilot` to install skills for Copilot explicitly.
 
-Each of these IDEs receives the full Agent Skills directory (SKILL.md plus `scripts/`, `references/`, `assets/`) in each tool’s documented location.
+Each of these agents receives the full Agent Skills directory (SKILL.md plus `scripts/`, `references/`, `assets/`) in each tool’s documented location.
 
 ## GitHub registries
 
@@ -135,7 +135,7 @@ For a package named `serverpod`:
 | `code-generation` | No -- missing package prefix |
 | `other_pkg-code-generation` | No -- wrong prefix |
 
-This convention ensures skill names are globally unique and self-documenting. When a user sees `serverpod-code-generation` in their IDE, they know exactly where it came from.
+This convention ensures skill names are globally unique and self-documenting. When a user sees `serverpod-code-generation` in their agent, they know exactly where it came from.
 
 ### Writing a skill
 
@@ -162,16 +162,16 @@ description: Use when the user is working with MyPackage APIs to ensure correct 
 
 The `description` tells the AI when to activate the skill -- make it specific and action-oriented.
 
-### Supporting all IDEs
+### Supporting all agents
 
-All IDEs receive the full skill directory (SKILL.md plus `scripts/`, `references/`, `assets/`). Write skills once and they install to each IDE’s spec-defined location.
+All agents receive the full skill directory (SKILL.md plus `scripts/`, `references/`, `assets/`). Write skills once and they install to each agent’s spec-defined location.
 
 ### Best practices
 
 - **Keep skills focused.** One skill per major feature area. Don't dump everything into a single skill.
 - **Write for the AI, not the human.** Skills are instructions for the coding assistant. Be direct and prescriptive.
 - **Include examples.** Show correct usage patterns. The AI learns best from concrete examples.
-- **Keep SKILL.md under 500 lines.** Move detailed reference material into `references/` files; all supported IDEs receive the full skill directory.
+- **Keep SKILL.md under 500 lines.** Move detailed reference material into `references/` files; all supported agents receive the full skill directory.
 - **Version your skills with your package.** When you change APIs, update the skills to match.
 
 ### What happens when users run `skills get`
@@ -179,8 +179,8 @@ All IDEs receive the full skill directory (SKILL.md plus `scripts/`, `references
 1. The CLI resolves your package's location on disk from `package_config.json`.
 2. It finds your `skills/` directory and each skill subdirectory with a `SKILL.md`.
 3. It validates that each skill name starts with your package name.
-4. Skills are installed into the user's IDE-specific location.
-5. A `.dart_skills/skills_config.json` tracking file records which skills were installed from which package and IDE.
+4. Skills are installed into the user's agent-specific location.
+5. A `.dart_skills/skills_config.json` tracking file records which skills were installed from which package and agent.
 
 Users can update skills by running `skills get` again. Existing skills from your package are replaced with the latest versions.
 

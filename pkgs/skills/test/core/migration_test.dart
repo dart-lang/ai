@@ -106,18 +106,18 @@ packages:
         expect(await newRepoDir.exists(), isTrue);
 
         expect(
-          updatedManifest.sourceUrisForIde('generic').containsKey('pkg-a'),
+          updatedManifest.sourceUrisForAgent('generic').containsKey('pkg-a'),
           isFalse,
         );
         expect(
           updatedManifest
-              .sourceUrisForIde('generic')
+              .sourceUrisForAgent('generic')
               .containsKey('https://github.com/owner1/repo1.git'),
           isTrue,
         );
         expect(
           updatedManifest
-              .sourceUrisForIde(
+              .sourceUrisForAgent(
                 'generic',
               )['https://github.com/owner1/repo1.git']!
               .skills
@@ -174,18 +174,18 @@ packages:
           );
 
           expect(
-            updatedManifest.sourceUrisForIde('cursor').containsKey('pkg-a'),
+            updatedManifest.sourceUrisForAgent('cursor').containsKey('pkg-a'),
             isFalse,
           );
           expect(
             updatedManifest
-                .sourceUrisForIde('cursor')
+                .sourceUrisForAgent('cursor')
                 .containsKey('https://github.com/owner1/repo1.git'),
             isTrue,
           );
           expect(
             updatedManifest
-                .sourceUrisForIde(
+                .sourceUrisForAgent(
                   'cursor',
                 )['https://github.com/owner1/repo1.git']!
                 .skills

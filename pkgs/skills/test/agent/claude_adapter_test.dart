@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 import 'package:skills/src/core/skill_scanner.dart';
-import 'package:skills/src/ide/adapters/claude_adapter.dart';
+import 'package:skills/src/agent/adapters/claude_adapter.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
 

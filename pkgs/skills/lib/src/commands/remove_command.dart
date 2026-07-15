@@ -2,7 +2,7 @@ import 'package:args/command_runner.dart';
 import 'package:skills/src/core/git_repos.dart';
 
 import '../core/skill_installer.dart';
-import '../ide/ide.dart';
+import '../agent/agent.dart';
 import '../models/skill_manifest.dart';
 import 'options.dart';
 import 'skills_command.dart';
@@ -20,7 +20,7 @@ class RemoveCommand extends SkillsCommand {
 
   RemoveCommand({DialogSupport? dialogSupport})
     : _dialogSupport = dialogSupport {
-    addIdeOption(argParser);
+    addAgentOption(argParser);
     argParser
       ..addMultiOption(
         'package',
@@ -73,16 +73,16 @@ class RemoveCommand extends SkillsCommand {
       );
     }
 
-    // Determine which IDEs to remove from: --ide narrows to one,
-    // otherwise all IDEs in the manifest.
-    final List<Ide> targetIdes;
-    final parsedIde = parseIdeOption(argResults);
-    if (parsedIde != null) {
-      targetIdes = [parsedIde];
+    // Determine which agents to remove from: --agent narrows to one,
+    // otherwise all agents in the manifest.
+    final List<Agent> targetAgents;
+    final parsedAgents = parseAgentOption(argResults);
+    if (parsedAgents.isNotEmpty) {
+      targetAgents = parsedAgents;
     } else {
-      targetIdes = manifest.allIdes
-          .map((name) => Ide.fromCliName(name))
-          .whereType<Ide>()
+      targetAgents = manifest.allAgents
+          .map((name) => Agent.fromCliName(name))
+          .whereType<Agent>()
           .toList();
     }
 
@@ -92,8 +92,8 @@ class RemoveCommand extends SkillsCommand {
         sourcesToRemove.isEmpty &&
         skillsToRemove.isEmpty) {
       final allPackages = {
-        for (final ide in targetIdes)
-          ...manifest.sourceUrisForIde(ide.cliName).keys,
+        for (final agent in targetAgents)
+          ...manifest.sourceUrisForAgent(agent.cliName).keys,
       }.toList()..sort();
       final selectedIndices = await _dialogSupport.showMultiSelectDialog(
         allPackages,
@@ -115,9 +115,9 @@ class RemoveCommand extends SkillsCommand {
     if (_dialogSupport != null && !allFlag && skillsToRemove.isEmpty) {
       // All the available skills filtered by selected packages
       final potentialSkills = {
-        for (final ide in targetIdes)
+        for (final agent in targetAgents)
           for (final MapEntry(key: sourceUri, value: entry)
-              in manifest.sourceUrisForIde(ide.cliName).entries)
+              in manifest.sourceUrisForAgent(agent.cliName).entries)
             if (sourcesToRemove.isEmpty || sourcesToRemove.contains(sourceUri))
               ...entry.skills.map((skill) => skill.name),
       }.toList()..sort();
@@ -139,15 +139,15 @@ class RemoveCommand extends SkillsCommand {
     }
 
     // The fully filtered map of things to remove.
-    final Map</* IDE */ String, Map</* Source URI */ String, SkillsEntry>>
+    final Map</* agent */ String, Map</* Source URI */ String, SkillsEntry>>
     filteredSkills = {
-      for (final ide in targetIdes)
-        ide.cliName: {
+      for (final agent in targetAgents)
+        agent.cliName: {
           for (final MapEntry(
                 key: sourceUri,
                 value: SkillsEntry(skills: skills),
               )
-              in manifest.sourceUrisForIde(ide.cliName).entries)
+              in manifest.sourceUrisForAgent(agent.cliName).entries)
             if (sourcesToRemove.isEmpty || sourcesToRemove.contains(sourceUri))
               sourceUri: SkillsEntry(
                 skills: [
@@ -163,21 +163,23 @@ class RemoveCommand extends SkillsCommand {
     // If non-interactive and no arguments, list installed skills and exit
     if (_dialogSupport == null && skillsToRemove.isEmpty && !allFlag) {
       logger.info('Installed skills:');
-      final installedSkillsAndIdes =
-          </* Skill name */ String, Set</* Installed IDE name */ String>>{};
-      for (final MapEntry(key: ide, value: packages)
+      final installedSkillsAndAgents =
+          </* Skill name */ String, Set</* Installed agent name */ String>>{};
+      for (final MapEntry(key: agent, value: packages)
           in filteredSkills.entries) {
         for (final entry in packages.values) {
           for (final skill in entry.skills) {
-            installedSkillsAndIdes.putIfAbsent(skill.name, () => {}).add(ide);
+            installedSkillsAndAgents
+                .putIfAbsent(skill.name, () => {})
+                .add(agent);
           }
         }
       }
 
-      final sortedSkills = installedSkillsAndIdes.keys.toList()..sort();
+      final sortedSkills = installedSkillsAndAgents.keys.toList()..sort();
       for (final skillName in sortedSkills) {
-        final idesStr = installedSkillsAndIdes[skillName]!.join(', ');
-        logger.info('  $skillName (installed in: $idesStr)');
+        final agentsStr = installedSkillsAndAgents[skillName]!.join(', ');
+        logger.info('  $skillName (installed in: $agentsStr)');
       }
       logger.info('Rerun with `--skill <name>`, or `--all` to remove skills.');
       return;
@@ -186,9 +188,9 @@ class RemoveCommand extends SkillsCommand {
     final installer = SkillInstaller(_dialogSupport);
     var totalRemoved = 0;
 
-    for (final ide in targetIdes) {
+    for (final agent in targetAgents) {
       final result = await installer.removeSkillsForIde(
-        ide: ide,
+        agent: agent,
         rootPath: rootPath,
         manifest: manifest,
         sourceUris: sourcesToRemove,
@@ -197,7 +199,7 @@ class RemoveCommand extends SkillsCommand {
       manifest = result.manifest;
       totalRemoved += result.removedCount;
       for (final info in result.removed) {
-        logger.info('  [${info.ideName}] Removed ${info.skillName}');
+        logger.info('  [${info.agentName}] Removed ${info.skillName}');
       }
     }
 

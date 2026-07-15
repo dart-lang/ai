@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:logging/logging.dart';
 import 'package:skills/src/core/skill_scanner.dart';
-import 'package:skills/src/ide/adapters/cursor_adapter.dart';
+import 'package:skills/src/agent/adapters/cursor_adapter.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
 
@@ -40,7 +40,7 @@ description: A test skill.
 Instructions here.
 '''),
               d.dir('scripts', [d.file('run.sh', '#!/bin/bash\necho hello')]),
-              d.dir('references', [d.file('guide.md', '# Guide')]),
+              d.dir('references', [d.file('guagent.md', '# Guide')]),
             ]),
           ]),
         ]).create();
@@ -85,7 +85,7 @@ Instructions here.
 
         final ref = File(
           d.path(
-            'project/.cursor/skills/source_pkg-my-skill/references/guide.md',
+            'project/.cursor/skills/source_pkg-my-skill/references/guagent.md',
           ),
         );
         expect(await ref.exists(), isTrue);
