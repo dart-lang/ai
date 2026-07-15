@@ -41,6 +41,9 @@ void main() {
         for (var i = 0; i < 4; i++) {
           try {
             await dir.delete(recursive: true);
+            // Now, we have to recreate it so that the test descriptor package
+            // doesn't fail since it doesn't check if it exists.
+            await dir.create();
             return;
           } catch (_) {
             await Future.delayed(const Duration(seconds: 1));
