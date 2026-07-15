@@ -19,7 +19,7 @@ base mixin ToolsSupport on MCPServer {
   final Map<String, FutureOr<CallToolResult> Function(CallToolRequest)>
   _registeredToolImpls = {};
 
-  /// Invoked by the client as a part of initialization.
+  /// Invoked during server feature registration.
   ///
   /// Tools should usually be registered in this function using [registerTool]
   /// when possible.
@@ -27,13 +27,15 @@ base mixin ToolsSupport on MCPServer {
   /// If tools are registered after [initialized] completes, then the server
   /// will notify the client
   @override
-  FutureOr<InitializeResult> initialize(InitializeRequest request) async {
+  FutureOr<ServerCapabilities> initialize(
+    MCPServerInitialization initialization,
+  ) async {
     registerRequestHandler(ListToolsRequest.methodName, listTools);
     registerRequestHandler(CallToolRequest.methodName, callTool);
 
-    final result = await super.initialize(request);
-    (result.capabilities.tools ??= Tools()).listChanged = true;
-    return result;
+    final capabilities = await super.initialize(initialization);
+    (capabilities.tools ??= Tools()).listChanged = true;
+    return capabilities;
   }
 
   /// Register [tool] to call [impl] when invoked.

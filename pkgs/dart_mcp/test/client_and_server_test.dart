@@ -405,9 +405,11 @@ final class InitializeProgressTestMCPServer extends TestMCPServer
   InitializeProgressTestMCPServer(super.channel);
 
   @override
-  FutureOr<InitializeResult> initialize(InitializeRequest request) {
+  FutureOr<ServerCapabilities> initialize(
+    MCPServerInitialization initialization,
+  ) {
     registerTool(myProgressTool, _myToolImpl);
-    return super.initialize(request);
+    return super.initialize(initialization);
   }
 
   Future<CallToolResult> _myToolImpl(CallToolRequest request) async {
@@ -441,8 +443,8 @@ final class TestOldMcpServer extends TestMCPServer {
   TestOldMcpServer(super.channel);
 
   @override
-  Future<InitializeResult> initialize(InitializeRequest request) async {
-    return (await super.initialize(request))
+  Future<InitializeResult> initializeLegacy(InitializeRequest request) async {
+    return (await super.initializeLegacy(request))
       ..protocolVersion = ProtocolVersion.oldestSupported;
   }
 }
@@ -451,8 +453,8 @@ final class TestUnrecognizedVersionMcpServer extends TestMCPServer {
   TestUnrecognizedVersionMcpServer(super.channel);
 
   @override
-  Future<InitializeResult> initialize(InitializeRequest request) async {
-    final response = await super.initialize(request);
+  Future<InitializeResult> initializeLegacy(InitializeRequest request) async {
+    final response = await super.initializeLegacy(request);
     (response as Map<String, Object?>)['protocolVersion'] = 'fooBar';
     return response;
   }

@@ -5,12 +5,14 @@ part of 'server.dart';
 base mixin ElicitationRequestSupport on LoggingSupport {
   /// Whether or not the connected client supports elicitation.
   ///
-  /// Only safe to call after calling [initialize] on `super` since this is
-  /// based on the client capabilities.
+  /// Only safe to call after calling [initialize] on `super` since this
+  /// is based on the client capabilities.
   bool get supportsElicitation => clientCapabilities.elicitation != null;
 
   @override
-  FutureOr<InitializeResult> initialize(InitializeRequest request) {
+  FutureOr<ServerCapabilities> initialize(
+    MCPServerInitialization initialization,
+  ) {
     initialized.then((_) {
       if (!supportsElicitation) {
         log(
@@ -20,7 +22,7 @@ base mixin ElicitationRequestSupport on LoggingSupport {
         );
       }
     });
-    return super.initialize(request);
+    return super.initialize(initialization);
   }
 
   /// Sends an `elicitation/create` request to the client.

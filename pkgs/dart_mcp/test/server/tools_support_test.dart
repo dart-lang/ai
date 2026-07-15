@@ -10,6 +10,54 @@ import 'package:test/test.dart';
 import '../test_utils.dart';
 
 void main() {
+  test('legacy handshake initializes tools with client context', () async {
+    final environment = TestEnvironment(
+      TestMCPClient(),
+      TestMCPServerWithTools.new,
+    );
+    environment.client.capabilities.roots = RootsCapabilities(
+      listChanged: true,
+    );
+    final initializeResult = await environment.serverConnection.initialize(
+      InitializeRequest(
+        protocolVersion: ProtocolVersion.oldestSupported,
+        capabilities: environment.client.capabilities,
+        clientInfo: environment.client.implementation,
+      ),
+    );
+
+    expect(initializeResult.protocolVersion, ProtocolVersion.oldestSupported);
+    expect(
+      initializeResult.capabilities.tools,
+      equals(Tools(listChanged: true)),
+    );
+    expect(
+      environment.server.initializedWith?.clientCapabilities.roots,
+      equals(environment.client.capabilities.roots),
+    );
+    expect(
+      environment.server.initializedWith?.protocolVersion,
+      ProtocolVersion.oldestSupported,
+    );
+    expect(
+      environment.server.initializedWith?.clientInfo.name,
+      environment.client.implementation.name,
+    );
+    expect(
+      environment.server.initializedWith?.clientInfo.version,
+      environment.client.implementation.version,
+    );
+    expect(environment.server.ready, isFalse);
+
+    environment.serverConnection.notifyInitialized(InitializedNotification());
+    expect(await environment.server.initialized, isNotNull);
+    expect(environment.server.ready, isTrue);
+    expect(
+      (await environment.serverConnection.listTools()).tools,
+      hasLength(2),
+    );
+  });
+
   test('client can list and invoke tools from the server', () async {
     final environment = TestEnvironment(
       TestMCPClient(),
@@ -121,14 +169,19 @@ void main() {
 final class TestMCPServerWithTools extends TestMCPServer with ToolsSupport {
   TestMCPServerWithTools(super.channel);
 
+  MCPServerInitialization? initializedWith;
+
   @override
-  FutureOr<InitializeResult> initialize(InitializeRequest request) {
+  FutureOr<ServerCapabilities> initialize(
+    MCPServerInitialization initialization,
+  ) {
+    initializedWith = initialization;
     registerTool(
       helloWorld,
       (_) => CallToolResult(content: [helloWorldContent]),
     );
     registerTool(TestMCPServerWithTools.echo, TestMCPServerWithTools.echoImpl);
-    return super.initialize(request);
+    return super.initialize(initialization);
   }
 
   static final echo = Tool(
