@@ -1,16 +1,16 @@
 import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 
-import '../ide/ide.dart';
-import '../ide/adapters/agent_skills_adapter.dart';
-import '../ide/ide_adapter.dart';
-import '../ide/ide_adapter_factory.dart';
+import '../agent/agent.dart';
+import '../agent/adapters/agent_skills_adapter.dart';
+import '../agent/agent_adapter.dart';
+import '../agent/agent_adapter_factory.dart';
 import '../models/global_config.dart';
 import '../models/skill_manifest.dart';
 import 'dialog_support.dart';
 import 'skill_scanner.dart';
 
-/// Result of installing skills for an IDE.
+/// Result of installing skills for an agent.
 class SkillInstallResult {
   /// The updated manifest after installation.
   final SkillManifest manifest;
@@ -30,20 +30,20 @@ class SkillInstallResult {
 
 /// Info about a single installed skill.
 class InstalledSkillInfo {
-  final String ideName;
+  final String agentName;
   final String skillName;
   final String sourceUri;
   final bool isGlobal;
 
   const InstalledSkillInfo({
-    required this.ideName,
+    required this.agentName,
     required this.skillName,
     required this.sourceUri,
     this.isGlobal = false,
   });
 }
 
-/// Result of removing skills for an IDE.
+/// Result of removing skills for an agent.
 class SkillRemoveResult {
   /// The updated manifest after removal.
   final SkillManifest manifest;
@@ -63,10 +63,10 @@ class SkillRemoveResult {
 
 /// Info about a single removed skill.
 class RemovedSkillInfo {
-  final String ideName;
+  final String agentName;
   final String skillName;
 
-  const RemovedSkillInfo({required this.ideName, required this.skillName});
+  const RemovedSkillInfo({required this.agentName, required this.skillName});
 }
 
 class _PackageInstallResult {
@@ -83,7 +83,7 @@ class _PackageInstallResult {
   });
 }
 
-/// Service for installing and removing skills across IDEs.
+/// Service for installing and removing skills across agents.
 class SkillInstaller {
   final DialogSupport? _dialogSupport;
 
@@ -91,7 +91,7 @@ class SkillInstaller {
 
   static final logger = Logger('SkillInstaller');
 
-  /// Installs [skills] for the given [ide] at [rootPath], returning
+  /// Installs [skills] for the given [agent] at [rootPath], returning
   /// an updated version of [previousManifest].
   ///
   /// Removes existing skills for each package before reinstalling.
@@ -99,7 +99,7 @@ class SkillInstaller {
   /// If [selectedSkills] is provided, only skills with these names will be
   /// modified. This includes deleting of existing skills.
   Future<SkillInstallResult?> installSkillsForIde({
-    required Ide ide,
+    required Agent agent,
     required String rootPath,
     required List<ScannedSkill> skills,
     required SkillManifest previousManifest,
@@ -107,7 +107,7 @@ class SkillInstaller {
     Set<String>? selectedSkills,
     Set<String> sourceUris = const {},
   }) async {
-    final adapter = createIdeAdapter(ide, rootPath, _dialogSupport);
+    final adapter = createAgentAdapter(agent, rootPath, _dialogSupport);
     if (adapter is AgentSkillsAdapter) {
       if (!await adapter.performMigrations(previousManifest)) {
         return null;
@@ -124,7 +124,7 @@ class SkillInstaller {
       final sourceUri = entry.key;
       final sourceSkills = entry.value.values;
 
-      final existingPkgs = updatedManifest.sourceUrisForIde(ide.cliName);
+      final existingPkgs = updatedManifest.sourceUrisForAgent(agent.cliName);
       final existingEntry = existingPkgs[sourceUri];
 
       final skippedSkills = await _uninstallExistingSkills(
@@ -138,7 +138,7 @@ class SkillInstaller {
         skippedSkills: skippedSkills,
         selectedSkills: selectedSkills,
         existingEntry: existingEntry,
-        ide: ide,
+        agent: agent,
         rootPath: rootPath,
         adapter: adapter,
         globalConfig: globalConfig,
@@ -152,14 +152,14 @@ class SkillInstaller {
       _logOrphanedSkills(skippedSkills, adapter, rootPath);
 
       updatedManifest = updatedManifest.withSourceUri(
-        ide.cliName,
+        agent.cliName,
         sourceUri,
         SkillsEntry(skills: result.updatedSkillEntries),
       );
     }
 
     updatedManifest = await _cleanupMissingPackages(
-      ide: ide,
+      agent: agent,
       rootPath: rootPath,
       skillsBySource: skillsBySource,
       manifest: updatedManifest,
@@ -195,7 +195,7 @@ class SkillInstaller {
   Future<Set<String>> _uninstallExistingSkills({
     required SkillsEntry? existingEntry,
     required Set<String>? selectedSkills,
-    required IdeAdapter adapter,
+    required AgentAdapter adapter,
   }) async {
     final skippedSkills = <String>{};
     if (existingEntry != null) {
@@ -214,7 +214,7 @@ class SkillInstaller {
   /// Logs any remaining [skippedSkills] as orphaned skills.
   void _logOrphanedSkills(
     Set<String> skippedSkills,
-    IdeAdapter adapter,
+    AgentAdapter adapter,
     String rootPath,
   ) {
     if (skippedSkills.isNotEmpty) {
@@ -248,9 +248,9 @@ class SkillInstaller {
     required Set<String> skippedSkills,
     required Set<String>? selectedSkills,
     required SkillsEntry? existingEntry,
-    required Ide ide,
+    required Agent agent,
     required String rootPath,
-    required IdeAdapter adapter,
+    required AgentAdapter adapter,
     required GlobalConfig globalConfig,
     required SkillManifest manifest,
   }) async {
@@ -297,7 +297,7 @@ class SkillInstaller {
       // response.
       installedInfos.add(
         InstalledSkillInfo(
-          ideName: ide.cliName,
+          agentName: agent.cliName,
           skillName: skill.skillName,
           sourceUri: skill.sourceUri,
           isGlobal: skill.isGlobal,
@@ -310,7 +310,7 @@ class SkillInstaller {
       if (skill.gitUrl case var gitUrl?) {
         final installLocation = p.join(
           rootPath,
-          ide.skillsRelativePath,
+          agent.skillsRelativePath,
           installedName,
         );
 
@@ -346,16 +346,19 @@ class SkillInstaller {
   /// If [packageNames] is not empty, then we will only consider the given
   /// packages for cleanup.
   Future<SkillManifest> _cleanupMissingPackages({
-    required Ide ide,
+    required Agent agent,
     required String rootPath,
     required Map<String, Map<String, ScannedSkill>> skillsBySource,
     required SkillManifest manifest,
     required Set<String>? selectedSkills,
-    required IdeAdapter adapter,
+    required AgentAdapter adapter,
     required Set<String> sourceUris,
   }) async {
     var updatedManifest = manifest;
-    final allPkgs = updatedManifest.sourceUrisForIde(ide.cliName).keys.toSet();
+    final allPkgs = updatedManifest
+        .sourceUrisForAgent(agent.cliName)
+        .keys
+        .toSet();
     final missingPkgs = allPkgs.difference(skillsBySource.keys.toSet());
 
     for (final pkgName in missingPkgs) {
@@ -363,8 +366,8 @@ class SkillInstaller {
         continue;
       }
 
-      final existingEntry = updatedManifest.sourceUrisForIde(
-        ide.cliName,
+      final existingEntry = updatedManifest.sourceUrisForAgent(
+        agent.cliName,
       )[pkgName]!;
       final skippedSkills = <String>{};
 
@@ -385,13 +388,13 @@ class SkillInstaller {
             .where((s) => skippedSkills.contains(s.name))
             .toList();
         updatedManifest = updatedManifest.withSourceUri(
-          ide.cliName,
+          agent.cliName,
           pkgName,
           SkillsEntry(skills: keptSkills),
         );
       } else {
         updatedManifest = updatedManifest.withoutSourceUri(
-          ide.cliName,
+          agent.cliName,
           pkgName,
         );
       }
@@ -399,21 +402,21 @@ class SkillInstaller {
     return updatedManifest;
   }
 
-  /// Removes skills for [ide] from [manifest].
+  /// Removes skills for [agent] from [manifest].
   ///
   /// If [sourceUris] is not empty, only those sources skills are removed.
   /// If [skillNames] is not empty, only those specific skills are removed.
   Future<SkillRemoveResult> removeSkillsForIde({
-    required Ide ide,
+    required Agent agent,
     required String rootPath,
     required SkillManifest manifest,
     Set<String> sourceUris = const {},
     Set<String> skillNames = const {},
   }) async {
-    final adapter = createIdeAdapter(ide, rootPath, _dialogSupport);
+    final adapter = createAgentAdapter(agent, rootPath, _dialogSupport);
     final removed = <RemovedSkillInfo>[];
 
-    final sourceUriInstalls = manifest.sourceUrisForIde(ide.cliName);
+    final sourceUriInstalls = manifest.sourceUrisForAgent(agent.cliName);
 
     for (final MapEntry(key: sourceUri, value: SkillsEntry(skills: skills))
         in sourceUriInstalls.entries) {
@@ -422,11 +425,11 @@ class SkillInstaller {
       }
 
       if (skillNames.isEmpty) {
-        manifest = manifest.withoutSourceUri(ide.cliName, sourceUri);
+        manifest = manifest.withoutSourceUri(agent.cliName, sourceUri);
         for (final skill in skills) {
           await adapter.removeSkill(skill.name);
           removed.add(
-            RemovedSkillInfo(ideName: ide.cliName, skillName: skill.name),
+            RemovedSkillInfo(agentName: agent.cliName, skillName: skill.name),
           );
         }
       } else {
@@ -441,15 +444,15 @@ class SkillInstaller {
           for (final skill in skillsToRemove) {
             await adapter.removeSkill(skill.name);
             removed.add(
-              RemovedSkillInfo(ideName: ide.cliName, skillName: skill.name),
+              RemovedSkillInfo(agentName: agent.cliName, skillName: skill.name),
             );
           }
 
           if (skillsToKeep.isEmpty) {
-            manifest = manifest.withoutSourceUri(ide.cliName, sourceUri);
+            manifest = manifest.withoutSourceUri(agent.cliName, sourceUri);
           } else {
             manifest = manifest.withSourceUri(
-              ide.cliName,
+              agent.cliName,
               sourceUri,
               SkillsEntry(skills: skillsToKeep),
             );
@@ -464,18 +467,18 @@ class SkillInstaller {
     );
   }
 
-  /// Removes all skills for all IDEs in [manifest].
+  /// Removes all skills for all agents in [manifest].
   /// Returns the updated (empty) manifest.
   Future<SkillManifest> removeAllSkills({
     required String rootPath,
     required SkillManifest manifest,
   }) async {
     var updated = manifest;
-    for (final ideName in manifest.allIdes.toList()) {
-      final ide = Ide.fromCliName(ideName);
-      if (ide == null) continue;
+    for (final agentName in manifest.allAgents.toList()) {
+      final agent = Agent.fromCliName(agentName);
+      if (agent == null) continue;
       final result = await removeSkillsForIde(
-        ide: ide,
+        agent: agent,
         rootPath: rootPath,
         manifest: updated,
       );

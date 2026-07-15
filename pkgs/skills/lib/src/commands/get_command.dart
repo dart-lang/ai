@@ -21,7 +21,7 @@ class GetCommand extends SkillsCommand {
   GetCommand({DialogSupport? dialogSupport, GitRunner? gitRunner})
     : _dialogSupport = dialogSupport,
       _gitRunner = gitRunner {
-    addIdeOption(argParser);
+    addAgentOption(argParser);
     argParser
       ..addMultiOption(
         'package',
@@ -56,7 +56,7 @@ class GetCommand extends SkillsCommand {
       );
     }
 
-    final ides = await resolveIdes(
+    final agents = await resolveAgents(
       argResults: argResults,
       projectPath: rootPath,
       dialogSupport: _dialogSupport,
@@ -80,7 +80,7 @@ class GetCommand extends SkillsCommand {
     }
 
     await getSkills(
-      ides: ides,
+      agents: agents,
       logger: logger,
       workspace: workspace,
       dialogSupport: _dialogSupport,

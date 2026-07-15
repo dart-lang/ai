@@ -5,7 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:skills/src/commands/get_command.dart';
 import 'package:skills/src/commands/skills_command_runner.dart';
 import 'package:skills/src/core/git_runner.dart';
-import 'package:skills/src/ide/ide.dart';
+import 'package:skills/src/agent/agent.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
 
@@ -54,8 +54,8 @@ void main() {
         'get',
         '--directory',
         projectPath,
-        '--ide',
-        Ide.generic.cliName,
+        '--agent',
+        Agent.generic.cliName,
         '--package',
         'dep',
         if (all) '--all',

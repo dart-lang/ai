@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:logging/logging.dart';
 import 'package:skills/src/core/hash_utils.dart';
 import 'package:skills/src/core/skill_scanner.dart';
-import 'package:skills/src/ide/adapters/generic_adapter.dart';
+import 'package:skills/src/agent/adapters/generic_adapter.dart';
 import 'package:skills/src/models/skill_manifest.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;

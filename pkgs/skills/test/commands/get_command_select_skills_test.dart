@@ -5,9 +5,9 @@ import 'package:path/path.dart' as p;
 import 'package:skills/src/commands/get_command.dart';
 import 'package:skills/src/commands/skills_command_runner.dart';
 import 'package:skills/src/core/git_runner.dart';
-import 'package:skills/src/ide/adapters/agent_skills_adapter.dart';
-import 'package:skills/src/ide/adapters/generic_adapter.dart';
-import 'package:skills/src/ide/ide.dart';
+import 'package:skills/src/agent/adapters/agent_skills_adapter.dart';
+import 'package:skills/src/agent/adapters/generic_adapter.dart';
+import 'package:skills/src/agent/agent.dart';
 import '../fake_dialog_support.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
@@ -79,8 +79,8 @@ void main() {
           'get',
           '--directory',
           projectPath,
-          '--ide',
-          Ide.generic.cliName,
+          '--agent',
+          Agent.generic.cliName,
           '--package',
           'dep1',
         ]);
@@ -129,8 +129,8 @@ void main() {
             'get',
             '--directory',
             projectPath,
-            '--ide',
-            Ide.generic.cliName,
+            '--agent',
+            Agent.generic.cliName,
           ]);
 
           expect(fakeDialogSupport.allMultiSelectOptions, hasLength(3));
@@ -240,8 +240,8 @@ void main() {
           'get',
           '--directory',
           projectPath,
-          '--ide',
-          Ide.generic.cliName,
+          '--agent',
+          Agent.generic.cliName,
         ]);
 
         expect(fakeDialogSupport.allMultiSelectOptions, hasLength(3));

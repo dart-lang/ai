@@ -5,9 +5,9 @@ import 'package:path/path.dart' as p;
 import 'package:skills/src/commands/get_command.dart';
 import 'package:skills/src/commands/skills_command_runner.dart';
 import 'package:skills/src/core/git_runner.dart';
-import 'package:skills/src/ide/adapters/agent_skills_adapter.dart';
-import 'package:skills/src/ide/adapters/generic_adapter.dart';
-import 'package:skills/src/ide/ide.dart';
+import 'package:skills/src/agent/adapters/agent_skills_adapter.dart';
+import 'package:skills/src/agent/adapters/generic_adapter.dart';
+import 'package:skills/src/agent/agent.dart';
 import 'package:skills/src/models/skill_manifest.dart';
 import '../fake_dialog_support.dart';
 import '../utils.dart';
@@ -84,8 +84,8 @@ void main() {
         'get',
         '--directory',
         projectPath,
-        '--ide',
-        Ide.generic.cliName,
+        '--agent',
+        Agent.generic.cliName,
       ]);
 
       expect(
@@ -114,7 +114,7 @@ void main() {
 
       final manifest = await SkillManifest.loadOrEmpty(manifestFile);
       final skillNames = manifest
-          .allSkillsForIde(Ide.generic.cliName)
+          .allSkillsForAgent(Agent.generic.cliName)
           .map((e) => e.name)
           .toSet();
       expect(skillNames, contains('dep1-skill'));
@@ -136,8 +136,8 @@ void main() {
           'get',
           '--directory',
           projectPath,
-          '--ide',
-          Ide.generic.cliName,
+          '--agent',
+          Agent.generic.cliName,
           '--package',
           'dep1',
           '--all', // install all skills from dep1
@@ -168,8 +168,8 @@ void main() {
         'get',
         '--directory',
         projectPath,
-        '--ide',
-        Ide.generic.cliName,
+        '--agent',
+        Agent.generic.cliName,
         '--all',
       ]);
 
@@ -197,8 +197,8 @@ void main() {
         'get',
         '--directory',
         projectPath,
-        '--ide',
-        Ide.generic.cliName,
+        '--agent',
+        Agent.generic.cliName,
       ]);
 
       final dep1SkillDir = Directory(
@@ -232,8 +232,8 @@ void main() {
           'get',
           '--directory',
           projectPath,
-          '--ide',
-          Ide.generic.cliName,
+          '--agent',
+          Agent.generic.cliName,
           '--package',
           'dep3',
           '--all',
@@ -269,8 +269,8 @@ void main() {
           'get',
           '--directory',
           projectPath,
-          '--ide',
-          Ide.generic.cliName,
+          '--agent',
+          Agent.generic.cliName,
         ]);
 
         // Verify both are installed
@@ -287,8 +287,8 @@ void main() {
           'get',
           '--directory',
           projectPath,
-          '--ide',
-          Ide.generic.cliName,
+          '--agent',
+          Agent.generic.cliName,
           '--package',
           'dep1',
           '--all',

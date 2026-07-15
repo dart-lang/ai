@@ -6,25 +6,25 @@ import '../../core/dialog_support.dart';
 import '../../core/hash_utils.dart';
 import '../../core/skill_scanner.dart';
 import '../../models/skill_manifest.dart';
-import '../ide_adapter.dart';
+import '../agent_adapter.dart';
 
-/// Base adapter for IDEs that support the Agent Skills standard natively.
+/// Base adapter for agents that support the Agent Skills standard natively.
 ///
 /// Copies the full skill directory (SKILL.md + scripts/ + references/ + assets/)
 /// using the skill's own name as the target directory name.
-abstract class AgentSkillsAdapter extends IdeAdapter {
+abstract class AgentSkillsAdapter extends AgentAdapter {
   @override
   final String skillsDirectory;
   final DialogSupport? dialogSupport;
 
-  AgentSkillsAdapter(super.ide, this.skillsDirectory, {this.dialogSupport});
+  AgentSkillsAdapter(super.agent, this.skillsDirectory, {this.dialogSupport});
 
   @override
   Future<void> ensureSkillsDirectory() async {
     await Directory(skillsDirectory).create(recursive: true);
   }
 
-  /// Performs any migrations needed for this IDE.
+  /// Performs any migrations needed for this agent.
   ///
   /// Returns false if the operation was aborted by the user or failed,
   /// true if it succeeded.

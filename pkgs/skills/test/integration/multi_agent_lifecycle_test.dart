@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:logging/logging.dart';
 import 'package:skills/src/core/skill_installer.dart';
 import 'package:skills/src/core/skill_scanner.dart';
-import 'package:skills/src/ide/ide.dart';
+import 'package:skills/src/agent/agent.dart';
 import '../fake_dialog_support.dart';
 import 'package:skills/src/models/global_config.dart';
 import 'package:skills/src/models/skill_manifest.dart';
@@ -105,7 +105,7 @@ Instructions for debugging.
 
       final installer = SkillInstaller(fakeDialogSupport);
       var result = await installer.installSkillsForIde(
-        ide: Ide.cursor,
+        agent: Agent.cursor,
         rootPath: rootPath,
         skills: [...pkgASkills, ...pkgBSkills],
         previousManifest: manifest,
@@ -113,7 +113,7 @@ Instructions for debugging.
       );
       manifest = result!.manifest;
       result = await installer.installSkillsForIde(
-        ide: Ide.generic,
+        agent: Agent.generic,
         rootPath: rootPath,
         skills: [...pkgASkills, ...pkgBSkills],
         previousManifest: manifest,
@@ -122,7 +122,7 @@ Instructions for debugging.
       manifest = result!.manifest;
     });
 
-    test('when removing all then both IDEs are cleaned up', () async {
+    test('when removing all then both agents are cleaned up', () async {
       // Verify files exist before removal.
       expect(
         Directory('$rootPath/.cursor/skills/pkg_a-code-gen').existsSync(),
@@ -166,10 +166,10 @@ Instructions for debugging.
       expect(manifest.isEmpty, isTrue);
     });
 
-    test('when removing one IDE then the other remains intact', () async {
+    test('when removing one agent then the other remains intact', () async {
       // Remove only Cursor.
       final result = await SkillInstaller(fakeDialogSupport).removeSkillsForIde(
-        ide: Ide.cursor,
+        agent: Agent.cursor,
         rootPath: rootPath,
         manifest: manifest,
       );
@@ -195,19 +195,19 @@ Instructions for debugging.
         isTrue,
       );
 
-      expect(manifest.allIdes, equals(['generic']));
-      expect(manifest.sourceUrisForIde('generic'), hasLength(2));
+      expect(manifest.allAgents, equals(['generic']));
+      expect(manifest.sourceUrisForAgent('generic'), hasLength(2));
     });
 
     test(
-      'when removing one package from all IDEs then other package remains',
+      'when removing one package from all agents then other package remains',
       () async {
-        // Remove pkg_a from both IDEs.
+        // Remove pkg_a from both agents.
         final installer = SkillInstaller(fakeDialogSupport);
-        for (final ideName in manifest.allIdes.toList()) {
-          final ide = Ide.fromCliName(ideName)!;
+        for (final agentName in manifest.allAgents.toList()) {
+          final agent = Agent.fromCliName(agentName)!;
           final result = await installer.removeSkillsForIde(
-            ide: ide,
+            agent: agent,
             rootPath: rootPath,
             manifest: manifest,
             sourceUris: {'package:pkg_a'},
@@ -215,7 +215,7 @@ Instructions for debugging.
           manifest = result.manifest;
         }
 
-        // pkg_a skills gone from both IDEs.
+        // pkg_a skills gone from both agents.
         expect(
           Directory('$rootPath/.cursor/skills/pkg_a-code-gen').existsSync(),
           isFalse,
@@ -225,7 +225,7 @@ Instructions for debugging.
           isFalse,
         );
 
-        // pkg_b skills still present in both IDEs.
+        // pkg_b skills still present in both agents.
         expect(
           Directory('$rootPath/.cursor/skills/pkg_b-testing').existsSync(),
           isTrue,
@@ -235,10 +235,16 @@ Instructions for debugging.
           isTrue,
         );
 
-        expect(manifest.sourceUrisForIde('cursor'), contains('package:pkg_b'));
-        expect(manifest.sourceUrisForIde('generic'), contains('package:pkg_b'));
         expect(
-          manifest.sourceUrisForIde('cursor'),
+          manifest.sourceUrisForAgent('cursor'),
+          contains('package:pkg_b'),
+        );
+        expect(
+          manifest.sourceUrisForAgent('generic'),
+          contains('package:pkg_b'),
+        );
+        expect(
+          manifest.sourceUrisForAgent('cursor'),
           isNot(contains('package:pkg_a')),
         );
       },
@@ -260,7 +266,7 @@ Instructions for debugging.
 
       final installer = SkillInstaller(fakeDialogSupport);
       var result = await installer.installSkillsForIde(
-        ide: Ide.cursor,
+        agent: Agent.cursor,
         rootPath: rootPath,
         skills: pkgASkills,
         previousManifest: manifest,
@@ -268,7 +274,7 @@ Instructions for debugging.
       );
       manifest = result!.manifest;
       result = await installer.installSkillsForIde(
-        ide: Ide.generic,
+        agent: Agent.generic,
         rootPath: rootPath,
         skills: pkgASkills,
         previousManifest: manifest,
@@ -306,7 +312,7 @@ Instructions for debugging.
         'removed correctly', () async {
       // Install a second package too.
       var result = await SkillInstaller(fakeDialogSupport).installSkillsForIde(
-        ide: Ide.cursor,
+        agent: Agent.cursor,
         rootPath: rootPath,
         skills: [...pkgASkills, ...pkgBSkills],
         previousManifest: manifest,
@@ -348,7 +354,7 @@ Instructions for debugging.
 
       final installer = SkillInstaller(fakeDialogSupport);
       var result = await installer.installSkillsForIde(
-        ide: Ide.cursor,
+        agent: Agent.cursor,
         rootPath: rootPath,
         skills: pkgASkills,
         previousManifest: manifest,
@@ -356,7 +362,7 @@ Instructions for debugging.
       );
       manifest = result!.manifest;
       result = await installer.installSkillsForIde(
-        ide: Ide.generic,
+        agent: Agent.generic,
         rootPath: rootPath,
         skills: pkgASkills,
         previousManifest: manifest,
@@ -365,33 +371,36 @@ Instructions for debugging.
       manifest = result!.manifest;
     });
 
-    test('when reinstalling to one IDE then the other is untouched', () async {
-      // Reinstall to Cursor only (simulating `skills get --ide cursor`).
-      // SkillInstaller removes existing before installing.
-      final result = await SkillInstaller(fakeDialogSupport)
-          .installSkillsForIde(
-            ide: Ide.cursor,
-            rootPath: rootPath,
-            skills: pkgASkills,
-            previousManifest: manifest,
-            globalConfig: const GlobalConfig(),
-          );
-      manifest = result!.manifest;
+    test(
+      'when reinstalling to one agent then the other is untouched',
+      () async {
+        // Reinstall to Cursor only (simulating `skills get --agent cursor`).
+        // SkillInstaller removes existing before installing.
+        final result = await SkillInstaller(fakeDialogSupport)
+            .installSkillsForIde(
+              agent: Agent.cursor,
+              rootPath: rootPath,
+              skills: pkgASkills,
+              previousManifest: manifest,
+              globalConfig: const GlobalConfig(),
+            );
+        manifest = result!.manifest;
 
-      // Cursor reinstalled.
-      expect(
-        Directory('$rootPath/.cursor/skills/pkg_a-code-gen').existsSync(),
-        isTrue,
-      );
+        // Cursor reinstalled.
+        expect(
+          Directory('$rootPath/.cursor/skills/pkg_a-code-gen').existsSync(),
+          isTrue,
+        );
 
-      // Generic (.agents) untouched.
-      expect(
-        Directory('$rootPath/.agents/skills/pkg_a-code-gen').existsSync(),
-        isTrue,
-      );
+        // Generic (.agents) untouched.
+        expect(
+          Directory('$rootPath/.agents/skills/pkg_a-code-gen').existsSync(),
+          isTrue,
+        );
 
-      expect(manifest.allIdes, containsAll(['cursor', 'generic']));
-    });
+        expect(manifest.allAgents, containsAll(['cursor', 'generic']));
+      },
+    );
   });
 
   group('Given skills installed to Cursor and Claude', () {
@@ -409,7 +418,7 @@ Instructions for debugging.
 
       final installer = SkillInstaller(fakeDialogSupport);
       var result = await installer.installSkillsForIde(
-        ide: Ide.cursor,
+        agent: Agent.cursor,
         rootPath: rootPath,
         skills: [...pkgASkills, ...pkgBSkills],
         previousManifest: manifest,
@@ -417,7 +426,7 @@ Instructions for debugging.
       );
       manifest = result!.manifest;
       result = await installer.installSkillsForIde(
-        ide: Ide.claude,
+        agent: Agent.claude,
         rootPath: rootPath,
         skills: [...pkgASkills, ...pkgBSkills],
         previousManifest: manifest,
@@ -426,14 +435,14 @@ Instructions for debugging.
       manifest = result!.manifest;
     });
 
-    test('when listing then manifest reports both IDEs correctly', () {
-      expect(manifest.allIdes, containsAll(['cursor', 'claude']));
+    test('when listing then manifest reports both agents correctly', () {
+      expect(manifest.allAgents, containsAll(['cursor', 'claude']));
 
-      expect(manifest.sourceUrisForIde('cursor'), hasLength(2));
-      expect(manifest.sourceUrisForIde('claude'), hasLength(2));
+      expect(manifest.sourceUrisForAgent('cursor'), hasLength(2));
+      expect(manifest.sourceUrisForAgent('claude'), hasLength(2));
 
-      expect(manifest.allSkillsForIde('cursor'), hasLength(3));
-      expect(manifest.allSkillsForIde('claude'), hasLength(3));
+      expect(manifest.allSkillsForAgent('cursor'), hasLength(3));
+      expect(manifest.allSkillsForAgent('claude'), hasLength(3));
 
       expect(manifest.allSkills, hasLength(6));
     });
@@ -477,7 +486,7 @@ Instructions for debugging.
     });
   });
 
-  group('Given generic IDE (antigravity/codex/generic)', () {
+  group('Given generic agent (antigravity/codex/generic)', () {
     test(
       'when installing then manifest stores canonical name generic only',
       () async {
@@ -489,7 +498,7 @@ Instructions for debugging.
         var manifest = const SkillManifest();
         final result = await SkillInstaller(fakeDialogSupport)
             .installSkillsForIde(
-              ide: Ide.generic,
+              agent: Agent.generic,
               rootPath: rootPath,
               skills: pkgASkills,
               previousManifest: manifest,
@@ -497,10 +506,10 @@ Instructions for debugging.
             );
         manifest = result!.manifest;
 
-        expect(manifest.allIdes, equals(['generic']));
-        expect(manifest.sourceUrisForIde('generic'), hasLength(1));
+        expect(manifest.allAgents, equals(['generic']));
+        expect(manifest.sourceUrisForAgent('generic'), hasLength(1));
         expect(
-          manifest.sourceUrisForIde('generic')['package:pkg_a']!.skills,
+          manifest.sourceUrisForAgent('generic')['package:pkg_a']!.skills,
           hasLength(1),
         );
         expect(manifest.installations.containsKey('antigravity'), isFalse);
@@ -511,7 +520,7 @@ Instructions for debugging.
 
   group('Given manifest saved to and loaded from disk', () {
     test(
-      'when round-tripping multi-IDE manifest then all data preserved',
+      'when round-tripping multi-agent manifest then all data preserved',
       () async {
         await d.dir('persist_project').create();
         final rootPath = d.path('persist_project');
@@ -560,19 +569,19 @@ Instructions for debugging.
         final loaded = await SkillManifest.loadFromRoot(rootPath);
         expect(loaded, isNotNull);
         expect(
-          loaded!.allIdes.toSet(),
+          loaded!.allAgents.toSet(),
           equals({'cursor', 'generic', 'claude'}),
         );
         expect(
-          loaded.sourceUrisForIde('cursor')['package:pkg_a']!.skills,
+          loaded.sourceUrisForAgent('cursor')['package:pkg_a']!.skills,
           hasLength(1),
         );
         expect(
-          loaded.sourceUrisForIde('generic')['package:pkg_a']!.skills,
+          loaded.sourceUrisForAgent('generic')['package:pkg_a']!.skills,
           hasLength(1),
         );
         expect(
-          loaded.sourceUrisForIde('claude')['package:pkg_b']!.skills,
+          loaded.sourceUrisForAgent('claude')['package:pkg_b']!.skills,
           hasLength(1),
         );
       },

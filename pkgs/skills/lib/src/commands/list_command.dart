@@ -27,11 +27,11 @@ class ListCommand extends SkillsCommand {
       ..writeln('Installed skills:')
       ..writeln();
 
-    for (final ide in manifest.allIdes) {
-      final pkgs = manifest.sourceUrisForIde(ide);
+    for (final agent in manifest.allAgents) {
+      final pkgs = manifest.sourceUrisForAgent(agent);
       if (pkgs.isEmpty) continue;
 
-      buffer.writeln('  $ide:');
+      buffer.writeln('  $agent:');
       for (final entry in pkgs.entries) {
         buffer.writeln('    ${entry.key}:');
         for (final skill in entry.value.skills) {

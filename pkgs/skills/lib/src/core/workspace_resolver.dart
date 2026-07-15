@@ -8,7 +8,7 @@ import 'package:yaml/yaml.dart';
 /// Describes the layout of a project -- either a single package or a monorepo
 /// workspace containing multiple packages.
 class WorkspaceLayout {
-  /// The root path where skills should be installed (IDE dirs, manifest).
+  /// The root path where skills should be installed (agent dirs, manifest).
   final String rootPath;
 
   /// The packages whose dependencies should be scanned for skills.

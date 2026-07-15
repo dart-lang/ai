@@ -7,7 +7,7 @@ import 'package:skills/src/core/exceptions.dart';
 import '../core/dialog_support.dart';
 import '../core/git_repos.dart';
 import '../core/skill_installer.dart';
-import '../ide/ide.dart';
+import '../agent/agent.dart';
 import '../models/global_config.dart';
 import '../models/skill_manifest.dart';
 
@@ -158,10 +158,10 @@ Future<SkillManifest> maybeDoRegistryMigration(
               }
             }
             if (skillsToRemove.isNotEmpty) {
-              for (final ideName in updatedManifest.allIdes.toList()) {
-                final ide = Ide.fromCliName(ideName)!;
+              for (final agentName in updatedManifest.allAgents.toList()) {
+                final agent = Agent.fromCliName(agentName)!;
                 final result = await installer.removeSkillsForIde(
-                  ide: ide,
+                  agent: agent,
                   rootPath: rootPath,
                   manifest: updatedManifest,
                   skillNames: skillsToRemove,
@@ -222,17 +222,17 @@ SkillManifest maybeMigratePackageUris(SkillManifest manifest) {
   }
 
   var updatedManifest = manifest;
-  for (final ideName in updatedManifest.allIdes.toList()) {
-    final idePkgs = updatedManifest.sourceUrisForIde(ideName);
-    for (final pkgEntry in idePkgs.entries.toList()) {
+  for (final agentName in updatedManifest.allAgents.toList()) {
+    final agentPkgs = updatedManifest.sourceUrisForAgent(agentName);
+    for (final pkgEntry in agentPkgs.entries.toList()) {
       if (!pkgEntry.key.startsWith('package:') &&
           !pkgEntry.key.startsWith('https://')) {
         updatedManifest = updatedManifest.withoutSourceUri(
-          ideName,
+          agentName,
           pkgEntry.key,
         );
         updatedManifest = updatedManifest.withSourceUri(
-          ideName,
+          agentName,
           'package:${pkgEntry.key}',
           pkgEntry.value,
         );
@@ -264,11 +264,11 @@ Future<SkillManifest> _migrateRepoLocally(
   }
 
   // Migrate the manifest entries for any skills from the repo
-  for (final ideName in updatedManifest.allIdes.toList()) {
-    final idePkgs = updatedManifest.sourceUrisForIde(ideName);
+  for (final agentName in updatedManifest.allAgents.toList()) {
+    final agentPkgs = updatedManifest.sourceUrisForAgent(agentName);
     var repoSkills = <InstalledSkillEntry>[];
 
-    for (final pkgEntry in idePkgs.entries) {
+    for (final pkgEntry in agentPkgs.entries) {
       if (pkgEntry.key.startsWith('package:')) {
         final skillsToKeep = <InstalledSkillEntry>[];
         for (final skill in pkgEntry.value.skills) {
@@ -281,12 +281,12 @@ Future<SkillManifest> _migrateRepoLocally(
         if (skillsToKeep.length != pkgEntry.value.skills.length) {
           if (skillsToKeep.isEmpty) {
             updatedManifest = updatedManifest.withoutSourceUri(
-              ideName,
+              agentName,
               pkgEntry.key,
             );
           } else {
             updatedManifest = updatedManifest.withSourceUri(
-              ideName,
+              agentName,
               pkgEntry.key,
               SkillsEntry(skills: skillsToKeep),
             );
@@ -296,14 +296,14 @@ Future<SkillManifest> _migrateRepoLocally(
     }
 
     if (repoSkills.isNotEmpty) {
-      final existingRepoEntry = updatedManifest.sourceUrisForIde(
-        ideName,
+      final existingRepoEntry = updatedManifest.sourceUrisForAgent(
+        agentName,
       )[repo.cloneUrl];
       if (existingRepoEntry != null) {
         repoSkills = [...existingRepoEntry.skills, ...repoSkills];
       }
       updatedManifest = updatedManifest.withSourceUri(
-        ideName,
+        agentName,
         repo.cloneUrl,
         SkillsEntry(skills: repoSkills),
       );
