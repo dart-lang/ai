@@ -1,5 +1,5 @@
 name: dart_mcp
-version: 0.5.2
+version: 0.5.3-wip
 description: A package for making MCP servers and clients.
 repository: https://github.com/dart-lang/ai/tree/main/pkgs/dart_mcp
 issue_tracker: https://github.com/dart-lang/ai/issues?q=is%3Aissue+is%3Aopen+label%3Apackage%3Adart_mcp
@@ -17,5 +17,8 @@ dependencies:
 
 dev_dependencies:
   dart_flutter_team_lints: ^3.2.1
-  # TODO: Remove upper bound https://github.com/dart-lang/test/issues/2688
-  test: '>=1.25.15 <1.31.0'
+  test:
+    git:
+      url: https://github.com/dart-lang/test.git
+      path: pkgs/test
+      ref: bd92e633e7f05edc3301865bdc00d1ae181cb1f1
