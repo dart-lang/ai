@@ -4,8 +4,8 @@ description: >
   dependencies into your Agent, so Antigravity, Claude, Codex, Cursor, and other
   assistants know how to use your stack.
 version: 0.4.0-dev
-repository: https://github.com/serverpod/skills
-issue_tracker: https://github.com/serverpod/skills/issues
+repository: https://github.com/dart-lang/ai/tree/main/pkgs/skills
+issue_tracker: https://github.com/dart-lang/ai/issues?q=is%3Aissue+is%3Aopen+label%3Apackage%3Askills
 
 executables:
   skills:
