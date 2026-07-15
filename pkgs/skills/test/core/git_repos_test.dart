@@ -31,7 +31,9 @@ void main() {
     });
 
     test('gitRepoPath includes host, owner and repo', () {
-      const repo = GitRepo(cloneUrl: 'https://github.com/flutter/agent-plugins.git');
+      const repo = GitRepo(
+        cloneUrl: 'https://github.com/flutter/agent-plugins.git',
+      );
       final path = gitRepoPath('/project', repo);
       expect(
         path,
