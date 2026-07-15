@@ -58,8 +58,9 @@ class FakeDialogSupport implements DialogSupport {
     String? title,
     Set<int> initialSelected = const {},
   }) async {
-    if (skipSuggestedRepos && title == installDartSkillsText ||
-        title == installDartOrFlutterSkillsText) {
+    if (skipSuggestedRepos &&
+        (title == installDartSkillsText ||
+            title == installDartOrFlutterSkillsText)) {
       return const {};
     }
 
