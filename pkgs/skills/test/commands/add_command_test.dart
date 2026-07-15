@@ -45,8 +45,13 @@ void main() {
 
     test('throws if no git repos provided', () async {
       expect(
-        () =>
-            runner.run(['add', '--directory', projectPath, '--agent', 'cursor']),
+        () => runner.run([
+          'add',
+          '--directory',
+          projectPath,
+          '--agent',
+          'cursor',
+        ]),
         throwsA(isA<UsageException>()),
       );
     });

@@ -162,7 +162,10 @@ void main() {
       );
       expect(pkgSkills.map((s) => s.name), contains('pkg_a-skill2'));
       final printedInstallPath = p.join(
-        Agent.generic.skillsRelativePath.replaceAll(p.url.separator, p.separator),
+        Agent.generic.skillsRelativePath.replaceAll(
+          p.url.separator,
+          p.separator,
+        ),
         'pkg_a-skill1',
       );
       expect(
