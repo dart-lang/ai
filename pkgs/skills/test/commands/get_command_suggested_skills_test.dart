@@ -34,6 +34,20 @@ void main() {
     });
 
     setUp(() async {
+      // Hack to try and give windows some time to clean up file handles held
+      // by processes.
+      addTearDown(() async {
+        final dir = Directory(d.sandbox);
+        for (var i = 0; i < 4; i++) {
+          try {
+            await dir.delete(recursive: true);
+            return;
+          } catch (_) {
+            await Future.delayed(const Duration(seconds: 1));
+          }
+        }
+      });
+
       await d.dir('flutter', [pubspec('flutter')]).create();
       await d.dir('project', [
         pubspec('project', dependencies: [const Dependency('flutter')]),

@@ -54,9 +54,6 @@ class PubRunner {
       executable,
       args,
       workingDirectory: projectPath,
-      // runInShell is required on Windows to prevent orphaned handles
-      // when executing bat files which block tearDown cleanups.
-      runInShell: Platform.isWindows,
     );
 
     if (result.exitCode != 0) {
