@@ -10,42 +10,7 @@ import 'package:test/test.dart';
 import '../test_utils.dart';
 
 void main() {
-  test('features can be initialized without a legacy handshake', () async {
-    final environment = TestEnvironment(
-      TestMCPClient(),
-      TestMCPServerWithTools.new,
-    );
-    final clientCapabilities = ClientCapabilities(
-      roots: RootsCapabilities(listChanged: true),
-    );
-    final clientInfo = Implementation(name: 'test client', version: '1.0.0');
-    final initialization = MCPServerInitialization(
-      protocolVersion: ProtocolVersion.latestSupported,
-      clientCapabilities: clientCapabilities,
-      clientInfo: clientInfo,
-    );
-
-    final serverCapabilities = await environment.server.initialize(
-      initialization,
-    );
-
-    expect(serverCapabilities.tools, equals(Tools(listChanged: true)));
-    expect(environment.server.initializedWith, same(initialization));
-    expect(environment.server.protocolVersion, ProtocolVersion.latestSupported);
-    expect(environment.server.clientCapabilities, same(clientCapabilities));
-    expect(environment.server.clientInfo, same(clientInfo));
-    expect(environment.server.ready, isFalse);
-    expect(
-      (await environment.server.listTools(ListToolsRequest())).tools,
-      hasLength(2),
-    );
-
-    environment.server.handleInitialized();
-    expect(await environment.server.initialized, isNull);
-    expect(environment.server.ready, isTrue);
-  });
-
-  test('client can list and invoke tools from the server', () async {
+  test('legacy handshake initializes tools with client context', () async {
     final environment = TestEnvironment(
       TestMCPClient(),
       TestMCPServerWithTools.new,
@@ -53,9 +18,14 @@ void main() {
     environment.client.capabilities.roots = RootsCapabilities(
       listChanged: true,
     );
-    final initializeResult = await environment.initializeServer(
-      protocolVersion: ProtocolVersion.oldestSupported,
+    final initializeResult = await environment.serverConnection.initialize(
+      InitializeRequest(
+        protocolVersion: ProtocolVersion.oldestSupported,
+        capabilities: environment.client.capabilities,
+        clientInfo: environment.client.implementation,
+      ),
     );
+
     expect(initializeResult.protocolVersion, ProtocolVersion.oldestSupported);
     expect(
       initializeResult.capabilities.tools,
@@ -76,6 +46,27 @@ void main() {
     expect(
       environment.server.initializedWith?.clientInfo.version,
       environment.client.implementation.version,
+    );
+    expect(environment.server.ready, isFalse);
+
+    environment.serverConnection.notifyInitialized(InitializedNotification());
+    expect(await environment.server.initialized, isNotNull);
+    expect(environment.server.ready, isTrue);
+    expect(
+      (await environment.serverConnection.listTools()).tools,
+      hasLength(2),
+    );
+  });
+
+  test('client can list and invoke tools from the server', () async {
+    final environment = TestEnvironment(
+      TestMCPClient(),
+      TestMCPServerWithTools.new,
+    );
+    final initializeResult = await environment.initializeServer();
+    expect(
+      initializeResult.capabilities.tools,
+      equals(Tools(listChanged: true)),
     );
 
     final serverConnection = environment.serverConnection;
