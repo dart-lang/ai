@@ -20,15 +20,15 @@ import 'package:skills/src/core/git_repos.dart';
 import 'package:skills/src/core/skill_installer.dart';
 import 'package:skills/src/core/skill_scanner.dart';
 import 'package:skills/src/core/workspace_resolver.dart';
-import 'package:skills/src/ide/ide.dart';
+import 'package:skills/src/agent/agent.dart';
 import 'package:skills/src/core/dialog_support.dart';
-import 'package:skills/src/ide/ide_adapter_factory.dart';
+import 'package:skills/src/agent/agent_adapter_factory.dart';
 import 'package:skills/src/models/global_config.dart';
 
 import '../models/skill_manifest.dart';
-import '../ide/ide_adapter.dart';
+import '../agent/agent_adapter.dart';
 
-/// Installs skills from package dependencies and git repos for [ides].
+/// Installs skills from package dependencies and git repos for [agents].
 ///
 /// If [sourceUris] or [skillNames] are provided and non-empty then only
 /// skills from those sources/repos or matching those names will be installed.
@@ -38,7 +38,7 @@ import '../ide/ide_adapter.dart';
 ///
 /// Returns `true` on success or `false` otherwise.
 Future<bool> getSkills({
-  required List<Ide> ides,
+  required List<Agent> agents,
   required Logger logger,
   required WorkspaceLayout workspace,
   DialogSupport? dialogSupport,
@@ -142,7 +142,7 @@ Future<bool> getSkills({
 
   final skills = [...dartSkills, ...gitData.gitSkills];
 
-  Map<Ide, Set<String>>? selectedSkillNamesByIde;
+  Map<Agent, Set<String>>? selectedSkillNamesByIde;
 
   // Log about any unrecognized skills
   if (skillNames.isNotEmpty) {
@@ -156,13 +156,14 @@ Future<bool> getSkills({
     }
   }
 
-  final ideAdapters = [
-    for (final ide in ides) createIdeAdapter(ide, rootPath, dialogSupport),
+  final agentAdapters = [
+    for (final agent in agents)
+      createAgentAdapter(agent, rootPath, dialogSupport),
   ];
 
   final skillsBySource = _groupSkillsBySourceAndFindRemoved(
     skills: skills,
-    ideAdapters: ideAdapters,
+    agentAdapters: agentAdapters,
     manifest: manifest,
     sourceUris: sourceUris,
   );
@@ -181,7 +182,7 @@ Future<bool> getSkills({
   final skillStatesResult = await _computeSkillStates(
     sortedSourceIds: sortedSourceIds,
     skillsBySource: skillsBySource,
-    ideAdapters: ideAdapters,
+    agentAdapters: agentAdapters,
     manifest: manifest,
   );
 
@@ -209,8 +210,8 @@ Future<bool> getSkills({
   // otherwise prompt for which skills to install or log the available skills.
   if (skillNames.isNotEmpty) {
     selectedSkillNamesByIde = {};
-    for (final ide in ides) {
-      selectedSkillNamesByIde[ide] = skillNames;
+    for (final agent in agents) {
+      selectedSkillNamesByIde[agent] = skillNames;
     }
   } else if (!allFlag) {
     final promptResult = await _promptForSkillsToInstall(
@@ -218,8 +219,8 @@ Future<bool> getSkills({
       skillsBySource: skillsBySource,
       sourceIdsWithDiff: sourceIdsWithDiff,
       allSkillStates: allSkillStates,
-      ideAdapters: ideAdapters,
-      ides: ides,
+      agentAdapters: agentAdapters,
+      agents: agents,
       dialogSupport: dialogSupport,
       logger: logger,
     );
@@ -230,27 +231,27 @@ Future<bool> getSkills({
   }
 
   final installer = SkillInstaller(dialogSupport);
-  for (final ide in ides) {
+  for (final agent in agents) {
     final result = await installer.installSkillsForIde(
-      ide: ide,
+      agent: agent,
       rootPath: rootPath,
       skills: skills,
-      selectedSkills: selectedSkillNamesByIde?[ide],
+      selectedSkills: selectedSkillNamesByIde?[agent],
       previousManifest: manifest,
       globalConfig: globalConfig,
       sourceUris: sourceUris, // this still acts as source filter
     );
     if (result == null) {
-      logger.warning('Installation aborted for IDE ${ide.cliName}');
+      logger.warning('Installation aborted for agent ${agent.cliName}');
       continue;
     }
     manifest = result.manifest;
     globalConfig = result.globalConfig;
     for (final info in result.installed) {
-      logger.info('  [${info.ideName}] Installed ${info.skillName}');
+      logger.info('  [${info.agentName}] Installed ${info.skillName}');
     }
     logger.info(
-      'Installed ${result.installed.length} skill(s) for ${ide.cliName}.',
+      'Installed ${result.installed.length} skill(s) for ${agent.cliName}.',
     );
   }
 
@@ -469,7 +470,7 @@ Future<void> _checkSecurityAdvisories({
 /// returned.
 Map<String, List<ScannedSkill>> _groupSkillsBySourceAndFindRemoved({
   required List<ScannedSkill> skills,
-  required List<IdeAdapter> ideAdapters,
+  required List<AgentAdapter> agentAdapters,
   required SkillManifest manifest,
   required Set<String> sourceUris,
 }) {
@@ -479,8 +480,8 @@ Map<String, List<ScannedSkill>> _groupSkillsBySourceAndFindRemoved({
     skillsBySource.putIfAbsent(sourceId, () => []).add(skill);
   }
 
-  for (final adapter in ideAdapters) {
-    final existingPkgs = manifest.sourceUrisForIde(adapter.ide.cliName);
+  for (final adapter in agentAdapters) {
+    final existingPkgs = manifest.sourceUrisForAgent(adapter.agent.cliName);
     for (final MapEntry(key: sourceUri, value: entry) in existingPkgs.entries) {
       if (sourceUris.isNotEmpty && !sourceUris.contains(sourceUri)) continue;
 
@@ -510,15 +511,15 @@ Map<String, List<ScannedSkill>> _groupSkillsBySourceAndFindRemoved({
 
 /// Computes the installation state for all scanned [skillsBySource].
 ///
-/// For each skill and each IDE adapter, determines whether the skill is new,
+/// For each skill and each agent adapter, determines whether the skill is new,
 /// up-to-date, has local edits, has an update available, or was removed.
 Future<_SkillStatesResult> _computeSkillStates({
   required List<String> sortedSourceIds,
   required Map<String, List<ScannedSkill>> skillsBySource,
-  required List<IdeAdapter> ideAdapters,
+  required List<AgentAdapter> agentAdapters,
   required SkillManifest manifest,
 }) async {
-  final allSkillStates = <ScannedSkill, Map<IdeAdapter, _SkillState>>{};
+  final allSkillStates = <ScannedSkill, Map<AgentAdapter, _SkillState>>{};
   final sourceIdsWithDiff = <String>{};
 
   for (final sourceId in sortedSourceIds) {
@@ -527,9 +528,9 @@ Future<_SkillStatesResult> _computeSkillStates({
 
     for (final skill in sourceSkills) {
       final statesForSkill = allSkillStates[skill] =
-          <IdeAdapter, _SkillState>{};
+          <AgentAdapter, _SkillState>{};
 
-      for (final adapter in ideAdapters) {
+      for (final adapter in agentAdapters) {
         final newHash = switch (skill.skillPath) {
           null => null,
           String path => await adapter.computeSourceSkillHash(
@@ -538,7 +539,7 @@ Future<_SkillStatesResult> _computeSkillStates({
         };
         var state = _SkillState.isNew;
         final currentSkillEntry = manifest
-            .sourceUrisForIde(adapter.ide.cliName)[skill.sourceUri]
+            .sourceUrisForAgent(adapter.agent.cliName)[skill.sourceUri]
             ?.skills
             .where((s) => s.name == skill.skillName)
             .firstOrNull;
@@ -631,19 +632,19 @@ Future<bool> _promptForSourcesWithDiffs({
 /// Displays an interactive dialog (or logs if [dialogSupport] is null) with the
 /// computed states (e.g. New, Update available, Local edits) for each skill.
 ///
-/// Returns a continue boolean and a map of selected skill names by IDE.
+/// Returns a continue boolean and a map of selected skill names by agent.
 Future<_PromptResult> _promptForSkillsToInstall({
   required List<String> sortedSourceIds,
   required Map<String, List<ScannedSkill>> skillsBySource,
   required Set<String> sourceIdsWithDiff,
-  required Map<ScannedSkill, Map<IdeAdapter, _SkillState>> allSkillStates,
-  required List<IdeAdapter> ideAdapters,
-  required List<Ide> ides,
+  required Map<ScannedSkill, Map<AgentAdapter, _SkillState>> allSkillStates,
+  required List<AgentAdapter> agentAdapters,
+  required List<Agent> agents,
   required DialogSupport? dialogSupport,
   required Logger logger,
 }) async {
-  final selectedSkillNamesByIde = <Ide, Set<String>>{
-    for (final ide in ides) ide: {},
+  final selectedSkillNamesByIde = <Agent, Set<String>>{
+    for (final agent in agents) agent: {},
   };
   var hasAnyChangesToPrint = false;
 
@@ -661,7 +662,7 @@ Future<_PromptResult> _promptForSkillsToInstall({
 
     for (final skill in sourceSkills) {
       final statesForSkill = allSkillStates[skill]!;
-      final adaptersByState = <_SkillState, List<IdeAdapter>>{};
+      final adaptersByState = <_SkillState, List<AgentAdapter>>{};
       for (final entry in statesForSkill.entries) {
         adaptersByState.putIfAbsent(entry.value, () => []).add(entry.key);
       }
@@ -674,11 +675,11 @@ Future<_PromptResult> _promptForSkillsToInstall({
 
         final labelSuffix = state.label;
         final isSelected = state.selectedDefault;
-        final ideStr = adapters.length == ideAdapters.length
+        final agentstr = adapters.length == agentAdapters.length
             ? ''
-            : ' for ${adapters.map((a) => a.ide.cliName).join(', ')}';
+            : ' for ${adapters.map((a) => a.agent.cliName).join(', ')}';
 
-        final fullLabel = '${skill.skillName}$ideStr ($labelSuffix)';
+        final fullLabel = '${skill.skillName}$agentstr ($labelSuffix)';
 
         dialogOptions.add((
           skill: skill,
@@ -722,7 +723,7 @@ Future<_PromptResult> _promptForSkillsToInstall({
         for (final index in selectedIndices) {
           final opt = dialogOptions[index];
           for (final adapter in opt.adapters) {
-            selectedSkillNamesByIde[adapter.ide]!.add(opt.skill.skillName);
+            selectedSkillNamesByIde[adapter.agent]!.add(opt.skill.skillName);
           }
         }
       } else {
@@ -800,18 +801,18 @@ typedef _GitData = ({
 });
 
 typedef _SkillStatesResult = ({
-  Map<ScannedSkill, Map<IdeAdapter, _SkillState>> allSkillStates,
+  Map<ScannedSkill, Map<AgentAdapter, _SkillState>> allSkillStates,
   Set<String> sourceIdsWithDiff,
 });
 
 typedef _PromptResult = ({
   bool continueInstall,
-  Map<Ide, Set<String>>? selectedSkillNamesByIde,
+  Map<Agent, Set<String>>? selectedSkillNamesByIde,
 });
 
 typedef _DialogOption = ({
   ScannedSkill skill,
-  List<IdeAdapter> adapters,
+  List<AgentAdapter> adapters,
   _SkillState state,
   String label,
   bool isSelected,

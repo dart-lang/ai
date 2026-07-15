@@ -6,8 +6,8 @@ import 'package:skills/skills.dart';
 import 'package:skills/src/commands/skills_command_runner.dart';
 import 'package:skills/src/core/git_runner.dart';
 import 'package:skills/src/core/skill_scanner.dart';
-import 'package:skills/src/ide/adapters/cursor_adapter.dart';
-import 'package:skills/src/ide/ide.dart';
+import 'package:skills/src/agent/adapters/cursor_adapter.dart';
+import 'package:skills/src/agent/agent.dart';
 import 'package:skills/src/models/skill_manifest.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
@@ -145,7 +145,7 @@ API design guidelines.
         expect(loaded, isNotNull);
         expect(
           loaded!
-              .sourceUrisForIde('cursor')['package:dep_with_skills']!
+              .sourceUrisForAgent('cursor')['package:dep_with_skills']!
               .skills
               .first
               .name,
@@ -211,8 +211,8 @@ New skill body.
     });
   });
 
-  group('Given multi-IDE installation', () {
-    test('when installing for two IDEs then manifest tracks both', () async {
+  group('Given multi-agent installation', () {
+    test('when installing for two agents then manifest tracks both', () async {
       var manifest = const SkillManifest();
 
       final entry = SkillsEntry(
@@ -227,13 +227,13 @@ New skill body.
       manifest = manifest.withSourceUri('cursor', 'package:pkg', entry);
       manifest = manifest.withSourceUri('claude', 'package:pkg', entry);
 
-      expect(manifest.allIdes, containsAll(['cursor', 'claude']));
+      expect(manifest.allAgents, containsAll(['cursor', 'claude']));
       expect(
-        manifest.sourceUrisForIde('cursor')['package:pkg']!.skills,
+        manifest.sourceUrisForAgent('cursor')['package:pkg']!.skills,
         hasLength(1),
       );
       expect(
-        manifest.sourceUrisForIde('claude')['package:pkg']!.skills,
+        manifest.sourceUrisForAgent('claude')['package:pkg']!.skills,
         hasLength(1),
       );
     });
@@ -272,8 +272,8 @@ New skill body.
         'get',
         '--directory',
         projectPath,
-        '--ide',
-        Ide.cursor.cliName,
+        '--agent',
+        Agent.cursor.cliName,
         '--all',
       ]);
 
@@ -298,8 +298,8 @@ New skill body.
         'get',
         '--directory',
         projectPath,
-        '--ide',
-        Ide.cursor.cliName,
+        '--agent',
+        Agent.cursor.cliName,
         '-p',
         'dep_with_skills',
       ]);

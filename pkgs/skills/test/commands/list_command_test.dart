@@ -10,7 +10,7 @@ void main() {
     Logger.root.onRecord.listen((r) => printOnFailure(r.toString()));
   });
 
-  group('Given a project with installed skills in multiple IDEs', () {
+  group('Given a project with installed skills in multiple agents', () {
     late SkillManifest manifest;
 
     setUp(() async {
@@ -55,14 +55,14 @@ void main() {
       await manifest.save(File(SkillManifest.pathIn(d.path('project'))));
     });
 
-    test('when listing then all IDEs and packages are present', () {
-      expect(manifest.allIdes, containsAll(['cursor', 'claude']));
-      expect(manifest.sourceUrisForIde('cursor'), hasLength(2));
-      expect(manifest.sourceUrisForIde('claude'), hasLength(1));
+    test('when listing then all agents and packages are present', () {
+      expect(manifest.allAgents, containsAll(['cursor', 'claude']));
+      expect(manifest.sourceUrisForAgent('cursor'), hasLength(2));
+      expect(manifest.sourceUrisForAgent('claude'), hasLength(1));
     });
 
     test('when listing then cursor skills are correct', () {
-      final cursorPkgA = manifest.sourceUrisForIde('cursor')['pkg_a']!.skills;
+      final cursorPkgA = manifest.sourceUrisForAgent('cursor')['pkg_a']!.skills;
       expect(
         cursorPkgA.map((s) => s.name),
         containsAll(['pkg_a-code-gen', 'pkg_a-api-helper']),
@@ -70,17 +70,17 @@ void main() {
     });
 
     test('when listing then claude skills are correct', () {
-      final claudePkgA = manifest.sourceUrisForIde('claude')['pkg_a']!.skills;
+      final claudePkgA = manifest.sourceUrisForAgent('claude')['pkg_a']!.skills;
       expect(claudePkgA.map((s) => s.name), equals(['pkg_a-code-gen']));
     });
 
-    test('when iterating allSkills then returns total across IDEs', () {
+    test('when iterating allSkills then returns total across agents', () {
       expect(manifest.allSkills, hasLength(4));
     });
 
-    test('when iterating allSkillsForIde then returns only that IDE', () {
-      expect(manifest.allSkillsForIde('cursor'), hasLength(3));
-      expect(manifest.allSkillsForIde('claude'), hasLength(1));
+    test('when iterating allSkillsForIde then returns only that agent', () {
+      expect(manifest.allSkillsForAgent('cursor'), hasLength(3));
+      expect(manifest.allSkillsForAgent('claude'), hasLength(1));
     });
   });
 
@@ -98,7 +98,7 @@ void main() {
 
       expect(manifest.isEmpty, isTrue);
       expect(manifest.allSkills, isEmpty);
-      expect(manifest.allIdes, isEmpty);
+      expect(manifest.allAgents, isEmpty);
     });
   });
 }

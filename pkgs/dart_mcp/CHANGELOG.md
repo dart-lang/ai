@@ -1,3 +1,13 @@
+## 0.6.0-wip
+
+- **BREAKING**:
+  - Separate server feature registration from the legacy protocol handshake.
+    `MCPServer.initialize` now accepts an `MCPServerInitialization` containing
+    the protocol version, client information, and client capabilities, and
+    returns `ServerCapabilities`.
+  - Override `MCPServer.initializeLegacy` only to customize the legacy
+    initialize response or version negotiation.
+
 ## 0.5.2
 
 - Update `listRoots` to normalize URIs to file: scheme variants when given raw

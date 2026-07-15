@@ -25,7 +25,7 @@ class AddCommand extends SkillsCommand {
   final GitRunner gitRunner;
 
   AddCommand({this.dialogSupport, this.gitRunner = const GitRunner()}) {
-    addIdeOption(argParser);
+    addAgentOption(argParser);
     argParser
       ..addFlag(
         'global',
@@ -71,12 +71,12 @@ class AddCommand extends SkillsCommand {
     final workspace = await resolveWorkspace();
     final rootPath = workspace.rootPath;
 
-    final ides = await resolveIdes(
+    final agents = await resolveAgents(
       argResults: argResults,
       projectPath: rootPath,
       dialogSupport: dialogSupport,
     );
-    if (ides.isEmpty) return;
+    if (agents.isEmpty) return;
 
     if (isGlobal) {
       // Add the entry to the global config if not present.
@@ -95,15 +95,15 @@ class AddCommand extends SkillsCommand {
       // Add the entries to the local config if not present.
       final localFile = manifestFile(workspace.rootPath);
       var manifest = await SkillManifest.loadOrEmpty(localFile);
-      for (var ide in ides) {
+      for (var agent in agents) {
         for (var repo in gitRepos) {
           if (manifest
-              .sourceUrisForIde(ide.cliName)
+              .sourceUrisForAgent(agent.cliName)
               .containsKey(repo.cloneUrl)) {
             continue;
           }
           manifest = manifest.withSourceUri(
-            ide.cliName,
+            agent.cliName,
             repo.cloneUrl,
             SkillsEntry(),
           );
@@ -113,7 +113,7 @@ class AddCommand extends SkillsCommand {
     }
 
     await getSkills(
-      ides: ides,
+      agents: agents,
       logger: logger,
       workspace: workspace,
       dialogSupport: dialogSupport,

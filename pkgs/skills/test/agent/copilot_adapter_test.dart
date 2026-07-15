@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 import 'package:skills/src/core/skill_scanner.dart';
-import 'package:skills/src/ide/adapters/opencode_adapter.dart';
+import 'package:skills/src/agent/adapters/copilot_adapter.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
 
@@ -12,58 +12,58 @@ void main() {
     Logger.root.onRecord.listen((r) => printOnFailure(r.toString()));
   });
 
-  group('Given an OpenCodeAdapter', () {
-    late OpenCodeAdapter adapter;
+  group('Given a CopilotAdapter', () {
+    late CopilotAdapter adapter;
 
     setUp(() async {
       await d.dir('project', [
-        d.dir('.opencode', [d.dir('skills')]),
+        d.dir('.github', [d.dir('skills')]),
       ]).create();
 
-      adapter = OpenCodeAdapter(d.path('project'));
+      adapter = CopilotAdapter(d.path('project'));
     });
 
     group('and a scanned skill', () {
       late ScannedSkill skill;
 
       setUp(() async {
-        await d.dir('opencode_pkg', [
+        await d.dir('copilot_pkg', [
           d.dir('skills', [
-            d.dir('opencode_pkg-code-review', [
+            d.dir('copilot_pkg-testing', [
               d.file('SKILL.md', '''
 ---
-name: opencode_pkg-code-review
-description: Reviews code.
+name: copilot_pkg-testing
+description: Testing best practices.
 ---
 
-# Code Review
+# Testing
 
-Review guidelines here.
+Write tests like this.
 '''),
             ]),
           ]),
         ]).create();
 
         skill = ScannedSkill(
-          packageName: 'opencode_pkg',
-          skillName: 'opencode_pkg-code-review',
-          skillPath: d.path('opencode_pkg/skills/opencode_pkg-code-review'),
+          packageName: 'copilot_pkg',
+          skillName: 'copilot_pkg-testing',
+          skillPath: d.path('copilot_pkg/skills/copilot_pkg-testing'),
         );
       });
 
       test(
-        'when installing then creates skill directory in .opencode/skills/',
+        'when installing then creates skill directory in .github/skills/',
         () async {
           final name = (await adapter.installSkill(skill)).name;
 
-          expect(name, equals('opencode_pkg-code-review'));
+          expect(name, equals('copilot_pkg-testing'));
 
           final installed = Directory(
             p.join(
               d.path('project'),
-              '.opencode',
+              '.github',
               'skills',
-              'opencode_pkg-code-review',
+              'copilot_pkg-testing',
             ),
           );
           expect(await installed.exists(), isTrue);
@@ -76,21 +76,21 @@ Review guidelines here.
         final content = await File(
           p.join(
             d.path('project'),
-            '.opencode',
+            '.github',
             'skills',
-            'opencode_pkg-code-review',
+            'copilot_pkg-testing',
             'SKILL.md',
           ),
         ).readAsString();
 
-        expect(content, contains('name: opencode_pkg-code-review'));
-        expect(content, contains('# Code Review'));
+        expect(content, contains('name: copilot_pkg-testing'));
+        expect(content, contains('# Testing'));
       });
     });
 
     test('when removing then deletes the skill directory', () async {
       await d.dir('project', [
-        d.dir('.opencode', [
+        d.dir('.github', [
           d.dir('skills', [
             d.dir('pkg-skill', [
               d.file(
@@ -103,12 +103,12 @@ Review guidelines here.
         ]),
       ]).create();
 
-      adapter = OpenCodeAdapter(d.path('project'));
+      adapter = CopilotAdapter(d.path('project'));
       await adapter.removeSkill('pkg-skill');
 
       expect(
         await Directory(
-          p.join(d.path('project'), '.opencode', 'skills', 'pkg-skill'),
+          p.join(d.path('project'), '.github', 'skills', 'pkg-skill'),
         ).exists(),
         isFalse,
       );

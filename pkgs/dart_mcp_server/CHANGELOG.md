@@ -1,5 +1,7 @@
 ## 1.1.0-wip
 
+- Build against the published `dart_mcp` package instead of a local path
+  override.
 - Create vm_service meta tool, which allows direct connections to apps via vm
   service URIs, and also handles the direct vm service method calls.
 - Add additional failure reasons to tool call analytics.

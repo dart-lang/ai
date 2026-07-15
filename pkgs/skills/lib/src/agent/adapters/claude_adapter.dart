@@ -4,8 +4,8 @@ import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/skill_scanner.dart';
-import '../ide.dart';
-import '../ide_adapter.dart';
+import '../agent.dart';
+import '../agent_adapter.dart';
 import 'agent_skills_adapter.dart';
 
 /// Claude Code adapter.
@@ -17,7 +17,7 @@ class ClaudeAdapter extends AgentSkillsAdapter {
   final Logger logger = Logger('ClaudeAdapter');
 
   ClaudeAdapter(String projectPath, {super.dialogSupport})
-    : super(Ide.claude, Ide.claude.skillsPath(projectPath));
+    : super(Agent.claude, Agent.claude.skillsPath(projectPath));
 
   @override
   Future<InstallSkillResult> installSkill(ScannedSkill skill) async {

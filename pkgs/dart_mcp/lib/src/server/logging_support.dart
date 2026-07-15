@@ -12,11 +12,12 @@ base mixin LoggingSupport on MCPServer {
   LoggingLevel loggingLevel = LoggingLevel.warning;
 
   @override
-  FutureOr<InitializeResult> initialize(InitializeRequest request) async {
+  FutureOr<ServerCapabilities> initialize(
+    MCPServerInitialization initialization,
+  ) async {
     registerRequestHandler(SetLevelRequest.methodName, handleSetLevel);
 
-    return (await super.initialize(request))
-      ..capabilities.logging ??= Logging();
+    return (await super.initialize(initialization))..logging ??= Logging();
   }
 
   /// Sends a [LoggingMessageNotification] to the client, if the [loggingLevel]

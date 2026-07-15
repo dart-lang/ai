@@ -9,7 +9,7 @@ import 'package:path/path.dart' as p;
 
 import '../core/git_repos.dart';
 
-/// Tracks which skills are installed, per IDE and per package.
+/// Tracks which skills are installed, per agent and per package.
 class SkillManifest {
   static const int currentVersion = 2;
   static final String cacheDirPath = p.join('.dart_tool', 'skills');
@@ -40,7 +40,7 @@ class SkillManifest {
   /// The version of the manifest when it was loaded.
   final int version;
 
-  /// Outer key: IDE name, inner key: package uri or git uri.
+  /// Outer key: agent name, inner key: package uri or git uri.
   final Map<String, Map<String, SkillsEntry>> installations;
 
   /// Repos that have already been suggested in this workspace (these will not
@@ -112,15 +112,15 @@ class SkillManifest {
     final version = json['version'] as int? ?? 1;
     final installationsJson =
         json['installations'] as Map<String, dynamic>? ?? {};
-    final installations = installationsJson.map((ideKey, ideValue) {
-      final pkgsJson = ideValue as Map<String, dynamic>;
+    final installations = installationsJson.map((agentKey, agentValue) {
+      final pkgsJson = agentValue as Map<String, dynamic>;
       final pkgs = pkgsJson.map(
         (pkgKey, pkgValue) => MapEntry(
           pkgKey,
           SkillsEntry.fromJson(pkgValue as Map<String, dynamic>),
         ),
       );
-      return MapEntry(ideKey, pkgs);
+      return MapEntry(agentKey, pkgs);
     });
 
     final suggestedRepos =
@@ -138,8 +138,8 @@ class SkillManifest {
     return {
       'version': currentVersion,
       'installations': installations.map(
-        (ide, entries) => MapEntry(
-          ide,
+        (agent, entries) => MapEntry(
+          agent,
           entries.map((uri, entry) => MapEntry(uri, entry.toJson())),
         ),
       ),
@@ -154,19 +154,19 @@ class SkillManifest {
     await file.writeAsString('${encoder.convert(toJson())}\n');
   }
 
-  /// All IDE names with at least one installed skill.
-  Iterable<String> get allIdes => installations.keys;
+  /// All agent names with at least one installed skill.
+  Iterable<String> get allAgents => installations.keys;
 
-  /// Returns the packages map for a given [ide], or empty if none.
-  Map<String, SkillsEntry> sourceUrisForIde(String ide) =>
-      installations[ide] ?? {};
+  /// Returns the packages map for a given [agent], or empty if none.
+  Map<String, SkillsEntry> sourceUrisForAgent(String agent) =>
+      installations[agent] ?? {};
 
   /// Dynamically infers all git repositories currently installed by scanning
   /// source URIs for all non-package: URIs.
   List<GitRepo> get gitRepos {
     final uris = <String>{};
-    for (final ide in installations.values) {
-      for (final uri in ide.keys) {
+    for (final agent in installations.values) {
+      for (final uri in agent.keys) {
         if (!uri.startsWith('package:')) {
           uris.add(uri);
         }
@@ -175,20 +175,20 @@ class SkillManifest {
     return uris.map((uri) => GitRepo(cloneUrl: uri)).toList();
   }
 
-  /// All installed skill entries for a given [ide].
+  /// All installed skill entries for a given [agent].
   ///
   /// If [packageNames] is given and non-empty, only skills from those packages
   /// will be returned.
-  Iterable<InstalledSkillEntry> allSkillsForIde(String ide) sync* {
-    for (final entry in sourceUrisForIde(ide).values) {
+  Iterable<InstalledSkillEntry> allSkillsForAgent(String agent) sync* {
+    for (final entry in sourceUrisForAgent(agent).values) {
       yield* entry.skills;
     }
   }
 
-  /// All installed skill entries across all IDEs.
+  /// All installed skill entries across all agents.
   Iterable<InstalledSkillEntry> get allSkills sync* {
-    for (final ide in installations.keys) {
-      yield* allSkillsForIde(ide);
+    for (final agent in installations.keys) {
+      yield* allSkillsForAgent(agent);
     }
   }
 
@@ -197,10 +197,14 @@ class SkillManifest {
       installations.isEmpty ||
       installations.values.every((pkgs) => pkgs.isEmpty);
 
-  /// Returns a copy with [entry] set for [ide] + [sourceUri].
-  SkillManifest withSourceUri(String ide, String sourceUri, SkillsEntry entry) {
+  /// Returns a copy with [entry] set for [agent] + [sourceUri].
+  SkillManifest withSourceUri(
+    String agent,
+    String sourceUri,
+    SkillsEntry entry,
+  ) {
     final updated = _deepCopy();
-    updated.putIfAbsent(ide, () => {})[sourceUri] = entry;
+    updated.putIfAbsent(agent, () => {})[sourceUri] = entry;
     return SkillManifest(
       version: version,
       installations: updated,
@@ -217,11 +221,11 @@ class SkillManifest {
     );
   }
 
-  /// Returns a copy with [sourceUri] removed from [ide].
-  SkillManifest withoutSourceUri(String ide, String sourceUri) {
+  /// Returns a copy with [sourceUri] removed from [agent].
+  SkillManifest withoutSourceUri(String agent, String sourceUri) {
     final updated = _deepCopy();
-    updated[ide]?.remove(sourceUri);
-    if (updated[ide]?.isEmpty ?? false) updated.remove(ide);
+    updated[agent]?.remove(sourceUri);
+    if (updated[agent]?.isEmpty ?? false) updated.remove(agent);
     return SkillManifest(
       version: version,
       installations: updated,
@@ -229,10 +233,10 @@ class SkillManifest {
     );
   }
 
-  /// Returns a copy with all packages removed for [ide].
-  SkillManifest withoutIde(String ide) {
+  /// Returns a copy with all packages removed for [agent].
+  SkillManifest withoutAgent(String agent) {
     final updated = _deepCopy();
-    updated.remove(ide);
+    updated.remove(agent);
     return SkillManifest(
       version: version,
       installations: updated,
@@ -242,7 +246,7 @@ class SkillManifest {
 
   Map<String, Map<String, SkillsEntry>> _deepCopy() {
     return installations.map(
-      (ide, pkgs) => MapEntry(ide, Map<String, SkillsEntry>.from(pkgs)),
+      (agent, pkgs) => MapEntry(agent, Map<String, SkillsEntry>.from(pkgs)),
     );
   }
 }

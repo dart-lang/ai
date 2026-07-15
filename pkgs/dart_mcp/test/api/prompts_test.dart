@@ -81,9 +81,11 @@ final class TestMCPServerWithPrompts extends TestMCPServer with PromptsSupport {
   TestMCPServerWithPrompts(super.channel);
 
   @override
-  FutureOr<InitializeResult> initialize(InitializeRequest request) {
+  FutureOr<ServerCapabilities> initialize(
+    MCPServerInitialization initialization,
+  ) {
     addPrompt(greeting, _greetingPrompt);
-    return super.initialize(request);
+    return super.initialize(initialization);
   }
 
   FutureOr<GetPromptResult> _greetingPrompt(GetPromptRequest request) {

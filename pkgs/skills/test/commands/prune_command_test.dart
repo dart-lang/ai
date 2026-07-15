@@ -85,7 +85,7 @@ void main() {
           'prune',
           '--directory',
           projectPath,
-          '--ide',
+          '--agent',
           'cursor',
         ]);
 
@@ -101,11 +101,11 @@ void main() {
         final loaded = await SkillManifest.loadFromRoot(projectPath);
         expect(loaded, isNotNull);
         expect(
-          loaded!.sourceUrisForIde('cursor').keys,
+          loaded!.sourceUrisForAgent('cursor').keys,
           contains('package:pkg_a'),
         );
         expect(
-          loaded.sourceUrisForIde('cursor').keys,
+          loaded.sourceUrisForAgent('cursor').keys,
           isNot(contains('package:pkg_b')),
         );
       },
@@ -163,7 +163,7 @@ void main() {
           'prune',
           '--directory',
           projectPath,
-          '--ide',
+          '--agent',
           'cursor',
         ]);
 
@@ -205,7 +205,7 @@ void main() {
       expect(File(SkillManifest.pathIn(projectPath)).existsSync(), isFalse);
     });
 
-    test('when --ide is set then only that IDE is pruned', () async {
+    test('when --agent is set then only that agent is pruned', () async {
       final testRootPath = p.join(
         Directory.systemTemp.path,
         'skills_prune_test_${DateTime.now().millisecondsSinceEpoch}',
@@ -306,7 +306,7 @@ void main() {
         'prune',
         '--directory',
         projectPath,
-        '--ide',
+        '--agent',
         'cursor',
       ]);
 
@@ -322,15 +322,15 @@ void main() {
       final loaded = await SkillManifest.loadFromRoot(projectPath);
       expect(loaded, isNotNull);
       expect(
-        loaded!.sourceUrisForIde('cursor').keys,
+        loaded!.sourceUrisForAgent('cursor').keys,
         contains('package:pkg_a'),
       );
       expect(
-        loaded.sourceUrisForIde('cursor').keys,
+        loaded.sourceUrisForAgent('cursor').keys,
         isNot(contains('package:unref_pkg')),
       );
       expect(
-        loaded.sourceUrisForIde('claude').keys,
+        loaded.sourceUrisForAgent('claude').keys,
         containsAll(['package:pkg_a', 'package:unref_pkg']),
       );
     });

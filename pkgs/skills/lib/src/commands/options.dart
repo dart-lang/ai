@@ -1,87 +1,78 @@
 import 'dart:io' show Platform;
 
 import 'package:args/args.dart';
-import 'package:config/config.dart';
+import 'package:args/command_runner.dart';
 import 'package:skills/src/core/dialog_support.dart';
 
-import '../ide/ide.dart';
+import '../agent/agent.dart';
 
-/// Parses the --ide option from [argResults].
-/// Returns the IDE if --ide was specified, or null if not.
-/// Throws [UsageException] if --ide was specified but invalid.
-Ide? parseIdeOption(ArgResults argResults) {
-  final ideStr = argResults.option('ide');
-  if (ideStr == null) return null;
-  final ide = Ide.fromCliName(ideStr);
-  if (ide != null) return ide;
-  throw UsageException(
-    'Unknown IDE "$ideStr". Valid values: ${Ide.validNames}',
-    '',
+/// Parses the --agent option from [argResults].
+/// Returns the agents that were specified via --agent.
+List<Agent> parseAgentOption(ArgResults argResults) {
+  final parsedAgents = argResults.multiOption('agent');
+  // Agent names are already validated by the `allowed` list on the option.
+  return [for (var agent in parsedAgents) Agent.fromCliName(agent)!];
+}
+
+/// Registers the shared `--agent` option on [argParser].
+void addAgentOption(ArgParser argParser) {
+  argParser.addMultiOption(
+    'agent',
+    aliases: ['ide'],
+    help: 'Target agent',
+    allowed: Agent.cliNames,
   );
 }
 
-/// Shared option definitions for the CLI commands.
-enum SkillsOption<V> implements OptionDefinition<V> {
-  ide(
-    StringOption(argName: 'ide', envName: 'SKILLS_IDE', helpText: 'Target IDE'),
-  );
-
-  const SkillsOption(this.option);
-
-  @override
-  final ConfigOptionBase<V> option;
-}
-
-/// Registers the shared `--ide` option on [argParser].
-void addIdeOption(ArgParser argParser) {
-  argParser.addOption('ide', help: 'Target IDE', allowed: Ide.cliNames);
-}
-
-/// Returns the IDEs to operate on.
+/// Returns the agents to operate on.
 ///
-/// If `--ide` is specified (or the `SKILLS_IDE` env var), returns that single
-/// IDE. Otherwise returns all auto-detected IDEs.
+/// If `--agent` is specified (or the `SKILLS_AGENT` env var), returns that single
+/// agent. Otherwise returns all auto-detected agents.
 ///
-/// If no IDE is auto-detected, uses [DialogSupport] (if given) to ask the user.
+/// If no agent is auto-detected, uses [DialogSupport] (if given) to ask the user.
 ///
-/// Throws if no IDE can be determined.
-Future<List<Ide>> resolveIdes({
+/// Throws if no agent can be determined.
+Future<List<Agent>> resolveAgents({
   required ArgResults? argResults,
   required String projectPath,
   DialogSupport? dialogSupport,
 }) async {
-  final config = Configuration.resolveNoExcept(
-    options: SkillsOption.values,
-    argResults: argResults,
-    env: Platform.environment,
-  );
+  final parsedAgents = argResults == null
+      ? <Agent>[]
+      : parseAgentOption(argResults);
+  if (parsedAgents.isNotEmpty) return parsedAgents;
 
-  final ideStr = config.optionalValue(SkillsOption.ide);
-  if (ideStr != null) {
-    final ide = Ide.fromCliName(ideStr);
-    if (ide != null) return [ide];
+  // No explicit option, next we check for environment variables.
+  final env =
+      Platform.environment['SKILLS_AGENT'] ??
+      // Legacy fallback
+      Platform.environment['SKILLS_IDE'];
+  if (env != null) {
+    final agent = Agent.fromCliName(env);
+    if (agent != null) return [agent];
     throw UsageException(
-      'Unknown IDE "$ideStr". Valid values: ${Ide.validNames}',
+      'Unknown AGENT "$agent". Valid values: ${Agent.validNames}',
       '',
     );
   }
 
-  final detected = const IdeDetector().detectAll(projectPath);
+  // Finally, try to auto-detect agents.
+  final detected = const AgentDetector().detectAll(projectPath);
   if (detected.isNotEmpty) return detected;
 
   if (dialogSupport case var dialogSupport?) {
-    final options = Ide.values.map((e) => e.cliName).toList();
+    final options = Agent.values.map((e) => e.cliName).toList();
     final result = await dialogSupport.showMultiSelectDialog(
       options,
-      title: 'Unable to auto-detect IDE. Please select one or more:',
+      title: 'Unable to auto-detect agent. Please select one or more:',
     );
     if (result != null && result.isNotEmpty) {
-      return result.map((e) => Ide.values[e]).toList();
+      return result.map((e) => Agent.values[e]).toList();
     }
   }
   throw UsageException(
-    'Could not auto-detect IDE and none selected. Use --ide to specify one of: '
-        '${Ide.validNames}',
+    'Could not auto-detect agent and none selected. Use --agent to specify one of: '
+        '${Agent.validNames}',
     '',
   );
 }

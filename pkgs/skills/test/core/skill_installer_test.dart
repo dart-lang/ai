@@ -4,7 +4,7 @@ import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 import 'package:skills/src/core/skill_installer.dart';
 import 'package:skills/src/core/skill_scanner.dart';
-import 'package:skills/src/ide/ide.dart';
+import 'package:skills/src/agent/agent.dart';
 import 'package:skills/src/models/global_config.dart';
 import 'package:skills/src/models/skill_manifest.dart';
 import 'package:test/test.dart';
@@ -64,7 +64,7 @@ void main() {
       final installer = SkillInstaller(null);
 
       final result = await installer.installSkillsForIde(
-        ide: Ide.generic,
+        agent: Agent.generic,
         rootPath: rootPath,
         skills: scannedSkills,
         previousManifest: manifest,
@@ -142,7 +142,7 @@ void main() {
       addTearDown(sub.cancel);
 
       final result = await installer.installSkillsForIde(
-        ide: Ide.generic,
+        agent: Agent.generic,
         rootPath: rootPath,
         skills: scannedSkills,
         selectedSkills: {'pkg_a-skill2'},
@@ -152,7 +152,7 @@ void main() {
 
       final newManifest = result!.manifest;
       final pkgSkills = newManifest
-          .sourceUrisForIde('generic')['package:pkg_a']!
+          .sourceUrisForAgent('generic')['package:pkg_a']!
           .skills;
 
       expect(
@@ -162,7 +162,10 @@ void main() {
       );
       expect(pkgSkills.map((s) => s.name), contains('pkg_a-skill2'));
       final printedInstallPath = p.join(
-        Ide.generic.skillsRelativePath.replaceAll(p.url.separator, p.separator),
+        Agent.generic.skillsRelativePath.replaceAll(
+          p.url.separator,
+          p.separator,
+        ),
         'pkg_a-skill1',
       );
       expect(

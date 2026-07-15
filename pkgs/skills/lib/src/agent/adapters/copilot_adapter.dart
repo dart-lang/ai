@@ -1,6 +1,6 @@
 import 'package:logging/logging.dart';
 
-import '../ide.dart';
+import '../agent.dart';
 import 'agent_skills_adapter.dart';
 
 /// GitHub Copilot adapter.
@@ -12,5 +12,5 @@ class CopilotAdapter extends AgentSkillsAdapter {
   final Logger logger = Logger('CopilotAdapter');
 
   CopilotAdapter(String projectPath, {super.dialogSupport})
-    : super(Ide.copilot, Ide.copilot.skillsPath(projectPath));
+    : super(Agent.copilot, Agent.copilot.skillsPath(projectPath));
 }

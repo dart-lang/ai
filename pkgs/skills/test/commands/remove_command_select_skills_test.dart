@@ -92,7 +92,7 @@ void main() {
           'remove',
           '--directory',
           projectPath,
-          '--ide',
+          '--agent',
           'cursor',
           '--package',
           'dep1',
@@ -123,7 +123,7 @@ void main() {
           projectPath,
         );
         final dep1Skills = updatedManifest
-            .sourceUrisForIde('cursor')['package:dep1']!
+            .sourceUrisForAgent('cursor')['package:dep1']!
             .skills
             .map((s) => s.name)
             .toList();
@@ -147,7 +147,7 @@ void main() {
           'remove',
           '--directory',
           projectPath,
-          '--ide',
+          '--agent',
           'cursor',
         ]);
 
@@ -186,13 +186,13 @@ void main() {
           projectPath,
         );
         final dep1Skills = updatedManifest
-            .sourceUrisForIde('cursor')['package:dep1']!
+            .sourceUrisForAgent('cursor')['package:dep1']!
             .skills
             .map((s) => s.name)
             .toList();
         expect(dep1Skills, equals(['dep1-skill-2']));
         final dep2Skills = updatedManifest
-            .sourceUrisForIde('cursor')['package:dep2']!
+            .sourceUrisForAgent('cursor')['package:dep2']!
             .skills
             .map((s) => s.name)
             .toList();
