@@ -103,7 +103,7 @@ Future<bool> getSkills({
     (:globalConfig, :manifest) = await _maybePromptToInstallDashSkills(
       dialogSupport: dialogSupport,
       globalConfig: globalConfig,
-      ides: ides,
+      agents: agents,
       manifest: manifest,
       resolvedPackages: packages,
       sourceUris: sourceUris,
@@ -272,7 +272,7 @@ typedef DashSkillsPromptResult = ({
 Future<DashSkillsPromptResult> _maybePromptToInstallDashSkills({
   required DialogSupport? dialogSupport,
   required GlobalConfig globalConfig,
-  required List<Ide> ides,
+  required List<Agent> agents,
   required SkillManifest manifest,
   required List<ResolvedPackage> resolvedPackages,
   required Set<String> sourceUris,
@@ -337,7 +337,7 @@ Future<DashSkillsPromptResult> _maybePromptToInstallDashSkills({
         ], title: 'Install suggested repos globally or locally?');
 
         if (result == 0) {
-          for (final ide in ides) {
+          for (final ide in agents) {
             for (final repo in selectedRepos) {
               manifest = manifest.withSourceUri(
                 ide.cliName,

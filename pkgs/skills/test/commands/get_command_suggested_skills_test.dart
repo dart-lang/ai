@@ -117,7 +117,7 @@ void main() {
       expect(manifest.suggestedRepos, hasLength(2));
       expect(
         manifest
-            .sourceUrisForIde('cursor')
+            .sourceUrisForAgent('cursor')
             .containsKey('https://github.com/dart-lang/skills.git'),
         isTrue,
       );
