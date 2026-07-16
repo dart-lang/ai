@@ -4,8 +4,6 @@ A CLI that brings AI agent skills from your Dart and Flutter package dependencie
 
 Dart packages can ship a `skills/` directory containing [Agent Skills](https://agentskills.io/specification), structured instructions that teach AI coding assistants how to use the package effectively. The `skills` CLI finds those skills in your dependency tree and installs them into your agent so your AI assistant better understands your stack.
 
-> If you want to discuss or contribute to the `skills` package, please join the `#skills` channel on the [Serverpod Discord](https://serverpod.dev/discord) server.
-
 ## The problem
 
 When you add a Dart package to your project, your AI coding assistant has no idea how to use it properly. It guesses APIs, invents patterns, and hallucinates methods that don't exist. You end up copy-pasting documentation into chat, writing custom rules, or correcting the AI over and over.
