@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.0-dev
+## 1.0.0-beta.1
 
 - feat: Added a dialog to select which packages to install skills from during
   `skills get` and `skills remove`.
