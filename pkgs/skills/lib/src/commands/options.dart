@@ -61,7 +61,10 @@ Future<List<Agent>> resolveAgents({
   if (detected.isNotEmpty) return detected;
 
   if (dialogSupport case var dialogSupport?) {
-    final options = Agent.values.map((e) => e.cliName).toList();
+    final options = [
+      for (var agent in Agent.values)
+        '${agent.cliName}${agent.cliAliases.isEmpty ? '' : ' (${agent.cliAliases.join(', ')})'}',
+    ];
     final result = await dialogSupport.showMultiSelectDialog(
       options,
       title: 'Unable to auto-detect agent. Please select one or more:',

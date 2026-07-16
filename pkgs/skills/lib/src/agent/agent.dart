@@ -8,9 +8,9 @@ import 'package:path/path.dart' as p;
 /// separate CLI options that all map here; only "generic" is stored in
 /// skills_config.
 enum Agent {
-  cursor('cursor', '.cursor/skills'),
   generic('generic', '.agents/skills'),
   claude('claude', '.claude/skills'),
+  cursor('cursor', '.cursor/skills'),
   copilot('copilot', '.github/skills'),
   cline('cline', '.cline/skills'),
   opencode('opencode', '.opencode/skills');
