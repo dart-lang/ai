@@ -22,9 +22,11 @@ extension type JsonRpc2Object.fromMap(Map<String, Object?> _value) {
           : JsonRpc2Kind.notification;
 
   /// The method of this message, if it is a request or notification.
-  Object? get method => _value[Keys.method];
+  String? get method => _value[Keys.method] as String?;
 
   /// The id of this message, if it is a request or response.
+  ///
+  /// A JSON-RPC id is a `String` or an `int`.
   Object? get id => _value[Keys.id];
 }
 

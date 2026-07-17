@@ -79,7 +79,9 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
       'A request or notification must not carry a result or error',
     );
   }
-  final method = object.method;
+  // Read the raw value so a non-string method fails with this argument error
+  // rather than a cast error from [JsonRpc2Object.method].
+  final method = message[Keys.method];
   if (method is! String) {
     throw ArgumentError.value(
       message,
