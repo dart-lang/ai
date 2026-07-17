@@ -6,6 +6,7 @@ import 'package:io/ansi.dart';
 import 'package:io/io.dart';
 import 'package:logging/logging.dart';
 import 'package:skills/skills.dart';
+import 'package:skills/src/commands/create_command.dart';
 import 'package:skills/src/commands/prune_command.dart';
 import 'package:skills/src/commands/add_command.dart';
 import 'package:skills/src/commands/skills_command_runner.dart';
@@ -43,7 +44,8 @@ Future<void> main(List<String> arguments) async {
           ..addCommand(ListCommand())
           ..addCommand(PruneCommand(dialogSupport: dialogSupport))
           ..addCommand(RemoveCommand(dialogSupport: dialogSupport))
-          ..addCommand(AddCommand(dialogSupport: dialogSupport));
+          ..addCommand(AddCommand(dialogSupport: dialogSupport))
+          ..addCommand(CreateCommand());
 
     try {
       await runner.run(arguments);
