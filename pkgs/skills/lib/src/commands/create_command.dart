@@ -80,6 +80,14 @@ class CreateCommand extends SkillsCommand {
     final fullSkillName = '${package.name}-$skillName';
 
     final skillsDir = Directory(p.join(package.path, 'skills', fullSkillName));
+
+    if (await skillsDir.exists()) {
+      throw UsageException(
+        'Skill directory ${skillsDir.path} already exists. Cannot overwrite an existing skill.',
+        usage,
+      );
+    }
+
     await skillsDir.create(recursive: true);
 
     final skillFile = File(p.join(skillsDir.path, 'SKILL.md'));

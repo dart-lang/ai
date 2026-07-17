@@ -4,6 +4,8 @@ import 'package:skills/src/commands/create_command.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
 
+import '../utils.dart';
+
 void main() {
   late CommandRunner<void> runner;
   late CreateCommand createCommand;
@@ -17,9 +19,7 @@ void main() {
 
   group('CreateCommand', () {
     test('creates a skill with valid name and description from args', () async {
-      await d.dir('project', [
-        d.file('pubspec.yaml', 'name: my_package'),
-      ]).create();
+      await d.dir('project', [pubspec('my_package')]).create();
 
       await runner.run([
         'create',
@@ -49,9 +49,7 @@ Add your skill instructions here.
     test(
       'throws UsageException when a name passed as an option has invalid characters',
       () async {
-        await d.dir('project2', [
-          d.file('pubspec.yaml', 'name: pkg_two'),
-        ]).create();
+        await d.dir('project', [pubspec('my_package')]).create();
 
         expect(
           () => runner.run([
@@ -61,7 +59,7 @@ Add your skill instructions here.
             '--description',
             'description',
             '-C',
-            d.path('project2'),
+            d.path('project'),
           ]),
           throwsA(isA<UsageException>()),
         );
@@ -71,9 +69,7 @@ Add your skill instructions here.
     test(
       'throws UsageException when a name passed as an option has spaces',
       () async {
-        await d.dir('project3', [
-          d.file('pubspec.yaml', 'name: pkg_three'),
-        ]).create();
+        await d.dir('project', [pubspec('my_package')]).create();
 
         expect(
           () => runner.run([
@@ -83,7 +79,34 @@ Add your skill instructions here.
             '--description',
             'description',
             '-C',
-            d.path('project3'),
+            d.path('project'),
+          ]),
+          throwsA(isA<UsageException>()),
+        );
+      },
+    );
+
+    test(
+      'throws UsageException if the skill directory already exists',
+      () async {
+        await d.dir('project', [
+          pubspec('my_package'),
+          d.dir('skills', [
+            d.dir('my_package-existing-skill', [
+              d.file('SKILL.md', 'existing content'),
+            ]),
+          ]),
+        ]).create();
+
+        expect(
+          () => runner.run([
+            'create',
+            '--name',
+            'existing-skill',
+            '--description',
+            'new description',
+            '-C',
+            d.path('project'),
           ]),
           throwsA(isA<UsageException>()),
         );
