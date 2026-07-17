@@ -1,3 +1,7 @@
+// Copyright (c) 2026, the Dart project authors. Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
 import 'dart:io';
 
 import 'package:logging/logging.dart';
@@ -52,7 +56,6 @@ void main() {
 
         final projectRootDir = d.dir('project', [
           pubspec('project', dependencies: [.new('dep1'), .new('dep2')]),
-          d.dir('.cursor', [d.dir('skills')]),
         ]);
         await projectRootDir.create();
 
@@ -204,7 +207,6 @@ void main() {
 
         final projectRootDir = d.dir('project', [
           pubspec('project', dependencies: [.new('dep1'), .new('dep2')]),
-          d.dir('.cursor', [d.dir('skills')]),
         ]);
         await projectRootDir.create();
 
