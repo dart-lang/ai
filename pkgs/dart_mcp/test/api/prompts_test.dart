@@ -58,21 +58,21 @@ void main() {
     final queue = StreamQueue(serverConnection.promptListChanged);
 
     final inOrderFuture = check(queue).inOrder([
-      (s) => s.emits(
-        (e) => e
-            .has((x) => x as Map<String, Object?>, 'as Map')
-            .deepEquals(
-              PromptListChangedNotification() as Map<String, Object?>,
-            ),
+      .it()..emits(
+        .it()
+          ..has(
+            (x) => x as Map<String, Object?>,
+            'as Map',
+          ).deepEquals(PromptListChangedNotification() as Map<String, Object?>),
       ),
-      (s) => s.emits(
-        (e) => e
-            .has((x) => x as Map<String, Object?>, 'as Map')
-            .deepEquals(
-              PromptListChangedNotification() as Map<String, Object?>,
-            ),
+      .it()..emits(
+        .it()
+          ..has(
+            (x) => x as Map<String, Object?>,
+            'as Map',
+          ).deepEquals(PromptListChangedNotification() as Map<String, Object?>),
       ),
-      (s) => s.emits((e) => e.isNull()),
+      .it()..emits(.it()..isNull()),
     ]);
 
     final server = environment.server;

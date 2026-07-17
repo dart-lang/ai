@@ -49,9 +49,10 @@ void main() {
               'Actual (paths ignored): $actualErrorsStrippedSet',
     ).unorderedMatches([
       for (final expected in expectedErrorsSet)
-        (it) => it.isA<Map<String, Object?>>().deepEquals(
-          expected as Map<String, Object?>,
-        ),
+        .it()
+          ..isA<Map<String, Object?>>().deepEquals(
+            expected as Map<String, Object?>,
+          ),
     ]);
   }
 
@@ -2229,30 +2230,30 @@ void main() {
       final result = await serverConnection.callTool(request);
       check(result.content).length.equals(2);
       check(result.content as List<Object?>).unorderedMatches([
-        (it) => it
-            .isA<EmbeddedResource>()
-            .has((r) => r as Map<String, Object?>, 'as Map')
-            .deepEquals(
-              EmbeddedResource(
-                    resource: TextResourceContents(
-                      uri: 'file:///my_resource',
-                      text: 'Really awesome text',
-                    ),
-                  )
-                  as Map<String, Object?>,
-            ),
-        (it) => it
-            .isA<EmbeddedResource>()
-            .has((r) => r as Map<String, Object?>, 'as Map')
-            .deepEquals(
-              EmbeddedResource(
-                    resource: BlobResourceContents(
-                      uri: 'file:///my_resource',
-                      blob: base64Encode([1, 2, 3, 4, 5, 6, 7, 8]),
-                    ),
-                  )
-                  as Map<String, Object?>,
-            ),
+        .it()
+          ..isA<EmbeddedResource>()
+              .has((r) => r as Map<String, Object?>, 'as Map')
+              .deepEquals(
+                EmbeddedResource(
+                      resource: TextResourceContents(
+                        uri: 'file:///my_resource',
+                        text: 'Really awesome text',
+                      ),
+                    )
+                    as Map<String, Object?>,
+              ),
+        .it()
+          ..isA<EmbeddedResource>()
+              .has((r) => r as Map<String, Object?>, 'as Map')
+              .deepEquals(
+                EmbeddedResource(
+                      resource: BlobResourceContents(
+                        uri: 'file:///my_resource',
+                        blob: base64Encode([1, 2, 3, 4, 5, 6, 7, 8]),
+                      ),
+                    )
+                    as Map<String, Object?>,
+              ),
       ]);
     });
   });

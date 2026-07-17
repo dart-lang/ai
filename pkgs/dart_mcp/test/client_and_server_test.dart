@@ -38,7 +38,7 @@ void main() {
     await check(
       environment.serverConnection.listTools(ListToolsRequest()),
     ).throws<RpcException>(
-      (it) => it.has((e) => e.code, 'code').equals(METHOD_NOT_FOUND),
+      .it()..has((e) => e.code, 'code').equals(METHOD_NOT_FOUND),
     );
 
     await check(
@@ -46,7 +46,7 @@ void main() {
         CreateMessageRequest(messages: [], maxTokens: 1),
       ),
     ).throws<RpcException>(
-      (it) => it.has((e) => e.code, 'code').equals(METHOD_NOT_FOUND),
+      .it()..has((e) => e.code, 'code').equals(METHOD_NOT_FOUND),
     );
   });
 
@@ -356,7 +356,7 @@ void main() {
 
       await sub.cancel();
       check(logEvents).any(
-        (it) => it.isA<String>()
+        .it()
           ..startsWith('>>>')
           ..contains('Invalid JSON'),
       );
@@ -377,7 +377,7 @@ void main() {
 
       await sub.cancel();
       check(logEvents).any(
-        (it) => it.isA<String>()
+        .it()
           ..startsWith('<<<')
           ..contains('Invalid JSON'),
       );
@@ -407,9 +407,11 @@ void main() {
               ),
             ),
           ).throws<StateError>(
-            (it) => it
-                .has((e) => e.message, 'message')
-                .equals('The client closed with pending request "initialize".'),
+            .it()
+              ..has(
+                (e) => e.message,
+                'message',
+              ).equals('The client closed with pending request "initialize".'),
           );
 
       // This shuts down the channel between the client and server, so it

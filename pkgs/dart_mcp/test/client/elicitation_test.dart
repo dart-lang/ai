@@ -140,9 +140,11 @@ void main() {
           CallToolRequest(name: 'test_tool'),
         ),
       ).throws<RpcException>(
-        (it) => it
-            .has((e) => e.code, 'code')
-            .equals(McpErrorCodes.urlElicitationRequired),
+        .it()
+          ..has(
+            (e) => e.code,
+            'code',
+          ).equals(McpErrorCodes.urlElicitationRequired),
       );
 
       check(toolCallCount).equals(1);

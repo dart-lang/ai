@@ -76,18 +76,21 @@ void main() {
 
     final inOrderFuture = check(queue1).inOrder([
       for (var expected in expectedNotifications)
-        (Subject<StreamQueue<LoggingMessageNotification>> s) => s.emits(
-          (Subject<LoggingMessageNotification> e) => e
-              .has((x) => x as Map<String, Object?>, 'as Map')
-              .deepEquals(expected as Map<String, Object?>),
+        .it()..emits(
+          .it()
+            ..has(
+              (x) => x as Map<String, Object?>,
+              'as Map',
+            ).deepEquals(expected as Map<String, Object?>),
         ),
     ]);
 
     final neverEmitsFuture = check(queue2).neverEmits(
-      (Subject<LoggingMessageNotification> e) => e
-          .has((x) => x.level, 'level')
-          .has((l) => l < LoggingLevel.warning, 'is less than warning')
-          .isTrue(),
+      .it()
+        ..has(
+          (x) => x.level,
+          'level',
+        ).has((l) => l < LoggingLevel.warning, 'is less than warning').isTrue(),
     );
 
     for (var notification in notifications) {
@@ -131,10 +134,12 @@ void main() {
 
     final inOrderFuture = check(queue).inOrder([
       for (var expected in notifications)
-        (Subject<StreamQueue<LoggingMessageNotification>> s) => s.emits(
-          (Subject<LoggingMessageNotification> e) => e
-              .has((x) => x as Map<String, Object?>, 'as Map')
-              .deepEquals(expected as Map<String, Object?>),
+        .it()..emits(
+          .it()
+            ..has(
+              (x) => x as Map<String, Object?>,
+              'as Map',
+            ).deepEquals(expected as Map<String, Object?>),
         ),
     ]);
 

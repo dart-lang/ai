@@ -34,10 +34,8 @@ void main() {
     check(client.addRoot(b)).isTrue();
     await pumpEventQueue();
     check((await server.roots) as List<Object?>).unorderedMatches([
-      (it) =>
-          it.isA<Map<String, Object?>>().deepEquals(a as Map<String, Object?>),
-      (it) =>
-          it.isA<Map<String, Object?>>().deepEquals(b as Map<String, Object?>),
+      .it()..isA<Map<String, Object?>>().deepEquals(a as Map<String, Object?>),
+      .it()..isA<Map<String, Object?>>().deepEquals(b as Map<String, Object?>),
     ]);
 
     final completer = Completer<void>();
@@ -49,17 +47,15 @@ void main() {
     check(server.roots).isA<Future<dynamic>>();
 
     final rootsFuture = check(server.roots).isA<Future<List<Root>>>().completes(
-      (it) => it.isA<List<Object?>>().unorderedMatches([
-        (it) => it.isA<Map<String, Object?>>().deepEquals(
-          b as Map<String, Object?>,
-        ),
-        (it) => it.isA<Map<String, Object?>>().deepEquals(
-          c as Map<String, Object?>,
-        ),
-        (it) => it.isA<Map<String, Object?>>().deepEquals(
-          d as Map<String, Object?>,
-        ),
-      ]),
+      .it()
+        ..isA<List<Object?>>().unorderedMatches([
+          .it()
+            ..isA<Map<String, Object?>>().deepEquals(b as Map<String, Object?>),
+          .it()
+            ..isA<Map<String, Object?>>().deepEquals(c as Map<String, Object?>),
+          .it()
+            ..isA<Map<String, Object?>>().deepEquals(d as Map<String, Object?>),
+        ]),
     );
     check(client.addRoot(d)).isTrue();
     await pumpEventQueue();
@@ -69,12 +65,9 @@ void main() {
     client.waitToRespond = null;
     await rootsFuture;
     check((await server.roots) as List<Object?>).unorderedMatches([
-      (it) =>
-          it.isA<Map<String, Object?>>().deepEquals(b as Map<String, Object?>),
-      (it) =>
-          it.isA<Map<String, Object?>>().deepEquals(c as Map<String, Object?>),
-      (it) =>
-          it.isA<Map<String, Object?>>().deepEquals(d as Map<String, Object?>),
+      .it()..isA<Map<String, Object?>>().deepEquals(b as Map<String, Object?>),
+      .it()..isA<Map<String, Object?>>().deepEquals(c as Map<String, Object?>),
+      .it()..isA<Map<String, Object?>>().deepEquals(d as Map<String, Object?>),
     ]);
   });
 }
