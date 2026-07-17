@@ -41,7 +41,7 @@ class CreateCommand extends SkillsCommand {
     );
 
     var skillName = argResults.option('name')?.trim();
-    var description = argResults.option('description');
+    var description = argResults.option('description')?.trim();
 
     if (skillName != null) {
       if (_isValidSkillName(skillName) case final message?) {
