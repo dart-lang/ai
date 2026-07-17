@@ -44,7 +44,11 @@ dart run skills@ remove
 # Remove skills from one package
 dart run skills@ remove serverpod
 
+# Install skills from a git repo
 dart run skills@ add <git-url>
+
+# Create a skill in this package for your users
+dart run skills@ create
 ```
 
 The CLI will automatically run `pub get` if needed, scan your dependency packages for `skills/` directories, and install them in the right location for your agent. If you are using a monorepo, `skills` will locate your different packages and get the skills for all of them.

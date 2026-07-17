@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.0-beta.2
+
+- feat: Add a `create` command to assist with creating skills for users of the
+  current package.
+
 ## 1.0.0-beta.1
 
 - feat: Added a dialog to select which packages to install skills from during
