@@ -4,9 +4,19 @@
   - Separate server feature registration from the legacy protocol handshake.
     `MCPServer.initialize` now accepts an `MCPServerInitialization` containing
     the protocol version, client information, and client capabilities, and
-    returns `ServerCapabilities`.
+    returns `ServerCapabilities`. The client information is optional, since
+    clients are no longer required to send it on every request, see
+    https://github.com/modelcontextprotocol/modelcontextprotocol/pull/3002.
+    `MCPServer.clientInfo` is now nullable (`Implementation?`).
   - Override `MCPServer.initializeLegacy` only to customize the legacy
     initialize response or version negotiation.
+- Add `handleRequestScopedMessage` and `MCPServerFactory`, which serve each
+  decoded JSON-RPC message on a fresh server instance for request-scoped
+  transports. Successful results record the server implementation under the
+  reserved `io.modelcontextprotocol/serverInfo` result metadata key. Does
+  **not** add any transport; wire formats and HTTP support land separately.
+- `RootsTrackingSupport` no longer surfaces an unhandled error when the
+  connection closes while a `listRoots` request is in flight.
 
 ## 0.5.2
 

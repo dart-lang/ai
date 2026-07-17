@@ -17,6 +17,7 @@ extension Keys on Never {
   static const cancel = 'cancel';
   static const capabilities = 'capabilities';
   static const clientInfo = 'clientInfo';
+  static const code = 'code';
   static const completion = 'completion';
   static const completions = 'completions';
   static const const_ = 'const';
@@ -44,6 +45,7 @@ extension Keys on Never {
   static const hasMore = 'hasMore';
   static const hints = 'hints';
   static const icons = 'icons';
+  static const id = 'id';
   static const idempotentHint = 'idempotentHint';
   static const includeContext = 'includeContext';
   static const inputSchema = 'inputSchema';
@@ -51,6 +53,7 @@ extension Keys on Never {
   static const intelligencePriority = 'intelligencePriority';
   static const isError = 'isError';
   static const items = 'items';
+  static const jsonrpc = 'jsonrpc';
   static const lastModified = 'lastModified';
   static const level = 'level';
   static const listChanged = 'listChanged';
@@ -65,6 +68,7 @@ extension Keys on Never {
   static const messages = 'messages';
   static const meta = '_meta';
   static const metadata = 'metadata';
+  static const method = 'method';
   static const mimeType = 'mimeType';
   static const minItems = 'minItems';
   static const minLength = 'minLength';
@@ -80,6 +84,7 @@ extension Keys on Never {
   static const oneOf = 'oneOf';
   static const openWorldHint = 'openWorldHint';
   static const outputSchema = 'outputSchema';
+  static const params = 'params';
   static const path = 'path';
   static const pattern = 'pattern';
   static const patternProperties = 'patternProperties';
@@ -100,10 +105,12 @@ extension Keys on Never {
   static const resource = 'resource';
   static const resourceTemplates = 'resourceTemplates';
   static const resources = 'resources';
+  static const result = 'result';
   static const role = 'role';
   static const roots = 'roots';
   static const sampling = 'sampling';
   static const serverInfo = 'serverInfo';
+  static const serverInfoMeta = 'io.modelcontextprotocol/serverInfo';
   static const size = 'size';
   static const sizes = 'sizes';
   static const speedPriority = 'speedPriority';

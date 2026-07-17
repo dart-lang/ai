@@ -3,18 +3,24 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:json_rpc_2/error_code.dart' as error_code;
 import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:meta/meta.dart';
+import 'package:stream_channel/stream_channel.dart';
 import 'package:stream_transform/stream_transform.dart';
 
 import '../api/api.dart';
 import '../shared.dart';
+import '../utils/constants.dart';
+import '../utils/json_rpc_2_object.dart';
 
 part 'completions_support.dart';
 part 'elicitation_request_support.dart';
 part 'logging_support.dart';
 part 'prompts_support.dart';
+part 'request_scoped.dart';
 part 'resources_support.dart';
 part 'roots_tracking_support.dart';
 part 'tools_support.dart';
@@ -27,7 +33,7 @@ final class MCPServerInitialization {
   const MCPServerInitialization({
     required this.protocolVersion,
     required this.clientCapabilities,
-    required this.clientInfo,
+    this.clientInfo,
   });
 
   /// The protocol version used for this connection or request.
@@ -36,8 +42,11 @@ final class MCPServerInitialization {
   /// The capabilities declared by the client.
   final ClientCapabilities clientCapabilities;
 
-  /// The implementation information declared by the client.
-  final Implementation clientInfo;
+  /// The implementation information declared by the client, if any.
+  ///
+  /// The legacy handshake always provides this. Request-scoped transports may
+  /// omit it, since clients are not required to send it on every request.
+  final Implementation? clientInfo;
 }
 
 /// Base class to extend when implementing an MCP server.
@@ -76,8 +85,9 @@ abstract base class MCPServer extends MCPBase {
 
   /// The client implementation information provided during initialization.
   ///
-  /// Only assigned after [initialize] has been called.
-  late Implementation clientInfo;
+  /// `null` until [initialize] has been called, and remains `null` when the
+  /// client did not declare any implementation information.
+  Implementation? clientInfo;
 
   @override
   String get name => implementation.name;
