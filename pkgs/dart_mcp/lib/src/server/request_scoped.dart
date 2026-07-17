@@ -8,7 +8,8 @@ part of 'server.dart';
 ///
 /// The returned server must be constructed on [channel], typically by passing
 /// it to [MCPServer.fromStreamChannel].
-typedef MCPServerFactory = MCPServer Function(StreamChannel<String> channel);
+typedef MCPServerFactory =
+    MCPServer Function(StreamChannel<Map<String, Object?>> channel);
 
 /// Handles one decoded JSON-RPC [message] on a fresh server instance.
 ///
@@ -103,12 +104,10 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
     );
   }
 
-  // The message is re-encoded onto an in-memory channel so the exchange runs
+  // The message is delivered over an in-memory channel so the exchange runs
   // through the same Peer validation and dispatch path as a wire connection.
-  // TODO: A message-typed channel could drop the per-message encode/decode.
-  // https://github.com/dart-lang/ai/issues/162
-  final inbound = StreamController<String>();
-  final outbound = StreamController<String>();
+  final inbound = StreamController<Map<String, Object?>>();
+  final outbound = StreamController<Map<String, Object?>>();
   final server = serverFactory(
     StreamChannel.withCloseGuarantee(inbound.stream, outbound.sink),
   );
@@ -116,10 +115,9 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
   final isRequest = object.kind == JsonRpc2Kind.request;
   final response = Completer<Map<String, Object?>?>();
   final subscription = outbound.stream.listen(
-    (encoded) {
+    (data) {
       try {
-        final decoded = (jsonDecode(encoded) as Map).cast<String, Object?>();
-        switch (JsonRpc2Object.fromMap(decoded).kind) {
+        switch (JsonRpc2Object.fromMap(data).kind) {
           case JsonRpc2Kind.request:
             // A request from the server to the client. Nothing can answer it
             // in a single-message exchange, so fail it back to the server
@@ -128,18 +126,16 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
             // already closed.
             if (!inbound.isClosed) {
               inbound.add(
-                jsonEncode(
-                  _errorResponse(
-                    JsonRpc2Request.fromMap(decoded).id,
-                    'Server to client requests are not supported on a '
-                    'request-scoped transport',
-                  ),
+                _errorResponse(
+                  JsonRpc2Request.fromMap(data).id,
+                  'Server to client requests are not supported on a '
+                  'request-scoped transport',
                 ),
               );
             }
           case JsonRpc2Kind.notification:
             try {
-              onNotification?.call(decoded);
+              onNotification?.call(data);
             } catch (error, stackTrace) {
               // A misbehaving callback must not fail the request being
               // handled, but it should still be visible.
@@ -147,15 +143,13 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
             }
           case JsonRpc2Kind.response:
             if (!response.isCompleted) {
-              response.complete(
-                _withServerInfo(decoded, server.implementation),
-              );
+              response.complete(_withServerInfo(data, server.implementation));
             }
         }
       } catch (error, stackTrace) {
         // The server sent a frame we could not process. Never let it wedge or
-        // escape the exchange: a request gets an internal error, anything else
-        // surfaces as an uncaught error.
+        // escape the exchange: a request gets an internal error, anything
+        // else surfaces as an uncaught error.
         if (isRequest && !response.isCompleted) {
           response.complete(
             _errorResponse(
@@ -183,7 +177,7 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
   try {
     await server.initialize(initialization);
     server.handleInitialized();
-    inbound.add(jsonEncode(message));
+    inbound.add(message);
     if (isRequest) return await response.future;
     return null;
   } finally {
@@ -200,26 +194,35 @@ Map<String, Object?> _errorResponse(Object? id, String message) => {
   Keys.error: {Keys.code: error_code.INTERNAL_ERROR, Keys.message: message},
 };
 
-/// Returns [response] with [implementation] recorded under the reserved
-/// `io.modelcontextprotocol/serverInfo` result metadata key.
+/// Returns a copy of [response] with [implementation] recorded under the
+/// reserved `io.modelcontextprotocol/serverInfo` result metadata key.
 ///
-/// Error responses have no result and are returned unchanged, as are results
-/// which already carry a server info entry.
+/// Returns [response] unchanged when there is nothing to stamp: error
+/// responses have no result, and results which already carry a server info
+/// entry or whose metadata is not a string-keyed map are left alone.
 Map<String, Object?> _withServerInfo(
   Map<String, Object?> response,
   Implementation implementation,
 ) {
   final result = JsonRpc2Response.fromMap(response).result;
-  if (result is! Map) return response;
-  final resultMap = result.cast<String, Object?>();
-  final existingMeta = resultMap[Keys.meta];
-  if (existingMeta is! Map?) return response;
-  final meta = existingMeta?.cast<String, Object?>() ?? <String, Object?>{};
-  // Copy so the returned response does not alias the shared server info map.
-  meta.putIfAbsent(
-    Keys.serverInfoMeta,
-    () => Map<String, Object?>.of(implementation as Map<String, Object?>),
-  );
-  resultMap[Keys.meta] = meta;
-  return response;
+  if (result is! Map<String, Object?>) return response;
+  final existingMeta = result[Keys.meta];
+  if (existingMeta is! Map<String, Object?>?) return response;
+  if (existingMeta != null && existingMeta.containsKey(Keys.serverInfoMeta)) {
+    return response;
+  }
+  // The response embeds the very maps the handler returned, which may be
+  // retained by the handler or even unmodifiable, so stamp copies of them.
+  return {
+    ...response,
+    Keys.result: {
+      ...result,
+      Keys.meta: {
+        ...?existingMeta,
+        Keys.serverInfoMeta: Map<String, Object?>.of(
+          implementation as Map<String, Object?>,
+        ),
+      },
+    },
+  };
 }

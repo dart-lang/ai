@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:async/async.dart';
 import 'package:dart_mcp/client.dart';
 import 'package:dart_mcp/server.dart';
+import 'package:dart_mcp/src/utils/constants.dart';
 import 'package:json_rpc_2/error_code.dart';
 import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:stream_channel/stream_channel.dart';
@@ -89,7 +90,7 @@ void main() {
         StreamTransformer.fromHandlers(
           handleData: (data, sink) async {
             // Simulate a server that doesn't respond for 100ms.
-            if (data.contains('"ping"')) return;
+            if (data[Keys.method] == PingRequest.methodName) return;
             sink.add(data);
           },
         ),
@@ -112,7 +113,7 @@ void main() {
         StreamSinkTransformer.fromHandlers(
           handleData: (data, sink) async {
             // Simulate a client that doesn't respond.
-            if (data.contains('"ping"')) return;
+            if (data[Keys.method] == PingRequest.methodName) return;
             sink.add(data);
           },
         ),
@@ -225,11 +226,14 @@ void main() {
       ListRootsProgressTestMCPClient(),
       (channel) => TestMCPServer(
         channel.transformSink(
-          StreamSinkTransformer<String, String>.fromHandlers(
+          StreamSinkTransformer<
+            Map<String, Object?>,
+            Map<String, Object?>
+          >.fromHandlers(
             handleData: (data, sink) async {
               // Add a short delay when sending out a list roots request so
               // we can get progress notifications.
-              if (data.contains(ListRootsRequest.methodName)) {
+              if (data[Keys.method] == ListRootsRequest.methodName) {
                 await Future<void>.delayed(const Duration(milliseconds: 10));
               }
               sink.add(data);
@@ -326,45 +330,21 @@ void main() {
   });
 
   group('error handling', () {
-    test('client can handle invalid protocol messages', () async {
-      final protocolController = StreamController<String>();
-      final environment = TestEnvironment(
-        TestMCPClient(),
-        TestMCPServer.new,
-        protocolLogSink: protocolController.sink,
-      );
-      environment.serverChannel.sink.add('Just some random text');
-      expect(
-        protocolController.stream,
-        emitsThrough(allOf(startsWith('>>>'), contains('Invalid JSON'))),
-      );
-      expect(environment.initializeServer(), completes);
-    });
-
-    test('server can handle invalid protocol messages', () async {
-      final protocolController = StreamController<String>();
-      final environment = TestEnvironment(
-        TestMCPClient(),
-        TestMCPServer.new,
-        protocolLogSink: protocolController.sink,
-      );
-      environment.clientChannel.sink.add('Just some random text');
-      expect(
-        protocolController.stream,
-        emitsThrough(allOf(startsWith('<<<'), contains('Invalid JSON'))),
-      );
+    test('server survives a map which is not a valid message', () async {
+      final environment = TestEnvironment(TestMCPClient(), TestMCPServer.new);
+      environment.clientChannel.sink.add({'foo': 1});
       expect(environment.initializeServer(), completes);
     });
 
     test('server exits before initialization', () {
       final client = TestMCPClient();
-      final clientController = StreamController<String>();
-      final serverController = StreamController<String>();
-      final clientChannel = StreamChannel<String>.withGuarantees(
+      final clientController = StreamController<Map<String, Object?>>();
+      final serverController = StreamController<Map<String, Object?>>();
+      final clientChannel = StreamChannel<Map<String, Object?>>.withGuarantees(
         clientController.stream,
         serverController.sink,
       );
-      final serverChannel = StreamChannel<String>.withGuarantees(
+      final serverChannel = StreamChannel<Map<String, Object?>>.withGuarantees(
         serverController.stream,
         clientController.sink,
       );

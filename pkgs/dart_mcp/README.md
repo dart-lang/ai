@@ -8,8 +8,10 @@ A Dart package for making MCP servers and clients.
 ## Implementing Servers
 
 To implement a server, import `package:dart_mcp/server.dart` and extend the
-`MCPServer` class. You must provide the server a communication channel to send
-and receive messages with.
+`MCPServer` class. You must provide the server a
+`StreamChannel<Map<String, Object?>>` of decoded JSON-RPC messages to send
+and receive messages with, such as the one returned by `stdioChannel` from
+`package:dart_mcp/stdio.dart`.
 
 For each specific MCP capability or utility your server supports, there is a
 corresponding mixin that you can use (`ToolsSupport`, `ResourcesSupport`, etc).
@@ -62,9 +64,11 @@ can call.
 
 ### Connecting to Servers
 
-You can connect this client with STDIO servers using the
-`MCPClient.connectStdioServer` method, or you can call `MCPClient.connectServer`
-with any other communication channel.
+You can connect this client to STDIO servers by passing the channel returned
+by `stdioChannel` to `MCPClient.connectServer`, or any other
+`StreamChannel<Map<String, Object?>>` of decoded JSON-RPC messages. The
+`jsonRpcChannel` helper in `package:dart_mcp/stdio.dart` adapts a
+`StreamChannel<String>` whose events each contain one complete JSON document.
 
 The returned `ServerConnection` should be used for all interactions with the
 server, starting with a call to `ServerConnection.initialize`, followed up with
@@ -127,8 +131,9 @@ can be used, but some are directly supported out of the box.
 
 ## Batching Requests
 
-Both the client and server support processing batch requests, but do not support
-creating batch requests at this time.
+Batch requests are not supported. Batching was removed from MCP in protocol
+version 2025-06-18, and a batch frame is answered with a single invalid
+request error response, including for clients which negotiated 2025-03-26.
 
 ## Authorization
 

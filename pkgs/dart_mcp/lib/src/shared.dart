@@ -7,6 +7,7 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:async/async.dart' show StreamSinkTransformer;
 import 'package:json_rpc_2/json_rpc_2.dart';
@@ -46,10 +47,16 @@ base class MCPBase {
   /// Initializes an MCP connection on [channel].
   ///
   /// If [protocolLogSink] is provided, all incoming and outgoing messages will
-  /// added logged to it. It is the responsibility of the caller to close the
+  /// be logged to it. It is the responsibility of the caller to close the
   /// sink.
-  MCPBase(StreamChannel<String> channel, {Sink<String>? protocolLogSink}) {
-    _peer = Peer(_maybeForwardMessages(channel, protocolLogSink));
+  MCPBase(
+    StreamChannel<Map<String, Object?>> channel, {
+    Sink<String>? protocolLogSink,
+  }) {
+    // The channel type admits only JSON objects, so json_rpc_2 never
+    // receives a batch and never writes the `List` frames its batch support
+    // would answer one with.
+    _peer = Peer.withoutJson(_maybeForwardMessages(channel, protocolLogSink));
     registerNotificationHandler(
       ProgressNotification.methodName,
       _handleProgress,
@@ -181,8 +188,8 @@ base class MCPBase {
   ///
   /// This is intended to be written to a file or emitted to a user to aid in
   /// debugging protocol messages between the client and server.
-  StreamChannel<String> _maybeForwardMessages(
-    StreamChannel<String> channel,
+  StreamChannel<Map<String, Object?>> _maybeForwardMessages(
+    StreamChannel<Map<String, Object?>> channel,
     Sink<String>? protocolLogSink,
   ) {
     if (protocolLogSink == null) return channel;
@@ -191,7 +198,7 @@ base class MCPBase {
         .transformStream(
           StreamTransformer.fromHandlers(
             handleData: (data, sink) {
-              protocolLogSink.add('<<< ($name) $data\n');
+              protocolLogSink.add('<<< ($name) ${jsonEncode(data)}\n');
               sink.add(data);
             },
           ),
@@ -199,7 +206,7 @@ base class MCPBase {
         .transformSink(
           StreamSinkTransformer.fromHandlers(
             handleData: (data, sink) {
-              protocolLogSink.add('>>> ($name) $data\n');
+              protocolLogSink.add('>>> ($name) ${jsonEncode(data)}\n');
               sink.add(data);
             },
           ),

@@ -74,8 +74,7 @@ base class MCPClient {
   /// Returns a connection for an MCP server using a [channel], which is already
   /// established.
   ///
-  /// Each [String] sent over [channel] represents an entire JSON request or
-  /// response.
+  /// Each map sent over [channel] is a single decoded JSON-RPC message.
   ///
   /// If [protocolLogSink] is provided, all messages sent on [channel] will be
   /// forwarded to that [Sink] as well, with `<<<` preceding incoming messages
@@ -85,7 +84,7 @@ base class MCPClient {
   /// To perform cleanup when this connection is closed, use the
   /// [ServerConnection.done] future.
   ServerConnection connectServer(
-    StreamChannel<String> channel, {
+    StreamChannel<Map<String, Object?>> channel, {
     Sink<String>? protocolLogSink,
   }) {
     // For type promotion in this function.
@@ -334,7 +333,10 @@ base class ServerConnection extends MCPBase {
       // it and then retry the request a single time.
       if (_elicitationUrlSupport?.autoHandleUrlElicitationRequired == true &&
           e.code == McpErrorCodes.urlElicitationRequired) {
-        final elicitRequest = e.data as ElicitRequest;
+        // json_rpc_2 copies the error data into an untyped map when it
+        // serializes the exception, so restore the typed view.
+        final elicitRequest =
+            (e.data as Map).cast<String, Object?>() as ElicitRequest;
         final elicitationComplete =
             elicitRequest.onElicitationComplete(this).firstOrNull;
         final elicitResult = await _elicitationUrlSupport!.handleElicitation(

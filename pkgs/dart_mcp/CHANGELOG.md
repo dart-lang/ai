@@ -1,6 +1,25 @@
 ## 0.6.0-wip
 
 - **BREAKING**:
+  - `MCPBase` (including the `MCPServer.fromStreamChannel` and
+    `ServerConnection.fromStreamChannel` constructors),
+    `MCPClient.connectServer`, `MCPServerFactory`, and `stdioChannel` now
+    operate on `StreamChannel<Map<String, Object?>>` instead of
+    `StreamChannel<String>`, so JSON is encoded and decoded only at the
+    transport edge rather than once more within the process.
+    - `stdioChannel` still speaks newline-delimited JSON on the wire, and now
+      itself answers frames which are not JSON objects with JSON-RPC error
+      responses. To migrate other message-framed `StreamChannel<String>`
+      transports, wrap them in the new `jsonRpcChannel` helper in
+      `package:dart_mcp/stdio.dart`, which adapts them the same way.
+    - JSON-RPC batch frames are no longer accepted. Batching was added in
+      protocol version 2025-03-26 and removed in 2025-06-18; a batch now gets
+      a single invalid request error response.
+    - Frames rejected at the transport edge, and the error responses they
+      produce, do not appear in `protocolLogSink`, which now logs each
+      message re-encoded as JSON.
+    - On in-memory channels, `RpcException.data` is no longer normalized by a
+      JSON round trip, so it can be an untyped map.
   - Separate server feature registration from the legacy protocol handshake.
     `MCPServer.initialize` now accepts an `MCPServerInitialization` containing
     the protocol version, client information, and client capabilities, and
