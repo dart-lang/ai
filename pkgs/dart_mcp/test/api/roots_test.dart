@@ -49,10 +49,10 @@ void main() {
 
     final rootsResult = await server.listRoots(ListRootsRequest());
     check(rootsResult.roots as List<Object?>).unorderedMatches([
-      (it) =>
-          it.isA<Map<String, Object?>>().deepEquals(a as Map<String, Object?>),
-      (it) =>
-          it.isA<Map<String, Object?>>().deepEquals(b as Map<String, Object?>),
+      Condition.it<Object?>()
+        ..isA<Map<String, Object?>>().deepEquals(a as Map<String, Object?>),
+      Condition.it<Object?>()
+        ..isA<Map<String, Object?>>().deepEquals(b as Map<String, Object?>),
     ]);
 
     check(client.removeRoot(a2)).isTrue();
@@ -63,7 +63,9 @@ void main() {
 
     check((await server.listRoots(ListRootsRequest())).roots).isEmpty();
 
-    final hasNextFuture = check(events.hasNext).completes((it) => it.isFalse());
+    final hasNextFuture = check(
+      events.hasNext,
+    ).completes(Condition.it()..isFalse());
 
     // Manually shutdown so the event stream can close and `hasNext` will
     // complete.

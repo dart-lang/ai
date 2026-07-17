@@ -16,6 +16,10 @@ dependencies:
   stream_transform: ^2.1.1
 
 dev_dependencies:
-  checks: ^0.3.1
+  checks:
+    git:
+      url: https://github.com/dart-lang/test.git
+      path: pkgs/checks
+      ref: 7ef2c119b46c441d02b3d01626fce749715f4a7d
   dart_flutter_team_lints: ^3.2.1
   test: ^1.25.15

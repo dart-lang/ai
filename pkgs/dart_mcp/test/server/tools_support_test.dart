@@ -34,7 +34,7 @@ void main() {
     final result = await serverConnection.callTool(
       CallToolRequest(name: tool.name),
     );
-    check(result.isError).not((it) => it.equals(true));
+    check(result.isError).not(Condition.it()..equals(true));
     check(result.content.single as Map<String, Object?>).deepEquals(
       TestMCPServerWithTools.helloWorldContent as Map<String, Object?>,
     );
@@ -78,7 +78,7 @@ void main() {
 
     final hasNextFuture = check(
       toolListChangedQueue.hasNext,
-    ).completes((it) => it.isFalse());
+    ).completes(Condition.it()..isFalse());
 
     // Need to manually close so the stream matchers can complete.
     await environment.shutdown();

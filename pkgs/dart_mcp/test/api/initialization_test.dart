@@ -15,7 +15,7 @@ void main() {
     );
 
     final map = result as Map<String, Object?>;
-    check(map).not((m) => m.containsKey('instructions'));
+    check(map).not(Condition.it()..containsKey('instructions'));
   });
 
   test('nonnull instructions', () async {

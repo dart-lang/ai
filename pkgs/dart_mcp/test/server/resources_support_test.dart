@@ -70,12 +70,14 @@ void main() {
       ListResourcesRequest(),
     );
     check(resources.resources as List<Object?>).unorderedMatches([
-      (it) => it.isA<Map<String, Object?>>().deepEquals(
-        fooResource as Map<String, Object?>,
-      ),
-      (it) => it.isA<Map<String, Object?>>().deepEquals(
-        TestMCPServerWithResources.helloWorld as Map<String, Object?>,
-      ),
+      Condition.it<Object?>()
+        ..isA<Map<String, Object?>>().deepEquals(
+          fooResource as Map<String, Object?>,
+        ),
+      Condition.it<Object?>()
+        ..isA<Map<String, Object?>>().deepEquals(
+          TestMCPServerWithResources.helloWorld as Map<String, Object?>,
+        ),
     ]);
 
     final resourceChangedQueue = StreamQueue(serverConnection.resourceUpdated);
@@ -107,7 +109,7 @@ void main() {
 
     final resourceChangedHasNext = check(
       resourceChangedQueue.hasNext,
-    ).completes((it) => it.isFalse());
+    ).completes(Condition.it()..isFalse());
 
     server.removeResource(fooResource.uri);
 
@@ -120,7 +122,7 @@ void main() {
 
     final resourceListChangedHasNext = check(
       resourceListChangedQueue.hasNext,
-    ).completes((it) => it.isFalse());
+    ).completes(Condition.it()..isFalse());
 
     /// We need to manually shut down to so that the `hasNext` futures can
     /// complete.
@@ -163,7 +165,7 @@ void main() {
     await resourceListChangedQueue.take(2);
     final resourceListChangedHasNext = check(
       resourceListChangedQueue.hasNext,
-    ).completes((it) => it.isFalse());
+    ).completes(Condition.it()..isFalse());
     await pumpEventQueue();
 
     final resourceChangedQueue = StreamQueue(serverConnection.resourceUpdated);
@@ -189,7 +191,7 @@ void main() {
     }
     final resourceChangedHasNext = check(
       resourceChangedQueue.hasNext,
-    ).completes((it) => it.isFalse());
+    ).completes(Condition.it()..isFalse());
     await pumpEventQueue();
 
     await environment.shutdown();
