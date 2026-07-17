@@ -22,10 +22,11 @@ Register server-specific tools, resources, prompts, and request handlers by
 overriding `MCPServer.initialize(MCPServerInitialization)`. Always call the
 super method and return its `ServerCapabilities`, including any capability
 changes made by your server. This hook can be used independently of the legacy
-MCP handshake; the context supplies the protocol version, client information,
-and client capabilities for either lifecycle. A request-scoped transport
-completes `MCPServer.initialized` by calling `handleInitialized()` after this
-hook and any transport-specific setup have finished.
+MCP handshake; the context supplies the protocol version, optional client
+information, and client capabilities for either lifecycle. A request-scoped
+transport completes `MCPServer.initialized` by calling `handleInitialized()`
+after this hook and any transport-specific setup have finished, or serves each
+decoded message on a fresh server instance with `handleRequestScopedMessage`.
 
 `MCPServer.initializeLegacy(InitializeRequest)` handles protocol negotiation
 and the legacy initialize response. Override it only when you need to customize

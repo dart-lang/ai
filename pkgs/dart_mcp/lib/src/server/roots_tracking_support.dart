@@ -95,6 +95,12 @@ base mixin RootsTrackingSupport on LoggingSupport {
       result = await listRoots(ListRootsRequest());
     } on RpcException catch (e) {
       log(LoggingLevel.error, 'Error calling listRoots: $e');
+      // json_rpc_2 completes requests which are still pending when the
+      // connection closes with a `StateError`, for instance when a
+      // request-scoped exchange is torn down mid-request.
+      // ignore: avoid_catching_errors
+    } on StateError catch (e) {
+      log(LoggingLevel.error, 'Error calling listRoots: $e');
     } finally {
       // Only complete the completer if it's still the one we created. Otherwise
       // we wait for the next result to come back and throw away this result.

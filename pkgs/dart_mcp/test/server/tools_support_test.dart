@@ -40,11 +40,11 @@ void main() {
       ProtocolVersion.oldestSupported,
     );
     expect(
-      environment.server.initializedWith?.clientInfo.name,
+      environment.server.initializedWith?.clientInfo?.name,
       environment.client.implementation.name,
     );
     expect(
-      environment.server.initializedWith?.clientInfo.version,
+      environment.server.initializedWith?.clientInfo?.version,
       environment.client.implementation.version,
     );
     expect(environment.server.ready, isFalse);
