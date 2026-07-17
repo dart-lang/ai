@@ -22,7 +22,15 @@ extension type JsonRpc2Object.fromMap(Map<String, Object?> _value) {
           : JsonRpc2Kind.notification;
 
   /// The method of this message, if it is a request or notification.
-  String? get method => _value[Keys.method] as String?;
+  ///
+  /// Throws an [ArgumentError] if the method is present but not a string.
+  String? get method {
+    final method = _value[Keys.method];
+    if (method is! String?) {
+      throw ArgumentError.value(method, Keys.method, 'Must be a String');
+    }
+    return method;
+  }
 
   /// The id of this message, if it is a request or response.
   ///
