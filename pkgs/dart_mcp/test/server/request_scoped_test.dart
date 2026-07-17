@@ -5,6 +5,7 @@
 import 'dart:async';
 
 import 'package:dart_mcp/server.dart';
+import 'package:dart_mcp/src/utils/constants.dart';
 import 'package:json_rpc_2/error_code.dart' as error_code;
 import 'package:test/test.dart';
 
@@ -36,10 +37,9 @@ void main() {
         _initialization(),
       );
 
-      final meta = _result(response)['_meta'] as Map?;
+      final meta = _result(response)[Keys.meta] as Map<String, Object?>;
       final serverInfo = Implementation.fromMap(
-        (meta!['io.modelcontextprotocol/serverInfo'] as Map)
-            .cast<String, Object?>(),
+        meta[Keys.serverInfoMeta] as Map<String, Object?>,
       );
       expect(serverInfo.name, 'test server');
       expect(serverInfo.version, '0.1.0');
@@ -52,10 +52,9 @@ void main() {
         _initialization(),
       );
 
-      final meta = (_result(response)['_meta'] as Map).cast<String, Object?>();
+      final meta = _result(response)[Keys.meta] as Map<String, Object?>;
       final serverInfo = Implementation.fromMap(
-        (meta['io.modelcontextprotocol/serverInfo'] as Map)
-            .cast<String, Object?>(),
+        meta[Keys.serverInfoMeta] as Map<String, Object?>,
       );
       expect(serverInfo.name, 'already there');
     });
@@ -68,7 +67,7 @@ void main() {
       );
 
       // Server info stamping is skipped rather than throwing and wedging.
-      expect(_result(response)['_meta'], 'not a map');
+      expect(_result(response)[Keys.meta], 'not a map');
     });
 
     test('declares client capabilities per request', () async {
@@ -85,8 +84,8 @@ void main() {
       final first = harness.servers[0];
       final second = harness.servers[1];
       expect(first, isNot(same(second)));
-      expect(first.initializedWith?.clientCapabilities.roots, isNotNull);
-      expect(second.initializedWith?.clientCapabilities.roots, isNull);
+      expect(first.clientCapabilities.roots, isNotNull);
+      expect(second.clientCapabilities.roots, isNull);
     });
 
     test('serves a request which declares no client info', () async {
@@ -109,7 +108,7 @@ void main() {
         onNotification: notifications.add,
       );
 
-      final methods = [for (final n in notifications) n['method']];
+      final methods = [for (final n in notifications) n[Keys.method]];
       expect(methods, contains(ProgressNotification.methodName));
       expect(methods, contains(LoggingMessageNotification.methodName));
     });
@@ -128,7 +127,7 @@ void main() {
       }, onNotification: notifications.add);
 
       expect(
-        notifications.map((n) => n['method']),
+        notifications.map((n) => n[Keys.method]),
         contains(LoggingMessageNotification.methodName),
       );
     });
@@ -140,9 +139,9 @@ void main() {
         _initialization(),
       );
 
-      final error = (response!['error'] as Map).cast<String, Object?>();
-      expect(error['code'], error_code.INTERNAL_ERROR);
-      expect(error['message'], contains('request-scoped transport'));
+      final error = response![Keys.error] as Map<String, Object?>;
+      expect(error[Keys.code], error_code.INTERNAL_ERROR);
+      expect(error[Keys.message], contains('request-scoped transport'));
     });
 
     test('shuts the server down after a dispatch', () async {
@@ -161,9 +160,9 @@ void main() {
         _initialization(),
       );
 
-      final error = (response!['error'] as Map).cast<String, Object?>();
-      expect(error['code'], error_code.INTERNAL_ERROR);
-      expect(error['message'], contains('closed before responding'));
+      final error = response![Keys.error] as Map<String, Object?>;
+      expect(error[Keys.code], error_code.INTERNAL_ERROR);
+      expect(error[Keys.message], contains('closed before responding'));
     });
 
     test('surfaces initialization failures without unhandled errors', () async {
@@ -184,27 +183,31 @@ void main() {
     test('responds with method not found for unknown methods', () async {
       final harness = _DispatcherHarness();
       final response = await harness.dispatch({
-        'jsonrpc': '2.0',
-        'id': 1,
-        'method': 'no/such_method',
+        Keys.jsonrpc: '2.0',
+        Keys.id: 1,
+        Keys.method: 'no/such_method',
       }, _initialization());
 
-      final error = (response!['error'] as Map).cast<String, Object?>();
-      expect(error['code'], error_code.METHOD_NOT_FOUND);
+      final error = response![Keys.error] as Map<String, Object?>;
+      expect(error[Keys.code], error_code.METHOD_NOT_FOUND);
       expect(
-        response.containsKey('result'),
+        response.containsKey(Keys.result),
         isFalse,
         reason: 'error responses get no result and no server info',
       );
     });
 
-    test('throws for messages without a method', () async {
+    test('throws for messages without a string method', () async {
       final harness = _DispatcherHarness();
       await expectLater(
+        harness.dispatch({Keys.jsonrpc: '2.0', Keys.id: 1}, _initialization()),
+        throwsArgumentError,
+      );
+      await expectLater(
         harness.dispatch({
-          'jsonrpc': '2.0',
-          'id': 1,
-          'result': <String, Object?>{},
+          Keys.jsonrpc: '2.0',
+          Keys.id: 1,
+          Keys.method: 42,
         }, _initialization()),
         throwsArgumentError,
       );
@@ -215,19 +218,19 @@ void main() {
       final harness = _DispatcherHarness();
       await expectLater(
         harness.dispatch({
-          'jsonrpc': '2.0',
-          'id': 1,
-          'method': ListToolsRequest.methodName,
-          'result': <String, Object?>{},
+          Keys.jsonrpc: '2.0',
+          Keys.id: 1,
+          Keys.method: ListToolsRequest.methodName,
+          Keys.result: <String, Object?>{},
         }, _initialization()),
         throwsArgumentError,
       );
       await expectLater(
         harness.dispatch({
-          'jsonrpc': '2.0',
-          'id': 1,
-          'method': ListToolsRequest.methodName,
-          'error': <String, Object?>{'code': 0, 'message': 'x'},
+          Keys.jsonrpc: '2.0',
+          Keys.id: 1,
+          Keys.method: ListToolsRequest.methodName,
+          Keys.error: <String, Object?>{Keys.code: 0, Keys.message: 'x'},
         }, _initialization()),
         throwsArgumentError,
       );
@@ -238,16 +241,16 @@ void main() {
       final harness = _DispatcherHarness();
       await expectLater(
         harness.dispatch({
-          'jsonrpc': '2.0',
-          'id': 1,
-          'method': InitializeRequest.methodName,
+          Keys.jsonrpc: '2.0',
+          Keys.id: 1,
+          Keys.method: InitializeRequest.methodName,
         }, _initialization()),
         throwsArgumentError,
       );
       await expectLater(
         harness.dispatch({
-          'jsonrpc': '2.0',
-          'method': InitializedNotification.methodName,
+          Keys.jsonrpc: '2.0',
+          Keys.method: InitializedNotification.methodName,
         }, _initialization()),
         throwsArgumentError,
       );
@@ -257,8 +260,8 @@ void main() {
     test('returns null for notifications', () async {
       final harness = _DispatcherHarness();
       final response = await harness.dispatch({
-        'jsonrpc': '2.0',
-        'method': _DispatcherTestServer.testNotification,
+        Keys.jsonrpc: '2.0',
+        Keys.method: _DispatcherTestServer.testNotification,
       }, _initialization());
 
       expect(response, isNull);
@@ -269,9 +272,9 @@ void main() {
       final harness = _DispatcherHarness();
       await expectLater(
         harness.dispatch({
-          'jsonrpc': '2.0',
-          'id': null,
-          'method': ListToolsRequest.methodName,
+          Keys.jsonrpc: '2.0',
+          Keys.id: null,
+          Keys.method: ListToolsRequest.methodName,
         }, _initialization()),
         throwsArgumentError,
       );
@@ -320,14 +323,8 @@ void main() {
       ];
       expect(texts, ['first', 'second']);
       expect(harness.servers, hasLength(2));
-      expect(
-        harness.servers[0].initializedWith?.clientCapabilities.roots,
-        isNotNull,
-      );
-      expect(
-        harness.servers[1].initializedWith?.clientCapabilities.roots,
-        isNull,
-      );
+      expect(harness.servers[0].clientCapabilities.roots, isNotNull);
+      expect(harness.servers[1].clientCapabilities.roots, isNull);
     });
 
     test('degrades gracefully with roots tracking mixed in', () async {
@@ -355,7 +352,10 @@ void main() {
         // The immediate teardown after a notification races the listRoots
         // request that roots tracking issues on initialization.
         final response = await handleRequestScopedMessage(
-          {'jsonrpc': '2.0', 'method': _DispatcherTestServer.testNotification},
+          {
+            Keys.jsonrpc: '2.0',
+            Keys.method: _DispatcherTestServer.testNotification,
+          },
           _initialization(
             capabilities: ClientCapabilities(roots: RootsCapabilities()),
           ),
@@ -406,8 +406,6 @@ final class _DispatcherTestServer extends TestMCPServer
 
   _DispatcherTestServer(super.channel);
 
-  MCPServerInitialization? initializedWith;
-
   /// How many [testNotification] notifications this server received.
   int testNotifications = 0;
 
@@ -415,7 +413,6 @@ final class _DispatcherTestServer extends TestMCPServer
   FutureOr<ServerCapabilities> initialize(
     MCPServerInitialization initialization,
   ) {
-    initializedWith = initialization;
     registerNotificationHandler(testNotification, (Notification? _) {
       testNotifications++;
     });
@@ -426,9 +423,9 @@ final class _DispatcherTestServer extends TestMCPServer
     registerTool(
       Tool(name: 'custom_info', inputSchema: ObjectSchema()),
       (_) => CallToolResult.fromMap({
-        'content': [TextContent(text: 'custom')],
-        '_meta': {
-          'io.modelcontextprotocol/serverInfo': Implementation(
+        Keys.content: [TextContent(text: 'custom')],
+        Keys.meta: {
+          Keys.serverInfoMeta: Implementation(
             name: 'already there',
             version: '1.0.0',
           ),
@@ -438,8 +435,8 @@ final class _DispatcherTestServer extends TestMCPServer
     registerTool(
       Tool(name: 'bad_meta', inputSchema: ObjectSchema()),
       (_) => CallToolResult.fromMap({
-        'content': [TextContent(text: 'bad')],
-        '_meta': 'not a map',
+        Keys.content: [TextContent(text: 'bad')],
+        Keys.meta: 'not a map',
       }),
     );
     registerTool(Tool(name: 'notify', inputSchema: ObjectSchema()), (_) {
@@ -494,16 +491,16 @@ Map<String, Object?> _callTool(
   String name, {
   Map<String, Object?> arguments = const {},
 }) => {
-  'jsonrpc': '2.0',
-  'id': 1,
-  'method': CallToolRequest.methodName,
-  'params': {'name': name, 'arguments': arguments},
+  Keys.jsonrpc: '2.0',
+  Keys.id: 1,
+  Keys.method: CallToolRequest.methodName,
+  Keys.params: {Keys.name: name, Keys.arguments: arguments},
 };
 
 Map<String, Object?> _listTools() => {
-  'jsonrpc': '2.0',
-  'id': 1,
-  'method': ListToolsRequest.methodName,
+  Keys.jsonrpc: '2.0',
+  Keys.id: 1,
+  Keys.method: ListToolsRequest.methodName,
 };
 
 MCPServerInitialization _initialization({ClientCapabilities? capabilities}) =>
@@ -513,4 +510,4 @@ MCPServerInitialization _initialization({ClientCapabilities? capabilities}) =>
     );
 
 Map<String, Object?> _result(Map<String, Object?>? response) =>
-    (response!['result'] as Map).cast<String, Object?>();
+    response![Keys.result] as Map<String, Object?>;

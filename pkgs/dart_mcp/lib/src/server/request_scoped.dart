@@ -71,7 +71,15 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
   MCPServerFactory serverFactory, {
   void Function(Map<String, Object?> notification)? onNotification,
 }) async {
-  final method = message[Keys.method];
+  final object = JsonRpc2Object.fromMap(message);
+  if (object.kind == JsonRpc2Kind.response) {
+    throw ArgumentError.value(
+      message,
+      'message',
+      'A request or notification must not carry a result or error',
+    );
+  }
+  final method = object.method;
   if (method is! String) {
     throw ArgumentError.value(
       message,
@@ -79,18 +87,11 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
       'A dispatched message must have a string method',
     );
   }
-  if (message.containsKey(Keys.id) && message[Keys.id] == null) {
+  if (object.kind == JsonRpc2Kind.request && object.id == null) {
     throw ArgumentError.value(
       message,
       'message',
       'A request id must not be null',
-    );
-  }
-  if (message.containsKey(Keys.result) || message.containsKey(Keys.error)) {
-    throw ArgumentError.value(
-      message,
-      'message',
-      'A request or notification must not carry a result or error',
     );
   }
   if (method == InitializeRequest.methodName ||
@@ -112,14 +113,14 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
     StreamChannel.withCloseGuarantee(inbound.stream, outbound.sink),
   );
 
-  final isRequest = message.containsKey(Keys.id);
+  final isRequest = object.kind == JsonRpc2Kind.request;
   final response = Completer<Map<String, Object?>?>();
   final subscription = outbound.stream.listen(
     (encoded) {
       try {
         final decoded = (jsonDecode(encoded) as Map).cast<String, Object?>();
-        if (decoded.containsKey(Keys.method)) {
-          if (decoded.containsKey(Keys.id)) {
+        switch (JsonRpc2Object.fromMap(decoded).kind) {
+          case JsonRpc2Kind.request:
             // A request from the server to the client. Nothing can answer it
             // in a single-message exchange, so fail it back to the server
             // instead of leaving its handler waiting forever. Late requests
@@ -129,14 +130,14 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
               inbound.add(
                 jsonEncode(
                   _errorResponse(
-                    decoded[Keys.id],
+                    JsonRpc2Request.fromMap(decoded).id,
                     'Server to client requests are not supported on a '
                     'request-scoped transport',
                   ),
                 ),
               );
             }
-          } else {
+          case JsonRpc2Kind.notification:
             try {
               onNotification?.call(decoded);
             } catch (error, stackTrace) {
@@ -144,9 +145,12 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
               // handled, but it should still be visible.
               Zone.current.handleUncaughtError(error, stackTrace);
             }
-          }
-        } else if (!response.isCompleted) {
-          response.complete(_withServerInfo(decoded, server.implementation));
+          case JsonRpc2Kind.response:
+            if (!response.isCompleted) {
+              response.complete(
+                _withServerInfo(decoded, server.implementation),
+              );
+            }
         }
       } catch (error, stackTrace) {
         // The server sent a frame we could not process. Never let it wedge or
@@ -205,11 +209,11 @@ Map<String, Object?> _withServerInfo(
   Map<String, Object?> response,
   Implementation implementation,
 ) {
-  final result = response[Keys.result];
+  final result = JsonRpc2Response.fromMap(response).result;
   if (result is! Map) return response;
-  final existingMeta = result[Keys.meta];
-  if (existingMeta is! Map?) return response;
   final resultMap = result.cast<String, Object?>();
+  final existingMeta = resultMap[Keys.meta];
+  if (existingMeta is! Map?) return response;
   final meta = existingMeta?.cast<String, Object?>() ?? <String, Object?>{};
   // Copy so the returned response does not alias the shared server info map.
   meta.putIfAbsent(

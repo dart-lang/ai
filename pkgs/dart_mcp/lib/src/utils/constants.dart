@@ -84,6 +84,7 @@ extension Keys on Never {
   static const oneOf = 'oneOf';
   static const openWorldHint = 'openWorldHint';
   static const outputSchema = 'outputSchema';
+  static const params = 'params';
   static const path = 'path';
   static const pattern = 'pattern';
   static const patternProperties = 'patternProperties';

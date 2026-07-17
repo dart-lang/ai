@@ -14,6 +14,7 @@ import 'package:stream_transform/stream_transform.dart';
 import '../api/api.dart';
 import '../shared.dart';
 import '../utils/constants.dart';
+import '../utils/json_rpc_2_object.dart';
 
 part 'completions_support.dart';
 part 'elicitation_request_support.dart';
