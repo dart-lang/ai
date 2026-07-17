@@ -120,11 +120,11 @@ Do you want to accept (a), decline (d), or cancel (c) the elicitation?
         final type = property.value.type;
         final allowedValues =
             (type == JsonType.enumeration || type == JsonType.string) &&
-                    (property.value as StringSchema).enumValues != null
-                ? ' ('
-                    '${(property.value as StringSchema).enumValues!.join(', ')}'
-                    ')'
-                : '';
+                (property.value as StringSchema).enumValues != null
+            ? ' ('
+                  '${(property.value as StringSchema).enumValues!.join(', ')}'
+                  ')'
+            : '';
         // Ask the user in a loop until the value provided matches the schema,
         // at which point we will `break` from the loop.
         while (true) {

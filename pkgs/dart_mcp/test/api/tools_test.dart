@@ -37,8 +37,9 @@ void main() {
     // Create a set of path-stripped actual errors.
     final actualErrorsStrippedSet = actualErrors.map(onlyKeepError).toSet();
     // Create a set of expected errors (which are already path-stripped by definition for this function).
-    final expectedErrorsSet =
-        expectedErrorsWithoutPaths.map(onlyKeepError).toSet();
+    final expectedErrorsSet = expectedErrorsWithoutPaths
+        .map(onlyKeepError)
+        .toSet();
 
     check(
       actualErrorsStrippedSet as Iterable<Object?>,
@@ -478,7 +479,10 @@ void main() {
 
       test('oneOfNotMet - matches multiple', () {
         final schema = Schema.combined(
-          oneOf: [StringSchema(maxLength: 10), StringSchema(pattern: 'test')],
+          oneOf: [
+            StringSchema(maxLength: 10),
+            StringSchema(pattern: 'test'),
+          ],
         );
         // 'test' matches both maxLength: 10 and pattern: 'test'.
         expectFailuresMatch(schema, 'test', [
@@ -488,7 +492,10 @@ void main() {
 
       test('notConditionViolated - matches 1 sub-schema in "not" list', () {
         final schema = Schema.combined(
-          not: [StringSchema(maxLength: 2), StringSchema(pattern: 'test')],
+          not: [
+            StringSchema(maxLength: 2),
+            StringSchema(pattern: 'test'),
+          ],
         );
         // 'test' matches the second sub-schema in the "not" list.
         expectFailuresMatch(schema, 'test', [
@@ -1039,7 +1046,10 @@ void main() {
 
       test('oneOfNotMet - matches multiple', () {
         final schema = Schema.combined(
-          oneOf: [StringSchema(maxLength: 10), StringSchema(pattern: 'test')],
+          oneOf: [
+            StringSchema(maxLength: 10),
+            StringSchema(pattern: 'test'),
+          ],
         );
         expectFailuresMatch(schema, 'test', [
           ValidationError(ValidationErrorType.oneOfNotMet, path: const []),
@@ -1048,7 +1058,10 @@ void main() {
 
       test('notConditionViolated - matches 1 sub-schemas in "not" list', () {
         final schema = Schema.combined(
-          not: [StringSchema(maxLength: 2), StringSchema(pattern: 'test')],
+          not: [
+            StringSchema(maxLength: 2),
+            StringSchema(pattern: 'test'),
+          ],
         );
         expectFailuresMatch(schema, 'test', [
           ValidationError(
@@ -1060,7 +1073,10 @@ void main() {
 
       test('notConditionViolated - matches >0 sub-schemas in "not" list', () {
         final schema = Schema.combined(
-          not: [StringSchema(maxLength: 10), StringSchema(pattern: 'test')],
+          not: [
+            StringSchema(maxLength: 10),
+            StringSchema(pattern: 'test'),
+          ],
         );
         expectFailuresMatch(schema, 'test', [
           ValidationError(

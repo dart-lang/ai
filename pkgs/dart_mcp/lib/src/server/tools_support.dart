@@ -57,24 +57,23 @@ base mixin ToolsSupport on MCPServer {
       );
     }
     _registeredTools[tool.name] = tool;
-    _registeredToolImpls[tool.name] =
-        validateArguments
-            ? (request) {
-              final errors = tool.inputSchema.validate(
-                request.arguments ?? const <String, Object?>{},
+    _registeredToolImpls[tool.name] = validateArguments
+        ? (request) {
+            final errors = tool.inputSchema.validate(
+              request.arguments ?? const <String, Object?>{},
+            );
+            if (errors.isNotEmpty) {
+              return CallToolResult(
+                content: [
+                  for (final error in errors)
+                    Content.text(text: error.toErrorString()),
+                ],
+                isError: true,
               );
-              if (errors.isNotEmpty) {
-                return CallToolResult(
-                  content: [
-                    for (final error in errors)
-                      Content.text(text: error.toErrorString()),
-                  ],
-                  isError: true,
-                );
-              }
-              return impl(request);
             }
-            : impl;
+            return impl(request);
+          }
+        : impl;
 
     if (ready) {
       _notifyToolListChanged();

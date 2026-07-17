@@ -232,16 +232,15 @@ base mixin ResourcesSupport on MCPServer {
 
     _subscribedResources.putIfAbsent(
       request.uri,
-      () =>
-          StreamController<ResourceUpdatedNotification>()
-            ..stream
-                .throttle(resourceUpdateThrottleDelay, trailing: true)
-                .listen((notification) {
-                  sendNotification(
-                    ResourceUpdatedNotification.methodName,
-                    notification,
-                  );
-                }),
+      () => StreamController<ResourceUpdatedNotification>()
+        ..stream.throttle(resourceUpdateThrottleDelay, trailing: true).listen((
+          notification,
+        ) {
+          sendNotification(
+            ResourceUpdatedNotification.methodName,
+            notification,
+          );
+        }),
     );
 
     return EmptyResult();

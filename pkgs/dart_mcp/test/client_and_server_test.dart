@@ -356,10 +356,9 @@ void main() {
 
       await sub.cancel();
       check(logEvents).any(
-        (it) =>
-            it.isA<String>()
-              ..startsWith('>>>')
-              ..contains('Invalid JSON'),
+        (it) => it.isA<String>()
+          ..startsWith('>>>')
+          ..contains('Invalid JSON'),
       );
     });
 
@@ -378,10 +377,9 @@ void main() {
 
       await sub.cancel();
       check(logEvents).any(
-        (it) =>
-            it.isA<String>()
-              ..startsWith('<<<')
-              ..contains('Invalid JSON'),
+        (it) => it.isA<String>()
+          ..startsWith('<<<')
+          ..contains('Invalid JSON'),
       );
     });
 
@@ -399,19 +397,20 @@ void main() {
       );
       final connection = client.connectServer(clientChannel);
 
-      final initFuture = check(
-        connection.initialize(
-          InitializeRequest(
-            protocolVersion: ProtocolVersion.latestSupported,
-            capabilities: ClientCapabilities(),
-            clientInfo: Implementation(name: '', version: ''),
-          ),
-        ),
-      ).throws<StateError>(
-        (it) => it
-            .has((e) => e.message, 'message')
-            .equals('The client closed with pending request "initialize".'),
-      );
+      final initFuture =
+          check(
+            connection.initialize(
+              InitializeRequest(
+                protocolVersion: ProtocolVersion.latestSupported,
+                capabilities: ClientCapabilities(),
+                clientInfo: Implementation(name: '', version: ''),
+              ),
+            ),
+          ).throws<StateError>(
+            (it) => it
+                .has((e) => e.message, 'message')
+                .equals('The client closed with pending request "initialize".'),
+          );
 
       // This shuts down the channel between the client and server, so it
       // happens during the initialization request (which the server never)

@@ -81,8 +81,9 @@ base class MCPServerWithPrompts extends MCPServer
     final candidates = switch (request.argument.name) {
       'tags' => tags,
       'platforms' => platforms,
-      _ =>
-        throw ArgumentError('Unrecognized argument ${request.argument.name}'),
+      _ => throw ArgumentError(
+        'Unrecognized argument ${request.argument.name}',
+      ),
     };
     // Return the result by filtering the candidates based on a simple prefix
     // match.

@@ -84,11 +84,10 @@ void main() {
     ]);
 
     final neverEmitsFuture = check(queue2).neverEmits(
-      (Subject<LoggingMessageNotification> e) =>
-          e
-              .has((x) => x.level, 'level')
-              .has((l) => l < LoggingLevel.warning, 'is less than warning')
-              .isTrue(),
+      (Subject<LoggingMessageNotification> e) => e
+          .has((x) => x.level, 'level')
+          .has((l) => l < LoggingLevel.warning, 'is less than warning')
+          .isTrue(),
     );
 
     for (var notification in notifications) {

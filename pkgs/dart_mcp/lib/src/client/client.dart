@@ -335,8 +335,9 @@ base class ServerConnection extends MCPBase {
       if (_elicitationUrlSupport?.autoHandleUrlElicitationRequired == true &&
           e.code == McpErrorCodes.urlElicitationRequired) {
         final elicitRequest = e.data as ElicitRequest;
-        final elicitationComplete =
-            elicitRequest.onElicitationComplete(this).firstOrNull;
+        final elicitationComplete = elicitRequest
+            .onElicitationComplete(this)
+            .firstOrNull;
         final elicitResult = await _elicitationUrlSupport!.handleElicitation(
           elicitRequest,
           this,

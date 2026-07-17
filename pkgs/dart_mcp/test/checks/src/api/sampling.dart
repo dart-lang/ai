@@ -29,8 +29,7 @@ extension CreateMessageResultChecks on Subject<CreateMessageResult> {
 
 extension SamplingMessageChecks<T extends SamplingMessage> on Subject<T> {
   Subject<Role> get role => has((x) => x.role, 'role');
-  Subject<Content> get content =>
-      has((x) => x.content, 'content');
+  Subject<Content> get content => has((x) => x.content, 'content');
 }
 
 extension ModelPreferencesChecks on Subject<ModelPreferences> {

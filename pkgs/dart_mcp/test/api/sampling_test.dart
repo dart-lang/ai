@@ -22,12 +22,11 @@ void main() {
     check(server.clientCapabilities.sampling).isNotNull();
 
     final client = environment.client;
-    final expectedResult =
-        client.nextResult = CreateMessageResult(
-          role: Role.assistant,
-          content: TextContent(text: 'Hello'),
-          model: 'fakeModel',
-        );
+    final expectedResult = client.nextResult = CreateMessageResult(
+      role: Role.assistant,
+      content: TextContent(text: 'Hello'),
+      model: 'fakeModel',
+    );
 
     final result = await server.createMessage(
       CreateMessageRequest(messages: [], maxTokens: 100),

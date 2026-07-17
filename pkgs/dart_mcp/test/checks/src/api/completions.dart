@@ -53,9 +53,7 @@ extension ReferenceChecks on Subject<Reference> {
         return Extracted.value(actual as ResourceTemplateReference);
       }
       return Extracted.rejection(
-        which: [
-          'is not a ResourceTemplateReference (type is ${actual.type})',
-        ],
+        which: ['is not a ResourceTemplateReference (type is ${actual.type})'],
       );
     });
   }

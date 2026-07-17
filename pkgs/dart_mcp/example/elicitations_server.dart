@@ -68,14 +68,12 @@ base class MCPServerWithElicitation extends MCPServer
               break;
             case 'POST':
               // Read the permission radio button value from the form.
-              final formContents =
-                  Uri(
-                    query:
-                        await request
-                            .cast<List<int>>()
-                            .transform(const Utf8Decoder())
-                            .join(),
-                  ).queryParameters;
+              final formContents = Uri(
+                query: await request
+                    .cast<List<int>>()
+                    .transform(const Utf8Decoder())
+                    .join(),
+              ).queryParameters;
               approved = formContents['permission'] == 'yes';
               notifyElicitationComplete(
                 ElicitationCompleteNotification(elicitationId: elicitationId),
@@ -172,14 +170,12 @@ base class MCPServerWithElicitation extends MCPServer
             break;
           case 'POST':
             // Read the posted api key from the form.
-            final formContents =
-                Uri(
-                  query:
-                      await request
-                          .cast<List<int>>()
-                          .transform(const Utf8Decoder())
-                          .join(),
-                ).queryParameters;
+            final formContents = Uri(
+              query: await request
+                  .cast<List<int>>()
+                  .transform(const Utf8Decoder())
+                  .join(),
+            ).queryParameters;
             // Do not log this in real code of course!
             log(LoggingLevel.warning, 'Form Contents: $formContents');
             notifyElicitationComplete(

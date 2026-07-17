@@ -1319,8 +1319,8 @@ extension type TitledSingleSelectEnumSchema.fromMap(Map<String, Object?> _value)
   });
 
   Iterable<EnumValueWithTitle> get values {
-    final values =
-        (_value[Keys.oneOf] as Iterable?)?.cast<EnumValueWithTitle>();
+    final values = (_value[Keys.oneOf] as Iterable?)
+        ?.cast<EnumValueWithTitle>();
     if (values == null) {
       throw ArgumentError('Missing required property "oneOf"');
     }
@@ -1369,9 +1369,8 @@ extension type UntitledMultiSelectEnumSchema.fromMap(
 
   /// The allowed enum values.
   Iterable<String> get values {
-    final values =
-        ((_value[Keys.items] as Map?)?[Keys.enum_] as Iterable?)
-            ?.cast<String>();
+    final values = ((_value[Keys.items] as Map?)?[Keys.enum_] as Iterable?)
+        ?.cast<String>();
     if (values == null) {
       throw ArgumentError('Missing required property "${Keys.enum_}"');
     }
@@ -1405,9 +1404,8 @@ extension type TitledMultiSelectEnumSchema.fromMap(Map<String, Object?> _value)
 
   /// The allowed enum values.
   Iterable<EnumValueWithTitle> get values {
-    final values =
-        ((_value[Keys.items] as Map?)?[Keys.anyOf] as Iterable?)
-            ?.cast<EnumValueWithTitle>();
+    final values = ((_value[Keys.items] as Map?)?[Keys.anyOf] as Iterable?)
+        ?.cast<EnumValueWithTitle>();
     if (values == null) {
       throw ArgumentError('Missing required property "${Keys.anyOf}"');
     }

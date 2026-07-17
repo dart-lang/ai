@@ -26,12 +26,11 @@ void main() {
       CompleteRequest(
         ref: TestMCPServerWithCompletions.languagePromptRef,
         argument: CompletionArgument(
-          name:
-              TestMCPServerWithCompletions
-                  .languagePrompt
-                  .arguments!
-                  .single
-                  .name,
+          name: TestMCPServerWithCompletions
+              .languagePrompt
+              .arguments!
+              .single
+              .name,
           value: 'c',
         ),
       ),
@@ -118,23 +117,21 @@ final class TestMCPServerWithCompletions extends TestMCPServer
             CompleteResult(
               completion: Completion(values: aPackages, hasMore: false),
             ),
-          CompletionArgument(name: 'path', value: 'a') => switch (request
-              .context
-              ?.arguments?['package_name']) {
-            'async' => CompleteResult(
-              completion: Completion(values: ['async.dart']),
-            ),
-            _ => CompleteResult(
-              completion: Completion(values: packagePaths, hasMore: false),
-            ),
-          },
-          _ =>
-            throw ArgumentError.value(
-              request.argument,
-              'argument',
-              'Unrecognized completion argument for URI template '
-                  '${packageUriTemplate.uriTemplate}',
-            ),
+          CompletionArgument(name: 'path', value: 'a') =>
+            switch (request.context?.arguments?['package_name']) {
+              'async' => CompleteResult(
+                completion: Completion(values: ['async.dart']),
+              ),
+              _ => CompleteResult(
+                completion: Completion(values: packagePaths, hasMore: false),
+              ),
+            },
+          _ => throw ArgumentError.value(
+            request.argument,
+            'argument',
+            'Unrecognized completion argument for URI template '
+                '${packageUriTemplate.uriTemplate}',
+          ),
         };
       default:
         throw ArgumentError.value(
