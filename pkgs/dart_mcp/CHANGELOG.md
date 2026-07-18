@@ -17,7 +17,8 @@
       a single invalid request error response.
     - Frames rejected at the transport edge, and the error responses they
       produce, do not appear in `protocolLogSink`, which now logs each
-      message re-encoded as JSON.
+      message re-encoded as JSON, falling back to `toString` for messages
+      which cannot be encoded.
     - On in-memory channels, `RpcException.data` is no longer normalized by a
       JSON round trip, so it can be an untyped map.
   - Separate server feature registration from the legacy protocol handshake.

@@ -193,12 +193,21 @@ base class MCPBase {
     Sink<String>? protocolLogSink,
   ) {
     if (protocolLogSink == null) return channel;
+    String encodeForLog(Map<String, Object?> data) {
+      try {
+        return jsonEncode(data);
+      } catch (_) {
+        // The log is diagnostic only, so a message which cannot be encoded
+        // must not fail the connection.
+        return '$data';
+      }
+    }
 
     return channel
         .transformStream(
           StreamTransformer.fromHandlers(
             handleData: (data, sink) {
-              protocolLogSink.add('<<< ($name) ${jsonEncode(data)}\n');
+              protocolLogSink.add('<<< ($name) ${encodeForLog(data)}\n');
               sink.add(data);
             },
           ),
@@ -206,7 +215,7 @@ base class MCPBase {
         .transformSink(
           StreamSinkTransformer.fromHandlers(
             handleData: (data, sink) {
-              protocolLogSink.add('>>> ($name) ${jsonEncode(data)}\n');
+              protocolLogSink.add('>>> ($name) ${encodeForLog(data)}\n');
               sink.add(data);
             },
           ),

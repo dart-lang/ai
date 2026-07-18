@@ -76,6 +76,24 @@ void main() {
     );
   });
 
+  test('protocol log survives unencodable messages', () async {
+    final serverLog = StreamController<String>();
+    final environment = TestEnvironment(
+      TestMCPClient(),
+      (c) => _BadMetaToolServer(c, protocolLogSink: serverLog.sink),
+    );
+    await environment.initializeServer();
+
+    expect(
+      serverLog.stream,
+      emitsThrough(allOf(startsWith('>>>'), contains('{1: kept}'))),
+    );
+    final result = await environment.serverConnection.callTool(
+      CallToolRequest(name: 'bad_meta_keys'),
+    );
+    expect((result.content.single as TextContent).text, 'kept');
+  });
+
   test('client and server can ping each other', () async {
     final environment = TestEnvironment(TestMCPClient(), TestMCPServer.new);
     await environment.initializeServer();
@@ -437,5 +455,25 @@ final class TestUnrecognizedVersionMcpServer extends TestMCPServer {
     final response = await super.initializeLegacy(request);
     (response as Map<String, Object?>)['protocolVersion'] = 'fooBar';
     return response;
+  }
+}
+
+/// A server whose only tool returns a result with non-string metadata keys,
+/// which cannot be JSON encoded.
+final class _BadMetaToolServer extends TestMCPServer with ToolsSupport {
+  _BadMetaToolServer(super.channel, {super.protocolLogSink});
+
+  @override
+  FutureOr<ServerCapabilities> initialize(
+    MCPServerInitialization initialization,
+  ) {
+    registerTool(
+      Tool(name: 'bad_meta_keys', inputSchema: ObjectSchema()),
+      (_) => CallToolResult.fromMap({
+        Keys.content: [TextContent(text: 'kept')],
+        Keys.meta: {1: 'kept'},
+      }),
+    );
+    return super.initialize(initialization);
   }
 }
