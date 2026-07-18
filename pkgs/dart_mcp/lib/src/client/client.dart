@@ -331,12 +331,13 @@ base class ServerConnection extends MCPBase {
       // If we are set up to try and auto handle url elicitation and we get
       // an error that the url elicitation is required, we will try and handle
       // it and then retry the request a single time.
+      final data = e.data;
       if (_elicitationUrlSupport?.autoHandleUrlElicitationRequired == true &&
-          e.code == McpErrorCodes.urlElicitationRequired) {
+          e.code == McpErrorCodes.urlElicitationRequired &&
+          data is Map) {
         // json_rpc_2 copies the error data into an untyped map when it
         // serializes the exception, so restore the typed view.
-        final elicitRequest =
-            (e.data as Map).cast<String, Object?>() as ElicitRequest;
+        final elicitRequest = data.cast<String, Object?>() as ElicitRequest;
         final elicitationComplete =
             elicitRequest.onElicitationComplete(this).firstOrNull;
         final elicitResult = await _elicitationUrlSupport!.handleElicitation(

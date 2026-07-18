@@ -37,6 +37,8 @@
   **not** add any transport; wire formats and HTTP support land separately.
 - `RootsTrackingSupport` no longer surfaces an unhandled error when the
   connection closes while a `listRoots` request is in flight.
+- The URL elicitation retry rethrows the original error when its data is not
+  a map, instead of failing with a type error.
 
 ## 0.5.2
 
