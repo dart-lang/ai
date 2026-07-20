@@ -4,6 +4,7 @@
 
 import 'dart:async';
 
+import 'package:checks/checks.dart';
 import 'package:dart_mcp/client.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:json_rpc_2/json_rpc_2.dart';
@@ -38,8 +39,8 @@ void main() {
           ),
         ),
       );
-      expect(result.action, ElicitationAction.accept);
-      expect(result.content, {'name': 'John Doe'});
+      check(result.action).equals(ElicitationAction.accept);
+      check(result.content).isNotNull().deepEquals({'name': 'John Doe'});
     });
   });
 
@@ -91,13 +92,15 @@ void main() {
           },
         );
 
-        expect(server.userHasCompletedUrlElicitation, false);
+        check(server.userHasCompletedUrlElicitation).isFalse();
         final result = await environment.serverConnection.callTool(
           CallToolRequest(name: 'test_tool'),
         );
 
-        expect(server.userHasCompletedUrlElicitation, true);
-        expect((result.content.first as TextContent).text, 'success');
+        check(server.userHasCompletedUrlElicitation).isTrue();
+        check(
+          result.content.first,
+        ).isA<TextContent>().has((t) => t.text, 'text').equals('success');
       },
     );
 
@@ -132,20 +135,17 @@ void main() {
         },
       );
 
-      await expectLater(
-        () => environment.serverConnection.callTool(
+      await check(
+        environment.serverConnection.callTool(
           CallToolRequest(name: 'test_tool'),
         ),
-        throwsA(
-          isA<RpcException>().having(
-            (e) => e.code,
-            'code',
-            McpErrorCodes.urlElicitationRequired,
-          ),
-        ),
+      ).throws<RpcException>(
+        (it) => it
+            .has((e) => e.code, 'code')
+            .equals(McpErrorCodes.urlElicitationRequired),
       );
 
-      expect(toolCallCount, 1);
+      check(toolCallCount).equals(1);
     });
   });
 }

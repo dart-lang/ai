@@ -2,6 +2,10 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:async';
+
+import 'package:async/async.dart';
+import 'package:checks/checks.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:test/test.dart';
 
@@ -15,26 +19,27 @@ void main() {
     );
     final initializeResult = await environment.initializeServer();
 
-    expect(initializeResult.capabilities.logging, Logging());
+    check(
+      initializeResult.capabilities.logging as Map<String, Object?>?,
+    ).isNotNull().deepEquals(Logging() as Map<String, Object?>);
 
     final serverConnection = environment.serverConnection;
     final server = environment.server;
 
-    expect(
+    check(
       server.loggingLevel,
-      LoggingLevel.warning,
-      reason: 'The default level is warning',
-    );
+      because: 'The default level is warning',
+    ).equals(LoggingLevel.warning);
 
     await serverConnection.setLogLevel(
       SetLevelRequest(level: LoggingLevel.debug),
     );
-    expect(server.loggingLevel, LoggingLevel.debug);
+    check(server.loggingLevel).equals(LoggingLevel.debug);
 
     await serverConnection.setLogLevel(
       SetLevelRequest(level: LoggingLevel.error),
     );
-    expect(server.loggingLevel, LoggingLevel.error);
+    check(server.loggingLevel).equals(LoggingLevel.error);
   });
 
   test('client can receive log messages', () async {
@@ -61,20 +66,29 @@ void main() {
         ),
     ];
 
-    expect(
-      serverConnection.onLog,
-      emitsInOrder([
-        for (var notification in notifications)
-          if (notification.level >= LoggingLevel.warning) notification,
-      ]),
-    );
+    final expectedNotifications = [
+      for (var notification in notifications)
+        if (notification.level >= LoggingLevel.warning) notification,
+    ];
 
-    expect(
-      serverConnection.onLog,
-      neverEmits([
-        for (var notification in notifications)
-          if (notification.level < LoggingLevel.warning) notification,
-      ]),
+    final queue1 = StreamQueue(serverConnection.onLog);
+    final queue2 = StreamQueue(serverConnection.onLog);
+
+    final inOrderFuture = check(queue1).inOrder([
+      for (var expected in expectedNotifications)
+        (Subject<StreamQueue<LoggingMessageNotification>> s) => s.emits(
+          (Subject<LoggingMessageNotification> e) => e
+              .has((x) => x as Map<String, Object?>, 'as Map')
+              .deepEquals(expected as Map<String, Object?>),
+        ),
+    ]);
+
+    final neverEmitsFuture = check(queue2).neverEmits(
+      (Subject<LoggingMessageNotification> e) =>
+          e
+              .has((x) => x.level, 'level')
+              .has((l) => l < LoggingLevel.warning, 'is less than warning')
+              .isTrue(),
     );
 
     for (var notification in notifications) {
@@ -88,8 +102,11 @@ void main() {
     /// Allow the notifications to propagate.
     await pumpEventQueue();
 
-    /// Closes the log stream so that `neverEmits` can complete above.
-    await environment.shutdown();
+    await inOrderFuture;
+    await queue1.cancel();
+
+    unawaited(environment.shutdown());
+    await neverEmitsFuture;
   });
 
   test('server can log functions for lazy evaluation', () async {
@@ -111,7 +128,16 @@ void main() {
         LoggingMessageNotification(level: LoggingLevel.warning, data: i),
     ];
 
-    expect(serverConnection.onLog, emitsInOrder(notifications));
+    final queue = StreamQueue(serverConnection.onLog);
+
+    final inOrderFuture = check(queue).inOrder([
+      for (var expected in notifications)
+        (Subject<StreamQueue<LoggingMessageNotification>> s) => s.emits(
+          (Subject<LoggingMessageNotification> e) => e
+              .has((x) => x as Map<String, Object?>, 'as Map')
+              .deepEquals(expected as Map<String, Object?>),
+        ),
+    ]);
 
     // A function with no arguments
     server.log(notifications[0].level, () => notifications[0].data);
@@ -122,28 +148,29 @@ void main() {
     // A function with an optional named argument
     server.log(notifications[2].level, ({int? x}) => notifications[2].data);
 
-    expect(
+    check(
       () => server.log(LoggingLevel.warning, () => null),
-      throwsA(isA<ArgumentError>()),
-      reason: 'Lazy message functions should not have a nullable return type',
-    );
+      because: 'Lazy message functions should not have a nullable return type',
+    ).throws<ArgumentError>();
 
-    expect(
+    check(
       () => server.log(LoggingLevel.warning, (int x) => 'hello'),
-      throwsA(isA<ArgumentError>()),
-      reason:
+      because:
           'Lazy message functions should not have required positional '
           'arguments',
-    );
+    ).throws<ArgumentError>();
 
-    expect(
+    check(
       () => server.log(LoggingLevel.warning, ({required int x}) => 'hello'),
-      throwsA(isA<ArgumentError>()),
-      reason: 'Lazy message functions should not have required named arguments',
-    );
+      because:
+          'Lazy message functions should not have required named arguments',
+    ).throws<ArgumentError>();
 
     // Below logging level, never gets evaluated.
     server.log(LoggingLevel.info, () => throw StateError('Unreachable'));
+
+    await inOrderFuture;
+    await queue.cancel();
   });
 }
 

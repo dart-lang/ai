@@ -7,6 +7,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:checks/checks.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:test/test.dart';
 
@@ -39,14 +40,18 @@ void main() {
     final expectedErrorsSet =
         expectedErrorsWithoutPaths.map(onlyKeepError).toSet();
 
-    expect(
-      actualErrorsStrippedSet,
-      equals(expectedErrorsSet),
-      reason:
+    check(
+      actualErrorsStrippedSet as Iterable<Object?>,
+      because:
           reason ??
           'Data: $data. Expected (paths ignored): $expectedErrorsSet. '
               'Actual (paths ignored): $actualErrorsStrippedSet',
-    );
+    ).unorderedMatches([
+      for (final expected in expectedErrorsSet)
+        (it) => it.isA<Map<String, Object?>>().deepEquals(
+          expected as Map<String, Object?>,
+        ),
+    ]);
   }
 
   /// Asserts that schema validation produces the exact expected errors, including error paths.
@@ -61,13 +66,14 @@ void main() {
     // Compare sets of full ValidationError objects.
     // This relies on ValidationError's equality being based on its
     // underlying map (including the path if present).
-    expect(
+    check(
       actualErrors.map((e) => e.toString()).toList()..sort(),
-      equals(expectedErrorsWithPaths.map((e) => e.toString()).toList()..sort()),
-      reason:
+      because:
           reason ??
           'Data: $data. Expected (exact): ${expectedErrorsWithPaths.map((e) => e.toString()).toSet()}. '
               'Actual (exact): ${actualErrors.map((e) => e.toString()).toSet()}',
+    ).deepEquals(
+      expectedErrorsWithPaths.map((e) => e.toString()).toList()..sort(),
     );
   }
 
@@ -86,7 +92,7 @@ void main() {
         minProperties: 1,
         maxProperties: 2,
       );
-      expect(schema, {
+      check(schema as Map<String, Object?>).deepEquals({
         'type': 'object',
         'title': 'Foo',
         'description': 'Bar',
@@ -108,7 +114,9 @@ void main() {
 
     test('ObjectSchema includes empty properties by default', () {
       final schema = ObjectSchema();
-      expect(schema, {'type': 'object', 'properties': <String, Schema>{}});
+      check(
+        schema as Map<String, Object?>,
+      ).deepEquals({'type': 'object', 'properties': <String, Schema>{}});
     });
 
     test('StringSchema', () {
@@ -121,7 +129,7 @@ void main() {
         defaultValue: 'test',
         format: StringFormat.dateTime,
       );
-      expect(schema, {
+      check(schema as Map<String, Object?>).deepEquals({
         'type': 'string',
         'title': 'Foo',
         'description': 'Bar',
@@ -132,7 +140,7 @@ void main() {
         'format': 'date-time',
       });
       // Ensure enum value uses the custom name.
-      expect(schema.format, StringFormat.dateTime);
+      check(schema.format).equals(StringFormat.dateTime);
     });
 
     test('NumberSchema', () {
@@ -145,7 +153,7 @@ void main() {
         exclusiveMaximum: 11,
         multipleOf: 2,
       );
-      expect(schema, {
+      check(schema as Map<String, Object?>).deepEquals({
         'type': 'number',
         'title': 'Foo',
         'description': 'Bar',
@@ -167,7 +175,7 @@ void main() {
         exclusiveMaximum: 11,
         multipleOf: 2,
       );
-      expect(schema, {
+      check(schema as Map<String, Object?>).deepEquals({
         'type': 'integer',
         'title': 'Foo',
         'description': 'Bar',
@@ -181,12 +189,16 @@ void main() {
 
     test('BooleanSchema', () {
       final schema = BooleanSchema(title: 'Foo', description: 'Bar');
-      expect(schema, {'type': 'boolean', 'title': 'Foo', 'description': 'Bar'});
+      check(
+        schema as Map<String, Object?>,
+      ).deepEquals({'type': 'boolean', 'title': 'Foo', 'description': 'Bar'});
     });
 
     test('NullSchema', () {
       final schema = NullSchema(title: 'Foo', description: 'Bar');
-      expect(schema, {'type': 'null', 'title': 'Foo', 'description': 'Bar'});
+      check(
+        schema as Map<String, Object?>,
+      ).deepEquals({'type': 'null', 'title': 'Foo', 'description': 'Bar'});
     });
 
     test('ListSchema', () {
@@ -200,7 +212,7 @@ void main() {
         maxItems: 10,
         uniqueItems: true,
       );
-      expect(schema, {
+      check(schema as Map<String, Object?>).deepEquals({
         'type': 'array',
         'title': 'Foo',
         'description': 'Bar',
@@ -223,7 +235,7 @@ void main() {
           description: 'Bar',
           values: {'a', 'b', 'c'},
         );
-        expect(schema, {
+        check(schema as Map<String, Object?>).deepEquals({
           'type': 'string',
           'title': 'Foo',
           'description': 'Bar',
@@ -241,7 +253,7 @@ void main() {
             EnumValueWithTitle(constValue: 'c', title: 'C'),
           ],
         );
-        expect(schema, {
+        check(schema as Map<String, Object?>).deepEquals({
           'type': 'string',
           'title': 'Foo',
           'description': 'Bar',
@@ -259,7 +271,7 @@ void main() {
           description: 'Bar',
           values: ['a', 'b', 'c'],
         );
-        expect(schema, {
+        check(schema as Map<String, Object?>).deepEquals({
           'type': 'array',
           'title': 'Foo',
           'description': 'Bar',
@@ -280,7 +292,7 @@ void main() {
             EnumValueWithTitle(constValue: 'c', title: 'C'),
           ],
         );
-        expect(schema, {
+        check(schema as Map<String, Object?>).deepEquals({
           'type': 'array',
           'title': 'Foo',
           'description': 'Bar',
@@ -305,7 +317,7 @@ void main() {
         oneOf: [StringSchema(), IntegerSchema()],
         not: [StringSchema()],
       );
-      expect(schema, {
+      check(schema as Map<String, Object?>).deepEquals({
         'type': 'boolean',
         'title': 'Foo',
         'description': 'Bar',
@@ -333,14 +345,14 @@ void main() {
         title: 'twelve',
         description: 'its the number 12!',
       );
-      expect(schema, {
+      check(schema as Map<String, Object?>).deepEquals({
         'const': 12,
         'title': 'twelve',
         'description': 'its the number 12!',
       });
-      expect(schema.constValue, 12);
-      expect(schema.title, 'twelve');
-      expect(schema.description, 'its the number 12!');
+      check(schema.constValue).equals(12);
+      check(schema.title).equals('twelve');
+      check(schema.description).equals('its the number 12!');
     });
   });
 
@@ -2080,10 +2092,10 @@ void main() {
       );
       final request = CallToolRequest(name: 'foo', arguments: {'bar': 'baz'});
       final result = await serverConnection.callTool(request);
-      expect(result.content, hasLength(1));
-      expect(result.content.first, isA<TextContent>());
-      final textContent = result.content.first as TextContent;
-      expect(textContent.text, 'baz');
+      check(result.content).length.equals(1);
+      check(
+        result.content.first,
+      ).isA<TextContent>().has((t) => t.text, 'text').equals('baz');
     });
 
     test('can return a resource link', () async {
@@ -2118,13 +2130,12 @@ void main() {
       );
       final request = CallToolRequest(name: 'foo', arguments: {});
       final result = await serverConnection.callTool(request);
-      expect(result.content, hasLength(1));
-      expect(result.content.first, isA<ResourceLink>());
-      final resourceLink = result.content.first as ResourceLink;
-      expect(resourceLink.name, 'foo');
-      expect(resourceLink.description, 'a description');
-      expect(resourceLink.uri, 'https://google.com');
-      expect(resourceLink.mimeType, 'text/html');
+      check(result.content).length.equals(1);
+      check(result.content.first).isA<ResourceLink>()
+        ..has((r) => r.name, 'name').equals('foo')
+        ..has((r) => r.description, 'description').equals('a description')
+        ..has((r) => r.uri, 'uri').equals('https://google.com')
+        ..has((r) => r.mimeType, 'mimeType').equals('text/html');
     });
 
     test('can return structured content', () async {
@@ -2159,7 +2170,7 @@ void main() {
       );
       final request = CallToolRequest(name: 'foo', arguments: {});
       final result = await serverConnection.callTool(request);
-      expect(result.structuredContent, {'bar': 'baz'});
+      check(result.structuredContent).isNotNull().deepEquals({'bar': 'baz'});
     });
 
     test('can return embedded resources', () async {
@@ -2200,34 +2211,33 @@ void main() {
       );
       final request = CallToolRequest(name: 'foo', arguments: {});
       final result = await serverConnection.callTool(request);
-      expect(result.content, hasLength(2));
-      expect(
-        result.content,
-        containsAll([
-          isA<EmbeddedResource>()
-              .having((r) => r.type, 'type', EmbeddedResource.expectedType)
-              .having(
-                (r) => r.resource,
-                'resource',
-                isA<TextResourceContents>().having(
-                  (r) => r.text,
-                  'text',
-                  'Really awesome text',
-                ),
-              ),
-          isA<EmbeddedResource>()
-              .having((r) => r.type, 'type', 'resource')
-              .having(
-                (r) => r.resource,
-                'resource',
-                isA<BlobResourceContents>().having(
-                  (r) => r.blob,
-                  'blob',
-                  base64Encode([1, 2, 3, 4, 5, 6, 7, 8]),
-                ),
-              ),
-        ]),
-      );
+      check(result.content).length.equals(2);
+      check(result.content as List<Object?>).unorderedMatches([
+        (it) => it
+            .isA<EmbeddedResource>()
+            .has((r) => r as Map<String, Object?>, 'as Map')
+            .deepEquals(
+              EmbeddedResource(
+                    resource: TextResourceContents(
+                      uri: 'file:///my_resource',
+                      text: 'Really awesome text',
+                    ),
+                  )
+                  as Map<String, Object?>,
+            ),
+        (it) => it
+            .isA<EmbeddedResource>()
+            .has((r) => r as Map<String, Object?>, 'as Map')
+            .deepEquals(
+              EmbeddedResource(
+                    resource: BlobResourceContents(
+                      uri: 'file:///my_resource',
+                      blob: base64Encode([1, 2, 3, 4, 5, 6, 7, 8]),
+                    ),
+                  )
+                  as Map<String, Object?>,
+            ),
+      ]);
     });
   });
 }

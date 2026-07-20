@@ -2,6 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'package:checks/checks.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:test/test.dart';
 
@@ -14,7 +15,7 @@ void main() {
     );
 
     final map = result as Map<String, Object?>;
-    expect(map.containsKey('instructions'), isFalse);
+    check(map).not((m) => m.containsKey('instructions'));
   });
 
   test('nonnull instructions', () async {
@@ -26,6 +27,6 @@ void main() {
     );
 
     final map = result as Map<String, Object?>;
-    expect(map['instructions'], equals('foo'));
+    check(map)['instructions'].equals('foo');
   });
 }

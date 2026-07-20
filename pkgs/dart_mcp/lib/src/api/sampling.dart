@@ -138,7 +138,8 @@ extension type CreateMessageResult.fromMap(Map<String, Object?> _value)
 }
 
 /// Describes a message issued to or received from an LLM API.
-extension type SamplingMessage.fromMap(Map<String, Object?> _value) {
+extension type SamplingMessage.fromMap(Map<String, Object?> _value)
+    implements Object {
   factory SamplingMessage({required Role role, required Content content}) =>
       SamplingMessage.fromMap({Keys.role: role.name, Keys.content: content});
 

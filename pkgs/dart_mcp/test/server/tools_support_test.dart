@@ -4,6 +4,8 @@
 
 import 'dart:async';
 
+import 'package:async/async.dart';
+import 'package:checks/checks.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:test/test.dart';
 
@@ -64,15 +66,14 @@ void main() {
       TestMCPServerWithTools.new,
     );
     final initializeResult = await environment.initializeServer();
-    expect(
-      initializeResult.capabilities.tools,
-      equals(Tools(listChanged: true)),
-    );
+    check(
+      initializeResult.capabilities.tools as Map<String, Object?>,
+    ).deepEquals(Tools(listChanged: true) as Map<String, Object?>);
 
     final serverConnection = environment.serverConnection;
 
     final toolsResult = await serverConnection.listTools();
-    expect(toolsResult.tools.length, 2);
+    check(toolsResult.tools).has((t) => t.length, 'length').equals(2);
 
     final tool = toolsResult.tools.firstWhere(
       (tool) => tool.name == TestMCPServerWithTools.helloWorld.name,
@@ -81,14 +82,15 @@ void main() {
     final result = await serverConnection.callTool(
       CallToolRequest(name: tool.name),
     );
-    expect(result.isError, isNot(true));
-    expect(result.content.single, TestMCPServerWithTools.helloWorldContent);
-
-    expect(
-      await serverConnection.listTools(ListToolsRequest()),
-      toolsResult,
-      reason: 'can list tools with a non-null request object',
+    check(result.isError).not((it) => it.equals(true));
+    check(result.content.single as Map<String, Object?>).deepEquals(
+      TestMCPServerWithTools.helloWorldContent as Map<String, Object?>,
     );
+
+    check(
+      (await serverConnection.listTools(ListToolsRequest()))
+          as Map<String, Object?>,
+    ).deepEquals(toolsResult as Map<String, Object?>);
   });
 
   test('client can subscribe to tool list updates from the server', () async {
@@ -101,14 +103,7 @@ void main() {
     final serverConnection = environment.serverConnection;
     final server = environment.server;
 
-    expect(
-      serverConnection.toolListChanged,
-      emitsInOrder([
-        ToolListChangedNotification(),
-        ToolListChangedNotification(),
-        null,
-      ]),
-    );
+    final toolListChangedQueue = StreamQueue(serverConnection.toolListChanged);
 
     server.registerTool(
       Tool(name: 'foo', inputSchema: ObjectSchema()),
@@ -121,8 +116,22 @@ void main() {
     // Give the notifications time to be received.
     await pumpEventQueue();
 
+    check(
+      await toolListChangedQueue.next as Map<String, Object?>,
+    ).deepEquals(ToolListChangedNotification() as Map<String, Object?>);
+    check(
+      await toolListChangedQueue.next as Map<String, Object?>,
+    ).deepEquals(ToolListChangedNotification() as Map<String, Object?>);
+    check(await toolListChangedQueue.next).isNull();
+
+    final hasNextFuture = check(
+      toolListChangedQueue.hasNext,
+    ).completes((it) => it.isFalse());
+
     // Need to manually close so the stream matchers can complete.
     await environment.shutdown();
+
+    await hasNextFuture;
   });
 
   test('schema validation failure returns an error', () async {
@@ -141,13 +150,12 @@ void main() {
         arguments: const {},
       ),
     );
-    expect(result.isError, isTrue);
-    expect(result.content.single, isA<TextContent>());
+    check(result.isError).isNotNull().isTrue();
+    check(result.content.single).isA<TextContent>();
     final textContent = result.content.single as TextContent;
-    expect(
+    check(
       textContent.text,
-      contains('Required property "message" is missing at path #root'),
-    );
+    ).contains('Required property "message" is missing at path #root');
 
     // Call with wrong type for 'message'.
     result = await serverConnection.callTool(
@@ -156,13 +164,12 @@ void main() {
         arguments: {'message': 123},
       ),
     );
-    expect(result.isError, isTrue);
-    expect(result.content.single, isA<TextContent>());
+    check(result.isError).isNotNull().isTrue();
+    check(result.content.single).isA<TextContent>();
     final textContent2 = result.content.single as TextContent;
-    expect(
+    check(
       textContent2.text,
-      contains('Value `123` is not of type `String` at path #root["message"]'),
-    );
+    ).contains('Value `123` is not of type `String` at path #root["message"]');
   });
 }
 

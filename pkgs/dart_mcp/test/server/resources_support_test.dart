@@ -5,6 +5,7 @@
 import 'dart:async';
 
 import 'package:async/async.dart';
+import 'package:checks/checks.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:test/test.dart';
 
@@ -18,31 +19,25 @@ void main() {
     );
     final initializeResult = await environment.initializeServer();
 
-    expect(
-      initializeResult.capabilities.resources,
-      equals(Resources(listChanged: true, subscribe: true)),
+    check(
+      initializeResult.capabilities.resources as Map<String, Object?>,
+    ).deepEquals(
+      Resources(listChanged: true, subscribe: true) as Map<String, Object?>,
     );
 
     final serverConnection = environment.serverConnection;
 
     final resourcesResult = await serverConnection.listResources();
-    expect(resourcesResult.resources.length, 1);
+    check(resourcesResult.resources).has((r) => r.length, 'length').equals(1);
 
     final resource = resourcesResult.resources.single;
 
     final result = await serverConnection.readResource(
       ReadResourceRequest(uri: resource.uri),
     );
-    expect(
-      result.contents.single,
-      isA<ResourceContents>()
-          .having((c) => c.isText, 'isText', true)
-          .having(
-            (c) => (c as TextResourceContents).text,
-            'text',
-            'hello world!',
-          ),
-    );
+    final contents = result.contents.single;
+    check(contents.isText).isTrue();
+    check((contents as TextResourceContents).text).equals('hello world!');
   });
 
   test('client can subscribe to resource updates from the server', () async {
@@ -74,10 +69,14 @@ void main() {
     final resources = await serverConnection.listResources(
       ListResourcesRequest(),
     );
-    expect(
-      resources.resources,
-      unorderedEquals([fooResource, TestMCPServerWithResources.helloWorld]),
-    );
+    check(resources.resources as List<Object?>).unorderedMatches([
+      (it) => it.isA<Map<String, Object?>>().deepEquals(
+        fooResource as Map<String, Object?>,
+      ),
+      (it) => it.isA<Map<String, Object?>>().deepEquals(
+        TestMCPServerWithResources.helloWorld as Map<String, Object?>,
+      ),
+    ]);
 
     final resourceChangedQueue = StreamQueue(serverConnection.resourceUpdated);
     await serverConnection.subscribeResource(
@@ -87,27 +86,17 @@ void main() {
     fooContents = 'baz';
     server.updateResource(fooResource);
 
-    expect(
-      await resourceChangedQueue.next,
-      isA<ResourceUpdatedNotification>().having(
-        (n) => n.uri,
-        'uri',
-        fooResource.uri,
-      ),
-    );
+    check(await resourceChangedQueue.next)
+        .isA<ResourceUpdatedNotification>()
+        .has((n) => n.uri, 'uri')
+        .equals(fooResource.uri);
 
-    expect(
-      await serverConnection.readResource(
-        ReadResourceRequest(uri: fooResource.uri),
-      ),
-      isA<ReadResourceResult>().having(
-        (r) => r.contents.single,
-        'contents',
-        isA<TextResourceContents>()
-            .having((c) => c.text, 'text', 'baz')
-            .having((c) => c.uri, 'uri', fooResource.uri),
-      ),
+    final readResult = await serverConnection.readResource(
+      ReadResourceRequest(uri: fooResource.uri),
     );
+    check(readResult.contents.single).isA<TextResourceContents>()
+      ..has((c) => c.text, 'text').equals('baz')
+      ..has((c) => c.uri, 'uri').equals(fooResource.uri);
 
     await serverConnection.unsubscribeResource(
       UnsubscribeRequest(uri: fooResource.uri),
@@ -116,23 +105,29 @@ void main() {
     fooContents = 'zap';
     server.updateResource(fooResource);
 
-    expect(resourceChangedQueue.hasNext, completion(false));
+    final resourceChangedHasNext = check(
+      resourceChangedQueue.hasNext,
+    ).completes((it) => it.isFalse());
 
     server.removeResource(fooResource.uri);
 
-    expect(
-      await resourceListChangedQueue.next,
-      ResourceListChangedNotification(),
-    );
+    check(
+      await resourceListChangedQueue.next as Map<String, Object?>,
+    ).deepEquals(ResourceListChangedNotification() as Map<String, Object?>);
 
     server.sendNotification(ResourceListChangedNotification.methodName);
-    expect(await resourceListChangedQueue.next, null);
+    check(await resourceListChangedQueue.next).isNull();
 
-    expect(resourceListChangedQueue.hasNext, completion(false));
+    final resourceListChangedHasNext = check(
+      resourceListChangedQueue.hasNext,
+    ).completes((it) => it.isFalse());
 
     /// We need to manually shut down to so that the `hasNext` futures can
     /// complete.
     await environment.shutdown();
+
+    await resourceChangedHasNext;
+    await resourceListChangedHasNext;
   });
 
   test('resource change notifications are throttled', () async {
@@ -166,7 +161,9 @@ void main() {
     // Should get exactly two notifications even though we have more resources,
     // one initial notification and one after the throttle delay.
     await resourceListChangedQueue.take(2);
-    expect(resourceListChangedQueue.hasNext, completion(false));
+    final resourceListChangedHasNext = check(
+      resourceListChangedQueue.hasNext,
+    ).completes((it) => it.isFalse());
     await pumpEventQueue();
 
     final resourceChangedQueue = StreamQueue(serverConnection.resourceUpdated);
@@ -185,19 +182,20 @@ void main() {
     // Only two should make it through, one at the start and one after the
     // timeout.
     for (var i = 0; i < 2; i++) {
-      expect(
-        await resourceChangedQueue.next,
-        isA<ResourceUpdatedNotification>().having(
-          (n) => n.uri,
-          'uri',
-          resource.uri,
-        ),
-      );
+      check(await resourceChangedQueue.next)
+          .isA<ResourceUpdatedNotification>()
+          .has((n) => n.uri, 'uri')
+          .equals(resource.uri);
     }
-    expect(resourceChangedQueue.hasNext, completion(false));
+    final resourceChangedHasNext = check(
+      resourceChangedQueue.hasNext,
+    ).completes((it) => it.isFalse());
     await pumpEventQueue();
 
     await environment.shutdown();
+
+    await resourceListChangedHasNext;
+    await resourceChangedHasNext;
   });
 
   test(
@@ -216,18 +214,18 @@ void main() {
 
       final templatesResponse = await serverConnection.listResourceTemplates();
 
-      expect(
-        templatesResponse.resourceTemplates.single,
-        TestMCPServerWithResources.packageUriTemplate,
+      check(
+        templatesResponse.resourceTemplates.single as Map<String, Object?>,
+      ).deepEquals(
+        TestMCPServerWithResources.packageUriTemplate as Map<String, Object?>,
       );
 
       final readResourceResponse = await serverConnection.readResource(
         ReadResourceRequest(uri: 'package:foo/foo.dart'),
       );
-      expect(
+      check(
         (readResourceResponse.contents.single as TextResourceContents).text,
-        'hello world!',
-      );
+      ).equals('hello world!');
     },
   );
 }
