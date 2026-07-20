@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.0-beta.3
+
+- feat: Add some basic analytics tracking of commands ran and errors.
+
 ## 1.0.0-beta.2
 
 - feat: Add a `create` command to assist with creating skills for users of the
