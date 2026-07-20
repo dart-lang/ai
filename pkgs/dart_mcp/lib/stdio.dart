@@ -45,7 +45,7 @@ StreamChannel<Map<String, Object?>> stdioChannel({
 StreamChannel<Map<String, Object?>> jsonRpcChannel(
   StreamChannel<String> channel,
 ) {
-  void answer(int code, String message, Object? request) {
+  void answerWithError(int code, String message, Object? request) {
     channel.sink.add(
       jsonEncode(RpcException(code, message).serialize(request)),
     );
@@ -54,17 +54,19 @@ StreamChannel<Map<String, Object?>> jsonRpcChannel(
   final stream =
       channel.stream
           .map<Object?>(jsonDecode)
-          .handleError((Object error) {
-            final formatException = error as FormatException;
-            answer(
+          .handleError((Object error, StackTrace stackTrace) {
+            if (error is! FormatException) {
+              Error.throwWithStackTrace(error, stackTrace);
+            }
+            answerWithError(
               error_code.PARSE_ERROR,
-              'Invalid JSON: ${formatException.message}',
-              formatException.source,
+              'Invalid JSON: ${error.message}',
+              error.source,
             );
           }, test: (error) => error is FormatException)
           .where((message) {
             if (message is Map<String, Object?>) return true;
-            answer(
+            answerWithError(
               error_code.INVALID_REQUEST,
               message is List
                   ? 'Batch messages are not supported. Batching was removed '

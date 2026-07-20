@@ -335,8 +335,10 @@ base class ServerConnection extends MCPBase {
       if (_elicitationUrlSupport?.autoHandleUrlElicitationRequired == true &&
           e.code == McpErrorCodes.urlElicitationRequired &&
           data is Map) {
-        // json_rpc_2 copies the error data into an untyped map when it
-        // serializes the exception, so restore the typed view.
+        // `RpcException.serialize` spreads the error data into an untyped map
+        // literal (adding a `request` key), so the map arriving here is not a
+        // `Map<String, Object?>` and a representation type check against
+        // `ElicitRequest` would fail. Restore the typed view instead.
         final elicitRequest = data.cast<String, Object?>() as ElicitRequest;
         final elicitationComplete =
             elicitRequest.onElicitationComplete(this).firstOrNull;

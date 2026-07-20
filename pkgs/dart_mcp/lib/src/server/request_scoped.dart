@@ -211,8 +211,11 @@ Map<String, Object?> _withServerInfo(
   if (existingMeta != null && existingMeta.containsKey(Keys.serverInfoMeta)) {
     return response;
   }
-  // The response embeds the very maps the handler returned, which may be
-  // retained by the handler or even unmodifiable, so stamp copies of them.
+  // With decoded channels there is no decode step between the server and this
+  // dispatcher, so `result` can be the very map a handler returned. Handlers
+  // may retain that map, and it may not even be modifiable (the built-in ping
+  // handler's `EmptyResult()` is backed by a const map), so stamp copies
+  // instead of modifying it in place.
   return {
     ...response,
     Keys.result: {
