@@ -70,6 +70,39 @@ void main() {
       expect(_result(response)[Keys.meta], 'not a map');
     });
 
+    test('answers even when metadata has non-string keys', () async {
+      final harness = _DispatcherHarness();
+      final response = await harness.dispatch(
+        _callTool('bad_meta_keys'),
+        _initialization(),
+      );
+
+      // Server info stamping is skipped rather than throwing and wedging.
+      expect(_result(response)[Keys.meta], {1: 'kept'});
+    });
+
+    test('stamps server info on an unmodifiable result', () async {
+      final harness = _DispatcherHarness();
+      // The built-in ping handler returns `EmptyResult()`, which is backed
+      // by a const map.
+      final response = await harness.dispatch(_ping(), _initialization());
+
+      final meta = _result(response)[Keys.meta] as Map<String, Object?>;
+      expect(meta[Keys.serverInfoMeta], isNotNull);
+    });
+
+    test('leaves the result map a handler returned unmodified', () async {
+      final harness = _DispatcherHarness();
+      final response = await harness.dispatch(
+        _callTool('retained'),
+        _initialization(),
+      );
+
+      expect(_result(response)[Keys.meta], isNotNull);
+      final retained = harness.servers.single.retainedResult!;
+      expect(retained, isNot(contains(Keys.meta)));
+    });
+
     test('declares client capabilities per request', () async {
       final harness = _DispatcherHarness();
       await harness.dispatch(
@@ -409,6 +442,10 @@ final class _DispatcherTestServer extends TestMCPServer
   /// How many [testNotification] notifications this server received.
   int testNotifications = 0;
 
+  /// The result map the `retained` tool returned, to assert that server info
+  /// stamping does not write into it.
+  Map<String, Object?>? retainedResult;
+
   @override
   FutureOr<ServerCapabilities> initialize(
     MCPServerInitialization initialization,
@@ -439,6 +476,19 @@ final class _DispatcherTestServer extends TestMCPServer
         Keys.meta: 'not a map',
       }),
     );
+    registerTool(
+      Tool(name: 'bad_meta_keys', inputSchema: ObjectSchema()),
+      (_) => CallToolResult.fromMap({
+        Keys.content: [TextContent(text: 'bad')],
+        Keys.meta: {1: 'kept'},
+      }),
+    );
+    registerTool(Tool(name: 'retained', inputSchema: ObjectSchema()), (_) {
+      retainedResult = {
+        Keys.content: [TextContent(text: 'kept')],
+      };
+      return CallToolResult.fromMap(retainedResult!);
+    });
     registerTool(Tool(name: 'notify', inputSchema: ObjectSchema()), (_) {
       notifyProgress(
         ProgressNotification(progressToken: ProgressToken(1), progress: 50),
@@ -501,6 +551,12 @@ Map<String, Object?> _listTools() => {
   Keys.jsonrpc: '2.0',
   Keys.id: 1,
   Keys.method: ListToolsRequest.methodName,
+};
+
+Map<String, Object?> _ping() => {
+  Keys.jsonrpc: '2.0',
+  Keys.id: 1,
+  Keys.method: PingRequest.methodName,
 };
 
 MCPServerInitialization _initialization({ClientCapabilities? capabilities}) =>

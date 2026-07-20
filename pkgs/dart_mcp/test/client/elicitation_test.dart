@@ -6,7 +6,9 @@ import 'dart:async';
 
 import 'package:dart_mcp/client.dart';
 import 'package:dart_mcp/server.dart';
+import 'package:dart_mcp/src/utils/constants.dart';
 import 'package:json_rpc_2/json_rpc_2.dart';
+import 'package:stream_channel/stream_channel.dart';
 import 'package:test/test.dart';
 
 import '../test_utils.dart';
@@ -146,6 +148,49 @@ void main() {
       );
 
       expect(toolCallCount, 1);
+    });
+
+    test('rethrows when the error data is not a map', () async {
+      final clientController = StreamController<Map<String, Object?>>();
+      final serverController = StreamController<Map<String, Object?>>();
+      final client = TestMCPClientWithElicitationUrlSupport(
+        elicitationHandler: (request, connection) async {
+          fail('should not elicit without an elicitation request');
+        },
+      );
+      addTearDown(client.shutdown);
+      final connection = client.connectServer(
+        StreamChannel.withGuarantees(
+          clientController.stream,
+          serverController.sink,
+        ),
+      );
+      // Answer like a non-Dart server which attaches something other than an
+      // elicitation request as the error data.
+      serverController.stream.listen((request) {
+        clientController.add({
+          Keys.jsonrpc: '2.0',
+          Keys.id: request[Keys.id],
+          Keys.error: {
+            Keys.code: McpErrorCodes.urlElicitationRequired,
+            Keys.message: 'Url required',
+            Keys.data: 'not a map',
+          },
+        });
+      });
+
+      await expectLater(
+        () => connection.callTool(CallToolRequest(name: 'test_tool')),
+        throwsA(
+          isA<RpcException>()
+              .having(
+                (e) => e.code,
+                'code',
+                McpErrorCodes.urlElicitationRequired,
+              )
+              .having((e) => e.data, 'data', 'not a map'),
+        ),
+      );
     });
   });
 }

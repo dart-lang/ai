@@ -87,7 +87,7 @@ final class MCPClientWithSamplingSupport extends MCPClient
   /// The server will log the responses it gets to sampling messages.
   @override
   ServerConnection connectServer(
-    StreamChannel<String> channel, {
+    StreamChannel<Map<String, Object?>> channel, {
     Sink<String>? protocolLogSink,
   }) {
     final connection = super.connectServer(

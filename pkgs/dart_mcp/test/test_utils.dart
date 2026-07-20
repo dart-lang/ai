@@ -12,20 +12,22 @@ import 'package:test/test.dart';
 class TestEnvironment<Client extends MCPClient, Server extends MCPServer> {
   /// The client side of the communication channel - the stream is the incoming
   /// data and the sink is outgoing data.
-  final clientController = StreamController<String>();
+  final clientController = StreamController<Map<String, Object?>>();
 
   /// The server side of the communication channel - the stream is the incoming
   /// data and the sink is outgoing data.
-  final serverController = StreamController<String>();
+  final serverController = StreamController<Map<String, Object?>>();
 
-  late final clientChannel = StreamChannel<String>.withCloseGuarantee(
-    serverController.stream,
-    clientController.sink,
-  );
-  late final serverChannel = StreamChannel<String>.withCloseGuarantee(
-    clientController.stream,
-    serverController.sink,
-  );
+  late final clientChannel =
+      StreamChannel<Map<String, Object?>>.withCloseGuarantee(
+        serverController.stream,
+        clientController.sink,
+      );
+  late final serverChannel =
+      StreamChannel<Map<String, Object?>>.withCloseGuarantee(
+        clientController.stream,
+        serverController.sink,
+      );
 
   final Client client;
   late final Server server;
@@ -37,7 +39,7 @@ class TestEnvironment<Client extends MCPClient, Server extends MCPServer> {
   /// You may manually shut down the environment by calling [shutdown].
   TestEnvironment(
     this.client,
-    Server Function(StreamChannel<String>) createServer, {
+    Server Function(StreamChannel<Map<String, Object?>>) createServer, {
     Sink<String>? protocolLogSink,
   }) {
     server = createServer(serverChannel);
