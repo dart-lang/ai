@@ -35,6 +35,8 @@ jobs:
           - windows-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
       - name: Cache Pub hosted dependencies
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
@@ -42,7 +44,7 @@ jobs:
           key: "pub-cache-hosted;${{ matrix.flutterSdk }};${{ matrix.os }}"
       # We need the flutter SDK in order to run the counter app for integration
       # testing.
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           channel: ${{ matrix.flutterSdk }}
           cache: true
