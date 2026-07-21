@@ -134,6 +134,7 @@ void main() {
                 endsWith(executableName),
                 'pub',
                 'remove',
+                '--',
                 'foo',
                 'bar',
               ],

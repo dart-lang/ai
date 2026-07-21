@@ -179,12 +179,7 @@ void main() {
     });
 
     test('launch_app forwards additional args to flutter run', () async {
-      const extraArgs = [
-        '--flavor',
-        'dev',
-        '--dart-define-from-file',
-        'env.json',
-      ];
+      const extraArgs = ['--flavor', 'dev', '--dart-define=FOO=bar'];
       mockFlutterRun(args: extraArgs);
       final result = await client.callTool(
         CallToolRequest(
@@ -307,7 +302,7 @@ void main() {
       expect(
         textOutput.first.text,
         allOf(
-          contains('managed flutter run options'),
+          contains('disallowed flutter run options'),
           contains('`--device-id`'),
         ),
       );
