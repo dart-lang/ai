@@ -489,6 +489,9 @@ base mixin GrepSupport
         rejected.add(arg);
       }
     }
+    if (expectValue && args.isNotEmpty) {
+      rejected.add(args.last);
+    }
     return rejected;
   }
 }
