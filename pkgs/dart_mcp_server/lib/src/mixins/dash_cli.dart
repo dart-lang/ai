@@ -127,6 +127,14 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
           details: 'Directory must be a relative path.',
         ),
       );
+    } else if (!p.isWithin('.', directory)) {
+      errors.add(
+        ValidationError(
+          ValidationErrorType.custom,
+          path: [ParameterNames.directory],
+          details: 'Directory must be a relative path within the project root.',
+        ),
+      );
     }
     final platforms =
         ((args[ParameterNames.platform] as List?)?.cast<String>() ?? [])
@@ -151,6 +159,20 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
       }
     }
 
+    final template = args[ParameterNames.template] as String?;
+    if (template != null &&
+        (template.startsWith('-') ||
+            template.contains(' ') ||
+            template.contains('\\n'))) {
+      errors.add(
+        ValidationError(
+          ValidationErrorType.custom,
+          path: [ParameterNames.template],
+          details: 'Template must not start with `-` or contain whitespace.',
+        ),
+      );
+    }
+
     if (errors.isNotEmpty) {
       return CallToolResult(
         content: [
@@ -159,8 +181,6 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
         isError: true,
       )..failureReason = CallToolFailureReason.argumentError;
     }
-
-    final template = args[ParameterNames.template] as String?;
 
     final commandArgs = [
       'create',
