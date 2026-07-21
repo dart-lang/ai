@@ -192,7 +192,8 @@ void main() {
     expect(
       content.text,
       contains(
-        'Refusing to run ripgrep: the following arguments are not permitted: --pre, echo',
+        'Refusing to run ripgrep: the following arguments are not permitted: '
+        '--pre, echo',
       ),
     );
   });
