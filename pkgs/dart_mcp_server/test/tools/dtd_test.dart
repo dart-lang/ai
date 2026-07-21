@@ -109,6 +109,18 @@ void main() {
         });
       });
 
+      test('disallows connecting to non-loopback address', () async {
+        final result = await testHarness.connectToDtd(
+          dtdUri: 'ws://example.com/dtd',
+          expectError: true,
+        );
+        expect(result.isError, isTrue);
+        expect(
+          (result.content.first as TextContent).text,
+          contains('Refusing to connect to invalid DTD URI'),
+        );
+      });
+
       test('Can list running DTD URIs', () async {
         // Ensure we can see another one that is not directly connected to
         // the test harness.

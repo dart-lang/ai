@@ -100,7 +100,14 @@ void main() {
           expect(result.isError, isNot(true));
           expect(testProcessManager.commandsRan, [
             equalsCommand((
-              command: [endsWith(executableName), 'pub', 'add', 'foo', 'bar'],
+              command: [
+                endsWith(executableName),
+                'pub',
+                'add',
+                '--',
+                'foo',
+                'bar',
+              ],
               workingDirectory: testRoot.path,
             )),
           ]);
@@ -303,6 +310,26 @@ void main() {
               expect(testProcessManager.commandsRan, isEmpty);
             });
           }
+
+          test('for package name starting with -', () async {
+            final request = CallToolRequest(
+              name: dartPubTool.name,
+              arguments: {
+                ParameterNames.command: 'add',
+                ParameterNames.packageNames: ['-foo'],
+              },
+            );
+            final result = await testHarness.callTool(
+              request,
+              expectError: true,
+            );
+
+            expect(
+              (result.content.single as TextContent).text,
+              contains('Invalid `packageNames` entries: -foo.'),
+            );
+            expect(testProcessManager.commandsRan, isEmpty);
+          });
         });
       });
     });

@@ -115,6 +115,43 @@ void main() {
       testHarness.mcpClient.addRoot(projectRootObject);
     });
 
+    test('launch_app rejects unapproved root', () async {
+      final result = await client.callTool(
+        CallToolRequest(
+          name: 'launch_app',
+          arguments: {
+            'root': 'file:///unapproved_root/project',
+            'device': 'test-device',
+          },
+        ),
+      );
+      expect(result.isError, isTrue);
+      final content = (result.content.first as TextContent).text;
+      expect(
+        content,
+        contains('must be under one of the registered project roots'),
+      );
+    });
+
+    test('launch_app rejects disallowed args', () async {
+      final result = await client.callTool(
+        CallToolRequest(
+          name: 'launch_app',
+          arguments: {
+            'root': projectRootObject.uri,
+            'device': 'test-device',
+            'args': ['--local-engine', 'src'],
+          },
+        ),
+      );
+      expect(result.isError, isTrue);
+      final content = (result.content.first as TextContent).text;
+      expect(
+        content,
+        contains('contains disallowed flutter run options: `--local-engine`'),
+      );
+    });
+
     test('launch_app tool returns DTD URI and PID on success', () async {
       mockFlutterRun();
       final result = await client.callTool(
