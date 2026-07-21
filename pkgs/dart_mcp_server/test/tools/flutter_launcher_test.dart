@@ -25,6 +25,7 @@ void main() {
   group('Flutter App Tools', () {
     late MemoryFileSystem fileSystem;
     const projectRoot = '/project';
+    late Root projectRootObject;
     final dtdUri = 'ws://127.0.0.1:12345/abcdefg=';
     final vmServiceUri = 'ws://127.0.0.1:54321/';
     final processPid = 54321;
@@ -110,6 +111,8 @@ void main() {
       );
       server = testHarness.serverConnectionPair.server!;
       client = testHarness.serverConnectionPair.serverConnection;
+      projectRootObject = testHarness.rootForPath(projectRoot);
+      testHarness.mcpClient.addRoot(projectRootObject);
     });
 
     test('launch_app tool returns DTD URI and PID on success', () async {
@@ -117,7 +120,7 @@ void main() {
       final result = await client.callTool(
         CallToolRequest(
           name: 'launch_app',
-          arguments: {'root': projectRoot, 'device': 'test-device'},
+          arguments: {'root': projectRootObject.uri, 'device': 'test-device'},
         ),
       );
       expect(result.content, <Content>[
@@ -150,7 +153,7 @@ void main() {
         CallToolRequest(
           name: 'launch_app',
           arguments: {
-            'root': projectRoot,
+            'root': projectRootObject.uri,
             'device': 'test-device',
             'args': extraArgs,
           },
@@ -183,7 +186,7 @@ void main() {
         CallToolRequest(
           name: 'launch_app',
           arguments: {
-            'root': projectRoot,
+            'root': projectRootObject.uri,
             'device': 'test-device',
             'args': const <String>[],
           },
@@ -216,7 +219,7 @@ void main() {
         CallToolRequest(
           name: 'launch_app',
           arguments: {
-            'root': projectRoot,
+            'root': projectRootObject.uri,
             'device': 'test-device',
             'args': flavorArgs,
           },
@@ -248,7 +251,7 @@ void main() {
         CallToolRequest(
           name: 'launch_app',
           arguments: {
-            'root': projectRoot,
+            'root': projectRootObject.uri,
             'device': 'test-device',
             'args': ['--device-id', 'other-device'],
           },
@@ -278,7 +281,7 @@ void main() {
         CallToolRequest(
           name: 'launch_app',
           arguments: {
-            'root': projectRoot,
+            'root': projectRootObject.uri,
             'device': 'test-device',
             'args': ['--target=lib/alt_main.dart'],
           },
@@ -304,7 +307,7 @@ void main() {
         final result = await client.callTool(
           CallToolRequest(
             name: 'launch_app',
-            arguments: {'root': projectRoot, 'device': 'test-device'},
+            arguments: {'root': projectRootObject.uri, 'device': 'test-device'},
           ),
         );
 
@@ -331,7 +334,7 @@ void main() {
       final result = await client.callTool(
         CallToolRequest(
           name: 'launch_app',
-          arguments: {'root': projectRoot, 'device': 'test-device'},
+          arguments: {'root': projectRootObject.uri, 'device': 'test-device'},
         ),
       );
 
@@ -357,7 +360,7 @@ void main() {
       final result = await client.callTool(
         CallToolRequest(
           name: 'launch_app',
-          arguments: {'root': projectRoot, 'device': 'test-device'},
+          arguments: {'root': projectRootObject.uri, 'device': 'test-device'},
         ),
       );
 
@@ -380,7 +383,7 @@ void main() {
         CallToolRequest(
           name: 'launch_app',
           arguments: {
-            'root': projectRoot,
+            'root': projectRootObject.uri,
             'device': 'test-device',
             'timeout': 1,
           },
@@ -424,7 +427,7 @@ void main() {
       await client.callTool(
         CallToolRequest(
           name: 'launch_app',
-          arguments: {'root': projectRoot, 'device': 'test-device'},
+          arguments: {'root': projectRootObject.uri, 'device': 'test-device'},
         ),
       );
 
@@ -454,7 +457,7 @@ void main() {
       await client.callTool(
         CallToolRequest(
           name: 'launch_app',
-          arguments: {'root': projectRoot, 'device': 'test-device'},
+          arguments: {'root': projectRootObject.uri, 'device': 'test-device'},
         ),
       );
 
