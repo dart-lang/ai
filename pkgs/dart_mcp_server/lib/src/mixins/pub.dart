@@ -72,9 +72,37 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
       )..failureReason ??= CallToolFailureReason.argumentError;
     }
 
+    // The `packageNames` list is forwarded directly into the `dart pub` argv.
+    // A caller (or an LLM acting on injected instructions) could otherwise
+    // smuggle pub flags such as `--directory` here to operate on a path outside
+    // the approved roots. Reject anything that looks like an option, and pass
+    // the remaining names after a `--` separator so pub's argument parser
+    // always treats them as positional package descriptors.
+    if (packageNames != null) {
+      final invalid = packageNames.where((name) => name.startsWith('-'));
+      if (invalid.isNotEmpty) {
+        return CallToolResult(
+          content: [
+            TextContent(
+              text:
+                  'Invalid `packageNames` entries: ${invalid.join(', ')}. '
+                  'Entries must be package names (optionally with a version '
+                  'constraint), not command-line options.',
+            ),
+          ],
+          isError: true,
+        )..failureReason ??= CallToolFailureReason.argumentError;
+      }
+    }
+
     return runCommandInRoots(
       request,
-      arguments: ['pub', command, ...?packageNames],
+      arguments: [
+        'pub',
+        command,
+        if (packageNames != null && packageNames.isNotEmpty) '--',
+        ...?packageNames,
+      ],
       commandDescription: 'dart|flutter pub $command',
       processManager: processManager,
       knownRoots: await roots,
