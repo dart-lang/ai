@@ -78,6 +78,7 @@ base mixin GrepSupport
         .cast<String>();
     final grepArgs = (args[ParameterNames.arguments] as List<Object?>)
         .cast<String>();
+    final searchDir = args[ParameterNames.searchDir] as String? ?? 'lib';
 
     // Note that we don't ever set `isError: true` except for unhandled errors,
     // because some packages might work, while others fail. We just add a note
@@ -88,7 +89,6 @@ base mixin GrepSupport
         resultContent.add(packageNotFoundText(name));
         continue;
       }
-      final searchDir = args[ParameterNames.searchDir] as String? ?? 'lib';
       try {
         resultContent.add(
           await runRipGrep(
@@ -118,6 +118,19 @@ base mixin GrepSupport
     final searchUri = searchDir.isEmpty
         ? package.root
         : package.root.resolve(searchDir.withTrailingSlash);
+    // Don't allow the `searchDir` to escape the package root.
+    if (!isUnderRoot(
+      Root(uri: package.root.toString()),
+      searchUri.toString(),
+      fileSystem,
+    )) {
+      return TextContent(
+        text:
+            'The searchDir "$searchDir" attempted to escape the root of '
+            'package `${package.name}`.',
+      );
+    }
+
     final packagePath = cleanFilePath(searchUri.path);
     final result = await processManager.run([
       ripGrepExecutable,
