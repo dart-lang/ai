@@ -7,6 +7,7 @@
 - Add additional failure reasons to tool call analytics.
 - Move `SdkSupport` to `implements` instead of `on` in
   `DartToolingDaemonSupport`.
+- Harden various tools against compromised agents.
 
 ## 1.0.2
 
