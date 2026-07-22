@@ -8,6 +8,7 @@
 - Move `SdkSupport` to `implements` instead of `on` in
   `DartToolingDaemonSupport`.
 - Harden various tools against compromised agents.
+- Use shared logic from unified_analytics to parse the Dart version.
 
 ## 1.0.2
 
