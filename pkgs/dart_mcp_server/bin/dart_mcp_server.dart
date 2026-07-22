@@ -20,7 +20,6 @@ void main(List<String> args) async {
   final analytics = tool != null
       ? Analytics(
           tool: tool,
-          // The actual version is the part up to the first space.
           dartVersion: parseDartSDKVersion(Platform.version),
         )
       : null;
