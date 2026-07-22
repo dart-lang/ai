@@ -8,6 +8,7 @@
 - Move `SdkSupport` to `implements` instead of `on` in
   `DartToolingDaemonSupport`.
 - Harden various tools against compromised agents.
+- Log error types for uncaught errors.
 
 ## 1.0.2
 

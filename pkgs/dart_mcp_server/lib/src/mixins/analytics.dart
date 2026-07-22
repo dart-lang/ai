@@ -115,66 +115,65 @@ base mixin AnalyticsEvents
   }
 
   @override
-  /// We override this to do our own validation - this is mostly a copy of the
-  /// normal implementation except we also attach a failure reason for
-  /// analytics purposes.
+  /// We override this with our own validation and error handling for analytics
+  /// purposes.
   void registerTool(
     Tool tool,
     FutureOr<CallToolResult> Function(CallToolRequest) impl, {
     bool validateArguments = true,
   }) {
-    super.registerTool(
-      tool,
-      validateArguments
-          ? (request) {
-              final errors = tool.inputSchema.validate(
-                request.arguments ?? const <String, Object?>{},
-              );
-              if (errors.isNotEmpty) {
-                return CallToolResult(
-                  content: [
-                    for (final error in errors)
-                      Content.text(text: error.toErrorString()),
-                  ],
-                  isError: true,
-                )..failureReason = CallToolFailureReason.argumentError;
-              }
-              return impl(request);
-            }
-          : impl,
-      validateArguments: false,
-    );
-  }
-
-  @override
-  Future<CallToolResult> callTool(CallToolRequest request) async {
-    final watch = Stopwatch()..start();
-    CallToolResult? result;
-    try {
-      return result = await super.callTool(request);
-    } finally {
-      watch.stop();
-      var toolName = request.name;
-      if (request.arguments?[ParameterNames.command]
-          case final String command) {
-        toolName += '.$command';
+    super.registerTool(tool, (request) async {
+      if (validateArguments) {
+        final errors = tool.inputSchema.validate(
+          request.arguments ?? const <String, Object?>{},
+        );
+        if (errors.isNotEmpty) {
+          return CallToolResult(
+            content: [
+              for (final error in errors)
+                Content.text(text: error.toErrorString()),
+            ],
+            isError: true,
+          )..failureReason = CallToolFailureReason.argumentError;
+        }
       }
-      trySendAnalyticsEvent(
-        Event.dartMCPEvent(
-          client: clientInfo.name,
-          clientVersion: clientInfo.version,
-          serverVersion: implementation.version,
-          type: AnalyticsEvent.callTool.name,
-          additionalData: CallToolMetrics(
-            tool: toolName,
-            success: result != null && result.isError != true,
-            elapsedMilliseconds: watch.elapsedMilliseconds,
-            failureReason: result?.failureReason,
-            extraToolMetrics: result?.customMetrics,
+      final watch = Stopwatch()..start();
+      CallToolResult? result;
+      String? errorType;
+      try {
+        return result = await impl(request);
+      } catch (e) {
+        errorType = e.runtimeType.toString();
+        rethrow;
+      } finally {
+        watch.stop();
+        var toolName = request.name;
+        if (request.arguments?[ParameterNames.command]
+            case final String command) {
+          toolName += '.$command';
+        }
+        trySendAnalyticsEvent(
+          Event.dartMCPEvent(
+            client: clientInfo.name,
+            clientVersion: clientInfo.version,
+            serverVersion: implementation.version,
+            type: AnalyticsEvent.callTool.name,
+            additionalData: CallToolMetrics(
+              tool: toolName,
+              success: result != null && result.isError != true,
+              elapsedMilliseconds: watch.elapsedMilliseconds,
+              failureReason:
+                  result?.failureReason ??
+                  (errorType != null
+                      ? CallToolFailureReason.unhandledError
+                      : null),
+              extraToolMetrics: result?.customMetrics,
+              errorType: errorType,
+            ),
           ),
-        ),
-      );
-    }
+        );
+      }
+    }, validateArguments: false);
   }
 
   void trySendAnalyticsEvent(Event event) {
