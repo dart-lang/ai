@@ -88,6 +88,33 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
         request.arguments?[ParameterNames.arguments] as Map<String, Object?>?;
     final hasReporterArg =
         testRunnerArguments?.containsKey('reporter') ?? false;
+    final knownRoots = await roots;
+
+    // `file-reporter` (`<reporter>:<path>`) and `coverage` (`<dir>`) cause the
+    // test runner to write to a caller-supplied path. Apply the same
+    // root-containment check that `paths` already gets so these can't be used
+    // to write outside the registered project roots.
+    final outputPaths = <String, String>{
+      if (testRunnerArguments?['coverage'] case final String dir)
+        'coverage': dir,
+      if (testRunnerArguments?['file-reporter'] case final String spec)
+        // Format is `<reporter>:<filepath>`; validate only the filepath part.
+        'file-reporter': spec.substring(spec.indexOf(':') + 1),
+    };
+    for (final MapEntry(key: arg, value: path) in outputPaths.entries) {
+      if (!knownRoots.any((root) => isUnderRoot(root, path, fileSystem))) {
+        return CallToolResult(
+          content: [
+            Content.text(
+              text:
+                  'The `$arg` path "$path" is not allowed to escape the '
+                  'registered project roots.',
+            ),
+          ],
+          isError: true,
+        )..failureReason = CallToolFailureReason.invalidPath;
+      }
+    }
     return runCommandInRoots(
       request,
       arguments: [
@@ -97,7 +124,7 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
       ],
       commandDescription: 'dart|flutter test',
       processManager: processManager,
-      knownRoots: await roots,
+      knownRoots: knownRoots,
       fileSystem: fileSystem,
       sdk: sdk,
     );
@@ -127,6 +154,14 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
           details: 'Directory must be a relative path.',
         ),
       );
+    } else if (!p.isWithin('.', directory)) {
+      errors.add(
+        ValidationError(
+          ValidationErrorType.custom,
+          path: [ParameterNames.directory],
+          details: 'Directory must be a relative path within the project root.',
+        ),
+      );
     }
     final platforms =
         ((args[ParameterNames.platform] as List?)?.cast<String>() ?? [])
@@ -151,6 +186,20 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
       }
     }
 
+    final template = args[ParameterNames.template] as String?;
+    if (template != null &&
+        (template.startsWith('-') ||
+            template.contains(' ') ||
+            template.contains('\\n'))) {
+      errors.add(
+        ValidationError(
+          ValidationErrorType.custom,
+          path: [ParameterNames.template],
+          details: 'Template must not start with `-` or contain whitespace.',
+        ),
+      );
+    }
+
     if (errors.isNotEmpty) {
       return CallToolResult(
         content: [
@@ -159,8 +208,6 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
         isError: true,
       )..failureReason = CallToolFailureReason.argumentError;
     }
-
-    final template = args[ParameterNames.template] as String?;
 
     final commandArgs = [
       'create',
@@ -232,6 +279,8 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
         jsonDecode(_dartTestCliSchema) as Map<String, Object?>;
     const blocklist = {'color', 'debug', 'help', 'pause-after-load', 'version'};
     cliSchemaJson.removeWhere((argument, _) => blocklist.contains(argument));
+    // Don't allow additional args.
+    cliSchemaJson['additionalProperties'] = false;
     final cliSchema = Schema.fromMap(cliSchemaJson);
     return Tool(
         name: ToolNames.runTests.name,
@@ -239,7 +288,7 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
             'Run Dart or Flutter tests with an agent centric UX. '
             'ALWAYS use instead of `dart test` or `flutter test` shell '
             'commands.',
-        annotations: ToolAnnotations(title: 'Run tests', readOnlyHint: true),
+        annotations: ToolAnnotations(title: 'Run tests'),
         inputSchema: Schema.object(
           properties: {
             ParameterNames.roots: rootsSchema(supportsPaths: true),

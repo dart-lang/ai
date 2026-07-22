@@ -4,6 +4,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show InternetAddress;
 
 import 'package:collection/collection.dart';
 import 'package:dart_mcp/server.dart';
@@ -429,7 +430,42 @@ base mixin DartToolingDaemonSupport
       )..failureReason = CallToolFailureReason.mustSpecifyDtdUri;
     }
 
-    return _connectToDtdSingle(Uri.parse(uriString));
+    // The `uri` argument originates from the LLM and is therefore
+    // attacker-influenced (prompt injection). DTD instances always run on the
+    // local machine, so restrict connections to loopback hosts to prevent this
+    // tool from being used to open outbound WebSocket connections to arbitrary
+    // remote endpoints.
+    final uri = Uri.tryParse(uriString);
+    if (uri == null) {
+      return CallToolResult(
+        isError: true,
+        content: [Content.text(text: 'Failed to parse uri $uriString')],
+      )..failureReason = CallToolFailureReason.argumentError;
+    }
+    if (_checkIsAllowedDtdUri(uri) case final error?) {
+      return error;
+    }
+
+    return _connectToDtdSingle(uri);
+  }
+
+  /// Checks whether [uri] is an acceptable target for [_connect].
+  ///
+  /// Only `ws`/`wss` URIs targeting the local machine are allowed; the Dart
+  /// Tooling Daemon always listens on a loopback interface.
+  ///
+  /// If [uri] is invalid, returns an error result.
+  static CallToolResult? _checkIsAllowedDtdUri(Uri uri) {
+    if (uri.scheme != 'ws' && uri.scheme != 'wss') {
+      return _invalidDtdUri;
+    }
+    final host = uri.host;
+    if (host.isEmpty) return _invalidDtdUri;
+    if (host == 'localhost') return null;
+
+    final ip = InternetAddress.tryParse(host);
+    if (ip == null || !ip.isLoopback) return _invalidDtdUri;
+    return null;
   }
 
   /// Lists the available Dart Tooling Daemon instances.
@@ -1647,6 +1683,18 @@ base mixin DartToolingDaemonSupport
     ],
     isError: true,
   )..failureReason = CallToolFailureReason.givenVmServiceUri;
+
+  static final _invalidDtdUri = CallToolResult(
+    isError: true,
+    content: [
+      Content.text(
+        text:
+            'Refusing to connect to invalid DTD URI. URIs must use the '
+            'ws:// or wss:// scheme and a loopback host (127.0.0.1, ::1, '
+            'or localhost).',
+      ),
+    ],
+  )..failureReason = CallToolFailureReason.argumentError;
 
   static final runtimeErrorsScheme = 'runtime-errors';
 
