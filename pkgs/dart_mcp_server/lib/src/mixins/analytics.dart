@@ -123,12 +123,14 @@ base mixin AnalyticsEvents
     bool validateArguments = true,
   }) {
     super.registerTool(tool, (request) async {
+      final watch = Stopwatch()..start();
+      CallToolResult? result;
       if (validateArguments) {
         final errors = tool.inputSchema.validate(
           request.arguments ?? const <String, Object?>{},
         );
         if (errors.isNotEmpty) {
-          return CallToolResult(
+          result = CallToolResult(
             content: [
               for (final error in errors)
                 Content.text(text: error.toErrorString()),
@@ -137,11 +139,10 @@ base mixin AnalyticsEvents
           )..failureReason = CallToolFailureReason.argumentError;
         }
       }
-      final watch = Stopwatch()..start();
-      CallToolResult? result;
       String? errorType;
       try {
-        return result = await impl(request);
+        // Only call the tool if we don't already have an error result.
+        return result ??= await impl(request);
       } catch (e) {
         errorType = e.runtimeType.toString();
         rethrow;
