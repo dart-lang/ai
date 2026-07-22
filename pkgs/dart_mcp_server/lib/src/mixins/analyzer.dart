@@ -41,6 +41,9 @@ base mixin DartAnalyzerSupport
   @visibleForTesting
   Process? get liveAnalysisServer => _liveAnalysisServer;
 
+  /// Whether the LSP server supports the `dart/workspace/analysis/complete` request.
+  bool _supportsWorkspaceAnalysisComplete = false;
+
   /// The current diagnostics for a given file.
   Map<Uri, List<lsp.Diagnostic>> diagnostics = {};
 
@@ -235,6 +238,12 @@ base mixin DartAnalyzerSupport
     }
 
     if (initializeResult != null) {
+      final experimental = initializeResult.capabilities.experimental;
+      if (experimental is Map &&
+          experimental.containsKey('workspaceAnalysisComplete')) {
+        _supportsWorkspaceAnalysisComplete = true;
+      }
+
       // Checks that we can set workspaces on the LSP server.
       final workspaceSupport =
           initializeResult.capabilities.workspace?.workspaceFolders;
@@ -350,15 +359,10 @@ base mixin DartAnalyzerSupport
         // as a confirmation to the LLM that it was respected.
         messages.add(TextContent(text: 'Applied quick fixes'));
 
-        if (_doneAnalyzing == null) {
-          // Wait a bit for the new analysis to start if not currently
-          // analyzing.
-          await _analysisStart.future.timeout(
-            const Duration(seconds: 1),
-            onTimeout: () {},
-          );
-        }
-        await _doneAnalyzing?.future;
+        await _waitForAnalysisToComplete(
+          analysisServer,
+          debounceDelay: const Duration(seconds: 1),
+        );
         applyFixesWatch.stop();
       }
 
@@ -602,7 +606,7 @@ base mixin DartAnalyzerSupport
         await _updateRootsToLspServer();
       }
 
-      await _doneAnalyzing?.future;
+      await _waitForAnalysisToComplete(_analysisServerConnection!);
 
       watch.stop();
       return await callback(
@@ -614,6 +618,24 @@ base mixin DartAnalyzerSupport
       // Restore the inactivity timer if all requests are done.
       _activeLspRequests--;
       _resetInactivityTimer();
+    }
+  }
+
+  /// Waits for analysis to complete using either the custom `dart/workspace/analysis/complete`
+  /// request (if supported) or by relying on `$/analyzerStatus` push notifications.
+  Future<void> _waitForAnalysisToComplete(
+    Peer analysisServer, {
+    Duration? debounceDelay,
+  }) async {
+    if (debounceDelay != null) {
+      // Unconditionally wait for the debounce delay if provided.
+      await Future<void>.delayed(debounceDelay);
+    }
+
+    if (_supportsWorkspaceAnalysisComplete) {
+      await analysisServer.sendRequest('dart/workspace/analysis/complete');
+    } else {
+      await _doneAnalyzing?.future;
     }
   }
 
@@ -638,6 +660,7 @@ base mixin DartAnalyzerSupport
 
     _liveAnalysisServer = null;
     _analysisServerConnection = null;
+    _supportsWorkspaceAnalysisComplete = false;
 
     // Reset analysis related state.
     diagnostics.clear();
