@@ -30,7 +30,7 @@ class SkillsCommandRunner extends CommandRunner<void> {
       )
       ..addFlag(
         'version',
-        defaultsTo: false,
+        negatable: false,
         help: 'Print the current version of this tool and exit',
       );
   }
