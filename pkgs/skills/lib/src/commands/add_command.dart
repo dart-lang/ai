@@ -79,25 +79,26 @@ class AddCommand extends SkillsCommand {
     );
     if (agents.isEmpty) return;
 
-    final validRepos = <GitRepo>[];
-    if (await gitRunner.isAvailable) {
-      final gitSync = GitSync(gitRunner: gitRunner, repos: gitRepos.toList());
-      await gitSync.sync(rootPath, onProgress: logger.info);
-
-      for (final repo in gitRepos) {
-        final repoDir = Directory(gitRepoPath(rootPath, repo));
-        if (await repoDir.exists()) {
-          validRepos.add(repo);
-        } else {
-          logger.severe(
-            'Failed to clone or sync git repository: ${repo.cloneUrl}',
-          );
-        }
-      }
-      if (validRepos.isEmpty) return;
-    } else {
-      validRepos.addAll(gitRepos);
+    if (!await gitRunner.isAvailable) {
+      logger.severe('Git is required to add git skill repositories.');
+      return;
     }
+
+    final validRepos = <GitRepo>[];
+    final gitSync = GitSync(gitRunner: gitRunner, repos: gitRepos.toList());
+    await gitSync.sync(rootPath, onProgress: logger.info);
+
+    for (final repo in gitRepos) {
+      final repoDir = Directory(gitRepoPath(rootPath, repo));
+      if (await repoDir.exists()) {
+        validRepos.add(repo);
+      } else {
+        logger.severe(
+          'Failed to clone or sync git repository: ${repo.cloneUrl}',
+        );
+      }
+    }
+    if (validRepos.isEmpty) return;
 
     if (isGlobal) {
       // Add the entry to the global config if not present.
