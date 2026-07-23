@@ -842,6 +842,9 @@ class OrphanedSkill implements ScannedSkill {
   String? get skillPath => null;
 
   @override
+  String? get path => null;
+
+  @override
   String get sourceUri => gitUrl ?? 'package:${packageName!}';
 
   OrphanedSkill({required String sourceUri, required this.skillName})

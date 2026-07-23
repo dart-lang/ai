@@ -28,12 +28,16 @@ class ScannedSkill {
 
   final bool isGlobal;
 
+  /// Relative path within the source repo or package (e.g. "skills/my-skill").
+  final String? path;
+
   const ScannedSkill({
     this.packageName,
     this.gitUrl,
     required this.skillName,
     required this.skillPath,
     this.isGlobal = false,
+    this.path,
   });
 
   String get sourceUri => gitUrl ?? 'package:$packageName';
@@ -99,11 +103,13 @@ class SkillScanner {
         continue;
       }
 
+      final pathInPackage = p.relative(entity.path, from: package.rootPath);
       skills.add(
         ScannedSkill(
           packageName: package.name,
           skillName: skillName,
           skillPath: entity.path,
+          path: pathInPackage,
         ),
       );
     }

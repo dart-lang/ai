@@ -1,3 +1,7 @@
+// Copyright (c) 2026, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -27,6 +31,10 @@ enum Agent {
     Agent.generic => ['antigravity', 'codex'],
     _ => [],
   };
+
+  /// Formatted label including aliases (e.g. "generic (antigravity, codex)").
+  String get label =>
+      '$cliName${cliAliases.isEmpty ? '' : ' (${cliAliases.join(', ')})'}';
 
   /// Returns the absolute skills directory path for this agent within [projectPath].
   String skillsPath(String projectPath) =>

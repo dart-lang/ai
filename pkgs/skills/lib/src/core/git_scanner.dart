@@ -68,6 +68,7 @@ class GitScanner {
 
       final skillDir = entity.parent;
       final skillName = p.basename(skillDir.path);
+      final pathInRepo = p.relative(skillDir.path, from: repoDir.path);
 
       skills.add(
         ScannedSkill(
@@ -75,6 +76,7 @@ class GitScanner {
           skillName: skillName,
           skillPath: skillDir.path,
           isGlobal: isGlobal,
+          path: pathInRepo,
         ),
       );
     }

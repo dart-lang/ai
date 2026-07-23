@@ -276,12 +276,14 @@ class InstalledSkillEntry {
   final DateTime installedAt;
   final String? contentHash;
   final bool isInstalled;
+  final String? path;
 
   const InstalledSkillEntry({
     required this.name,
     required this.installedAt,
     this.contentHash,
     this.isInstalled = true,
+    this.path,
   });
 
   factory InstalledSkillEntry.fromJson(Map<String, dynamic> json) {
@@ -290,6 +292,7 @@ class InstalledSkillEntry {
       installedAt: DateTime.parse(json['installedAt'] as String),
       contentHash: json['contentHash'] as String?,
       isInstalled: json['isInstalled'] as bool? ?? true,
+      path: json['path'] as String?,
     );
   }
 
@@ -299,6 +302,7 @@ class InstalledSkillEntry {
       'installedAt': installedAt.toUtc().toIso8601String(),
       if (contentHash != null) 'contentHash': contentHash,
       if (!isInstalled) 'isInstalled': false,
+      if (path != null) 'path': path,
     };
   }
 }
