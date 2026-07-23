@@ -9,6 +9,7 @@
   `DartToolingDaemonSupport`.
 - Harden various tools against compromised agents.
 - Use shared logic from unified_analytics to parse the Dart version.
+- Log error types for uncaught errors.
 
 ## 1.0.2
 

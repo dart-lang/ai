@@ -230,6 +230,38 @@ void main() {
       );
     });
 
+    test('are sent for tool calls that throw errors', () async {
+      analytics.sentEvents.clear();
+
+      final tool = Tool(name: 'hello', inputSchema: Schema.object())
+        ..categories = [FeatureCategory.cli];
+      server.registerTool(tool, (_) => throw StateError('uh oh!'));
+      final result = await testHarness.mcpServerConnection.callTool(
+        CallToolRequest(name: tool.name),
+      );
+      expect(result.isError, true);
+      expect(
+        analytics.sentEvents.last,
+        isA<Event>()
+            .having((e) => e.eventName, 'eventName', DashEvent.dartMCPEvent)
+            .having(
+              (e) => e.eventData,
+              'eventData',
+              equals({
+                'client': server.clientInfo.name,
+                'clientVersion': server.clientInfo.version,
+                'serverVersion': server.implementation.version,
+                'type': AnalyticsEvent.callTool.name,
+                'tool': tool.name,
+                'success': false,
+                'failureReason': 'unhandledError',
+                'errorType': 'StateError',
+                'elapsedMilliseconds': isA<int>(),
+              }),
+            ),
+      );
+    });
+
     test('includes the command in the tool name if present', () async {
       analytics.sentEvents.clear();
       final tool = Tool(
