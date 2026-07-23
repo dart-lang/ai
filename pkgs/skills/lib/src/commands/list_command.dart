@@ -43,7 +43,7 @@ class ListCommand extends SkillsCommand {
       final String header;
       if (agentObj != null) {
         final adapter = createAgentAdapter(agentObj, rootPath, null);
-        final installDir = p.relative(adapter.skillsDirectory, from: rootPath);
+        final installDir = p.split(p.relative(adapter.skillsDirectory, from: rootPath)).join('/');
         header = '  ${agentObj.label} (installed at $installDir):';
       } else {
         header = '  $agentName:';

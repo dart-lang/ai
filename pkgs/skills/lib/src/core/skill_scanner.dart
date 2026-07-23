@@ -103,7 +103,7 @@ class SkillScanner {
         continue;
       }
 
-      final pathInPackage = p.relative(entity.path, from: package.rootPath);
+      final pathInPackage = p.split(p.relative(entity.path, from: package.rootPath)).join('/');
       skills.add(
         ScannedSkill(
           packageName: package.name,

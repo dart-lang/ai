@@ -68,7 +68,7 @@ class GitScanner {
 
       final skillDir = entity.parent;
       final skillName = p.basename(skillDir.path);
-      final pathInRepo = p.relative(skillDir.path, from: repoDir.path);
+      final pathInRepo = p.split(p.relative(skillDir.path, from: repoDir.path)).join('/');
 
       skills.add(
         ScannedSkill(
