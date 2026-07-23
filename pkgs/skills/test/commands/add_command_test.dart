@@ -148,5 +148,37 @@ void main() {
         isTrue,
       );
     });
+
+    test(
+      'does not add to manifest or config when repo sync fails and git is available',
+      () async {
+        final addCommandWithGit = AddCommand(
+          dialogSupport: fakeDialogSupport,
+          gitRunner: const GitRunner(),
+        );
+        final gitRunnerRunner = SkillsCommandRunner('skills', 'Test')
+          ..addCommand(addCommandWithGit);
+
+        await gitRunnerRunner.run([
+          'add',
+          '--directory',
+          projectPath,
+          '--agent',
+          'cursor',
+          'bad/nonexistent_repo_for_test',
+        ]);
+
+        final localFile = File(SkillManifest.pathIn(projectPath));
+        final manifest = await SkillManifest.loadOrEmpty(localFile);
+        expect(
+          manifest
+              .sourceUrisForAgent('cursor')
+              .containsKey(
+                'https://github.com/bad/nonexistent_repo_for_test.git',
+              ),
+          isFalse,
+        );
+      },
+    );
   });
 }

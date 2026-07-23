@@ -7,6 +7,7 @@ import 'package:skills/src/models/skill_manifest.dart';
 import '../core/dialog_support.dart';
 import '../core/git_repos.dart';
 import '../core/git_runner.dart';
+import '../core/git_sync.dart';
 import '../models/global_config.dart';
 
 import 'options.dart';
@@ -78,13 +79,33 @@ class AddCommand extends SkillsCommand {
     );
     if (agents.isEmpty) return;
 
+    final validRepos = <GitRepo>[];
+    if (await gitRunner.isAvailable) {
+      final gitSync = GitSync(gitRunner: gitRunner, repos: gitRepos.toList());
+      await gitSync.sync(rootPath, onProgress: logger.info);
+
+      for (final repo in gitRepos) {
+        final repoDir = Directory(gitRepoPath(rootPath, repo));
+        if (await repoDir.exists()) {
+          validRepos.add(repo);
+        } else {
+          logger.severe(
+            'Failed to clone or sync git repository: ${repo.cloneUrl}',
+          );
+        }
+      }
+      if (validRepos.isEmpty) return;
+    } else {
+      validRepos.addAll(gitRepos);
+    }
+
     if (isGlobal) {
       // Add the entry to the global config if not present.
       final globalConfigPath = GlobalConfig.globalPath;
       final globalConfigFile = File(globalConfigPath);
       var globalConfig = await GlobalConfig.loadOrEmpty(globalConfigFile);
 
-      for (var repo in gitRepos) {
+      for (var repo in validRepos) {
         if (!globalConfig.gitRepos.any((r) => r.cloneUrl == repo.cloneUrl)) {
           globalConfig = globalConfig.withGitRepo(repo);
           logger.info('Added ${repo.cloneUrl} to global config.');
@@ -96,7 +117,7 @@ class AddCommand extends SkillsCommand {
       final localFile = manifestFile(workspace.rootPath);
       var manifest = await SkillManifest.loadOrEmpty(localFile);
       for (var agent in agents) {
-        for (var repo in gitRepos) {
+        for (var repo in validRepos) {
           if (manifest
               .sourceUrisForAgent(agent.cliName)
               .containsKey(repo.cloneUrl)) {
@@ -118,7 +139,7 @@ class AddCommand extends SkillsCommand {
       workspace: workspace,
       dialogSupport: dialogSupport,
       usage: usage,
-      sourceUris: {for (var repo in gitRepos) repo.cloneUrl},
+      sourceUris: {for (var repo in validRepos) repo.cloneUrl},
       skillNames: skillNames,
       allFlag: allFlag,
       gitRunner: gitRunner,

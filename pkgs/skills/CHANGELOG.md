@@ -2,6 +2,8 @@
 
 ## 1.0.0-wip
 
+- Fix bug where failing to clone a git repository in `skills add` still saved
+  it to configuration/manifest files.
 - Add a --version flag.
 - JSON encode descriptions in the `create` command.
 
