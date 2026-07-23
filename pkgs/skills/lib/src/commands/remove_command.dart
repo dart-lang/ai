@@ -121,8 +121,11 @@ class RemoveCommand extends SkillsCommand {
             if (sourcesToRemove.isEmpty || sourcesToRemove.contains(sourceUri))
               ...entry.skills.map((skill) => skill.name),
       }.toList()..sort();
+      final options = potentialSkills
+          .map((name) => formatSkillName(name))
+          .toList();
       final selectedIndices = await _dialogSupport.showMultiSelectDialog(
-        potentialSkills,
+        options,
         title: 'Select skills to remove',
       );
       if (selectedIndices != null) {
