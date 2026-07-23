@@ -119,12 +119,16 @@ final class CallToolMetrics extends CustomMetrics {
   /// Extra metrics reported by the given tool that was called.
   final CustomMetrics? extraToolMetrics;
 
+  /// The runtime type of an exception if thrown.
+  final String? errorType;
+
   CallToolMetrics({
     required this.tool,
     required this.success,
     required this.elapsedMilliseconds,
     required this.failureReason,
     required this.extraToolMetrics,
+    required this.errorType,
   });
 
   @override
@@ -133,6 +137,7 @@ final class CallToolMetrics extends CustomMetrics {
     _success: success,
     _elapsedMilliseconds: elapsedMilliseconds,
     _failureReason: ?failureReason?.name,
+    _errorType: ?errorType,
     ...?extraToolMetrics?.toMap(),
   };
 }
@@ -189,6 +194,7 @@ extension WithCustomMetrics on CallToolResult {
 }
 
 const _elapsedMilliseconds = 'elapsedMilliseconds';
+const _errorType = 'errorType';
 const _failureReason = 'failureReason';
 const _kind = 'kind';
 const _length = 'length';
