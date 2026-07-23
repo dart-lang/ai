@@ -1,9 +1,10 @@
 name: skills
 description: >
   Install AI skills from your Dart and Flutter package deps into your IDE,
-  so Antigravity, Claude, Codex, Cursor, and other agents 
+  so Antigravity, Claude, Codex, Cursor, and other agents
   know how to use your stack.
-version: 1.0.0-beta.4
+# Must be kept in sync with lib/src/core/version.dart
+version: 1.0.0-wip
 repository: https://github.com/dart-lang/ai/tree/main/pkgs/skills
 issue_tracker: https://github.com/dart-lang/ai/issues?q=is%3Aissue+is%3Aopen+label%3Apackage%3Askills
 

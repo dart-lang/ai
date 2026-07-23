@@ -22,11 +22,17 @@ class SkillsCommandRunner extends CommandRunner<void> {
     super.description, {
     this.dialogSupport,
   }) {
-    argParser.addOption(
-      'directory',
-      abbr: 'C',
-      help: 'Run as if in this directory (default: current directory).',
-    );
+    argParser
+      ..addOption(
+        'directory',
+        abbr: 'C',
+        help: 'Run as if in this directory (default: current directory).',
+      )
+      ..addFlag(
+        'version',
+        defaultsTo: false,
+        help: 'Print the current version of this tool and exit',
+      );
   }
 
   @override
@@ -38,10 +44,18 @@ class SkillsCommandRunner extends CommandRunner<void> {
         analytics.send(
           Event.packageSkillsEvent(
             version: version,
-            type: argResults.command?.name ?? 'no-command',
+            type:
+                argResults.command?.name ??
+                (argResults.wasParsed('version') ? 'version' : null) ??
+                'no-command',
           ),
         );
       } catch (_) {}
+
+      if (argResults.wasParsed('version')) {
+        print(version);
+        return;
+      }
 
       final dir = argResults.option('directory');
       final rootPath = dir != null
