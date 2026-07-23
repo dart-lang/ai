@@ -4,6 +4,7 @@
 
 - Add a --version flag.
 - JSON encode descriptions in the `create` command.
+- Don't crawl into `third_party` directories when scanning Git repositories for skills.
 
 ## 1.0.0-beta.4
 
