@@ -110,7 +110,7 @@ package.
   /// The version of the MCP server.
   ///
   /// Should match the version in `pubspec.yaml` and `CHANGELOG.md`.
-  static final version = '1.1.0-wip';
+  static final version = '1.1.0';
 
   /// Runs the MCP server given command line arguments and an optional
   /// [Analytics] instance.
