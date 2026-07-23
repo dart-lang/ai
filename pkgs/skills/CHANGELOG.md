@@ -4,6 +4,7 @@
 
 - Add a --version flag.
 - JSON encode descriptions in the `create` command.
+- Update wording slightly for selection dialogs.
 
 ## 1.0.0-beta.4
 

@@ -596,7 +596,7 @@ Future<bool> _promptForSourcesWithDiffs({
     ).toSet();
     final selectedIndices = await dialogSupport.showMultiSelectDialog(
       sourcesWithSkills,
-      title: 'Select sources to install skills from:',
+      title: 'Select which sources to browse skills from:',
       initialSelected: initialSelected,
     );
     if (selectedIndices != null) {
