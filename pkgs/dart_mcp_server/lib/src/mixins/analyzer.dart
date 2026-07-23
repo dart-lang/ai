@@ -54,7 +54,7 @@ base mixin DartAnalyzerSupport
   /// completer which will be completed once analysis is over based on legacy
   /// analysis events.
   ///
-  /// Always use [_waitForAnalysisToComplete] instead reading this directly.
+  /// Always use [_waitForAnalysisToComplete] instead of reading this directly.
   Completer<void>? _legacyDoneAnalyzing = Completer();
 
   /// LEGACY MODE ONLY: Completes the next time we get a legacy analysis start
