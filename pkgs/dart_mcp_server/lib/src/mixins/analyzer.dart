@@ -361,7 +361,7 @@ base mixin DartAnalyzerSupport
 
         await _waitForAnalysisToComplete(
           analysisServer,
-          debounceDelay: const Duration(seconds: 1),
+          waitForSecondaryAnalysis: true,
         );
         applyFixesWatch.stop();
       }
@@ -621,15 +621,23 @@ base mixin DartAnalyzerSupport
     }
   }
 
-  /// Waits for analysis to complete using either the custom `dart/workspace/analysis/complete`
-  /// request (if supported) or by relying on `$/analyzerStatus` push notifications.
+  /// Waits for analysis to complete using either the custom
+  /// `dart/workspace/analysis/complete` request (if supported) or by relying
+  /// on `$/analyzerStatus` push notifications.
+  ///
+  /// If [waitForSecondaryAnalysis] is `true`, we will wait up to one second for
+  /// a new analysis to start before returning, unless we are already analyzing.
   Future<void> _waitForAnalysisToComplete(
     Peer analysisServer, {
-    Duration? debounceDelay,
+    bool waitForSecondaryAnalysis = false,
   }) async {
-    if (debounceDelay != null) {
-      // Unconditionally wait for the debounce delay if provided.
-      await Future<void>.delayed(debounceDelay);
+    if (waitForSecondaryAnalysis && _doneAnalyzing == null) {
+      // Wait a bit for the new analysis to start if not currently
+      // analyzing.
+      await _analysisStart.future.timeout(
+        const Duration(seconds: 1),
+        onTimeout: () {},
+      );
     }
 
     if (_supportsWorkspaceAnalysisComplete) {
