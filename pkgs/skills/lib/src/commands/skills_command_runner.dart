@@ -52,7 +52,7 @@ class SkillsCommandRunner extends CommandRunner<void> {
         );
       } catch (_) {}
 
-      if (argResults.wasParsed('version')) {
+      if (argResults.flag('version')) {
         print(version);
         return;
       }
