@@ -73,79 +73,154 @@ void main() {
       );
     });
 
-    test('adds to global config when --global is passed', () async {
-      await runner.run(['add', '--global', '--agent', 'cursor', 'owner/repo']);
+    test(
+      'does not add to manifest or config when git is not available',
+      () async {
+        await runner.run([
+          'add',
+          '--directory',
+          projectPath,
+          '--agent',
+          'cursor',
+          'owner/repo',
+        ]);
 
-      final globalConfig = await GlobalConfig.loadOrEmpty(
-        File(globalConfigPath),
-      );
-      expect(globalConfig.gitRepos, hasLength(1));
-      expect(
-        globalConfig.gitRepos.first.cloneUrl,
-        'https://github.com/owner/repo.git',
-      );
-    });
+        final localFile = File(SkillManifest.pathIn(projectPath));
+        final manifest = await SkillManifest.loadOrEmpty(localFile);
+        expect(manifest.isEmpty, isTrue);
+      },
+    );
 
-    test('adds to local manifest when --global is not passed', () async {
-      await runner.run([
-        'add',
-        '--directory',
-        projectPath,
-        '--agent',
-        'cursor',
-        'owner/repo',
-      ]);
+    group('with valid local git repository', () {
+      late String fileUrl;
+      late SkillsCommandRunner realGitRunner;
 
-      final localFile = File(SkillManifest.pathIn(projectPath));
-      final manifest = await SkillManifest.loadOrEmpty(localFile);
-      expect(
-        manifest
-            .sourceUrisForAgent('cursor')
-            .containsKey('https://github.com/owner/repo.git'),
-        isTrue,
-      );
-    });
+      setUp(() async {
+        await d.dir('local_repo', [
+          d.dir('skills', [
+            d.dir('my-skill', [
+              d.file('SKILL.md', '''
+---
+name: my-skill
+description: A test skill.
+---
+Test skill body.
+'''),
+            ]),
+          ]),
+        ]).create();
+        final localPath = p.normalize(p.absolute(d.path('local_repo')));
+        await Process.run('git', ['init'], workingDirectory: localPath);
+        await Process.run('git', [
+          'config',
+          'user.email',
+          'test@test',
+        ], workingDirectory: localPath);
+        await Process.run('git', [
+          'config',
+          'user.name',
+          'Test',
+        ], workingDirectory: localPath);
+        await Process.run('git', ['add', '.'], workingDirectory: localPath);
+        await Process.run('git', [
+          'commit',
+          '-m',
+          'init',
+        ], workingDirectory: localPath);
 
-    test('succeeds when --all is passed', () async {
-      await runner.run([
-        'add',
-        '--directory',
-        projectPath,
-        '--agent',
-        'cursor',
-        '--all',
-        'owner/repo',
-      ]);
+        if (Platform.isWindows) {
+          fileUrl = 'file:///${localPath.replaceAll(r'\', '/')}';
+        } else {
+          fileUrl = 'file://$localPath';
+        }
 
-      final localFile = File(SkillManifest.pathIn(projectPath));
-      final manifest = await SkillManifest.loadOrEmpty(localFile);
-      expect(
-        manifest
-            .sourceUrisForAgent('cursor')
-            .containsKey('https://github.com/owner/repo.git'),
-        isTrue,
-      );
-    });
+        final addCommand = AddCommand(
+          dialogSupport: fakeDialogSupport,
+          gitRunner: const GitRunner(),
+        );
+        realGitRunner = SkillsCommandRunner('skills', 'Test')
+          ..addCommand(addCommand);
+      });
 
-    test('succeeds when specific skill names are passed', () async {
-      await runner.run([
-        'add',
-        '--directory',
-        projectPath,
-        '--agent',
-        'cursor',
-        '--skill',
-        'my-skill',
-        'owner/repo',
-      ]);
+      test('adds to global config when --global is passed', () async {
+        await realGitRunner.run([
+          'add',
+          '--global',
+          '--agent',
+          'cursor',
+          '--all',
+          fileUrl,
+        ]);
 
-      final localFile = File(SkillManifest.pathIn(projectPath));
-      final manifest = await SkillManifest.loadOrEmpty(localFile);
-      expect(
-        manifest
-            .sourceUrisForAgent('cursor')
-            .containsKey('https://github.com/owner/repo.git'),
-        isTrue,
+        final globalConfig = await GlobalConfig.loadOrEmpty(
+          File(globalConfigPath),
+        );
+        expect(globalConfig.gitRepos, hasLength(1));
+        expect(globalConfig.gitRepos.first.cloneUrl, fileUrl);
+      });
+
+      test('adds to local manifest when --global is not passed', () async {
+        await realGitRunner.run([
+          'add',
+          '--directory',
+          projectPath,
+          '--agent',
+          'cursor',
+          '--all',
+          fileUrl,
+        ]);
+
+        final localFile = File(SkillManifest.pathIn(projectPath));
+        final manifest = await SkillManifest.loadOrEmpty(localFile);
+        expect(
+          manifest.sourceUrisForAgent('cursor').containsKey(fileUrl),
+          isTrue,
+        );
+      });
+
+      test('succeeds when specific skill names are passed', () async {
+        await realGitRunner.run([
+          'add',
+          '--directory',
+          projectPath,
+          '--agent',
+          'cursor',
+          '--skill',
+          'my-skill',
+          fileUrl,
+        ]);
+
+        final localFile = File(SkillManifest.pathIn(projectPath));
+        final manifest = await SkillManifest.loadOrEmpty(localFile);
+        expect(
+          manifest.sourceUrisForAgent('cursor').containsKey(fileUrl),
+          isTrue,
+        );
+      });
+
+      test(
+        'does not add to manifest or config when repo sync fails and git is available',
+        () async {
+          await realGitRunner.run([
+            'add',
+            '--directory',
+            projectPath,
+            '--agent',
+            'cursor',
+            'bad/nonexistent_repo_for_test',
+          ]);
+
+          final localFile = File(SkillManifest.pathIn(projectPath));
+          final manifest = await SkillManifest.loadOrEmpty(localFile);
+          expect(
+            manifest
+                .sourceUrisForAgent('cursor')
+                .containsKey(
+                  'https://github.com/bad/nonexistent_repo_for_test.git',
+                ),
+            isFalse,
+          );
+        },
       );
     });
   });
