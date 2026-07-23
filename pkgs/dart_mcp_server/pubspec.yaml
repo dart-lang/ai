@@ -6,7 +6,7 @@ repository: https://github.com/dart-lang/ai/tree/main/pkgs/dart_mcp_server
 issue_tracker: https://github.com/dart-lang/ai/issues?q=is%3Aissue+is%3Aopen+label%3Apackage%3Adart_mcp_server
 
 # NOTE: Must also update version in pkgs/dart_mcp_server/lib/src/server.dart
-version: 1.1.0-wip
+version: 1.1.0
 
 environment:
   sdk: ^3.12.0

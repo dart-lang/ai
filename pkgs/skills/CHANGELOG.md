@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.0-wip
+
+- Add a --version flag.
+- JSON encode descriptions in the `create` command.
+
 ## 1.0.0-beta.4
 
 - Update github repo link to the new location.

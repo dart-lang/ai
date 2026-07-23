@@ -1,4 +1,4 @@
-## 1.1.0-wip
+## 1.1.0
 
 - Build against the published `dart_mcp` package instead of a local path
   override.
@@ -8,6 +8,8 @@
 - Move `SdkSupport` to `implements` instead of `on` in
   `DartToolingDaemonSupport`.
 - Harden various tools against compromised agents.
+- Use new analysis request that blocks until analysis is complete, instead of
+  waiting for notifications, which may never come.
 - Use shared logic from unified_analytics to parse the Dart version.
 - Log error types for uncaught errors.
 

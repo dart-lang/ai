@@ -36,7 +36,7 @@ void main() {
           d.dir('my_package-my-skill', [
             d.file('SKILL.md', '''---
 name: my_package-my-skill
-description: my description
+description: "my description"
 ---
 
 Add your skill instructions here.
@@ -110,6 +110,36 @@ Add your skill instructions here.
           ]),
           throwsA(isA<UsageException>()),
         );
+      },
+    );
+    test(
+      'creates a skill with a description containing special characters',
+      () async {
+        await d.dir('project', [pubspec('my_package')]).create();
+
+        await runner.run([
+          'create',
+          '--name',
+          'my-skill2',
+          '--description',
+          'description with: a colon, "quotes", \nnewlines\tand backticks `like this`',
+          '-C',
+          d.path('project'),
+        ]);
+
+        await d.dir('project', [
+          d.dir('skills', [
+            d.dir('my_package-my-skill2', [
+              d.file('SKILL.md', r'''---
+name: my_package-my-skill2
+description: "description with: a colon, \"quotes\", \nnewlines\tand backticks `like this`"
+---
+
+Add your skill instructions here.
+'''),
+            ]),
+          ]),
+        ]).validate();
       },
     );
   });
