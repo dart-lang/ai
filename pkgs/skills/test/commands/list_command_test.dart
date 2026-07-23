@@ -109,7 +109,9 @@ void main() {
     });
 
     test('when listing then cursor skills are correct', () {
-      final cursorPkgA = manifest.sourceUrisForAgent('cursor')['package:pkg_a']!.skills;
+      final cursorPkgA = manifest
+          .sourceUrisForAgent('cursor')['package:pkg_a']!
+          .skills;
       expect(
         cursorPkgA.map((s) => s.name),
         containsAll(['pkg_a-code-gen', 'pkg_a-api-helper']),
@@ -117,7 +119,9 @@ void main() {
     });
 
     test('when listing then claude skills are correct', () {
-      final claudePkgA = manifest.sourceUrisForAgent('claude')['package:pkg_a']!.skills;
+      final claudePkgA = manifest
+          .sourceUrisForAgent('claude')['package:pkg_a']!
+          .skills;
       expect(claudePkgA.map((s) => s.name), equals(['pkg_a-code-gen']));
     });
 
@@ -155,9 +159,7 @@ void main() {
       // Requirement 4: Full path listed for git sources with deep path
       expect(
         output,
-        contains(
-          '- deep-skill (repo path: packages/deep/path/to/deep-skill)',
-        ),
+        contains('- deep-skill (repo path: packages/deep/path/to/deep-skill)'),
       );
       // Root skills (path '.') should not have '.' suffix
       expect(output, contains('- root-skill'));
@@ -195,13 +197,16 @@ void main() {
       expect(manifest.allAgents, isEmpty);
     });
 
-    test('when running list command then messages no managed skills installed', () async {
-      await d.dir('bare_project', [pubspec('bare_app')]).create();
+    test(
+      'when running list command then messages no managed skills installed',
+      () async {
+        await d.dir('bare_project', [pubspec('bare_app')]).create();
 
-      await runner.run(['list', '--directory', d.path('bare_project')]);
+        await runner.run(['list', '--directory', d.path('bare_project')]);
 
-      final output = loggedMessages.join('\n');
-      expect(output, contains('No managed skills installed.'));
-    });
+        final output = loggedMessages.join('\n');
+        expect(output, contains('No managed skills installed.'));
+      },
+    );
   });
 }

@@ -43,7 +43,9 @@ class ListCommand extends SkillsCommand {
       final String header;
       if (agentObj != null) {
         final adapter = createAgentAdapter(agentObj, rootPath, null);
-        final installDir = p.split(p.relative(adapter.skillsDirectory, from: rootPath)).join('/');
+        final installDir = p
+            .split(p.relative(adapter.skillsDirectory, from: rootPath))
+            .join('/');
         header = '  ${agentObj.label} (installed at $installDir):';
       } else {
         header = '  $agentName:';
@@ -53,10 +55,9 @@ class ListCommand extends SkillsCommand {
       for (final entry in pkgs.entries) {
         buffer.writeln('    ${entry.key}:');
         for (final skill in entry.value.skills) {
-          final pathSuffix =
-              skill.path != null && skill.path != '.'
-                  ? ' (repo path: ${skill.path})'
-                  : '';
+          final pathSuffix = skill.path != null && skill.path != '.'
+              ? ' (repo path: ${skill.path})'
+              : '';
           buffer.writeln('      - ${skill.name}$pathSuffix');
         }
       }
