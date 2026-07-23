@@ -46,7 +46,7 @@ class SkillsCommandRunner extends CommandRunner<void> {
             version: version,
             type:
                 argResults.command?.name ??
-                (argResults.wasParsed('version') ? 'version' : null) ??
+                (argResults.flag('version') ? 'version' : null) ??
                 'no-command',
           ),
         );
