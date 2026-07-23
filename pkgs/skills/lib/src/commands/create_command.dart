@@ -2,6 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
@@ -93,7 +94,7 @@ class CreateCommand extends SkillsCommand {
     final skillFile = File(p.join(skillsDir.path, 'SKILL.md'));
     await skillFile.writeAsString('''---
 name: $fullSkillName
-description: $description
+description: ${jsonEncode(description)}
 ---
 
 Add your skill instructions here.
