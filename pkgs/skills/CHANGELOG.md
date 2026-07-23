@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.0-beta.4
+
+- Update github repo link to the new location.
+
 ## 1.0.0-beta.3
 
 - feat: Add some basic analytics tracking of commands ran and errors.

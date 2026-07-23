@@ -10,6 +10,7 @@
 - Harden various tools against compromised agents.
 - Use new analysis request that blocks until analysis is complete, instead of
   waiting for notifications, which may never come.
+- Log error types for uncaught errors.
 
 ## 1.0.2
 
