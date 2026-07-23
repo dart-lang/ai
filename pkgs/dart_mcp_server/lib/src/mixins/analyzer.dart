@@ -41,8 +41,11 @@ base mixin DartAnalyzerSupport
   @visibleForTesting
   Process? get liveAnalysisServer => _liveAnalysisServer;
 
-  /// Whether the LSP server supports the `dart/workspace/analysis/complete` request.
-  bool _supportsWorkspaceAnalysisComplete = false;
+  /// Whether the LSP server supports the `dart/workspace/analysis/complete`
+  /// request.
+  ///
+  /// Assigned during server/client negotiation.
+  late bool _supportsWorkspaceAnalysisComplete;
 
   /// The current diagnostics for a given file.
   Map<Uri, List<lsp.Diagnostic>> diagnostics = {};
@@ -246,6 +249,8 @@ base mixin DartAnalyzerSupport
       if (experimental is Map &&
           experimental.containsKey('workspaceAnalysisComplete')) {
         _supportsWorkspaceAnalysisComplete = true;
+      } else {
+        _supportsWorkspaceAnalysisComplete = false;
       }
 
       // Checks that we can set workspaces on the LSP server.
@@ -673,7 +678,6 @@ base mixin DartAnalyzerSupport
 
     _liveAnalysisServer = null;
     _analysisServerConnection = null;
-    _supportsWorkspaceAnalysisComplete = false;
 
     // Reset analysis related state.
     diagnostics.clear();
