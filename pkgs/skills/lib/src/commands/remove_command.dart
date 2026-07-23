@@ -123,17 +123,24 @@ class RemoveCommand extends SkillsCommand {
           for (final MapEntry(key: sourceUri, value: entry)
               in manifest.sourceUrisForAgent(agent.cliName).entries)
             if (sourcesToRemove.isEmpty || sourcesToRemove.contains(sourceUri))
-              ...entry.skills.map((skill) => skill.name),
-      }.toList()..sort();
-      final options = potentialSkills
-          .map((name) => formatSkillName(name))
-          .toList();
+              ...entry.skills.map(
+                (skill) => (name: skill.name, sourceUri: sourceUri),
+              ),
+      }.toList()..sort((a, b) => a.name.compareTo(b.name));
+      final options = potentialSkills.map((skill) {
+        final packageName = skill.sourceUri.startsWith('package:')
+            ? skill.sourceUri.substring('package:'.length)
+            : null;
+        return formatSkillName(skill.name, packageName: packageName);
+      }).toList();
       final selectedIndices = await _dialogSupport.showMultiSelectDialog(
         options,
         title: 'Select skills to remove',
       );
       if (selectedIndices != null) {
-        skillsToRemove.addAll(selectedIndices.map((i) => potentialSkills[i]));
+        skillsToRemove.addAll(
+          selectedIndices.map((i) => potentialSkills[i].name),
+        );
       } else {
         logger.info('Skill removal aborted.');
         return;
