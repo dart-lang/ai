@@ -2,6 +2,7 @@
 
 ## 1.0.0-wip
 
+- Emphasize (bold) actual skill names in interactive dialog options.
 - JSON encode descriptions in the `create` command.
 
 ## 1.0.0-beta.4
