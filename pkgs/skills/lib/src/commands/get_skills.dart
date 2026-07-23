@@ -679,7 +679,11 @@ Future<_PromptResult> _promptForSkillsToInstall({
             ? ''
             : ' for ${adapters.map((a) => a.agent.cliName).join(', ')}';
 
-        final fullLabel = '${skill.skillName}$agentstr ($labelSuffix)';
+        final formattedSkillName = formatSkillName(
+          skill.skillName,
+          packageName: skill.packageName,
+        );
+        final fullLabel = '$formattedSkillName$agentstr ($labelSuffix)';
 
         dialogOptions.add((
           skill: skill,
