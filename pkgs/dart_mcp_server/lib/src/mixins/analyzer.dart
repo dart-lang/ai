@@ -361,7 +361,7 @@ base mixin DartAnalyzerSupport
 
         await _waitForAnalysisToComplete(
           analysisServer,
-          waitForSecondaryAnalysis: true,
+          waitForSecondaryAnalysisInLegacyMode: true,
         );
         applyFixesWatch.stop();
       }
@@ -625,24 +625,24 @@ base mixin DartAnalyzerSupport
   /// `dart/workspace/analysis/complete` request (if supported) or by relying
   /// on `$/analyzerStatus` push notifications.
   ///
-  /// If [waitForSecondaryAnalysis] is `true`, we will wait up to one second for
-  /// a new analysis to start before returning, unless we are already analyzing.
+  /// If [waitForSecondaryAnalysisInLegacyMode] is `true` and we are operating in legacy
+  /// mode, we will wait up to one second for a new analysis to start before
+  /// returning, unless we are already analyzing.
   Future<void> _waitForAnalysisToComplete(
     Peer analysisServer, {
-    bool waitForSecondaryAnalysis = false,
+    bool waitForSecondaryAnalysisInLegacyMode = false,
   }) async {
-    if (waitForSecondaryAnalysis && _doneAnalyzing == null) {
-      // Wait a bit for the new analysis to start if not currently
-      // analyzing.
-      await _analysisStart.future.timeout(
-        const Duration(seconds: 1),
-        onTimeout: () {},
-      );
-    }
-
     if (_supportsWorkspaceAnalysisComplete) {
       await analysisServer.sendRequest('dart/workspace/analysis/complete');
     } else {
+      if (waitForSecondaryAnalysisInLegacyMode && _doneAnalyzing == null) {
+        // Wait a bit for the new analysis to start if not currently
+        // analyzing.
+        await _analysisStart.future.timeout(
+          const Duration(seconds: 1),
+          onTimeout: () {},
+        );
+      }
       await _doneAnalyzing?.future;
     }
   }
