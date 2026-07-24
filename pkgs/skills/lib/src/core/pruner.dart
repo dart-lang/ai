@@ -124,45 +124,46 @@ Future<void> pruneSkills({
     }
   }
 
+  await manifest.save(File(SkillManifest.pathIn(rootPath)));
+
   // Handle global repos with no active installations.
   if (globalConfig.gitRepos.isNotEmpty) {
-    var updatedRepos = globalConfig.gitRepos;
+    final candidateGlobalRepos = <GitRepo>[];
     for (final repo in globalConfig.gitRepos) {
       final activeOnDisk = await _hasActiveGlobalInstallsOnDisk(repo);
-      final activeInManifest = _hasActiveInstallsInManifest(
-        cloneUrl: repo.cloneUrl,
-        manifest: manifest,
-      );
-      if (activeOnDisk || activeInManifest) continue;
-
-      final bool removeGlobal;
-      if (!allFlag) {
-        final selection = await dialogSupport!.showSingleSelectDialog(
-          const ['Yes', 'No'],
-          title:
-              'Remove global git source "${repo.cloneUrl}" which has no '
-              'skills installed?',
-        );
-        removeGlobal = selection == 0;
-      } else {
-        removeGlobal = true;
-      }
-
-      if (removeGlobal) {
-        updatedRepos = updatedRepos
-            .where((r) => r.cloneUrl != repo.cloneUrl)
-            .toList();
-        totalGitSourcesRemoved++;
-        logger.info('Removed global git source "${repo.cloneUrl}".');
+      if (!activeOnDisk) {
+        candidateGlobalRepos.add(repo);
       }
     }
-    if (updatedRepos.length != globalConfig.gitRepos.length) {
-      globalConfig = GlobalConfig(
-        gitRepos: updatedRepos,
-        neverPromptForSuggestedSkills:
-            globalConfig.neverPromptForSuggestedSkills,
-      );
-      await globalConfig.save(globalConfigFile);
+
+    if (candidateGlobalRepos.isNotEmpty) {
+      final Set<GitRepo> reposToRemove;
+      if (!allFlag) {
+        final options = candidateGlobalRepos.map((r) => r.cloneUrl).toList();
+        final selectedIndices = await dialogSupport!.showMultiSelectDialog(
+          options,
+          title: 'Select global git sources to remove:',
+          initialSelected: {for (var i = 0; i < options.length; i++) i},
+        );
+        if (selectedIndices != null && selectedIndices.isNotEmpty) {
+          reposToRemove = selectedIndices
+              .map((i) => candidateGlobalRepos[i])
+              .toSet();
+        } else {
+          reposToRemove = const {};
+        }
+      } else {
+        reposToRemove = candidateGlobalRepos.toSet();
+      }
+
+      if (reposToRemove.isNotEmpty) {
+        totalGitSourcesRemoved += reposToRemove.length;
+        for (final repo in reposToRemove) {
+          logger.info('Removed global git source "${repo.cloneUrl}".');
+        }
+        globalConfig = globalConfig.withoutGitRepos(reposToRemove);
+        await globalConfig.save(globalConfigFile);
+      }
     }
   }
 
@@ -190,20 +191,6 @@ Future<void> pruneSkills({
 Future<bool> _hasActiveGlobalInstallsOnDisk(GitRepo repo) async {
   for (final path in repo.installs) {
     if (await File(path).exists() || await Directory(path).exists()) {
-      return true;
-    }
-  }
-  return false;
-}
-
-/// Checks if any installed skill in [manifest] belongs to [cloneUrl].
-bool _hasActiveInstallsInManifest({
-  required String cloneUrl,
-  required SkillManifest manifest,
-}) {
-  for (final agentName in manifest.allAgents) {
-    final entry = manifest.sourceUrisForAgent(agentName)[cloneUrl];
-    if (entry != null && entry.skills.isNotEmpty) {
       return true;
     }
   }
