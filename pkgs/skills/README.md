@@ -60,6 +60,7 @@ The `skills` package can also install skills from git repos, similar to how `npx
 Once a repo has been added, future calls to `dart run skills@ get` will also check those repos for updates to skills.
 
 - **Requirement:** Git must be installed and on your PATH. If git is not found, a warning is printed and only Dart package skills are used.
+- **Directory Filtering:** When crawling a Git repository for skills, directories named `third_party` or hidden directories (starting with `.`) are ignored.
 
 ### Pruning removed dependencies
 
