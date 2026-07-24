@@ -14,34 +14,6 @@ import 'package:skills/src/core/workspace_resolver.dart';
 import 'package:skills/src/models/global_config.dart';
 import 'package:skills/src/models/skill_manifest.dart';
 
-/// Checks if a global [GitRepo] has active skill install files recorded on
-/// disk.
-///
-/// This check only applies to global repositories, whose installation paths are
-/// recorded in [GitRepo.installs].
-Future<bool> _hasActiveGlobalInstallsOnDisk(GitRepo repo) async {
-  for (final path in repo.installs) {
-    if (await File(path).exists() || await Directory(path).exists()) {
-      return true;
-    }
-  }
-  return false;
-}
-
-/// Checks if any installed skill in [manifest] belongs to [cloneUrl].
-bool _hasActiveInstallsInManifest({
-  required String cloneUrl,
-  required SkillManifest manifest,
-}) {
-  for (final agentName in manifest.allAgents) {
-    final entry = manifest.sourceUrisForAgent(agentName)[cloneUrl];
-    if (entry != null && entry.skills.isNotEmpty) {
-      return true;
-    }
-  }
-  return false;
-}
-
 /// Prunes skills whose package dependencies are no longer in the workspace,
 /// and cleans up unused git repository sources in local and global configs.
 Future<void> pruneSkills({
@@ -208,4 +180,32 @@ Future<void> pruneSkills({
       'Pruned $totalRemoved skill(s) from ${prunedPackages.length} package(s).',
     );
   }
+}
+
+/// Checks if a global [GitRepo] has active skill install files recorded on
+/// disk.
+///
+/// This check only applies to global repositories, whose installation paths are
+/// recorded in [GitRepo.installs].
+Future<bool> _hasActiveGlobalInstallsOnDisk(GitRepo repo) async {
+  for (final path in repo.installs) {
+    if (await File(path).exists() || await Directory(path).exists()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/// Checks if any installed skill in [manifest] belongs to [cloneUrl].
+bool _hasActiveInstallsInManifest({
+  required String cloneUrl,
+  required SkillManifest manifest,
+}) {
+  for (final agentName in manifest.allAgents) {
+    final entry = manifest.sourceUrisForAgent(agentName)[cloneUrl];
+    if (entry != null && entry.skills.isNotEmpty) {
+      return true;
+    }
+  }
+  return false;
 }
