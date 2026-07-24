@@ -207,32 +207,42 @@ void main() {
     test(
       'newly accepted suggested repos are not prompted in source selection',
       () async {
-        final flutterSkillDir = Directory(
-          p.join(d.path('flutter'), 'skills', 'flutter-skill'),
-        );
-        await flutterSkillDir.create(recursive: true);
-        await File(
-          p.join(flutterSkillDir.path, 'SKILL.md'),
-        ).writeAsString('---\nname: flutter-skill\n---\n');
+        // Create a skill in package flutter so there is an existing package
+        // skill source. This ensures `skillsBySource` is non-empty so the
+        // `get` command reaches the source-selection prompt logic rather than
+        // returning early when no skills are found.
+        await d.dir('flutter', [
+          pubspec('flutter'),
+          d.dir('skills', [
+            d.dir('flutter-skill', [
+              d.file('SKILL.md', '---\nname: flutter-skill\n---\n'),
+            ]),
+          ]),
+        ]).create();
 
+        // Create pre-scanned skill in git repos cache for dart-lang/skills so
+        // that both sources have skills with differences to select from.
         const gitRepo = GitRepo(
           cloneUrl: 'https://github.com/dart-lang/skills.git',
         );
-        final gitSkillDir = Directory(
-          p.join(
-            projectPath,
-            '.dart_tool',
-            'skills',
-            'repos',
-            gitRepo.pathSegment,
-            'skills',
-            'official-dart-skill',
-          ),
-        );
-        await gitSkillDir.create(recursive: true);
-        await File(
-          p.join(gitSkillDir.path, 'SKILL.md'),
-        ).writeAsString('---\nname: official-dart-skill\n---\n');
+        await d.dir('project', [
+          d.dir('.dart_tool', [
+            d.dir('skills', [
+              d.dir('repos', [
+                d.dir(gitRepo.pathSegment, [
+                  d.dir('skills', [
+                    d.dir('official-dart-skill', [
+                      d.file(
+                        'SKILL.md',
+                        '---\nname: official-dart-skill\n---\n',
+                      ),
+                    ]),
+                  ]),
+                ]),
+              ]),
+            ]),
+          ]),
+        ]).create();
 
         fakeDialogSupport.multiSelectResults.addAll([
           {0}, // Select dart-lang/skills from suggested repos dialog
