@@ -265,6 +265,7 @@ Future<bool> getSkills({
     dialogSupport: dialogSupport,
     targetAgents: agents,
     quietIfNothingToPrune: true,
+    allFlag: allFlag,
   );
 
   return true;
