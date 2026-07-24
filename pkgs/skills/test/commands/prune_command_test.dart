@@ -1,3 +1,7 @@
+// Copyright (c) 2026, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
 import 'dart:io';
 
 import 'package:logging/logging.dart';
@@ -334,5 +338,99 @@ void main() {
         containsAll(['package:pkg_a', 'package:unref_pkg']),
       );
     });
+
+    test(
+      'prompts to remove local git source entry with no skills listed when user says YES',
+      () async {
+        final testRootPath = p.join(
+          Directory.systemTemp.path,
+          'skills_prune_test_${DateTime.now().millisecondsSinceEpoch}',
+        );
+        Directory(testRootPath).createSync();
+        addTearDown(() async {
+          await Directory(testRootPath).delete(recursive: true);
+        });
+
+        await d.dir('project', [pubspec('my_app')]).create(testRootPath);
+        final projectPath = p.join(testRootPath, 'project');
+
+        final manifest = SkillManifest(
+          installations: {
+            'cursor': {
+              'https://github.com/dart-lang/test.git': const SkillsEntry(
+                skills: [],
+              ),
+            },
+          },
+        );
+        await manifest.save(File(SkillManifest.pathIn(projectPath)));
+
+        final fakeDialog = FakeDialogSupport();
+        fakeDialog.singleSelectResults.add(0); // Yes, remove local git source
+
+        final pruneCommand = PruneCommand(dialogSupport: fakeDialog);
+        final runner = SkillsCommandRunner('skills', 'Test')
+          ..addCommand(pruneCommand);
+        await runner.run([
+          'prune',
+          '--directory',
+          projectPath,
+          '--agent',
+          'cursor',
+        ]);
+
+        final loaded = await SkillManifest.loadFromRoot(projectPath);
+        expect(loaded, isNull);
+      },
+    );
+
+    test(
+      'keeps local git source entry with no skills listed when user says NO',
+      () async {
+        final testRootPath = p.join(
+          Directory.systemTemp.path,
+          'skills_prune_test_${DateTime.now().millisecondsSinceEpoch}',
+        );
+        Directory(testRootPath).createSync();
+        addTearDown(() async {
+          await Directory(testRootPath).delete(recursive: true);
+        });
+
+        await d.dir('project', [pubspec('my_app')]).create(testRootPath);
+        final projectPath = p.join(testRootPath, 'project');
+
+        final manifest = SkillManifest(
+          installations: {
+            'cursor': {
+              'https://github.com/dart-lang/test.git': const SkillsEntry(
+                skills: [],
+              ),
+            },
+          },
+        );
+        await manifest.save(File(SkillManifest.pathIn(projectPath)));
+
+        final fakeDialog = FakeDialogSupport();
+        fakeDialog.singleSelectResults.add(1); // No, keep local git source
+
+        final pruneCommand = PruneCommand(dialogSupport: fakeDialog);
+        final runner = SkillsCommandRunner('skills', 'Test')
+          ..addCommand(pruneCommand);
+        await runner.run([
+          'prune',
+          '--directory',
+          projectPath,
+          '--agent',
+          'cursor',
+        ]);
+
+        final loaded = await SkillManifest.loadFromRoot(projectPath);
+        expect(loaded, isNotNull);
+        expect(
+          loaded!.sourceUrisForAgent('cursor').keys,
+          contains('https://github.com/dart-lang/test.git'),
+        );
+      },
+    );
   });
 }

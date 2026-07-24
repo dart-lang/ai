@@ -13,6 +13,7 @@ import 'package:skills/src/commands/skills_command.dart';
 import 'package:skills/src/core/advisory_checker.dart';
 import 'package:skills/src/core/git_runner.dart';
 import 'package:skills/src/core/package_resolver.dart';
+import 'package:skills/src/core/pruner.dart';
 import 'package:skills/src/core/pub_runner.dart';
 import 'package:skills/src/core/git_scanner.dart';
 import 'package:skills/src/core/git_sync.dart';
@@ -257,6 +258,14 @@ Future<bool> getSkills({
 
   await globalConfig.save(globalConfigFile);
   await manifest.save(manifestFile(rootPath));
+
+  await pruneSkills(
+    workspace: workspace,
+    logger: logger,
+    dialogSupport: dialogSupport,
+    targetAgents: agents,
+    quietIfNothingToPrune: true,
+  );
 
   return true;
 }
