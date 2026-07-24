@@ -45,6 +45,17 @@
   The getter returns a `String`, defaulting to `complete` when the field is
   absent, as the schema requires for backward compatibility with servers on
   earlier protocol versions.
+- Add `CacheableResult` and the `CacheScope` enum, modeling the `ttlMs` and
+  `cacheScope` caching hints which the 2026-07-28 draft schema attaches to
+  several result types, see
+  https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2549.
+  `ttlMs` returns an `int`, reading `0` (immediately stale) for an absent or
+  negative value, as the spec instructs clients; `cacheScope` returns a
+  `CacheScope?` which is `null` when the field is absent, since the spec
+  defines no default for it. `ListToolsResult`, `ListPromptsResult`,
+  `ListResourcesResult`, `ListResourceTemplatesResult`, and
+  `ReadResourceResult` now implement `CacheableResult`, so the hints are
+  readable on responses from servers that send them.
 
 ## 0.5.2
 
