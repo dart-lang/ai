@@ -134,6 +134,8 @@ Future<void> pruneSkills({
     }
   }
 
+  await manifest.save(File(SkillManifest.pathIn(rootPath)));
+
   // Handle global repos with no active installations.
   if (globalConfig.gitRepos.isNotEmpty) {
     final candidateGlobalRepos = <GitRepo>[];
