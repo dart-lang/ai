@@ -193,6 +193,39 @@ void main() {
       expect(skills.first.skillName, equals('valid-skill'));
     });
 
+    test('when skill is inside hidden dir then it is skipped', () async {
+      final repo = const GitRepo(cloneUrl: 'https://github.com/a/b.git');
+      await d.dir('project', [
+        d.dir('.dart_tool', [
+          d.dir('skills', [
+            d.dir('repos', [
+              d.dir(repo.pathSegment, [
+                d.dir('skills', [
+                  d.dir('valid-skill', [
+                    d.file('SKILL.md', '---\nname: valid-skill\n---\n'),
+                  ]),
+                ]),
+                d.dir('.hidden_dir', [
+                  d.dir('hidden-skill', [
+                    d.file('SKILL.md', '---\nname: hidden-skill\n---\n'),
+                  ]),
+                ]),
+              ]),
+            ]),
+          ]),
+        ]),
+      ]).create();
+
+      const scanner = GitScanner();
+      final skills = await scanner.scan(
+        d.path('project'),
+        isGlobal: false,
+        repos: [repo],
+      );
+      expect(skills, hasLength(1));
+      expect(skills.first.skillName, equals('valid-skill'));
+    });
+
     test('when skill dir has no SKILL.md then skipped', () async {
       final repo = const GitRepo(cloneUrl: 'https://github.com/a/b.git');
       await d.dir('project', [

@@ -58,7 +58,8 @@ class GitScanner {
   ) async {
     await for (final entity in dir.list(followLinks: false)) {
       if (entity is Directory) {
-        if (p.basename(entity.path) == 'third_party') continue;
+        final name = p.basename(entity.path);
+        if (name == 'third_party' || name.startsWith('.')) continue;
         await _scanDirectory(entity, gitUrl, isGlobal, skills);
       } else if (entity is File && p.basename(entity.path) == 'SKILL.md') {
         SkillFrontmatter? frontmatter;
