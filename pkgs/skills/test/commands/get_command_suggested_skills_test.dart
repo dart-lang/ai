@@ -203,5 +203,84 @@ void main() {
 
       expect(fakeDialogSupport.allTitles, isEmpty);
     });
+
+    test(
+      'newly accepted suggested repos are not prompted in source selection',
+      () async {
+        // Create a skill in package flutter so there is an existing package
+        // skill source. This ensures `skillsBySource` is non-empty so the
+        // `get` command reaches the source-selection prompt logic rather than
+        // returning early when no skills are found.
+        await d.dir('flutter', [
+          pubspec('flutter'),
+          d.dir('skills', [
+            d.dir('flutter-skill', [
+              d.file('SKILL.md', '---\nname: flutter-skill\n---\n'),
+            ]),
+          ]),
+        ]).create();
+
+        // Create pre-scanned skill in git repos cache for dart-lang/skills so
+        // that both sources have skills with differences to select from.
+        const gitRepo = GitRepo(
+          cloneUrl: 'https://github.com/dart-lang/skills.git',
+        );
+        await d.dir('project', [
+          d.dir('.dart_tool', [
+            d.dir('skills', [
+              d.dir('repos', [
+                d.dir(gitRepo.pathSegment, [
+                  d.dir('skills', [
+                    d.dir('official-dart-skill', [
+                      d.file(
+                        'SKILL.md',
+                        '---\nname: official-dart-skill\n---\n',
+                      ),
+                    ]),
+                  ]),
+                ]),
+              ]),
+            ]),
+          ]),
+        ]).create();
+
+        fakeDialogSupport.multiSelectResults.addAll([
+          {0}, // Select dart-lang/skills from suggested repos dialog
+          {0}, // Select package:flutter from source selection dialog
+          {0}, // Select flutter-skill from package:flutter
+          {0}, // Select official-dart-skill from dart-lang/skills
+        ]);
+        fakeDialogSupport.singleSelectResults.add(0); // Select Local
+
+        await runner.run([
+          'get',
+          '--directory',
+          projectPath,
+          '--ide',
+          'cursor',
+        ]);
+
+        final sourcesDialogIndex = fakeDialogSupport.allTitles.indexOf(
+          'Select which sources to browse skills from:',
+        );
+        expect(
+          sourcesDialogIndex,
+          isNot(-1),
+          reason:
+              'source-selection prompt should be displayed for package:flutter',
+        );
+        expect(
+          fakeDialogSupport.allMultiSelectOptions[sourcesDialogIndex],
+          contains('package:flutter'),
+        );
+        expect(
+          fakeDialogSupport.allMultiSelectOptions[sourcesDialogIndex],
+          isNot(contains('https://github.com/dart-lang/skills.git')),
+          reason:
+              'newly accepted suggested repo should be auto-selected and not '
+              'in source-selection prompt',
+        );
+      },
+    );
   });
 }
