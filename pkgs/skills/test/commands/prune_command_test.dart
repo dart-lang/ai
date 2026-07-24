@@ -96,14 +96,16 @@ void main() {
           'cursor',
         ]);
 
-        expect(
-          await Directory('$projectPath/.cursor/skills/pkg_a-skill-1').exists(),
-          isTrue,
-        );
-        expect(
-          await Directory('$projectPath/.cursor/skills/pkg_b-skill-2').exists(),
-          isFalse,
-        );
+        await d
+            .dir('project', [
+              d.dir('.cursor', [
+                d.dir('skills', [
+                  d.dir('pkg_a-skill-1'),
+                  d.nothing('pkg_b-skill-2'),
+                ]),
+              ]),
+            ])
+            .validate(testRootPath);
 
         final loaded = await SkillManifest.loadFromRoot(projectPath);
         expect(loaded, isNotNull);
@@ -177,14 +179,14 @@ void main() {
           'cursor',
         ]);
 
-        expect(
-          await Directory('$projectPath/.cursor/skills/old_pkg-skill').exists(),
-          isFalse,
-        );
-        final dartSkillsDir = Directory(
-          p.join(projectPath, SkillManifest.cacheDirPath),
-        );
-        expect(await dartSkillsDir.exists(), isFalse);
+        await d
+            .dir('project', [
+              d.dir('.cursor', [
+                d.dir('skills', [d.nothing('old_pkg-skill')]),
+              ]),
+              d.nothing(SkillManifest.cacheDirPath),
+            ])
+            .validate(testRootPath);
       },
     );
 
@@ -248,10 +250,13 @@ void main() {
           '--all',
         ]);
 
-        expect(
-          await Directory('$projectPath/.cursor/skills/old_pkg-skill').exists(),
-          isFalse,
-        );
+        await d
+            .dir('project', [
+              d.dir('.cursor', [
+                d.dir('skills', [d.nothing('old_pkg-skill')]),
+              ]),
+            ])
+            .validate(testRootPath);
       },
     );
 
@@ -279,7 +284,9 @@ void main() {
         ..addCommand(pruneCommand);
       await runner.run(['prune', '--directory', projectPath]);
 
-      expect(File(SkillManifest.pathIn(projectPath)).existsSync(), isFalse);
+      await d
+          .dir('no_skills_project', [d.nothing(SkillManifest.configDirPath)])
+          .validate(testRootPath);
     });
 
     test('when --agent is set then only that agent is pruned', () async {
@@ -390,14 +397,16 @@ void main() {
         'cursor',
       ]);
 
-      expect(
-        Directory('$projectPath/.cursor/skills/unref-skill').existsSync(),
-        isFalse,
-      );
-      expect(
-        Directory('$projectPath/.claude/skills/unref-skill').existsSync(),
-        isTrue,
-      );
+      await d
+          .dir('project', [
+            d.dir('.cursor', [
+              d.dir('skills', [d.nothing('unref-skill')]),
+            ]),
+            d.dir('.claude', [
+              d.dir('skills', [d.dir('unref-skill')]),
+            ]),
+          ])
+          .validate(testRootPath);
 
       final loaded = await SkillManifest.loadFromRoot(projectPath);
       expect(loaded, isNotNull);
