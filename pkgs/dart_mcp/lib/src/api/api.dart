@@ -184,10 +184,10 @@ extension type Result._(Map<String, Object?> _value) {
   /// The type of this result, which determines how to parse it.
   ///
   /// Known types are "complete" and "input_required", but a server may send
-  /// any other string. A null value means the server did not send the field;
-  /// treat it as "complete", as the schema requires for results from servers
-  /// on protocol versions before 2026-07-28.
-  String? get resultType => _value[Keys.resultType] as String?;
+  /// any other string. Servers on protocol versions before 2026-07-28 omit
+  /// the field; the schema requires treating that as "complete", so an absent
+  /// value is reported here as "complete".
+  String get resultType => _value[Keys.resultType] as String? ?? 'complete';
 }
 
 /// A response that indicates success but carries no data.

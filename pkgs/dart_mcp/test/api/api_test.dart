@@ -123,8 +123,9 @@ void main() {
       final metaMap = root.meta as Map;
       expect(metaMap['foo'], 'bar');
     });
-    test('resultType is null when absent and passes strings through', () {
-      expect((<String, Object?>{} as Result).resultType, isNull);
+    test('resultType defaults to complete when absent and passes strings '
+        'through', () {
+      expect((<String, Object?>{} as Result).resultType, 'complete');
       expect(
         (<String, Object?>{'resultType': 'input_required'} as Result)
             .resultType,

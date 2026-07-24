@@ -42,9 +42,9 @@
 - Add `Result.resultType`, modeling the `resultType` field, which the
   2026-07-28 draft schema types as an open union, see
   https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2773.
-  The getter returns a nullable `String`; a null value means the server did
-  not send the field and is treated as `complete` for backward compatibility
-  with servers on earlier protocol versions.
+  The getter returns a `String`, defaulting to `complete` when the field is
+  absent, as the schema requires for backward compatibility with servers on
+  earlier protocol versions.
 
 ## 0.5.2
 
