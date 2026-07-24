@@ -6,6 +6,7 @@
   it to configuration/manifest files.
 - Add a --version flag.
 - JSON encode descriptions in the `create` command.
+- Support hyphens instead of underscores in package name prefixes when matching and creating skills.
 - Update wording slightly for selection dialogs.
 
 ## 1.0.0-beta.4

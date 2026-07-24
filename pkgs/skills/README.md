@@ -118,7 +118,7 @@ my_package/
 
 ### Naming convention
 
-Every skill directory name **must** start with your package name followed by a hyphen. The CLI verifies this on installation and silently skips any skills that don't follow the convention.
+Every skill directory name **must** start with your package name (or your package name with underscores replaced by hyphens) followed by a hyphen. The CLI verifies this on installation and silently skips any skills that don't follow the convention.
 
 For a package named `serverpod`:
 
@@ -128,6 +128,8 @@ For a package named `serverpod`:
 | `serverpod-api-design` | Yes |
 | `code-generation` | No -- missing package prefix |
 | `other_pkg-code-generation` | No -- wrong prefix |
+
+For a package named `my_package`, both `my_package-code-generation` and `my-package-code-generation` are valid. Using hyphens (`my-package-code-generation`) is recommended to comply with the Agent Skills specification.
 
 This convention ensures skill names are globally unique and self-documenting. When a user sees `serverpod-code-generation` in their agent, they know exactly where it came from.
 
