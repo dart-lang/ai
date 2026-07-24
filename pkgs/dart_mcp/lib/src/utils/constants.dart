@@ -106,6 +106,7 @@ extension Keys on Never {
   static const resourceTemplates = 'resourceTemplates';
   static const resources = 'resources';
   static const result = 'result';
+  static const resultType = 'resultType';
   static const role = 'role';
   static const roots = 'roots';
   static const sampling = 'sampling';
