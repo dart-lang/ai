@@ -96,9 +96,7 @@ class SkillScanner {
       if (frontmatter.isInternal && !shouldInstallInternalSkills) continue;
 
       if (!validPrefixes.any(skillName.startsWith)) {
-        final expected = validPrefixes.length == 1
-            ? '"${validPrefixes.first}"'
-            : '"${validPrefixes.first}" or "${validPrefixes.last}"';
+        final expected = validPrefixes.map((p) => '"$p"').join(' or ');
         logger.warning(
           'Skipping skill "$skillName" in ${package.name} '
           '-- name must start with $expected',
