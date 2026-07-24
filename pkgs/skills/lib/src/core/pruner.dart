@@ -25,6 +25,12 @@ Future<void> pruneSkills({
   bool allFlag = false,
 }) async {
   if (dialogSupport == null && !allFlag) {
+    if (!quietIfNothingToPrune) {
+      logger.info(
+        'No interactive terminal detected and --all was not specified. '
+        'Aborting prune. Run with --all to prune automatically.',
+      );
+    }
     return;
   }
 
@@ -87,7 +93,11 @@ Future<void> pruneSkills({
             '${agent.cliName}:',
         initialSelected: {for (var i = 0; i < candidates.length; i++) i},
       );
-      if (selectedIndices == null || selectedIndices.isEmpty) {
+      if (selectedIndices == null) {
+        logger.info('Prune aborted by user.');
+        return;
+      }
+      if (selectedIndices.isEmpty) {
         continue;
       }
       selectedItems = selectedIndices.map((i) => candidates[i]).toSet();
@@ -124,8 +134,6 @@ Future<void> pruneSkills({
     }
   }
 
-  await manifest.save(File(SkillManifest.pathIn(rootPath)));
-
   // Handle global repos with no active installations.
   if (globalConfig.gitRepos.isNotEmpty) {
     final candidateGlobalRepos = <GitRepo>[];
@@ -145,12 +153,16 @@ Future<void> pruneSkills({
           title: 'Select global git sources to remove:',
           initialSelected: {for (var i = 0; i < options.length; i++) i},
         );
-        if (selectedIndices != null && selectedIndices.isNotEmpty) {
+        if (selectedIndices == null) {
+          logger.info('Prune aborted by user.');
+          return;
+        }
+        if (selectedIndices.isEmpty) {
+          reposToRemove = const {};
+        } else {
           reposToRemove = selectedIndices
               .map((i) => candidateGlobalRepos[i])
               .toSet();
-        } else {
-          reposToRemove = const {};
         }
       } else {
         reposToRemove = candidateGlobalRepos.toSet();
