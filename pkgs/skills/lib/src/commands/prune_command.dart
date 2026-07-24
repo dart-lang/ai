@@ -25,6 +25,12 @@ class PruneCommand extends SkillsCommand {
   PruneCommand({DialogSupport? dialogSupport})
     : _dialogSupport = dialogSupport {
     addAgentOption(argParser);
+    argParser.addFlag(
+      'all',
+      abbr: 'a',
+      help: 'Prune all unused packages and empty sources without prompting.',
+      negatable: false,
+    );
   }
 
   @override
@@ -45,11 +51,14 @@ class PruneCommand extends SkillsCommand {
       targetAgents = null;
     }
 
+    final allFlag = argResults.flag('all');
+
     await pruneSkills(
       workspace: workspace,
       logger: logger,
       dialogSupport: _dialogSupport,
       targetAgents: targetAgents,
+      allFlag: allFlag,
     );
   }
 }

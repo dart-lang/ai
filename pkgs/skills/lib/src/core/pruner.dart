@@ -14,19 +14,27 @@ import 'package:skills/src/core/workspace_resolver.dart';
 import 'package:skills/src/models/global_config.dart';
 import 'package:skills/src/models/skill_manifest.dart';
 
-/// Checks if a global [GitRepo] has any active skill installations on disk
-/// or in the local workspace [manifest].
-Future<bool> _hasActiveInstalls({
-  required GitRepo repo,
-  required SkillManifest manifest,
-}) async {
+/// Checks if a global [GitRepo] has active skill install files recorded on
+/// disk.
+///
+/// This check only applies to global repositories, whose installation paths are
+/// recorded in [GitRepo.installs].
+Future<bool> _hasActiveGlobalInstallsOnDisk(GitRepo repo) async {
   for (final path in repo.installs) {
     if (await File(path).exists() || await Directory(path).exists()) {
       return true;
     }
   }
+  return false;
+}
+
+/// Checks if any installed skill in [manifest] belongs to [cloneUrl].
+bool _hasActiveInstallsInManifest({
+  required String cloneUrl,
+  required SkillManifest manifest,
+}) {
   for (final agentName in manifest.allAgents) {
-    final entry = manifest.sourceUrisForAgent(agentName)[repo.cloneUrl];
+    final entry = manifest.sourceUrisForAgent(agentName)[cloneUrl];
     if (entry != null && entry.skills.isNotEmpty) {
       return true;
     }
@@ -35,15 +43,19 @@ Future<bool> _hasActiveInstalls({
 }
 
 /// Prunes skills whose package dependencies are no longer in the workspace,
-/// and prompts to remove git repository sources in local and global configs that
-/// have no installed skills.
+/// and cleans up unused git repository sources in local and global configs.
 Future<void> pruneSkills({
   required WorkspaceLayout workspace,
   required Logger logger,
   DialogSupport? dialogSupport,
   List<Agent>? targetAgents,
   bool quietIfNothingToPrune = false,
+  bool allFlag = false,
 }) async {
+  if (dialogSupport == null && !allFlag) {
+    return;
+  }
+
   final rootPath = workspace.rootPath;
   final packages = await PackageResolver.resolveWorkspace(workspace);
   final referencedNames = packages.map((p) => p.name).toSet();
@@ -72,79 +84,99 @@ Future<void> pruneSkills({
   final installer = SkillInstaller(dialogSupport);
   var totalRemoved = 0;
   final prunedPackages = <String>{};
+  var totalGitSourcesRemoved = 0;
 
   for (final agent in agentsToProcess) {
-    final pkgs = manifest.sourceUrisForAgent(agent.cliName);
-    final pkgsToPrune = pkgs.keys
+    final sourceEntries = manifest.sourceUrisForAgent(agent.cliName);
+
+    final unreferencedPackages = sourceEntries.keys
         .where(
           (uri) =>
               uri.startsWith('package:') &&
               !referencedNames.contains(uri.substring('package:'.length)),
         )
         .toSet();
-    prunedPackages.addAll(pkgsToPrune);
-    if (pkgsToPrune.isEmpty) continue;
 
-    final result = await installer.removeSkillsForIde(
-      agent: agent,
-      rootPath: rootPath,
-      manifest: manifest,
-      sourceUris: pkgsToPrune,
-    );
-    manifest = result.manifest;
-    totalRemoved += result.removedCount;
-    for (final info in result.removed) {
-      logger.info('  [${info.agentName}] Removed ${info.skillName}');
+    final emptyLocalGitSources = sourceEntries.entries
+        .where((e) => !e.key.startsWith('package:') && e.value.skills.isEmpty)
+        .map((e) => e.key)
+        .toSet();
+
+    final candidates = [...unreferencedPackages, ...emptyLocalGitSources]
+      ..sort();
+    if (candidates.isEmpty) continue;
+
+    final Set<String> selectedItems;
+    if (!allFlag) {
+      final selectedIndices = await dialogSupport!.showMultiSelectDialog(
+        candidates,
+        title:
+            'Select packages and local git sources to prune for '
+            '${agent.cliName}:',
+        initialSelected: {for (var i = 0; i < candidates.length; i++) i},
+      );
+      if (selectedIndices == null || selectedIndices.isEmpty) {
+        continue;
+      }
+      selectedItems = selectedIndices.map((i) => candidates[i]).toSet();
+    } else {
+      selectedItems = candidates.toSet();
     }
-  }
 
-  var totalGitSourcesRemoved = 0;
+    final pkgsToPrune = selectedItems
+        .where((item) => item.startsWith('package:'))
+        .toSet();
+    final localGitToPrune = selectedItems
+        .where((item) => !item.startsWith('package:'))
+        .toSet();
 
-  // Prompt to remove local git sources in manifest with no skills listed.
-  if (dialogSupport != null) {
-    final askedLocalUris = <String, bool>{};
-    for (final agent in agentsToProcess) {
-      final sourceEntries = manifest.sourceUrisForAgent(agent.cliName);
-      for (final MapEntry(key: uri, value: entry) in sourceEntries.entries) {
-        if (uri.startsWith('package:') || entry.skills.isNotEmpty) continue;
-
-        final shouldRemove =
-            askedLocalUris[uri] ??
-            await (() async {
-              final selection = await dialogSupport.showSingleSelectDialog(
-                const ['Yes', 'No'],
-                title:
-                    'Remove local git source "$uri" which has no skills '
-                    'installed?',
-              );
-              final remove = selection == 0;
-              askedLocalUris[uri] = remove;
-              return remove;
-            })();
-
-        if (shouldRemove) {
-          manifest = manifest.withoutSourceUri(agent.cliName, uri);
-          totalGitSourcesRemoved++;
-          logger.info('Removed local git source "$uri".');
-        }
+    if (pkgsToPrune.isNotEmpty) {
+      final result = await installer.removeSkillsForIde(
+        agent: agent,
+        rootPath: rootPath,
+        manifest: manifest,
+        sourceUris: pkgsToPrune,
+      );
+      manifest = result.manifest;
+      totalRemoved += result.removedCount;
+      prunedPackages.addAll(pkgsToPrune);
+      for (final info in result.removed) {
+        logger.info('  [${info.agentName}] Removed ${info.skillName}');
       }
     }
+
+    for (final uri in localGitToPrune) {
+      manifest = manifest.withoutSourceUri(agent.cliName, uri);
+      totalGitSourcesRemoved++;
+      logger.info('  [${agent.cliName}] Removed empty local git source "$uri"');
+    }
   }
 
-  // Prompt to remove global git sources with no skills installed.
-  if (dialogSupport != null && globalConfig.gitRepos.isNotEmpty) {
+  // Handle global repos with no active installations.
+  if (globalConfig.gitRepos.isNotEmpty) {
     var updatedRepos = globalConfig.gitRepos;
     for (final repo in globalConfig.gitRepos) {
-      final active = await _hasActiveInstalls(repo: repo, manifest: manifest);
-      if (active) continue;
-
-      final selection = await dialogSupport.showSingleSelectDialog(
-        const ['Yes', 'No'],
-        title:
-            'Remove global git source "${repo.cloneUrl}" which has no '
-            'skills installed?',
+      final activeOnDisk = await _hasActiveGlobalInstallsOnDisk(repo);
+      final activeInManifest = _hasActiveInstallsInManifest(
+        cloneUrl: repo.cloneUrl,
+        manifest: manifest,
       );
-      if (selection == 0) {
+      if (activeOnDisk || activeInManifest) continue;
+
+      final bool removeGlobal;
+      if (!allFlag) {
+        final selection = await dialogSupport!.showSingleSelectDialog(
+          const ['Yes', 'No'],
+          title:
+              'Remove global git source "${repo.cloneUrl}" which has no '
+              'skills installed?',
+        );
+        removeGlobal = selection == 0;
+      } else {
+        removeGlobal = true;
+      }
+
+      if (removeGlobal) {
         updatedRepos = updatedRepos
             .where((r) => r.cloneUrl != repo.cloneUrl)
             .toList();

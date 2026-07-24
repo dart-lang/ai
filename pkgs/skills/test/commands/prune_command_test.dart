@@ -82,7 +82,10 @@ void main() {
         );
         await manifest.save(File(SkillManifest.pathIn(projectPath)));
 
-        final pruneCommand = PruneCommand(dialogSupport: FakeDialogSupport());
+        final fakeDialog = FakeDialogSupport();
+        fakeDialog.multiSelectResults.add({0}); // select package:pkg_b
+
+        final pruneCommand = PruneCommand(dialogSupport: fakeDialog);
         final runner = SkillsCommandRunner('skills', 'Test')
           ..addCommand(pruneCommand);
         await runner.run([
@@ -160,7 +163,10 @@ void main() {
         );
         await manifest.save(File(SkillManifest.pathIn(projectPath)));
 
-        final pruneCommand = PruneCommand(dialogSupport: FakeDialogSupport());
+        final fakeDialog = FakeDialogSupport();
+        fakeDialog.multiSelectResults.add({0});
+
+        final pruneCommand = PruneCommand(dialogSupport: fakeDialog);
         final runner = SkillsCommandRunner('skills', 'Test')
           ..addCommand(pruneCommand);
         await runner.run([
@@ -179,6 +185,73 @@ void main() {
           p.join(projectPath, SkillManifest.cacheDirPath),
         );
         expect(await dartSkillsDir.exists(), isFalse);
+      },
+    );
+
+    test(
+      'when --all flag is passed then dialog is skipped and all unreferenced packages are removed',
+      () async {
+        final testRootPath = p.join(
+          Directory.systemTemp.path,
+          'skills_prune_test_${DateTime.now().millisecondsSinceEpoch}',
+        );
+        Directory(testRootPath).createSync();
+        addTearDown(() async {
+          await Directory(testRootPath).delete(recursive: true);
+        });
+
+        await d
+            .dir('project', [
+              pubspec('my_app'),
+              d.dir('.cursor', [
+                d.dir('skills', [
+                  d.dir('old_pkg-skill', [
+                    d.file(
+                      'SKILL.md',
+                      '---\nname: old_pkg-skill\ndescription: x\n---\n',
+                    ),
+                  ]),
+                ]),
+              ]),
+            ])
+            .create(testRootPath);
+
+        final projectPath = p.join(testRootPath, 'project');
+        final manifest = SkillManifest(
+          installations: {
+            'cursor': {
+              'package:old_pkg': SkillsEntry(
+                skills: [
+                  InstalledSkillEntry(
+                    name: 'old_pkg-skill',
+                    installedAt: DateTime.utc(2026),
+                  ),
+                ],
+              ),
+            },
+          },
+        );
+        await manifest.save(File(SkillManifest.pathIn(projectPath)));
+
+        final fakeDialog = FakeDialogSupport();
+        // multiSelectResults left empty so error would be thrown if dialog called
+
+        final pruneCommand = PruneCommand(dialogSupport: fakeDialog);
+        final runner = SkillsCommandRunner('skills', 'Test')
+          ..addCommand(pruneCommand);
+        await runner.run([
+          'prune',
+          '--directory',
+          projectPath,
+          '--agent',
+          'cursor',
+          '--all',
+        ]);
+
+        expect(
+          await Directory('$projectPath/.cursor/skills/old_pkg-skill').exists(),
+          isFalse,
+        );
       },
     );
 
@@ -303,7 +376,10 @@ void main() {
       );
       await manifest.save(File(SkillManifest.pathIn(projectPath)));
 
-      final pruneCommand = PruneCommand(dialogSupport: FakeDialogSupport());
+      final fakeDialog = FakeDialogSupport();
+      fakeDialog.multiSelectResults.add({0});
+
+      final pruneCommand = PruneCommand(dialogSupport: fakeDialog);
       final runner = SkillsCommandRunner('skills', 'Test')
         ..addCommand(pruneCommand);
       await runner.run([
@@ -340,7 +416,7 @@ void main() {
     });
 
     test(
-      'prompts to remove local git source entry with no skills listed when user says YES',
+      'prompts with multi-select to remove local git source entry with no skills listed when selected',
       () async {
         final testRootPath = p.join(
           Directory.systemTemp.path,
@@ -366,7 +442,7 @@ void main() {
         await manifest.save(File(SkillManifest.pathIn(projectPath)));
 
         final fakeDialog = FakeDialogSupport();
-        fakeDialog.singleSelectResults.add(0); // Yes, remove local git source
+        fakeDialog.multiSelectResults.add({0}); // Select index 0 (the git repo)
 
         final pruneCommand = PruneCommand(dialogSupport: fakeDialog);
         final runner = SkillsCommandRunner('skills', 'Test')
@@ -385,7 +461,7 @@ void main() {
     );
 
     test(
-      'keeps local git source entry with no skills listed when user says NO',
+      'keeps local git source entry with no skills listed when unselected in multi-select',
       () async {
         final testRootPath = p.join(
           Directory.systemTemp.path,
@@ -411,7 +487,9 @@ void main() {
         await manifest.save(File(SkillManifest.pathIn(projectPath)));
 
         final fakeDialog = FakeDialogSupport();
-        fakeDialog.singleSelectResults.add(1); // No, keep local git source
+        fakeDialog.multiSelectResults.add(
+          {},
+        ); // Empty selection, keep git source
 
         final pruneCommand = PruneCommand(dialogSupport: fakeDialog);
         final runner = SkillsCommandRunner('skills', 'Test')
