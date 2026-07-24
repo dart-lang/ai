@@ -203,5 +203,28 @@ void main() {
 
       expect(fakeDialogSupport.allTitles, isEmpty);
     });
+
+    test(
+      'newly accepted suggested repos are not prompted in source selection',
+      () async {
+        fakeDialogSupport.multiSelectResults.add({
+          0,
+        }); // Select dart-lang/skills
+        fakeDialogSupport.singleSelectResults.add(0); // Select Local
+
+        await runner.run([
+          'get',
+          '--directory',
+          projectPath,
+          '--ide',
+          'cursor',
+        ]);
+
+        expect(
+          fakeDialogSupport.allTitles,
+          isNot(contains('Select which sources to browse skills from:')),
+        );
+      },
+    );
   });
 }

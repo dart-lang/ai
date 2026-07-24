@@ -9,6 +9,8 @@
 - Don't crawl into `third_party` or hidden directories when scanning Git repositories for skills.
 - Support hyphens instead of underscores in package name prefixes when matching and creating skills.
 - Update wording slightly for selection dialogs.
+- Auto-select newly accepted suggested skill repositories so they are not
+  prompted again in the source-selection dialog.
 
 ## 1.0.0-beta.4
 
