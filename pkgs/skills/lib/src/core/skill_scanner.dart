@@ -60,13 +60,17 @@ class SkillScanner {
   /// Scans a single [package] for its skills/ directory.
   ///
   /// Only includes skills whose directory name starts with the package name
-  /// followed by a hyphen (e.g., package `serverpod` must have skills named
-  /// `serverpod-*`). Skills that don't match are skipped with a warning.
+  /// (or hyphenated package name) followed by a hyphen (e.g., package `serverpod`
+  /// must have skills named `serverpod-*`, package `my_package` can have
+  /// `my_package-*` or `my-package-*`). Skills that don't match are skipped with
+  /// a warning.
   Future<List<ScannedSkill>> scanPackage(ResolvedPackage package) async {
     final skillsDir = Directory(p.join(package.rootPath, 'skills'));
     if (!await skillsDir.exists()) return [];
 
     final prefix = '${package.name}-';
+    final hyphenatedPrefix = '${package.name.replaceAll('_', '-')}-';
+    final validPrefixes = {prefix, hyphenatedPrefix};
     final skills = <ScannedSkill>[];
 
     await for (final entity in skillsDir.list()) {
@@ -91,10 +95,13 @@ class SkillScanner {
       }
       if (frontmatter.isInternal && !shouldInstallInternalSkills) continue;
 
-      if (!skillName.startsWith(prefix)) {
+      if (!validPrefixes.any(skillName.startsWith)) {
+        final expected = validPrefixes.length == 1
+            ? '"${validPrefixes.first}"'
+            : '"${validPrefixes.first}" or "${validPrefixes.last}"';
         logger.warning(
           'Skipping skill "$skillName" in ${package.name} '
-          '-- name must start with "${package.name}-"',
+          '-- name must start with $expected',
         );
         continue;
       }
