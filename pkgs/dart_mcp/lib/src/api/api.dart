@@ -343,9 +343,11 @@ extension type CacheableResult._fromMap(Map<String, Object?> _value)
   /// Servers on protocol versions before 2026-07-28 omit the field, and the
   /// spec defines no default for it, so an absent or unrecognized value is
   /// reported here as `null`.
-  CacheScope? get cacheScope => CacheScope.values.firstWhereOrNull(
-    (scope) => scope.name == (_value[Keys.cacheScope] as String?),
-  );
+  CacheScope? get cacheScope {
+    final name = _value[Keys.cacheScope] as String?;
+    if (name == null) return null;
+    return CacheScope.values.firstWhereOrNull((scope) => scope.name == name);
+  }
 }
 
 /// The intended scope of a cached [CacheableResult] response.
