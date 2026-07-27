@@ -14,6 +14,7 @@ extension Keys on Never {
   static const arguments = 'arguments';
   static const audience = 'audience';
   static const blob = 'blob';
+  static const cacheScope = 'cacheScope';
   static const cancel = 'cancel';
   static const capabilities = 'capabilities';
   static const clientInfo = 'clientInfo';
@@ -128,6 +129,7 @@ extension Keys on Never {
   static const toolChoice = 'toolChoice';
   static const tools = 'tools';
   static const total = 'total';
+  static const ttlMs = 'ttlMs';
   static const type = 'type';
   static const unevaluatedItems = 'unevaluatedItems';
   static const unevaluatedProperties = 'unevaluatedProperties';

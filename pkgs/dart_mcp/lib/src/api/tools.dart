@@ -18,7 +18,7 @@ extension type ListToolsRequest.fromMap(Map<String, Object?> _value)
 
 /// The server's response to a tools/list request from the client.
 extension type ListToolsResult.fromMap(Map<String, Object?> _value)
-    implements PaginatedResult {
+    implements PaginatedResult, CacheableResult {
   factory ListToolsResult({
     required List<Tool> tools,
     Cursor? nextCursor,
