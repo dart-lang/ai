@@ -123,5 +123,18 @@ void main() {
       final metaMap = root.meta as Map;
       expect(metaMap['foo'], 'bar');
     });
+    test('resultType defaults to complete when absent and passes strings '
+        'through', () {
+      expect((<String, Object?>{} as Result).resultType, 'complete');
+      expect(
+        (<String, Object?>{'resultType': 'input_required'} as Result)
+            .resultType,
+        'input_required',
+      );
+      expect(
+        (<String, Object?>{'resultType': 'streaming'} as Result).resultType,
+        'streaming',
+      );
+    });
   });
 }
