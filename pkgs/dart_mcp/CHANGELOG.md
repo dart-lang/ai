@@ -51,8 +51,10 @@
   https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2549.
   `ttlMs` returns an `int`, reading `0` (immediately stale) for an absent or
   negative value, as the spec instructs clients; `cacheScope` returns a
-  `CacheScope?` which is `null` when the field is absent, since the spec
-  defines no default for it. `ListToolsResult`, `ListPromptsResult`,
+  `CacheScope?` which is `null` when the field is absent, rather than the
+  "public" default the schema comment mentions, because the same SEP calls the
+  field required "because there is no safe default for older servers" and
+  leaves a default to each SDK. `ListToolsResult`, `ListPromptsResult`,
   `ListResourcesResult`, `ListResourceTemplatesResult`, and
   `ReadResourceResult` now implement `CacheableResult`, so the hints are
   readable on responses from servers that send them.

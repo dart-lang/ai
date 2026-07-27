@@ -340,9 +340,15 @@ extension type CacheableResult._fromMap(Map<String, Object?> _value)
   /// The intended scope of the cached response, analogous to HTTP
   /// `Cache-Control: public` vs `Cache-Control: private`.
   ///
-  /// Servers on protocol versions before 2026-07-28 omit the field, and the
-  /// spec defines no default for it, so an absent or unrecognized value is
-  /// reported here as `null`.
+  /// An absent or unrecognized value is reported here as `null` rather than
+  /// as a default. The schema comment says the field defaults to "public",
+  /// but the same SEP argues the field is required precisely "because there
+  /// is no safe default for older servers", and leaves a default to the
+  /// discretion of each SDK. Reporting `null` follows the second reading:
+  /// synthesizing "public" for a server that never declared a scope is the
+  /// one guess that can leak a private response into a shared cache. Servers
+  /// on protocol versions before 2026-07-28 omit the field, and their results
+  /// also carry no `ttlMs`, so they are already immediately stale.
   CacheScope? get cacheScope {
     final name = _value[Keys.cacheScope] as String?;
     if (name == null) return null;
