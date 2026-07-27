@@ -1,3 +1,7 @@
+// Copyright (c) 2026, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
 import 'dart:io' show Platform;
 
 import 'package:args/args.dart';
@@ -61,10 +65,7 @@ Future<List<Agent>> resolveAgents({
   if (detected.isNotEmpty) return detected;
 
   if (dialogSupport case var dialogSupport?) {
-    final options = [
-      for (var agent in Agent.values)
-        '${agent.cliName}${agent.cliAliases.isEmpty ? '' : ' (${agent.cliAliases.join(', ')})'}',
-    ];
+    final options = [for (var agent in Agent.values) agent.label];
     final result = await dialogSupport.showMultiSelectDialog(
       options,
       title: 'Unable to auto-detect agent. Please select one or more:',
