@@ -3,8 +3,20 @@
 ## 1.0.0-wip
 
 - Emphasize (bold) actual skill names in interactive dialog options.
+- Fix bug where failing to clone a git repository in `skills add` still saved
+  it to configuration/manifest files.
 - Add a --version flag.
 - JSON encode descriptions in the `create` command.
+- Make `list` command more consistent with other commands and more informative:
+  - Add agent aliases to agent labels (e.g., `generic (antigravity, codex)`).
+  - Display actual install directory for each agent in the list header.
+  - Add a note that listed skills are managed skills and additional skills may be installed.
+  - Store relative repository paths in manifest and display in `list` output.
+- Don't crawl into `third_party` or hidden directories when scanning Git repositories for skills.
+- Support hyphens instead of underscores in package name prefixes when matching and creating skills.
+- Update wording slightly for selection dialogs.
+- Auto-select newly accepted suggested skill repositories so they are not
+  prompted again in the source-selection dialog.
 
 ## 1.0.0-beta.4
 

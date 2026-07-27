@@ -101,7 +101,7 @@ class RemoveCommand extends SkillsCommand {
       }.toList()..sort();
       final selectedIndices = await _dialogSupport.showMultiSelectDialog(
         allPackages,
-        title: 'Select sources to remove skills for:',
+        title: 'Select sources to remove skills from:',
       );
       if (selectedIndices != null) {
         sourcesToRemove.addAll(selectedIndices.map((i) => allPackages[i]));

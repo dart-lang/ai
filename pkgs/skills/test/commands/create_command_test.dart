@@ -33,9 +33,9 @@ void main() {
 
       await d.dir('project', [
         d.dir('skills', [
-          d.dir('my_package-my-skill', [
+          d.dir('my-package-my-skill', [
             d.file('SKILL.md', '''---
-name: my_package-my-skill
+name: my-package-my-skill
 description: "my description"
 ---
 
@@ -92,7 +92,7 @@ Add your skill instructions here.
         await d.dir('project', [
           pubspec('my_package'),
           d.dir('skills', [
-            d.dir('my_package-existing-skill', [
+            d.dir('my-package-existing-skill', [
               d.file('SKILL.md', 'existing content'),
             ]),
           ]),
@@ -129,9 +129,9 @@ Add your skill instructions here.
 
         await d.dir('project', [
           d.dir('skills', [
-            d.dir('my_package-my-skill2', [
+            d.dir('my-package-my-skill2', [
               d.file('SKILL.md', r'''---
-name: my_package-my-skill2
+name: my-package-my-skill2
 description: "description with: a colon, \"quotes\", \nnewlines\tand backticks `like this`"
 ---
 

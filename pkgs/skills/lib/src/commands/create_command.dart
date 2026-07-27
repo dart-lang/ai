@@ -78,7 +78,8 @@ class CreateCommand extends SkillsCommand {
       throw UsageException('Description is required.', usage);
     }
 
-    final fullSkillName = '${package.name}-$skillName';
+    final prefix = package.name.replaceAll('_', '-');
+    final fullSkillName = '$prefix-$skillName';
 
     final skillsDir = Directory(p.join(package.path, 'skills', fullSkillName));
 

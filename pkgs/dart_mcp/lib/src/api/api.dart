@@ -180,6 +180,14 @@ extension type Notification(Map<String, Object?> _value) {
 /// Base interface for all responses to requests.
 extension type Result._(Map<String, Object?> _value) {
   Meta? get meta => _value[Keys.meta] as Meta?;
+
+  /// The type of this result, which determines how to parse it.
+  ///
+  /// Known types are "complete" and "input_required", but a server may send
+  /// any other string. Servers on protocol versions before 2026-07-28 omit
+  /// the field; the schema requires treating that as "complete", so an absent
+  /// value is reported here as "complete".
+  String get resultType => _value[Keys.resultType] as String? ?? 'complete';
 }
 
 /// A response that indicates success but carries no data.
@@ -305,6 +313,58 @@ extension type PaginatedRequest._fromMap(Map<String, Object?> _value)
 extension type PaginatedResult._fromMap(Map<String, Object?> _value)
     implements Result {
   Cursor? get nextCursor => _value[Keys.nextCursor] as Cursor?;
+}
+
+/// A "mixin"-like extension type for any result type that contains caching
+/// hints at the keys "ttlMs" and "cacheScope".
+///
+/// Should be "mixed in" by implementing this type from other extension types.
+///
+/// This type is not intended to be constructed directly and thus has no public
+/// constructor.
+extension type CacheableResult._fromMap(Map<String, Object?> _value)
+    implements Result {
+  /// A hint for how long, in milliseconds, the client may cache this response
+  /// before re-fetching, analogous to HTTP `Cache-Control` max-age.
+  ///
+  /// A value of 0 marks the response as immediately stale.
+  ///
+  /// Servers on protocol versions before 2026-07-28 omit the field; the spec
+  /// says clients should assume 0 in that case, and should treat a negative
+  /// value from a non-conforming server as 0, so both are reported here as 0.
+  int get ttlMs {
+    final value = _value[Keys.ttlMs] as int? ?? 0;
+    return value < 0 ? 0 : value;
+  }
+
+  /// The intended scope of the cached response, analogous to HTTP
+  /// `Cache-Control: public` vs `Cache-Control: private`.
+  ///
+  /// An absent or unrecognized value is reported here as `null` rather than
+  /// as a default. The schema comment says the field defaults to "public",
+  /// but the same SEP argues the field is required precisely "because there
+  /// is no safe default for older servers", and leaves a default to the
+  /// discretion of each SDK. Reporting `null` follows the second reading:
+  /// synthesizing "public" for a server that never declared a scope is the
+  /// one guess that can leak a private response into a shared cache. Servers
+  /// on protocol versions before 2026-07-28 omit the field, and their results
+  /// also carry no `ttlMs`, so they are already immediately stale.
+  CacheScope? get cacheScope {
+    final name = _value[Keys.cacheScope] as String?;
+    if (name == null) return null;
+    return CacheScope.values.firstWhereOrNull((scope) => scope.name == name);
+  }
+}
+
+/// The intended scope of a cached [CacheableResult] response.
+enum CacheScope {
+  /// The response contains no user-specific data; any client or intermediary
+  /// may cache it and serve it across authorization contexts.
+  public,
+
+  /// The response may be cached and reused only within the same authorization
+  /// context; caches must not be shared across authorization contexts.
+  private,
 }
 
 /// Could be either [TextContent], [ImageContent], [AudioContent] or

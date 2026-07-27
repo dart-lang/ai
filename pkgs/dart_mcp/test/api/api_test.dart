@@ -123,5 +123,49 @@ void main() {
       final metaMap = root.meta as Map;
       expect(metaMap['foo'], 'bar');
     });
+    test('resultType defaults to complete when absent and passes strings '
+        'through', () {
+      expect((<String, Object?>{} as Result).resultType, 'complete');
+      expect(
+        (<String, Object?>{'resultType': 'input_required'} as Result)
+            .resultType,
+        'input_required',
+      );
+      expect(
+        (<String, Object?>{'resultType': 'streaming'} as Result).resultType,
+        'streaming',
+      );
+    });
+    test('cacheable result fields default when absent and parse known '
+        'values', () {
+      final empty = <String, Object?>{} as CacheableResult;
+      expect(empty.ttlMs, 0);
+      expect(empty.cacheScope, null);
+      expect((<String, Object?>{'ttlMs': -5} as CacheableResult).ttlMs, 0);
+      final cacheable =
+          <String, Object?>{'ttlMs': 5000, 'cacheScope': 'private'}
+              as CacheableResult;
+      expect(cacheable.ttlMs, 5000);
+      expect(cacheable.cacheScope, CacheScope.private);
+      expect(
+        (<String, Object?>{'cacheScope': 'public'} as CacheableResult)
+            .cacheScope,
+        CacheScope.public,
+      );
+      expect(
+        (<String, Object?>{'cacheScope': 'session'} as CacheableResult)
+            .cacheScope,
+        null,
+      );
+      final listTools =
+          <String, Object?>{
+                'tools': <Object?>[],
+                'ttlMs': 5000,
+                'cacheScope': 'public',
+              }
+              as ListToolsResult;
+      expect(listTools.ttlMs, 5000);
+      expect(listTools.cacheScope, CacheScope.public);
+    });
   });
 }

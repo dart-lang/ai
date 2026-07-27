@@ -28,12 +28,16 @@ class ScannedSkill {
 
   final bool isGlobal;
 
+  /// Relative path within the source repo or package (e.g. "skills/my-skill").
+  final String? path;
+
   const ScannedSkill({
     this.packageName,
     this.gitUrl,
     required this.skillName,
     required this.skillPath,
     this.isGlobal = false,
+    this.path,
   });
 
   String get sourceUri => gitUrl ?? 'package:$packageName';
@@ -60,13 +64,17 @@ class SkillScanner {
   /// Scans a single [package] for its skills/ directory.
   ///
   /// Only includes skills whose directory name starts with the package name
-  /// followed by a hyphen (e.g., package `serverpod` must have skills named
-  /// `serverpod-*`). Skills that don't match are skipped with a warning.
+  /// (or hyphenated package name) followed by a hyphen (e.g., package `serverpod`
+  /// must have skills named `serverpod-*`, package `my_package` can have
+  /// `my_package-*` or `my-package-*`). Skills that don't match are skipped with
+  /// a warning.
   Future<List<ScannedSkill>> scanPackage(ResolvedPackage package) async {
     final skillsDir = Directory(p.join(package.rootPath, 'skills'));
     if (!await skillsDir.exists()) return [];
 
     final prefix = '${package.name}-';
+    final hyphenatedPrefix = '${package.name.replaceAll('_', '-')}-';
+    final validPrefixes = {prefix, hyphenatedPrefix};
     final skills = <ScannedSkill>[];
 
     await for (final entity in skillsDir.list()) {
@@ -91,19 +99,24 @@ class SkillScanner {
       }
       if (frontmatter.isInternal && !shouldInstallInternalSkills) continue;
 
-      if (!skillName.startsWith(prefix)) {
+      if (!validPrefixes.any(skillName.startsWith)) {
+        final expected = validPrefixes.map((p) => '"$p"').join(' or ');
         logger.warning(
           'Skipping skill "$skillName" in ${package.name} '
-          '-- name must start with "${package.name}-"',
+          '-- name must start with $expected',
         );
         continue;
       }
 
+      final pathInPackage = p
+          .split(p.relative(entity.path, from: package.rootPath))
+          .join('/');
       skills.add(
         ScannedSkill(
           packageName: package.name,
           skillName: skillName,
           skillPath: entity.path,
+          path: pathInPackage,
         ),
       );
     }
