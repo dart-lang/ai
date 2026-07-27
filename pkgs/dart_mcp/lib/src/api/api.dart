@@ -180,6 +180,14 @@ extension type Notification(Map<String, Object?> _value) {
 /// Base interface for all responses to requests.
 extension type Result._(Map<String, Object?> _value) {
   Meta? get meta => _value[Keys.meta] as Meta?;
+
+  /// The type of this result, which determines how to parse it.
+  ///
+  /// Known types are "complete" and "input_required", but a server may send
+  /// any other string. Servers on protocol versions before 2026-07-28 omit
+  /// the field; the schema requires treating that as "complete", so an absent
+  /// value is reported here as "complete".
+  String get resultType => _value[Keys.resultType] as String? ?? 'complete';
 }
 
 /// A response that indicates success but carries no data.

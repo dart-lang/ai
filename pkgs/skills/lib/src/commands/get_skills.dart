@@ -99,9 +99,14 @@ Future<bool> getSkills({
   final globalConfigFile = io.File(globalConfigPath);
   var globalConfig = await GlobalConfig.loadOrEmpty(globalConfigFile);
 
+  late final Set<String> newlyAcceptedRepos;
   {
     var (originalGlobalConfig, originalManifest) = (globalConfig, manifest);
-    (:globalConfig, :manifest) = await _maybePromptToInstallDashSkills(
+    (
+      :globalConfig,
+      :manifest,
+      :newlyAcceptedRepos,
+    ) = await _maybePromptToInstallDashSkills(
       dialogSupport: dialogSupport,
       globalConfig: globalConfig,
       agents: agents,
@@ -201,6 +206,7 @@ Future<bool> getSkills({
       skills: skills,
       dialogSupport: dialogSupport,
       logger: logger,
+      newlyAcceptedRepos: newlyAcceptedRepos,
     );
     if (!continueInstall) {
       return false;
@@ -274,6 +280,7 @@ Future<bool> getSkills({
 typedef DashSkillsPromptResult = ({
   GlobalConfig globalConfig,
   SkillManifest manifest,
+  Set<String> newlyAcceptedRepos,
 });
 
 /// Prompts the user to install dash skill repos if they have not already
@@ -294,7 +301,11 @@ Future<DashSkillsPromptResult> _maybePromptToInstallDashSkills({
       dialogSupport == null ||
       sourceUris.isNotEmpty ||
       skillNames.isNotEmpty) {
-    return (globalConfig: globalConfig, manifest: manifest);
+    return (
+      globalConfig: globalConfig,
+      manifest: manifest,
+      newlyAcceptedRepos: const <String>{},
+    );
   }
 
   const flutterSkillsRepo = 'https://github.com/flutter/agent-plugins.git';
@@ -315,6 +326,7 @@ Future<DashSkillsPromptResult> _maybePromptToInstallDashSkills({
     suggestedRepos.add(flutterSkillsRepo);
   }
 
+  final newlyAcceptedRepos = <String>{};
   if (suggestedRepos.isNotEmpty) {
     final options = [...suggestedRepos, 'Never ask again on this machine'];
     final selectedIndices = await dialogSupport.showMultiSelectDialog(
@@ -356,16 +368,22 @@ Future<DashSkillsPromptResult> _maybePromptToInstallDashSkills({
               );
             }
           }
+          newlyAcceptedRepos.addAll(selectedRepos);
         } else if (result == 1) {
           for (final repo in selectedRepos) {
             globalConfig = globalConfig.withGitRepo(GitRepo(cloneUrl: repo));
           }
+          newlyAcceptedRepos.addAll(selectedRepos);
         }
       }
     }
   }
 
-  return (globalConfig: globalConfig, manifest: manifest);
+  return (
+    globalConfig: globalConfig,
+    manifest: manifest,
+    newlyAcceptedRepos: newlyAcceptedRepos,
+  );
 }
 
 @visibleForTesting
@@ -598,33 +616,30 @@ Future<bool> _promptForSourcesWithDiffs({
   required List<ScannedSkill> skills,
   required DialogSupport dialogSupport,
   required Logger logger,
+  Set<String> newlyAcceptedRepos = const {},
 }) async {
-  final sourcesWithSkills = sourceIdsWithDiff.toList()..sort();
-  if (sourcesWithSkills.isNotEmpty) {
+  final candidateSources =
+      sourceIdsWithDiff.difference(newlyAcceptedRepos).toList()..sort();
+  if (candidateSources.isNotEmpty) {
     final initialSelected = Iterable<int>.generate(
-      sourcesWithSkills.length,
+      candidateSources.length,
     ).toSet();
     final selectedIndices = await dialogSupport.showMultiSelectDialog(
-      sourcesWithSkills,
+      candidateSources,
       title: 'Select which sources to browse skills from:',
       initialSelected: initialSelected,
     );
     if (selectedIndices != null) {
       final selectedSources = selectedIndices
-          .map((i) => sourcesWithSkills[i])
+          .map((i) => candidateSources[i])
           .toSet();
-      skills.removeWhere(
-        (s) =>
-            sourceIdsWithDiff.contains(s.sourceUri) &&
-            !selectedSources.contains(s.sourceUri),
+      final unselectedSources = candidateSources.toSet().difference(
+        selectedSources,
       );
+      skills.removeWhere((s) => unselectedSources.contains(s.sourceUri));
 
       for (final list in skillsBySource.values) {
-        list.removeWhere(
-          (s) =>
-              sourceIdsWithDiff.contains(s.sourceUri) &&
-              !selectedSources.contains(s.sourceUri),
-        );
+        list.removeWhere((s) => unselectedSources.contains(s.sourceUri));
       }
       skillsBySource.removeWhere((k, v) => v.isEmpty);
       sortedSourceIds.removeWhere((id) => !skillsBySource.containsKey(id));
@@ -850,6 +865,9 @@ class OrphanedSkill implements ScannedSkill {
   /// Not a real skill, has no path
   @override
   String? get skillPath => null;
+
+  @override
+  String? get path => null;
 
   @override
   String get sourceUri => gitUrl ?? 'package:${packageName!}';
