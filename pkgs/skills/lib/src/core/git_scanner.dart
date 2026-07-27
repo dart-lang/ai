@@ -46,12 +46,13 @@ class GitScanner {
     bool isGlobal,
   ) async {
     final skills = <ScannedSkill>[];
-    await _scanDirectory(repoDir, gitUrl, isGlobal, skills);
+    await _scanDirectory(repoDir, repoDir, gitUrl, isGlobal, skills);
     return skills;
   }
 
   Future<void> _scanDirectory(
     Directory dir,
+    Directory repoDir,
     String gitUrl,
     bool isGlobal,
     List<ScannedSkill> skills,
@@ -60,7 +61,7 @@ class GitScanner {
       if (entity is Directory) {
         final name = p.basename(entity.path);
         if (name == 'third_party' || name.startsWith('.')) continue;
-        await _scanDirectory(entity, gitUrl, isGlobal, skills);
+        await _scanDirectory(entity, repoDir, gitUrl, isGlobal, skills);
       } else if (entity is File && p.basename(entity.path) == 'SKILL.md') {
         SkillFrontmatter? frontmatter;
         try {
