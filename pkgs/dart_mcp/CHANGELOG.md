@@ -67,6 +67,19 @@
   Nothing emits them yet; the Streamable HTTP handler lands separately. The
   same registry reserves `-32042`, so `urlElicitationRequired` now documents
   that only the 2025-11-25 revision emits it.
+- Add `ProtocolVersion.v2026_07_28`. `ProtocolVersion.latestSupported` still
+  points at 2025-11-25, the newest version the legacy `initialize` handshake
+  negotiates; transports for the request-scoped protocol carry their own set
+  of supported versions.
+- Add `package:dart_mcp/streamable_http.dart` with
+  `handleStreamableHttpRequest`, the server side of the Streamable HTTP
+  transport from the 2026-07-28 revision, see
+  https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http.
+  Each POST carries one JSON-RPC request or notification which is validated
+  against the required headers and `_meta` envelope, then dispatched to a
+  fresh server instance via `handleRequestScopedMessage`. Responses are JSON
+  only. Does not add SSE response streams, the legacy session routes, or an
+  HTTP client; those land as separate changes.
 
 ## 0.5.2
 
