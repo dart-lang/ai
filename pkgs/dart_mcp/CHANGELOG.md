@@ -34,7 +34,7 @@
   decoded JSON-RPC message on a fresh server instance for request-scoped
   transports. Successful results record the server implementation under the
   reserved `io.modelcontextprotocol/serverInfo` result metadata key. Does
-  **not** add any transport; wire formats and HTTP support land separately.
+  **not** add any transport.
 - `RootsTrackingSupport` no longer surfaces an unhandled error when the
   connection closes while a `listRoots` request is in flight.
 - The URL elicitation retry rethrows the original error when its data is not
