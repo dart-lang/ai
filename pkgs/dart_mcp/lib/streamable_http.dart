@@ -60,8 +60,10 @@ const _mcpNameParams = {
 /// 404 for a method this transport does not serve. The specification requires
 /// `400 Bad Request` on every `HeaderMismatch` body and names no other status
 /// for content negotiation, so 406 and 415 are not used. Every one of
-/// those bodies also echoes the message which produced it under
-/// `error.data.request`, as the rest of this package does. A non-POST request
+/// those bodies also carries the message which produced it under
+/// `error.data.request`, as the rest of this package does: the decoded
+/// message when there is one, the raw body text when it was not valid JSON,
+/// and `null` when the body was never read into text. A non-POST request
 /// is answered with 405 and an `Allow` header but no body, which is all this
 /// revision defines for `GET` and `DELETE`.
 ///

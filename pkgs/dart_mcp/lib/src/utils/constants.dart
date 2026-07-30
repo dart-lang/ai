@@ -104,6 +104,7 @@ extension Keys on Never {
   static const readOnlyHint = 'readOnlyHint';
   static const reason = 'reason';
   static const ref = 'ref';
+  static const request = 'request';
   static const requestId = 'requestId';
   static const requested = 'requested';
   static const requestedSchema = 'requestedSchema';

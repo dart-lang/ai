@@ -689,6 +689,54 @@ void main() {
     });
   });
 
+  group('rejection bodies', () {
+    Map<String, Object?> errorData(String text) =>
+        (decode(text)[Keys.error] as Map<String, Object?>)[Keys.data]
+            as Map<String, Object?>;
+
+    test('echo the message when the exception carries no data', () async {
+      // `RpcException.serialize` injects the request into `error.data` when
+      // the exception has no data of its own.
+      final request = body(listTools);
+      final (status, _, text) = await post(
+        headers: headers(callTool),
+        json: request,
+      );
+      expect(status, 400);
+      expect(errorData(text)[Keys.request], request);
+    });
+
+    test('echo the message alongside data the exception carries', () async {
+      // ...and injects it next to existing data when that is a map without
+      // a `request` key, so the version payload keeps its echo too.
+      final request = {Keys.jsonrpc: '2.0', Keys.id: 1, Keys.method: listTools};
+      final (status, _, text) = await post(
+        headers: {...transportHeaders, 'Mcp-Protocol-Version': '2025-11-25'},
+        json: request,
+      );
+      expect(status, 400);
+      final data = errorData(text);
+      expect(data[Keys.supported], [version]);
+      expect(data[Keys.request], request);
+    });
+
+    test('echo raw text for unparsed bodies, null for unread ones', () async {
+      final (_, _, unparsed) = await post(
+        headers: transportHeaders,
+        raw: '{"jsonrpc": "2.0",',
+      );
+      expect(errorData(unparsed)[Keys.request], '{"jsonrpc": "2.0",');
+
+      final (_, _, unread) = await post(
+        headers: {...headers(listTools), 'Content-Type': 'text/plain'},
+        json: body(listTools),
+      );
+      final data = errorData(unread);
+      expect(data.containsKey(Keys.request), true);
+      expect(data[Keys.request], isNull);
+    });
+  });
+
   group('dispatch mappings', () {
     test('maps an unknown method to 404', () async {
       final (status, _, text) = await post(
