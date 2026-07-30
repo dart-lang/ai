@@ -302,5 +302,42 @@ void main() {
         ]).validate();
       },
     );
+
+    test('when running `skills get --all` for multiple agents then the summary '
+        'for each agent reports its own install directory', () async {
+      final logMessages = <String>[];
+      final subscription = Logger('skills get').onRecord.listen((r) {
+        logMessages.add(r.message);
+      });
+
+      final getCommand = GetCommand(
+        dialogSupport: null,
+        gitRunner: GitRunner(isAvailableOverride: () async => false),
+      );
+      final runner = SkillsCommandRunner('skills', 'Test')
+        ..addCommand(getCommand);
+
+      await runner.run([
+        'get',
+        '--directory',
+        projectPath,
+        '--agent',
+        Agent.generic.cliName,
+        '--agent',
+        Agent.claude.cliName,
+        '--all',
+      ]);
+
+      await subscription.cancel();
+
+      expect(
+        logMessages,
+        contains('Installed 2 skill(s) for generic at .agents/skills.'),
+      );
+      expect(
+        logMessages,
+        contains('Installed 2 skill(s) for claude at .claude/skills.'),
+      );
+    });
   });
 }

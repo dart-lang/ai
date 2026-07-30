@@ -257,7 +257,8 @@ Future<bool> getSkills({
       logger.info('  [${info.agentName}] Installed ${info.skillName}');
     }
     logger.info(
-      'Installed ${result.installed.length} skill(s) for ${agent.cliName}.',
+      'Installed ${result.installed.length} skill(s) for ${agent.cliName} '
+      'at ${agent.skillsRelativePath}.',
     );
   }
 
