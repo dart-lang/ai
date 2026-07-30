@@ -54,10 +54,12 @@ const _mcpNameParams = {
 /// the HTTP response.
 ///
 /// Spec-defined failures are answered with their JSON-RPC error codes and
-/// HTTP statuses: 400 for a malformed message or a failed header or envelope
-/// validation, 404 for a method this transport does not serve, 406 for an
-/// `Accept` header which is absent or does not cover both response shapes,
-/// and 415 for a `Content-Type` which is not `application/json`. Every one of
+/// HTTP statuses: 400 for a malformed message, a failed header or envelope
+/// validation, an `Accept` header which is absent or does not cover both
+/// response shapes, or a `Content-Type` which is not `application/json`, and
+/// 404 for a method this transport does not serve. The specification requires
+/// `400 Bad Request` on every `HeaderMismatch` body and names no other status
+/// for content negotiation, so 406 and 415 are not used. Every one of
 /// those bodies also echoes the message which produced it under
 /// `error.data.request`, as the rest of this package does. A non-POST request
 /// is answered with 405 and an `Allow` header but no body, which is all this
@@ -116,7 +118,7 @@ Future<void> handleStreamableHttpRequest(
     await request.drain<void>();
     return _reject(
       response,
-      HttpStatus.unsupportedMediaType,
+      HttpStatus.badRequest,
       RpcException(
         McpErrorCodes.headerMismatch,
         'The request body must be sent as ${ContentType.json.mimeType}',
@@ -192,6 +194,9 @@ Future<void> handleStreamableHttpRequest(
   if (object.kind == JsonRpc2Kind.notification) {
     // This protocol revision defines no client-to-server notifications over
     // HTTP, so there is no server to deliver them to; acknowledge and drop.
+    // This acknowledgement deliberately precedes the header checks below:
+    // per the specification, "header requirements for notification POSTs are
+    // not defined by this revision".
     response
       ..statusCode = HttpStatus.accepted
       ..contentLength = 0;
@@ -218,7 +223,7 @@ Future<void> handleStreamableHttpRequest(
       !_accepts(request, _eventStreamMimeType)) {
     return _reject(
       response,
-      HttpStatus.notAcceptable,
+      HttpStatus.badRequest,
       RpcException(
         McpErrorCodes.headerMismatch,
         'A request must accept both ${ContentType.json.mimeType} and '

@@ -209,7 +209,7 @@ void main() {
         },
         json: body('tools/list'),
       );
-      expect(status, 415);
+      expect(status, 400);
       expect(errorCode(text), -32020);
       expect(servers, isEmpty);
     });
@@ -219,7 +219,7 @@ void main() {
         headers: {...headers('tools/list'), 'Content-Type': 'text/plain'},
         json: body('tools/list'),
       );
-      expect(status, 415);
+      expect(status, 400);
       expect(responseHeaders.contentType?.mimeType, 'application/json');
       expect(errorCode(text), -32020);
     });
@@ -245,7 +245,7 @@ void main() {
         },
         json: body('tools/list'),
       );
-      expect(status, 406);
+      expect(status, 400);
       expect(errorCode(text), -32020);
       expect(servers, isEmpty);
     });
@@ -255,7 +255,7 @@ void main() {
         headers: {...headers('tools/list'), 'Accept': 'application/json'},
         json: body('tools/list'),
       );
-      expect(status, 406);
+      expect(status, 400);
       expect(responseHeaders.contentType?.mimeType, 'application/json');
       expect(errorCode(text), -32020);
     });
@@ -265,7 +265,7 @@ void main() {
         headers: {...headers('tools/list'), 'Accept': 'text/event-stream'},
         json: body('tools/list'),
       );
-      expect(status, 406);
+      expect(status, 400);
       expect(errorCode(text), -32020);
     });
 
