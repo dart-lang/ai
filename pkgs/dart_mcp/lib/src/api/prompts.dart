@@ -19,7 +19,7 @@ extension type ListPromptsRequest.fromMap(Map<String, Object?> _value)
 
 /// The server's response to a prompts/list request from the client.
 extension type ListPromptsResult.fromMap(Map<String, Object?> _value)
-    implements PaginatedResult {
+    implements PaginatedResult, CacheableResult {
   factory ListPromptsResult({
     required List<Prompt> prompts,
     Cursor? nextCursor,

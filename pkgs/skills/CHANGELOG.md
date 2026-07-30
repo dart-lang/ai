@@ -4,6 +4,7 @@
 
 - Fix bug where failing to clone a git repository in `skills add` still
   saved it to configuration/manifest files.
+- Emphasize (bold) actual skill names in interactive dialog options.
 - Add a --version flag.
 - JSON encode descriptions in the `create` command.
 - Make `list` command more consistent with other commands and more informative:

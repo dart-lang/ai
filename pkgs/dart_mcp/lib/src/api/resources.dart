@@ -18,7 +18,7 @@ extension type ListResourcesRequest.fromMap(Map<String, Object?> _value)
 
 /// The server's response to a resources/list request from the client.
 extension type ListResourcesResult.fromMap(Map<String, Object?> _value)
-    implements PaginatedResult {
+    implements PaginatedResult, CacheableResult {
   factory ListResourcesResult({
     required List<Resource> resources,
     Cursor? nextCursor,
@@ -50,7 +50,7 @@ extension type ListResourceTemplatesRequest.fromMap(Map<String, Object?> _value)
 
 /// The server's response to a resources/templates/list request from the client.
 extension type ListResourceTemplatesResult.fromMap(Map<String, Object?> _value)
-    implements PaginatedResult {
+    implements PaginatedResult, CacheableResult {
   factory ListResourceTemplatesResult({
     required List<ResourceTemplate> resourceTemplates,
     Cursor? nextCursor,
@@ -91,7 +91,7 @@ extension type ReadResourceRequest.fromMap(Map<String, Object?> _value)
 
 /// The server's response to a resources/read request from the client.
 extension type ReadResourceResult.fromMap(Map<String, Object?> _value)
-    implements Result {
+    implements CacheableResult {
   factory ReadResourceResult({
     required List<ResourceContents> contents,
     Meta? meta,

@@ -1,3 +1,7 @@
+// Copyright (c) 2026, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
 import 'package:args/command_runner.dart';
 import 'package:skills/src/core/git_repos.dart';
 
@@ -119,14 +123,24 @@ class RemoveCommand extends SkillsCommand {
           for (final MapEntry(key: sourceUri, value: entry)
               in manifest.sourceUrisForAgent(agent.cliName).entries)
             if (sourcesToRemove.isEmpty || sourcesToRemove.contains(sourceUri))
-              ...entry.skills.map((skill) => skill.name),
-      }.toList()..sort();
+              ...entry.skills.map(
+                (skill) => (name: skill.name, sourceUri: sourceUri),
+              ),
+      }.toList()..sort((a, b) => a.name.compareTo(b.name));
+      final options = potentialSkills.map((skill) {
+        final packageName = skill.sourceUri.startsWith('package:')
+            ? skill.sourceUri.substring('package:'.length)
+            : null;
+        return formatSkillName(skill.name, packageName: packageName);
+      }).toList();
       final selectedIndices = await _dialogSupport.showMultiSelectDialog(
-        potentialSkills,
+        options,
         title: 'Select skills to remove',
       );
       if (selectedIndices != null) {
-        skillsToRemove.addAll(selectedIndices.map((i) => potentialSkills[i]));
+        skillsToRemove.addAll(
+          selectedIndices.map((i) => potentialSkills[i].name),
+        );
       } else {
         logger.info('Skill removal aborted.');
         return;

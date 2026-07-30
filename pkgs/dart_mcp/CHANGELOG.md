@@ -45,6 +45,28 @@
   The getter returns a `String`, defaulting to `complete` when the field is
   absent, as the schema requires for backward compatibility with servers on
   earlier protocol versions.
+- Add `CacheableResult` and the `CacheScope` enum, modeling the `ttlMs` and
+  `cacheScope` caching hints which the 2026-07-28 draft schema attaches to
+  several result types, see
+  https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2549.
+  `ttlMs` returns an `int`, reading `0` (immediately stale) for an absent or
+  negative value, as the spec instructs clients; `cacheScope` returns a
+  `CacheScope?` which is `null` when the field is absent, rather than the
+  "public" default the schema comment mentions, because the same SEP calls the
+  field required "because there is no safe default for older servers" and
+  leaves a default to each SDK. `ListToolsResult`, `ListPromptsResult`,
+  `ListResourcesResult`, `ListResourceTemplatesResult`, and
+  `ReadResourceResult` now implement `CacheableResult`, so the hints are
+  readable on responses from servers that send them.
+- Add `McpErrorCodes.headerMismatch` (`-32020`),
+  `.missingRequiredClientCapability` (`-32021`), and
+  `.unsupportedProtocolVersion` (`-32022`), the error codes the 2026-07-28
+  revision allocates from the `-32020` to `-32099` range it reserves for the
+  specification, see
+  https://modelcontextprotocol.io/specification/2026-07-28/basic#error-codes.
+  Nothing emits them yet; the Streamable HTTP handler lands separately. The
+  same registry reserves `-32042`, so `urlElicitationRequired` now documents
+  that only the 2025-11-25 revision emits it.
 
 ## 0.5.2
 
