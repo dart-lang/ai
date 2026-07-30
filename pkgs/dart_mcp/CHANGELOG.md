@@ -58,13 +58,15 @@
   `ListResourcesResult`, `ListResourceTemplatesResult`, and
   `ReadResourceResult` now implement `CacheableResult`, so the hints are
   readable on responses from servers that send them.
-- Add the `headerMismatch` (`-32020`), `missingRequiredClientCapability`
-  (`-32021`), and `unsupportedProtocolVersion` (`-32022`) error-code
-  constants, renumbered from the RC by the finalized 2026-07-28 revision,
-  which reserves `-32020` to `-32099` for the specification, see
+- Add `McpErrorCodes.headerMismatch` (`-32020`),
+  `.missingRequiredClientCapability` (`-32021`), and
+  `.unsupportedProtocolVersion` (`-32022`), the error codes the 2026-07-28
+  revision allocates from the `-32020` to `-32099` range it reserves for the
+  specification, see
   https://modelcontextprotocol.io/specification/2026-07-28/basic#error-codes.
-  The same registry reserves `-32042`, so `urlElicitationRequired` now
-  documents that only the 2025-11-25 revision emits it.
+  Nothing emits them yet; the Streamable HTTP handler lands separately. The
+  same registry reserves `-32042`, so `urlElicitationRequired` now documents
+  that only the 2025-11-25 revision emits it.
 
 ## 0.5.2
 

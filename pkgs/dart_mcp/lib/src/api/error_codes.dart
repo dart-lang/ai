@@ -19,9 +19,13 @@ extension McpErrorCodes on Never {
   static const int headerMismatch = -32020;
 
   /// Error code for a request missing a required client capability.
+  ///
+  /// From the 2026-07-28 revision.
   static const int missingRequiredClientCapability = -32021;
 
   /// Error code for a request on a protocol version the server does not
   /// support.
+  ///
+  /// From the 2026-07-28 revision.
   static const int unsupportedProtocolVersion = -32022;
 }
