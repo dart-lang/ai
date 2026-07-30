@@ -75,9 +75,11 @@ const _mcpNameParams = {
 ///
 /// Notifications are acknowledged with `202 Accepted` and not dispatched,
 /// since this protocol revision defines no client-to-server notifications
-/// over HTTP. This handler reads the whole request body into memory, so
-/// origin validation, authentication, and request size limits are the
-/// embedding HTTP server's responsibility.
+/// over HTTP. This handler reads the whole request body into memory, and it
+/// does not read the `Origin` header, which the specification requires a
+/// server to validate and answer with 403: that check needs deployment
+/// knowledge this handler does not have, so it belongs to the embedding
+/// HTTP server, along with authentication and request size limits.
 ///
 /// Responses produced by the dispatched server are written unchanged, so an
 /// error a request handler throws reaches the client with whatever payload
