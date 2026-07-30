@@ -455,6 +455,39 @@ void main() {
       expect(errorCode(text), McpErrorCodes.headerMismatch);
     });
 
+    test('rejects an Mcp-Name sent as two separate field lines', () async {
+      // dart:io's client folds repeated headers into one comma separated
+      // line, which the mismatch check catches, so the two-line shape the
+      // spec's "single value" rule is really about has to go over a raw
+      // socket: dart:io's server keeps the lines separate.
+      final requestBody = jsonEncode(
+        body(callTool, params: {Keys.name: 'test/version'}),
+      );
+      final response = await rawRequest(
+        'POST /mcp HTTP/1.1\r\n'
+        'Host: localhost\r\n'
+        'Content-Type: application/json\r\n'
+        'Accept: application/json, text/event-stream\r\n'
+        'Mcp-Protocol-Version: $version\r\n'
+        'Mcp-Method: $callTool\r\n'
+        'Mcp-Name: test/version\r\n'
+        'Mcp-Name: test/version\r\n'
+        'Content-Length: ${requestBody.length}\r\n'
+        'Connection: close\r\n'
+        '\r\n'
+        '$requestBody',
+      );
+      expect(response, startsWith('HTTP/1.1 400'));
+      final error = decode(jsonBody(response))[Keys.error];
+      expect(errorCode(jsonBody(response)), McpErrorCodes.headerMismatch);
+      // Both values are identical, so only the line count can be what this
+      // rejection is about.
+      expect(
+        error,
+        containsPair(Keys.message, contains('Mcp-Name header is required')),
+      );
+    });
+
     test('rejects a prompts/get without an Mcp-Name header', () async {
       final (status, _, text) = await post(
         headers: headers(getPrompt),
@@ -596,12 +629,13 @@ void main() {
   group('http methods', () {
     for (final method in ['GET', 'DELETE', 'PUT']) {
       test('rejects $method with 405', () async {
-        final (status, responseHeaders, _) = await post(
+        final (status, responseHeaders, text) = await post(
           method: method,
           headers: method == 'DELETE' ? {'Mcp-Session-Id': 'abc'} : const {},
         );
         expect(status, 405);
         expect(responseHeaders.value(HttpHeaders.allowHeader), 'POST');
+        expect(text, isEmpty);
         expect(servers, isEmpty);
       });
     }
@@ -879,6 +913,16 @@ void main() {
               as Map<String, Object?>;
       expect(data[Keys.requested], '2025-11-25');
       expect(data[Keys.supported], [version]);
+      expect(servers, isEmpty);
+    });
+
+    test('rejects an envelope version which is not a String', () async {
+      final (status, _, text) = await post(
+        headers: headers(listTools),
+        json: body(listTools, bodyVersion: 42),
+      );
+      expect(status, 400);
+      expect(errorCode(text), error_code.INVALID_PARAMS);
       expect(servers, isEmpty);
     });
 

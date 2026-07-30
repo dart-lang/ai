@@ -508,9 +508,10 @@ String? _singleHeader(HttpRequest request, String name) {
 /// Returns the single value of [name] when it is a token which cannot contain
 /// a comma, and `null` if it is missing or was sent more than once.
 ///
-/// A recipient may combine repeated field lines into one comma separated
-/// value (RFC 9110 section 5.3), which `dart:io` does, so for these headers a
-/// comma is how a repeat arrives.
+/// A sender may combine repeated field lines into one comma separated value
+/// (RFC 9110 section 5.3), which `dart:io`'s own client does, so for these
+/// headers a comma is one way a repeat arrives. Separate field lines are the
+/// other, which `dart:io`'s server keeps separate and [_singleHeader] counts.
 String? _singleTokenHeader(HttpRequest request, String name) {
   final value = _singleHeader(request, name);
   return value == null || value.contains(',') ? null : value;
