@@ -94,9 +94,10 @@ const _mcpNameParams = {
 ///
 /// `Mcp-Session-Id` and `Last-Event-ID` headers are ignored, and no session
 /// id is ever minted: sessions and resumable streams were removed in this
-/// revision. Headers this revision does not define, including the
-/// `Mcp-Param-{Name}` headers a server opts into with `x-mcp-header`, are
-/// ignored as RFC 9110 requires.
+/// revision. The `Mcp-Param-{Name}` headers this revision defines are not
+/// supported either: nothing here opts into `x-mcp-header`, so no such
+/// header is ever recognized, and it is ignored along with every other
+/// header this handler does not read.
 ///
 /// Notifications the server produces while handling the request are passed
 /// to [onNotification]; a JSON response body cannot carry them, so without a

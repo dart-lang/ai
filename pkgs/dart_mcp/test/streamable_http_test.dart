@@ -572,8 +572,8 @@ void main() {
 
     test('ignores an Mcp-Param header which contradicts the body', () async {
       // Nothing here opts into `x-mcp-header`, so `Mcp-Param-*` is a header
-      // this handler does not recognize and RFC 9110 has it ignore it rather
-      // than guess which parameter it mirrors.
+      // this handler does not recognize, and it is ignored rather than
+      // guessed at.
       final (status, _, text) = await post(
         headers: {
           ...headers(callTool),
