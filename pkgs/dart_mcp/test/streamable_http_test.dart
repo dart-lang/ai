@@ -114,6 +114,27 @@ void main() {
   Object? errorCode(String text) =>
       (decode(text)[Keys.error] as Map<String, Object?>?)?[Keys.code];
 
+  /// Sends [payload] over a raw socket and returns the raw response text.
+  ///
+  /// [HttpClient] refuses to send the malformed header values some tests
+  /// probe with and folds repeated header lines into one, so those requests
+  /// have to go over a socket. The payload must ask for `Connection: close`
+  /// or the read below never finishes.
+  Future<String> rawRequest(String payload) async {
+    final socket = await Socket.connect(httpServer.address, httpServer.port);
+    socket.write(payload);
+    await socket.flush();
+    final response = utf8.decode(
+      await socket.fold(<int>[], (bytes, chunk) => bytes..addAll(chunk)),
+    );
+    socket.destroy();
+    return response;
+  }
+
+  /// The JSON body of a raw response, cut out of its framing.
+  String jsonBody(String response) =>
+      response.substring(response.indexOf('{'), response.lastIndexOf('}') + 1);
+
   group('happy path', () {
     test('answers tools/list with JSON and server info', () async {
       final (status, responseHeaders, text) = await post(
@@ -305,6 +326,26 @@ void main() {
       );
       expect(status, 200);
       expect(errorCode(text), isNull);
+    });
+
+    test('rejects a Content-Type dart:io cannot parse', () async {
+      // dart:io parses the header lazily and throws when it is first read,
+      // and that throw must land as a 400, not escape the handler and leave
+      // the request unanswered.
+      final requestBody = jsonEncode(body(listTools));
+      final response = await rawRequest(
+        'POST /mcp HTTP/1.1\r\n'
+        'Host: localhost\r\n'
+        'Content-Type: application/json; charset="utf-8\r\n'
+        'Accept: application/json, text/event-stream\r\n'
+        'Content-Length: ${requestBody.length}\r\n'
+        'Connection: close\r\n'
+        '\r\n'
+        '$requestBody',
+      );
+      expect(response, startsWith('HTTP/1.1 400'));
+      expect(errorCode(jsonBody(response)), McpErrorCodes.headerMismatch);
+      expect(servers, isEmpty);
     });
 
     test('acknowledges a notification which accepts nothing', () async {
@@ -564,6 +605,49 @@ void main() {
         expect(servers, isEmpty);
       });
     }
+  });
+
+  group('client disconnects', () {
+    /// Sends a POST whose body never finishes arriving, then hangs up.
+    Future<void> disconnectMidBody({required String contentType}) async {
+      final socket = await Socket.connect(httpServer.address, httpServer.port);
+      socket.write(
+        'POST /mcp HTTP/1.1\r\n'
+        'Host: localhost\r\n'
+        'Content-Type: $contentType\r\n'
+        'Accept: application/json, text/event-stream\r\n'
+        'Content-Length: 500\r\n'
+        '\r\n'
+        '{"jsonrpc":"2.0",',
+      );
+      await socket.flush();
+      socket.destroy();
+      // The handler sees the disconnect asynchronously; give the event loop
+      // a beat so a failure surfaces inside this test.
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+
+    test('survives a disconnect while reading the body', () async {
+      await disconnectMidBody(contentType: 'application/json');
+      // There is no response to assert on, so the proof that the handler
+      // survived is a request which round-trips after the disconnect.
+      final (status, _, text) = await post(
+        headers: headers(listTools),
+        json: body(listTools),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('survives a disconnect while draining a rejected body', () async {
+      await disconnectMidBody(contentType: 'text/plain');
+      final (status, _, text) = await post(
+        headers: headers(listTools),
+        json: body(listTools),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
   });
 
   group('malformed bodies', () {

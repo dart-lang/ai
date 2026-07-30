@@ -86,7 +86,9 @@ const _mcpNameParams = {
 /// If [serverFactory] or [MCPServer.initialize] throws, the request is
 /// answered with 500 and an internal-error body, and the returned future then
 /// completes with that error so an embedder which awaits it can log or rethrow
-/// it.
+/// it. A client which disconnects while its body is still arriving leaves
+/// nothing to answer, so the returned future completes normally without
+/// writing a response.
 ///
 /// `Mcp-Session-Id` and `Last-Event-ID` headers are ignored, and no session
 /// id is ever minted: sessions and resumable streams were removed in this
@@ -113,9 +115,23 @@ Future<void> handleStreamableHttpRequest(
   }
 
   // A body cannot be parsed before its media type is known, so this precedes
-  // even the notification acknowledgement.
-  if (request.headers.contentType?.mimeType != ContentType.json.mimeType) {
-    await request.drain<void>();
+  // even the notification acknowledgement. dart:io parses the header lazily
+  // and throws right here on a value it cannot parse, which is as much of a
+  // mismatch as a wrong one.
+  ContentType? contentType;
+  try {
+    contentType = request.headers.contentType;
+  } on HttpException {
+    contentType = null;
+  }
+  if (contentType?.mimeType != ContentType.json.mimeType) {
+    try {
+      await request.drain<void>();
+    } on IOException {
+      // The client disconnected before its body arrived; there is no
+      // response left to write.
+      return;
+    }
     return _reject(
       response,
       HttpStatus.badRequest,
@@ -139,6 +155,10 @@ Future<void> handleStreamableHttpRequest(
       RpcException(error_code.PARSE_ERROR, 'Invalid JSON: ${e.message}'),
       body,
     );
+  } on IOException {
+    // The client disconnected before its body arrived; there is no response
+    // left to write.
+    return;
   }
 
   if (decoded is List) {
