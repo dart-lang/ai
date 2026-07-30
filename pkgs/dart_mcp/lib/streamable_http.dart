@@ -66,10 +66,10 @@ const _mcpNameParams = {
 /// revision defines for `GET` and `DELETE`.
 ///
 /// The `MCP-Protocol-Version` header is checked against the versions this
-/// handler implements before the body is inspected. A client speaking another
-/// revision cannot produce this revision's `_meta` envelope, so answering on
-/// the header alone is what lets it receive the `supported` list it needs to
-/// renegotiate with.
+/// handler implements before the `_meta` envelope is validated. A client
+/// speaking another revision cannot produce this revision's `_meta` envelope,
+/// so answering on the header alone is what lets it receive the `supported`
+/// list it needs to renegotiate with.
 ///
 /// Notifications are acknowledged with `202 Accepted` and not dispatched,
 /// since this protocol revision defines no client-to-server notifications

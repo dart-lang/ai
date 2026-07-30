@@ -12,11 +12,25 @@ import 'dart:io';
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp/src/utils/constants.dart';
 import 'package:dart_mcp/streamable_http.dart';
+import 'package:json_rpc_2/error_code.dart' as error_code;
 import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:test/test.dart';
 
 /// The protocol version this transport speaks.
 const version = '2026-07-28';
+
+/// Shorthands for the method names these tests post, so that a name reads as
+/// one token at the call site.
+///
+/// The two notifications keep their kind in the name because several tests
+/// turn on whether a body is a request or a notification.
+const listTools = ListToolsRequest.methodName;
+const callTool = CallToolRequest.methodName;
+const getPrompt = GetPromptRequest.methodName;
+const readResource = ReadResourceRequest.methodName;
+const initialize = InitializeRequest.methodName;
+const initializedNotification = InitializedNotification.methodName;
+const progressNotification = ProgressNotification.methodName;
 
 /// The headers every POST carries, whatever its body is.
 const transportHeaders = {
@@ -53,10 +67,10 @@ void main() {
     Object? bodyVersion,
     Object? capabilities = const <String, Object?>{},
   }) => {
-    'jsonrpc': '2.0',
-    if (id != null) 'id': id,
-    'method': method,
-    'params': {
+    Keys.jsonrpc: '2.0',
+    if (id != null) Keys.id: id,
+    Keys.method: method,
+    Keys.params: {
       ...?params,
       Keys.meta: {
         Keys.protocolVersionMeta: bodyVersion ?? version,
@@ -98,42 +112,41 @@ void main() {
       jsonDecode(text) as Map<String, Object?>;
 
   Object? errorCode(String text) =>
-      (decode(text)['error'] as Map<String, Object?>?)?['code'];
+      (decode(text)[Keys.error] as Map<String, Object?>?)?[Keys.code];
 
   group('happy path', () {
     test('answers tools/list with JSON and server info', () async {
       final (status, responseHeaders, text) = await post(
-        headers: headers('tools/list'),
-        json: body('tools/list'),
+        headers: headers(listTools),
+        json: body(listTools),
       );
       expect(status, 200);
       expect(responseHeaders.contentType?.mimeType, 'application/json');
       expect(responseHeaders.contentType?.charset, 'utf-8');
       expect(responseHeaders.value('Mcp-Session-Id'), isNull);
       final response = decode(text);
-      expect(response['id'], 1);
-      final result = response['result'] as Map<String, Object?>;
-      final tools = result['tools'] as List;
+      expect(response[Keys.id], 1);
+      final result = response[Keys.result] as Map<String, Object?>;
+      final tools = result[Keys.tools] as List;
       expect(
-        tools.map((tool) => (tool as Map<String, Object?>)['name']),
+        tools.map((tool) => (tool as Map<String, Object?>)[Keys.name]),
         contains('test/version'),
       );
       expect(
-        (result['_meta']
-            as Map<String, Object?>)['io.modelcontextprotocol/serverInfo'],
+        (result[Keys.meta] as Map<String, Object?>)[Keys.serverInfoMeta],
         isNotNull,
       );
     });
 
     test('answers tools/call with the tool result', () async {
       final (status, _, text) = await post(
-        headers: {...headers('tools/call'), 'Mcp-Name': 'test/version'},
-        json: body('tools/call', params: {'name': 'test/version'}),
+        headers: {...headers(callTool), 'Mcp-Name': 'test/version'},
+        json: body(callTool, params: {Keys.name: 'test/version'}),
       );
       expect(status, 200);
-      final result = decode(text)['result'] as Map<String, Object?>;
-      final content = result['content'] as List;
-      expect((content.single as Map<String, Object?>)['text'], '1.2.3');
+      final result = decode(text)[Keys.result] as Map<String, Object?>;
+      final content = result[Keys.content] as List;
+      expect((content.single as Map<String, Object?>)[Keys.text], '1.2.3');
     });
   });
 
@@ -141,7 +154,7 @@ void main() {
     test('acknowledges a notification without headers or dispatch', () async {
       final (status, _, text) = await post(
         headers: transportHeaders,
-        json: {'jsonrpc': '2.0', 'method': 'notifications/progress'},
+        json: {Keys.jsonrpc: '2.0', Keys.method: progressNotification},
       );
       expect(status, 202);
       expect(text, isEmpty);
@@ -151,7 +164,7 @@ void main() {
     test('acknowledges an unknown notification', () async {
       final (status, _, text) = await post(
         headers: headers('no/such/notification'),
-        json: {'jsonrpc': '2.0', 'method': 'no/such/notification'},
+        json: {Keys.jsonrpc: '2.0', Keys.method: 'no/such/notification'},
       );
       expect(status, 202);
       expect(text, isEmpty);
@@ -161,10 +174,14 @@ void main() {
     test('rejects a JSON-RPC response body', () async {
       final (status, _, text) = await post(
         headers: transportHeaders,
-        json: {'jsonrpc': '2.0', 'id': 1, 'result': <String, Object?>{}},
+        json: {
+          Keys.jsonrpc: '2.0',
+          Keys.id: 1,
+          Keys.result: <String, Object?>{},
+        },
       );
       expect(status, 400);
-      expect(errorCode(text), -32600);
+      expect(errorCode(text), error_code.INVALID_REQUEST);
       expect(servers, isEmpty);
     });
 
@@ -173,20 +190,20 @@ void main() {
       // but the missing method is caught first, so it is a 400 not a 202.
       final (status, _, text) = await post(
         headers: transportHeaders,
-        json: {'jsonrpc': '2.0'},
+        json: {Keys.jsonrpc: '2.0'},
       );
       expect(status, 400);
-      expect(errorCode(text), -32600);
+      expect(errorCode(text), error_code.INVALID_REQUEST);
       expect(servers, isEmpty);
     });
 
     test('rejects a non-string method', () async {
       final (status, _, text) = await post(
         headers: transportHeaders,
-        json: {'jsonrpc': '2.0', 'id': 1, 'method': 42},
+        json: {Keys.jsonrpc: '2.0', Keys.id: 1, Keys.method: 42},
       );
       expect(status, 400);
-      expect(errorCode(text), -32600);
+      expect(errorCode(text), error_code.INVALID_REQUEST);
     });
 
     test('rejects a scalar body', () async {
@@ -195,7 +212,7 @@ void main() {
         raw: '42',
       );
       expect(status, 400);
-      expect(errorCode(text), -32600);
+      expect(errorCode(text), error_code.INVALID_REQUEST);
     });
   });
 
@@ -205,32 +222,32 @@ void main() {
         headers: {
           'Accept': 'application/json, text/event-stream',
           'Mcp-Protocol-Version': version,
-          'Mcp-Method': 'tools/list',
+          'Mcp-Method': listTools,
         },
-        json: body('tools/list'),
+        json: body(listTools),
       );
       expect(status, 400);
-      expect(errorCode(text), -32020);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
       expect(servers, isEmpty);
     });
 
     test('rejects a text/plain Content-Type', () async {
       final (status, responseHeaders, text) = await post(
-        headers: {...headers('tools/list'), 'Content-Type': 'text/plain'},
-        json: body('tools/list'),
+        headers: {...headers(listTools), 'Content-Type': 'text/plain'},
+        json: body(listTools),
       );
       expect(status, 400);
       expect(responseHeaders.contentType?.mimeType, 'application/json');
-      expect(errorCode(text), -32020);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
     });
 
     test('tolerates a charset on the Content-Type', () async {
       final (status, _, text) = await post(
         headers: {
-          ...headers('tools/list'),
+          ...headers(listTools),
           'Content-Type': 'application/json; charset=utf-8',
         },
-        json: body('tools/list'),
+        json: body(listTools),
       );
       expect(status, 200);
       expect(errorCode(text), isNull);
@@ -241,38 +258,38 @@ void main() {
         headers: {
           'Content-Type': 'application/json',
           'Mcp-Protocol-Version': version,
-          'Mcp-Method': 'tools/list',
+          'Mcp-Method': listTools,
         },
-        json: body('tools/list'),
+        json: body(listTools),
       );
       expect(status, 400);
-      expect(errorCode(text), -32020);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
       expect(servers, isEmpty);
     });
 
     test('rejects an Accept header without text/event-stream', () async {
       final (status, responseHeaders, text) = await post(
-        headers: {...headers('tools/list'), 'Accept': 'application/json'},
-        json: body('tools/list'),
+        headers: {...headers(listTools), 'Accept': 'application/json'},
+        json: body(listTools),
       );
       expect(status, 400);
       expect(responseHeaders.contentType?.mimeType, 'application/json');
-      expect(errorCode(text), -32020);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
     });
 
     test('rejects an Accept header without application/json', () async {
       final (status, _, text) = await post(
-        headers: {...headers('tools/list'), 'Accept': 'text/event-stream'},
-        json: body('tools/list'),
+        headers: {...headers(listTools), 'Accept': 'text/event-stream'},
+        json: body(listTools),
       );
       expect(status, 400);
-      expect(errorCode(text), -32020);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
     });
 
     test('accepts the */* wildcard', () async {
       final (status, _, text) = await post(
-        headers: {...headers('tools/list'), 'Accept': '*/*'},
-        json: body('tools/list'),
+        headers: {...headers(listTools), 'Accept': '*/*'},
+        json: body(listTools),
       );
       expect(status, 200);
       expect(errorCode(text), isNull);
@@ -281,10 +298,10 @@ void main() {
     test('accepts type wildcards with quality values', () async {
       final (status, _, text) = await post(
         headers: {
-          ...headers('tools/list'),
+          ...headers(listTools),
           'Accept': 'application/*;q=0.9, text/*;q=0.8',
         },
-        json: body('tools/list'),
+        json: body(listTools),
       );
       expect(status, 200);
       expect(errorCode(text), isNull);
@@ -295,7 +312,7 @@ void main() {
       // that get a body back.
       final (status, _, text) = await post(
         headers: {'Content-Type': 'application/json'},
-        json: {'jsonrpc': '2.0', 'method': 'notifications/progress'},
+        json: {Keys.jsonrpc: '2.0', Keys.method: progressNotification},
       );
       expect(status, 202);
       expect(text, isEmpty);
@@ -305,38 +322,38 @@ void main() {
   group('required headers', () {
     test('rejects a missing protocol version header', () async {
       final (status, _, text) = await post(
-        headers: {...transportHeaders, 'Mcp-Method': 'tools/list'},
-        json: body('tools/list'),
+        headers: {...transportHeaders, 'Mcp-Method': listTools},
+        json: body(listTools),
       );
       expect(status, 400);
-      expect(errorCode(text), -32020);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
     });
 
     test('rejects a header and body version mismatch', () async {
       final (status, _, text) = await post(
-        headers: headers('tools/list'),
-        json: body('tools/list', bodyVersion: '2025-06-18'),
+        headers: headers(listTools),
+        json: body(listTools, bodyVersion: '2025-06-18'),
       );
       expect(status, 400);
-      expect(errorCode(text), -32020);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
     });
 
     test('rejects a missing Mcp-Method header', () async {
       final (status, _, text) = await post(
         headers: {...transportHeaders, 'Mcp-Protocol-Version': version},
-        json: body('tools/list'),
+        json: body(listTools),
       );
       expect(status, 400);
-      expect(errorCode(text), -32020);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
     });
 
     test('rejects an Mcp-Method header mismatch', () async {
       final (status, _, text) = await post(
-        headers: headers('tools/call'),
-        json: body('tools/list'),
+        headers: headers(callTool),
+        json: body(listTools),
       );
       expect(status, 400);
-      expect(errorCode(text), -32020);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
       expect(servers, isEmpty);
     });
 
@@ -344,28 +361,28 @@ void main() {
       // Header names are case insensitive, header values are not.
       final (status, _, text) = await post(
         headers: {
-          ...headers('tools/call', headerMethod: 'Tools/Call'),
+          ...headers(callTool, headerMethod: 'Tools/Call'),
           'Mcp-Name': 'test/version',
         },
-        json: body('tools/call', params: {'name': 'test/version'}),
+        json: body(callTool, params: {Keys.name: 'test/version'}),
       );
       expect(status, 400);
-      expect(errorCode(text), -32020);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
       expect(servers, isEmpty);
     });
 
     test('rejects a tools/call without an Mcp-Name header', () async {
       final (status, _, text) = await post(
-        headers: headers('tools/call'),
-        json: body('tools/call', params: {'name': 'test/version'}),
+        headers: headers(callTool),
+        json: body(callTool, params: {Keys.name: 'test/version'}),
       );
       expect(status, 400);
-      expect(errorCode(text), -32020);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
       // Messages name the headers in the casing the specification writes
       // them in, not the lower case dart:io looks them up by.
       expect(
-        decode(text)['error'],
-        containsPair('message', contains('Mcp-Name header is required')),
+        decode(text)[Keys.error],
+        containsPair(Keys.message, contains('Mcp-Name header is required')),
       );
     });
 
@@ -373,11 +390,11 @@ void main() {
       // The header is required for the method, not merely mirrored when the
       // body happens to carry a value, so this never reaches the dispatcher.
       final (status, _, text) = await post(
-        headers: headers('tools/call'),
-        json: body('tools/call'),
+        headers: headers(callTool),
+        json: body(callTool),
       );
       expect(status, 400);
-      expect(errorCode(text), -32020);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
       expect(servers, isEmpty);
     });
 
@@ -388,29 +405,29 @@ void main() {
       transportHeaders.forEach(request.headers.set);
       request.headers
         ..set('Mcp-Protocol-Version', version)
-        ..add('Mcp-Method', 'tools/list')
-        ..add('Mcp-Method', 'tools/list');
-      request.write(jsonEncode(body('tools/list')));
+        ..add('Mcp-Method', listTools)
+        ..add('Mcp-Method', listTools);
+      request.write(jsonEncode(body(listTools)));
       final response = await request.close();
       final text = await utf8.decodeStream(response);
       expect(response.statusCode, 400);
-      expect(errorCode(text), -32020);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
     });
 
     test('rejects a prompts/get without an Mcp-Name header', () async {
       final (status, _, text) = await post(
-        headers: headers('prompts/get'),
-        json: body('prompts/get', params: {'name': 'test/prompt'}),
+        headers: headers(getPrompt),
+        json: body(getPrompt, params: {Keys.name: 'test/prompt'}),
       );
       expect(status, 400);
-      expect(errorCode(text), -32020);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
       expect(servers, isEmpty);
     });
 
     test('matches a prompts/get Mcp-Name against the name', () async {
       final (status, _, _) = await post(
-        headers: {...headers('prompts/get'), 'Mcp-Name': 'test/prompt'},
-        json: body('prompts/get', params: {'name': 'test/prompt'}),
+        headers: {...headers(getPrompt), 'Mcp-Name': 'test/prompt'},
+        json: body(getPrompt, params: {Keys.name: 'test/prompt'}),
       );
       // The method reaches the dispatcher, which supports no prompts.
       expect(status, 404);
@@ -419,8 +436,8 @@ void main() {
     test('decodes a base64 sentinel Mcp-Name header', () async {
       final encoded = base64.encode(utf8.encode('test/version'));
       final (status, _, _) = await post(
-        headers: {...headers('tools/call'), 'Mcp-Name': '=?base64?$encoded?='},
-        json: body('tools/call', params: {'name': 'test/version'}),
+        headers: {...headers(callTool), 'Mcp-Name': '=?base64?$encoded?='},
+        json: body(callTool, params: {Keys.name: 'test/version'}),
       );
       expect(status, 200);
     });
@@ -428,11 +445,11 @@ void main() {
     test('rejects a base64 sentinel Mcp-Name for another tool', () async {
       final encoded = base64.encode(utf8.encode('test/throw'));
       final (status, _, text) = await post(
-        headers: {...headers('tools/call'), 'Mcp-Name': '=?base64?$encoded?='},
-        json: body('tools/call', params: {'name': 'test/version'}),
+        headers: {...headers(callTool), 'Mcp-Name': '=?base64?$encoded?='},
+        json: body(callTool, params: {Keys.name: 'test/version'}),
       );
       expect(status, 400);
-      expect(errorCode(text), -32020);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
       expect(servers, isEmpty);
     });
 
@@ -444,48 +461,48 @@ void main() {
       request.headers
         ..add('Mcp-Protocol-Version', version)
         ..add('Mcp-Protocol-Version', version)
-        ..set('Mcp-Method', 'tools/list');
-      request.write(jsonEncode(body('tools/list')));
+        ..set('Mcp-Method', listTools);
+      request.write(jsonEncode(body(listTools)));
       final response = await request.close();
       final text = await utf8.decodeStream(response);
       expect(response.statusCode, 400);
-      expect(errorCode(text), -32020);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
     });
 
     test('rejects an Mcp-Name sentinel that is not valid base64', () async {
       final (status, _, text) = await post(
-        headers: {...headers('tools/call'), 'Mcp-Name': '=?base64?%%%?='},
-        json: body('tools/call', params: {'name': 'test/version'}),
+        headers: {...headers(callTool), 'Mcp-Name': '=?base64?%%%?='},
+        json: body(callTool, params: {Keys.name: 'test/version'}),
       );
       expect(status, 400);
-      expect(errorCode(text), -32020);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
     });
 
     test('rejects an overlapping base64 sentinel without hanging', () async {
       // '=?base64?=' is 10 characters: the prefix and suffix share a '?', so
       // a naive slice throws a RangeError the handler would never answer.
       final (status, _, text) = await post(
-        headers: {...headers('tools/call'), 'Mcp-Name': '=?base64?='},
-        json: body('tools/call', params: {'name': 'test/version'}),
+        headers: {...headers(callTool), 'Mcp-Name': '=?base64?='},
+        json: body(callTool, params: {Keys.name: 'test/version'}),
       );
       expect(status, 400);
-      expect(errorCode(text), -32020);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
     });
 
     test('rejects a resources/read without an Mcp-Name header', () async {
       final (status, _, text) = await post(
-        headers: headers('resources/read'),
-        json: body('resources/read', params: {'uri': 'file:///doc.txt'}),
+        headers: headers(readResource),
+        json: body(readResource, params: {Keys.uri: 'file:///doc.txt'}),
       );
       expect(status, 400);
-      expect(errorCode(text), -32020);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
       expect(servers, isEmpty);
     });
 
     test('matches a resources/read Mcp-Name against the uri', () async {
       final (status, _, _) = await post(
-        headers: {...headers('resources/read'), 'Mcp-Name': 'file:///doc.txt'},
-        json: body('resources/read', params: {'uri': 'file:///doc.txt'}),
+        headers: {...headers(readResource), 'Mcp-Name': 'file:///doc.txt'},
+        json: body(readResource, params: {Keys.uri: 'file:///doc.txt'}),
       );
       // The method reaches the dispatcher, which has no such resource.
       expect(status, 404);
@@ -495,8 +512,8 @@ void main() {
   group('removed 2025-11-25 mechanisms', () {
     test('ignores an Mcp-Session-Id header and mints none', () async {
       final (status, responseHeaders, text) = await post(
-        headers: {...headers('tools/list'), 'Mcp-Session-Id': 'abc'},
-        json: body('tools/list'),
+        headers: {...headers(listTools), 'Mcp-Session-Id': 'abc'},
+        json: body(listTools),
       );
       expect(status, 200);
       expect(errorCode(text), isNull);
@@ -505,8 +522,8 @@ void main() {
 
     test('ignores a Last-Event-ID header', () async {
       final (status, _, text) = await post(
-        headers: {...headers('tools/list'), 'Last-Event-ID': '42'},
-        json: body('tools/list'),
+        headers: {...headers(listTools), 'Last-Event-ID': '42'},
+        json: body(listTools),
       );
       expect(status, 200);
       expect(errorCode(text), isNull);
@@ -518,15 +535,15 @@ void main() {
       // than guess which parameter it mirrors.
       final (status, _, text) = await post(
         headers: {
-          ...headers('tools/call'),
+          ...headers(callTool),
           'Mcp-Name': 'test/version',
           'Mcp-Param-Region': 'eu-west1',
         },
         json: body(
-          'tools/call',
+          callTool,
           params: {
-            'name': 'test/version',
-            'arguments': {'region': 'us-west1'},
+            Keys.name: 'test/version',
+            Keys.arguments: {'region': 'us-west1'},
           },
         ),
       );
@@ -556,32 +573,35 @@ void main() {
         raw: '{"jsonrpc": "2.0",',
       );
       expect(status, 400);
-      expect(errorCode(text), -32700);
+      expect(errorCode(text), error_code.PARSE_ERROR);
     });
 
     test('rejects a batch array', () async {
       final (status, _, text) = await post(
         headers: transportHeaders,
-        raw: jsonEncode([body('tools/list'), body('tools/list')]),
+        raw: jsonEncode([body(listTools), body(listTools)]),
       );
       expect(status, 400);
-      expect(errorCode(text), -32600);
-      expect(decode(text)['error'], containsPair('message', contains('Batch')));
+      expect(errorCode(text), error_code.INVALID_REQUEST);
+      expect(
+        decode(text)[Keys.error],
+        containsPair(Keys.message, contains('Batch')),
+      );
     });
 
     test('rejects an empty body', () async {
       final (status, _, text) = await post(headers: transportHeaders, raw: '');
       expect(status, 400);
-      expect(errorCode(text), -32700);
+      expect(errorCode(text), error_code.PARSE_ERROR);
     });
 
     test('rejects an explicit null request id', () async {
       final (status, _, text) = await post(
-        headers: headers('tools/list'),
-        json: {'jsonrpc': '2.0', 'id': null, 'method': 'tools/list'},
+        headers: headers(listTools),
+        json: {Keys.jsonrpc: '2.0', Keys.id: null, Keys.method: listTools},
       );
       expect(status, 400);
-      expect(errorCode(text), -32600);
+      expect(errorCode(text), error_code.INVALID_REQUEST);
     });
   });
 
@@ -592,16 +612,16 @@ void main() {
         json: body('no/such/method'),
       );
       expect(status, 404);
-      expect(errorCode(text), -32601);
+      expect(errorCode(text), error_code.METHOD_NOT_FOUND);
     });
 
     test('maps an initialize request from a modern client to 404', () async {
       final (status, _, text) = await post(
-        headers: headers('initialize'),
-        json: body('initialize'),
+        headers: headers(initialize),
+        json: body(initialize),
       );
       expect(status, 404);
-      expect(errorCode(text), -32601);
+      expect(errorCode(text), error_code.METHOD_NOT_FOUND);
       expect(servers, isEmpty);
     });
 
@@ -609,11 +629,11 @@ void main() {
       // Without an id this is a notification and gets a 202; with one it is a
       // request for a method the request-scoped lifecycle does not have.
       final (status, _, text) = await post(
-        headers: headers('notifications/initialized'),
-        json: body('notifications/initialized'),
+        headers: headers(initializedNotification),
+        json: body(initializedNotification),
       );
       expect(status, 404);
-      expect(errorCode(text), -32601);
+      expect(errorCode(text), error_code.METHOD_NOT_FOUND);
       expect(servers, isEmpty);
     });
 
@@ -622,12 +642,12 @@ void main() {
       // no `_meta` envelope, both of which this revision introduced.
       final (status, _, text) = await post(
         headers: {...transportHeaders, 'Mcp-Protocol-Version': '2025-11-25'},
-        json: {'jsonrpc': '2.0', 'id': 1, 'method': 'initialize'},
+        json: {Keys.jsonrpc: '2.0', Keys.id: 1, Keys.method: initialize},
       );
       expect(status, 400);
-      expect(errorCode(text), -32022);
+      expect(errorCode(text), McpErrorCodes.unsupportedProtocolVersion);
       final data =
-          (decode(text)['error'] as Map<String, Object?>)['data']
+          (decode(text)[Keys.error] as Map<String, Object?>)[Keys.data]
               as Map<String, Object?>;
       expect(data[Keys.supported], [version]);
       expect(servers, isEmpty);
@@ -635,12 +655,12 @@ void main() {
 
     test('keeps a tool error result as 200', () async {
       final (status, _, text) = await post(
-        headers: {...headers('tools/call'), 'Mcp-Name': 'no/such/tool'},
-        json: body('tools/call', params: {'name': 'no/such/tool'}),
+        headers: {...headers(callTool), 'Mcp-Name': 'no/such/tool'},
+        json: body(callTool, params: {Keys.name: 'no/such/tool'}),
       );
       expect(status, 200);
-      final result = decode(text)['result'] as Map<String, Object?>;
-      expect(result['isError'], isTrue);
+      final result = decode(text)[Keys.result] as Map<String, Object?>;
+      expect(result[Keys.isError], isTrue);
     });
 
     test('keeps unmapped dispatcher errors as 200', () async {
@@ -652,63 +672,63 @@ void main() {
         json: body('test/crash'),
       );
       expect(status, 200);
-      expect(errorCode(text), -32000);
+      expect(errorCode(text), error_code.SERVER_ERROR);
     });
 
     test('maps an RpcException from a tool to its HTTP status', () async {
       final (status, _, text) = await post(
-        headers: {...headers('tools/call'), 'Mcp-Name': 'test/throw'},
-        json: body('tools/call', params: {'name': 'test/throw'}),
+        headers: {...headers(callTool), 'Mcp-Name': 'test/throw'},
+        json: body(callTool, params: {Keys.name: 'test/throw'}),
       );
       expect(status, 400);
-      expect(errorCode(text), -32602);
+      expect(errorCode(text), error_code.INVALID_PARAMS);
     });
 
     test('maps a missing client capability error to 400', () async {
       final (status, _, text) = await post(
-        headers: {...headers('tools/call'), 'Mcp-Name': 'test/needsSampling'},
-        json: body('tools/call', params: {'name': 'test/needsSampling'}),
+        headers: {...headers(callTool), 'Mcp-Name': 'test/needsSampling'},
+        json: body(callTool, params: {Keys.name: 'test/needsSampling'}),
       );
       expect(status, 400);
-      expect(errorCode(text), -32021);
+      expect(errorCode(text), McpErrorCodes.missingRequiredClientCapability);
     });
 
     test('rejects an envelope without client capabilities', () async {
-      final request = body('tools/list');
-      final params = request['params'] as Map<String, Object?>;
+      final request = body(listTools);
+      final params = request[Keys.params] as Map<String, Object?>;
       final meta = params[Keys.meta] as Map<String, Object?>;
       meta.remove(Keys.clientCapabilitiesMeta);
       final (status, _, text) = await post(
-        headers: headers('tools/list'),
+        headers: headers(listTools),
         json: request,
       );
       expect(status, 400);
-      expect(errorCode(text), -32602);
+      expect(errorCode(text), error_code.INVALID_PARAMS);
       expect(servers, isEmpty);
     });
 
     test('rejects a request without an envelope', () async {
       final (status, _, text) = await post(
-        headers: headers('tools/list'),
-        json: {'jsonrpc': '2.0', 'id': 1, 'method': 'tools/list'},
+        headers: headers(listTools),
+        json: {Keys.jsonrpc: '2.0', Keys.id: 1, Keys.method: listTools},
       );
       expect(status, 400);
-      expect(errorCode(text), -32602);
+      expect(errorCode(text), error_code.INVALID_PARAMS);
       expect(servers, isEmpty);
     });
 
     test('rejects an unknown protocol version', () async {
       final (status, _, text) = await post(
-        headers: headers('tools/list', headerVersion: '2099-01-01'),
-        json: body('tools/list', bodyVersion: '2099-01-01'),
+        headers: headers(listTools, headerVersion: '2099-01-01'),
+        json: body(listTools, bodyVersion: '2099-01-01'),
       );
       expect(status, 400);
-      expect(errorCode(text), -32022);
+      expect(errorCode(text), McpErrorCodes.unsupportedProtocolVersion);
       final data =
-          (decode(text)['error'] as Map<String, Object?>)['data']
+          (decode(text)[Keys.error] as Map<String, Object?>)[Keys.data]
               as Map<String, Object?>;
-      expect(data['requested'], '2099-01-01');
-      expect(data['supported'], [version]);
+      expect(data[Keys.requested], '2099-01-01');
+      expect(data[Keys.supported], [version]);
       expect(servers, isEmpty);
     });
 
@@ -717,30 +737,30 @@ void main() {
       // earlier version cannot send one; the version answer has to come first
       // or that client never learns what to renegotiate to.
       final (status, _, text) = await post(
-        headers: headers('tools/list', headerVersion: '2025-11-25'),
-        json: {'jsonrpc': '2.0', 'id': 1, 'method': 'tools/list'},
+        headers: headers(listTools, headerVersion: '2025-11-25'),
+        json: {Keys.jsonrpc: '2.0', Keys.id: 1, Keys.method: listTools},
       );
       expect(status, 400);
-      expect(errorCode(text), -32022);
+      expect(errorCode(text), McpErrorCodes.unsupportedProtocolVersion);
       final data =
-          (decode(text)['error'] as Map<String, Object?>)['data']
+          (decode(text)[Keys.error] as Map<String, Object?>)[Keys.data]
               as Map<String, Object?>;
-      expect(data['requested'], '2025-11-25');
-      expect(data['supported'], [version]);
+      expect(data[Keys.requested], '2025-11-25');
+      expect(data[Keys.supported], [version]);
       expect(servers, isEmpty);
     });
 
     test('rejects a malformed client info', () async {
-      final request = body('tools/list');
-      final params = request['params'] as Map<String, Object?>;
+      final request = body(listTools);
+      final params = request[Keys.params] as Map<String, Object?>;
       final meta = params[Keys.meta] as Map<String, Object?>;
       meta[Keys.clientInfoMeta] = 'test client';
       final (status, _, text) = await post(
-        headers: headers('tools/list'),
+        headers: headers(listTools),
         json: request,
       );
       expect(status, 400);
-      expect(errorCode(text), -32602);
+      expect(errorCode(text), error_code.INVALID_PARAMS);
       expect(servers, isEmpty);
     });
 
@@ -759,40 +779,41 @@ void main() {
       final request = await client.postUrl(
         Uri.http('${failing.address.host}:${failing.port}', '/mcp'),
       );
-      headers('tools/list').forEach(request.headers.set);
-      request.write(jsonEncode(body('tools/list')));
+      headers(listTools).forEach(request.headers.set);
+      request.write(jsonEncode(body(listTools)));
       final response = await request.close();
       final text = await utf8.decodeStream(response);
       expect(response.statusCode, 500);
-      expect(errorCode(text), -32603);
+      expect(errorCode(text), error_code.INTERNAL_ERROR);
       expect(await failure.future, isStateError);
     });
   });
 
   group('request isolation', () {
     String probed(String text) =>
-        (((decode(text)['result'] as Map<String, Object?>)['content'] as List)
+        (((decode(text)[Keys.result] as Map<String, Object?>)[Keys.content]
+                        as List)
                     .single
-                as Map<String, Object?>)['text']
+                as Map<String, Object?>)[Keys.text]
             as String;
 
     test('gives every request a fresh server and context', () async {
       final probeHeaders = {
-        ...headers('tools/call'),
+        ...headers(callTool),
         'Mcp-Name': 'test/capabilities',
       };
-      final probeBody = {'name': 'test/capabilities'};
+      final probeBody = {Keys.name: 'test/capabilities'};
       final (_, _, first) = await post(
         headers: probeHeaders,
         json: body(
-          'tools/call',
+          callTool,
           params: probeBody,
-          capabilities: {'sampling': <String, Object?>{}},
+          capabilities: {Keys.sampling: <String, Object?>{}},
         ),
       );
       final (_, _, second) = await post(
         headers: probeHeaders,
-        json: body('tools/call', params: probeBody),
+        json: body(callTool, params: probeBody),
       );
       expect(probed(first), 'true');
       expect(probed(second), 'false');
@@ -802,21 +823,21 @@ void main() {
 
     test('gives concurrent requests independent contexts', () async {
       final probeHeaders = {
-        ...headers('tools/call'),
+        ...headers(callTool),
         'Mcp-Name': 'test/capabilities',
       };
-      final probeBody = {'name': 'test/capabilities'};
+      final probeBody = {Keys.name: 'test/capabilities'};
       final withSampling = post(
         headers: probeHeaders,
         json: body(
-          'tools/call',
+          callTool,
           params: probeBody,
-          capabilities: {'sampling': <String, Object?>{}},
+          capabilities: {Keys.sampling: <String, Object?>{}},
         ),
       );
       final without = post(
         headers: probeHeaders,
-        json: body('tools/call', params: probeBody),
+        json: body(callTool, params: probeBody),
       );
       final [(_, _, first), (_, _, second)] = await Future.wait([
         withSampling,
@@ -828,12 +849,15 @@ void main() {
     });
 
     test('accepts an optional client info', () async {
-      final request = body('tools/list');
-      final params = request['params'] as Map<String, Object?>;
+      final request = body(listTools);
+      final params = request[Keys.params] as Map<String, Object?>;
       final meta = params[Keys.meta] as Map<String, Object?>;
-      meta[Keys.clientInfoMeta] = {'name': 'test client', 'version': '1.0.0'};
+      meta[Keys.clientInfoMeta] = {
+        Keys.name: 'test client',
+        Keys.version: '1.0.0',
+      };
       final (status, _, text) = await post(
-        headers: headers('tools/list'),
+        headers: headers(listTools),
         json: request,
       );
       expect(status, 200);
@@ -842,14 +866,14 @@ void main() {
 
     test('passes server notifications to the handler', () async {
       final (status, _, text) = await post(
-        headers: {...headers('tools/call'), 'Mcp-Name': 'test/notify'},
-        json: body('tools/call', params: {'name': 'test/notify'}),
+        headers: {...headers(callTool), 'Mcp-Name': 'test/notify'},
+        json: body(callTool, params: {Keys.name: 'test/notify'}),
       );
       expect(status, 200);
       expect(errorCode(text), isNull);
       expect(notifications, hasLength(1));
       expect(
-        notifications.single['method'],
+        notifications.single[Keys.method],
         LoggingMessageNotification.methodName,
       );
     });

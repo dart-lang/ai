@@ -64,9 +64,10 @@
   revision allocates from the `-32020` to `-32099` range it reserves for the
   specification, see
   https://modelcontextprotocol.io/specification/2026-07-28/basic#error-codes.
-  Nothing emits them yet; the Streamable HTTP handler lands separately. The
-  same registry reserves `-32042`, so `urlElicitationRequired` now documents
-  that only the 2025-11-25 revision emits it.
+  The Streamable HTTP handler below now emits `McpErrorCodes.headerMismatch`
+  and `.unsupportedProtocolVersion`. The same registry reserves `-32042`, so
+  `urlElicitationRequired` now documents that only the 2025-11-25 revision
+  emits it.
 - Add `ProtocolVersion.v2026_07_28`. `ProtocolVersion.latestSupported` still
   points at 2025-11-25, the newest version the legacy `initialize` handshake
   negotiates; transports for the request-scoped protocol carry their own set
