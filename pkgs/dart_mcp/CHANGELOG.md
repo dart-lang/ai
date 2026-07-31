@@ -79,8 +79,9 @@
   Each POST carries one JSON-RPC request or notification which is validated
   against the required headers and `_meta` envelope, then dispatched to a
   fresh server instance via `handleRequestScopedMessage`. Responses are JSON
-  only. Does not add SSE response streams, the legacy session routes, or an
-  HTTP client; those land as separate changes.
+  only. See `example/streamable_http_server.dart`. Does not add SSE response
+  streams, the legacy session routes, or an HTTP client; those land as
+  separate changes.
 
 ## 0.5.2
 

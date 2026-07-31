@@ -22,32 +22,6 @@ import 'server.dart';
 import 'src/utils/constants.dart';
 import 'src/utils/json_rpc_2_object.dart';
 
-// Header field names are case insensitive, so these are used both to look
-// headers up and to name them in error messages, in the casing the
-// specification writes them in.
-const _protocolVersionHeader = 'MCP-Protocol-Version';
-const _mcpMethodHeader = 'Mcp-Method';
-const _mcpNameHeader = 'Mcp-Name';
-
-/// The media type of the SSE response streams this protocol revision allows a
-/// server to answer with.
-const _eventStreamMimeType = 'text/event-stream';
-
-/// The protocol versions this handler implements.
-///
-/// The legacy handshake negotiates [ProtocolVersion.latestSupported] instead;
-/// the request-scoped protocol this transport speaks was introduced later, so
-/// the two sets are deliberately separate.
-const _supportedVersions = {ProtocolVersion.v2026_07_28};
-
-/// The methods whose `name` or `uri` parameter is mirrored in the `Mcp-Name`
-/// header, mapping each method to the parameter that carries it.
-const _mcpNameParams = {
-  CallToolRequest.methodName: Keys.name,
-  GetPromptRequest.methodName: Keys.name,
-  ReadResourceRequest.methodName: Keys.uri,
-};
-
 /// Handles one Streamable HTTP POST [request] by validating its headers and
 /// `_meta` envelope, dispatching the decoded message to a fresh server
 /// created by [serverFactory] via [handleRequestScopedMessage], and writing
@@ -85,7 +59,11 @@ const _mcpNameParams = {
 /// error a request handler throws reaches the client with whatever payload
 /// `package:json_rpc_2` attached to it, including a Dart stack trace for
 /// errors which are not an [RpcException]. Handlers which must not disclose
-/// server internals to a remote client throw [RpcException]s instead.
+/// server internals to a remote client throw [RpcException]s instead. The
+/// status such a body gets follows its error code: an internal or server
+/// error is a 500, so a handler which fails is visible to intermediaries
+/// which never read the body, and a code the specification has not mapped to
+/// a status keeps 200.
 ///
 /// If [serverFactory] or [MCPServer.initialize] throws, the request is
 /// answered with 500 and an internal-error body, and the returned future then
@@ -468,6 +446,10 @@ Future<void> handleStreamableHttpRequest(
 }
 
 /// The HTTP status for a dispatched JSON-RPC [response] map.
+///
+/// Unmapped codes keep 200 rather than falling back to an error status: the
+/// specification reserves `-32020` to `-32099` for itself, and a revision
+/// which allocates a code from there names the status it wants with it.
 int _statusFor(Map<String, Object?> response) {
   final error = response[Keys.error];
   if (error is! Map<String, Object?>) return HttpStatus.ok;
@@ -479,6 +461,8 @@ int _statusFor(Map<String, Object?> response) {
     McpErrorCodes.missingRequiredClientCapability ||
     McpErrorCodes.unsupportedProtocolVersion => HttpStatus.badRequest,
     error_code.METHOD_NOT_FOUND => HttpStatus.notFound,
+    error_code.INTERNAL_ERROR ||
+    error_code.SERVER_ERROR => HttpStatus.internalServerError,
     _ => HttpStatus.ok,
   };
 }
@@ -547,3 +531,29 @@ String _decodeSentinel(String value) =>
     value.length >= 11 && value.startsWith('=?base64?') && value.endsWith('?=')
         ? utf8.decode(base64.decode(value.substring(9, value.length - 2)))
         : value;
+
+// Header field names are case insensitive, so these are used both to look
+// headers up and to name them in error messages, in the casing the
+// specification writes them in.
+const _protocolVersionHeader = 'MCP-Protocol-Version';
+const _mcpMethodHeader = 'Mcp-Method';
+const _mcpNameHeader = 'Mcp-Name';
+
+/// The media type of the SSE response streams this protocol revision allows a
+/// server to answer with.
+const _eventStreamMimeType = 'text/event-stream';
+
+/// The protocol versions this handler implements.
+///
+/// The legacy handshake negotiates [ProtocolVersion.latestSupported] instead;
+/// the request-scoped protocol this transport speaks was introduced later, so
+/// the two sets are deliberately separate.
+const _supportedVersions = {ProtocolVersion.v2026_07_28};
+
+/// The methods whose `name` or `uri` parameter is mirrored in the `Mcp-Name`
+/// header, mapping each method to the parameter that carries it.
+const _mcpNameParams = {
+  CallToolRequest.methodName: Keys.name,
+  GetPromptRequest.methodName: Keys.name,
+  ReadResourceRequest.methodName: Keys.uri,
+};

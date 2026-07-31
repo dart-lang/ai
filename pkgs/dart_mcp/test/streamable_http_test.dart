@@ -829,15 +829,15 @@ void main() {
       expect(result[Keys.isError], isTrue);
     });
 
-    test('keeps unmapped dispatcher errors as 200', () async {
+    test('maps a crashed handler to 500', () async {
       // A handler which throws something other than an RpcException surfaces
-      // as an internal JSON-RPC error; only spec-mapped codes change the
-      // HTTP status.
+      // as a server error, the same class of failure as a server which cannot
+      // be built, which is answered with 500 as well.
       final (status, _, text) = await post(
         headers: headers('test/crash'),
         json: body('test/crash'),
       );
-      expect(status, 200);
+      expect(status, 500);
       expect(errorCode(text), error_code.SERVER_ERROR);
     });
 
@@ -848,6 +848,24 @@ void main() {
       );
       expect(status, 400);
       expect(errorCode(text), error_code.INVALID_PARAMS);
+    });
+
+    test('keeps an error the spec defines no status for at 200', () async {
+      final (status, _, text) = await post(
+        headers: {...headers(callTool), 'Mcp-Name': 'test/unmappedCode'},
+        json: body(callTool, params: {Keys.name: 'test/unmappedCode'}),
+      );
+      expect(status, 200);
+      expect(errorCode(text), -32099);
+    });
+
+    test('maps an internal error from a dispatched response to 500', () async {
+      final (status, _, text) = await post(
+        headers: {...headers(callTool), 'Mcp-Name': 'test/internalError'},
+        json: body(callTool, params: {Keys.name: 'test/internalError'}),
+      );
+      expect(status, 500);
+      expect(errorCode(text), error_code.INTERNAL_ERROR);
     });
 
     test('maps a missing client capability error to 400', () async {
@@ -1088,6 +1106,24 @@ base class _HttpTestServer extends MCPServer with ToolsSupport {
           throw RpcException(
             McpErrorCodes.missingRequiredClientCapability,
             'This tool needs the sampling capability',
+          ),
+    );
+    registerTool(
+      Tool(name: 'test/unmappedCode', inputSchema: ObjectSchema()),
+      // The far end of the range the specification reserves for itself, which
+      // no revision has allocated, so nothing defines a status for it.
+      (_) =>
+          throw RpcException(
+            -32099,
+            'This tool fails with a code no status is defined for',
+          ),
+    );
+    registerTool(
+      Tool(name: 'test/internalError', inputSchema: ObjectSchema()),
+      (_) =>
+          throw RpcException(
+            error_code.INTERNAL_ERROR,
+            'This tool reports an internal error',
           ),
     );
     registerTool(Tool(name: 'test/notify', inputSchema: ObjectSchema()), (_) {
