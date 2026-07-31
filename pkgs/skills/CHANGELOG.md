@@ -2,6 +2,7 @@
 
 ## 1.0.0-wip
 
+- Include install location in log messages when installing skills.
 - Emphasize (bold) actual skill names in interactive dialog options.
 - Fix bug where failing to clone a git repository in `skills add` still saved
   it to configuration/manifest files.

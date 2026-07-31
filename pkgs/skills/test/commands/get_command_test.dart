@@ -320,5 +320,60 @@ New skill body.
         reason: 'Content should not be overwritten',
       );
     });
+
+    test('logs install messages with install location', () async {
+      final logMessages = <String>[];
+      final subscription = Logger.root.onRecord.listen((r) {
+        logMessages.add(r.message);
+      });
+
+      try {
+        final getCommand = GetCommand(
+          dialogSupport: null,
+          gitRunner: GitRunner(isAvailableOverride: () async => false),
+        );
+        final runner = SkillsCommandRunner('skills', 'Test')
+          ..addCommand(getCommand);
+
+        await d.dir('dep_log_test', [
+          pubspec('dep_log_test'),
+          d.dir('skills', [
+            d.dir('dep_log_test-skill', [
+              d.file(
+                'SKILL.md',
+                '---\nname: dep_log_test-skill\ndescription: Test\n---\n\nContent',
+              ),
+            ]),
+          ]),
+        ]).create();
+
+        await d.dir('project_log_test', [
+          pubspec('project_log_test', dependencies: [.new('dep_log_test')]),
+        ]).create();
+
+        final projectPath = d.path('project_log_test');
+
+        await runner.run([
+          'get',
+          '--directory',
+          projectPath,
+          '--agent',
+          Agent.generic.cliName,
+          '--all',
+        ]);
+
+        expect(
+          logMessages,
+          contains('  [generic] Installed dep_log_test-skill'),
+        );
+        final expectedInstallDir = p.join('.agents', 'skills');
+        expect(
+          logMessages,
+          contains('Installed 1 skill(s) for generic ($expectedInstallDir).'),
+        );
+      } finally {
+        await subscription.cancel();
+      }
+    });
   });
 }

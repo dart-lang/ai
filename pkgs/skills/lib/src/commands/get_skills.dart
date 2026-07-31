@@ -5,6 +5,7 @@
 import 'dart:io' as io;
 
 import 'package:io/ansi.dart' as ansi;
+import 'package:path/path.dart' as p;
 
 import 'package:args/command_runner.dart';
 import 'package:logging/logging.dart';
@@ -253,11 +254,15 @@ Future<bool> getSkills({
     }
     manifest = result.manifest;
     globalConfig = result.globalConfig;
+    final installDir = p.relative(
+      createAgentAdapter(agent, rootPath, null).skillsDirectory,
+      from: rootPath,
+    );
     for (final info in result.installed) {
       logger.info('  [${info.agentName}] Installed ${info.skillName}');
     }
     logger.info(
-      'Installed ${result.installed.length} skill(s) for ${agent.cliName}.',
+      'Installed ${result.installed.length} skill(s) for ${agent.cliName} ($installDir).',
     );
   }
 
