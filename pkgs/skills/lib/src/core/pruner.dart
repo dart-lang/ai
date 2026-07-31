@@ -190,10 +190,17 @@ Future<void> pruneSkills({
     if (!quietIfNothingToPrune) {
       logger.info('No skills to prune.');
     }
-  } else if (totalRemoved > 0) {
-    logger.info(
-      'Pruned $totalRemoved skill(s) from ${prunedPackages.length} package(s).',
-    );
+  } else {
+    final summaryParts = <String>[];
+    if (totalRemoved > 0) {
+      summaryParts.add(
+        'Pruned $totalRemoved skill(s) from ${prunedPackages.length} package(s).',
+      );
+    }
+    if (totalGitSourcesRemoved > 0) {
+      summaryParts.add('Removed $totalGitSourcesRemoved empty git source(s).');
+    }
+    logger.info(summaryParts.join(' '));
   }
 }
 
