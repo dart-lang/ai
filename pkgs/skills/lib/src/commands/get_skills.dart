@@ -13,6 +13,7 @@ import 'package:skills/src/commands/skills_command.dart';
 import 'package:skills/src/core/advisory_checker.dart';
 import 'package:skills/src/core/git_runner.dart';
 import 'package:skills/src/core/package_resolver.dart';
+import 'package:skills/src/core/pruner.dart';
 import 'package:skills/src/core/pub_runner.dart';
 import 'package:skills/src/core/git_scanner.dart';
 import 'package:skills/src/core/git_sync.dart';
@@ -147,7 +148,7 @@ Future<bool> getSkills({
 
   final skills = [...dartSkills, ...gitData.gitSkills];
 
-  Map<Agent, Set<String>>? selectedSkillNamesByIde;
+  Map<Agent, Set<String>>? selectedSkillNamesByAgent;
 
   // Log about any unrecognized skills
   if (skillNames.isNotEmpty) {
@@ -215,9 +216,9 @@ Future<bool> getSkills({
   // Use `skillNames` or the `--all` flag as the selection if provided,
   // otherwise prompt for which skills to install or log the available skills.
   if (skillNames.isNotEmpty) {
-    selectedSkillNamesByIde = {};
+    selectedSkillNamesByAgent = {};
     for (final agent in agents) {
-      selectedSkillNamesByIde[agent] = skillNames;
+      selectedSkillNamesByAgent[agent] = skillNames;
     }
   } else if (!allFlag) {
     final promptResult = await _promptForSkillsToInstall(
@@ -233,16 +234,16 @@ Future<bool> getSkills({
     if (!promptResult.continueInstall) {
       return false;
     }
-    selectedSkillNamesByIde = promptResult.selectedSkillNamesByIde;
+    selectedSkillNamesByAgent = promptResult.selectedSkillNamesByAgent;
   }
 
   final installer = SkillInstaller(dialogSupport);
   for (final agent in agents) {
-    final result = await installer.installSkillsForIde(
+    final result = await installer.installSkillsForAgent(
       agent: agent,
       rootPath: rootPath,
       skills: skills,
-      selectedSkills: selectedSkillNamesByIde?[agent],
+      selectedSkills: selectedSkillNamesByAgent?[agent],
       previousManifest: manifest,
       globalConfig: globalConfig,
       sourceUris: sourceUris, // this still acts as source filter
@@ -263,6 +264,15 @@ Future<bool> getSkills({
 
   await globalConfig.save(globalConfigFile);
   await manifest.save(manifestFile(rootPath));
+
+  await pruneSkills(
+    workspace: workspace,
+    logger: logger,
+    dialogSupport: dialogSupport,
+    targetAgents: agents,
+    quietIfNothingToPrune: true,
+    allFlag: allFlag,
+  );
 
   return true;
 }
@@ -658,7 +668,7 @@ Future<_PromptResult> _promptForSkillsToInstall({
   required DialogSupport? dialogSupport,
   required Logger logger,
 }) async {
-  final selectedSkillNamesByIde = <Agent, Set<String>>{
+  final selectedSkillNamesByAgent = <Agent, Set<String>>{
     for (final agent in agents) agent: {},
   };
   var hasAnyChangesToPrint = false;
@@ -742,19 +752,19 @@ Future<_PromptResult> _promptForSkillsToInstall({
         for (final index in selectedIndices) {
           final opt = dialogOptions[index];
           for (final adapter in opt.adapters) {
-            selectedSkillNamesByIde[adapter.agent]!.add(opt.skill.skillName);
+            selectedSkillNamesByAgent[adapter.agent]!.add(opt.skill.skillName);
           }
         }
       } else {
         logger.info('Installation aborted by user.');
-        return (continueInstall: false, selectedSkillNamesByIde: null);
+        return (continueInstall: false, selectedSkillNamesByAgent: null);
       }
     }
   }
 
   if (!hasAnyChangesToPrint) {
     logger.info('All skills are up to date.');
-    return (continueInstall: false, selectedSkillNamesByIde: null);
+    return (continueInstall: false, selectedSkillNamesByAgent: null);
   }
 
   if (dialogSupport == null) {
@@ -762,12 +772,12 @@ Future<_PromptResult> _promptForSkillsToInstall({
       'Rerun with `--skill <name>`, or `--all` to '
       'install, update, or remove the given skills.',
     );
-    return (continueInstall: false, selectedSkillNamesByIde: null);
+    return (continueInstall: false, selectedSkillNamesByAgent: null);
   }
 
   return (
     continueInstall: true,
-    selectedSkillNamesByIde: selectedSkillNamesByIde,
+    selectedSkillNamesByAgent: selectedSkillNamesByAgent,
   );
 }
 
@@ -826,7 +836,7 @@ typedef _SkillStatesResult = ({
 
 typedef _PromptResult = ({
   bool continueInstall,
-  Map<Agent, Set<String>>? selectedSkillNamesByIde,
+  Map<Agent, Set<String>>? selectedSkillNamesByAgent,
 });
 
 typedef _DialogOption = ({

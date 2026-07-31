@@ -160,7 +160,7 @@ Future<SkillManifest> maybeDoRegistryMigration(
             if (skillsToRemove.isNotEmpty) {
               for (final agentName in updatedManifest.allAgents.toList()) {
                 final agent = Agent.fromCliName(agentName)!;
-                final result = await installer.removeSkillsForIde(
+                final result = await installer.removeSkillsForAgent(
                   agent: agent,
                   rootPath: rootPath,
                   manifest: updatedManifest,

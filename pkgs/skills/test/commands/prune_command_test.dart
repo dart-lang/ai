@@ -1,9 +1,15 @@
+// Copyright (c) 2026, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
 import 'dart:io';
 
 import 'package:logging/logging.dart';
 import 'package:skills/src/commands/skills_command_runner.dart';
 import 'package:path/path.dart' as p;
 import 'package:skills/src/commands/prune_command.dart';
+import 'package:skills/src/core/git_repos.dart';
+import 'package:skills/src/models/global_config.dart';
 import 'package:skills/src/models/skill_manifest.dart';
 import '../fake_dialog_support.dart';
 import '../utils.dart';
@@ -78,7 +84,10 @@ void main() {
         );
         await manifest.save(File(SkillManifest.pathIn(projectPath)));
 
-        final pruneCommand = PruneCommand(dialogSupport: FakeDialogSupport());
+        final fakeDialog = FakeDialogSupport();
+        fakeDialog.multiSelectResults.add({0}); // select package:pkg_b
+
+        final pruneCommand = PruneCommand(dialogSupport: fakeDialog);
         final runner = SkillsCommandRunner('skills', 'Test')
           ..addCommand(pruneCommand);
         await runner.run([
@@ -89,14 +98,16 @@ void main() {
           'cursor',
         ]);
 
-        expect(
-          await Directory('$projectPath/.cursor/skills/pkg_a-skill-1').exists(),
-          isTrue,
-        );
-        expect(
-          await Directory('$projectPath/.cursor/skills/pkg_b-skill-2').exists(),
-          isFalse,
-        );
+        await d
+            .dir('project', [
+              d.dir('.cursor', [
+                d.dir('skills', [
+                  d.dir('pkg_a-skill-1'),
+                  d.nothing('pkg_b-skill-2'),
+                ]),
+              ]),
+            ])
+            .validate(testRootPath);
 
         final loaded = await SkillManifest.loadFromRoot(projectPath);
         expect(loaded, isNotNull);
@@ -156,7 +167,10 @@ void main() {
         );
         await manifest.save(File(SkillManifest.pathIn(projectPath)));
 
-        final pruneCommand = PruneCommand(dialogSupport: FakeDialogSupport());
+        final fakeDialog = FakeDialogSupport();
+        fakeDialog.multiSelectResults.add({0});
+
+        final pruneCommand = PruneCommand(dialogSupport: fakeDialog);
         final runner = SkillsCommandRunner('skills', 'Test')
           ..addCommand(pruneCommand);
         await runner.run([
@@ -167,14 +181,84 @@ void main() {
           'cursor',
         ]);
 
-        expect(
-          await Directory('$projectPath/.cursor/skills/old_pkg-skill').exists(),
-          isFalse,
+        await d
+            .dir('project', [
+              d.dir('.cursor', [
+                d.dir('skills', [d.nothing('old_pkg-skill')]),
+              ]),
+              d.nothing(SkillManifest.cacheDirPath),
+            ])
+            .validate(testRootPath);
+      },
+    );
+
+    test(
+      'when --all flag is passed then dialog is skipped and all unreferenced packages are removed',
+      () async {
+        final testRootPath = p.join(
+          Directory.systemTemp.path,
+          'skills_prune_test_${DateTime.now().millisecondsSinceEpoch}',
         );
-        final dartSkillsDir = Directory(
-          p.join(projectPath, SkillManifest.cacheDirPath),
+        Directory(testRootPath).createSync();
+        addTearDown(() async {
+          await Directory(testRootPath).delete(recursive: true);
+        });
+
+        await d
+            .dir('project', [
+              pubspec('my_app'),
+              d.dir('.cursor', [
+                d.dir('skills', [
+                  d.dir('old_pkg-skill', [
+                    d.file(
+                      'SKILL.md',
+                      '---\nname: old_pkg-skill\ndescription: x\n---\n',
+                    ),
+                  ]),
+                ]),
+              ]),
+            ])
+            .create(testRootPath);
+
+        final projectPath = p.join(testRootPath, 'project');
+        final manifest = SkillManifest(
+          installations: {
+            'cursor': {
+              'package:old_pkg': SkillsEntry(
+                skills: [
+                  InstalledSkillEntry(
+                    name: 'old_pkg-skill',
+                    installedAt: DateTime.utc(2026),
+                  ),
+                ],
+              ),
+            },
+          },
         );
-        expect(await dartSkillsDir.exists(), isFalse);
+        await manifest.save(File(SkillManifest.pathIn(projectPath)));
+
+        final fakeDialog = FakeDialogSupport();
+        // multiSelectResults left empty so error would be thrown if dialog called
+
+        final pruneCommand = PruneCommand(dialogSupport: fakeDialog);
+        final runner = SkillsCommandRunner('skills', 'Test')
+          ..addCommand(pruneCommand);
+        await runner.run([
+          'prune',
+          '--directory',
+          projectPath,
+          '--agent',
+          'cursor',
+          '--all',
+        ]);
+
+        await d
+            .dir('project', [
+              d.dir('.cursor', [
+                d.dir('skills', [d.nothing('old_pkg-skill')]),
+              ]),
+            ])
+            .validate(testRootPath);
       },
     );
 
@@ -202,7 +286,9 @@ void main() {
         ..addCommand(pruneCommand);
       await runner.run(['prune', '--directory', projectPath]);
 
-      expect(File(SkillManifest.pathIn(projectPath)).existsSync(), isFalse);
+      await d
+          .dir('no_skills_project', [d.nothing(SkillManifest.configDirPath)])
+          .validate(testRootPath);
     });
 
     test('when --agent is set then only that agent is pruned', () async {
@@ -299,7 +385,10 @@ void main() {
       );
       await manifest.save(File(SkillManifest.pathIn(projectPath)));
 
-      final pruneCommand = PruneCommand(dialogSupport: FakeDialogSupport());
+      final fakeDialog = FakeDialogSupport();
+      fakeDialog.multiSelectResults.add({0});
+
+      final pruneCommand = PruneCommand(dialogSupport: fakeDialog);
       final runner = SkillsCommandRunner('skills', 'Test')
         ..addCommand(pruneCommand);
       await runner.run([
@@ -310,14 +399,16 @@ void main() {
         'cursor',
       ]);
 
-      expect(
-        Directory('$projectPath/.cursor/skills/unref-skill').existsSync(),
-        isFalse,
-      );
-      expect(
-        Directory('$projectPath/.claude/skills/unref-skill').existsSync(),
-        isTrue,
-      );
+      await d
+          .dir('project', [
+            d.dir('.cursor', [
+              d.dir('skills', [d.nothing('unref-skill')]),
+            ]),
+            d.dir('.claude', [
+              d.dir('skills', [d.dir('unref-skill')]),
+            ]),
+          ])
+          .validate(testRootPath);
 
       final loaded = await SkillManifest.loadFromRoot(projectPath);
       expect(loaded, isNotNull);
@@ -334,5 +425,173 @@ void main() {
         containsAll(['package:pkg_a', 'package:unref_pkg']),
       );
     });
+
+    test(
+      'prompts with multi-select to remove local git source entry with no skills listed when selected',
+      () async {
+        final testRootPath = p.join(
+          Directory.systemTemp.path,
+          'skills_prune_test_${DateTime.now().millisecondsSinceEpoch}',
+        );
+        Directory(testRootPath).createSync();
+        addTearDown(() async {
+          await Directory(testRootPath).delete(recursive: true);
+        });
+
+        await d.dir('project', [pubspec('my_app')]).create(testRootPath);
+        final projectPath = p.join(testRootPath, 'project');
+
+        final manifest = SkillManifest(
+          installations: {
+            'cursor': {
+              'https://github.com/dart-lang/test.git': const SkillsEntry(
+                skills: [],
+              ),
+            },
+          },
+        );
+        await manifest.save(File(SkillManifest.pathIn(projectPath)));
+
+        final fakeDialog = FakeDialogSupport();
+        fakeDialog.multiSelectResults.add({0}); // Select index 0 (the git repo)
+
+        final pruneCommand = PruneCommand(dialogSupport: fakeDialog);
+        final runner = SkillsCommandRunner('skills', 'Test')
+          ..addCommand(pruneCommand);
+        await runner.run([
+          'prune',
+          '--directory',
+          projectPath,
+          '--agent',
+          'cursor',
+        ]);
+
+        final loaded = await SkillManifest.loadFromRoot(projectPath);
+        expect(loaded, isNull);
+      },
+    );
+
+    test(
+      'keeps local git source entry with no skills listed when unselected in multi-select',
+      () async {
+        final testRootPath = p.join(
+          Directory.systemTemp.path,
+          'skills_prune_test_${DateTime.now().millisecondsSinceEpoch}',
+        );
+        Directory(testRootPath).createSync();
+        addTearDown(() async {
+          await Directory(testRootPath).delete(recursive: true);
+        });
+
+        await d.dir('project', [pubspec('my_app')]).create(testRootPath);
+        final projectPath = p.join(testRootPath, 'project');
+
+        final manifest = SkillManifest(
+          installations: {
+            'cursor': {
+              'https://github.com/dart-lang/test.git': const SkillsEntry(
+                skills: [],
+              ),
+            },
+          },
+        );
+        await manifest.save(File(SkillManifest.pathIn(projectPath)));
+
+        final fakeDialog = FakeDialogSupport();
+        fakeDialog.multiSelectResults.add(
+          {},
+        ); // Empty selection, keep git source
+
+        final pruneCommand = PruneCommand(dialogSupport: fakeDialog);
+        final runner = SkillsCommandRunner('skills', 'Test')
+          ..addCommand(pruneCommand);
+        await runner.run([
+          'prune',
+          '--directory',
+          projectPath,
+          '--agent',
+          'cursor',
+        ]);
+
+        final loaded = await SkillManifest.loadFromRoot(projectPath);
+        expect(loaded, isNotNull);
+        expect(
+          loaded!.sourceUrisForAgent('cursor').keys,
+          contains('https://github.com/dart-lang/test.git'),
+        );
+      },
+    );
+
+    test(
+      'prompts with multi-select to remove empty global git repo sources when selected',
+      () async {
+        await d.dir('project', [pubspec('my_app')]).create();
+        final projectPath = d.path('project');
+
+        await d.dir('global', []).create();
+        final globalConfigPath = p.join(d.path('global'), 'global_config.json');
+        GlobalConfig.globalPathOverride = globalConfigPath;
+        addTearDown(() {
+          GlobalConfig.globalPathOverride = null;
+        });
+
+        final globalConfig = GlobalConfig(
+          gitRepos: [
+            const GitRepo(
+              cloneUrl: 'https://github.com/dart-lang/test-global.git',
+              installs: [],
+            ),
+          ],
+        );
+        await globalConfig.save(File(globalConfigPath));
+
+        final fakeDialog = FakeDialogSupport();
+        fakeDialog.multiSelectResults.add({0});
+
+        final pruneCommand = PruneCommand(dialogSupport: fakeDialog);
+        final runner = SkillsCommandRunner('skills', 'Test')
+          ..addCommand(pruneCommand);
+        await runner.run(['prune', '--directory', projectPath]);
+
+        final loaded = await GlobalConfig.load(File(globalConfigPath));
+        expect(loaded, isNotNull);
+        expect(loaded!.gitRepos, isEmpty);
+      },
+    );
+
+    test(
+      'when --all flag is passed then dialog is skipped and empty global git repo sources are removed',
+      () async {
+        await d.dir('project', [pubspec('my_app')]).create();
+        final projectPath = d.path('project');
+
+        await d.dir('global', []).create();
+        final globalConfigPath = p.join(d.path('global'), 'global_config.json');
+        GlobalConfig.globalPathOverride = globalConfigPath;
+        addTearDown(() {
+          GlobalConfig.globalPathOverride = null;
+        });
+
+        final globalConfig = GlobalConfig(
+          gitRepos: [
+            const GitRepo(
+              cloneUrl: 'https://github.com/dart-lang/test-global.git',
+              installs: [],
+            ),
+          ],
+        );
+        await globalConfig.save(File(globalConfigPath));
+
+        final fakeDialog = FakeDialogSupport();
+        final pruneCommand = PruneCommand(dialogSupport: fakeDialog);
+        final runner = SkillsCommandRunner('skills', 'Test')
+          ..addCommand(pruneCommand);
+        await runner.run(['prune', '--directory', projectPath, '--all']);
+
+        final loaded = await GlobalConfig.load(File(globalConfigPath));
+        expect(loaded, isNotNull);
+        expect(loaded!.gitRepos, isEmpty);
+      },
+    );
   });
 }
