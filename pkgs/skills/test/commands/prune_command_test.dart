@@ -8,6 +8,8 @@ import 'package:logging/logging.dart';
 import 'package:skills/src/commands/skills_command_runner.dart';
 import 'package:path/path.dart' as p;
 import 'package:skills/src/commands/prune_command.dart';
+import 'package:skills/src/core/git_repos.dart';
+import 'package:skills/src/models/global_config.dart';
 import 'package:skills/src/models/skill_manifest.dart';
 import '../fake_dialog_support.dart';
 import '../utils.dart';
@@ -517,6 +519,78 @@ void main() {
           loaded!.sourceUrisForAgent('cursor').keys,
           contains('https://github.com/dart-lang/test.git'),
         );
+      },
+    );
+
+    test(
+      'prompts with multi-select to remove empty global git repo sources when selected',
+      () async {
+        await d.dir('project', [pubspec('my_app')]).create();
+        final projectPath = d.path('project');
+
+        await d.dir('global', []).create();
+        final globalConfigPath = p.join(d.path('global'), 'global_config.json');
+        GlobalConfig.globalPathOverride = globalConfigPath;
+        addTearDown(() {
+          GlobalConfig.globalPathOverride = null;
+        });
+
+        final globalConfig = GlobalConfig(
+          gitRepos: [
+            const GitRepo(
+              cloneUrl: 'https://github.com/dart-lang/test-global.git',
+              installs: [],
+            ),
+          ],
+        );
+        await globalConfig.save(File(globalConfigPath));
+
+        final fakeDialog = FakeDialogSupport();
+        fakeDialog.multiSelectResults.add({0});
+
+        final pruneCommand = PruneCommand(dialogSupport: fakeDialog);
+        final runner = SkillsCommandRunner('skills', 'Test')
+          ..addCommand(pruneCommand);
+        await runner.run(['prune', '--directory', projectPath]);
+
+        final loaded = await GlobalConfig.load(File(globalConfigPath));
+        expect(loaded, isNotNull);
+        expect(loaded!.gitRepos, isEmpty);
+      },
+    );
+
+    test(
+      'when --all flag is passed then dialog is skipped and empty global git repo sources are removed',
+      () async {
+        await d.dir('project', [pubspec('my_app')]).create();
+        final projectPath = d.path('project');
+
+        await d.dir('global', []).create();
+        final globalConfigPath = p.join(d.path('global'), 'global_config.json');
+        GlobalConfig.globalPathOverride = globalConfigPath;
+        addTearDown(() {
+          GlobalConfig.globalPathOverride = null;
+        });
+
+        final globalConfig = GlobalConfig(
+          gitRepos: [
+            const GitRepo(
+              cloneUrl: 'https://github.com/dart-lang/test-global.git',
+              installs: [],
+            ),
+          ],
+        );
+        await globalConfig.save(File(globalConfigPath));
+
+        final fakeDialog = FakeDialogSupport();
+        final pruneCommand = PruneCommand(dialogSupport: fakeDialog);
+        final runner = SkillsCommandRunner('skills', 'Test')
+          ..addCommand(pruneCommand);
+        await runner.run(['prune', '--directory', projectPath, '--all']);
+
+        final loaded = await GlobalConfig.load(File(globalConfigPath));
+        expect(loaded, isNotNull);
+        expect(loaded!.gitRepos, isEmpty);
       },
     );
   });
