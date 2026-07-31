@@ -55,22 +55,38 @@ The CLI will automatically run `pub get` if needed, scan your dependency package
 
 ### Installing skills from git
 
-The `skills` package can also install skills from git repos, similar to how `npx skills` works. Given an `npx skills` command from https://skills.sh, you can substitute `npx skills` for `dart run skills@` to install them without the need for Node/NPX.
+The `skills` package can also install skills from git repos, similar to how
+`npx skills` works. Given an `npx skills` command from https://skills.sh, you
+can substitute `npx skills` for `dart run skills@` to install them without the
+need for Node/NPX.
 
-Once a repo has been added, future calls to `dart run skills@ get` will also check those repos for updates to skills.
+Once a repo has been added, future calls to `dart run skills@ get` will also
+check those repos for updates to skills.
 
-- **Requirement:** Git must be installed and on your PATH. If git is not found, a warning is printed and only Dart package skills are used.
-- **Directory Filtering:** When crawling a Git repository for skills, directories named `third_party` or hidden directories (starting with `.`) are ignored.
+- **`--git <repo>` option:** You can pass `--git <repo>` (e.g.,
+  `--git https://github.com/owner/repo.git` or `--git owner/repo`) to `add`,
+  `get`, or `remove` commands to restrict operations to specific git repos.
+- **Requirement:** Git must be installed and on your PATH. If git is not
+  found, a warning is printed and only Dart package skills are used.
+- **Directory Filtering:** When crawling a Git repository for skills,
+  directories named `third_party` or hidden directories (starting with `.`)
+  are ignored.
 
-### Pruning removed dependencies
+### Pruning removed dependencies and unused sources
 
-When you remove a package from your `pubspec.yaml`, its skills stay in your agent directories until you clean them up. Run:
+When you remove a package from your `pubspec.yaml`, its skills stay in your
+agent directories until you clean them up. Run:
 
 ```bash
 dart run skills@ prune
 ```
 
-This removes only skills whose package is no longer in your dependency tree and updates the manifest. Use `--agent <agent>` to prune a single agent. If you have no managed skills, `prune` reports that and exits.
+This removes skills whose package is no longer in your dependency tree and
+updates the manifest. Use `--agent <agent>` to prune a single agent.
+
+The `prune` command also checks both local and global configurations for git
+repository sources that have no skills installed, and prompts whether to remove
+them. The pruning logic is automatically invoked after every `skills get`.
 
 ### Version control and .gitignore
 

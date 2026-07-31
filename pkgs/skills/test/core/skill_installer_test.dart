@@ -63,7 +63,7 @@ void main() {
     test('when installing skills then migrations are performed', () async {
       final installer = SkillInstaller(null);
 
-      final result = await installer.installSkillsForIde(
+      final result = await installer.installSkillsForAgent(
         agent: Agent.generic,
         rootPath: rootPath,
         skills: scannedSkills,
@@ -141,7 +141,7 @@ void main() {
       final sub = Logger.root.onRecord.listen(logs.add);
       addTearDown(sub.cancel);
 
-      final result = await installer.installSkillsForIde(
+      final result = await installer.installSkillsForAgent(
         agent: Agent.generic,
         rootPath: rootPath,
         skills: scannedSkills,
