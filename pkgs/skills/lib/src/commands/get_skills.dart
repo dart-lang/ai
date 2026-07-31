@@ -238,7 +238,8 @@ Future<bool> getSkills({
   }
 
   final installer = SkillInstaller(dialogSupport);
-  for (final agent in agents) {
+  for (final adapter in agentAdapters) {
+    final agent = adapter.agent;
     final result = await installer.installSkillsForIde(
       agent: agent,
       rootPath: rootPath,
@@ -254,10 +255,7 @@ Future<bool> getSkills({
     }
     manifest = result.manifest;
     globalConfig = result.globalConfig;
-    final installDir = p.relative(
-      createAgentAdapter(agent, rootPath, null).skillsDirectory,
-      from: rootPath,
-    );
+    final installDir = p.relative(adapter.skillsDirectory, from: rootPath);
     for (final info in result.installed) {
       logger.info('  [${info.agentName}] Installed ${info.skillName}');
     }
