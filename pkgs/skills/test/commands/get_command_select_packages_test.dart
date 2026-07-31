@@ -309,6 +309,7 @@ void main() {
       final subscription = Logger('skills get').onRecord.listen((r) {
         logMessages.add(r.message);
       });
+      addTearDown(subscription.cancel);
 
       final getCommand = GetCommand(
         dialogSupport: null,
@@ -327,8 +328,6 @@ void main() {
         Agent.claude.cliName,
         '--all',
       ]);
-
-      await subscription.cancel();
 
       expect(
         logMessages,
