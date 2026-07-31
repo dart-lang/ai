@@ -14,6 +14,8 @@ import 'package:skills/src/core/workspace_resolver.dart';
 import 'package:skills/src/models/global_config.dart';
 import 'package:skills/src/models/skill_manifest.dart';
 
+const _packagePrefix = 'package:';
+
 /// Prunes skills whose package dependencies are no longer in the workspace,
 /// and cleans up unused git repository sources in local and global configs.
 Future<void> pruneSkills({
@@ -65,73 +67,21 @@ Future<void> pruneSkills({
   var totalGitSourcesRemoved = 0;
 
   for (final agent in agentsToProcess) {
-    final sourceEntries = manifest.sourceUrisForAgent(agent.cliName);
-
-    final unreferencedPackages = sourceEntries.keys
-        .where(
-          (uri) =>
-              uri.startsWith('package:') &&
-              !referencedNames.contains(uri.substring('package:'.length)),
-        )
-        .toSet();
-
-    final emptyLocalGitSources = sourceEntries.entries
-        .where((e) => !e.key.startsWith('package:') && e.value.skills.isEmpty)
-        .map((e) => e.key)
-        .toSet();
-
-    final candidates = [...unreferencedPackages, ...emptyLocalGitSources]
-      ..sort();
-    if (candidates.isEmpty) continue;
-
-    final Set<String> selectedItems;
-    if (!allFlag) {
-      final selectedIndices = await dialogSupport!.showMultiSelectDialog(
-        candidates,
-        title:
-            'Select packages and local git sources to prune for '
-            '${agent.cliName}:',
-        initialSelected: {for (var i = 0; i < candidates.length; i++) i},
-      );
-      if (selectedIndices == null) {
-        logger.info('Prune aborted by user.');
-        return;
-      }
-      if (selectedIndices.isEmpty) {
-        continue;
-      }
-      selectedItems = selectedIndices.map((i) => candidates[i]).toSet();
-    } else {
-      selectedItems = candidates.toSet();
-    }
-
-    final pkgsToPrune = selectedItems
-        .where((item) => item.startsWith('package:'))
-        .toSet();
-    final localGitToPrune = selectedItems
-        .where((item) => !item.startsWith('package:'))
-        .toSet();
-
-    if (pkgsToPrune.isNotEmpty) {
-      final result = await installer.removeSkillsForIde(
-        agent: agent,
-        rootPath: rootPath,
-        manifest: manifest,
-        sourceUris: pkgsToPrune,
-      );
-      manifest = result.manifest;
-      totalRemoved += result.removedCount;
-      prunedPackages.addAll(pkgsToPrune);
-      for (final info in result.removed) {
-        logger.info('  [${info.agentName}] Removed ${info.skillName}');
-      }
-    }
-
-    for (final uri in localGitToPrune) {
-      manifest = manifest.withoutSourceUri(agent.cliName, uri);
-      totalGitSourcesRemoved++;
-      logger.info('  [${agent.cliName}] Removed empty local git source "$uri"');
-    }
+    final result = await _pruneSkillsForAgent(
+      agent: agent,
+      manifest: manifest,
+      referencedNames: referencedNames,
+      rootPath: rootPath,
+      installer: installer,
+      logger: logger,
+      dialogSupport: dialogSupport,
+      allFlag: allFlag,
+    );
+    if (result == null) return;
+    manifest = result.manifest;
+    totalRemoved += result.removedCount;
+    prunedPackages.addAll(result.prunedPackages);
+    totalGitSourcesRemoved += result.gitSourcesRemovedCount;
   }
 
   await manifest.save(File(SkillManifest.pathIn(rootPath)));
@@ -215,4 +165,114 @@ Future<bool> _hasActiveGlobalInstallsOnDisk(GitRepo repo) async {
     }
   }
   return false;
+}
+
+typedef _AgentPruneResult = ({
+  SkillManifest manifest,
+  int removedCount,
+  Set<String> prunedPackages,
+  int gitSourcesRemovedCount,
+});
+
+Future<_AgentPruneResult?> _pruneSkillsForAgent({
+  required Agent agent,
+  required SkillManifest manifest,
+  required Set<String> referencedNames,
+  required String rootPath,
+  required SkillInstaller installer,
+  required Logger logger,
+  DialogSupport? dialogSupport,
+  required bool allFlag,
+}) async {
+  final sourceEntries = manifest.sourceUrisForAgent(agent.cliName);
+
+  final unreferencedPackages = sourceEntries.keys
+      .where(
+        (uri) =>
+            uri.startsWith(_packagePrefix) &&
+            !referencedNames.contains(uri.substring(_packagePrefix.length)),
+      )
+      .toSet();
+
+  final emptyLocalGitSources = sourceEntries.entries
+      .where((e) => !e.key.startsWith(_packagePrefix) && e.value.skills.isEmpty)
+      .map((e) => e.key)
+      .toSet();
+
+  final candidates = [...unreferencedPackages, ...emptyLocalGitSources]..sort();
+  if (candidates.isEmpty) {
+    return (
+      manifest: manifest,
+      removedCount: 0,
+      prunedPackages: const <String>{},
+      gitSourcesRemovedCount: 0,
+    );
+  }
+
+  final Set<String> selectedItems;
+  if (!allFlag) {
+    final selectedIndices = await dialogSupport!.showMultiSelectDialog(
+      candidates,
+      title:
+          'Select packages and local git sources to prune for '
+          '${agent.cliName}:',
+      initialSelected: {for (var i = 0; i < candidates.length; i++) i},
+    );
+    if (selectedIndices == null) {
+      logger.info('Prune aborted by user.');
+      return null;
+    }
+    if (selectedIndices.isEmpty) {
+      return (
+        manifest: manifest,
+        removedCount: 0,
+        prunedPackages: const <String>{},
+        gitSourcesRemovedCount: 0,
+      );
+    }
+    selectedItems = selectedIndices.map((i) => candidates[i]).toSet();
+  } else {
+    selectedItems = candidates.toSet();
+  }
+
+  final pkgsToPrune = <String>{};
+  final localGitToPrune = <String>{};
+  for (final item in selectedItems) {
+    if (item.startsWith(_packagePrefix)) {
+      pkgsToPrune.add(item);
+    } else {
+      localGitToPrune.add(item);
+    }
+  }
+
+  var updatedManifest = manifest;
+  var removedCount = 0;
+  var gitSourcesRemovedCount = 0;
+
+  if (pkgsToPrune.isNotEmpty) {
+    final result = await installer.removeSkillsForIde(
+      agent: agent,
+      rootPath: rootPath,
+      manifest: updatedManifest,
+      sourceUris: pkgsToPrune,
+    );
+    updatedManifest = result.manifest;
+    removedCount += result.removedCount;
+    for (final info in result.removed) {
+      logger.info('  [${info.agentName}] Removed ${info.skillName}');
+    }
+  }
+
+  for (final uri in localGitToPrune) {
+    updatedManifest = updatedManifest.withoutSourceUri(agent.cliName, uri);
+    gitSourcesRemovedCount++;
+    logger.info('  [${agent.cliName}] Removed empty local git source "$uri"');
+  }
+
+  return (
+    manifest: updatedManifest,
+    removedCount: removedCount,
+    prunedPackages: pkgsToPrune,
+    gitSourcesRemovedCount: gitSourcesRemovedCount,
+  );
 }
