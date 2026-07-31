@@ -129,7 +129,7 @@ void main() {
       expect(manifest.allSkills, hasLength(6));
     });
 
-    test('when iterating allSkillsForIde then returns only that agent', () {
+    test('when iterating allSkillsForAgent then returns only that agent', () {
       expect(manifest.allSkillsForAgent('generic'), hasLength(2));
       expect(manifest.allSkillsForAgent('cursor'), hasLength(3));
       expect(manifest.allSkillsForAgent('claude'), hasLength(1));

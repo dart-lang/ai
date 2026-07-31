@@ -250,7 +250,7 @@ Future<_AgentPruneResult?> _pruneSkillsForAgent({
   var gitSourcesRemovedCount = 0;
 
   if (pkgsToPrune.isNotEmpty) {
-    final result = await installer.removeSkillsForIde(
+    final result = await installer.removeSkillsForAgent(
       agent: agent,
       rootPath: rootPath,
       manifest: updatedManifest,

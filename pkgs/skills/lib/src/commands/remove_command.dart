@@ -203,7 +203,7 @@ class RemoveCommand extends SkillsCommand {
     var totalRemoved = 0;
 
     for (final agent in targetAgents) {
-      final result = await installer.removeSkillsForIde(
+      final result = await installer.removeSkillsForAgent(
         agent: agent,
         rootPath: rootPath,
         manifest: manifest,

@@ -104,7 +104,7 @@ Instructions for debugging.
       manifest = const SkillManifest();
 
       final installer = SkillInstaller(fakeDialogSupport);
-      var result = await installer.installSkillsForIde(
+      var result = await installer.installSkillsForAgent(
         agent: Agent.cursor,
         rootPath: rootPath,
         skills: [...pkgASkills, ...pkgBSkills],
@@ -112,7 +112,7 @@ Instructions for debugging.
         globalConfig: const GlobalConfig(),
       );
       manifest = result!.manifest;
-      result = await installer.installSkillsForIde(
+      result = await installer.installSkillsForAgent(
         agent: Agent.generic,
         rootPath: rootPath,
         skills: [...pkgASkills, ...pkgBSkills],
@@ -168,11 +168,12 @@ Instructions for debugging.
 
     test('when removing one agent then the other remains intact', () async {
       // Remove only Cursor.
-      final result = await SkillInstaller(fakeDialogSupport).removeSkillsForIde(
-        agent: Agent.cursor,
-        rootPath: rootPath,
-        manifest: manifest,
-      );
+      final result = await SkillInstaller(fakeDialogSupport)
+          .removeSkillsForAgent(
+            agent: Agent.cursor,
+            rootPath: rootPath,
+            manifest: manifest,
+          );
       manifest = result.manifest;
 
       // Cursor files gone.
@@ -206,7 +207,7 @@ Instructions for debugging.
         final installer = SkillInstaller(fakeDialogSupport);
         for (final agentName in manifest.allAgents.toList()) {
           final agent = Agent.fromCliName(agentName)!;
-          final result = await installer.removeSkillsForIde(
+          final result = await installer.removeSkillsForAgent(
             agent: agent,
             rootPath: rootPath,
             manifest: manifest,
@@ -265,7 +266,7 @@ Instructions for debugging.
       manifest = const SkillManifest();
 
       final installer = SkillInstaller(fakeDialogSupport);
-      var result = await installer.installSkillsForIde(
+      var result = await installer.installSkillsForAgent(
         agent: Agent.cursor,
         rootPath: rootPath,
         skills: pkgASkills,
@@ -273,7 +274,7 @@ Instructions for debugging.
         globalConfig: const GlobalConfig(),
       );
       manifest = result!.manifest;
-      result = await installer.installSkillsForIde(
+      result = await installer.installSkillsForAgent(
         agent: Agent.generic,
         rootPath: rootPath,
         skills: pkgASkills,
@@ -311,13 +312,14 @@ Instructions for debugging.
     test('when some skills are manually deleted then remaining are still '
         'removed correctly', () async {
       // Install a second package too.
-      var result = await SkillInstaller(fakeDialogSupport).installSkillsForIde(
-        agent: Agent.cursor,
-        rootPath: rootPath,
-        skills: [...pkgASkills, ...pkgBSkills],
-        previousManifest: manifest,
-        globalConfig: const GlobalConfig(),
-      );
+      var result = await SkillInstaller(fakeDialogSupport)
+          .installSkillsForAgent(
+            agent: Agent.cursor,
+            rootPath: rootPath,
+            skills: [...pkgASkills, ...pkgBSkills],
+            previousManifest: manifest,
+            globalConfig: const GlobalConfig(),
+          );
       manifest = result!.manifest;
 
       // Manually delete pkg_a skill from cursor.
@@ -353,7 +355,7 @@ Instructions for debugging.
       manifest = const SkillManifest();
 
       final installer = SkillInstaller(fakeDialogSupport);
-      var result = await installer.installSkillsForIde(
+      var result = await installer.installSkillsForAgent(
         agent: Agent.cursor,
         rootPath: rootPath,
         skills: pkgASkills,
@@ -361,7 +363,7 @@ Instructions for debugging.
         globalConfig: const GlobalConfig(),
       );
       manifest = result!.manifest;
-      result = await installer.installSkillsForIde(
+      result = await installer.installSkillsForAgent(
         agent: Agent.generic,
         rootPath: rootPath,
         skills: pkgASkills,
@@ -377,7 +379,7 @@ Instructions for debugging.
         // Reinstall to Cursor only (simulating `skills get --agent cursor`).
         // SkillInstaller removes existing before installing.
         final result = await SkillInstaller(fakeDialogSupport)
-            .installSkillsForIde(
+            .installSkillsForAgent(
               agent: Agent.cursor,
               rootPath: rootPath,
               skills: pkgASkills,
@@ -417,7 +419,7 @@ Instructions for debugging.
       manifest = const SkillManifest();
 
       final installer = SkillInstaller(fakeDialogSupport);
-      var result = await installer.installSkillsForIde(
+      var result = await installer.installSkillsForAgent(
         agent: Agent.cursor,
         rootPath: rootPath,
         skills: [...pkgASkills, ...pkgBSkills],
@@ -425,7 +427,7 @@ Instructions for debugging.
         globalConfig: const GlobalConfig(),
       );
       manifest = result!.manifest;
-      result = await installer.installSkillsForIde(
+      result = await installer.installSkillsForAgent(
         agent: Agent.claude,
         rootPath: rootPath,
         skills: [...pkgASkills, ...pkgBSkills],
@@ -497,7 +499,7 @@ Instructions for debugging.
 
         var manifest = const SkillManifest();
         final result = await SkillInstaller(fakeDialogSupport)
-            .installSkillsForIde(
+            .installSkillsForAgent(
               agent: Agent.generic,
               rootPath: rootPath,
               skills: pkgASkills,
