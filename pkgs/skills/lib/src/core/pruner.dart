@@ -181,7 +181,6 @@ Future<void> pruneSkills({
     }
   }
 
-  await manifest.save(File(SkillManifest.pathIn(rootPath)));
   if (manifest.isEmpty) {
     await SkillManifest.cleanup(rootPath);
   }
