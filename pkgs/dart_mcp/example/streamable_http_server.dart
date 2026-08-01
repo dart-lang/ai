@@ -17,32 +17,57 @@ import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp/streamable_http.dart';
 
 void main() async {
-  // Loopback is not protection on its own, since DNS rebinding reaches it
-  // from a remote page. The specification requires a server to validate
-  // `Origin` on every connection and answer with 403 when it is present
-  // and invalid. The handler leaves that check and authentication to whoever
-  // owns the `HttpServer`.
+  // The one path this server answers on.
+  const path = '/mcp';
   final httpServer = await io.HttpServer.bind(
     io.InternetAddress.loopbackIPv4,
-    8080,
+    0,
   );
+  final endpoint = 'http://${httpServer.address.host}:${httpServer.port}$path';
 
-  // Every POST gets its own server: this protocol revision carries the client
-  // context on the request instead of an `initialize` handshake, so there is
-  // no connection to keep around between requests.
-  httpServer.listen(
-    (request) => handleStreamableHttpRequest(
-      request,
-      MCPServerWithGreeting.new,
-      // A JSON response body cannot carry notifications, so anything the
-      // server logs while handling the request is dropped without this. The
-      // `greet` tool below never sends one.
-      onNotification:
-          (notification) => io.stderr.writeln('notification: $notification'),
-    ),
-  );
+  httpServer.listen((request) async {
+    // The handler reads no path, so the one this server answers on is the
+    // host's to choose and to enforce.
+    if (request.uri.path != path) {
+      request.response
+        ..statusCode = io.HttpStatus.notFound
+        ..contentLength = 0;
+      await request.response.close();
+      return;
+    }
 
-  final endpoint = 'http://${httpServer.address.host}:${httpServer.port}/mcp';
+    // Loopback is not protection on its own, since DNS rebinding reaches it
+    // from a remote page. The specification requires a server to answer 403
+    // when `Origin` is present and invalid; nothing here is meant to be driven
+    // from a page, so no origin is valid. Read the header as a list: `value`
+    // throws when a request repeats it, and a caller chooses that.
+    if (request.headers['origin'] != null) {
+      request.response
+        ..statusCode = io.HttpStatus.forbidden
+        ..contentLength = 0;
+      await request.response.close();
+      return;
+    }
+
+    // Every POST gets its own server: this protocol revision carries the client
+    // context on the request instead of an `initialize` handshake, so there is
+    // no connection to keep around between requests.
+    try {
+      await handleStreamableHttpRequest(
+        request,
+        MCPServerWithGreeting.new,
+        // A JSON response body cannot carry notifications, so anything the
+        // server logs while handling the request is dropped without this. The
+        // `greet` tool below never sends one.
+        onNotification:
+            (notification) => io.stderr.writeln('notification: $notification'),
+      );
+    } catch (error) {
+      // The request already has its 500; this is the copy the host keeps.
+      io.stderr.writeln('request failed: $error');
+    }
+  });
+
   print('Listening on $endpoint\n');
   // `Mcp-Method` and `Mcp-Name` mirror the body so that intermediaries can
   // route and inspect the request without parsing it; `Mcp-Name` is only
