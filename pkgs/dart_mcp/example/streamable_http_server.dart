@@ -49,6 +49,10 @@ void main() async {
       return;
     }
 
+    // The handler leaves two more jobs to the host, and this example does
+    // neither: authenticating the caller, and bounding the size of the body it
+    // reads. A server reachable from anywhere but this machine needs both.
+
     // Every POST gets its own server: this protocol revision carries the client
     // context on the request instead of an `initialize` handshake, so there is
     // no connection to keep around between requests.
@@ -57,8 +61,9 @@ void main() async {
         request,
         MCPServerWithGreeting.new,
         // A JSON response body cannot carry notifications, so anything the
-        // server logs while handling the request is dropped without this. The
-        // `greet` tool below never sends one.
+        // server sends while handling the request is dropped without this.
+        // `greet` sends one when the request carries a progress token, which
+        // the command below does.
         onNotification:
             (notification) => io.stderr.writeln('notification: $notification'),
       );
@@ -89,7 +94,8 @@ curl -sS $endpoint \\
       "_meta": {
         "io.modelcontextprotocol/protocolVersion": "2026-07-28",
         "io.modelcontextprotocol/clientInfo": {"name": "curl", "version": "0"},
-        "io.modelcontextprotocol/clientCapabilities": {}
+        "io.modelcontextprotocol/clientCapabilities": {},
+        "progressToken": 1
       }
     }
   }'
@@ -119,7 +125,21 @@ base class MCPServerWithGreeting extends MCPServer with ToolsSupport {
   );
 
   /// The implementation of the `greet` tool.
-  CallToolResult _greet(CallToolRequest request) => CallToolResult(
-    content: [TextContent(text: 'Hello, ${request.arguments!['name']}!')],
-  );
+  CallToolResult _greet(CallToolRequest request) {
+    // The JSON body carries the result and nothing else, so this notification
+    // reaches the host through `onNotification` or not at all.
+    if (request.meta?.progressToken case final progressToken?) {
+      notifyProgress(
+        ProgressNotification(
+          progressToken: progressToken,
+          progress: 1,
+          total: 1,
+          message: 'Greeting ${request.arguments!['name']}',
+        ),
+      );
+    }
+    return CallToolResult(
+      content: [TextContent(text: 'Hello, ${request.arguments!['name']}!')],
+    );
+  }
 }
