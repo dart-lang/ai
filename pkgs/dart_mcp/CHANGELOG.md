@@ -67,6 +67,7 @@
   Nothing emits them yet; the Streamable HTTP handler lands separately. The
   same registry reserves `-32042`, so `urlElicitationRequired` now documents
   that only the 2025-11-25 revision emits it.
+- Add instructions to read the schema when tool arguments fail validation.
 
 ## 0.5.2
 

@@ -552,7 +552,7 @@ base mixin DartToolingDaemonSupport
   }
 
   Future<CallToolResult> _listConnectedApps(CallToolRequest request) async {
-    if (activeVmServices.isEmpty) return _noActiveDebugSession;
+    if (activeVmServices.isEmpty) return _noActiveAppConnection;
     final textResult = <TextContent>[];
     // Connected app info by DTD uri.
     final structuredResult = <String, List<Map<String, Object?>>>{};
@@ -1064,7 +1064,7 @@ base mixin DartToolingDaemonSupport
       if (_dtds.isNotEmpty && !_dtds.any((dtd) => dtd.supportsConnectedApps)) {
         return _connectedAppsNotSupported;
       }
-      return _noActiveDebugSession;
+      return _noActiveAppConnection;
     }
 
     final String selectedAppUri;
@@ -1388,14 +1388,14 @@ base mixin DartToolingDaemonSupport
     ),
   )..categories = [FeatureCategory.dartToolingDaemon];
 
-  @visibleForTesting
   static final hotReloadTool = Tool(
     name: ToolNames.hotReload.name,
     description:
         'Performs a hot reload of the active Flutter application. '
-        'This will apply the latest code changes to the running application, '
-        'while maintaining application state.  Reload will not update const '
-        'definitions of global values. Requires an active DTD connection.',
+        'Requires an active DTD connection, use '
+        'the `${DartToolingDaemonSupport.dtdTool.name}` tool to discover and '
+        'connect to an app pro-actively (don\'t wait for the user to instruct '
+        'you, this is a safe operation with minimal bad consequences).',
     annotations: ToolAnnotations(title: 'Hot reload', destructiveHint: true),
     inputSchema: Schema.object(
       properties: {
@@ -1416,7 +1416,6 @@ base mixin DartToolingDaemonSupport
     ),
   )..categories = [FeatureCategory.flutter];
 
-  @visibleForTesting
   static final hotRestartTool = Tool(
     name: ToolNames.hotRestart.name,
     description:
@@ -1652,8 +1651,16 @@ base mixin DartToolingDaemonSupport
     ],
   )..failureReason = CallToolFailureReason.dtdAlreadyConnected;
 
-  static final _noActiveDebugSession = CallToolResult(
-    content: [TextContent(text: 'No active debug session.')],
+  static final _noActiveAppConnection = CallToolResult(
+    content: [
+      TextContent(
+        text:
+            'No active app connection. Use the `${dtdTool.name}` tool to '
+            'discover and connect to an app first. AGENT: Be pro-active and '
+            'connect to the app yourself unless explicitly instructed '
+            'otherwise. Read the dtd tool schema to use it correctly.',
+      ),
+    ],
     isError: true,
   )..failureReason = CallToolFailureReason.noActiveDebugSession;
 

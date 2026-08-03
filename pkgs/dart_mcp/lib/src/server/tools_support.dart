@@ -68,6 +68,11 @@ base mixin ToolsSupport on MCPServer {
               if (errors.isNotEmpty) {
                 return CallToolResult(
                   content: [
+                    Content.text(
+                      text:
+                          'Invalid tool arguments, make sure to read the '
+                          'schema and try again:',
+                    ),
                     for (final error in errors)
                       Content.text(text: error.toErrorString()),
                   ],

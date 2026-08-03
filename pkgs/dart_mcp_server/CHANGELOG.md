@@ -1,3 +1,8 @@
+## 1.1.1-wip
+
+- Improve server instructions and error messages to encourage agents to
+  proactively connect to running applications and hot reload after changes.
+
 ## 1.1.0
 
 - Build against the published `dart_mcp` package instead of a local path
