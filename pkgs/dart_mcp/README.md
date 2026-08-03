@@ -127,7 +127,7 @@ can be used, but some are directly supported out of the box.
 | Transport | Support | Notes |
 | --- | --- | --- |
 | [Stdio](https://modelcontextprotocol.io/specification/2025-11-05/basic/transports#stdio) | :heavy_check_mark: |  |
-| [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-11-05/basic/transports#streamable-http) | :x: | Unsupported at this time, may come in the future. |
+| [Streamable HTTP](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http) | :construction: | Server side only, as `handleStreamableHttpRequest` in `package:dart_mcp/streamable_http.dart`. Answers with JSON bodies; SSE response streams and the client side are not implemented yet. |
 
 ## Batching Requests
 

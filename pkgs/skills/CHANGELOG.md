@@ -2,6 +2,8 @@
 
 ## 1.0.0-wip
 
+- Display the actual install directory for each agent in the `get` command's
+  summary message.
 - Fix bug where failing to clone a git repository in `skills add` still
   saved it to configuration/manifest files.
 - Emphasize (bold) actual skill names in interactive dialog options.

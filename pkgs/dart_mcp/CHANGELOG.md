@@ -34,7 +34,7 @@
   decoded JSON-RPC message on a fresh server instance for request-scoped
   transports. Successful results record the server implementation under the
   reserved `io.modelcontextprotocol/serverInfo` result metadata key. Does
-  **not** add any transport; wire formats and HTTP support land separately.
+  **not** add any transport.
 - `RootsTrackingSupport` no longer surfaces an unhandled error when the
   connection closes while a `listRoots` request is in flight.
 - The URL elicitation retry rethrows the original error when its data is not
@@ -64,9 +64,24 @@
   revision allocates from the `-32020` to `-32099` range it reserves for the
   specification, see
   https://modelcontextprotocol.io/specification/2026-07-28/basic#error-codes.
-  Nothing emits them yet; the Streamable HTTP handler lands separately. The
-  same registry reserves `-32042`, so `urlElicitationRequired` now documents
-  that only the 2025-11-25 revision emits it.
+  The Streamable HTTP handler below now emits `McpErrorCodes.headerMismatch`
+  and `.unsupportedProtocolVersion`. The same registry reserves `-32042`, so
+  `urlElicitationRequired` now documents that only the 2025-11-25 revision
+  emits it.
+- Add `ProtocolVersion.v2026_07_28`. `ProtocolVersion.latestSupported` still
+  points at 2025-11-25, the newest version the legacy `initialize` handshake
+  negotiates; transports for the request-scoped protocol carry their own set
+  of supported versions.
+- Add `package:dart_mcp/streamable_http.dart` with
+  `handleStreamableHttpRequest`, the server side of the Streamable HTTP
+  transport from the 2026-07-28 revision, see
+  https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http.
+  Each POST carries one JSON-RPC request or notification which is validated
+  against the required headers and `_meta` envelope, then dispatched to a
+  fresh server instance via `handleRequestScopedMessage`. Responses are JSON
+  only. See `example/streamable_http_server.dart`. Does not add SSE response
+  streams, the legacy session routes, or an HTTP client; those land as
+  separate changes.
 - Add instructions to read the schema when tool arguments fail validation.
 
 ## 0.5.2

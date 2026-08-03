@@ -17,7 +17,10 @@ extension Keys on Never {
   static const cacheScope = 'cacheScope';
   static const cancel = 'cancel';
   static const capabilities = 'capabilities';
+  static const clientCapabilitiesMeta =
+      'io.modelcontextprotocol/clientCapabilities';
   static const clientInfo = 'clientInfo';
+  static const clientInfoMeta = 'io.modelcontextprotocol/clientInfo';
   static const code = 'code';
   static const completion = 'completion';
   static const completions = 'completions';
@@ -97,10 +100,13 @@ extension Keys on Never {
   static const properties = 'properties';
   static const propertyNames = 'propertyNames';
   static const protocolVersion = 'protocolVersion';
+  static const protocolVersionMeta = 'io.modelcontextprotocol/protocolVersion';
   static const readOnlyHint = 'readOnlyHint';
   static const reason = 'reason';
   static const ref = 'ref';
+  static const request = 'request';
   static const requestId = 'requestId';
+  static const requested = 'requested';
   static const requestedSchema = 'requestedSchema';
   static const required = 'required';
   static const resource = 'resource';
@@ -121,6 +127,7 @@ extension Keys on Never {
   static const stopSequences = 'stopSequences';
   static const structuredContent = 'structuredContent';
   static const subscribe = 'subscribe';
+  static const supported = 'supported';
   static const systemPrompt = 'systemPrompt';
   static const temperature = 'temperature';
   static const text = 'text';

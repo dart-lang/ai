@@ -30,7 +30,8 @@ enum ProtocolVersion {
   v2024_11_05('2024-11-05'),
   v2025_03_26('2025-03-26'),
   v2025_06_18('2025-06-18'),
-  v2025_11_25('2025-11-25');
+  v2025_11_25('2025-11-25'),
+  v2026_07_28('2026-07-28');
 
   const ProtocolVersion(this.versionString);
 
@@ -43,6 +44,11 @@ enum ProtocolVersion {
   static const oldestSupported = ProtocolVersion.v2024_11_05;
 
   /// The most recent version supported by the current API.
+  ///
+  /// This is the newest version the legacy `initialize` handshake negotiates.
+  /// A transport for a request-scoped protocol revision, such as
+  /// `handleStreamableHttpRequest` in `package:dart_mcp/streamable_http.dart`,
+  /// carries its own set of supported versions.
   static const latestSupported = ProtocolVersion.v2025_11_25;
 
   /// The version string used over the wire to identify this version.
