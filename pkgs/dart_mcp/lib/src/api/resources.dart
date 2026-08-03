@@ -22,12 +22,19 @@ extension type ListResourcesResult.fromMap(Map<String, Object?> _value)
   factory ListResourcesResult({
     required List<Resource> resources,
     Cursor? nextCursor,
+    int? ttlMs,
+    CacheScope? cacheScope,
     Meta? meta,
-  }) => ListResourcesResult.fromMap({
-    Keys.resources: resources,
-    if (nextCursor != null) Keys.nextCursor: nextCursor,
-    if (meta != null) Keys.meta: meta,
-  });
+  }) {
+    assert(ttlMs == null || ttlMs >= 0);
+    return ListResourcesResult.fromMap({
+      Keys.resources: resources,
+      if (nextCursor != null) Keys.nextCursor: nextCursor,
+      if (ttlMs != null) Keys.ttlMs: ttlMs,
+      if (cacheScope != null) Keys.cacheScope: cacheScope.name,
+      if (meta != null) Keys.meta: meta,
+    });
+  }
 
   List<Resource> get resources =>
       (_value[Keys.resources] as List).cast<Resource>();
@@ -54,12 +61,19 @@ extension type ListResourceTemplatesResult.fromMap(Map<String, Object?> _value)
   factory ListResourceTemplatesResult({
     required List<ResourceTemplate> resourceTemplates,
     Cursor? nextCursor,
+    int? ttlMs,
+    CacheScope? cacheScope,
     Meta? meta,
-  }) => ListResourceTemplatesResult.fromMap({
-    Keys.resourceTemplates: resourceTemplates,
-    if (nextCursor != null) Keys.nextCursor: nextCursor,
-    if (meta != null) Keys.meta: meta,
-  });
+  }) {
+    assert(ttlMs == null || ttlMs >= 0);
+    return ListResourceTemplatesResult.fromMap({
+      Keys.resourceTemplates: resourceTemplates,
+      if (nextCursor != null) Keys.nextCursor: nextCursor,
+      if (ttlMs != null) Keys.ttlMs: ttlMs,
+      if (cacheScope != null) Keys.cacheScope: cacheScope.name,
+      if (meta != null) Keys.meta: meta,
+    });
+  }
 
   List<ResourceTemplate> get resourceTemplates =>
       (_value[Keys.resourceTemplates] as List).cast<ResourceTemplate>();
@@ -94,11 +108,18 @@ extension type ReadResourceResult.fromMap(Map<String, Object?> _value)
     implements CacheableResult {
   factory ReadResourceResult({
     required List<ResourceContents> contents,
+    int? ttlMs,
+    CacheScope? cacheScope,
     Meta? meta,
-  }) => ReadResourceResult.fromMap({
-    Keys.contents: contents,
-    if (meta != null) Keys.meta: meta,
-  });
+  }) {
+    assert(ttlMs == null || ttlMs >= 0);
+    return ReadResourceResult.fromMap({
+      Keys.contents: contents,
+      if (ttlMs != null) Keys.ttlMs: ttlMs,
+      if (cacheScope != null) Keys.cacheScope: cacheScope.name,
+      if (meta != null) Keys.meta: meta,
+    });
+  }
 
   List<ResourceContents> get contents =>
       (_value[Keys.contents] as List).cast<ResourceContents>();

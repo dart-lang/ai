@@ -57,7 +57,8 @@
   leaves a default to each SDK. `ListToolsResult`, `ListPromptsResult`,
   `ListResourcesResult`, `ListResourceTemplatesResult`, and
   `ReadResourceResult` now implement `CacheableResult`, so the hints are
-  readable on responses from servers that send them.
+  readable on responses from servers that send them, and their factories take
+  an optional `ttlMs` and `cacheScope`, which are left out when not passed.
 - Add `McpErrorCodes.headerMismatch` (`-32020`),
   `.missingRequiredClientCapability` (`-32021`), and
   `.unsupportedProtocolVersion` (`-32022`), the error codes the 2026-07-28

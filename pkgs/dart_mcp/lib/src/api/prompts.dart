@@ -23,12 +23,19 @@ extension type ListPromptsResult.fromMap(Map<String, Object?> _value)
   factory ListPromptsResult({
     required List<Prompt> prompts,
     Cursor? nextCursor,
+    int? ttlMs,
+    CacheScope? cacheScope,
     Meta? meta,
-  }) => ListPromptsResult.fromMap({
-    Keys.prompts: prompts,
-    if (nextCursor != null) Keys.nextCursor: nextCursor,
-    if (meta != null) Keys.meta: meta,
-  });
+  }) {
+    assert(ttlMs == null || ttlMs >= 0);
+    return ListPromptsResult.fromMap({
+      Keys.prompts: prompts,
+      if (nextCursor != null) Keys.nextCursor: nextCursor,
+      if (ttlMs != null) Keys.ttlMs: ttlMs,
+      if (cacheScope != null) Keys.cacheScope: cacheScope.name,
+      if (meta != null) Keys.meta: meta,
+    });
+  }
 
   List<Prompt> get prompts => (_value[Keys.prompts] as List).cast<Prompt>();
 }

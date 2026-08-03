@@ -22,12 +22,19 @@ extension type ListToolsResult.fromMap(Map<String, Object?> _value)
   factory ListToolsResult({
     required List<Tool> tools,
     Cursor? nextCursor,
+    int? ttlMs,
+    CacheScope? cacheScope,
     Meta? meta,
-  }) => ListToolsResult.fromMap({
-    Keys.tools: tools,
-    if (nextCursor != null) Keys.nextCursor: nextCursor,
-    if (meta != null) Keys.meta: meta,
-  });
+  }) {
+    assert(ttlMs == null || ttlMs >= 0);
+    return ListToolsResult.fromMap({
+      Keys.tools: tools,
+      if (nextCursor != null) Keys.nextCursor: nextCursor,
+      if (ttlMs != null) Keys.ttlMs: ttlMs,
+      if (cacheScope != null) Keys.cacheScope: cacheScope.name,
+      if (meta != null) Keys.meta: meta,
+    });
+  }
 
   List<Tool> get tools {
     final tools = (_value[Keys.tools] as List?)?.cast<Tool>();

@@ -177,4 +177,65 @@ void main() {
       expect(listTools.cacheScope, CacheScope.public);
     });
   });
+
+  group('cacheable result factory', () {
+    // The results the caching rules name, minus `server/discover`, which this
+    // package does not serve yet. These assert on the map rather than the
+    // getters: an absent `ttlMs` and a written `ttlMs: 0` both read as `0`.
+    List<Map<String, Object?>> cacheable({
+      int? ttlMs,
+      CacheScope? cacheScope,
+    }) =>
+        [
+          ListToolsResult(tools: [], ttlMs: ttlMs, cacheScope: cacheScope),
+          ListPromptsResult(prompts: [], ttlMs: ttlMs, cacheScope: cacheScope),
+          ListResourcesResult(
+            resources: [],
+            ttlMs: ttlMs,
+            cacheScope: cacheScope,
+          ),
+          ListResourceTemplatesResult(
+            resourceTemplates: [],
+            ttlMs: ttlMs,
+            cacheScope: cacheScope,
+          ),
+          ReadResourceResult(
+            contents: [],
+            ttlMs: ttlMs,
+            cacheScope: cacheScope,
+          ),
+        ].cast<Map<String, Object?>>();
+
+    test('writes the hints it is given', () {
+      for (var result in cacheable(
+        ttlMs: 5000,
+        cacheScope: CacheScope.public,
+      )) {
+        expect(result, containsPair('ttlMs', 5000));
+        expect(result, containsPair('cacheScope', 'public'));
+      }
+      for (var result in cacheable(ttlMs: 0, cacheScope: CacheScope.private)) {
+        expect(result, containsPair('ttlMs', 0));
+        expect(result, containsPair('cacheScope', 'private'));
+      }
+    });
+
+    test('writes only the hint it is given', () {
+      for (var result in cacheable(ttlMs: 5000)) {
+        expect(result, containsPair('ttlMs', 5000));
+        expect(result, isNot(contains('cacheScope')));
+      }
+      for (var result in cacheable(cacheScope: CacheScope.public)) {
+        expect(result, containsPair('cacheScope', 'public'));
+        expect(result, isNot(contains('ttlMs')));
+      }
+    });
+
+    test('leaves out the hints it is not given', () {
+      for (var result in cacheable()) {
+        expect(result, isNot(contains('ttlMs')));
+        expect(result, isNot(contains('cacheScope')));
+      }
+    });
+  });
 }
