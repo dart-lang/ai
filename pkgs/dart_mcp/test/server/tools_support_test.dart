@@ -142,8 +142,8 @@ void main() {
       ),
     );
     expect(result.isError, isTrue);
-    expect(result.content.single, isA<TextContent>());
-    final textContent = result.content.single as TextContent;
+    expect(result.content.last, isA<TextContent>());
+    final textContent = result.content.last as TextContent;
     expect(
       textContent.text,
       contains('Required property "message" is missing at path #root'),
@@ -157,8 +157,8 @@ void main() {
       ),
     );
     expect(result.isError, isTrue);
-    expect(result.content.single, isA<TextContent>());
-    final textContent2 = result.content.single as TextContent;
+    expect(result.content.last, isA<TextContent>());
+    final textContent2 = result.content.last as TextContent;
     expect(
       textContent2.text,
       contains('Value `123` is not of type `String` at path #root["message"]'),
