@@ -30,10 +30,18 @@ typedef MCPServerFactory =
 /// otherwise. Returns the decoded JSON-RPC response for a request, and `null`
 /// for a notification, which per JSON-RPC gets no response. A successful
 /// result records the server's [MCPServer.implementation] under the reserved
-/// `io.modelcontextprotocol/serverInfo` result metadata key; a result which
-/// already carries a server info entry, and every error response, is returned
-/// unchanged. If the server closes before responding to a request, an
-/// internal-error response is returned instead. The server may still be
+/// `io.modelcontextprotocol/serverInfo` result metadata key, carries a
+/// `resultType`, and, for the requests the caching rules name, carries `ttlMs`
+/// and `cacheScope` unless it is an interim `resources/read` result, which is
+/// not cacheable. A field the handler set is kept when the schema allows it:
+/// a `resultType` left `null` becomes `complete`, a `ttlMs` which is `null`
+/// or below zero becomes `0`, and a `cacheScope` which is `null` or outside
+/// `public` and `private` becomes `private`. The dispatcher cannot know when
+/// an answer goes stale, and `public` is the one guess which could put a
+/// private answer in a cache shared across authorization contexts. None of
+/// this reaches a result on an earlier revision, and every error response is
+/// returned unchanged. If the server closes before responding to a request,
+/// an internal-error response is returned instead. The server may still be
 /// processing a notification when the returned future completes.
 ///
 /// The returned future completes once the server responds or the exchange
@@ -143,7 +151,14 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
             }
           case JsonRpc2Kind.response:
             if (!response.isCompleted) {
-              response.complete(_withServerInfo(data, server.implementation));
+              response.complete(
+                _withServerFields(
+                  data,
+                  server.implementation,
+                  method,
+                  initialization.protocolVersion,
+                ),
+              );
             }
         }
       } catch (error, stackTrace) {
@@ -194,23 +209,56 @@ Map<String, Object?> _errorResponse(Object? id, String message) => {
   Keys.error: {Keys.code: error_code.INTERNAL_ERROR, Keys.message: message},
 };
 
-/// Returns a copy of [response] with [implementation] recorded under the
-/// reserved `io.modelcontextprotocol/serverInfo` result metadata key.
+/// Returns a copy of [response] with the fields a server on this protocol
+/// revision must send and the handler for [method] did not, as
+/// [handleRequestScopedMessage] describes.
 ///
-/// Returns [response] unchanged when there is nothing to stamp: error
-/// responses have no result, and results which already carry a server info
-/// entry or whose metadata is not a string-keyed map are left alone.
-Map<String, Object?> _withServerInfo(
+/// Returns [response] unchanged when there is nothing to add: error responses
+/// have no result, and a result whose fields the handler set itself is already
+/// complete.
+Map<String, Object?> _withServerFields(
   Map<String, Object?> response,
   Implementation implementation,
+  String method,
+  ProtocolVersion protocolVersion,
 ) {
   final result = JsonRpc2Response.fromMap(response).result;
   if (result is! Map<String, Object?>) return response;
-  final existingMeta = result[Keys.meta];
-  if (existingMeta is! Map<String, Object?>?) return response;
-  if (existingMeta != null && existingMeta.containsKey(Keys.serverInfoMeta)) {
+
+  // These fields are 2026-07-28 vocabulary, so a server answering an earlier
+  // revision must not send any of them.
+  final modern = protocolVersion >= ProtocolVersion.v2026_07_28;
+
+  // Metadata which is not a string-keyed map is left alone rather than thrown
+  // on, so a server which sends one still gets an answer.
+  final meta = result[Keys.meta];
+  final existingMeta = meta is Map<String, Object?>? ? meta : null;
+  final addServerInfo =
+      modern &&
+      meta is Map<String, Object?>? &&
+      existingMeta?[Keys.serverInfoMeta] == null;
+  final resultType = result[Keys.resultType];
+  final addResultType = modern && resultType == null;
+  // Only a complete result is cacheable. `resources/read` is the one cacheable
+  // request the schema also answers with an interim result, so it is the only
+  // one whose result type can excuse the hints.
+  final interim =
+      method == ReadResourceRequest.methodName &&
+      resultType != null &&
+      resultType != ResultTypes.complete;
+  final cacheable = modern && !interim && _cacheableMethods.contains(method);
+  // A hint the schema does not allow is not an answer, so it is replaced
+  // rather than sent on.
+  final handlerTtlMs = result[Keys.ttlMs];
+  final addTtlMs = cacheable && !(handlerTtlMs is int && handlerTtlMs >= 0);
+  final handlerScope = result[Keys.cacheScope];
+  final addCacheScope =
+      cacheable && !CacheScope.values.any((s) => s.name == handlerScope);
+
+  if (!addServerInfo && !addResultType && !addTtlMs && !addCacheScope) {
     return response;
   }
+
   // With decoded channels there is no decode step between the server and this
   // dispatcher, so `result` can be the very map a handler returned. Handlers
   // may retain that map, and it may not even be modifiable (the built-in ping
@@ -220,12 +268,30 @@ Map<String, Object?> _withServerInfo(
     ...response,
     Keys.result: {
       ...result,
-      Keys.meta: {
-        ...?existingMeta,
-        Keys.serverInfoMeta: Map<String, Object?>.of(
-          implementation as Map<String, Object?>,
-        ),
-      },
+      if (addResultType) Keys.resultType: ResultTypes.complete,
+      if (addTtlMs) Keys.ttlMs: 0,
+      if (addCacheScope) Keys.cacheScope: CacheScope.private.name,
+      if (addServerInfo)
+        Keys.meta: {
+          ...?existingMeta,
+          Keys.serverInfoMeta: Map<String, Object?>.of(
+            implementation as Map<String, Object?>,
+          ),
+        },
     },
   };
 }
+
+/// The requests whose results a server must send caching hints on.
+///
+/// `server/discover` is on that list too, and joins this set when this package
+/// serves it.
+///
+/// https://modelcontextprotocol.io/specification/2026-07-28/server/utilities/caching
+const _cacheableMethods = {
+  ListToolsRequest.methodName,
+  ListPromptsRequest.methodName,
+  ListResourcesRequest.methodName,
+  ListResourceTemplatesRequest.methodName,
+  ReadResourceRequest.methodName,
+};
