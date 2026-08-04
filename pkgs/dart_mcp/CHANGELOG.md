@@ -68,6 +68,11 @@
   and `.unsupportedProtocolVersion`. The same registry reserves `-32042`, so
   `urlElicitationRequired` now documents that only the 2025-11-25 revision
   emits it.
+- Fix `RequestId` so it can hold a JSON-RPC id. Its representation type was
+  `json_rpc_2`'s `Parameter` rather than `Object`, which its sibling
+  `ProgressToken` uses, so `CancelledNotification.requestId` threw for every
+  id a peer can send and no id could be constructed to pass to the
+  `CancelledNotification` factory.
 - Add `ProtocolVersion.v2026_07_28`. `ProtocolVersion.latestSupported` still
   points at 2025-11-25, the newest version the legacy `initialize` handshake
   negotiates; transports for the request-scoped protocol carry their own set
