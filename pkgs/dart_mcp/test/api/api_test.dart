@@ -179,9 +179,10 @@ void main() {
   });
 
   group('cacheable result factory', () {
-    // The results the caching rules name, minus `server/discover`, which this
-    // package does not serve yet. These assert on the map rather than the
-    // getters: an absent `ttlMs` and a written `ttlMs: 0` both read as `0`.
+    // Returns an instance of every cacheable result type with the given
+    // settings, except `server/discover`, which this package does not serve
+    // yet. The tests assert on the map rather than the getters: an absent
+    // `ttlMs` and a written `ttlMs: 0` both read as `0`.
     List<Map<String, Object?>> cacheable({
       int? ttlMs,
       CacheScope? cacheScope,
