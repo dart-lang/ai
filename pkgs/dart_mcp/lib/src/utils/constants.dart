@@ -99,6 +99,7 @@ extension Keys on Never {
   static const name = 'name';
   static const nextCursor = 'nextCursor';
   static const not = 'not';
+  static const notifications = 'notifications';
   static const oneOf = 'oneOf';
   static const openWorldHint = 'openWorldHint';
   static const outputSchema = 'outputSchema';
@@ -111,6 +112,7 @@ extension Keys on Never {
   static const progress = 'progress';
   static const progressToken = 'progressToken';
   static const prompts = 'prompts';
+  static const promptsListChanged = 'promptsListChanged';
   static const properties = 'properties';
   static const propertyNames = 'propertyNames';
   static const protocolVersion = 'protocolVersion';
@@ -124,8 +126,10 @@ extension Keys on Never {
   static const requestedSchema = 'requestedSchema';
   static const required = 'required';
   static const resource = 'resource';
+  static const resourceSubscriptions = 'resourceSubscriptions';
   static const resourceTemplates = 'resourceTemplates';
   static const resources = 'resources';
+  static const resourcesListChanged = 'resourcesListChanged';
   static const result = 'result';
   static const resultType = 'resultType';
   static const role = 'role';
@@ -141,6 +145,7 @@ extension Keys on Never {
   static const stopSequences = 'stopSequences';
   static const structuredContent = 'structuredContent';
   static const subscribe = 'subscribe';
+  static const subscriptionIdMeta = 'io.modelcontextprotocol/subscriptionId';
   static const supported = 'supported';
   static const supportedVersions = 'supportedVersions';
   static const systemPrompt = 'systemPrompt';
@@ -150,6 +155,7 @@ extension Keys on Never {
   static const title = 'title';
   static const toolChoice = 'toolChoice';
   static const tools = 'tools';
+  static const toolsListChanged = 'toolsListChanged';
   static const total = 'total';
   static const ttlMs = 'ttlMs';
   static const type = 'type';
