@@ -82,6 +82,7 @@
   only. See `example/streamable_http_server.dart`. Does not add SSE response
   streams, the legacy session routes, or an HTTP client; those land as
   separate changes.
+- Add instructions to read the schema when tool arguments fail validation.
 
 ## 0.5.2
 

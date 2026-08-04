@@ -1536,7 +1536,7 @@ void main() {
       expect(failResult.isError, isTrue);
       expect(
         (failResult.content.first as TextContent).text,
-        contains('No active debug session'),
+        contains('No active app connection'),
       );
 
       debugSession.appProcess.stdin.writeln('q');
@@ -1587,7 +1587,7 @@ void main() {
           // If it got disconnected mid-call
           contains('Service connection disposed'),
           // If it was disposed prior to the call
-          contains('No active debug session'),
+          contains('No active app connection'),
         ),
       );
     });

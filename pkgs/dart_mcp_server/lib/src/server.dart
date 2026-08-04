@@ -93,9 +93,12 @@ final class DartMCPServer extends MCPServer
                'agents.',
            version: version,
          ),
-         instructions: '''
-This server exposes resources for Flutter and Dart development. Be sure to
-list these resources especially when dealing with errors or unfamiliar packages.
+         instructions:
+             '''
+After completing Dart/Flutter code changes, always execute a hot reload or
+hot restart. If you are not connected yet to an app, use the
+`${DartToolingDaemonSupport.dtdTool.name}` tool to proactively discover and
+connect to apps.
 
 Whenever attempting to investigate a package dependency, use the
 `read_package_uris` and `rip_grep_packages` tools to explore their files.
@@ -110,7 +113,7 @@ package.
   /// The version of the MCP server.
   ///
   /// Should match the version in `pubspec.yaml` and `CHANGELOG.md`.
-  static final version = '1.1.0';
+  static final version = '1.1.1-wip';
 
   /// Runs the MCP server given command line arguments and an optional
   /// [Analytics] instance.

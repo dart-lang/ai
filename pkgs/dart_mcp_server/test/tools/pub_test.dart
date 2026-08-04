@@ -267,7 +267,7 @@ void main() {
             );
 
             expect(
-              (result.content.single as TextContent).text,
+              (result.content.last as TextContent).text,
               'Required property "command" is missing at path #root',
             );
             expect(testProcessManager.commandsRan, isEmpty);
@@ -284,7 +284,7 @@ void main() {
             );
 
             expect(
-              (result.content.single as TextContent).text,
+              (result.content.last as TextContent).text,
               contains('String "publish" is not one of the allowed values:'),
             );
             expect(testProcessManager.commandsRan, isEmpty);
@@ -304,7 +304,7 @@ void main() {
               );
 
               expect(
-                (result.content.single as TextContent).text,
+                (result.content.last as TextContent).text,
                 'Missing required argument `packageNames` for the '
                 '`${command.name}` command.',
               );
@@ -326,7 +326,7 @@ void main() {
             );
 
             expect(
-              (result.content.single as TextContent).text,
+              (result.content.last as TextContent).text,
               contains('Invalid `packageNames` entries: -foo.'),
             );
             expect(testProcessManager.commandsRan, isEmpty);
