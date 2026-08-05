@@ -27,16 +27,16 @@ extension type SubscriptionFilter.fromMap(Map<String, Object?> _value) {
       Keys.resourceSubscriptions: resourceSubscriptions,
   });
 
-  /// If true, the server sends [ToolListChangedNotification]s.
+  /// If true, receive [ToolListChangedNotification]s.
   bool? get toolsListChanged => _value[Keys.toolsListChanged] as bool?;
 
-  /// If true, the server sends [PromptListChangedNotification]s.
+  /// If true, receive [PromptListChangedNotification]s.
   bool? get promptsListChanged => _value[Keys.promptsListChanged] as bool?;
 
-  /// If true, the server sends [ResourceListChangedNotification]s.
+  /// If true, receive [ResourceListChangedNotification]s.
   bool? get resourcesListChanged => _value[Keys.resourcesListChanged] as bool?;
 
-  /// The resource URIs the server sends [ResourceUpdatedNotification]s for.
+  /// The resource URIs to receive [ResourceUpdatedNotification]s for.
   ///
   /// In the 2026-07-28 revision this field replaces the `resources/subscribe`
   /// and `resources/unsubscribe` requests, which [SubscribeRequest] and
