@@ -6,10 +6,7 @@ import 'package:dart_mcp/client.dart';
 import 'package:test/test.dart';
 
 void main() {
-  // These assert on the map rather than the getters, since an absent field and
-  // one written as `false` both matter here: an acknowledgement reports the
-  // types a server honors by leaving the rest out.
-  test('the method names are the ones the schema gives', () {
+  test('the method names match the schema', () {
     expect(SubscriptionsListenRequest.methodName, 'subscriptions/listen');
     expect(
       SubscriptionsAcknowledgedNotification.methodName,

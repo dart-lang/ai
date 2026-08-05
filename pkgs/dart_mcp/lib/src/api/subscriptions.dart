@@ -4,13 +4,12 @@
 
 part of 'api.dart';
 
-/// The notification types a client opts in to on a
-/// [SubscriptionsListenRequest], and the ones a server agrees to on a
-/// [SubscriptionsAcknowledgedNotification].
+/// A filter over the notifications a subscription carries.
 ///
-/// Each type is opt-in, so a server sends only the ones it was asked for. An
-/// acknowledgement carries the types the server agreed to, so a type it does
-/// not support is left out of that set rather than sent back as `false`.
+/// A client sends one on a [SubscriptionsListenRequest] to opt in, and the
+/// server sends one back on a [SubscriptionsAcknowledgedNotification] with the
+/// types it agreed to. A type the server does not support is left out rather
+/// than sent back as `false`.
 ///
 /// From the 2026-07-28 revision.
 extension type SubscriptionFilter.fromMap(Map<String, Object?> _value) {
@@ -28,20 +27,20 @@ extension type SubscriptionFilter.fromMap(Map<String, Object?> _value) {
       Keys.resourceSubscriptions: resourceSubscriptions,
   });
 
-  /// If true, receive [ToolListChangedNotification]s.
+  /// If true, the server sends [ToolListChangedNotification]s.
   bool? get toolsListChanged => _value[Keys.toolsListChanged] as bool?;
 
-  /// If true, receive [PromptListChangedNotification]s.
+  /// If true, the server sends [PromptListChangedNotification]s.
   bool? get promptsListChanged => _value[Keys.promptsListChanged] as bool?;
 
-  /// If true, receive [ResourceListChangedNotification]s.
+  /// If true, the server sends [ResourceListChangedNotification]s.
   bool? get resourcesListChanged => _value[Keys.resourcesListChanged] as bool?;
 
-  /// The resource URIs to receive [ResourceUpdatedNotification]s for.
+  /// The resource URIs the server sends [ResourceUpdatedNotification]s for.
   ///
-  /// The 2026-07-28 revision replaces the `resources/subscribe` and
-  /// `resources/unsubscribe` requests, which [SubscribeRequest] and
-  /// [UnsubscribeRequest] model, with this field.
+  /// In the 2026-07-28 revision this field replaces the `resources/subscribe`
+  /// and `resources/unsubscribe` requests, which [SubscribeRequest] and
+  /// [UnsubscribeRequest] model.
   List<String>? get resourceSubscriptions =>
       (_value[Keys.resourceSubscriptions] as List?)?.cast<String>();
 }
@@ -49,9 +48,8 @@ extension type SubscriptionFilter.fromMap(Map<String, Object?> _value) {
 /// Sent from the client to open a long-lived stream for the notifications
 /// which do not belong to a specific request.
 ///
-/// This replaces the HTTP GET endpoint earlier revisions used, so a stdio
-/// connection and a Streamable HTTP one deliver those notifications the same
-/// way.
+/// This replaces the HTTP GET endpoint earlier revisions used, so stdio and
+/// Streamable HTTP deliver those notifications the same way.
 ///
 /// From the 2026-07-28 revision.
 extension type SubscriptionsListenRequest.fromMap(Map<String, Object?> _value)
@@ -78,12 +76,12 @@ extension type SubscriptionsListenRequest.fromMap(Map<String, Object?> _value)
   }
 }
 
-/// The response to a [SubscriptionsListenRequest], which the server sends when
-/// it ends the subscription gracefully, for example while shutting down.
+/// The response to a [SubscriptionsListenRequest], sent when the server ends
+/// the subscription gracefully, for example while shutting down.
 ///
 /// The stream is long-lived, so there is no response while it is open, and an
-/// abrupt transport close carries none at all. The body is empty apart from
-/// the [subscriptionId] in its metadata.
+/// abrupt transport close carries none at all. The result has no fields of its
+/// own: the [subscriptionId] travels in its metadata.
 ///
 /// From the 2026-07-28 revision.
 extension type SubscriptionsListenResult.fromMap(Map<String, Object?> _value)
@@ -95,12 +93,12 @@ extension type SubscriptionsListenResult.fromMap(Map<String, Object?> _value)
     Keys.meta: {...?meta?._value, Keys.subscriptionIdMeta: subscriptionId},
   });
 
-  /// The stream this response closes.
+  /// The JSON-RPC id of the [SubscriptionsListenRequest] which opened the
+  /// stream this response closes.
   ///
-  /// This is the JSON-RPC id of the [SubscriptionsListenRequest] which opened
-  /// the stream. The notifications delivered on the stream carry it under the
-  /// same `io.modelcontextprotocol/subscriptionId` metadata key, which is how
-  /// a client tells its streams apart.
+  /// The notifications delivered on the stream carry it under the
+  /// `io.modelcontextprotocol/subscriptionId` metadata key, which is how a
+  /// client tells its streams apart.
   RequestId get subscriptionId {
     final subscriptionId = meta?[Keys.subscriptionIdMeta];
     if (subscriptionId == null) {
@@ -116,10 +114,9 @@ extension type SubscriptionsListenResult.fromMap(Map<String, Object?> _value)
 /// Sent by the server to acknowledge a [SubscriptionsListenRequest] and report
 /// the notification types it agreed to send.
 ///
-/// This is the first message the server sends carrying the subscription's id.
-/// Over stdio every subscription shares one channel, so that ordering holds
-/// per subscription rather than per channel: messages belonging to other
-/// subscriptions may arrive before it.
+/// This is the first message carrying the subscription's id. Over stdio every
+/// subscription shares one channel, so messages from other subscriptions may
+/// arrive before this acknowledgement.
 ///
 /// From the 2026-07-28 revision.
 extension type SubscriptionsAcknowledgedNotification.fromMap(

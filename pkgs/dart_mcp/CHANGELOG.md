@@ -76,13 +76,13 @@
   `SubscriptionsListenResult`, and `SubscriptionsAcknowledgedNotification`,
   modeling the `subscriptions/listen` request the 2026-07-28 revision adds, see
   https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/subscriptions.
-  It opens one long-lived stream for the notifications which do not belong to
-  a request, replacing the HTTP GET endpoint along with `resources/subscribe`
-  and `resources/unsubscribe`; `SubscriptionFilter.resourceSubscriptions`
-  carries the resource URIs those two used to. `SubscribeRequest` and
-  `UnsubscribeRequest` stay for the revisions which have them. Serving the
-  request, and delivering notifications on the stream it opens, land as
-  separate changes.
+  `subscriptions/listen` opens one long-lived stream for the notifications
+  which do not belong to a specific request, and it replaces three things: the
+  HTTP GET endpoint, `resources/subscribe`, and `resources/unsubscribe`.
+  `SubscriptionFilter.resourceSubscriptions` carries the resource URIs the last
+  two took. `SubscribeRequest` and `UnsubscribeRequest` stay for the revisions
+  which have them. Serving the request, and delivering notifications on the
+  stream it opens, land as separate changes.
 - Fix `RequestId` so it can hold a JSON-RPC id. Its representation type was
   `json_rpc_2`'s `Parameter` rather than `Object`, which its sibling
   `ProgressToken` uses, so `CancelledNotification.requestId` threw for every
