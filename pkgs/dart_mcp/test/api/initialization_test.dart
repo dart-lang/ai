@@ -91,6 +91,21 @@ void main() {
       expect(result, isNot(contains('_meta')));
     });
 
+    test('the method name is the one the schema gives', () {
+      expect(DiscoverRequest.methodName, 'server/discover');
+    });
+
+    test('the result reads its fields back off a decoded map', () {
+      final result = DiscoverResult.fromMap({
+        'supportedVersions': ['2026-07-28'],
+        'capabilities': ServerCapabilities(tools: Tools()),
+        'instructions': 'Prefer `get_weather` for forecast lookups.',
+      });
+
+      expect(result.capabilities.tools, isNotNull);
+      expect(result.instructions, 'Prefer `get_weather` for forecast lookups.');
+    });
+
     test('the result reports a version this package does not know', () {
       // The point of reading these as strings: dropping the versions
       // `ProtocolVersion` has no name for would hide them from the client
