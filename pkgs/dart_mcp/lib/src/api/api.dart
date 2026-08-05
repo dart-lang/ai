@@ -9,7 +9,6 @@ library;
 import 'dart:collection';
 
 import 'package:collection/collection.dart';
-import 'package:json_rpc_2/json_rpc_2.dart';
 
 import '../utils/constants.dart';
 
@@ -240,7 +239,7 @@ extension type CancelledNotification.fromMap(Map<String, Object?> _value)
 }
 
 /// An opaque request ID.
-extension type RequestId(/*String|int*/ Parameter _) {}
+extension type RequestId(/*String|int*/ Object _) {}
 
 /// A ping, issued by either the server or the client, to check that the other
 /// party is still alive.

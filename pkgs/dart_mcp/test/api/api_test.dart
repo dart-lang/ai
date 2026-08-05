@@ -176,6 +176,16 @@ void main() {
       expect(listTools.ttlMs, 5000);
       expect(listTools.cacheScope, CacheScope.public);
     });
+    test('request ids round trip both JSON-RPC id types', () {
+      for (var id in <Object>[7, 'abc']) {
+        final cancelled = CancelledNotification(requestId: RequestId(id));
+        expect(
+          cancelled as Map<String, Object?>,
+          containsPair('requestId', id),
+        );
+        expect(cancelled.requestId, id);
+      }
+    });
   });
 
   group('cacheable result factory', () {
