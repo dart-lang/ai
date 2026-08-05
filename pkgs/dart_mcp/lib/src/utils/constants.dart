@@ -142,6 +142,7 @@ extension Keys on Never {
   static const structuredContent = 'structuredContent';
   static const subscribe = 'subscribe';
   static const supported = 'supported';
+  static const supportedVersions = 'supportedVersions';
   static const systemPrompt = 'systemPrompt';
   static const temperature = 'temperature';
   static const text = 'text';

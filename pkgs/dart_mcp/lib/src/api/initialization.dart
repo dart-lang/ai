@@ -104,6 +104,65 @@ extension type InitializedNotification.fromMap(Map<String, Object?> _value)
       InitializedNotification.fromMap({if (meta != null) Keys.meta: meta});
 }
 
+/// A request from the client asking the server to advertise its supported
+/// protocol versions, capabilities, and other metadata.
+///
+/// Servers on protocol version 2026-07-28 MUST implement this method. Clients
+/// MAY call it but are not required to: a client can also send any request
+/// inline and handle the error if the server does not support the version it
+/// asked for.
+///
+/// It has no parameters of its own beyond the `_meta` envelope that every
+/// request on this revision sends.
+extension type DiscoverRequest.fromMap(Map<String, Object?> _value)
+    implements Request {
+  static const methodName = 'server/discover';
+
+  factory DiscoverRequest({MetaWithProgressToken? meta}) =>
+      DiscoverRequest.fromMap({if (meta != null) Keys.meta: meta});
+}
+
+/// The server's response to a [DiscoverRequest] from the client.
+extension type DiscoverResult.fromMap(Map<String, Object?> _value)
+    implements CacheableResult {
+  factory DiscoverResult({
+    required List<String> supportedVersions,
+    required ServerCapabilities capabilities,
+    String? instructions,
+    Meta? meta,
+  }) => DiscoverResult.fromMap({
+    Keys.supportedVersions: supportedVersions,
+    Keys.capabilities: capabilities,
+    if (instructions != null) Keys.instructions: instructions,
+    if (meta != null) Keys.meta: meta,
+  });
+
+  /// The protocol versions this server supports.
+  ///
+  /// The client should choose one of these to use for its subsequent
+  /// requests.
+  ///
+  /// These are the version strings as they appear on the wire rather than
+  /// [ProtocolVersion] values. That enum is a closed set, so a version this
+  /// package does not know would be dropped from the list the client is
+  /// choosing between.
+  List<String> get supportedVersions =>
+      (_value[Keys.supportedVersions] as List).cast<String>();
+
+  /// The capabilities of the server.
+  ServerCapabilities get capabilities =>
+      _value[Keys.capabilities] as ServerCapabilities;
+
+  /// Natural-language guidance describing the server and its features.
+  ///
+  /// This can be used by clients to improve an LLM's understanding of
+  /// available tools, for instance by including it in a system prompt. It
+  /// should focus on information that helps the model use the server
+  /// effectively, and should not duplicate information already in tool
+  /// descriptions.
+  String? get instructions => _value[Keys.instructions] as String?;
+}
+
 /// Capabilities a client may support.
 ///
 /// Known capabilities are defined here, in this schema, but this is not a

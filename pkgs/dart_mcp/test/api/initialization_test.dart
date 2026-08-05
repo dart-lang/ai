@@ -28,4 +28,81 @@ void main() {
     final map = result as Map<String, Object?>;
     expect(map['instructions'], equals('foo'));
   });
+
+  // The factory tests assert on the map rather than on the getters, so that a
+  // field the factory never wrote cannot be mistaken for one it wrote.
+  group('server/discover', () {
+    test('the request carries no parameters of its own', () {
+      expect(DiscoverRequest() as Map<String, Object?>, isEmpty);
+    });
+
+    test('the request writes the metadata it is given', () {
+      final request =
+          DiscoverRequest(
+                meta: MetaWithProgressToken(progressToken: ProgressToken(1)),
+              )
+              as Map<String, Object?>;
+
+      expect(request['_meta'], containsPair('progressToken', ProgressToken(1)));
+    });
+
+    test('the result writes the fields it is given', () {
+      final result =
+          DiscoverResult(
+                supportedVersions: ['2026-07-28'],
+                capabilities: ServerCapabilities(tools: Tools()),
+                instructions: 'Prefer `get_weather` for forecast lookups.',
+                meta: Meta.fromMap({
+                  'io.modelcontextprotocol/serverInfo': Implementation(
+                    name: 'name',
+                    version: 'version',
+                  ),
+                }),
+              )
+              as Map<String, Object?>;
+
+      expect(result, containsPair('supportedVersions', ['2026-07-28']));
+      expect(result['capabilities'], containsPair('tools', isEmpty));
+      expect(
+        result,
+        containsPair(
+          'instructions',
+          'Prefer `get_weather` for forecast lookups.',
+        ),
+      );
+      expect(
+        result['_meta'],
+        containsPair(
+          'io.modelcontextprotocol/serverInfo',
+          containsPair('name', 'name'),
+        ),
+      );
+    });
+
+    test('the result leaves out the fields it is not given', () {
+      final result =
+          DiscoverResult(
+                supportedVersions: ['2026-07-28'],
+                capabilities: ServerCapabilities(),
+              )
+              as Map<String, Object?>;
+
+      expect(result, isNot(contains('instructions')));
+      expect(result, isNot(contains('_meta')));
+    });
+
+    test('the result reports a version this package does not know', () {
+      // The point of reading these as strings: dropping the versions
+      // `ProtocolVersion` has no name for would hide them from the client
+      // that has to choose one.
+      expect(ProtocolVersion.tryParse('2027-11-05'), isNull);
+
+      final result = DiscoverResult.fromMap({
+        'supportedVersions': ['2026-07-28', '2027-11-05'],
+        'capabilities': ServerCapabilities(),
+      });
+
+      expect(result.supportedVersions, ['2026-07-28', '2027-11-05']);
+    });
+  });
 }
