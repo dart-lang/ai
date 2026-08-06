@@ -122,6 +122,19 @@ void main() {
 
       expect(_result(response), containsPair(Keys.ttlMs, 5000));
       expect(_result(response), containsPair(Keys.cacheScope, 'public'));
+
+      // Zero is the edge of what the schema allows, and a handler which sends
+      // it means it: the answer is stale as soon as it arrives.
+      final errors = <Object>[];
+      Map<String, Object?>? withZero;
+      await runZonedGuarded(() async {
+        withZero = await _dispatchShapedList(
+          (result) => {...result, Keys.ttlMs: 0},
+        );
+      }, (error, _) => errors.add(error));
+
+      expect(errors, isEmpty);
+      expect(_result(withZero), containsPair(Keys.ttlMs, 0));
     });
 
     test('sends none of these fields on an earlier revision', () async {
