@@ -814,7 +814,6 @@ bool get _assertsEnabled {
 
 /// Dispatches a `resources/read` to a server whose result is passed through
 /// [shape] first, so a test can say what the handler itself already set.
-
 Future<Map<String, Object?>?> _dispatchShapedRead(
   Map<String, Object?> Function(Map<String, Object?> result) shape,
 ) => handleRequestScopedMessage(
