@@ -66,7 +66,10 @@ void main() {
         _initialization(),
       );
 
-      expect(_result(response), containsPair(Keys.resultType, 'complete'));
+      expect(
+        _result(response),
+        containsPair(Keys.resultType, ResultTypes.complete),
+      );
     });
 
     test('preserves the result type a handler chose', () async {
@@ -78,7 +81,7 @@ void main() {
 
       expect(
         _result(response),
-        containsPair(Keys.resultType, 'input_required'),
+        containsPair(Keys.resultType, ResultTypes.inputRequired),
       );
     });
 
@@ -199,7 +202,7 @@ void main() {
       // `tools/list` has no interim arm, so a non-complete type there does not
       // make the result one the caching rules exempt.
       final response = await _dispatchShapedList(
-        (result) => {...result, Keys.resultType: 'input_required'},
+        (result) => {...result, Keys.resultType: ResultTypes.inputRequired},
       );
 
       expect(_result(response), containsPair(Keys.ttlMs, 0));
@@ -210,7 +213,7 @@ void main() {
       // The schema gives `resources/read` an interim arm; `tools/list` has
       // none, so a list result is never the one waiting on input.
       final response = await _dispatchShapedRead(
-        (result) => {...result, Keys.resultType: 'input_required'},
+        (result) => {...result, Keys.resultType: ResultTypes.inputRequired},
       );
 
       expect(_result(response), isNot(contains(Keys.ttlMs)));
@@ -637,7 +640,7 @@ final class _DispatcherTestServer extends TestMCPServer
       Tool(name: 'interim', inputSchema: ObjectSchema()),
       (_) => CallToolResult.fromMap({
         Keys.content: [TextContent(text: 'waiting')],
-        Keys.resultType: 'input_required',
+        Keys.resultType: ResultTypes.inputRequired,
       }),
     );
     registerTool(

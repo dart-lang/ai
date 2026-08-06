@@ -33,12 +33,14 @@ typedef MCPServerFactory =
 /// `io.modelcontextprotocol/serverInfo` result metadata key, carries a
 /// `resultType`, and, for the requests the caching rules name, carries `ttlMs`
 /// and `cacheScope` unless it is an interim `resources/read` result, which is
-/// not cacheable. A field the handler set is kept when the schema allows it:
-/// a `resultType` left `null` becomes `complete`, a `ttlMs` which is `null`
-/// or below zero becomes `0`, and a `cacheScope` which is `null` or outside
-/// `public` and `private` becomes `private`. The dispatcher cannot know when
-/// an answer goes stale, and `public` is the one guess which could put a
-/// private answer in a cache shared across authorization contexts. None of
+/// not cacheable. A field the handler left out is filled in: a `resultType`
+/// left `null` becomes `complete`, a `ttlMs` which is `null` becomes `0`, and
+/// a `cacheScope` which is `null` becomes `private`. The dispatcher cannot
+/// know when an answer goes stale, and `public` is the one guess which could
+/// put a private answer in a cache shared across authorization contexts.
+/// A `ttlMs` below zero or a `cacheScope` outside `public` and `private` is a
+/// bug in the server: it asserts, and in a build with asserts disabled it is
+/// replaced the same way a field left `null` is. None of
 /// this reaches a result on an earlier revision, and every error response is
 /// returned unchanged. If the server closes before responding to a request,
 /// an internal-error response is returned instead. The server may still be
