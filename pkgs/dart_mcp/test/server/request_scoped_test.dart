@@ -173,28 +173,40 @@ void main() {
       expect(_result(withScope), containsPair(Keys.cacheScope, 'public'));
     });
 
-    test('asserts on a ttl the schema does not allow', () async {
-      // Answering with one is a bug in the server, so it is worth an assert
-      // even though a release build still replaces the hint and answers.
+    test('rejects a ttl the schema does not allow', () async {
       final errors = <Object>[];
+      Map<String, Object?>? response;
       await runZonedGuarded(() async {
-        await _dispatchShapedList((result) => {...result, Keys.ttlMs: -1});
+        response = await _dispatchShapedList(
+          (result) => {...result, Keys.ttlMs: -1},
+        );
       }, (error, _) => errors.add(error));
 
-      expect(errors.single, isA<AssertionError>());
-      expect(errors.single.toString(), contains(Keys.ttlMs));
+      if (_assertsEnabled) {
+        expect(errors.single, isA<AssertionError>());
+        expect(errors.single.toString(), contains(Keys.ttlMs));
+      } else {
+        expect(errors, isEmpty);
+        expect(_result(response), containsPair(Keys.ttlMs, 0));
+      }
     });
 
-    test('asserts on a cache scope the schema does not allow', () async {
+    test('rejects a cache scope the schema does not allow', () async {
       final errors = <Object>[];
+      Map<String, Object?>? response;
       await runZonedGuarded(() async {
-        await _dispatchShapedList(
+        response = await _dispatchShapedList(
           (result) => {...result, Keys.cacheScope: 'shared'},
         );
       }, (error, _) => errors.add(error));
 
-      expect(errors.single, isA<AssertionError>());
-      expect(errors.single.toString(), contains(Keys.cacheScope));
+      if (_assertsEnabled) {
+        expect(errors.single, isA<AssertionError>());
+        expect(errors.single.toString(), contains(Keys.cacheScope));
+      } else {
+        expect(errors, isEmpty);
+        expect(_result(response), containsPair(Keys.cacheScope, 'private'));
+      }
     });
 
     test('records caching hints despite a result type the schema does not '
@@ -790,8 +802,19 @@ MCPServerInitialization _initialization({
 Map<String, Object?> _result(Map<String, Object?>? response) =>
     response![Keys.result] as Map<String, Object?>;
 
+/// Whether this configuration runs with asserts enabled.
+///
+/// A compiled executable has them stripped, so a test which pins an assert has
+/// to pin the behavior a release build has instead.
+bool get _assertsEnabled {
+  var enabled = false;
+  assert(enabled = true);
+  return enabled;
+}
+
 /// Dispatches a `resources/read` to a server whose result is passed through
 /// [shape] first, so a test can say what the handler itself already set.
+
 Future<Map<String, Object?>?> _dispatchShapedRead(
   Map<String, Object?> Function(Map<String, Object?> result) shape,
 ) => handleRequestScopedMessage(
