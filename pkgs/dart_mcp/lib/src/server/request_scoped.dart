@@ -163,16 +163,11 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
               );
             }
         }
-      } catch (error, stackTrace) {
-        // The server sent a frame we could not process. Never let it wedge or
-        // escape the exchange: a request gets an internal error, anything
-        // else surfaces as an uncaught error. A failed assert is a bug in the
-        // server rather than a frame we could not read, so it surfaces even
-        // when a response still goes back; otherwise the message it carries
-        // would be lost behind the internal error.
-        if (error is AssertionError || !isRequest || response.isCompleted) {
-          Zone.current.handleUncaughtError(error, stackTrace);
-        }
+      } catch (_) {
+        // The server sent a frame we could not process. Answer the request
+        // before rethrowing so a caller waiting on it is not left hanging;
+        // the error itself still reaches the zone, which is where a bug in
+        // the server belongs.
         if (isRequest && !response.isCompleted) {
           response.complete(
             _errorResponse(
@@ -181,6 +176,7 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
             ),
           );
         }
+        rethrow;
       }
     },
     onDone: () {
