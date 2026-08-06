@@ -2,6 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:convert';
+
 import 'package:dart_mcp/server.dart';
 import 'package:test/test.dart';
 
@@ -92,12 +94,18 @@ void main() {
     });
 
     test('the result reads its fields back off a decoded map', () {
-      final result = DiscoverResult.fromMap({
-        'supportedVersions': ['2026-07-28'],
-        'capabilities': ServerCapabilities(tools: Tools()),
-        'instructions': 'Prefer `get_weather` for forecast lookups.',
-      });
+      final result = DiscoverResult.fromMap(
+        jsonDecode('''
+{
+  "supportedVersions": ["2026-07-28"],
+  "capabilities": {"tools": {}},
+  "instructions": "Prefer `get_weather` for forecast lookups."
+}
+''')
+            as Map<String, Object?>,
+      );
 
+      expect(result.supportedVersions, ['2026-07-28']);
       expect(result.capabilities.tools, isNotNull);
       expect(result.instructions, 'Prefer `get_weather` for forecast lookups.');
     });
