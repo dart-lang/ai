@@ -170,13 +170,28 @@ void main() {
       expect(_result(withScope), containsPair(Keys.cacheScope, 'public'));
     });
 
-    test('replaces a caching hint the schema does not allow', () async {
-      final response = await _dispatchShapedList(
-        (result) => {...result, Keys.ttlMs: -1, Keys.cacheScope: 'shared'},
-      );
+    test('asserts on a ttl the schema does not allow', () async {
+      // Answering with one is a bug in the server, so it is worth an assert
+      // even though a release build still replaces the hint and answers.
+      final errors = <Object>[];
+      await runZonedGuarded(() async {
+        await _dispatchShapedList((result) => {...result, Keys.ttlMs: -1});
+      }, (error, _) => errors.add(error));
 
-      expect(_result(response), containsPair(Keys.ttlMs, 0));
-      expect(_result(response), containsPair(Keys.cacheScope, 'private'));
+      expect(errors.single, isA<AssertionError>());
+      expect(errors.single.toString(), contains(Keys.ttlMs));
+    });
+
+    test('asserts on a cache scope the schema does not allow', () async {
+      final errors = <Object>[];
+      await runZonedGuarded(() async {
+        await _dispatchShapedList(
+          (result) => {...result, Keys.cacheScope: 'shared'},
+        );
+      }, (error, _) => errors.add(error));
+
+      expect(errors.single, isA<AssertionError>());
+      expect(errors.single.toString(), contains(Keys.cacheScope));
     });
 
     test('records caching hints despite a result type the schema does not '

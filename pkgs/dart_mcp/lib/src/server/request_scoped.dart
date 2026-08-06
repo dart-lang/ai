@@ -164,7 +164,13 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
       } catch (error, stackTrace) {
         // The server sent a frame we could not process. Never let it wedge or
         // escape the exchange: a request gets an internal error, anything
-        // else surfaces as an uncaught error.
+        // else surfaces as an uncaught error. A failed assert is a bug in the
+        // server rather than a frame we could not read, so it surfaces even
+        // when a response still goes back; otherwise the message it carries
+        // would be lost behind the internal error.
+        if (error is AssertionError || !isRequest || response.isCompleted) {
+          Zone.current.handleUncaughtError(error, stackTrace);
+        }
         if (isRequest && !response.isCompleted) {
           response.complete(
             _errorResponse(
@@ -172,8 +178,6 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
               'The server sent an invalid response',
             ),
           );
-        } else {
-          Zone.current.handleUncaughtError(error, stackTrace);
         }
       }
     },
@@ -248,12 +252,26 @@ Map<String, Object?> _withServerFields(
       resultType != ResultTypes.complete;
   final cacheable = modern && !interim && _cacheableMethods.contains(method);
   // A hint the schema does not allow is not an answer, so it is replaced
-  // rather than sent on.
+  // rather than sent on. Answering with one is a bug in the server though, so
+  // assert on it as well: a test fails, while a server in production still
+  // gets an answer. A hint left out is not a bug, so it does not assert.
   final handlerTtlMs = result[Keys.ttlMs];
-  final addTtlMs = cacheable && !(handlerTtlMs is int && handlerTtlMs >= 0);
+  final ttlMsAllowed = handlerTtlMs is int && handlerTtlMs >= 0;
+  assert(
+    !cacheable || handlerTtlMs == null || ttlMsAllowed,
+    'A handler answered `${Keys.ttlMs}` with `$handlerTtlMs`, but the schema '
+    'only allows a non-negative integer.',
+  );
+  final addTtlMs = cacheable && !ttlMsAllowed;
   final handlerScope = result[Keys.cacheScope];
-  final addCacheScope =
-      cacheable && !CacheScope.values.any((s) => s.name == handlerScope);
+  final scopeAllowed = CacheScope.values.any((s) => s.name == handlerScope);
+  assert(
+    !cacheable || handlerScope == null || scopeAllowed,
+    'A handler answered `${Keys.cacheScope}` with `$handlerScope`, but the '
+    'schema only allows '
+    '${CacheScope.values.map((s) => '`${s.name}`').join(' and ')}.',
+  );
+  final addCacheScope = cacheable && !scopeAllowed;
 
   if (!addServerInfo && !addResultType && !addTtlMs && !addCacheScope) {
     return response;
