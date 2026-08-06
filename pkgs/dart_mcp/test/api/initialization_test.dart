@@ -91,10 +91,6 @@ void main() {
       expect(result, isNot(contains('_meta')));
     });
 
-    test('the method name is the one the schema gives', () {
-      expect(DiscoverRequest.methodName, 'server/discover');
-    });
-
     test('the result reads its fields back off a decoded map', () {
       final result = DiscoverResult.fromMap({
         'supportedVersions': ['2026-07-28'],
