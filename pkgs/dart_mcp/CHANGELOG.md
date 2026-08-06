@@ -87,8 +87,11 @@
   `DiscoverResult` implements `CacheableResult`, and reads
   `supportedVersions` as a `List<String>` rather than a
   `List<ProtocolVersion>`, because a server may list a version this package
-  has no name for and the client is the one choosing between them. This adds
-  the types only; the server does not answer `server/discover` yet.
+  has no name for and the client is the one choosing between them. Its factory
+  takes `ttlMs` and `cacheScope` on the same terms as the other five cacheable
+  results, so the sixth operation the caching rules name is no longer the one
+  which cannot carry the hints. This adds the types only; the server does not
+  answer `server/discover` yet.
 - Add `package:dart_mcp/streamable_http.dart` with
   `handleStreamableHttpRequest`, the server side of the Streamable HTTP
   transport from the 2026-07-28 revision, see

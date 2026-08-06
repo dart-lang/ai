@@ -129,13 +129,20 @@ extension type DiscoverResult.fromMap(Map<String, Object?> _value)
     required List<String> supportedVersions,
     required ServerCapabilities capabilities,
     String? instructions,
+    int? ttlMs,
+    CacheScope? cacheScope,
     Meta? meta,
-  }) => DiscoverResult.fromMap({
-    Keys.supportedVersions: supportedVersions,
-    Keys.capabilities: capabilities,
-    if (instructions != null) Keys.instructions: instructions,
-    if (meta != null) Keys.meta: meta,
-  });
+  }) {
+    assert(ttlMs == null || ttlMs >= 0);
+    return DiscoverResult.fromMap({
+      Keys.supportedVersions: supportedVersions,
+      Keys.capabilities: capabilities,
+      if (instructions != null) Keys.instructions: instructions,
+      if (ttlMs != null) Keys.ttlMs: ttlMs,
+      if (cacheScope != null) Keys.cacheScope: cacheScope.name,
+      if (meta != null) Keys.meta: meta,
+    });
+  }
 
   /// The protocol versions this server supports.
   ///
