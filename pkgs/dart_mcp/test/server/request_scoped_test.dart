@@ -188,39 +188,27 @@ void main() {
 
     test('rejects a ttl the schema does not allow', () async {
       final errors = <Object>[];
-      Map<String, Object?>? response;
       await runZonedGuarded(() async {
-        response = await _dispatchShapedList(
-          (result) => {...result, Keys.ttlMs: -1},
-        );
+        await _dispatchShapedList((result) => {...result, Keys.ttlMs: -1});
       }, (error, _) => errors.add(error));
 
-      if (_assertsEnabled) {
-        expect(errors.single, isA<AssertionError>());
-        expect(errors.single.toString(), contains(Keys.ttlMs));
-      } else {
-        expect(errors, isEmpty);
-        expect(_result(response), containsPair(Keys.ttlMs, 0));
-      }
-    });
+      expect(errors.single, isA<AssertionError>());
+      expect(errors.single.toString(), contains(Keys.ttlMs));
+      // A compiled executable has asserts stripped, so there is nothing to
+      // catch there.
+    }, testOn: '!exe');
 
     test('rejects a cache scope the schema does not allow', () async {
       final errors = <Object>[];
-      Map<String, Object?>? response;
       await runZonedGuarded(() async {
-        response = await _dispatchShapedList(
+        await _dispatchShapedList(
           (result) => {...result, Keys.cacheScope: 'shared'},
         );
       }, (error, _) => errors.add(error));
 
-      if (_assertsEnabled) {
-        expect(errors.single, isA<AssertionError>());
-        expect(errors.single.toString(), contains(Keys.cacheScope));
-      } else {
-        expect(errors, isEmpty);
-        expect(_result(response), containsPair(Keys.cacheScope, 'private'));
-      }
-    });
+      expect(errors.single, isA<AssertionError>());
+      expect(errors.single.toString(), contains(Keys.cacheScope));
+    }, testOn: '!exe');
 
     test('records caching hints despite a result type the schema does not '
         'give the request', () async {
@@ -814,16 +802,6 @@ MCPServerInitialization _initialization({
 
 Map<String, Object?> _result(Map<String, Object?>? response) =>
     response![Keys.result] as Map<String, Object?>;
-
-/// Whether this configuration runs with asserts enabled.
-///
-/// A compiled executable has them stripped, so a test which pins an assert has
-/// to pin the behavior a release build has instead.
-bool get _assertsEnabled {
-  var enabled = false;
-  assert(enabled = true);
-  return enabled;
-}
 
 /// Dispatches a `resources/read` to a server whose result is passed through
 /// [shape] first, so a test can say what the handler itself already set.
