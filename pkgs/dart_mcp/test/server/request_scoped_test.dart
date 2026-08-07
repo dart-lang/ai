@@ -59,6 +59,180 @@ void main() {
       expect(serverInfo.name, 'already there');
     });
 
+    test('records a result type on the response', () async {
+      final harness = _DispatcherHarness();
+      final response = await harness.dispatch(
+        _callTool('probe'),
+        _initialization(),
+      );
+
+      expect(
+        _result(response),
+        containsPair(Keys.resultType, ResultTypes.complete),
+      );
+    });
+
+    test('preserves the result type a handler chose', () async {
+      final harness = _DispatcherHarness();
+      final response = await harness.dispatch(
+        _callTool('interim'),
+        _initialization(),
+      );
+
+      expect(
+        _result(response),
+        containsPair(Keys.resultType, ResultTypes.inputRequired),
+      );
+    });
+
+    test('records caching hints on a result which takes them', () async {
+      final harness = _DispatcherHarness();
+      final response = await harness.dispatch(_listTools(), _initialization());
+
+      expect(_result(response), containsPair(Keys.ttlMs, 0));
+      expect(_result(response), containsPair(Keys.cacheScope, 'private'));
+    });
+
+    test('leaves caching hints off results which do not take them', () async {
+      final harness = _DispatcherHarness();
+      final response = await harness.dispatch(
+        _callTool('probe'),
+        _initialization(),
+      );
+
+      expect(_result(response), isNot(contains(Keys.ttlMs)));
+      expect(_result(response), isNot(contains(Keys.cacheScope)));
+    });
+
+    test('records caching hints on a read as well as a list', () async {
+      final harness = _DispatcherHarness();
+      final response = await harness.dispatch(
+        _readResource(),
+        _initialization(),
+      );
+
+      expect(_result(response), containsPair(Keys.ttlMs, 0));
+      expect(_result(response), containsPair(Keys.cacheScope, 'private'));
+    });
+
+    test('preserves the caching hints a handler chose', () async {
+      final response = await _dispatchShapedList(
+        (result) => {...result, Keys.ttlMs: 5000, Keys.cacheScope: 'public'},
+      );
+
+      expect(_result(response), containsPair(Keys.ttlMs, 5000));
+      expect(_result(response), containsPair(Keys.cacheScope, 'public'));
+
+      // Zero is the edge of what the schema allows, and a handler which sends
+      // it means it: the answer is stale as soon as it arrives.
+      final errors = <Object>[];
+      Map<String, Object?>? withZero;
+      await runZonedGuarded(() async {
+        withZero = await _dispatchShapedList(
+          (result) => {...result, Keys.ttlMs: 0},
+        );
+      }, (error, _) => errors.add(error));
+
+      expect(errors, isEmpty);
+      expect(_result(withZero), containsPair(Keys.ttlMs, 0));
+    });
+
+    test('sends none of these fields on an earlier revision', () async {
+      // All of them are 2026-07-28 vocabulary, including the reserved
+      // metadata key.
+      final harness = _DispatcherHarness();
+      final response = await harness.dispatch(
+        _listTools(),
+        _initialization(protocolVersion: ProtocolVersion.v2025_11_25),
+      );
+
+      expect(_result(response), isNot(contains(Keys.resultType)));
+      expect(_result(response), isNot(contains(Keys.ttlMs)));
+      expect(_result(response), isNot(contains(Keys.cacheScope)));
+      expect(_result(response), isNot(contains(Keys.meta)));
+    });
+
+    test('fills in fields a handler left null', () async {
+      // A null is a field the handler did not answer, not an answer of null:
+      // sending one on the wire would be a value the schema does not allow.
+      final response = await _dispatchShapedList(
+        (result) => {
+          ...result,
+          Keys.resultType: null,
+          Keys.ttlMs: null,
+          Keys.cacheScope: null,
+        },
+      );
+
+      expect(
+        _result(response),
+        containsPair(Keys.resultType, ResultTypes.complete),
+      );
+      expect(_result(response), containsPair(Keys.ttlMs, 0));
+      expect(_result(response), containsPair(Keys.cacheScope, 'private'));
+    });
+
+    test('fills in the caching hint a handler left out', () async {
+      final withTtl = await _dispatchShapedList(
+        (result) => {...result, Keys.ttlMs: 5000},
+      );
+      expect(_result(withTtl), containsPair(Keys.ttlMs, 5000));
+      expect(_result(withTtl), containsPair(Keys.cacheScope, 'private'));
+
+      final withScope = await _dispatchShapedList(
+        (result) => {...result, Keys.cacheScope: 'public'},
+      );
+      expect(_result(withScope), containsPair(Keys.ttlMs, 0));
+      expect(_result(withScope), containsPair(Keys.cacheScope, 'public'));
+    });
+
+    test('rejects a ttl the schema does not allow', () async {
+      final errors = <Object>[];
+      await runZonedGuarded(() async {
+        await _dispatchShapedList((result) => {...result, Keys.ttlMs: -1});
+      }, (error, _) => errors.add(error));
+
+      expect(errors.single, isA<AssertionError>());
+      expect(errors.single.toString(), contains(Keys.ttlMs));
+      // A compiled executable has asserts stripped, so there is nothing to
+      // catch there.
+    }, testOn: '!exe');
+
+    test('rejects a cache scope the schema does not allow', () async {
+      final errors = <Object>[];
+      await runZonedGuarded(() async {
+        await _dispatchShapedList(
+          (result) => {...result, Keys.cacheScope: 'shared'},
+        );
+      }, (error, _) => errors.add(error));
+
+      expect(errors.single, isA<AssertionError>());
+      expect(errors.single.toString(), contains(Keys.cacheScope));
+    }, testOn: '!exe');
+
+    test('records caching hints despite a result type the schema does not '
+        'give the request', () async {
+      // `tools/list` has no interim arm, so a non-complete type there does not
+      // make the result one the caching rules exempt.
+      final response = await _dispatchShapedList(
+        (result) => {...result, Keys.resultType: ResultTypes.inputRequired},
+      );
+
+      expect(_result(response), containsPair(Keys.ttlMs, 0));
+      expect(_result(response), containsPair(Keys.cacheScope, 'private'));
+    });
+
+    test('leaves caching hints off an interim result', () async {
+      // The schema gives `resources/read` an interim arm; `tools/list` has
+      // none, so a list result is never the one waiting on input.
+      final response = await _dispatchShapedRead(
+        (result) => {...result, Keys.resultType: ResultTypes.inputRequired},
+      );
+
+      expect(_result(response), isNot(contains(Keys.ttlMs)));
+      expect(_result(response), isNot(contains(Keys.cacheScope)));
+    });
+
     test('answers even when a result has malformed metadata', () async {
       final harness = _DispatcherHarness();
       final response = await harness.dispatch(
@@ -434,7 +608,7 @@ final class _DispatcherHarness {
 
 /// A server with tools which observe the request-scoped lifecycle.
 final class _DispatcherTestServer extends TestMCPServer
-    with LoggingSupport, ToolsSupport {
+    with LoggingSupport, ResourcesSupport, ToolsSupport {
   static const testNotification = 'notifications/test';
 
   _DispatcherTestServer(super.channel);
@@ -467,6 +641,19 @@ final class _DispatcherTestServer extends TestMCPServer
             version: '1.0.0',
           ),
         },
+      }),
+    );
+    addResource(
+      Resource(uri: 'file:///probe', name: 'probe'),
+      (_) async => ReadResourceResult(
+        contents: [TextResourceContents(uri: 'file:///probe', text: 'probe')],
+      ),
+    );
+    registerTool(
+      Tool(name: 'interim', inputSchema: ObjectSchema()),
+      (_) => CallToolResult.fromMap({
+        Keys.content: [TextContent(text: 'waiting')],
+        Keys.resultType: ResultTypes.inputRequired,
       }),
     );
     registerTool(
@@ -537,6 +724,43 @@ final class _FailingInitServer extends TestMCPServer {
   ) => throw StateError('initialization failed');
 }
 
+/// A server whose `resources/read` answers with whatever [shape] returns.
+final class _ShapedReadServer extends TestMCPServer with ResourcesSupport {
+  _ShapedReadServer(super.channel, this.shape);
+
+  final Map<String, Object?> Function(Map<String, Object?> result) shape;
+
+  @override
+  FutureOr<ServerCapabilities> initialize(
+    MCPServerInitialization initialization,
+  ) {
+    addResource(
+      Resource(uri: 'file:///probe', name: 'probe'),
+      (_) async => ReadResourceResult(contents: []),
+    );
+    return super.initialize(initialization);
+  }
+
+  @override
+  Future<ReadResourceResult> readResource(ReadResourceRequest request) async =>
+      ReadResourceResult.fromMap(
+        shape(await super.readResource(request) as Map<String, Object?>),
+      );
+}
+
+/// A server whose `tools/list` answers with whatever [shape] returns.
+final class _ShapedListServer extends TestMCPServer with ToolsSupport {
+  _ShapedListServer(super.channel, this.shape);
+
+  final Map<String, Object?> Function(Map<String, Object?> result) shape;
+
+  @override
+  Future<ListToolsResult> listTools([ListToolsRequest? request]) async =>
+      ListToolsResult.fromMap(
+        shape(await super.listTools(request) as Map<String, Object?>),
+      );
+}
+
 Map<String, Object?> _callTool(
   String name, {
   Map<String, Object?> arguments = const {},
@@ -545,6 +769,13 @@ Map<String, Object?> _callTool(
   Keys.id: 1,
   Keys.method: CallToolRequest.methodName,
   Keys.params: {Keys.name: name, Keys.arguments: arguments},
+};
+
+Map<String, Object?> _readResource() => {
+  Keys.jsonrpc: '2.0',
+  Keys.id: 1,
+  Keys.method: ReadResourceRequest.methodName,
+  Keys.params: {Keys.uri: 'file:///probe'},
 };
 
 Map<String, Object?> _listTools() => {
@@ -559,11 +790,35 @@ Map<String, Object?> _ping() => {
   Keys.method: PingRequest.methodName,
 };
 
-MCPServerInitialization _initialization({ClientCapabilities? capabilities}) =>
-    MCPServerInitialization(
-      protocolVersion: ProtocolVersion.latestSupported,
-      clientCapabilities: capabilities ?? ClientCapabilities(),
-    );
+/// The request-scoped lifecycle arrived with 2026-07-28, so that is the
+/// revision these dispatch, unless a test says otherwise.
+MCPServerInitialization _initialization({
+  ClientCapabilities? capabilities,
+  ProtocolVersion protocolVersion = ProtocolVersion.v2026_07_28,
+}) => MCPServerInitialization(
+  protocolVersion: protocolVersion,
+  clientCapabilities: capabilities ?? ClientCapabilities(),
+);
 
 Map<String, Object?> _result(Map<String, Object?>? response) =>
     response![Keys.result] as Map<String, Object?>;
+
+/// Dispatches a `resources/read` to a server whose result is passed through
+/// [shape] first, so a test can say what the handler itself already set.
+Future<Map<String, Object?>?> _dispatchShapedRead(
+  Map<String, Object?> Function(Map<String, Object?> result) shape,
+) => handleRequestScopedMessage(
+  _readResource(),
+  _initialization(),
+  (channel) => _ShapedReadServer(channel, shape),
+);
+
+/// Dispatches a `tools/list` to a server whose result is passed through
+/// [shape] first, so a test can say what the handler itself already set.
+Future<Map<String, Object?>?> _dispatchShapedList(
+  Map<String, Object?> Function(Map<String, Object?> result) shape,
+) => handleRequestScopedMessage(
+  _listTools(),
+  _initialization(),
+  (channel) => _ShapedListServer(channel, shape),
+);

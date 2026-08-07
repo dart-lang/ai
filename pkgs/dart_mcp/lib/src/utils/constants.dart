@@ -2,6 +2,20 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+/// Constants for the values the specification names for [Keys.resultType].
+///
+/// A server may send any other string, so these are not an enum.
+///
+/// See https://modelcontextprotocol.io/specification/latest/schema#resulttype.
+extension ResultTypes on Never {
+  /// A result which is not waiting on anything, and the value the
+  /// specification tells a client to assume when the field is absent.
+  static const complete = 'complete';
+
+  /// A result which is waiting on input before the request can finish.
+  static const inputRequired = 'input_required';
+}
+
 /// Constants for all keys used in the MCP API.
 extension Keys on Never {
   static const accept = 'accept';

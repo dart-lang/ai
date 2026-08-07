@@ -192,7 +192,8 @@ extension type Result._(Map<String, Object?> _value) {
   /// any other string. Servers on protocol versions before 2026-07-28 omit
   /// the field; the schema requires treating that as "complete", so an absent
   /// value is reported here as "complete".
-  String get resultType => _value[Keys.resultType] as String? ?? 'complete';
+  String get resultType =>
+      _value[Keys.resultType] as String? ?? ResultTypes.complete;
 }
 
 /// A response that indicates success but carries no data.

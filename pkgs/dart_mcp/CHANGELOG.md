@@ -32,9 +32,12 @@
     initialize response or version negotiation.
 - Add `handleRequestScopedMessage` and `MCPServerFactory`, which serve each
   decoded JSON-RPC message on a fresh server instance for request-scoped
-  transports. Successful results record the server implementation under the
-  reserved `io.modelcontextprotocol/serverInfo` result metadata key. Does
-  **not** add any transport.
+  transports. On 2026-07-28, successful results record the server
+  implementation under the reserved `io.modelcontextprotocol/serverInfo`
+  result metadata key, carry a `resultType`, and on the list and read results
+  carry the `ttlMs` and `cacheScope` hints, which the handler may set itself.
+  A server answering an earlier revision gets none of them. Does **not** add
+  any transport.
 - `RootsTrackingSupport` no longer surfaces an unhandled error when the
   connection closes while a `listRoots` request is in flight.
 - The URL elicitation retry rethrows the original error when its data is not
