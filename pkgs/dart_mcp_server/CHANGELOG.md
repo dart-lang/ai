@@ -1,4 +1,4 @@
-## 1.1.1-wip
+## 1.1.1
 
 - Improve server instructions and error messages to encourage agents to
   proactively connect to running applications and hot reload after changes.
