@@ -91,6 +91,11 @@ void main() {
         () => (empty as InitializeRequest).clientInfo,
         throwsArgumentError,
       );
+      expect(
+        () => (empty as DiscoverResult).supportedVersions,
+        throwsArgumentError,
+      );
+      expect(() => (empty as DiscoverResult).capabilities, throwsArgumentError);
 
       // Tools
       expect(() => (empty as CallToolRequest).name, throwsArgumentError);
@@ -190,8 +195,7 @@ void main() {
 
   group('cacheable result factory', () {
     // Returns an instance of every cacheable result type with the given
-    // settings, except `server/discover`, which this package does not serve
-    // yet. The tests assert on the map rather than the getters: an absent
+    // settings. The tests assert on the map rather than the getters: an absent
     // `ttlMs` and a written `ttlMs: 0` both read as `0`.
     List<Map<String, Object?>> cacheable({
       int? ttlMs,
@@ -212,6 +216,12 @@ void main() {
           ),
           ReadResourceResult(
             contents: [],
+            ttlMs: ttlMs,
+            cacheScope: cacheScope,
+          ),
+          DiscoverResult(
+            supportedVersions: [],
+            capabilities: ServerCapabilities(),
             ttlMs: ttlMs,
             cacheScope: cacheScope,
           ),
