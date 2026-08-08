@@ -91,6 +91,11 @@ void main() {
         () => (empty as InitializeRequest).clientInfo,
         throwsArgumentError,
       );
+      expect(
+        () => (empty as DiscoverResult).supportedVersions,
+        throwsArgumentError,
+      );
+      expect(() => (empty as DiscoverResult).capabilities, throwsArgumentError);
 
       // Tools
       expect(() => (empty as CallToolRequest).name, throwsArgumentError);

@@ -153,12 +153,24 @@ extension type DiscoverResult.fromMap(Map<String, Object?> _value)
   /// [ProtocolVersion] values. That enum is a closed set, so a version this
   /// package does not know would be dropped from the list the client is
   /// choosing between.
-  List<String> get supportedVersions =>
-      (_value[Keys.supportedVersions] as List).cast<String>();
+  List<String> get supportedVersions {
+    final supportedVersions = _value[Keys.supportedVersions] as List?;
+    if (supportedVersions == null) {
+      throw ArgumentError(
+        'Missing supportedVersions field in $DiscoverResult.',
+      );
+    }
+    return supportedVersions.cast<String>();
+  }
 
   /// The capabilities of the server.
-  ServerCapabilities get capabilities =>
-      _value[Keys.capabilities] as ServerCapabilities;
+  ServerCapabilities get capabilities {
+    final capabilities = _value[Keys.capabilities] as ServerCapabilities?;
+    if (capabilities == null) {
+      throw ArgumentError('Missing capabilities field in $DiscoverResult.');
+    }
+    return capabilities;
+  }
 
   /// Natural-language guidance describing the server and its features.
   ///
