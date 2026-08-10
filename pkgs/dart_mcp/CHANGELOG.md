@@ -30,6 +30,15 @@
     `MCPServer.clientInfo` is now nullable (`Implementation?`).
   - Override `MCPServer.initializeLegacy` only to customize the legacy
     initialize response or version negotiation.
+  - `ElicitationRequestSupport.elicit` now throws an `RpcException` with
+    `McpErrorCodes.missingRequiredClientCapability` instead of a `StateError`
+    when the client did not declare the `elicitation` capability, naming the
+    missing capability under `data.requiredCapabilities`, which the 2026-07-28
+    revision requires of that error. `ToolsSupport.callTool` rethrows an
+    `RpcException`, so a tool which elicits reaches the client as that error
+    rather than as a `CallToolResult` whose text is a Dart stack trace. A
+    server catching the `StateError` needs to catch `RpcException` instead,
+    which comes from `package:json_rpc_2`.
 - Add `handleRequestScopedMessage` and `MCPServerFactory`, which serve each
   decoded JSON-RPC message on a fresh server instance for request-scoped
   transports. On 2026-07-28, successful results record the server
