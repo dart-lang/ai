@@ -123,6 +123,7 @@ extension Keys on Never {
   static const requested = 'requested';
   static const requestedSchema = 'requestedSchema';
   static const required = 'required';
+  static const requiredCapabilities = 'requiredCapabilities';
   static const resource = 'resource';
   static const resourceTemplates = 'resourceTemplates';
   static const resources = 'resources';

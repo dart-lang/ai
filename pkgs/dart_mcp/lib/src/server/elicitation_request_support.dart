@@ -29,9 +29,26 @@ base mixin ElicitationRequestSupport on LoggingSupport {
   ///
   /// This method will only succeed if the client has advertised the
   /// `elicitation` capability.
+  ///
+  /// Throws an [RpcException] with
+  /// [McpErrorCodes.missingRequiredClientCapability] when it has not, naming
+  /// the capability the client is missing under `data.requiredCapabilities`,
+  /// which the 2026-07-28 revision requires of that error.
+  ///
+  /// [ToolsSupport.callTool] rethrows an [RpcException] instead of folding it
+  /// into a [CallToolResult], so a tool which elicits reaches the client as
+  /// that error rather than as a result whose text is a Dart stack trace.
   Future<ElicitResult> elicit(ElicitRequest request) async {
     if (!supportsElicitation) {
-      throw StateError('Client does not support elicitation');
+      throw RpcException(
+        McpErrorCodes.missingRequiredClientCapability,
+        'The client did not declare the elicitation capability',
+        data: {
+          Keys.requiredCapabilities: ClientCapabilities(
+            elicitation: ElicitationCapability(),
+          ),
+        },
+      );
     }
     return sendRequest(ElicitRequest.methodName, request);
   }
