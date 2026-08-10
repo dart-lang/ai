@@ -22,6 +22,7 @@ part 'prompts.dart';
 part 'resources.dart';
 part 'roots.dart';
 part 'sampling.dart';
+part 'subscriptions.dart';
 part 'tools.dart';
 
 /// Enum of the known protocol versions.
