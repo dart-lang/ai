@@ -205,8 +205,10 @@ base mixin ResourcesSupport on MCPServer {
 
   /// Reads the resource at `request.uri`.
   ///
-  /// Throws an [ArgumentError] if it does not exist (this gets translated into
-  /// a generic JSON RPC2 error response).
+  /// Throws an [RpcException] with the `-32602` code the 2026-07-28 revision
+  /// requires if no resource or template answers the URI, carrying that URI as
+  /// `data.uri`. Earlier revisions asked for `-32002` here, which this package
+  /// has never sent.
   @mustCallSuper
   FutureOr<ReadResourceResult> readResource(ReadResourceRequest request) async {
     final impl = _resourceImpls[request.uri];
@@ -220,7 +222,11 @@ base mixin ResourcesSupport on MCPServer {
 
     final response = await impl?.call(request);
     if (response == null) {
-      throw ArgumentError.value(request.uri, 'uri', 'Resource not found');
+      throw RpcException(
+        error_code.INVALID_PARAMS,
+        'Resource not found',
+        data: {Keys.uri: request.uri},
+      );
     }
     return response;
   }

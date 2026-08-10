@@ -39,6 +39,13 @@
     rather than as a `CallToolResult` whose text is a Dart stack trace. A
     server catching the `StateError` needs to catch `RpcException` instead,
     which comes from `package:json_rpc_2`.
+  - `ResourcesSupport.readResource` now answers a URI it has no resource or
+    template for with the `-32602` (invalid params) error the 2026-07-28
+    revision requires, carrying the URI as `data.uri`, instead of letting an
+    `ArgumentError` reach the client as a generic `-32000` server error with a
+    Dart stack trace attached. A server which overrides `readResource` and
+    catches the `ArgumentError` its dartdoc used to promise needs to catch
+    `RpcException` from `package:json_rpc_2` instead.
 - Add `handleRequestScopedMessage` and `MCPServerFactory`, which serve each
   decoded JSON-RPC message on a fresh server instance for request-scoped
   transports. On 2026-07-28, successful results record the server
