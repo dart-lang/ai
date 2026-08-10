@@ -30,6 +30,15 @@
     `MCPServer.clientInfo` is now nullable (`Implementation?`).
   - Override `MCPServer.initializeLegacy` only to customize the legacy
     initialize response or version negotiation.
+  - `ElicitationRequestSupport.elicit` now throws an `RpcException` with
+    `McpErrorCodes.missingRequiredClientCapability` instead of a `StateError`
+    when the client did not declare the `elicitation` capability, naming the
+    missing capability under `data.requiredCapabilities`, which the 2026-07-28
+    revision requires of that error. `ToolsSupport.callTool` rethrows an
+    `RpcException`, so a tool which elicits reaches the client as that error
+    rather than as a `CallToolResult` whose text is a Dart stack trace. A
+    server catching the `StateError` needs to catch `RpcException` instead,
+    which comes from `package:json_rpc_2`.
   - `ResourcesSupport.readResource` now answers a URI it has no resource or
     template for with the `-32602` (invalid params) error the 2026-07-28
     revision requires, carrying the URI as `data.uri`, instead of letting an
