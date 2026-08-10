@@ -169,5 +169,35 @@ void main() {
       expect(map.containsKey('extensions'), isFalse);
       expect(capabilities.extensions, isNull);
     });
+
+    test('client capabilities set extensions once', () {
+      final capabilities = ClientCapabilities();
+      capabilities.extensions = {
+        'io.modelcontextprotocol/oauth-client-credentials': {},
+      };
+
+      expect(capabilities.extensions, {
+        'io.modelcontextprotocol/oauth-client-credentials': <String, Object?>{},
+      });
+      expect(
+        () => capabilities.extensions = {'io.modelcontextprotocol/tasks': {}},
+        throwsA(isA<AssertionError>()),
+      );
+      // A compiled executable has asserts stripped, so there is nothing to
+      // catch there.
+    }, testOn: '!exe');
+
+    test('server capabilities set extensions once', () {
+      final capabilities = ServerCapabilities();
+      capabilities.extensions = {'io.modelcontextprotocol/tasks': {}};
+
+      expect(capabilities.extensions, {
+        'io.modelcontextprotocol/tasks': <String, Object?>{},
+      });
+      expect(
+        () => capabilities.extensions = {'io.modelcontextprotocol/other': {}},
+        throwsA(isA<AssertionError>()),
+      );
+    }, testOn: '!exe');
   });
 }
