@@ -124,4 +124,50 @@ void main() {
       expect(result.supportedVersions, ['2026-07-28', '2027-11-05']);
     });
   });
+
+  group('capability extensions', () {
+    test('client capabilities round trip an extensions map', () {
+      final capabilities = ClientCapabilities(
+        extensions: {'io.modelcontextprotocol/oauth-client-credentials': {}},
+      );
+
+      final map = capabilities as Map<String, Object?>;
+      expect(map['extensions'], {
+        'io.modelcontextprotocol/oauth-client-credentials': <String, Object?>{},
+      });
+      expect(capabilities.extensions, {
+        'io.modelcontextprotocol/oauth-client-credentials': <String, Object?>{},
+      });
+    });
+
+    test('client capabilities omit extensions when unset', () {
+      final capabilities = ClientCapabilities();
+
+      final map = capabilities as Map<String, Object?>;
+      expect(map.containsKey('extensions'), isFalse);
+      expect(capabilities.extensions, isNull);
+    });
+
+    test('server capabilities round trip an extensions map', () {
+      final capabilities = ServerCapabilities(
+        extensions: {'io.modelcontextprotocol/tasks': {}},
+      );
+
+      final map = capabilities as Map<String, Object?>;
+      expect(map['extensions'], {
+        'io.modelcontextprotocol/tasks': <String, Object?>{},
+      });
+      expect(capabilities.extensions, {
+        'io.modelcontextprotocol/tasks': <String, Object?>{},
+      });
+    });
+
+    test('server capabilities omit extensions when unset', () {
+      final capabilities = ServerCapabilities();
+
+      final map = capabilities as Map<String, Object?>;
+      expect(map.containsKey('extensions'), isFalse);
+      expect(capabilities.extensions, isNull);
+    });
+  });
 }

@@ -130,6 +130,15 @@
   streams, the legacy session routes, or an HTTP client; those land as
   separate changes.
 - Add instructions to read the schema when tool arguments fail validation.
+- Add `ClientCapabilities.extensions` and `ServerCapabilities.extensions`, the
+  extension-support maps the 2026-07-28 revision adds to both capability
+  objects alongside the `experimental` maps, see
+  https://modelcontextprotocol.io/extensions/overview for the identifier
+  format. The client map is carried by the legacy `initialize` request and by
+  the `io.modelcontextprotocol/clientCapabilities` envelope key the
+  Streamable HTTP handler already requires; the server map travels with
+  `ServerCapabilities`, which is held by the legacy `initialize` result and
+  by `DiscoverResult`.
 
 ## 0.5.2
 
