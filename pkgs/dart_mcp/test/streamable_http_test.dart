@@ -626,6 +626,76 @@ void main() {
     });
   });
 
+  group('per-request log level', () {
+    /// A `tools/call` body for the tool which logs, carrying [logLevel] in its
+    /// envelope when one is given.
+    Map<String, Object?> logBody({Object? logLevel}) {
+      final request = body(callTool, params: {Keys.name: 'test/log'});
+      final params = request[Keys.params] as Map<String, Object?>;
+      final meta = params[Keys.meta] as Map<String, Object?>;
+      if (logLevel != null) meta[Keys.logLevelMeta] = logLevel;
+      return request;
+    }
+
+    Map<String, String> logHeaders() => {
+      ...headers(callTool),
+      'Mcp-Name': 'test/log',
+    };
+
+    test('sends no log messages when the envelope asks for none', () async {
+      final (status, _, text) = await post(
+        headers: logHeaders(),
+        json: logBody(),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+      expect(notifications, isEmpty);
+    });
+
+    test('sends log messages at the level the envelope asked for', () async {
+      final (status, _, text) = await post(
+        headers: logHeaders(),
+        json: logBody(logLevel: LoggingLevel.error.name),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+      expect(
+        notifications.single[Keys.method],
+        LoggingMessageNotification.methodName,
+      );
+    });
+
+    test('drops log messages below the level the envelope asked for', () async {
+      final (status, _, text) = await post(
+        headers: logHeaders(),
+        json: logBody(logLevel: LoggingLevel.emergency.name),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+      expect(notifications, isEmpty);
+    });
+
+    test('rejects a log level no revision defines', () async {
+      final (status, _, text) = await post(
+        headers: logHeaders(),
+        json: logBody(logLevel: 'chatty'),
+      );
+      expect(status, 400);
+      expect(errorCode(text), error_code.INVALID_PARAMS);
+      expect(servers, isEmpty);
+    });
+
+    test('rejects a log level which is not a String', () async {
+      final (status, _, text) = await post(
+        headers: logHeaders(),
+        json: logBody(logLevel: 3),
+      );
+      expect(status, 400);
+      expect(errorCode(text), error_code.INVALID_PARAMS);
+      expect(servers, isEmpty);
+    });
+  });
+
   group('http methods', () {
     for (final method in ['GET', 'DELETE', 'PUT']) {
       test('rejects $method with 405', () async {
@@ -1074,7 +1144,7 @@ void main() {
   });
 }
 
-base class _HttpTestServer extends MCPServer with ToolsSupport {
+base class _HttpTestServer extends MCPServer with LoggingSupport, ToolsSupport {
   bool get _declaredSampling => clientCapabilities.sampling != null;
 
   _HttpTestServer(super.channel)
@@ -1135,6 +1205,10 @@ base class _HttpTestServer extends MCPServer with ToolsSupport {
         ),
       );
       return CallToolResult(content: [TextContent(text: 'notified')]);
+    });
+    registerTool(Tool(name: 'test/log', inputSchema: ObjectSchema()), (_) {
+      log(LoggingLevel.error, 'from tool');
+      return CallToolResult(content: [TextContent(text: 'logged')]);
     });
   }
 }

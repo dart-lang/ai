@@ -54,6 +54,16 @@
   carry the `ttlMs` and `cacheScope` hints, which the handler may set itself.
   A server answering an earlier revision gets none of them. Does **not** add
   any transport.
+- Send `notifications/message` only when the request named a log level on
+  2026-07-28, see
+  https://modelcontextprotocol.io/specification/2026-07-28/server/utilities/logging.
+  The name goes in the `io.modelcontextprotocol/logLevel` metadata key, which
+  `MCPServerInitialization` now carries and the Streamable HTTP handler reads
+  off the envelope, rejecting a value which is not a logging level with
+  invalid params. `LoggingSupport.log` sends at or above the level the key
+  named, and sends nothing when the key was absent, which that revision
+  requires of it. The revisions the legacy handshake negotiates have no
+  per-request level, so `logging/setLevel` still decides there.
 - `RootsTrackingSupport` no longer surfaces an unhandled error when the
   connection closes while a `listRoots` request is in flight.
 - The URL elicitation retry rethrows the original error when its data is not

@@ -11,11 +11,22 @@ base mixin LoggingSupport on MCPServer {
   /// The current logging level, defaults to [LoggingLevel.warning].
   LoggingLevel loggingLevel = LoggingLevel.warning;
 
+  /// Whether this exchange asked for log messages, see
+  /// [MCPServerInitialization.logLevel].
+  bool _logsRequested = true;
+
   @override
   FutureOr<ServerCapabilities> initialize(
     MCPServerInitialization initialization,
   ) async {
     registerRequestHandler(SetLevelRequest.methodName, handleSetLevel);
+
+    final requested = initialization.logLevel;
+    if (requested != null) {
+      loggingLevel = requested;
+    } else if (initialization.protocolVersion >= ProtocolVersion.v2026_07_28) {
+      _logsRequested = false;
+    }
 
     return (await super.initialize(initialization))..logging ??= Logging();
   }
@@ -33,7 +44,7 @@ base mixin LoggingSupport on MCPServer {
   /// If [data] is any other type of function, an [ArgumentError] will be
   /// thrown.
   void log(LoggingLevel level, Object data, {String? logger, Meta? meta}) {
-    if (loggingLevel > level) return;
+    if (!_logsRequested || loggingLevel > level) return;
 
     if (data is Function) {
       if (data is Object Function()) {

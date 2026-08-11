@@ -15,6 +15,7 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:collection/collection.dart';
 import 'package:json_rpc_2/error_code.dart' as error_code;
 import 'package:json_rpc_2/json_rpc_2.dart';
 
@@ -326,6 +327,23 @@ Future<void> handleStreamableHttpRequest(
       decoded,
     );
   }
+  final rawLogLevel = meta[Keys.logLevelMeta];
+  LoggingLevel? logLevel;
+  if (rawLogLevel != null) {
+    logLevel = LoggingLevel.values.firstWhereOrNull(
+      (level) => level.name == rawLogLevel,
+    );
+    if (logLevel == null) {
+      return _reject(
+        response,
+        HttpStatus.badRequest,
+        RpcException.invalidParams(
+          'The envelope ${Keys.logLevelMeta} must be a logging level',
+        ),
+        decoded,
+      );
+    }
+  }
 
   if (headerVersion != bodyVersion) {
     return _reject(
@@ -417,6 +435,7 @@ Future<void> handleStreamableHttpRequest(
         clientCapabilities: ClientCapabilities.fromMap(capabilities),
         clientInfo:
             clientInfo == null ? null : Implementation.fromMap(clientInfo),
+        logLevel: logLevel,
       ),
       serverFactory,
       onNotification: onNotification,

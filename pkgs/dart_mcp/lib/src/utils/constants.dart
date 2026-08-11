@@ -77,6 +77,7 @@ extension Keys on Never {
   static const listChanged = 'listChanged';
   static const logger = 'logger';
   static const logging = 'logging';
+  static const logLevelMeta = 'io.modelcontextprotocol/logLevel';
   static const maxItems = 'maxItems';
   static const maxLength = 'maxLength';
   static const maxProperties = 'maxProperties';
