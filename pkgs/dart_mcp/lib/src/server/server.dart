@@ -24,6 +24,10 @@ part 'resources_support.dart';
 part 'roots_tracking_support.dart';
 part 'tools_support.dart';
 
+/// The first protocol revision which replaced the `initialize` handshake with
+/// `server/discover` and per-request client context.
+const _firstRequestScopedVersion = ProtocolVersion.v2026_07_28;
+
 /// The client context used to initialize an [MCPServer].
 ///
 /// Legacy transports provide this once per connection after negotiating a
@@ -88,6 +92,15 @@ abstract base class MCPServer extends MCPBase {
   /// client did not declare any implementation information.
   Implementation? clientInfo;
 
+  /// The capabilities [initialize] registered, which [discover] advertises.
+  ///
+  /// This is the object [initialize] builds, and mixins and subclasses edit it
+  /// on their way back up rather than replacing it, so it ends up carrying
+  /// every feature they registered.
+  ///
+  /// Only assigned after [initialize] has been called.
+  late ServerCapabilities _capabilities;
+
   @override
   String get name => implementation.name;
 
@@ -144,8 +157,46 @@ abstract base class MCPServer extends MCPBase {
         _rootsListChangedController!.sink.add,
       );
     }
-    return ServerCapabilities();
+    // Registering this handler is itself a statement about the lifecycle, so
+    // only a server on a request-scoped revision does it. A client probing
+    // under the stdio backward compatibility rules would read an answer here
+    // as "this connection is modern".
+    if (protocolVersion >= _firstRequestScopedVersion) {
+      registerRequestHandler(DiscoverRequest.methodName, discover);
+    }
+    return _capabilities = ServerCapabilities();
   }
+
+  /// Answers the `server/discover` request with the protocol versions this
+  /// server serves, the capabilities [initialize] registered, and the
+  /// instructions it was given.
+  ///
+  /// Only the revisions from [ProtocolVersion.v2026_07_28] on are advertised:
+  /// earlier ones are negotiated with the legacy `initialize` handshake, which
+  /// this request replaced. A transport which serves a narrower set than this
+  /// package implements rejects the versions it does not serve itself, the way
+  /// `handleStreamableHttpRequest` does with its own version header check.
+  ///
+  /// The request-scoped dispatcher fills in the rest of what the schema
+  /// requires, `resultType` and the caching hints, and stamps the server's
+  /// identity into `_meta`. This only answers the fields which are specific to
+  /// discovery. Override it to advertise something else.
+  ///
+  /// The request has no parameters of its own beyond the `_meta` envelope, and
+  /// the per-request context that envelope carries reaches a server through
+  /// [initialize] rather than through here, so it is optional the way the other
+  /// requests without parameters are.
+  ///
+  /// https://modelcontextprotocol.io/specification/2026-07-28/server/discover
+  FutureOr<DiscoverResult> discover([DiscoverRequest? request]) =>
+      DiscoverResult(
+        supportedVersions: [
+          for (final version in ProtocolVersion.values)
+            if (version >= _firstRequestScopedVersion) version.versionString,
+        ],
+        capabilities: _capabilities,
+        instructions: instructions,
+      );
 
   @mustCallSuper
   /// Handles the initialize request used by legacy MCP protocols.

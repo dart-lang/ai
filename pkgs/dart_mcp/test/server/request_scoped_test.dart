@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp/src/utils/constants.dart';
 import 'package:json_rpc_2/error_code.dart' as error_code;
+import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:test/test.dart';
 
 import '../test_utils.dart';
@@ -574,6 +575,91 @@ void main() {
     );
   });
 
+  group('server/discover', () {
+    test('answers with the fields the schema requires', () async {
+      final harness = _DispatcherHarness();
+      final response = await harness.dispatch(_discover(), _initialization());
+
+      final result = _result(response);
+      // The schema makes all five of these required on a `DiscoverResult`.
+      // The handler answers the first two and the dispatcher stamps the rest.
+      expect(result, contains(Keys.supportedVersions));
+      expect(result, contains(Keys.capabilities));
+      expect(result, containsPair(Keys.resultType, ResultTypes.complete));
+      expect(result, containsPair(Keys.ttlMs, 0));
+      expect(result, containsPair(Keys.cacheScope, 'private'));
+    });
+
+    test('advertises only the request-scoped revisions', () async {
+      final harness = _DispatcherHarness();
+      final response = await harness.dispatch(_discover(), _initialization());
+
+      expect(
+        DiscoverResult.fromMap(_result(response)).supportedVersions,
+        [ProtocolVersion.v2026_07_28.versionString],
+        reason: 'earlier revisions negotiate with the initialize handshake',
+      );
+    });
+
+    test('advertises the capabilities initialization registered', () async {
+      final harness = _DispatcherHarness();
+      final response = await harness.dispatch(_discover(), _initialization());
+
+      final capabilities =
+          DiscoverResult.fromMap(_result(response)).capabilities;
+      expect(capabilities.tools?.listChanged, isTrue);
+      expect(capabilities.resources?.listChanged, isTrue);
+      expect(capabilities.resources?.subscribe, isTrue);
+      expect(capabilities.logging, isNotNull);
+      expect(
+        capabilities.prompts,
+        isNull,
+        reason: 'this server registers no prompts, so it must not claim them',
+      );
+    });
+
+    test('carries the instructions the server was given', () async {
+      final harness = _DispatcherHarness();
+      final response = await harness.dispatch(_discover(), _initialization());
+
+      expect(
+        DiscoverResult.fromMap(_result(response)).instructions,
+        'A test server',
+      );
+    });
+
+    test('identifies the server in the result metadata', () async {
+      final harness = _DispatcherHarness();
+      final response = await harness.dispatch(_discover(), _initialization());
+
+      final meta = _result(response)[Keys.meta] as Map<String, Object?>;
+      final serverInfo = Implementation.fromMap(
+        meta[Keys.serverInfoMeta] as Map<String, Object?>,
+      );
+      expect(serverInfo.name, 'test server');
+    });
+
+    test(
+      'is not served on a revision which negotiates with initialize',
+      () async {
+        final harness = _DispatcherHarness();
+        final response = await harness.dispatch(
+          _discover(),
+          _initialization(protocolVersion: ProtocolVersion.v2025_11_25),
+        );
+
+        final error = response![Keys.error] as Map<String, Object?>;
+        expect(
+          error[Keys.code],
+          error_code.METHOD_NOT_FOUND,
+          reason:
+              'on an earlier revision the client negotiates with the '
+              'initialize handshake instead',
+        );
+      },
+    );
+  });
+
   group('legacy lifecycle', () {
     test('handshake still provides client info', () async {
       final environment = TestEnvironment(
@@ -585,6 +671,30 @@ void main() {
       expect(
         environment.server.clientInfo?.name,
         environment.client.implementation.name,
+      );
+    });
+
+    test('does not answer a discovery probe', () async {
+      final environment = TestEnvironment(
+        TestMCPClient(),
+        _DispatcherTestServer.new,
+      );
+      await environment.initializeServer();
+
+      // A client which speaks both eras probes with `server/discover` first,
+      // and an answer would tell it this connection is modern.
+      await expectLater(
+        environment.serverConnection.sendRequest(
+          DiscoverRequest.methodName,
+          DiscoverRequest(),
+        ),
+        throwsA(
+          isA<RpcException>().having(
+            (e) => e.code,
+            'code',
+            error_code.METHOD_NOT_FOUND,
+          ),
+        ),
       );
     });
   });
@@ -788,6 +898,12 @@ Map<String, Object?> _ping() => {
   Keys.jsonrpc: '2.0',
   Keys.id: 1,
   Keys.method: PingRequest.methodName,
+};
+
+Map<String, Object?> _discover() => {
+  Keys.jsonrpc: '2.0',
+  Keys.id: 1,
+  Keys.method: DiscoverRequest.methodName,
 };
 
 /// The request-scoped lifecycle arrived with 2026-07-28, so that is the
