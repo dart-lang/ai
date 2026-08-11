@@ -34,6 +34,9 @@ base mixin LoggingSupport on MCPServer {
   /// Sends a [LoggingMessageNotification] to the client, if the [loggingLevel]
   /// is <= [level].
   ///
+  /// Sends nothing on 2026-07-28 unless the exchange was given a
+  /// [MCPServerInitialization.logLevel].
+  ///
   /// The [data] must either be some json serializable object, or a function
   /// which takes no arguments and returns some json serializable object.
   ///
