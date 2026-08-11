@@ -129,6 +129,13 @@
   only. See `example/streamable_http_server.dart`. Does not add SSE response
   streams, the legacy session routes, or an HTTP client; those land as
   separate changes.
+- Reject the removed methods this package still declares with `404` and
+  `-32601` in `handleStreamableHttpRequest`. Until now
+  `ping` answered `200` on every server, and `logging/setLevel`,
+  `resources/subscribe`, and `resources/unsubscribe` reached their handlers on
+  a server which mixes in `LoggingSupport` or `ResourcesSupport`. A request for
+  `notifications/roots/list_changed` reached one where the client asked for
+  roots. Notifications are still acknowledged with `202` before this check.
 - Add instructions to read the schema when tool arguments fail validation.
 
 ## 0.5.2

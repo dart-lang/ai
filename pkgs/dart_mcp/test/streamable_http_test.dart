@@ -22,8 +22,8 @@ const version = '2026-07-28';
 /// Shorthands for the method names these tests post, so that a name reads as
 /// one token at the call site.
 ///
-/// The two notifications keep their kind in the name because several tests
-/// turn on whether a body is a request or a notification.
+/// The notifications keep their kind in the name because several tests turn
+/// on whether a body is a request or a notification.
 const listTools = ListToolsRequest.methodName;
 const callTool = CallToolRequest.methodName;
 const getPrompt = GetPromptRequest.methodName;
@@ -31,6 +31,11 @@ const readResource = ReadResourceRequest.methodName;
 const initialize = InitializeRequest.methodName;
 const initializedNotification = InitializedNotification.methodName;
 const progressNotification = ProgressNotification.methodName;
+const ping = PingRequest.methodName;
+const setLevel = SetLevelRequest.methodName;
+const subscribe = SubscribeRequest.methodName;
+const unsubscribe = UnsubscribeRequest.methodName;
+const rootsListChangedNotification = RootsListChangedNotification.methodName;
 
 /// The headers every POST carries, whatever its body is.
 const transportHeaders = {
@@ -624,6 +629,70 @@ void main() {
       expect(status, 200);
       expect(errorCode(text), isNull);
     });
+
+    group('methods the revision removed', () {
+      // This server mixes in `LoggingSupport` and `ResourcesSupport`, which
+      // the other server in this file does not. Three of the removed methods
+      // get their handlers from those. `ping` comes from `MCPBase`,
+      // and the roots handler from `MCPServer`, so the roots test below uses
+      // the default server. Before this gate each of them reached a handler
+      // when the body carried an id.
+      late HttpServer equipped;
+      late HttpClient client;
+
+      setUp(() async {
+        equipped = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        addTearDown(() => equipped.close(force: true));
+        equipped.listen(
+          (request) =>
+              handleStreamableHttpRequest(request, _EquippedServer.new),
+        );
+        client = HttpClient();
+        addTearDown(client.close);
+      });
+
+      for (final method in [ping, setLevel, subscribe, unsubscribe]) {
+        test('answers $method with 404', () async {
+          final request = await client.postUrl(
+            Uri.http('${equipped.address.host}:${equipped.port}', '/mcp'),
+          );
+          headers(method).forEach(request.headers.set);
+          request.write(jsonEncode(body(method)));
+          final response = await request.close();
+          final text = await utf8.decodeStream(response);
+          expect(response.statusCode, 404);
+          expect(errorCode(text), error_code.METHOD_NOT_FOUND);
+        });
+      }
+
+      test('acknowledges $ping as a notification with 202', () async {
+        // Dropping the id makes this a notification, which is acknowledged
+        // before the gate runs.
+        final (status, _, text) = await post(
+          headers: headers(ping),
+          json: body(ping, id: null),
+        );
+        expect(status, 202);
+        expect(text, isEmpty);
+      });
+
+      test('answers $rootsListChangedNotification with 404', () async {
+        // The capability is what would have registered a handler for this
+        // method, which is what the gate has to get in front of. The id
+        // makes this a request.
+        final (status, _, text) = await post(
+          headers: headers(rootsListChangedNotification),
+          json: body(
+            rootsListChangedNotification,
+            capabilities: {
+              'roots': {'listChanged': true},
+            },
+          ),
+        );
+        expect(status, 404);
+        expect(errorCode(text), error_code.METHOD_NOT_FOUND);
+      });
+    });
   });
 
   group('http methods', () {
@@ -1137,4 +1206,18 @@ base class _HttpTestServer extends MCPServer with ToolsSupport {
       return CallToolResult(content: [TextContent(text: 'notified')]);
     });
   }
+}
+
+/// A server which mixes in the support classes that register three of the
+/// request handlers the 2026-07-28 revision removed, so a request for one of
+/// them reaches a handler unless the transport turns it away first.
+base class _EquippedServer extends MCPServer
+    with ToolsSupport, LoggingSupport, ResourcesSupport {
+  _EquippedServer(super.channel)
+    : super.fromStreamChannel(
+        implementation: Implementation(
+          name: 'equipped test server',
+          version: '0.1.0',
+        ),
+      );
 }

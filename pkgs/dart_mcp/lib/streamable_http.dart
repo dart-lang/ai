@@ -392,14 +392,16 @@ Future<void> handleStreamableHttpRequest(
     }
   }
 
-  if (method == InitializeRequest.methodName ||
-      method == InitializedNotification.methodName) {
-    // The legacy lifecycle is not part of the request-scoped protocol, so its
-    // methods are unknown here rather than dispatcher errors, which is also
-    // what `handleRequestScopedMessage` requires of its callers. A legacy
-    // client never reaches this point: it fails the version or header checks
-    // above, which is the `400 Bad Request` the compatibility matrix
-    // prescribes for a legacy client talking to a modern HTTP server.
+  if (_methodsTheRevisionRemoved.contains(method)) {
+    // These methods are not part of the request-scoped protocol. They are
+    // unknown here, not dispatcher errors.
+    // `handleRequestScopedMessage` requires its callers to reject the
+    // legacy `initialize` request and `initialized` notification; the rest are
+    // rejected here because a server which registers their handlers would
+    // answer them instead. A legacy client never reaches this point: it fails
+    // the version or header checks above, which is the `400 Bad Request` the
+    // compatibility matrix prescribes for a legacy client talking to a modern
+    // HTTP server.
     return _reject(
       response,
       HttpStatus.notFound,
@@ -549,6 +551,24 @@ const _eventStreamMimeType = 'text/event-stream';
 /// the request-scoped protocol this transport speaks was introduced later, so
 /// the two sets are deliberately separate.
 const _supportedVersions = {ProtocolVersion.v2026_07_28};
+
+/// The methods this package declares which the 2026-07-28 schema no longer
+/// defines.
+///
+/// The package still declares them for the revisions the legacy handshake
+/// negotiates, while this transport implements only the request-scoped
+/// protocol, where they are unknown. The list covers every one, so a handler
+/// registered for any of them later still cannot answer it here.
+const _methodsTheRevisionRemoved = {
+  InitializeRequest.methodName,
+  InitializedNotification.methodName,
+  PingRequest.methodName,
+  SetLevelRequest.methodName,
+  SubscribeRequest.methodName,
+  UnsubscribeRequest.methodName,
+  RootsListChangedNotification.methodName,
+  ElicitationCompleteNotification.methodName,
+};
 
 /// The methods whose `name` or `uri` parameter is mirrored in the `Mcp-Name`
 /// header, mapping each method to the parameter that carries it.
