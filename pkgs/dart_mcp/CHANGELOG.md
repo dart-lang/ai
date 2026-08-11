@@ -121,10 +121,9 @@
 - Serve `server/discover` from `MCPServer.discover`, which answers with the
   request-scoped protocol versions this package implements, the
   `ServerCapabilities` that `MCPServer.initialize` registered, and the
-  instructions the server was given. As it does for every other result, the
-  dispatcher stamps the result type and caching hints on it and adds the
-  server's identity to `_meta`, so `server/discover` joins the set of requests
-  whose results carry `ttlMs` and `cacheScope`. Only a server initialized for
+  instructions the server was given. The dispatcher stamps the result type and
+  the server's identity on it as it does for every result, and `server/discover`
+  joins the set of requests whose results carry `ttlMs` and `cacheScope`. Only a server initialized for
   2026-07-28 or later registers the handler: answering the request is how a
   server declares it speaks the request-scoped protocol, and a server on an
   earlier revision which answered would be taken for a modern one, see
