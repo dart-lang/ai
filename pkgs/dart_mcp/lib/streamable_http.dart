@@ -392,16 +392,15 @@ Future<void> handleStreamableHttpRequest(
     }
   }
 
-  if (_methodsTheRevisionRemoved.contains(method)) {
-    // These methods are not part of the request-scoped protocol. They are
-    // unknown here, not dispatcher errors.
-    // `handleRequestScopedMessage` requires its callers to reject the
-    // legacy `initialize` request and `initialized` notification; the rest are
-    // rejected here because a server which registers their handlers would
-    // answer them instead. A legacy client never reaches this point: it fails
-    // the version or header checks above, which is the `400 Bad Request` the
-    // compatibility matrix prescribes for a legacy client talking to a modern
-    // HTTP server.
+  if (!protocolVersion.methodIsValid(method) && _someRevisionDefines(method)) {
+    // A method an earlier revision defined and this one took out is unknown
+    // here, not a dispatcher error. A mixin or a capability registers handlers
+    // for several of them, so a request would reach one without this check. A
+    // method no revision defines goes to the dispatcher, which is what lets a
+    // server answer its own.
+    // A legacy client never gets here: it fails the version or header checks
+    // above, which is the `400 Bad Request` the compatibility matrix
+    // prescribes for a legacy client talking to a modern HTTP server.
     return _reject(
       response,
       HttpStatus.notFound,
@@ -552,23 +551,12 @@ const _eventStreamMimeType = 'text/event-stream';
 /// the two sets are deliberately separate.
 const _supportedVersions = {ProtocolVersion.v2026_07_28};
 
-/// The methods this package declares which the 2026-07-28 schema no longer
-/// defines.
+/// Whether any revision of the protocol defines [method].
 ///
-/// The package still declares them for the revisions the legacy handshake
-/// negotiates, while this transport implements only the request-scoped
-/// protocol, where they are unknown. The list covers every one, so a handler
-/// registered for any of them later still cannot answer it here.
-const _methodsTheRevisionRemoved = {
-  InitializeRequest.methodName,
-  InitializedNotification.methodName,
-  PingRequest.methodName,
-  SetLevelRequest.methodName,
-  SubscribeRequest.methodName,
-  UnsubscribeRequest.methodName,
-  RootsListChangedNotification.methodName,
-  ElicitationCompleteNotification.methodName,
-};
+/// A method none of them define belongs to the server, not to the protocol,
+/// so the transport leaves it to the dispatcher.
+bool _someRevisionDefines(String method) =>
+    ProtocolVersion.values.any((v) => v.addedMethods.contains(method));
 
 /// The methods whose `name` or `uri` parameter is mirrored in the `Mcp-Name`
 /// header, mapping each method to the parameter that carries it.

@@ -27,13 +27,96 @@ part 'tools.dart';
 
 /// Enum of the known protocol versions.
 enum ProtocolVersion {
-  v2024_11_05('2024-11-05'),
+  v2024_11_05(
+    '2024-11-05',
+    addedMethods: {
+      'completion/complete',
+      'initialize',
+      'logging/setLevel',
+      'notifications/cancelled',
+      'notifications/initialized',
+      'notifications/message',
+      'notifications/progress',
+      'notifications/prompts/list_changed',
+      'notifications/resources/list_changed',
+      'notifications/resources/updated',
+      'notifications/roots/list_changed',
+      'notifications/tools/list_changed',
+      'ping',
+      'prompts/get',
+      'prompts/list',
+      'resources/list',
+      'resources/read',
+      'resources/subscribe',
+      'resources/templates/list',
+      'resources/unsubscribe',
+      'roots/list',
+      'sampling/createMessage',
+      'tools/call',
+      'tools/list',
+    },
+  ),
   v2025_03_26('2025-03-26'),
-  v2025_06_18('2025-06-18'),
-  v2025_11_25('2025-11-25'),
-  v2026_07_28('2026-07-28');
+  v2025_06_18('2025-06-18', addedMethods: {'elicitation/create'}),
+  v2025_11_25(
+    '2025-11-25',
+    addedMethods: {
+      'notifications/elicitation/complete',
+      'notifications/tasks/status',
+      'tasks/cancel',
+      'tasks/get',
+      'tasks/list',
+      'tasks/result',
+    },
+  ),
+  v2026_07_28(
+    '2026-07-28',
+    addedMethods: {
+      'notifications/subscriptions/acknowledged',
+      'server/discover',
+      'subscriptions/listen',
+    },
+    removedMethods: {
+      'initialize',
+      'logging/setLevel',
+      'notifications/elicitation/complete',
+      'notifications/initialized',
+      'notifications/roots/list_changed',
+      'notifications/tasks/status',
+      'ping',
+      'resources/subscribe',
+      'resources/unsubscribe',
+      'tasks/cancel',
+      'tasks/get',
+      'tasks/list',
+      'tasks/result',
+    },
+  );
 
-  const ProtocolVersion(this.versionString);
+  const ProtocolVersion(
+    this.versionString, {
+    this.addedMethods = const {},
+    this.removedMethods = const {},
+  });
+
+  /// The methods this revision introduced.
+  final Set<String> addedMethods;
+
+  /// The methods this revision took out.
+  final Set<String> removedMethods;
+
+  /// Whether [method] is part of this revision.
+  ///
+  /// Walks back from this revision to the first one, so a method holds until
+  /// some later revision removes it. A method no revision ever added is not
+  /// part of any of them.
+  bool methodIsValid(String method) {
+    for (var version = this; ; version = values[version.index - 1]) {
+      if (version.removedMethods.contains(method)) return false;
+      if (version.addedMethods.contains(method)) return true;
+      if (version.index == 0) return false;
+    }
+  }
 
   /// Returns the [ProtocolVersion] based on the [version] string, or `null` if
   /// it was not recognized.

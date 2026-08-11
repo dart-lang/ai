@@ -129,7 +129,11 @@
   only. See `example/streamable_http_server.dart`. Does not add SSE response
   streams, the legacy session routes, or an HTTP client; those land as
   separate changes.
-- Reject the removed methods this package still declares with `404` and
+- Add `ProtocolVersion.addedMethods` and `.removedMethods`, listing what each
+  revision of the protocol introduced and took out, and
+  `ProtocolVersion.methodIsValid`, which walks back from a revision to answer
+  whether it has a method.
+- Reject the methods the 2026-07-28 revision removed with `404` and
   `-32601` in `handleStreamableHttpRequest`. Until now
   `ping` answered `200` on every server, and `logging/setLevel`,
   `resources/subscribe`, and `resources/unsubscribe` reached their handlers on

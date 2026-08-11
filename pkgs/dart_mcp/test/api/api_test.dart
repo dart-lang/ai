@@ -68,6 +68,62 @@ void main() {
     expect(ProtocolVersion.v2026_07_28 > ProtocolVersion.latestSupported, true);
   });
 
+  test('a method holds from the revision which added it', () {
+    expect(ProtocolVersion.v2024_11_05.methodIsValid('tools/call'), true);
+    expect(ProtocolVersion.v2026_07_28.methodIsValid('tools/call'), true);
+    expect(
+      ProtocolVersion.v2025_03_26.methodIsValid('elicitation/create'),
+      false,
+    );
+    expect(
+      ProtocolVersion.v2025_06_18.methodIsValid('elicitation/create'),
+      true,
+    );
+    expect(ProtocolVersion.v2025_11_25.methodIsValid('server/discover'), false);
+    expect(ProtocolVersion.v2026_07_28.methodIsValid('server/discover'), true);
+  });
+
+  test('the 2026-07-28 revision removes what its schema removed', () {
+    // Pinned against the schema so an entry cannot fall out of the set
+    // unnoticed; the walk test below reads the set and would follow it.
+    expect(ProtocolVersion.v2026_07_28.removedMethods, {
+      'initialize',
+      'logging/setLevel',
+      'notifications/elicitation/complete',
+      'notifications/initialized',
+      'notifications/roots/list_changed',
+      'notifications/tasks/status',
+      'ping',
+      'resources/subscribe',
+      'resources/unsubscribe',
+      'tasks/cancel',
+      'tasks/get',
+      'tasks/list',
+      'tasks/result',
+    });
+  });
+
+  test('a method ends at the revision which removed it', () {
+    for (var method in ProtocolVersion.v2026_07_28.removedMethods) {
+      expect(
+        ProtocolVersion.v2025_11_25.methodIsValid(method),
+        true,
+        reason: '$method on 2025-11-25',
+      );
+      expect(
+        ProtocolVersion.v2026_07_28.methodIsValid(method),
+        false,
+        reason: '$method on 2026-07-28',
+      );
+    }
+  });
+
+  test('a method no revision defines is not valid on any of them', () {
+    for (var version in ProtocolVersion.values) {
+      expect(version.methodIsValid('no/such/method'), false);
+    }
+  });
+
   group('API object validation', () {
     test('throws when required fields are missing', () {
       expect(() => Root.fromMap({}).uri, throwsA(isA<ArgumentError>()));
