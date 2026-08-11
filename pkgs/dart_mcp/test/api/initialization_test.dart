@@ -124,4 +124,80 @@ void main() {
       expect(result.supportedVersions, ['2026-07-28', '2027-11-05']);
     });
   });
+
+  group('capability extensions', () {
+    test('client capabilities round trip an extensions map', () {
+      final capabilities = ClientCapabilities(
+        extensions: {'io.modelcontextprotocol/oauth-client-credentials': {}},
+      );
+
+      final map = capabilities as Map<String, Object?>;
+      expect(map['extensions'], {
+        'io.modelcontextprotocol/oauth-client-credentials': <String, Object?>{},
+      });
+      expect(capabilities.extensions, {
+        'io.modelcontextprotocol/oauth-client-credentials': <String, Object?>{},
+      });
+    });
+
+    test('client capabilities omit extensions when unset', () {
+      final capabilities = ClientCapabilities();
+
+      final map = capabilities as Map<String, Object?>;
+      expect(map.containsKey('extensions'), isFalse);
+      expect(capabilities.extensions, isNull);
+    });
+
+    test('server capabilities round trip an extensions map', () {
+      final capabilities = ServerCapabilities(
+        extensions: {'io.modelcontextprotocol/tasks': {}},
+      );
+
+      final map = capabilities as Map<String, Object?>;
+      expect(map['extensions'], {
+        'io.modelcontextprotocol/tasks': <String, Object?>{},
+      });
+      expect(capabilities.extensions, {
+        'io.modelcontextprotocol/tasks': <String, Object?>{},
+      });
+    });
+
+    test('server capabilities omit extensions when unset', () {
+      final capabilities = ServerCapabilities();
+
+      final map = capabilities as Map<String, Object?>;
+      expect(map.containsKey('extensions'), isFalse);
+      expect(capabilities.extensions, isNull);
+    });
+
+    test('client capabilities set extensions once', () {
+      final capabilities = ClientCapabilities();
+      capabilities.extensions = {
+        'io.modelcontextprotocol/oauth-client-credentials': {},
+      };
+
+      expect(capabilities.extensions, {
+        'io.modelcontextprotocol/oauth-client-credentials': <String, Object?>{},
+      });
+      expect(
+        () => capabilities.extensions = {'io.modelcontextprotocol/tasks': {}},
+        throwsA(isA<AssertionError>()),
+      );
+      // A compiled executable has asserts stripped, so there is nothing to
+      // catch there.
+    }, testOn: '!exe');
+
+    test('server capabilities set extensions once', () {
+      final capabilities = ServerCapabilities();
+      capabilities.extensions = {'io.modelcontextprotocol/tasks': {}};
+
+      expect(capabilities.extensions, {
+        'io.modelcontextprotocol/tasks': <String, Object?>{},
+      });
+      expect(
+        () => capabilities.extensions = {'io.modelcontextprotocol/other': {}},
+        throwsA(isA<AssertionError>()),
+      );
+    }, testOn: '!exe');
+  });
 }
