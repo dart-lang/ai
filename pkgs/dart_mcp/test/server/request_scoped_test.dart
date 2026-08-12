@@ -594,11 +594,9 @@ void main() {
       final harness = _DispatcherHarness();
       final response = await harness.dispatch(_discover(), _initialization());
 
-      expect(
-        DiscoverResult.fromMap(_result(response)).supportedVersions,
-        [ProtocolVersion.v2026_07_28.versionString],
-        reason: 'earlier revisions negotiate with the initialize handshake',
-      );
+      expect(DiscoverResult.fromMap(_result(response)).supportedVersions, [
+        ProtocolVersion.v2026_07_28.versionString,
+      ], reason: 'earlier revisions negotiate with the initialize handshake');
     });
 
     test('advertises the capabilities initialization registered', () async {
