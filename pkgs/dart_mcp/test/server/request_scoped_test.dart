@@ -341,9 +341,13 @@ void main() {
 
     test('fails server to client requests instead of hanging', () async {
       final harness = _DispatcherHarness();
+      // The client declares roots, so `listRoots` reaches the transport rather
+      // than being refused for the missing capability.
       final response = await harness.dispatch(
         _callTool('roots'),
-        _initialization(),
+        _initialization(
+          capabilities: ClientCapabilities(roots: RootsCapabilities()),
+        ),
       );
 
       final error = response![Keys.error] as Map<String, Object?>;

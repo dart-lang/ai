@@ -40,14 +40,9 @@ base mixin ElicitationRequestSupport on LoggingSupport {
   /// that error rather than as a result whose text is a Dart stack trace.
   Future<ElicitResult> elicit(ElicitRequest request) async {
     if (!supportsElicitation) {
-      throw RpcException(
-        McpErrorCodes.missingRequiredClientCapability,
-        'The client did not declare the elicitation capability',
-        data: {
-          Keys.requiredCapabilities: ClientCapabilities(
-            elicitation: ElicitationCapability(),
-          ),
-        },
+      throw _missingClientCapability(
+        'elicitation',
+        ClientCapabilities(elicitation: ElicitationCapability()),
       );
     }
     return sendRequest(ElicitRequest.methodName, request);
