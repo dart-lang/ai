@@ -141,6 +141,17 @@
   only. See `example/streamable_http_server.dart`. Does not add SSE response
   streams, the legacy session routes, or an HTTP client; those land as
   separate changes.
+- Add `ProtocolVersion.addedMethods` and `.removedMethods`, listing what each
+  revision of the protocol introduced and took out, and
+  `ProtocolVersion.methodIsValid`, which walks back from a revision to answer
+  whether it has a method.
+- Reject the methods the 2026-07-28 revision removed with `404` and
+  `-32601` in `handleStreamableHttpRequest`. Until now
+  `ping` answered `200` on every server, and `logging/setLevel`,
+  `resources/subscribe`, and `resources/unsubscribe` reached their handlers on
+  a server which mixes in `LoggingSupport` or `ResourcesSupport`. A request for
+  `notifications/roots/list_changed` reached one where the client asked for
+  roots. Notifications are still acknowledged with `202` before this check.
 - Add instructions to read the schema when tool arguments fail validation.
 - Add `ClientCapabilities.extensions` and `ServerCapabilities.extensions`, the
   extension-support maps the 2026-07-28 revision adds to both capability

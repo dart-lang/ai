@@ -27,13 +27,96 @@ part 'tools.dart';
 
 /// Enum of the known protocol versions.
 enum ProtocolVersion {
-  v2024_11_05('2024-11-05'),
+  v2024_11_05(
+    '2024-11-05',
+    addedMethods: {
+      CompleteRequest.methodName,
+      InitializeRequest.methodName,
+      SetLevelRequest.methodName,
+      CancelledNotification.methodName,
+      InitializedNotification.methodName,
+      LoggingMessageNotification.methodName,
+      ProgressNotification.methodName,
+      PromptListChangedNotification.methodName,
+      ResourceListChangedNotification.methodName,
+      ResourceUpdatedNotification.methodName,
+      RootsListChangedNotification.methodName,
+      ToolListChangedNotification.methodName,
+      PingRequest.methodName,
+      GetPromptRequest.methodName,
+      ListPromptsRequest.methodName,
+      ListResourcesRequest.methodName,
+      ReadResourceRequest.methodName,
+      SubscribeRequest.methodName,
+      ListResourceTemplatesRequest.methodName,
+      UnsubscribeRequest.methodName,
+      ListRootsRequest.methodName,
+      CreateMessageRequest.methodName,
+      CallToolRequest.methodName,
+      ListToolsRequest.methodName,
+    },
+  ),
   v2025_03_26('2025-03-26'),
-  v2025_06_18('2025-06-18'),
-  v2025_11_25('2025-11-25'),
-  v2026_07_28('2026-07-28');
+  v2025_06_18('2025-06-18', addedMethods: {ElicitRequest.methodName}),
+  v2025_11_25(
+    '2025-11-25',
+    addedMethods: {
+      ElicitationCompleteNotification.methodName,
+      'notifications/tasks/status',
+      'tasks/cancel',
+      'tasks/get',
+      'tasks/list',
+      'tasks/result',
+    },
+  ),
+  v2026_07_28(
+    '2026-07-28',
+    addedMethods: {
+      SubscriptionsAcknowledgedNotification.methodName,
+      DiscoverRequest.methodName,
+      SubscriptionsListenRequest.methodName,
+    },
+    removedMethods: {
+      InitializeRequest.methodName,
+      SetLevelRequest.methodName,
+      ElicitationCompleteNotification.methodName,
+      InitializedNotification.methodName,
+      RootsListChangedNotification.methodName,
+      'notifications/tasks/status',
+      PingRequest.methodName,
+      SubscribeRequest.methodName,
+      UnsubscribeRequest.methodName,
+      'tasks/cancel',
+      'tasks/get',
+      'tasks/list',
+      'tasks/result',
+    },
+  );
 
-  const ProtocolVersion(this.versionString);
+  const ProtocolVersion(
+    this.versionString, {
+    this.addedMethods = const {},
+    this.removedMethods = const {},
+  });
+
+  /// The methods this revision introduced.
+  final Set<String> addedMethods;
+
+  /// The methods this revision took out.
+  final Set<String> removedMethods;
+
+  /// Whether [method] is part of this revision.
+  ///
+  /// Walks back from this revision to the first one, so a method holds until
+  /// some later revision removes it. A method no revision ever added is not
+  /// part of any of them.
+  bool methodIsValid(String method) {
+    for (var version = this; ; version = values[version.index - 1]) {
+      if (version.removedMethods.contains(method)) return false;
+      if (version.addedMethods.contains(method)) return true;
+      if (version.index == 0) return false;
+    }
+  }
 
   /// Returns the [ProtocolVersion] based on the [version] string, or `null` if
   /// it was not recognized.
