@@ -33,6 +33,7 @@ final class MCPServerInitialization {
     required this.protocolVersion,
     required this.clientCapabilities,
     this.clientInfo,
+    this.logLevel,
   });
 
   /// The protocol version used for this connection or request.
@@ -46,6 +47,19 @@ final class MCPServerInitialization {
   /// The legacy handshake always provides this. Request-scoped transports may
   /// omit it, since clients are not required to send it on every request.
   final Implementation? clientInfo;
+
+  /// The log level the client asked for on this request, if any.
+  ///
+  /// Request-scoped transports read this from the reserved
+  /// `io.modelcontextprotocol/logLevel` request metadata key, see
+  /// https://modelcontextprotocol.io/specification/2026-07-28/server/utilities/logging.
+  /// On 2026-07-28 [LoggingSupport.initialize] copies this onto
+  /// [LoggingSupport.loggingLevel], `null` included. That revision took
+  /// `logging/setLevel` out, and [LoggingSupport] does not register it. The
+  /// legacy handshake has no per-request level and leaves this null, so the
+  /// level starts at [LoggingLevel.warning] unless the server picked one for
+  /// itself, and `logging/setLevel` moves it from there.
+  final LoggingLevel? logLevel;
 }
 
 /// Base class to extend when implementing an MCP server.

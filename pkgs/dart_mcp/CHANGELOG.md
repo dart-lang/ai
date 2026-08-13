@@ -58,6 +58,12 @@
     server to client request at all. A server which expects either of those
     codes for an undeclared capability should read
     `MCPServer.supportsRoots` or `MCPServer.supportsSampling` first.
+  - `LoggingSupport.loggingLevel` is now nullable (`LoggingLevel?`), `null`
+    meaning `log` sends nothing. On 2026-07-28 `initialize` assigns the level
+    the request named, over whatever the server set before it ran. Earlier
+    revisions fill it in only when the server set none. `LoggingSupport` also
+    stops registering `logging/setLevel` on that revision, which is what a
+    transport dispatching on its own gets.
 - Add `handleRequestScopedMessage` and `MCPServerFactory`, which serve each
   decoded JSON-RPC message on a fresh server instance for request-scoped
   transports. On 2026-07-28, successful results record the server
@@ -66,6 +72,11 @@
   carry the `ttlMs` and `cacheScope` hints, which the handler may set itself.
   A server answering an earlier revision gets none of them. Does **not** add
   any transport.
+- Support a per-request log level on 2026-07-28, see
+  https://modelcontextprotocol.io/specification/2026-07-28/server/utilities/logging.
+  The level goes in the `io.modelcontextprotocol/logLevel` metadata key, which
+  `MCPServerInitialization` now carries and the Streamable HTTP handler reads
+  off the envelope, answering invalid params when it is not a logging level.
 - `RootsTrackingSupport` no longer surfaces an unhandled error when the
   connection closes while a `listRoots` request is in flight.
 - The URL elicitation retry rethrows the original error when its data is not
