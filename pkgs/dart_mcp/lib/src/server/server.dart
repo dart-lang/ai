@@ -24,7 +24,7 @@ part 'resources_support.dart';
 part 'roots_tracking_support.dart';
 part 'tools_support.dart';
 
-/// The first protocol revision which replaced the `initialize` handshake with
+/// The first protocol revision that replaced the `initialize` handshake with
 /// `server/discover` and per-request client context.
 const _firstRequestScopedVersion = ProtocolVersion.v2026_07_28;
 
@@ -37,6 +37,7 @@ final class MCPServerInitialization {
     required this.protocolVersion,
     required this.clientCapabilities,
     this.clientInfo,
+    this.logLevel,
   });
 
   /// The protocol version used for this connection or request.
@@ -50,6 +51,19 @@ final class MCPServerInitialization {
   /// The legacy handshake always provides this. Request-scoped transports may
   /// omit it, since clients are not required to send it on every request.
   final Implementation? clientInfo;
+
+  /// The log level the client asked for on this request, if any.
+  ///
+  /// Request-scoped transports read this from the reserved
+  /// `io.modelcontextprotocol/logLevel` request metadata key, see
+  /// https://modelcontextprotocol.io/specification/2026-07-28/server/utilities/logging.
+  /// On 2026-07-28 [LoggingSupport.initialize] copies this onto
+  /// [LoggingSupport.loggingLevel], `null` included. That revision took
+  /// `logging/setLevel` out, and [LoggingSupport] does not register it. The
+  /// legacy handshake has no per-request level and leaves this null, so the
+  /// level starts at [LoggingLevel.warning] unless the server picked one for
+  /// itself, and `logging/setLevel` moves it from there.
+  final LoggingLevel? logLevel;
 }
 
 /// Base class to extend when implementing an MCP server.
@@ -92,14 +106,10 @@ abstract base class MCPServer extends MCPBase {
   /// client did not declare any implementation information.
   Implementation? clientInfo;
 
-  /// The capabilities [initialize] registered, which [discover] advertises.
+  /// The capabilities of this server, which [discover] advertises.
   ///
-  /// This is the object [initialize] builds, and mixins and subclasses edit it
-  /// on their way back up rather than replacing it, so it ends up carrying
-  /// every feature they registered.
-  ///
-  /// Only assigned after [initialize] has been called.
-  late ServerCapabilities _capabilities;
+  /// This can be modified by overriding the [initialize] method.
+  final ServerCapabilities capabilities = ServerCapabilities();
 
   @override
   String get name => implementation.name;
@@ -139,13 +149,11 @@ abstract base class MCPServer extends MCPBase {
   /// Registers the features available to a client with [initialization].
   ///
   /// Mixins and subclasses should register request handlers and other features
-  /// in this method, as well as editing the returned [ServerCapabilities].
+  /// in this method, as well as editing [capabilities].
   ///
   /// Transport-specific initialization, including the legacy MCP initialize
   /// request, is handled separately.
-  FutureOr<ServerCapabilities> initialize(
-    MCPServerInitialization initialization,
-  ) {
+  FutureOr<void> initialize(MCPServerInitialization initialization) {
     protocolVersion = initialization.protocolVersion;
     clientCapabilities = initialization.clientCapabilities;
     clientInfo = initialization.clientInfo;
@@ -164,7 +172,6 @@ abstract base class MCPServer extends MCPBase {
     if (protocolVersion >= _firstRequestScopedVersion) {
       registerRequestHandler(DiscoverRequest.methodName, discover);
     }
-    return _capabilities = ServerCapabilities();
   }
 
   /// Answers the `server/discover` request with the protocol versions this
@@ -173,13 +180,13 @@ abstract base class MCPServer extends MCPBase {
   ///
   /// Only the revisions from [ProtocolVersion.v2026_07_28] on are advertised:
   /// earlier ones are negotiated with the legacy `initialize` handshake, which
-  /// this request replaced. A transport which serves a narrower set than this
+  /// this request replaced. A transport that serves a narrower set than this
   /// package implements rejects the versions it does not serve itself, the way
   /// `handleStreamableHttpRequest` does with its own version header check.
   ///
   /// The request-scoped dispatcher fills in the rest of what the schema
   /// requires, `resultType` and the caching hints, and stamps the server's
-  /// identity into `_meta`. This only answers the fields which are specific to
+  /// identity into `_meta`. This only answers the fields that are specific to
   /// discovery. Override it to advertise something else.
   ///
   /// The request has no parameters of its own beyond the `_meta` envelope, and
@@ -194,9 +201,23 @@ abstract base class MCPServer extends MCPBase {
           for (final version in ProtocolVersion.values)
             if (version >= _firstRequestScopedVersion) version.versionString,
         ],
-        capabilities: _capabilities,
+        capabilities: _advertisedCapabilities,
         instructions: instructions,
       );
+
+  /// The capabilities [discover] advertises.
+  ///
+  /// The revisions this answers for dropped `resources/subscribe`, and they
+  /// carry list changes on `subscriptions/listen` streams, which this package
+  /// does not serve yet, so the bits standing for those stay off. The
+  /// `initializeLegacy` response keeps them, since they are honest on the
+  /// revisions that handshake negotiates.
+  ServerCapabilities get _advertisedCapabilities => ServerCapabilities.fromMap({
+    ...capabilities as Map<String, Object?>,
+    if (capabilities.prompts != null) Keys.prompts: Prompts(),
+    if (capabilities.resources != null) Keys.resources: Resources(),
+    if (capabilities.tools != null) Keys.tools: Tools(),
+  });
 
   @mustCallSuper
   /// Handles the initialize request used by legacy MCP protocols.
@@ -215,7 +236,7 @@ abstract base class MCPServer extends MCPBase {
             : clientProtocolVersion;
 
     assert(!_initialized.isCompleted);
-    final serverCapabilities = await initialize(
+    await initialize(
       MCPServerInitialization(
         protocolVersion: negotiatedProtocolVersion,
         clientCapabilities: request.capabilities,
@@ -224,7 +245,7 @@ abstract base class MCPServer extends MCPBase {
     );
     return InitializeResult(
       protocolVersion: negotiatedProtocolVersion,
-      serverCapabilities: serverCapabilities,
+      serverCapabilities: capabilities,
       serverInfo: implementation,
       instructions: instructions,
     );
@@ -242,13 +263,69 @@ abstract base class MCPServer extends MCPBase {
     _initialized.complete(notification);
   }
 
+  /// Whether or not the connected client supports [listRoots].
+  ///
+  /// Only safe to call after calling [initialize] on `super` since this
+  /// is based on the client capabilities.
+  bool get supportsRoots => clientCapabilities.roots != null;
+
+  /// Whether or not the connected client supports [createMessage].
+  ///
+  /// Only safe to call after calling [initialize] on `super` since this
+  /// is based on the client capabilities.
+  bool get supportsSampling => clientCapabilities.sampling != null;
+
   /// Lists all the root URIs from the client.
-  Future<ListRootsResult> listRoots([ListRootsRequest? request]) =>
-      sendRequest(ListRootsRequest.methodName, request);
+  ///
+  /// This method will only succeed if the client has advertised the `roots`
+  /// capability.
+  ///
+  /// Throws an [RpcException] with
+  /// [McpErrorCodes.missingRequiredClientCapability] when it has not, naming
+  /// the capability the client is missing under `data.requiredCapabilities`,
+  /// which the 2026-07-28 revision requires of that error.
+  Future<ListRootsResult> listRoots([ListRootsRequest? request]) async {
+    if (!supportsRoots) {
+      throw _missingClientCapability(
+        'roots',
+        ClientCapabilities(roots: RootsCapabilities()),
+      );
+    }
+    return sendRequest(ListRootsRequest.methodName, request);
+  }
 
   /// A request to prompt the LLM owned by the client with a message.
   ///
   /// See https://spec.modelcontextprotocol.io/specification/2025-11-05/client/sampling/.
-  Future<CreateMessageResult> createMessage(CreateMessageRequest request) =>
-      sendRequest(CreateMessageRequest.methodName, request);
+  ///
+  /// This method will only succeed if the client has advertised the `sampling`
+  /// capability.
+  ///
+  /// Throws an [RpcException] with
+  /// [McpErrorCodes.missingRequiredClientCapability] when it has not, naming
+  /// the capability the client is missing under `data.requiredCapabilities`,
+  /// which the 2026-07-28 revision requires of that error.
+  Future<CreateMessageResult> createMessage(
+    CreateMessageRequest request,
+  ) async {
+    if (!supportsSampling) {
+      throw _missingClientCapability(
+        'sampling',
+        ClientCapabilities(sampling: {}),
+      );
+    }
+    return sendRequest(CreateMessageRequest.methodName, request);
+  }
 }
+
+/// The error a server must return when handling a request needs [capability],
+/// which the client did not declare, carrying [required] under
+/// `data.requiredCapabilities`.
+RpcException _missingClientCapability(
+  String capability,
+  ClientCapabilities required,
+) => RpcException(
+  McpErrorCodes.missingRequiredClientCapability,
+  'The client did not declare the $capability capability',
+  data: {Keys.requiredCapabilities: required},
+);

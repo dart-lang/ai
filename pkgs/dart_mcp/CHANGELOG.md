@@ -24,10 +24,20 @@
   - Separate server feature registration from the legacy protocol handshake.
     `MCPServer.initialize` now accepts an `MCPServerInitialization` containing
     the protocol version, client information, and client capabilities, and
-    returns `ServerCapabilities`. The client information is optional, since
-    clients are no longer required to send it on every request, see
+    returns nothing. The client information is optional, since clients are no
+    longer required to send it on every request, see
     https://github.com/modelcontextprotocol/modelcontextprotocol/pull/3002.
     `MCPServer.clientInfo` is now nullable (`Implementation?`).
+  - Mixins and subclasses declare what a server supports by editing the
+    `MCPServer.capabilities` field, which is `final`, instead of editing the
+    `ServerCapabilities` on the `InitializeResult` that `super.initialize`
+    used to return.
+    - A mixin that returned a fresh object kept the handlers the rest of the
+      chain had registered while dropping the capabilities they declared, so
+      the server answered requests it did not advertise.
+    - The initialize response that `MCPServer.initializeLegacy` returns takes
+      its capabilities from that field.
+    - On the client, `MCPClient.capabilities` already worked this way.
   - Override `MCPServer.initializeLegacy` only to customize the legacy
     initialize response or version negotiation.
   - `ElicitationRequestSupport.elicit` now throws an `RpcException` with
@@ -46,6 +56,24 @@
     Dart stack trace attached. A server which overrides `readResource` and
     catches the `ArgumentError` its dartdoc used to promise needs to catch
     `RpcException` from `package:json_rpc_2` instead.
+  - `MCPServer.listRoots` and `MCPServer.createMessage` now throw an
+    `RpcException` with `McpErrorCodes.missingRequiredClientCapability` when
+    the client did not declare `roots` or `sampling`, naming the missing
+    capability under `data.requiredCapabilities`, the same way
+    `ElicitationRequestSupport.elicit` already did. The 2026-07-28 revision
+    requires a server not to send a request which relies on a capability the
+    client left out. Both used to send the request anyway, so what came back
+    depended on the peer: a client with no handler answered `-32601`, and a
+    request-scoped transport answered `-32603` because it cannot carry a
+    server to client request at all. A server which expects either of those
+    codes for an undeclared capability should read
+    `MCPServer.supportsRoots` or `MCPServer.supportsSampling` first.
+  - `LoggingSupport.loggingLevel` is now nullable (`LoggingLevel?`), `null`
+    meaning `log` sends nothing. On 2026-07-28 `initialize` assigns the level
+    the request named, over whatever the server set before it ran. Earlier
+    revisions fill it in only when the server set none. `LoggingSupport` also
+    stops registering `logging/setLevel` on that revision, which is what a
+    transport dispatching on its own gets.
 - Add `handleRequestScopedMessage` and `MCPServerFactory`, which serve each
   decoded JSON-RPC message on a fresh server instance for request-scoped
   transports. On 2026-07-28, successful results record the server
@@ -54,6 +82,11 @@
   carry the `ttlMs` and `cacheScope` hints, which the handler may set itself.
   A server answering an earlier revision gets none of them. Does **not** add
   any transport.
+- Support a per-request log level on 2026-07-28, see
+  https://modelcontextprotocol.io/specification/2026-07-28/server/utilities/logging.
+  The level goes in the `io.modelcontextprotocol/logLevel` metadata key, which
+  `MCPServerInitialization` now carries and the Streamable HTTP handler reads
+  off the envelope, answering invalid params when it is not a logging level.
 - `RootsTrackingSupport` no longer surfaces an unhandled error when the
   connection closes while a `listRoots` request is in flight.
 - The URL elicitation retry rethrows the original error when its data is not
@@ -117,18 +150,27 @@
   has no name for and the client is the one choosing between them. Its factory
   takes `ttlMs` and `cacheScope` on the same terms as the other five cacheable
   results, so the sixth operation the caching rules name is no longer the one
-  which cannot carry the hints.
+  that cannot carry the hints.
 - Serve `server/discover` from `MCPServer.discover`, which answers with the
-  request-scoped protocol versions this package implements, the
-  `ServerCapabilities` that `MCPServer.initialize` registered, and the
-  instructions the server was given. The dispatcher stamps the result type and
-  the server's identity on it as it does for every result, and `server/discover`
-  joins the set of requests whose results carry `ttlMs` and `cacheScope`. Only a
-  server initialized for 2026-07-28 or later registers the handler: answering
-  the request is how a
-  server declares it speaks the request-scoped protocol, and a server on an
-  earlier revision which answered would be taken for a modern one, see
-  https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/stdio#backward-compatibility.
+  request-scoped protocol versions this package implements, the capabilities
+  `MCPServer.initialize` registered, and the instructions the server was given.
+  - Its result joins the ones carrying `ttlMs` and `cacheScope`, and the
+    dispatcher stamps the result type and the server's identity on it as it
+    does for every result.
+  - Only a server initialized for 2026-07-28 or later registers the handler,
+    since answering is how a server declares it speaks the request-scoped
+    protocol.
+  - A server on an earlier revision that answered would be taken for a modern
+    one, see
+    https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/stdio#backward-compatibility.
+  - The advertisement leaves off `subscribe` and the `listChanged` bits: the
+    revision dropped `resources/subscribe`, and list changes reach a client on
+    a `subscriptions/listen` stream, which this package does not serve yet.
+  - Everything else the server put on the field goes out as it is, since
+    capabilities are an open set. `initializeLegacy` still sends the field as it is.
+  - The `ServerCapabilities` constructor writes `completions`, which it used to
+    drop, so a caller that passes one gets it back.
+
 - Add `package:dart_mcp/streamable_http.dart` with
   `handleStreamableHttpRequest`, the server side of the Streamable HTTP
   transport from the 2026-07-28 revision, see
@@ -139,7 +181,27 @@
   only. See `example/streamable_http_server.dart`. Does not add SSE response
   streams, the legacy session routes, or an HTTP client; those land as
   separate changes.
+- Add `ProtocolVersion.addedMethods` and `.removedMethods`, listing what each
+  revision of the protocol introduced and took out, and
+  `ProtocolVersion.methodIsValid`, which walks back from a revision to answer
+  whether it has a method.
+- Reject the methods the 2026-07-28 revision removed with `404` and
+  `-32601` in `handleStreamableHttpRequest`. Until now
+  `ping` answered `200` on every server, and `logging/setLevel`,
+  `resources/subscribe`, and `resources/unsubscribe` reached their handlers on
+  a server which mixes in `LoggingSupport` or `ResourcesSupport`. A request for
+  `notifications/roots/list_changed` reached one where the client asked for
+  roots. Notifications are still acknowledged with `202` before this check.
 - Add instructions to read the schema when tool arguments fail validation.
+- Add `ClientCapabilities.extensions` and `ServerCapabilities.extensions`, the
+  extension-support maps the 2026-07-28 revision adds to both capability
+  objects alongside the `experimental` maps, see
+  https://modelcontextprotocol.io/extensions/overview for the identifier
+  format. The client map is carried by the legacy `initialize` request and by
+  the `io.modelcontextprotocol/clientCapabilities` envelope key the
+  Streamable HTTP handler already requires; the server map travels with
+  `ServerCapabilities`, which is held by the legacy `initialize` result and
+  by `DiscoverResult`.
 
 ## 0.5.2
 

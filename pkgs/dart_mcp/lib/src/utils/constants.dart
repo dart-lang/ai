@@ -58,6 +58,7 @@ extension Keys on Never {
   static const exclusiveMaximum = 'exclusiveMaximum';
   static const exclusiveMinimum = 'exclusiveMinimum';
   static const experimental = 'experimental';
+  static const extensions = 'extensions';
   static const form = 'form';
   static const format = 'format';
   static const hasMore = 'hasMore';
@@ -77,6 +78,7 @@ extension Keys on Never {
   static const listChanged = 'listChanged';
   static const logger = 'logger';
   static const logging = 'logging';
+  static const logLevelMeta = 'io.modelcontextprotocol/logLevel';
   static const maxItems = 'maxItems';
   static const maxLength = 'maxLength';
   static const maxProperties = 'maxProperties';

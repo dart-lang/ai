@@ -33,6 +33,18 @@ void main() {
 
   // The factory tests assert on the map rather than on the getters, so that a
   // field the factory never wrote cannot be mistaken for one it wrote.
+  test('ServerCapabilities writes every field it is given', () {
+    final capabilities = ServerCapabilities(
+      completions: Completions(),
+      logging: Logging(),
+      tools: Tools(),
+    );
+
+    expect(capabilities.completions, isNotNull);
+    expect(capabilities.logging, isNotNull);
+    expect(capabilities.tools, isNotNull);
+  });
+
   group('server/discover', () {
     test('the request carries no parameters of its own', () {
       expect(DiscoverRequest() as Map<String, Object?>, isEmpty);
@@ -123,5 +135,81 @@ void main() {
 
       expect(result.supportedVersions, ['2026-07-28', '2027-11-05']);
     });
+  });
+
+  group('capability extensions', () {
+    test('client capabilities round trip an extensions map', () {
+      final capabilities = ClientCapabilities(
+        extensions: {'io.modelcontextprotocol/oauth-client-credentials': {}},
+      );
+
+      final map = capabilities as Map<String, Object?>;
+      expect(map['extensions'], {
+        'io.modelcontextprotocol/oauth-client-credentials': <String, Object?>{},
+      });
+      expect(capabilities.extensions, {
+        'io.modelcontextprotocol/oauth-client-credentials': <String, Object?>{},
+      });
+    });
+
+    test('client capabilities omit extensions when unset', () {
+      final capabilities = ClientCapabilities();
+
+      final map = capabilities as Map<String, Object?>;
+      expect(map.containsKey('extensions'), isFalse);
+      expect(capabilities.extensions, isNull);
+    });
+
+    test('server capabilities round trip an extensions map', () {
+      final capabilities = ServerCapabilities(
+        extensions: {'io.modelcontextprotocol/tasks': {}},
+      );
+
+      final map = capabilities as Map<String, Object?>;
+      expect(map['extensions'], {
+        'io.modelcontextprotocol/tasks': <String, Object?>{},
+      });
+      expect(capabilities.extensions, {
+        'io.modelcontextprotocol/tasks': <String, Object?>{},
+      });
+    });
+
+    test('server capabilities omit extensions when unset', () {
+      final capabilities = ServerCapabilities();
+
+      final map = capabilities as Map<String, Object?>;
+      expect(map.containsKey('extensions'), isFalse);
+      expect(capabilities.extensions, isNull);
+    });
+
+    test('client capabilities set extensions once', () {
+      final capabilities = ClientCapabilities();
+      capabilities.extensions = {
+        'io.modelcontextprotocol/oauth-client-credentials': {},
+      };
+
+      expect(capabilities.extensions, {
+        'io.modelcontextprotocol/oauth-client-credentials': <String, Object?>{},
+      });
+      expect(
+        () => capabilities.extensions = {'io.modelcontextprotocol/tasks': {}},
+        throwsA(isA<AssertionError>()),
+      );
+      // A compiled executable has asserts stripped, so there is nothing to
+      // catch there.
+    }, testOn: '!exe');
+
+    test('server capabilities set extensions once', () {
+      final capabilities = ServerCapabilities();
+      capabilities.extensions = {'io.modelcontextprotocol/tasks': {}};
+
+      expect(capabilities.extensions, {
+        'io.modelcontextprotocol/tasks': <String, Object?>{},
+      });
+      expect(
+        () => capabilities.extensions = {'io.modelcontextprotocol/other': {}},
+        throwsA(isA<AssertionError>()),
+      );
+    }, testOn: '!exe');
   });
 }

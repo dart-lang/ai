@@ -312,7 +312,7 @@ void main() {
       final notifications = <Map<String, Object?>>[];
       await harness.dispatch(
         _callTool('notify'),
-        _initialization(),
+        _initialization(logLevel: LoggingLevel.error),
         onNotification: notifications.add,
       );
 
@@ -326,13 +326,16 @@ void main() {
       final notifications = <Map<String, Object?>>[];
       // Without the roots capability, roots tracking logs a warning as it
       // initializes, before the dispatched message is handled.
-      await handleRequestScopedMessage(_listTools(), _initialization(), (
-        channel,
-      ) {
-        final server = _RootsTrackingDispatcherServer(channel);
-        servers.add(server);
-        return server;
-      }, onNotification: notifications.add);
+      await handleRequestScopedMessage(
+        _listTools(),
+        _initialization(logLevel: LoggingLevel.warning),
+        (channel) {
+          final server = _RootsTrackingDispatcherServer(channel);
+          servers.add(server);
+          return server;
+        },
+        onNotification: notifications.add,
+      );
 
       expect(
         notifications.map((n) => n[Keys.method]),
@@ -340,11 +343,109 @@ void main() {
       );
     });
 
+    test('drops a handler log when the request named no level', () async {
+      final harness = _DispatcherHarness();
+      final notifications = <Map<String, Object?>>[];
+      await harness.dispatch(
+        _callTool('notify'),
+        _initialization(),
+        onNotification: notifications.add,
+      );
+
+      final methods = [for (final n in notifications) n[Keys.method]];
+      expect(methods, contains(ProgressNotification.methodName));
+      expect(methods, isNot(contains(LoggingMessageNotification.methodName)));
+    });
+
+    test('applies the level a request asked for', () async {
+      final harness = _DispatcherHarness();
+      final notifications = <Map<String, Object?>>[];
+      // The `notify` tool logs at error, which is below emergency.
+      await harness.dispatch(
+        _callTool('notify'),
+        _initialization(logLevel: LoggingLevel.emergency),
+        onNotification: notifications.add,
+      );
+
+      final methods = [for (final n in notifications) n[Keys.method]];
+      expect(methods, contains(ProgressNotification.methodName));
+      expect(methods, isNot(contains(LoggingMessageNotification.methodName)));
+    });
+
+    test('keeps logging on a revision with no per-request level', () async {
+      final harness = _DispatcherHarness();
+      final notifications = <Map<String, Object?>>[];
+      await harness.dispatch(
+        _callTool('notify'),
+        _initialization(protocolVersion: ProtocolVersion.v2025_11_25),
+        onNotification: notifications.add,
+      );
+
+      final methods = [for (final n in notifications) n[Keys.method]];
+      expect(methods, contains(LoggingMessageNotification.methodName));
+    });
+
+    test('drops a level the server picked for itself', () async {
+      final harness = _DispatcherHarness(pickedLogLevel: LoggingLevel.warning);
+      final notifications = <Map<String, Object?>>[];
+      await harness.dispatch(
+        _callTool('notify'),
+        _initialization(),
+        onNotification: notifications.add,
+      );
+
+      final methods = [for (final n in notifications) n[Keys.method]];
+      expect(methods, contains(ProgressNotification.methodName));
+      expect(
+        methods,
+        isNot(contains(LoggingMessageNotification.methodName)),
+        reason: 'a level the server picked is not a level the request named',
+      );
+    });
+
+    test('keeps a level the server picked on an earlier revision', () async {
+      final harness = _DispatcherHarness(
+        pickedLogLevel: LoggingLevel.emergency,
+      );
+      final notifications = <Map<String, Object?>>[];
+      // Starting at the `warning` default instead would send the error the
+      // `notify` tool logs.
+      await harness.dispatch(
+        _callTool('notify'),
+        _initialization(protocolVersion: ProtocolVersion.v2025_11_25),
+        onNotification: notifications.add,
+      );
+
+      final methods = [for (final n in notifications) n[Keys.method]];
+      expect(methods, contains(ProgressNotification.methodName));
+      expect(methods, isNot(contains(LoggingMessageNotification.methodName)));
+    });
+
+    test('serves logging/setLevel only where the revision has it', () async {
+      final harness = _DispatcherHarness();
+      final modern = await harness.dispatch(_setLevel(), _initialization());
+      final legacy = await harness.dispatch(
+        _setLevel(),
+        _initialization(protocolVersion: ProtocolVersion.v2025_11_25),
+      );
+
+      expect(
+        (modern![Keys.error] as Map<String, Object?>?)?[Keys.code],
+        error_code.METHOD_NOT_FOUND,
+        reason: 'setLevel would hand a level to a request that named none',
+      );
+      expect(legacy![Keys.result], isNotNull);
+    });
+
     test('fails server to client requests instead of hanging', () async {
       final harness = _DispatcherHarness();
+      // The client declares roots, so `listRoots` reaches the transport rather
+      // than being refused for the missing capability.
       final response = await harness.dispatch(
         _callTool('roots'),
-        _initialization(),
+        _initialization(
+          capabilities: ClientCapabilities(roots: RootsCapabilities()),
+        ),
       );
 
       final error = response![Keys.error] as Map<String, Object?>;
@@ -605,10 +706,27 @@ void main() {
 
       final capabilities =
           DiscoverResult.fromMap(_result(response)).capabilities;
-      expect(capabilities.tools?.listChanged, isTrue);
-      expect(capabilities.resources?.listChanged, isTrue);
-      expect(capabilities.resources?.subscribe, isTrue);
+      expect(capabilities.tools, isNotNull);
+      expect(
+        capabilities.tools?.listChanged,
+        isNull,
+        reason: 'list changes reach a client on a `subscriptions/listen` '
+            'stream, which this package does not serve yet',
+      );
+      expect(capabilities.resources?.listChanged, isNull);
+      expect(
+        capabilities.resources?.subscribe,
+        isNull,
+        reason: 'this revision dropped `resources/subscribe`',
+      );
       expect(capabilities.logging, isNotNull);
+      expect(capabilities.completions, isNotNull);
+      expect(
+        capabilities.extensions,
+        isNotNull,
+        reason: 'capabilities are an open set, so anything the server put on \n'
+            'the field has to survive the trip',
+      );
       expect(
         capabilities.prompts,
         isNull,
@@ -638,7 +756,7 @@ void main() {
     });
 
     test(
-      'is not served on a revision which negotiates with initialize',
+      'is not served on a revision that negotiates with initialize',
       () async {
         final harness = _DispatcherHarness();
         final response = await harness.dispatch(
@@ -679,7 +797,7 @@ void main() {
       );
       await environment.initializeServer();
 
-      // A client which speaks both eras probes with `server/discover` first,
+      // A client that speaks both eras probes with `server/discover` first,
       // and an answer would tell it this connection is modern.
       await expectLater(
         environment.serverConnection.sendRequest(
@@ -701,6 +819,12 @@ void main() {
 /// Dispatches messages over [_DispatcherTestServer]s and records the servers
 /// it creates.
 final class _DispatcherHarness {
+  _DispatcherHarness({this.pickedLogLevel});
+
+  /// A level the server sets on itself before `initialize` runs, the way a
+  /// server that wants its own default does.
+  final LoggingLevel? pickedLogLevel;
+
   final servers = <_DispatcherTestServer>[];
 
   Future<Map<String, Object?>?> dispatch(
@@ -709,6 +833,7 @@ final class _DispatcherHarness {
     void Function(Map<String, Object?> notification)? onNotification,
   }) => handleRequestScopedMessage(message, initialization, (channel) {
     final server = _DispatcherTestServer(channel);
+    if (pickedLogLevel != null) server.loggingLevel = pickedLogLevel;
     servers.add(server);
     return server;
   }, onNotification: onNotification);
@@ -716,10 +841,14 @@ final class _DispatcherHarness {
 
 /// A server with tools which observe the request-scoped lifecycle.
 final class _DispatcherTestServer extends TestMCPServer
-    with LoggingSupport, ResourcesSupport, ToolsSupport {
+    with CompletionsSupport, LoggingSupport, ResourcesSupport, ToolsSupport {
   static const testNotification = 'notifications/test';
 
   _DispatcherTestServer(super.channel);
+
+  @override
+  CompleteResult handleComplete(CompleteRequest request) =>
+      CompleteResult(completion: Completion(values: const []));
 
   /// How many [testNotification] notifications this server received.
   int testNotifications = 0;
@@ -729,9 +858,8 @@ final class _DispatcherTestServer extends TestMCPServer
   Map<String, Object?>? retainedResult;
 
   @override
-  FutureOr<ServerCapabilities> initialize(
-    MCPServerInitialization initialization,
-  ) {
+  FutureOr<void> initialize(MCPServerInitialization initialization) {
+    capabilities.extensions = const {'io.example/dispatcher': true};
     registerNotificationHandler(testNotification, (Notification? _) {
       testNotifications++;
     });
@@ -827,9 +955,8 @@ final class _FailingInitServer extends TestMCPServer {
   @override
   // A server which fails to initialize cannot call super first.
   // ignore: must_call_super
-  FutureOr<ServerCapabilities> initialize(
-    MCPServerInitialization initialization,
-  ) => throw StateError('initialization failed');
+  FutureOr<void> initialize(MCPServerInitialization initialization) =>
+      throw StateError('initialization failed');
 }
 
 /// A server whose `resources/read` answers with whatever [shape] returns.
@@ -839,9 +966,7 @@ final class _ShapedReadServer extends TestMCPServer with ResourcesSupport {
   final Map<String, Object?> Function(Map<String, Object?> result) shape;
 
   @override
-  FutureOr<ServerCapabilities> initialize(
-    MCPServerInitialization initialization,
-  ) {
+  FutureOr<void> initialize(MCPServerInitialization initialization) {
     addResource(
       Resource(uri: 'file:///probe', name: 'probe'),
       (_) async => ReadResourceResult(contents: []),
@@ -898,6 +1023,13 @@ Map<String, Object?> _ping() => {
   Keys.method: PingRequest.methodName,
 };
 
+Map<String, Object?> _setLevel() => {
+  Keys.jsonrpc: '2.0',
+  Keys.id: 1,
+  Keys.method: SetLevelRequest.methodName,
+  Keys.params: {Keys.level: LoggingLevel.debug.name},
+};
+
 Map<String, Object?> _discover() => {
   Keys.jsonrpc: '2.0',
   Keys.id: 1,
@@ -909,9 +1041,11 @@ Map<String, Object?> _discover() => {
 MCPServerInitialization _initialization({
   ClientCapabilities? capabilities,
   ProtocolVersion protocolVersion = ProtocolVersion.v2026_07_28,
+  LoggingLevel? logLevel,
 }) => MCPServerInitialization(
   protocolVersion: protocolVersion,
   clientCapabilities: capabilities ?? ClientCapabilities(),
+  logLevel: logLevel,
 );
 
 Map<String, Object?> _result(Map<String, Object?>? response) =>
