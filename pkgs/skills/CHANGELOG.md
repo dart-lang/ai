@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.0-wip
+## 1.0.0
 
 - Display the actual install directory for each agent in the `get` command's
   summary message.

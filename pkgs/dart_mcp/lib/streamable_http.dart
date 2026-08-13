@@ -338,7 +338,9 @@ Future<void> handleStreamableHttpRequest(
         response,
         HttpStatus.badRequest,
         RpcException.invalidParams(
-          'The envelope ${Keys.logLevelMeta} must be a logging level',
+          'The envelope ${Keys.logLevelMeta} was "$rawLogLevel", which is not '
+          'one of the logging levels: '
+          '${LoggingLevel.values.map((level) => level.name).join(', ')}',
         ),
         decoded,
       );
@@ -410,12 +412,13 @@ Future<void> handleStreamableHttpRequest(
     }
   }
 
-  if (method == InitializeRequest.methodName ||
-      method == InitializedNotification.methodName) {
-    // The legacy lifecycle is not part of the request-scoped protocol, so its
-    // methods are unknown here rather than dispatcher errors, which is also
-    // what `handleRequestScopedMessage` requires of its callers. A legacy
-    // client never reaches this point: it fails the version or header checks
+  if (!protocolVersion.methodIsValid(method) && _someRevisionDefines(method)) {
+    // A method an earlier revision defined and this one took out is unknown
+    // here, not a dispatcher error. A mixin or a capability registers handlers
+    // for several of them, so a request would reach one without this check. A
+    // method no revision defines goes to the dispatcher, which is what lets a
+    // server answer its own.
+    // A legacy client never gets here: it fails the version or header checks
     // above, which is the `400 Bad Request` the compatibility matrix
     // prescribes for a legacy client talking to a modern HTTP server.
     return _reject(
@@ -568,6 +571,13 @@ const _eventStreamMimeType = 'text/event-stream';
 /// the request-scoped protocol this transport speaks was introduced later, so
 /// the two sets are deliberately separate.
 const _supportedVersions = {ProtocolVersion.v2026_07_28};
+
+/// Whether any revision of the protocol defines [method].
+///
+/// A method none of them define belongs to the server, not to the protocol,
+/// so the transport leaves it to the dispatcher.
+bool _someRevisionDefines(String method) =>
+    ProtocolVersion.values.any((v) => v.addedMethods.contains(method));
 
 /// The methods whose `name` or `uri` parameter is mirrored in the `Mcp-Name`
 /// header, mapping each method to the parameter that carries it.

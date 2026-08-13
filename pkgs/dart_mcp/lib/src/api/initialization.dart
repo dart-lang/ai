@@ -192,11 +192,13 @@ extension type ClientCapabilities.fromMap(Map<String, Object?> _value) {
     RootsCapabilities? roots,
     Map<String, Object?>? sampling,
     ElicitationCapability? elicitation,
+    Map<String, Object?>? extensions,
   }) => ClientCapabilities.fromMap({
     if (experimental != null) Keys.experimental: experimental,
     if (roots != null) Keys.roots: roots,
     if (sampling != null) Keys.sampling: sampling,
     if (elicitation != null) Keys.elicitation: elicitation,
+    if (extensions != null) Keys.extensions: extensions,
   });
 
   /// Experimental, non-standard capabilities that the client supports.
@@ -236,6 +238,21 @@ extension type ClientCapabilities.fromMap(Map<String, Object?> _value) {
   set elicitation(ElicitationCapability? value) {
     assert(elicitation == null);
     _value[Keys.elicitation] = value;
+  }
+
+  /// Optional MCP extensions that the client supports.
+  ///
+  /// Keys are extension identifiers in the `{vendor-prefix}/{extension-name}`
+  /// format, such as `io.modelcontextprotocol/oauth-client-credentials`, and
+  /// values are per-extension settings objects. An empty object indicates
+  /// support with no settings.
+  Map<String, Object?>? get extensions =>
+      (_value[Keys.extensions] as Map?)?.cast<String, Object?>();
+
+  /// Sets [extensions], asserting it is null first.
+  set extensions(Map<String, Object?>? value) {
+    assert(extensions == null);
+    _value[Keys.extensions] = value;
   }
 }
 
@@ -298,6 +315,7 @@ extension type ServerCapabilities.fromMap(Map<String, Object?> _value) {
     Tools? tools,
     @Deprecated('Do not use, only clients have this capability')
     Elicitation? elicitation,
+    Map<String, Object?>? extensions,
   }) => ServerCapabilities.fromMap({
     if (experimental != null) Keys.experimental: experimental,
     if (logging != null) Keys.logging: logging,
@@ -305,6 +323,7 @@ extension type ServerCapabilities.fromMap(Map<String, Object?> _value) {
     if (resources != null) Keys.resources: resources,
     if (tools != null) Keys.tools: tools,
     if (elicitation != null) Keys.elicitation: elicitation,
+    if (extensions != null) Keys.extensions: extensions,
   });
 
   /// Experimental, non-standard capabilities that the server supports.
@@ -372,6 +391,21 @@ extension type ServerCapabilities.fromMap(Map<String, Object?> _value) {
   set elicitation(Elicitation? value) {
     assert(elicitation == null);
     _value[Keys.elicitation] = value;
+  }
+
+  /// Optional MCP extensions that the server supports.
+  ///
+  /// Keys are extension identifiers in the `{vendor-prefix}/{extension-name}`
+  /// format, such as `io.modelcontextprotocol/tasks`, and values are
+  /// per-extension settings objects. An empty object indicates support with
+  /// no settings.
+  Map<String, Object?>? get extensions =>
+      (_value[Keys.extensions] as Map?)?.cast<String, Object?>();
+
+  /// Sets [extensions] if it is null, otherwise throws.
+  set extensions(Map<String, Object?>? value) {
+    assert(extensions == null);
+    _value[Keys.extensions] = value;
   }
 }
 

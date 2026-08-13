@@ -46,6 +46,24 @@
     Dart stack trace attached. A server which overrides `readResource` and
     catches the `ArgumentError` its dartdoc used to promise needs to catch
     `RpcException` from `package:json_rpc_2` instead.
+  - `MCPServer.listRoots` and `MCPServer.createMessage` now throw an
+    `RpcException` with `McpErrorCodes.missingRequiredClientCapability` when
+    the client did not declare `roots` or `sampling`, naming the missing
+    capability under `data.requiredCapabilities`, the same way
+    `ElicitationRequestSupport.elicit` already did. The 2026-07-28 revision
+    requires a server not to send a request which relies on a capability the
+    client left out. Both used to send the request anyway, so what came back
+    depended on the peer: a client with no handler answered `-32601`, and a
+    request-scoped transport answered `-32603` because it cannot carry a
+    server to client request at all. A server which expects either of those
+    codes for an undeclared capability should read
+    `MCPServer.supportsRoots` or `MCPServer.supportsSampling` first.
+  - `LoggingSupport.loggingLevel` is now nullable (`LoggingLevel?`), `null`
+    meaning `log` sends nothing. On 2026-07-28 `initialize` assigns the level
+    the request named, over whatever the server set before it ran. Earlier
+    revisions fill it in only when the server set none. `LoggingSupport` also
+    stops registering `logging/setLevel` on that revision, which is what a
+    transport dispatching on its own gets.
 - Add `handleRequestScopedMessage` and `MCPServerFactory`, which serve each
   decoded JSON-RPC message on a fresh server instance for request-scoped
   transports. On 2026-07-28, successful results record the server
@@ -54,16 +72,11 @@
   carry the `ttlMs` and `cacheScope` hints, which the handler may set itself.
   A server answering an earlier revision gets none of them. Does **not** add
   any transport.
-- Send `notifications/message` only when the request named a log level on
-  2026-07-28, see
+- Support a per-request log level on 2026-07-28, see
   https://modelcontextprotocol.io/specification/2026-07-28/server/utilities/logging.
-  The name goes in the `io.modelcontextprotocol/logLevel` metadata key, which
+  The level goes in the `io.modelcontextprotocol/logLevel` metadata key, which
   `MCPServerInitialization` now carries and the Streamable HTTP handler reads
-  off the envelope, rejecting a value which is not a logging level with
-  invalid params. `LoggingSupport.log` sends at or above the level the key
-  named, and sends nothing when the key was absent, which that revision
-  requires of it. The revisions the legacy handshake negotiates have no
-  per-request level, so `logging/setLevel` still decides there.
+  off the envelope, answering invalid params when it is not a logging level.
 - `RootsTrackingSupport` no longer surfaces an unhandled error when the
   connection closes while a `listRoots` request is in flight.
 - The URL elicitation retry rethrows the original error when its data is not
@@ -139,7 +152,27 @@
   only. See `example/streamable_http_server.dart`. Does not add SSE response
   streams, the legacy session routes, or an HTTP client; those land as
   separate changes.
+- Add `ProtocolVersion.addedMethods` and `.removedMethods`, listing what each
+  revision of the protocol introduced and took out, and
+  `ProtocolVersion.methodIsValid`, which walks back from a revision to answer
+  whether it has a method.
+- Reject the methods the 2026-07-28 revision removed with `404` and
+  `-32601` in `handleStreamableHttpRequest`. Until now
+  `ping` answered `200` on every server, and `logging/setLevel`,
+  `resources/subscribe`, and `resources/unsubscribe` reached their handlers on
+  a server which mixes in `LoggingSupport` or `ResourcesSupport`. A request for
+  `notifications/roots/list_changed` reached one where the client asked for
+  roots. Notifications are still acknowledged with `202` before this check.
 - Add instructions to read the schema when tool arguments fail validation.
+- Add `ClientCapabilities.extensions` and `ServerCapabilities.extensions`, the
+  extension-support maps the 2026-07-28 revision adds to both capability
+  objects alongside the `experimental` maps, see
+  https://modelcontextprotocol.io/extensions/overview for the identifier
+  format. The client map is carried by the legacy `initialize` request and by
+  the `io.modelcontextprotocol/clientCapabilities` envelope key the
+  Streamable HTTP handler already requires; the server map travels with
+  `ServerCapabilities`, which is held by the legacy `initialize` result and
+  by `DiscoverResult`.
 
 ## 0.5.2
 

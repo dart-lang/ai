@@ -58,6 +58,7 @@ extension Keys on Never {
   static const exclusiveMaximum = 'exclusiveMaximum';
   static const exclusiveMinimum = 'exclusiveMinimum';
   static const experimental = 'experimental';
+  static const extensions = 'extensions';
   static const form = 'form';
   static const format = 'format';
   static const hasMore = 'hasMore';
