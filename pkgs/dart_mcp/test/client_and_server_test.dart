@@ -43,7 +43,11 @@ void main() {
         CreateMessageRequest(messages: [], maxTokens: 1),
       ),
       throwsA(
-        isA<RpcException>().having((e) => e.code, 'code', METHOD_NOT_FOUND),
+        isA<RpcException>().having(
+          (e) => e.code,
+          'code',
+          McpErrorCodes.missingRequiredClientCapability,
+        ),
       ),
       reason: 'The server calling unsupported methods should throw',
     );

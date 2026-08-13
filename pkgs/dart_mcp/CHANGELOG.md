@@ -46,6 +46,18 @@
     Dart stack trace attached. A server which overrides `readResource` and
     catches the `ArgumentError` its dartdoc used to promise needs to catch
     `RpcException` from `package:json_rpc_2` instead.
+  - `MCPServer.listRoots` and `MCPServer.createMessage` now throw an
+    `RpcException` with `McpErrorCodes.missingRequiredClientCapability` when
+    the client did not declare `roots` or `sampling`, naming the missing
+    capability under `data.requiredCapabilities`, the same way
+    `ElicitationRequestSupport.elicit` already did. The 2026-07-28 revision
+    requires a server not to send a request which relies on a capability the
+    client left out. Both used to send the request anyway, so what came back
+    depended on the peer: a client with no handler answered `-32601`, and a
+    request-scoped transport answered `-32603` because it cannot carry a
+    server to client request at all. A server which expects either of those
+    codes for an undeclared capability should read
+    `MCPServer.supportsRoots` or `MCPServer.supportsSampling` first.
 - Add `handleRequestScopedMessage` and `MCPServerFactory`, which serve each
   decoded JSON-RPC message on a fresh server instance for request-scoped
   transports. On 2026-07-28, successful results record the server

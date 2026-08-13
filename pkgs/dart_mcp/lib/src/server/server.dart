@@ -191,13 +191,69 @@ abstract base class MCPServer extends MCPBase {
     _initialized.complete(notification);
   }
 
+  /// Whether or not the connected client supports [listRoots].
+  ///
+  /// Only safe to call after calling [initialize] on `super` since this
+  /// is based on the client capabilities.
+  bool get supportsRoots => clientCapabilities.roots != null;
+
+  /// Whether or not the connected client supports [createMessage].
+  ///
+  /// Only safe to call after calling [initialize] on `super` since this
+  /// is based on the client capabilities.
+  bool get supportsSampling => clientCapabilities.sampling != null;
+
   /// Lists all the root URIs from the client.
-  Future<ListRootsResult> listRoots([ListRootsRequest? request]) =>
-      sendRequest(ListRootsRequest.methodName, request);
+  ///
+  /// This method will only succeed if the client has advertised the `roots`
+  /// capability.
+  ///
+  /// Throws an [RpcException] with
+  /// [McpErrorCodes.missingRequiredClientCapability] when it has not, naming
+  /// the capability the client is missing under `data.requiredCapabilities`,
+  /// which the 2026-07-28 revision requires of that error.
+  Future<ListRootsResult> listRoots([ListRootsRequest? request]) async {
+    if (!supportsRoots) {
+      throw _missingClientCapability(
+        'roots',
+        ClientCapabilities(roots: RootsCapabilities()),
+      );
+    }
+    return sendRequest(ListRootsRequest.methodName, request);
+  }
 
   /// A request to prompt the LLM owned by the client with a message.
   ///
   /// See https://spec.modelcontextprotocol.io/specification/2025-11-05/client/sampling/.
-  Future<CreateMessageResult> createMessage(CreateMessageRequest request) =>
-      sendRequest(CreateMessageRequest.methodName, request);
+  ///
+  /// This method will only succeed if the client has advertised the `sampling`
+  /// capability.
+  ///
+  /// Throws an [RpcException] with
+  /// [McpErrorCodes.missingRequiredClientCapability] when it has not, naming
+  /// the capability the client is missing under `data.requiredCapabilities`,
+  /// which the 2026-07-28 revision requires of that error.
+  Future<CreateMessageResult> createMessage(
+    CreateMessageRequest request,
+  ) async {
+    if (!supportsSampling) {
+      throw _missingClientCapability(
+        'sampling',
+        ClientCapabilities(sampling: {}),
+      );
+    }
+    return sendRequest(CreateMessageRequest.methodName, request);
+  }
 }
+
+/// The error a server must return when handling a request needs [capability],
+/// which the client did not declare, carrying [required] under
+/// `data.requiredCapabilities`.
+RpcException _missingClientCapability(
+  String capability,
+  ClientCapabilities required,
+) => RpcException(
+  McpErrorCodes.missingRequiredClientCapability,
+  'The client did not declare the $capability capability',
+  data: {Keys.requiredCapabilities: required},
+);
