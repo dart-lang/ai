@@ -253,7 +253,9 @@ void main() {
         json: body(listTools),
       );
       expect(status, 400);
-      expect(errorCode(text), McpErrorCodes.headerMismatch);
+      // The number is written out here, and not read off the constant, so
+      // that this catches a constant which drifts away from the schema.
+      expect(errorCode(text), -32020);
       expect(servers, isEmpty);
     });
 
@@ -880,7 +882,7 @@ void main() {
         json: {Keys.jsonrpc: '2.0', Keys.id: 1, Keys.method: initialize},
       );
       expect(status, 400);
-      expect(errorCode(text), McpErrorCodes.unsupportedProtocolVersion);
+      expect(errorCode(text), -32022);
       final data =
           (decode(text)[Keys.error] as Map<String, Object?>)[Keys.data]
               as Map<String, Object?>;
@@ -943,7 +945,7 @@ void main() {
         json: body(callTool, params: {Keys.name: 'test/needsSampling'}),
       );
       expect(status, 400);
-      expect(errorCode(text), McpErrorCodes.missingRequiredClientCapability);
+      expect(errorCode(text), -32021);
     });
 
     test('rejects an envelope without client capabilities', () async {

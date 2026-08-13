@@ -6,14 +6,10 @@ import 'package:dart_mcp/client.dart';
 import 'package:test/test.dart';
 
 void main() {
-  test('error codes hold the values their revision assigned', () {
-    // Expected values are pinned from the schema constants: HEADER_MISMATCH,
-    // MISSING_REQUIRED_CLIENT_CAPABILITY, and UNSUPPORTED_PROTOCOL_VERSION in
-    // the 2026-07-28 schema, and URL_ELICITATION_REQUIRED in the 2025-11-25
-    // schema.
-    expect(McpErrorCodes.headerMismatch, -32020);
-    expect(McpErrorCodes.missingRequiredClientCapability, -32021);
-    expect(McpErrorCodes.unsupportedProtocolVersion, -32022);
+  test('urlElicitationRequired holds the value 2025-11-25 assigned it', () {
+    // The other codes get their numbers checked on the wire in
+    // streamable_http_test.dart. This one is reserved on 2026-07-28 and a
+    // server must not send it, so it has no wire site to check it from.
     expect(McpErrorCodes.urlElicitationRequired, -32042);
   });
 }
