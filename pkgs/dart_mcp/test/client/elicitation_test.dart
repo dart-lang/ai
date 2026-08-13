@@ -166,13 +166,14 @@ void main() {
         ),
       );
       // Answer like a non-Dart server which attaches something other than an
-      // elicitation request as the error data.
+      // elicitation request as the error data. The number is written out so a
+      // renumber fails here.
       serverController.stream.listen((request) {
         clientController.add({
           Keys.jsonrpc: '2.0',
           Keys.id: request[Keys.id],
           Keys.error: {
-            Keys.code: McpErrorCodes.urlElicitationRequired,
+            Keys.code: -32042,
             Keys.message: 'Url required',
             Keys.data: 'not a map',
           },

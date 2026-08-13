@@ -6,10 +6,9 @@ import 'package:dart_mcp/client.dart';
 import 'package:test/test.dart';
 
 void main() {
-  test('urlElicitationRequired holds the value 2025-11-25 assigned it', () {
-    // The other codes get their numbers checked on the wire in
-    // streamable_http_test.dart. This one is reserved on 2026-07-28 and a
-    // server must not send it, so it has no wire site to check it from.
-    expect(McpErrorCodes.urlElicitationRequired, -32042);
+  test('the error codes hold the numbers 2026-07-28 assigned', () {
+    expect(McpErrorCodes.headerMismatch, -32020);
+    expect(McpErrorCodes.missingRequiredClientCapability, -32021);
+    expect(McpErrorCodes.unsupportedProtocolVersion, -32022);
   });
 }
