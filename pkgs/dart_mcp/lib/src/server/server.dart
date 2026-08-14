@@ -207,17 +207,43 @@ abstract base class MCPServer extends MCPBase {
 
   /// The capabilities [discover] advertises.
   ///
-  /// The revisions this answers for dropped `resources/subscribe`, and they
-  /// carry list changes on `subscriptions/listen` streams, which this package
-  /// does not serve yet, so the bits standing for those stay off. The
-  /// `initializeLegacy` response keeps them, since they are honest on the
-  /// revisions that handshake negotiates.
+  /// On these revisions a client only hears a list change or a resource update
+  /// over a `subscriptions/listen` stream it opened with the matching
+  /// `promptsListChanged`, `toolsListChanged`, `resourcesListChanged` or
+  /// `resourceSubscriptions` filter, and this package does not serve that
+  /// request yet. So the four bits standing for those notifications come off
+  /// here: `listChanged` on each of the three, and `subscribe` on
+  /// [ServerCapabilities.resources]. Every other key the server registered is
+  /// passed through, and `initializeLegacy` keeps all of them, since the
+  /// revisions that handshake negotiates still serve `resources/subscribe` and
+  /// send the list changes without a filter.
   ServerCapabilities get _advertisedCapabilities => ServerCapabilities.fromMap({
     ...capabilities as Map<String, Object?>,
-    if (capabilities.prompts != null) Keys.prompts: Prompts(),
-    if (capabilities.resources != null) Keys.resources: Resources(),
-    if (capabilities.tools != null) Keys.tools: Tools(),
+    if (capabilities.prompts case final prompts?)
+      Keys.prompts: Prompts.fromMap(
+        _without(prompts as Map<String, Object?>, const [Keys.listChanged]),
+      ),
+    if (capabilities.resources case final resources?)
+      Keys.resources: Resources.fromMap(
+        _without(resources as Map<String, Object?>, const [
+          Keys.listChanged,
+          Keys.subscribe,
+        ]),
+      ),
+    if (capabilities.tools case final tools?)
+      Keys.tools: Tools.fromMap(
+        _without(tools as Map<String, Object?>, const [Keys.listChanged]),
+      ),
   });
+
+  /// A copy of [capability] without [keys], leaving the original alone.
+  static Map<String, Object?> _without(
+    Map<String, Object?> capability,
+    List<String> keys,
+  ) => {
+    for (final entry in capability.entries)
+      if (!keys.contains(entry.key)) entry.key: entry.value,
+  };
 
   @mustCallSuper
   /// Handles the initialize request used by legacy MCP protocols.

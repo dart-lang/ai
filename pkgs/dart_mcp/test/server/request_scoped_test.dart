@@ -717,7 +717,8 @@ void main() {
       expect(
         capabilities.resources?.subscribe,
         isNull,
-        reason: 'this revision dropped `resources/subscribe`',
+        reason: 'resource updates reach a client through the '
+            '`resourceSubscriptions` filter on the same stream',
       );
       expect(capabilities.logging, isNotNull);
       expect(capabilities.completions, isNotNull);
@@ -731,6 +732,25 @@ void main() {
         capabilities.prompts,
         isNull,
         reason: 'this server registers no prompts, so it must not claim them',
+      );
+    });
+
+    test('keeps the capability fields it was not asked to drop', () async {
+      final response = await handleRequestScopedMessage(
+        _discover(),
+        _initialization(),
+        _ExtraResourceFieldServer.new,
+      );
+
+      final resources =
+          DiscoverResult.fromMap(_result(response)).capabilities.resources;
+      expect(resources?.listChanged, isNull);
+      expect(resources?.subscribe, isNull);
+      expect(
+        resources! as Map<String, Object?>,
+        containsPair(_ExtraResourceFieldServer.unknownField, true),
+        reason: 'only the bits this package cannot honor come off, so a field '
+            'a later revision adds still reaches the client',
       );
     });
 
@@ -946,6 +966,21 @@ final class _DispatcherTestServer extends TestMCPServer
 final class _RootsTrackingDispatcherServer extends TestMCPServer
     with LoggingSupport, RootsTrackingSupport, ToolsSupport {
   _RootsTrackingDispatcherServer(super.channel);
+}
+
+/// A server carrying a `resources` capability field this package does not
+/// know, standing in for one a later revision adds.
+final class _ExtraResourceFieldServer extends TestMCPServer
+    with ResourcesSupport {
+  static const unknownField = 'io.example/unknownResourceField';
+
+  _ExtraResourceFieldServer(super.channel);
+
+  @override
+  FutureOr<void> initialize(MCPServerInitialization initialization) async {
+    await super.initialize(initialization);
+    (capabilities.resources! as Map<String, Object?>)[unknownField] = true;
+  }
 }
 
 /// A server whose initialization always fails.

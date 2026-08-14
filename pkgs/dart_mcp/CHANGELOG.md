@@ -163,11 +163,13 @@
   - A server on an earlier revision that answered would be taken for a modern
     one, see
     https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/stdio#backward-compatibility.
-  - The advertisement leaves off `subscribe` and the `listChanged` bits: the
-    revision dropped `resources/subscribe`, and list changes reach a client on
-    a `subscriptions/listen` stream, which this package does not serve yet.
-  - Everything else the server put on the field goes out as it is, since
-    capabilities are an open set. `initializeLegacy` still sends the field as it is.
+  - The advertisement removes `subscribe` and the three `listChanged` bits,
+    since a client only hears those notifications over a
+    `subscriptions/listen` stream, and this package does not serve that
+    request yet.
+  - Every other key on those capabilities goes out as it is, and so does the
+    rest of the field, since capabilities are an open set.
+    `initializeLegacy` still sends all of them.
   - The `ServerCapabilities` constructor writes `completions`, which it used to
     drop, so a caller that passes one gets it back.
 
