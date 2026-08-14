@@ -126,10 +126,11 @@ extension type SubscriptionsAcknowledgedNotification.fromMap(
 
   factory SubscriptionsAcknowledgedNotification({
     required SubscriptionFilter notifications,
+    required RequestId subscriptionId,
     Meta? meta,
   }) => SubscriptionsAcknowledgedNotification.fromMap({
     Keys.notifications: notifications,
-    if (meta != null) Keys.meta: meta,
+    Keys.meta: {...?meta?._value, Keys.subscriptionIdMeta: subscriptionId},
   });
 
   /// The notification types the server agreed to send on this stream.
@@ -142,5 +143,22 @@ extension type SubscriptionsAcknowledgedNotification.fromMap(
       );
     }
     return notifications;
+  }
+
+  /// The JSON-RPC id of the [SubscriptionsListenRequest] which opened the
+  /// stream this notification acknowledges.
+  ///
+  /// Every notification delivered on the stream repeats it under the
+  /// `io.modelcontextprotocol/subscriptionId` metadata key, which is how a
+  /// client tells its streams apart.
+  RequestId get subscriptionId {
+    final subscriptionId = meta?[Keys.subscriptionIdMeta];
+    if (subscriptionId == null) {
+      throw ArgumentError(
+        'Missing ${Keys.subscriptionIdMeta} metadata in '
+        '$SubscriptionsAcknowledgedNotification.',
+      );
+    }
+    return RequestId(subscriptionId);
   }
 }
