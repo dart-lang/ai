@@ -58,6 +58,11 @@
     server to client request at all. A server which expects either of those
     codes for an undeclared capability should read
     `MCPServer.supportsRoots` or `MCPServer.supportsSampling` first.
+  - `ResourceLink.icons` is now `List<Icon>?` instead of `List<String>?`, and
+    its factory takes the icons, the way the other five types carrying `icons`
+    already do. The schema has typed the field as `Icon[]` since it was added,
+    so reading it off a resource link a server sent threw a type error on the
+    first element.
   - `LoggingSupport.loggingLevel` is now nullable (`LoggingLevel?`), `null`
     meaning `log` sends nothing. On 2026-07-28 `initialize` assigns the level
     the request named, over whatever the server set before it ran. Earlier
@@ -77,6 +82,8 @@
   The level goes in the `io.modelcontextprotocol/logLevel` metadata key, which
   `MCPServerInitialization` now carries and the Streamable HTTP handler reads
   off the envelope, answering invalid params when it is not a logging level.
+- `Resource.size` reads `null` for an absent size instead of throwing a type
+  error. The field is optional, and the getter cast it to a non-nullable `int`.
 - `RootsTrackingSupport` no longer surfaces an unhandled error when the
   connection closes while a `listRoots` request is in flight.
 - The URL elicitation retry rethrows the original error when its data is not
