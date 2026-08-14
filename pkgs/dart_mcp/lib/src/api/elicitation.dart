@@ -132,7 +132,10 @@ extension type ElicitResult.fromMap(Map<String, Object?> _value)
   factory ElicitResult({
     required ElicitationAction action,
     Map<String, Object?>? content,
-  }) => ElicitResult.fromMap({Keys.action: action.name, Keys.content: content});
+  }) => ElicitResult.fromMap({
+    Keys.action: action.name,
+    if (content != null) Keys.content: content,
+  });
 
   /// The action taken by the user in response to an elicitation request.
   ///
