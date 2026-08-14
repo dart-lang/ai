@@ -12,8 +12,16 @@ import '../test_utils.dart';
 void main() {
   test('optional fields stay off the wire when they are not given', () {
     expect(CompletionContext() as Map<String, Object?>, isEmpty);
+    expect(CompletionContext(arguments: {'a': 'b'}) as Map<String, Object?>, {
+      'arguments': {'a': 'b'},
+    });
     expect(PromptReference(name: 'p') as Map<String, Object?>, {
       'name': 'p',
+      'type': PromptReference.expectedType,
+    });
+    expect(PromptReference(name: 'p', title: 't') as Map<String, Object?>, {
+      'name': 'p',
+      'title': 't',
       'type': PromptReference.expectedType,
     });
   });

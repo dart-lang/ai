@@ -6,12 +6,20 @@ import 'package:dart_mcp/client.dart';
 import 'package:test/test.dart';
 
 void main() {
-  // These assert on the map rather than on the getters, because a getter
-  // reads the same null whether the factory omitted the key or wrote null
-  // into it, and only the map shows which one went out on the wire.
+  // A getter reads the same null whether the key was omitted or written as
+  // null, so these assert on the map.
   test('optional fields stay off the wire when they are not given', () {
     expect(BaseMetadata(name: 'n') as Map<String, Object?>, {'name': 'n'});
+    expect(BaseMetadata(name: 'n', title: 't') as Map<String, Object?>, {
+      'name': 'n',
+      'title': 't',
+    });
     expect(MetaWithProgressToken() as Map<String, Object?>, isEmpty);
+    expect(
+      MetaWithProgressToken(progressToken: ProgressToken(1))
+          as Map<String, Object?>,
+      {'progressToken': 1},
+    );
   });
 
   test('protocol versions can be compared', () {
