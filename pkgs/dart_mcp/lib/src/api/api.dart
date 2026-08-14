@@ -17,6 +17,7 @@ part 'elicitation.dart';
 part 'error_codes.dart';
 part 'icons.dart';
 part 'initialization.dart';
+part 'input_required.dart';
 part 'logging.dart';
 part 'prompts.dart';
 part 'resources.dart';
