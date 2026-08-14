@@ -8,7 +8,7 @@ import 'package:test/test.dart';
 void main() {
   // A getter reads the same null whether the key was omitted or written as
   // null, so these assert on the map.
-  test('optional fields stay off the wire when they are not given', () {
+  test('metadata and meta leave out what they are not given', () {
     expect(BaseMetadata(name: 'n') as Map<String, Object?>, {'name': 'n'});
     expect(BaseMetadata(name: 'n', title: 't') as Map<String, Object?>, {
       'name': 'n',

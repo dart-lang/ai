@@ -10,7 +10,7 @@ import 'package:test/test.dart';
 import '../test_utils.dart';
 
 void main() {
-  test('optional fields stay off the wire when they are not given', () {
+  test('a context and a reference leave out what they are not given', () {
     expect(CompletionContext() as Map<String, Object?>, isEmpty);
     expect(CompletionContext(arguments: {'a': 'b'}) as Map<String, Object?>, {
       'arguments': {'a': 'b'},
