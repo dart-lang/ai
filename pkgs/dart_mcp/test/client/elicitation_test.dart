@@ -79,8 +79,10 @@ void main() {
           Tool(name: 'test_tool', inputSchema: ObjectSchema()),
           (request) {
             if (!server.userHasCompletedUrlElicitation) {
+              // A server picks the number out of the spec, so this side does
+              // not read the constant the client matches on.
               throw RpcException(
-                McpErrorCodes.urlElicitationRequired,
+                -32042,
                 'Url required',
                 data: ElicitRequest.url(
                   message: 'Check out this url',
@@ -166,14 +168,13 @@ void main() {
         ),
       );
       // Answer like a non-Dart server which attaches something other than an
-      // elicitation request as the error data. The number is written out so a
-      // renumber fails here.
+      // elicitation request as the error data.
       serverController.stream.listen((request) {
         clientController.add({
           Keys.jsonrpc: '2.0',
           Keys.id: request[Keys.id],
           Keys.error: {
-            Keys.code: -32042,
+            Keys.code: McpErrorCodes.urlElicitationRequired,
             Keys.message: 'Url required',
             Keys.data: 'not a map',
           },
