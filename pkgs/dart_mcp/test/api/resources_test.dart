@@ -55,6 +55,7 @@ void main() {
     test('reads null icons when the server left them out', () {
       final link = ResourceLink(uri: 'file:///a', name: 'a');
       expect(link.icons, null);
+      expect((link as Map<String, Object?>).containsKey('icons'), isFalse);
     });
   });
 }
