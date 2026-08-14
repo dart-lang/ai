@@ -60,9 +60,9 @@
     `MCPServer.supportsRoots` or `MCPServer.supportsSampling` first.
   - `ResourceLink.icons` is now `List<Icon>?` instead of `List<String>?`, and
     its factory takes the icons, the way the other five types carrying `icons`
-    already do. The schema has typed the field as `Icon[]` since 2025-11-25
-    added it, see
-    https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/schema/2025-11-25/schema.ts,
+    already do. The field has been an array of icons since 2025-11-25 added it,
+    see
+    https://modelcontextprotocol.io/specification/2025-11-25/server/resources,
     so reading it off a resource link a server sent threw a type error on the
     first element.
   - `LoggingSupport.loggingLevel` is now nullable (`LoggingLevel?`), `null`
