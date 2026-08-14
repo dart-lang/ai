@@ -122,6 +122,18 @@
   two took. `SubscribeRequest` and `UnsubscribeRequest` stay for the revisions
   which have them. Serving the request, and delivering notifications on the
   stream it opens, land as separate changes.
+- **BREAKING**: `IntegerSchema`'s four bounds and its default read `num` now,
+  and its factory takes them that way. JSON Schema types the bounds `number`,
+  and the spec gives integers and numbers one definition whose `minimum`,
+  `maximum` and `default` are `number` too. A peer sending
+  `{"type": "integer", "minimum": 0.0}` sent something the getter threw on.
+  `multipleOf` next to them already read `num`.
+- `NumberSchema`, `IntegerSchema` and `BooleanSchema` take a `default`, which
+  the schema gives them and `StringSchema` already had. A server could
+  pre-fill a text field on an elicitation form but not a number or a checkbox.
+- Fix `uniqueItems` on a list schema, which compared items with `Set`, so two
+  equal maps or lists decoded from JSON counted as different and a list the
+  schema forbids validated. JSON Schema compares by structural equality.
 - Fix `RequestId` so it can hold a JSON-RPC id. Its representation type was
   `json_rpc_2`'s `Parameter` rather than `Object`, which its sibling
   `ProgressToken` uses, so `CancelledNotification.requestId` threw for every
