@@ -62,8 +62,8 @@
     its factory takes the icons, the way the other five types carrying `icons`
     already do. The field has been an array of icons since 2025-11-25 added it,
     see
-    https://modelcontextprotocol.io/specification/2025-11-25/server/resources,
-    so reading it off a resource link a server sent threw a type error on the
+    https://modelcontextprotocol.io/specification/2025-11-25/schema#resourcelink-icons.
+    Reading it off a resource link a server sent threw a type error on the
     first element.
   - `LoggingSupport.loggingLevel` is now nullable (`LoggingLevel?`), `null`
     meaning `log` sends nothing. On 2026-07-28 `initialize` assigns the level
