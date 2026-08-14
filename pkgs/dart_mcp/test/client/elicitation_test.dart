@@ -79,8 +79,8 @@ void main() {
           Tool(name: 'test_tool', inputSchema: ObjectSchema()),
           (request) {
             if (!server.userHasCompletedUrlElicitation) {
-              // A server picks the number out of the spec, so this side does
-              // not read the constant the client matches on.
+              // The number the specification assigns, written out so that the
+              // recognition below is not comparing the constant to itself.
               throw RpcException(
                 -32042,
                 'Url required',
