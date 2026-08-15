@@ -154,6 +154,16 @@ void main() {
         'io.modelcontextprotocol/subscriptionId': 'stream-1',
       });
       expect(acknowledged.subscriptionId, 'stream-1');
+
+      // The key the caller passed for the reserved name does not survive.
+      final collided = SubscriptionsAcknowledgedNotification(
+        notifications: SubscriptionFilter(),
+        subscriptionId: RequestId('stream-1'),
+        meta: Meta.fromMap({
+          'io.modelcontextprotocol/subscriptionId': 'stream-2',
+        }),
+      );
+      expect(collided.subscriptionId, 'stream-1');
     });
 
     test('throws when the filter is missing', () {
