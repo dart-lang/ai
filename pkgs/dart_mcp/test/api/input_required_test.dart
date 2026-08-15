@@ -148,7 +148,7 @@ void main() {
       );
     });
 
-    test('reports a malformed entry rather than throwing', () {
+    test('tells no kind apart when an entry has no method', () {
       final result = InputRequiredResult.fromMap({
         'resultType': 'input_required',
         'inputRequests': {'a': <String, Object?>{}},
