@@ -721,9 +721,8 @@ void main() {
       });
 
       test('uniqueItemsViolated - structurally equal objects', () {
-        // JSON Schema compares items by instance equality, which is
-        // structural for objects and arrays, and property order does not
-        // matter.
+        // Key order does not make two objects distinct, and element order
+        // does make two arrays distinct.
         final schema = ListSchema(uniqueItems: true);
         for (final duplicates in [
           '[{"id": 1}, {"id": 1}]',
