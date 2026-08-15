@@ -167,5 +167,17 @@ void main() {
         throwsA(isA<AssertionError>()),
       );
     }, testOn: '!exe');
+
+    test('writes an empty inputRequests next to a request state', () {
+      expect(
+        InputRequiredResult(inputRequests: {}, requestState: 'opaque')
+            as Map<String, Object?>,
+        {
+          'resultType': 'input_required',
+          'inputRequests': <String, InputRequest>{},
+          'requestState': 'opaque',
+        },
+      );
+    });
   });
 }

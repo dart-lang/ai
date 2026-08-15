@@ -66,8 +66,10 @@ extension type InputRequest._(Map<String, Object?> _value) {
 ///
 /// The schema requires at least one of [inputRequests] and [requestState],
 /// since a result carrying neither asks for nothing and hands back nothing to
-/// retry with. The unnamed constructor asserts it. Reading one back with
-/// `fromMap` takes whatever a server sent.
+/// retry with. The unnamed constructor asserts it, and goes one step further
+/// by treating an empty [inputRequests] the same way. An empty map is valid on
+/// the wire and a server may mean something by it, and `fromMap` keeps
+/// whatever a server sent.
 ///
 /// From the 2026-07-28 revision.
 extension type InputRequiredResult.fromMap(Map<String, Object?> _value)
@@ -80,8 +82,9 @@ extension type InputRequiredResult.fromMap(Map<String, Object?> _value)
     assert(
       (inputRequests != null && inputRequests.isNotEmpty) ||
           requestState != null,
-      'The schema requires at least one of `inputRequests` and `requestState`, '
-      'and an empty `inputRequests` asks for nothing.',
+      'The schema requires at least one of `inputRequests` and `requestState`. '
+      'An empty `inputRequests` is valid on the wire, and this constructor '
+      'still takes it as asking for nothing.',
     );
     return InputRequiredResult.fromMap({
       Keys.resultType: ResultTypes.inputRequired,
