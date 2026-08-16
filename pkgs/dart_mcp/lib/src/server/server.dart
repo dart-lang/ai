@@ -24,10 +24,6 @@ part 'resources_support.dart';
 part 'roots_tracking_support.dart';
 part 'tools_support.dart';
 
-/// The first protocol revision that replaced the `initialize` handshake with
-/// `server/discover` and per-request client context.
-const _firstRequestScopedVersion = ProtocolVersion.v2026_07_28;
-
 /// The client context used to initialize an [MCPServer].
 ///
 /// Legacy transports provide this once per connection after negotiating a
@@ -355,3 +351,7 @@ RpcException _missingClientCapability(
   'The client did not declare the $capability capability',
   data: {Keys.requiredCapabilities: required},
 );
+
+/// The first protocol revision that replaced the `initialize` handshake with
+/// `server/discover` and per-request client context.
+const _firstRequestScopedVersion = ProtocolVersion.v2026_07_28;
