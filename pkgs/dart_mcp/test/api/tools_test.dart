@@ -160,6 +160,16 @@ void main() {
       expect(schema.defaultValue, 5);
     });
 
+    test('number schema with a whole default from the wire', () {
+      final schema =
+          Schema.fromMap(
+                (jsonDecode('{"type":"number","default":5.0}') as Map)
+                    .cast<String, Object?>(),
+              )
+              as NumberSchema;
+      expect(schema.defaultValue, 5.0);
+    });
+
     test('IntegerSchema', () {
       final schema = IntegerSchema(
         title: 'Foo',
@@ -403,59 +413,6 @@ void main() {
           ValidationError(ValidationErrorType.typeMismatch, path: const []),
         ]);
       });
-      test('integer schema with integer-like num bounds (e.g. 11.0)', () {
-        // MCP's own `NumberSchema` covers both `integer` and `number` types
-        // and types `minimum`/`maximum` as `number`, so a conforming peer may
-        // send whole-number bounds as JSON doubles.
-        final schema =
-            Schema.fromMap(
-                  (jsonDecode(
-                            '{"type":"integer","minimum":11.0,"maximum":20.0,'
-                            '"default":15.0}',
-                          )
-                          as Map)
-                      .cast<String, Object?>(),
-                )
-                as IntegerSchema;
-        expect(schema.minimum, 11.0);
-        expect(schema.maximum, 20.0);
-        expect(schema.defaultValue, 15.0);
-        expectFailuresMatch(schema, 10, [
-          ValidationError(ValidationErrorType.minimumNotMet, path: const []),
-        ]);
-        expect(schema.validate(12), isEmpty);
-      });
-
-      test('number schema with a whole default from the wire', () {
-        final schema =
-            Schema.fromMap(
-                  (jsonDecode('{"type":"number","default":5.0}') as Map)
-                      .cast<String, Object?>(),
-                )
-                as NumberSchema;
-        expect(schema.defaultValue, 5.0);
-      });
-
-      test('integer schema with exclusive num bounds from the wire', () {
-        final schema =
-            Schema.fromMap(
-                  (jsonDecode(
-                            '{"type":"integer","exclusiveMinimum":0.0,'
-                            '"exclusiveMaximum":10.0}',
-                          )
-                          as Map)
-                      .cast<String, Object?>(),
-                )
-                as IntegerSchema;
-        expect(schema.validate(5), isEmpty);
-        expectFailuresMatch(schema, 0, [
-          ValidationError(
-            ValidationErrorType.exclusiveMinimumNotMet,
-            path: const [],
-          ),
-        ]);
-      });
-
       test('integer schema with integer-like num data (e.g. 10.0)', () {
         // This test expects minimumNotMet because 10.0 is converted to int 10,
         // which is less than the minimum of 11.
@@ -842,6 +799,48 @@ void main() {
         ]);
       });
       // ... other integer specific tests using expectFailuresMatch
+      test('integer schema with integer-like num bounds (e.g. 11.0)', () {
+        // MCP's own `NumberSchema` covers both `integer` and `number` types
+        // and types `minimum`/`maximum` as `number`, so a conforming peer may
+        // send whole-number bounds as JSON doubles.
+        final schema =
+            Schema.fromMap(
+                  (jsonDecode(
+                            '{"type":"integer","minimum":11.0,"maximum":20.0,'
+                            '"default":15.0}',
+                          )
+                          as Map)
+                      .cast<String, Object?>(),
+                )
+                as IntegerSchema;
+        expect(schema.minimum, 11.0);
+        expect(schema.maximum, 20.0);
+        expect(schema.defaultValue, 15.0);
+        expectFailuresMatch(schema, 10, [
+          ValidationError(ValidationErrorType.minimumNotMet, path: const []),
+        ]);
+        expect(schema.validate(12), isEmpty);
+      });
+
+      test('integer schema with exclusive num bounds from the wire', () {
+        final schema =
+            Schema.fromMap(
+                  (jsonDecode(
+                            '{"type":"integer","exclusiveMinimum":0.0,'
+                            '"exclusiveMaximum":10.0}',
+                          )
+                          as Map)
+                      .cast<String, Object?>(),
+                )
+                as IntegerSchema;
+        expect(schema.validate(5), isEmpty);
+        expectFailuresMatch(schema, 0, [
+          ValidationError(
+            ValidationErrorType.exclusiveMinimumNotMet,
+            path: const [],
+          ),
+        ]);
+      });
     });
   });
 

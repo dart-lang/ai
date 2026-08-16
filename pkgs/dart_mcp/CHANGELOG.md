@@ -64,6 +64,12 @@
     revisions fill it in only when the server set none. `LoggingSupport` also
     stops registering `logging/setLevel` on that revision, which is what a
     transport dispatching on its own gets.
+  - `IntegerSchema`'s four bounds and its default read `num` now, and its
+    factory takes them that way. JSON Schema types the bounds `number`, and
+    the spec gives integers and numbers one definition whose `minimum`,
+    `maximum` and `default` are `number` too. A peer sending
+    `{"type": "integer", "minimum": 0.0}` sent something the getter threw on.
+    `multipleOf` next to them already read `num`.
 - Add `handleRequestScopedMessage` and `MCPServerFactory`, which serve each
   decoded JSON-RPC message on a fresh server instance for request-scoped
   transports. On 2026-07-28, successful results record the server
@@ -122,12 +128,6 @@
   two took. `SubscribeRequest` and `UnsubscribeRequest` stay for the revisions
   which have them. Serving the request, and delivering notifications on the
   stream it opens, land as separate changes.
-- **BREAKING**: `IntegerSchema`'s four bounds and its default read `num` now,
-  and its factory takes them that way. JSON Schema types the bounds `number`,
-  and the spec gives integers and numbers one definition whose `minimum`,
-  `maximum` and `default` are `number` too. A peer sending
-  `{"type": "integer", "minimum": 0.0}` sent something the getter threw on.
-  `multipleOf` next to them already read `num`.
 - `NumberSchema`, `IntegerSchema` and `BooleanSchema` take a `default`, which
   the schema gives them and `StringSchema` already had. A server could
   pre-fill a text field on an elicitation form but not a number or a checkbox.
