@@ -64,6 +64,10 @@
     revisions fill it in only when the server set none. `LoggingSupport` also
     stops registering `logging/setLevel` on that revision, which is what a
     transport dispatching on its own gets.
+- Fix the `Meta` dartdoc, which still described the 2025-06-18 prefix rule, and
+  document the `traceparent`, `tracestate`, and `baggage` keys reserved for
+  OpenTelemetry trace context, see
+  https://modelcontextprotocol.io/specification/2026-07-28/basic#_meta.
 - Add `handleRequestScopedMessage` and `MCPServerFactory`, which serve each
   decoded JSON-RPC message on a fresh server instance for request-scoped
   transports. On 2026-07-28, successful results record the server
