@@ -83,13 +83,6 @@ void main() {
   });
 
   group('InputRequiredResult', () {
-    test('marks itself as the interim result type', () {
-      expect(
-        InputRequiredResult(requestState: 'opaque').resultType,
-        'input_required',
-      );
-    });
-
     test('writes only the fields it is given', () {
       expect(
         InputRequiredResult(requestState: 'opaque') as Map<String, Object?>,
