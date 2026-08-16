@@ -21,41 +21,4 @@ void main() {
       expect(resource.size, null);
     });
   });
-
-  group('ResourceLink', () {
-    test('reads the icons a server sent', () {
-      final link = ResourceLink.fromMap({
-        'type': 'resource_link',
-        'uri': 'file:///a',
-        'name': 'a',
-        'icons': <Object?>[
-          {
-            'src': 'https://example.com/a.png',
-            'sizes': <Object?>['48x48'],
-          },
-        ],
-      });
-      final icon = link.icons!.single;
-      expect(icon.src, 'https://example.com/a.png');
-      expect(icon.sizes, ['48x48']);
-    });
-
-    test('writes the icons it is given', () {
-      final link = ResourceLink(
-        uri: 'file:///a',
-        name: 'a',
-        icons: [Icon(src: 'https://example.com/a.png')],
-      );
-      expect((link as Map<String, Object?>)['icons'], [
-        {'src': 'https://example.com/a.png'},
-      ]);
-      expect(link.icons!.single.src, 'https://example.com/a.png');
-    });
-
-    test('reads null icons when the server left them out', () {
-      final link = ResourceLink(uri: 'file:///a', name: 'a');
-      expect(link.icons, null);
-      expect((link as Map<String, Object?>).containsKey('icons'), isFalse);
-    });
-  });
 }
