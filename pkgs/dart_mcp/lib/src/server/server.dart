@@ -165,7 +165,7 @@ abstract base class MCPServer extends MCPBase {
     // only a server on a request-scoped revision does it. A client probing
     // under the stdio backward compatibility rules would read an answer here
     // as "this connection is modern".
-    if (protocolVersion >= _firstRequestScopedVersion) {
+    if (protocolVersion.methodIsValid(DiscoverRequest.methodName)) {
       registerRequestHandler(DiscoverRequest.methodName, discover);
     }
   }
@@ -195,7 +195,8 @@ abstract base class MCPServer extends MCPBase {
       DiscoverResult(
         supportedVersions: [
           for (final version in ProtocolVersion.values)
-            if (version >= _firstRequestScopedVersion) version.versionString,
+            if (version.methodIsValid(DiscoverRequest.methodName))
+              version.versionString,
         ],
         capabilities: _advertisedCapabilities,
         instructions: instructions,
@@ -217,29 +218,21 @@ abstract base class MCPServer extends MCPBase {
     ...capabilities as Map<String, Object?>,
     if (capabilities.prompts case final prompts?)
       Keys.prompts: Prompts.fromMap(
-        _without(prompts as Map<String, Object?>, const [Keys.listChanged]),
+        Map<String, Object?>.from(prompts as Map<String, Object?>)
+          ..remove(Keys.listChanged),
       ),
     if (capabilities.resources case final resources?)
       Keys.resources: Resources.fromMap(
-        _without(resources as Map<String, Object?>, const [
-          Keys.listChanged,
-          Keys.subscribe,
-        ]),
+        Map<String, Object?>.from(resources as Map<String, Object?>)
+          ..remove(Keys.listChanged)
+          ..remove(Keys.subscribe),
       ),
     if (capabilities.tools case final tools?)
       Keys.tools: Tools.fromMap(
-        _without(tools as Map<String, Object?>, const [Keys.listChanged]),
+        Map<String, Object?>.from(tools as Map<String, Object?>)
+          ..remove(Keys.listChanged),
       ),
   });
-
-  /// A copy of [capability] without [keys], leaving the original alone.
-  static Map<String, Object?> _without(
-    Map<String, Object?> capability,
-    List<String> keys,
-  ) => {
-    for (final entry in capability.entries)
-      if (!keys.contains(entry.key)) entry.key: entry.value,
-  };
 
   @mustCallSuper
   /// Handles the initialize request used by legacy MCP protocols.
@@ -351,7 +344,3 @@ RpcException _missingClientCapability(
   'The client did not declare the $capability capability',
   data: {Keys.requiredCapabilities: required},
 );
-
-/// The first protocol revision that replaced the `initialize` handshake with
-/// `server/discover` and per-request client context.
-const _firstRequestScopedVersion = ProtocolVersion.v2026_07_28;

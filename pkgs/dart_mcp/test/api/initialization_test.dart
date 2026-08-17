@@ -35,14 +35,25 @@ void main() {
   // field the factory never wrote cannot be mistaken for one it wrote.
   test('ServerCapabilities writes every field it is given', () {
     final capabilities = ServerCapabilities(
+      experimental: {'x': 1},
       completions: Completions(),
       logging: Logging(),
+      prompts: Prompts(),
+      resources: Resources(),
       tools: Tools(),
+      extensions: {'y': 2},
     );
 
-    expect(capabilities.completions, isNotNull);
-    expect(capabilities.logging, isNotNull);
-    expect(capabilities.tools, isNotNull);
+    final map = capabilities as Map<String, Object?>;
+    expect(map.keys, {
+      'experimental',
+      'completions',
+      'logging',
+      'prompts',
+      'resources',
+      'tools',
+      'extensions',
+    });
   });
 
   group('server/discover', () {

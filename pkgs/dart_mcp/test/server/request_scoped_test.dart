@@ -695,9 +695,11 @@ void main() {
       final harness = _DispatcherHarness();
       final response = await harness.dispatch(_discover(), _initialization());
 
-      expect(DiscoverResult.fromMap(_result(response)).supportedVersions, [
-        ProtocolVersion.v2026_07_28.versionString,
-      ], reason: 'earlier revisions negotiate with the initialize handshake');
+      expect(
+        DiscoverResult.fromMap(_result(response)).supportedVersions,
+        [ProtocolVersion.v2026_07_28.versionString],
+        reason: 'earlier revisions negotiate with the initialize handshake',
+      );
     });
 
     test('advertises the capabilities initialization registered', () async {
@@ -710,14 +712,16 @@ void main() {
       expect(
         capabilities.tools?.listChanged,
         isNull,
-        reason: 'list changes reach a client on a `subscriptions/listen` '
+        reason:
+            'list changes reach a client on a `subscriptions/listen` '
             'stream, which this package does not serve yet',
       );
       expect(capabilities.resources?.listChanged, isNull);
       expect(
         capabilities.resources?.subscribe,
         isNull,
-        reason: 'resource updates reach a client through the '
+        reason:
+            'resource updates reach a client through the '
             '`resourceSubscriptions` filter on the same stream',
       );
       expect(capabilities.logging, isNotNull);
@@ -725,7 +729,8 @@ void main() {
       expect(
         capabilities.extensions,
         isNotNull,
-        reason: 'capabilities are an open set, so anything the server put on \n'
+        reason:
+            'capabilities are an open set, so anything the server put on '
             'the field has to survive the trip',
       );
       expect(
@@ -749,7 +754,8 @@ void main() {
       expect(
         resources! as Map<String, Object?>,
         containsPair(_ExtraResourceFieldServer.unknownField, true),
-        reason: 'only the bits this package cannot honor come off, so a field '
+        reason:
+            'only the bits this package cannot honor come off, so a field '
             'a later revision adds still reaches the client',
       );
     });
