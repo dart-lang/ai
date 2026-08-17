@@ -148,7 +148,7 @@ extension type SubscriptionsAcknowledgedNotification.fromMap(
   /// The JSON-RPC id of the [SubscriptionsListenRequest] which opened the
   /// stream this notification acknowledges.
   ///
-  /// Every notification delivered on the stream repeats it under the
+  /// The notifications delivered after it repeat it under the
   /// `io.modelcontextprotocol/subscriptionId` metadata key, which is how a
   /// client tells its streams apart.
   RequestId get subscriptionId {

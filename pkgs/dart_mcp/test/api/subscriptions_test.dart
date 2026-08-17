@@ -130,7 +130,7 @@ void main() {
   });
 
   group('SubscriptionsAcknowledgedNotification', () {
-    test('writes the filter it is given', () {
+    test('writes the filter and the subscription id it is given', () {
       final acknowledged = SubscriptionsAcknowledgedNotification(
         notifications: SubscriptionFilter(toolsListChanged: true),
         subscriptionId: RequestId(7),
