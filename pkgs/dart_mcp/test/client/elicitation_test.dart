@@ -79,8 +79,9 @@ void main() {
           Tool(name: 'test_tool', inputSchema: ObjectSchema()),
           (request) {
             if (!server.userHasCompletedUrlElicitation) {
-              // The number the specification assigns, written out so that the
-              // recognition below is not comparing the constant to itself.
+              // The number the 2025-11-25 revision assigns, written out
+              // so that the recognition below is not comparing the constant
+              // to itself.
               throw RpcException(
                 -32042,
                 'Url required',
