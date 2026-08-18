@@ -172,7 +172,6 @@
     `initializeLegacy` still sends all of them.
   - The `ServerCapabilities` constructor writes `completions`, which it used to
     drop, so a caller that passes one gets it back.
-
 - Add `package:dart_mcp/streamable_http.dart` with
   `handleStreamableHttpRequest`, the server side of the Streamable HTTP
   transport from the 2026-07-28 revision, see
