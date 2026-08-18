@@ -256,6 +256,8 @@ void main() {
         json: body(listTools),
       );
       expect(status, 400);
+      // Written out so the check does not read back the constant the
+      // response was built from.
       expect(errorCode(text), -32020);
       expect(servers, isEmpty);
     });
