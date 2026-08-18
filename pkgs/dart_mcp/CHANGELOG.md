@@ -122,7 +122,7 @@
   two took. `SubscribeRequest` and `UnsubscribeRequest` stay for the revisions
   which have them. Serving the request, and delivering notifications on the
   stream it opens, land as separate changes.
-  `SubscriptionsAcknowledgedNotification` takes the `subscriptionId` the spec
+- `SubscriptionsAcknowledgedNotification` takes the `subscriptionId` the spec
   requires on it, and reads it back. A client with more than one stream open
   needs it to tell which listen request an acknowledgement answers.
 - Fix `RequestId` so it can hold a JSON-RPC id. Its representation type was

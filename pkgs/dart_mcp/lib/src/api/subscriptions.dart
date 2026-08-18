@@ -91,7 +91,9 @@ extension type WithSubscriptionId.fromMap(Map<String, Object?> _value) {
     final subscriptionId =
         (_value[Keys.meta] as Meta?)?[Keys.subscriptionIdMeta];
     if (subscriptionId == null) {
-      throw ArgumentError('Missing ${Keys.subscriptionIdMeta} metadata.');
+      throw ArgumentError(
+        'Missing ${Keys.subscriptionIdMeta} metadata in $runtimeType',
+      );
     }
     return RequestId(subscriptionId);
   }
