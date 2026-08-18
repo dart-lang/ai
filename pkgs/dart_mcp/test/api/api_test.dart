@@ -247,6 +247,17 @@ void main() {
         expect(cancelled.requestId, id);
       }
     });
+    test('an annotation reads an integer priority as a double', () {
+      expect(Annotations.fromMap({'priority': 1}).priority, 1.0);
+    });
+
+    test('an annotation reads a fractional priority', () {
+      expect(Annotations.fromMap({'priority': 0.5}).priority, 0.5);
+    });
+
+    test('an annotation leaves an absent priority null', () {
+      expect(Annotations.fromMap({}).priority, isNull);
+    });
   });
 
   group('cacheable result factory', () {
