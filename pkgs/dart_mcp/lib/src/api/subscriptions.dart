@@ -127,8 +127,7 @@ extension type SubscriptionsListenResult.fromMap(Map<String, Object?> _value)
 /// From the 2026-07-28 revision.
 extension type SubscriptionsAcknowledgedNotification.fromMap(
   Map<String, Object?> _value
-)
-    implements Notification, WithSubscriptionId {
+) implements Notification, WithSubscriptionId {
   static const methodName = 'notifications/subscriptions/acknowledged';
 
   factory SubscriptionsAcknowledgedNotification({
