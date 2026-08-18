@@ -130,19 +130,49 @@ void main() {
   });
 
   group('SubscriptionsAcknowledgedNotification', () {
-    test('writes the filter it is given', () {
+    test('writes the filter and the subscription id it is given', () {
       final acknowledged = SubscriptionsAcknowledgedNotification(
         notifications: SubscriptionFilter(toolsListChanged: true),
+        subscriptionId: RequestId(7),
       );
       expect(acknowledged as Map<String, Object?>, {
         'notifications': {'toolsListChanged': true},
+        '_meta': {'io.modelcontextprotocol/subscriptionId': 7},
       });
       expect(acknowledged.notifications.toolsListChanged, true);
+      expect(acknowledged.subscriptionId, 7);
+    });
+
+    test('keeps the metadata it is given alongside the id', () {
+      final acknowledged = SubscriptionsAcknowledgedNotification(
+        notifications: SubscriptionFilter(),
+        subscriptionId: RequestId('stream-1'),
+        meta: Meta.fromMap({'com.example/trace': 'abc'}),
+      );
+      expect((acknowledged as Map<String, Object?>)['_meta'], {
+        'com.example/trace': 'abc',
+        'io.modelcontextprotocol/subscriptionId': 'stream-1',
+      });
+      expect(acknowledged.subscriptionId, 'stream-1');
     });
 
     test('throws when the filter is missing', () {
       expect(
         () => SubscriptionsAcknowledgedNotification.fromMap({}).notifications,
+        throwsArgumentError,
+      );
+    });
+
+    test('throws when the subscription id is missing', () {
+      expect(
+        () => SubscriptionsAcknowledgedNotification.fromMap({}).subscriptionId,
+        throwsArgumentError,
+      );
+      expect(
+        () =>
+            SubscriptionsAcknowledgedNotification.fromMap({
+              '_meta': <String, Object?>{},
+            }).subscriptionId,
         throwsArgumentError,
       );
     });

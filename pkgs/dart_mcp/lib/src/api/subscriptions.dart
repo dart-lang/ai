@@ -76,6 +76,29 @@ extension type SubscriptionsListenRequest.fromMap(Map<String, Object?> _value)
   }
 }
 
+/// A "mixin"-like extension type for any extension type which carries the id of
+/// the subscription it belongs to.
+///
+/// Should be "mixed in" by implementing this type from other extension types.
+extension type WithSubscriptionId.fromMap(Map<String, Object?> _value) {
+  /// The JSON-RPC id of the [SubscriptionsListenRequest] which opened the
+  /// stream this message belongs to.
+  ///
+  /// Every message on the stream carries it under the
+  /// `io.modelcontextprotocol/subscriptionId` metadata key, which is how a
+  /// client tells its streams apart.
+  RequestId get subscriptionId {
+    final subscriptionId =
+        (_value[Keys.meta] as Meta?)?[Keys.subscriptionIdMeta];
+    if (subscriptionId == null) {
+      throw ArgumentError(
+        'Missing ${Keys.subscriptionIdMeta} metadata in $runtimeType',
+      );
+    }
+    return RequestId(subscriptionId);
+  }
+}
+
 /// The response to a [SubscriptionsListenRequest], sent when the server ends
 /// the subscription gracefully, for example while shutting down.
 ///
@@ -85,30 +108,13 @@ extension type SubscriptionsListenRequest.fromMap(Map<String, Object?> _value)
 ///
 /// From the 2026-07-28 revision.
 extension type SubscriptionsListenResult.fromMap(Map<String, Object?> _value)
-    implements Result {
+    implements Result, WithSubscriptionId {
   factory SubscriptionsListenResult({
     required RequestId subscriptionId,
     Meta? meta,
   }) => SubscriptionsListenResult.fromMap({
     Keys.meta: {...?meta?._value, Keys.subscriptionIdMeta: subscriptionId},
   });
-
-  /// The JSON-RPC id of the [SubscriptionsListenRequest] which opened the
-  /// stream this response closes.
-  ///
-  /// The notifications delivered on the stream carry it under the
-  /// `io.modelcontextprotocol/subscriptionId` metadata key, which is how a
-  /// client tells its streams apart.
-  RequestId get subscriptionId {
-    final subscriptionId = meta?[Keys.subscriptionIdMeta];
-    if (subscriptionId == null) {
-      throw ArgumentError(
-        'Missing ${Keys.subscriptionIdMeta} metadata in '
-        '$SubscriptionsListenResult.',
-      );
-    }
-    return RequestId(subscriptionId);
-  }
 }
 
 /// Sent by the server to acknowledge a [SubscriptionsListenRequest] and report
@@ -121,15 +127,16 @@ extension type SubscriptionsListenResult.fromMap(Map<String, Object?> _value)
 /// From the 2026-07-28 revision.
 extension type SubscriptionsAcknowledgedNotification.fromMap(
   Map<String, Object?> _value
-) implements Notification {
+) implements Notification, WithSubscriptionId {
   static const methodName = 'notifications/subscriptions/acknowledged';
 
   factory SubscriptionsAcknowledgedNotification({
     required SubscriptionFilter notifications,
+    required RequestId subscriptionId,
     Meta? meta,
   }) => SubscriptionsAcknowledgedNotification.fromMap({
     Keys.notifications: notifications,
-    if (meta != null) Keys.meta: meta,
+    Keys.meta: {...?meta?._value, Keys.subscriptionIdMeta: subscriptionId},
   });
 
   /// The notification types the server agreed to send on this stream.
