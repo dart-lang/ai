@@ -68,7 +68,7 @@
     factory takes them that way. JSON Schema types the bounds `number`, and
     the spec gives integers and numbers one definition whose `minimum`,
     `maximum` and `default` are `number` too. A peer sending
-    `{"type": "integer", "minimum": 0.0}` sent something the getter threw on.
+    `{"type": "integer", "minimum": 0.5}` sent something the getter threw on.
     `multipleOf` next to them already read `num`.
 - Add `handleRequestScopedMessage` and `MCPServerFactory`, which serve each
   decoded JSON-RPC message on a fresh server instance for request-scoped
