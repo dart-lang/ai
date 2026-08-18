@@ -173,6 +173,9 @@
   Streamable HTTP handler already requires; the server map travels with
   `ServerCapabilities`, which is held by the legacy `initialize` result and
   by `DiscoverResult`.
+- Point the documentation at `modelcontextprotocol.io` and at protocol
+  revision 2025-11-25. The old host stopped serving HTTPS, and the old
+  revision number 2025-11-05 was never a published revision.
 
 ## 0.5.2
 
