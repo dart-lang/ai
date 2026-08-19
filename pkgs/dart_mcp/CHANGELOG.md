@@ -142,16 +142,20 @@
   results, so the sixth operation the caching rules name is no longer the one
   which cannot carry the hints. This adds the types only; the server does not
   answer `server/discover` yet.
+- Answer a request whose handler emits related notifications on an SSE
+  response stream. A quiet handler keeps its JSON body. List changes and
+  resource updates reach `onNotification` alone, since this revision carries
+  those on a `subscriptions/listen` stream. Does not treat a closed stream as
+  cancellation, which the specification requires.
 - Add `package:dart_mcp/streamable_http.dart` with
   `handleStreamableHttpRequest`, the server side of the Streamable HTTP
   transport from the 2026-07-28 revision, see
   https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http.
   Each POST carries one JSON-RPC request or notification which is validated
   against the required headers and `_meta` envelope, then dispatched to a
-  fresh server instance via `handleRequestScopedMessage`. Responses are JSON
-  only. See `example/streamable_http_server.dart`. Does not add SSE response
-  streams, the legacy session routes, or an HTTP client; those land as
-  separate changes.
+  fresh server instance via `handleRequestScopedMessage`. See
+  `example/streamable_http_server.dart`. Does not add the legacy session
+  routes or an HTTP client; those land as separate changes.
 - Add `ProtocolVersion.addedMethods` and `.removedMethods`, listing what each
   revision of the protocol introduced and took out, and
   `ProtocolVersion.methodIsValid`, which walks back from a revision to answer
