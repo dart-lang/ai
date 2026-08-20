@@ -3,7 +3,6 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:async';
-import 'dart:io' show Platform;
 
 import 'package:dart_mcp/server.dart';
 import 'package:unified_analytics/unified_analytics.dart';
@@ -162,7 +161,7 @@ base mixin AnalyticsEvents
     clientVersion: clientInfo.version,
     serverVersion: implementation.version,
     type: type,
-    agentPlugin: Platform.environment[agentPluginEnvVar],
+    agentPlugin: agentPlugin,
     additionalData: additionalData,
   );
 

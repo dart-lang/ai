@@ -2,7 +2,10 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:io' show Platform;
+
 import 'package:dart_mcp/server.dart';
+import 'package:meta/meta.dart';
 import 'package:unified_analytics/unified_analytics.dart';
 
 /// An interface class that provides a access to an [Analytics] instance, if
@@ -16,6 +19,14 @@ abstract interface class AnalyticsSupport {
 
 /// The environment variable name used to specify the agent plugin.
 const agentPluginEnvVar = 'AGENT_PLUGIN';
+
+/// An override for the agent plugin name, used for testing.
+@visibleForTesting
+String? debugAgentPluginOverride;
+
+/// Returns the agent plugin name from the environment (or test override).
+String? get agentPlugin =>
+    debugAgentPluginOverride ?? Platform.environment[agentPluginEnvVar];
 
 enum AnalyticsEvent {
   callTool,

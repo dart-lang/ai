@@ -4,7 +4,7 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show InternetAddress, Platform;
+import 'dart:io' show InternetAddress;
 
 import 'package:collection/collection.dart';
 import 'package:dart_mcp/server.dart';
@@ -167,7 +167,7 @@ base mixin DartToolingDaemonSupport
             clientVersion: clientInfo.version,
             serverVersion: implementation.version,
             type: AnalyticsEvent.readResource.name,
-            agentPlugin: Platform.environment[agentPluginEnvVar],
+            agentPlugin: agentPlugin,
             additionalData: ReadResourceMetrics(
               kind: ResourceKind.runtimeErrors,
               length: result.contents.length,

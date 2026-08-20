@@ -368,6 +368,9 @@ base mixin DartAnalyzerSupport
         // as a confirmation to the LLM that it was respected.
         messages.add(TextContent(text: 'Applied quick fixes'));
 
+        // Give the file watcher a moment to register file changes before
+        // waiting for analysis.
+        await Future<void>.delayed(const Duration(milliseconds: 100));
         await _waitForAnalysisToComplete(
           analysisServer,
           waitForSecondaryAnalysisInLegacyMode: true,
@@ -756,6 +759,7 @@ base mixin DartAnalyzerSupport
     final content = await file.readAsString();
     final newContent = _applyEditsToString(content, edits);
     await file.writeAsString(newContent);
+    diagnostics.remove(uri);
   }
 
   /// Applies a list of [edits] to [content] and returns the new content.
