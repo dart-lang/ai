@@ -31,7 +31,7 @@ dependencies:
   pool: ^1.5.1
   process: ^5.0.3
   stream_channel: ^2.1.4
-  unified_analytics: ^8.0.13
+  unified_analytics: ^8.0.17
   vm_service: ^15.0.0
   web_socket: ^1.0.1
   yaml: ^3.1.3

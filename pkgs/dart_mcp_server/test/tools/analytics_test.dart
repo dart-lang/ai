@@ -451,6 +451,17 @@ void main() {
       });
     });
 
+    test('includes agentPlugin in dartMCPEvent when provided', () {
+      final event = Event.dartMCPEvent(
+        client: 'testClient',
+        clientVersion: '1.0.0',
+        serverVersion: '1.0.0',
+        type: AnalyticsEvent.initialize.name,
+        agentPlugin: 'dart-flutter',
+      );
+      expect(event.eventData['agentPlugin'], 'dart-flutter');
+    });
+
     test('Changelog version matches dart server version', () {
       final changelogFile = File('CHANGELOG.md');
       expect(

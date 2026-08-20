@@ -14,6 +14,9 @@ abstract interface class AnalyticsSupport {
   Analytics? get analytics;
 }
 
+/// The environment variable name used to specify the agent plugin.
+const agentPluginEnvVar = 'AGENT_PLUGIN';
+
 enum AnalyticsEvent {
   callTool,
   initialize,
