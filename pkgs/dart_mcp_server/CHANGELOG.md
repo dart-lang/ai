@@ -1,3 +1,7 @@
+## 1.1.2-dev
+
+- Track `AGENT_PLUGIN` environment variable in analytics events.
+
 ## 1.1.1
 
 - Improve server instructions and error messages to encourage agents to
