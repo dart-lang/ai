@@ -10,13 +10,13 @@ When you add a Dart package to your project, your AI coding assistant has no ide
 
 ## The solution
 
-Package authors ship skills alongside their code. You run one command, and your AI assistant knows how to work with every package in your project.
+Package authors ship skills alongside their code. As a user of a package, you can run one command, and your AI assistant will know how to work with every package declared as a dependency in your pubspec (provided it ships with skills).
 
 ```bash
 dart run skills@ get
 ```
 
-Select the skills you would like to install, or pass `--all` to just install everything. Your AI assistant now has context-aware instructions for every dependency that provides skills.
+When prompted, select the skills you would like to install, or pass `--all` to install everything. Your AI assistant now has context-aware instructions for every dependency that provides skills.
 
 ## Quick start
 
@@ -117,6 +117,16 @@ Each of these agents receives the full Agent Skills directory (SKILL.md plus `sc
 Ship AI skills with your package so every user's coding assistant understands your APIs, conventions, and best practices.
 
 ### Adding skills to your package
+
+The simplest way to add a new skill is with the CLI command:
+
+```bash
+dart run skills@ create
+```
+
+This command will prompt you for a name and description, and then create a new directory with a SKILL.md file, and create the top-level `skills/` directory if necessary.  Open the file and add more details.
+
+### Full instructions
 
 Create a `skills/` directory at the root of your package (next to `lib/`). Each skill is a subdirectory containing a `SKILL.md` file following the [Agent Skills specification](https://agentskills.io/specification):
 
