@@ -760,5 +760,5 @@ extension type Annotations.fromMap(Map<String, Object?> _value) {
   /// that the data is entirely optional.
   ///
   /// Must be between 0 and 1.
-  double? get priority => _value[Keys.priority] as double?;
+  double? get priority => (_value[Keys.priority] as num?)?.toDouble();
 }

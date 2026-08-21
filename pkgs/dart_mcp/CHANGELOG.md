@@ -155,6 +155,17 @@
   two took. `SubscribeRequest` and `UnsubscribeRequest` stay for the revisions
   which have them. Serving the request, and delivering notifications on the
   stream it opens, land as separate changes.
+- Deprecate `IncludeContext.thisService` and replace it with `thisServer`, the
+  name the specification uses, see
+  https://modelcontextprotocol.io/specification/2026-07-28/client/sampling.
+  Since the enum name is what a request carries, a server asking for that
+  context sent a value only another dart_mcp client could match. The
+  `CreateMessageRequest.includeContext` getter still reads `thisService`, since
+  this package sent it up to 0.5.2. Reading the corrected name needs 0.6.0.
+- Every getter returning a `double` now reads the JSON value as a `num` first.
+  A peer sending `1` for `1.0` used to throw except on the JavaScript
+  platforms. `CreateMessageRequest` takes `temperature` as a `num` because an
+  `int` cannot express a fractional one.
 - `NumberSchema`, `IntegerSchema` and `BooleanSchema` take a `default`, which
   the schema gives them and `StringSchema` already had. A server could
   pre-fill a text field on an elicitation form but not a number or a checkbox.
