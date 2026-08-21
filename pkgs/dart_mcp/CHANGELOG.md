@@ -58,6 +58,13 @@
     server to client request at all. A server which expects either of those
     codes for an undeclared capability should read
     `MCPServer.supportsRoots` or `MCPServer.supportsSampling` first.
+  - `ResourceLink.icons` is now `List<Icon>?` instead of `List<String>?`, and
+    its factory takes the icons, the way the other five types carrying `icons`
+    already do. The field has been an array of icons since 2025-11-25 added it,
+    see
+    https://modelcontextprotocol.io/specification/2025-11-25/schema#resourcelink-icons.
+    Reading it off a resource link a server sent threw a type error on the
+    first element.
   - `LoggingSupport.loggingLevel` is now nullable (`LoggingLevel?`), `null`
     meaning `log` sends nothing. On 2026-07-28 `initialize` assigns the level
     the request named, over whatever the server set before it ran. Earlier
@@ -70,6 +77,10 @@
     `maximum` and `default` are `number` too. A peer sending
     `{"type": "integer", "minimum": 0.5}` sent something the getter threw on.
     `multipleOf` next to them already read `num`.
+- Fix the `Meta` dartdoc, which still described the 2025-06-18 prefix rule, and
+  document the `traceparent`, `tracestate`, and `baggage` keys reserved for
+  OpenTelemetry trace context, see
+  https://modelcontextprotocol.io/specification/2026-07-28/basic#_meta.
 - Add `handleRequestScopedMessage` and `MCPServerFactory`, which serve each
   decoded JSON-RPC message on a fresh server instance for request-scoped
   transports. On 2026-07-28, successful results record the server
@@ -83,6 +94,8 @@
   The level goes in the `io.modelcontextprotocol/logLevel` metadata key, which
   `MCPServerInitialization` now carries and the Streamable HTTP handler reads
   off the envelope, answering invalid params when it is not a logging level.
+- `Resource.size` reads `null` for an absent size instead of throwing a type
+  error. The field is optional, and the getter cast it to a non-nullable `int`.
 - `RootsTrackingSupport` no longer surfaces an unhandled error when the
   connection closes while a `listRoots` request is in flight.
 - The URL elicitation retry rethrows the original error when its data is not
@@ -117,6 +130,10 @@
   and `.unsupportedProtocolVersion`. The same registry reserves `-32042`, so
   `urlElicitationRequired` now documents that only the 2025-11-25 revision
   emits it.
+- Add `InputRequiredResult` and `InputRequest`, the result a server answers with
+  when it needs input first, see
+  https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr.
+  Nothing sends or answers one yet.
 - Add `SubscriptionFilter`, `SubscriptionsListenRequest`,
   `SubscriptionsListenResult`, and `SubscriptionsAcknowledgedNotification`,
   modeling the `subscriptions/listen` request the 2026-07-28 revision adds, see
