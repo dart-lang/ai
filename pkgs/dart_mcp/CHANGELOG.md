@@ -71,6 +71,12 @@
     revisions fill it in only when the server set none. `LoggingSupport` also
     stops registering `logging/setLevel` on that revision, which is what a
     transport dispatching on its own gets.
+  - `IntegerSchema`'s four bounds and its default read `num` now, and its
+    factory takes them that way. JSON Schema types the bounds `number`, and
+    the spec gives integers and numbers one definition whose `minimum`,
+    `maximum` and `default` are `number` too. A peer sending
+    `{"type": "integer", "minimum": 0.5}` sent something the getter threw on.
+    `multipleOf` next to them already read `num`.
 - Fix the `Meta` dartdoc, which still described the 2025-06-18 prefix rule, and
   document the `traceparent`, `tracestate`, and `baggage` keys reserved for
   OpenTelemetry trace context, see
@@ -139,6 +145,12 @@
   two took. `SubscribeRequest` and `UnsubscribeRequest` stay for the revisions
   which have them. Serving the request, and delivering notifications on the
   stream it opens, land as separate changes.
+- `NumberSchema`, `IntegerSchema` and `BooleanSchema` take a `default`, which
+  the schema gives them and `StringSchema` already had. A server could
+  pre-fill a text field on an elicitation form but not a number or a checkbox.
+- Fix `uniqueItems` on a list schema, which compared items with `Set`, so two
+  equal maps or lists decoded from JSON counted as different and a list the
+  schema forbids validated. JSON Schema compares by structural equality.
 - Stop `BaseMetadata`, `MetaWithProgressToken`, `CompletionContext`,
   `PromptReference` and `ElicitResult` from writing an explicit `null` for an
   optional field that was not given. The schema types all five as non-nullable.

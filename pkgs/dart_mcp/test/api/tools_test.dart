@@ -144,6 +144,7 @@ void main() {
         exclusiveMinimum: 0,
         exclusiveMaximum: 11,
         multipleOf: 2,
+        defaultValue: 5,
       );
       expect(schema, {
         'type': 'number',
@@ -154,34 +155,59 @@ void main() {
         'exclusiveMinimum': 0,
         'exclusiveMaximum': 11,
         'multipleOf': 2,
+        'default': 5,
       });
+      expect(schema.defaultValue, 5);
+    });
+
+    test('number schema with a whole default from the wire', () {
+      final schema =
+          Schema.fromMap(
+                (jsonDecode('{"type":"number","default":5.0}') as Map)
+                    .cast<String, Object?>(),
+              )
+              as NumberSchema;
+      expect(schema.defaultValue, 5.0);
     });
 
     test('IntegerSchema', () {
       final schema = IntegerSchema(
         title: 'Foo',
         description: 'Bar',
-        minimum: 1,
+        minimum: 1.0,
         maximum: 10,
         exclusiveMinimum: 0,
         exclusiveMaximum: 11,
         multipleOf: 2,
+        defaultValue: 5,
       );
       expect(schema, {
         'type': 'integer',
         'title': 'Foo',
         'description': 'Bar',
-        'minimum': 1,
+        'minimum': 1.0,
         'maximum': 10,
         'exclusiveMinimum': 0,
         'exclusiveMaximum': 11,
         'multipleOf': 2,
+        'default': 5,
       });
+      expect(schema.defaultValue, 5);
     });
 
     test('BooleanSchema', () {
-      final schema = BooleanSchema(title: 'Foo', description: 'Bar');
-      expect(schema, {'type': 'boolean', 'title': 'Foo', 'description': 'Bar'});
+      final schema = BooleanSchema(
+        title: 'Foo',
+        description: 'Bar',
+        defaultValue: true,
+      );
+      expect(schema, {
+        'type': 'boolean',
+        'title': 'Foo',
+        'description': 'Bar',
+        'default': true,
+      });
+      expect(schema.defaultValue, isTrue);
     });
 
     test('NullSchema', () {
@@ -651,6 +677,31 @@ void main() {
         );
       });
 
+      test('uniqueItemsViolated - structurally equal objects', () {
+        // Key order does not make two objects distinct, and element order
+        // does make two arrays distinct.
+        final schema = ListSchema(uniqueItems: true);
+        for (final duplicates in [
+          '[{"id": 1}, {"id": 1}]',
+          '[{"a": 1, "b": 2}, {"b": 2, "a": 1}]',
+          '[[1, {"b": 2}], [1, {"b": 2}]]',
+        ]) {
+          expectFailuresMatch(schema, jsonDecode(duplicates), [
+            ValidationError(
+              ValidationErrorType.uniqueItemsViolated,
+              path: const [],
+            ),
+          ], reason: duplicates);
+        }
+        for (final unique in [
+          '[{"id": 1}, {"id": 2}]',
+          '[[1], [2]]',
+          '[[1, 2], [2, 1]]',
+        ]) {
+          expect(schema.validate(jsonDecode(unique)), isEmpty, reason: unique);
+        }
+      });
+
       test('uniqueItemsViolated', () {
         final schema = ListSchema(uniqueItems: true);
         expectFailuresMatch(
@@ -748,6 +799,48 @@ void main() {
         ]);
       });
       // ... other integer specific tests using expectFailuresMatch
+      test('integer schema with integer-like num bounds (e.g. 11.0)', () {
+        // MCP's own `NumberSchema` covers both `integer` and `number` types
+        // and types `minimum`/`maximum` as `number`, so a conforming peer may
+        // send whole-number bounds as JSON doubles.
+        final schema =
+            Schema.fromMap(
+                  (jsonDecode(
+                            '{"type":"integer","minimum":11.0,"maximum":20.0,'
+                            '"default":15.0}',
+                          )
+                          as Map)
+                      .cast<String, Object?>(),
+                )
+                as IntegerSchema;
+        expect(schema.minimum, 11.0);
+        expect(schema.maximum, 20.0);
+        expect(schema.defaultValue, 15.0);
+        expectFailuresMatch(schema, 10, [
+          ValidationError(ValidationErrorType.minimumNotMet, path: const []),
+        ]);
+        expect(schema.validate(12), isEmpty);
+      });
+
+      test('integer schema with exclusive num bounds from the wire', () {
+        final schema =
+            Schema.fromMap(
+                  (jsonDecode(
+                            '{"type":"integer","exclusiveMinimum":0.0,'
+                            '"exclusiveMaximum":10.0}',
+                          )
+                          as Map)
+                      .cast<String, Object?>(),
+                )
+                as IntegerSchema;
+        expect(schema.validate(5), isEmpty);
+        expectFailuresMatch(schema, 0, [
+          ValidationError(
+            ValidationErrorType.exclusiveMinimumNotMet,
+            path: const [],
+          ),
+        ]);
+      });
     });
   });
 
