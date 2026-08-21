@@ -126,9 +126,7 @@ description: ${jsonEncode(description)}
 
 # $fullSkillName
 
-Brief overview of what this skill does and what it enables the agent to do. 
-Instruct the agent when to invoke this skill. (e.g. "Follow these instructions 
-when doing X, Y or Z in A package.")
+Brief overview of what this skill does and what it enables the agent to do.
 
 ## Instructions
 
@@ -141,6 +139,5 @@ Step-by-step instructions for the agent to follow:
 
 - Use clear, imperative language (e.g., "Run X", "Verify Y").
 - Include concrete examples of inputs and expected outputs where helpful.
-- Keep `SKILL.md` concise; move detailed reference docs to 
-  `references/` and helper scripts to `scripts/`.
+- Keep `SKILL.md` concise; move detailed reference docs to `references/` and helper scripts to `scripts/`.
 ''';
