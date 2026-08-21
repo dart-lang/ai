@@ -1629,9 +1629,7 @@ base class _PromptNoisyServer extends MCPServer
       );
 
   @override
-  FutureOr<ServerCapabilities> initialize(
-    MCPServerInitialization initialization,
-  ) {
+  FutureOr<void> initialize(MCPServerInitialization initialization) {
     registerTool(Tool(name: 'test/adds-prompt', inputSchema: ObjectSchema()), (
       _,
     ) {
