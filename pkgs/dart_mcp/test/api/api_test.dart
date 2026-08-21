@@ -6,6 +6,22 @@ import 'package:dart_mcp/client.dart';
 import 'package:test/test.dart';
 
 void main() {
+  // A getter reads the same null whether the key was omitted or written as
+  // null, so these assert on the map.
+  test('metadata and meta leave out what they are not given', () {
+    expect(BaseMetadata(name: 'n') as Map<String, Object?>, {'name': 'n'});
+    expect(BaseMetadata(name: 'n', title: 't') as Map<String, Object?>, {
+      'name': 'n',
+      'title': 't',
+    });
+    expect(MetaWithProgressToken() as Map<String, Object?>, isEmpty);
+    expect(
+      MetaWithProgressToken(progressToken: ProgressToken(1))
+          as Map<String, Object?>,
+      {'progressToken': 1},
+    );
+  });
+
   test('protocol versions can be compared', () {
     expect(
       ProtocolVersion.latestSupported > ProtocolVersion.oldestSupported,

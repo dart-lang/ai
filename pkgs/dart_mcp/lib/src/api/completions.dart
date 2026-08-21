@@ -113,7 +113,9 @@ extension type CompletionArgument.fromMap(Map<String, Object?> _value) {
 /// A context passed to a [CompleteRequest].
 extension type CompletionContext.fromMap(Map<String, Object?> _value) {
   factory CompletionContext({Map<String, String>? arguments}) =>
-      CompletionContext.fromMap({Keys.arguments: arguments});
+      CompletionContext.fromMap({
+        if (arguments != null) Keys.arguments: arguments,
+      });
 
   /// Previously-resolved variables in a URI template or prompt.
   Map<String, String>? get arguments =>
@@ -179,7 +181,7 @@ extension type PromptReference.fromMap(Map<String, Object?> _value)
   factory PromptReference({required String name, String? title}) =>
       PromptReference.fromMap({
         Keys.name: name,
-        Keys.title: title,
+        if (title != null) Keys.title: title,
         Keys.type: expectedType,
       });
 

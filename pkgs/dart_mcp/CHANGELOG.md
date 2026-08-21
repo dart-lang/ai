@@ -134,6 +134,9 @@
 - Fix `uniqueItems` on a list schema, which compared items with `Set`, so two
   equal maps or lists decoded from JSON counted as different and a list the
   schema forbids validated. JSON Schema compares by structural equality.
+- Stop `BaseMetadata`, `MetaWithProgressToken`, `CompletionContext`,
+  `PromptReference` and `ElicitResult` from writing an explicit `null` for an
+  optional field that was not given. The schema types all five as non-nullable.
 - Fix `RequestId` so it can hold a JSON-RPC id. Its representation type was
   `json_rpc_2`'s `Parameter` rather than `Object`, which its sibling
   `ProgressToken` uses, so `CancelledNotification.requestId` threw for every
