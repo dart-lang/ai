@@ -12,6 +12,28 @@ import '../test_utils.dart';
 
 void main() {
   group('elicitation', () {
+    test('a result without form data carries no content key', () {
+      for (final action in [
+        ElicitationAction.decline,
+        ElicitationAction.cancel,
+      ]) {
+        expect(ElicitResult(action: action) as Map<String, Object?>, {
+          'action': action.name,
+        });
+      }
+      expect(
+        ElicitResult(
+              action: ElicitationAction.accept,
+              content: {'answer': 'yes'},
+            )
+            as Map<String, Object?>,
+        {
+          'action': 'accept',
+          'content': {'answer': 'yes'},
+        },
+      );
+    });
+
     test('server can elicit information from client', () async {
       final elicitationCompleter = Completer<ElicitResult>();
       final environment = TestEnvironment(

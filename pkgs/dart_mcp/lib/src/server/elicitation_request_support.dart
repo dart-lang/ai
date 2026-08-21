@@ -10,9 +10,7 @@ base mixin ElicitationRequestSupport on LoggingSupport {
   bool get supportsElicitation => clientCapabilities.elicitation != null;
 
   @override
-  FutureOr<ServerCapabilities> initialize(
-    MCPServerInitialization initialization,
-  ) {
+  FutureOr<void> initialize(MCPServerInitialization initialization) {
     initialized.then((_) {
       if (!supportsElicitation) {
         log(

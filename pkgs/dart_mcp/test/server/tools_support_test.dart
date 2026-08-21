@@ -172,9 +172,7 @@ final class TestMCPServerWithTools extends TestMCPServer with ToolsSupport {
   MCPServerInitialization? initializedWith;
 
   @override
-  FutureOr<ServerCapabilities> initialize(
-    MCPServerInitialization initialization,
-  ) {
+  FutureOr<void> initialize(MCPServerInitialization initialization) {
     initializedWith = initialization;
     registerTool(
       helloWorld,

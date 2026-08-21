@@ -18,9 +18,7 @@ base mixin LoggingSupport on MCPServer {
   LoggingLevel? loggingLevel;
 
   @override
-  FutureOr<ServerCapabilities> initialize(
-    MCPServerInitialization initialization,
-  ) async {
+  FutureOr<void> initialize(MCPServerInitialization initialization) async {
     if (initialization.protocolVersion < ProtocolVersion.v2026_07_28) {
       loggingLevel ??= LoggingLevel.warning;
       registerRequestHandler(SetLevelRequest.methodName, handleSetLevel);
@@ -31,7 +29,8 @@ base mixin LoggingSupport on MCPServer {
       loggingLevel = initialization.logLevel;
     }
 
-    return (await super.initialize(initialization))..logging ??= Logging();
+    await super.initialize(initialization);
+    capabilities.logging ??= Logging();
   }
 
   /// Sends a [LoggingMessageNotification] to the client, if [loggingLevel] is

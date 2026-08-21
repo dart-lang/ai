@@ -57,9 +57,7 @@ final class TestMCPServerWithLists extends TestMCPServer
   static const resourceNames = ['c', 'a', 'b'];
 
   @override
-  FutureOr<ServerCapabilities> initialize(
-    MCPServerInitialization initialization,
-  ) {
+  FutureOr<void> initialize(MCPServerInitialization initialization) {
     for (final name in toolNames) {
       registerTool(
         Tool(name: name, inputSchema: ObjectSchema()),

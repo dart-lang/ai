@@ -60,9 +60,7 @@ base mixin ResourcesSupport on MCPServer {
   /// then the client will be notified of the changes based on their
   /// subscription preferences.
   @override
-  FutureOr<ServerCapabilities> initialize(
-    MCPServerInitialization initialization,
-  ) async {
+  FutureOr<void> initialize(MCPServerInitialization initialization) async {
     registerRequestHandler(ListResourcesRequest.methodName, listResources);
     registerRequestHandler(
       ListResourceTemplatesRequest.methodName,
@@ -74,7 +72,7 @@ base mixin ResourcesSupport on MCPServer {
     registerRequestHandler(SubscribeRequest.methodName, subscribeResource);
     registerRequestHandler(UnsubscribeRequest.methodName, unsubscribeResource);
 
-    final capabilities = await super.initialize(initialization);
+    await super.initialize(initialization);
     (capabilities.resources ??= Resources())
       ..listChanged = true
       ..subscribe = true;
@@ -86,7 +84,6 @@ base mixin ResourcesSupport on MCPServer {
             ResourceListChangedNotification(),
           ),
         );
-    return capabilities;
   }
 
   @override

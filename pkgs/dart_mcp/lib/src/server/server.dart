@@ -102,6 +102,11 @@ abstract base class MCPServer extends MCPBase {
   /// client did not declare any implementation information.
   Implementation? clientInfo;
 
+  /// The capabilities of this server, which [discover] advertises.
+  ///
+  /// This can be modified by overriding the [initialize] method.
+  final ServerCapabilities capabilities = ServerCapabilities();
+
   @override
   String get name => implementation.name;
 
@@ -140,13 +145,11 @@ abstract base class MCPServer extends MCPBase {
   /// Registers the features available to a client with [initialization].
   ///
   /// Mixins and subclasses should register request handlers and other features
-  /// in this method, as well as editing the returned [ServerCapabilities].
+  /// in this method, as well as editing [capabilities].
   ///
   /// Transport-specific initialization, including the legacy MCP initialize
   /// request, is handled separately.
-  FutureOr<ServerCapabilities> initialize(
-    MCPServerInitialization initialization,
-  ) {
+  FutureOr<void> initialize(MCPServerInitialization initialization) {
     protocolVersion = initialization.protocolVersion;
     clientCapabilities = initialization.clientCapabilities;
     clientInfo = initialization.clientInfo;
@@ -158,8 +161,78 @@ abstract base class MCPServer extends MCPBase {
         _rootsListChangedController!.sink.add,
       );
     }
-    return ServerCapabilities();
+    // Registering this handler is itself a statement about the lifecycle, so
+    // only a server on a request-scoped revision does it. A client probing
+    // under the stdio backward compatibility rules would read an answer here
+    // as "this connection is modern".
+    if (protocolVersion.methodIsValid(DiscoverRequest.methodName)) {
+      registerRequestHandler(DiscoverRequest.methodName, discover);
+    }
   }
+
+  /// Answers the `server/discover` request with the protocol versions this
+  /// server serves, the capabilities [initialize] registered, and the
+  /// instructions it was given.
+  ///
+  /// Only the revisions from [ProtocolVersion.v2026_07_28] on are advertised:
+  /// earlier ones are negotiated with the legacy `initialize` handshake, which
+  /// this request replaced. A transport that serves a narrower set than this
+  /// package implements rejects the versions it does not serve itself, the way
+  /// `handleStreamableHttpRequest` does with its own version header check.
+  ///
+  /// The request-scoped dispatcher fills in the rest of what the schema
+  /// requires, `resultType` and the caching hints, and stamps the server's
+  /// identity into `_meta`. This only answers the fields that are specific to
+  /// discovery. Override it to advertise something else.
+  ///
+  /// The request has no parameters of its own beyond the `_meta` envelope, and
+  /// the per-request context that envelope carries reaches a server through
+  /// [initialize] rather than through here, so it is optional the way the other
+  /// requests without parameters are.
+  ///
+  /// https://modelcontextprotocol.io/specification/2026-07-28/server/discover
+  FutureOr<DiscoverResult> discover([DiscoverRequest? request]) =>
+      DiscoverResult(
+        supportedVersions: [
+          for (final version in ProtocolVersion.values)
+            if (version.methodIsValid(DiscoverRequest.methodName))
+              version.versionString,
+        ],
+        capabilities: _advertisedCapabilities,
+        instructions: instructions,
+      );
+
+  /// The capabilities [discover] advertises.
+  ///
+  /// On these revisions a client only hears a list change or a resource update
+  /// over a `subscriptions/listen` stream it opened with the matching
+  /// `promptsListChanged`, `toolsListChanged`, `resourcesListChanged` or
+  /// `resourceSubscriptions` filter, and this package does not serve that
+  /// request yet. So the four bits standing for those notifications come off
+  /// here: `listChanged` on each of the three, and `subscribe` on
+  /// [ServerCapabilities.resources]. Every other key the server registered is
+  /// passed through, and `initializeLegacy` keeps all of them, since the
+  /// revisions that handshake negotiates still serve `resources/subscribe` and
+  /// send the list changes without a filter.
+  ServerCapabilities get _advertisedCapabilities => ServerCapabilities.fromMap({
+    ...capabilities as Map<String, Object?>,
+    if (capabilities.prompts case final prompts?)
+      Keys.prompts: Prompts.fromMap(
+        Map<String, Object?>.from(prompts as Map<String, Object?>)
+          ..remove(Keys.listChanged),
+      ),
+    if (capabilities.resources case final resources?)
+      Keys.resources: Resources.fromMap(
+        Map<String, Object?>.from(resources as Map<String, Object?>)
+          ..remove(Keys.listChanged)
+          ..remove(Keys.subscribe),
+      ),
+    if (capabilities.tools case final tools?)
+      Keys.tools: Tools.fromMap(
+        Map<String, Object?>.from(tools as Map<String, Object?>)
+          ..remove(Keys.listChanged),
+      ),
+  });
 
   @mustCallSuper
   /// Handles the initialize request used by legacy MCP protocols.
@@ -178,7 +251,7 @@ abstract base class MCPServer extends MCPBase {
             : clientProtocolVersion;
 
     assert(!_initialized.isCompleted);
-    final serverCapabilities = await initialize(
+    await initialize(
       MCPServerInitialization(
         protocolVersion: negotiatedProtocolVersion,
         clientCapabilities: request.capabilities,
@@ -187,7 +260,7 @@ abstract base class MCPServer extends MCPBase {
     );
     return InitializeResult(
       protocolVersion: negotiatedProtocolVersion,
-      serverCapabilities: serverCapabilities,
+      serverCapabilities: capabilities,
       serverInfo: implementation,
       instructions: instructions,
     );
