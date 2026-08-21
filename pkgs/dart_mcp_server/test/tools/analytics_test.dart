@@ -452,21 +452,20 @@ void main() {
     });
 
     test('includes agentPlugin in sent events when provided', () async {
-      debugAgentPluginOverride = 'dart-flutter';
-      addTearDown(() => debugAgentPluginOverride = null);
+      await withAgentPluginOverride('dart-flutter', () async {
+        await server.listTools();
 
-      await server.listTools();
-
-      expect(
-        analytics.sentEvents.last,
-        isA<Event>()
-            .having((e) => e.eventName, 'eventName', DashEvent.dartMCPEvent)
-            .having(
-              (e) => e.eventData,
-              'eventData',
-              containsPair('agentPlugin', 'dart-flutter'),
-            ),
-      );
+        expect(
+          analytics.sentEvents.last,
+          isA<Event>()
+              .having((e) => e.eventName, 'eventName', DashEvent.dartMCPEvent)
+              .having(
+                (e) => e.eventData,
+                'eventData',
+                containsPair('agentPlugin', 'dart-flutter'),
+              ),
+        );
+      });
     });
 
     test('Changelog version matches dart server version', () {

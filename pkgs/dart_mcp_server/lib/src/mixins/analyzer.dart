@@ -368,9 +368,6 @@ base mixin DartAnalyzerSupport
         // as a confirmation to the LLM that it was respected.
         messages.add(TextContent(text: 'Applied quick fixes'));
 
-        // Give the file watcher a moment to register file changes before
-        // waiting for analysis.
-        await Future<void>.delayed(const Duration(milliseconds: 100));
         await _waitForAnalysisToComplete(
           analysisServer,
           waitForSecondaryAnalysisInLegacyMode: true,

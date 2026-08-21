@@ -2,6 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:dart_mcp/server.dart';
@@ -20,13 +21,20 @@ abstract interface class AnalyticsSupport {
 /// The environment variable name used to specify the agent plugin.
 const agentPluginEnvVar = 'AGENT_PLUGIN';
 
-/// An override for the agent plugin name, used for testing.
-@visibleForTesting
-String? debugAgentPluginOverride;
+/// Key used to store the agent plugin override in a [Zone].
+const _agentPluginOverrideKey = #_agentPluginOverrideKey;
 
-/// Returns the agent plugin name from the environment (or test override).
+/// Runs [callback] in a zone where the agent plugin is overridden with
+/// [agentPlugin].
+@visibleForTesting
+R withAgentPluginOverride<R>(String agentPlugin, R Function() callback) =>
+    runZoned(callback, zoneValues: {_agentPluginOverrideKey: agentPlugin});
+
+/// Returns the agent plugin name from the current [Zone] (if overridden) or
+/// the environment.
 String? get agentPlugin =>
-    debugAgentPluginOverride ?? Platform.environment[agentPluginEnvVar];
+    Zone.current[_agentPluginOverrideKey] as String? ??
+    Platform.environment[agentPluginEnvVar];
 
 enum AnalyticsEvent {
   callTool,
