@@ -32,13 +32,23 @@
     initialize response or version negotiation.
   - `ElicitationRequestSupport.elicit` now throws an `RpcException` with
     `McpErrorCodes.missingRequiredClientCapability` instead of a `StateError`
-    when the client did not declare the `elicitation` capability, naming the
+    when the client did not declare the capability the request needs, naming the
     missing capability under `data.requiredCapabilities`, which the 2026-07-28
     revision requires of that error. `ToolsSupport.callTool` rethrows an
     `RpcException`, so a tool which elicits reaches the client as that error
     rather than as a `CallToolResult` whose text is a Dart stack trace. A
     server catching the `StateError` needs to catch `RpcException` instead,
     which comes from `package:json_rpc_2`.
+  - `ElicitationRequestSupport.elicit` now checks which mode a request names. A
+    server that guarded on `supportsElicitation` should read
+    `supportsFormElicitation` or `supportsUrlElicitation`. A request naming a
+    mode this version has no value for is answered with `-32602` (invalid
+    params) instead of going out with that mode still on it.
+  - `ServerConnection` now answers an elicitation mode the client did not
+    declare with `-32602` (invalid params), where it used to answer a `decline`,
+    as if the user had sent it. An unrecognized one used to throw out of the
+    handler instead. The `-32042` retry path leaves the error
+    alone unless the request it carries names url.
   - `ResourcesSupport.readResource` now answers a URI it has no resource or
     template for with the `-32602` (invalid params) error the 2026-07-28
     revision requires, carrying the URI as `data.uri`, instead of letting an
@@ -64,6 +74,11 @@
     revisions fill it in only when the server set none. `LoggingSupport` also
     stops registering `logging/setLevel` on that revision, which is what a
     transport dispatching on its own gets.
+- Add `supportsFormElicitation` and `supportsUrlElicitation` for a server to
+  ask before it sends. Naming neither mode still means form, the way
+  `elicitation` read before the split.
+- Add `ElicitRequest.rawMode`, which carries the mode as it arrived. `mode`
+  resolves it and throws on a value this version has no name for.
 - Add `handleRequestScopedMessage` and `MCPServerFactory`, which serve each
   decoded JSON-RPC message on a fresh server instance for request-scoped
   transports. On 2026-07-28, successful results record the server

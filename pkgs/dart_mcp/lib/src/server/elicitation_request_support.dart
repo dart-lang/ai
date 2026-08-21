@@ -9,6 +9,29 @@ base mixin ElicitationRequestSupport on LoggingSupport {
   /// is based on the client capabilities.
   bool get supportsElicitation => clientCapabilities.elicitation != null;
 
+  /// Whether or not the connected client supports [ElicitationMode.form]
+  /// requests.
+  ///
+  /// Only safe to call after calling [initialize] on `super` since this
+  /// is based on the client capabilities.
+  ///
+  /// A client which declared `elicitation` but named neither mode counts as
+  /// form support, the rule the 2025-11-25 revision added alongside the mode
+  /// split.
+  bool get supportsFormElicitation {
+    final elicitation = clientCapabilities.elicitation;
+    if (elicitation == null) return false;
+    return elicitation.form != null || elicitation.url == null;
+  }
+
+  /// Whether or not the connected client supports [ElicitationMode.url]
+  /// requests.
+  ///
+  /// Only safe to call after calling [initialize] on `super` since this
+  /// is based on the client capabilities.
+  bool get supportsUrlElicitation =>
+      clientCapabilities.elicitation?.url != null;
+
   @override
   FutureOr<ServerCapabilities> initialize(
     MCPServerInitialization initialization,
@@ -27,23 +50,41 @@ base mixin ElicitationRequestSupport on LoggingSupport {
 
   /// Sends an `elicitation/create` request to the client.
   ///
-  /// This method will only succeed if the client has advertised the
-  /// `elicitation` capability.
+  /// This method will only succeed if the client has advertised the mode the
+  /// request asks for, as [supportsFormElicitation] and
+  /// [supportsUrlElicitation] read it.
   ///
   /// Throws an [RpcException] with
-  /// [McpErrorCodes.missingRequiredClientCapability] when it has not, naming
-  /// the capability the client is missing under `data.requiredCapabilities`,
+  /// [McpErrorCodes.missingRequiredClientCapability] when the client has not,
+  /// naming the capability it is missing under `data.requiredCapabilities`,
   /// which the 2026-07-28 revision requires of that error.
   ///
   /// [ToolsSupport.callTool] rethrows an [RpcException] instead of folding it
   /// into a [CallToolResult], so a tool which elicits reaches the client as
   /// that error rather than as a result whose text is a Dart stack trace.
   Future<ElicitResult> elicit(ElicitRequest request) async {
-    if (!supportsElicitation) {
-      throw _missingClientCapability(
-        'elicitation',
-        ClientCapabilities(elicitation: ElicitationCapability()),
+    final raw = request.rawMode;
+    if (raw != null && !ElicitationMode.values.any((m) => m.name == raw)) {
+      throw RpcException.invalidParams(
+        'The elicitation mode was "$raw", which is not one of: '
+        '${ElicitationMode.values.map((m) => m.name).join(', ')}',
       );
+    }
+    switch (request.mode) {
+      case ElicitationMode.url:
+        if (!supportsUrlElicitation) {
+          throw _missingClientCapability(
+            'elicitation.url',
+            ClientCapabilities(elicitation: ElicitationCapability(url: {})),
+          );
+        }
+      case ElicitationMode.form:
+        if (!supportsFormElicitation) {
+          throw _missingClientCapability(
+            'elicitation.form',
+            ClientCapabilities(elicitation: ElicitationCapability(form: {})),
+          );
+        }
     }
     return sendRequest(ElicitRequest.methodName, request);
   }
