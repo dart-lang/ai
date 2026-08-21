@@ -407,9 +407,7 @@ final class InitializeProgressTestMCPServer extends TestMCPServer
   InitializeProgressTestMCPServer(super.channel);
 
   @override
-  FutureOr<ServerCapabilities> initialize(
-    MCPServerInitialization initialization,
-  ) {
+  FutureOr<void> initialize(MCPServerInitialization initialization) {
     registerTool(myProgressTool, _myToolImpl);
     return super.initialize(initialization);
   }
@@ -468,9 +466,7 @@ final class _BadMetaToolServer extends TestMCPServer with ToolsSupport {
   _BadMetaToolServer(super.channel, {super.protocolLogSink});
 
   @override
-  FutureOr<ServerCapabilities> initialize(
-    MCPServerInitialization initialization,
-  ) {
+  FutureOr<void> initialize(MCPServerInitialization initialization) {
     registerTool(
       Tool(name: 'bad_meta_keys', inputSchema: ObjectSchema()),
       (_) => CallToolResult.fromMap({

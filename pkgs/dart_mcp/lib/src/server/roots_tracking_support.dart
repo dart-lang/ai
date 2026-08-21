@@ -38,9 +38,7 @@ base mixin RootsTrackingSupport on LoggingSupport {
       clientCapabilities.roots?.listChanged == true;
 
   @override
-  FutureOr<ServerCapabilities> initialize(
-    MCPServerInitialization initialization,
-  ) {
+  FutureOr<void> initialize(MCPServerInitialization initialization) {
     initialized.then((_) async {
       if (!supportsRoots) {
         log(

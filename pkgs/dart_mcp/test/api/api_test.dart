@@ -6,6 +6,22 @@ import 'package:dart_mcp/client.dart';
 import 'package:test/test.dart';
 
 void main() {
+  // A getter reads the same null whether the key was omitted or written as
+  // null, so these assert on the map.
+  test('metadata and meta leave out what they are not given', () {
+    expect(BaseMetadata(name: 'n') as Map<String, Object?>, {'name': 'n'});
+    expect(BaseMetadata(name: 'n', title: 't') as Map<String, Object?>, {
+      'name': 'n',
+      'title': 't',
+    });
+    expect(MetaWithProgressToken() as Map<String, Object?>, isEmpty);
+    expect(
+      MetaWithProgressToken(progressToken: ProgressToken(1))
+          as Map<String, Object?>,
+      {'progressToken': 1},
+    );
+  });
+
   test('protocol versions can be compared', () {
     expect(
       ProtocolVersion.latestSupported > ProtocolVersion.oldestSupported,
@@ -313,6 +329,43 @@ void main() {
         expect(result, isNot(contains('ttlMs')));
         expect(result, isNot(contains('cacheScope')));
       }
+    });
+  });
+
+  group('ResourceLink', () {
+    test('reads the icons a server sent', () {
+      final link = ResourceLink.fromMap({
+        'type': 'resource_link',
+        'uri': 'file:///a',
+        'name': 'a',
+        'icons': <Object?>[
+          {
+            'src': 'https://example.com/a.png',
+            'sizes': <Object?>['48x48'],
+          },
+        ],
+      });
+      final icon = link.icons!.single;
+      expect(icon.src, 'https://example.com/a.png');
+      expect(icon.sizes, ['48x48']);
+    });
+
+    test('writes the icons it is given', () {
+      final link = ResourceLink(
+        uri: 'file:///a',
+        name: 'a',
+        icons: [Icon(src: 'https://example.com/a.png')],
+      );
+      expect((link as Map<String, Object?>)['icons'], [
+        {'src': 'https://example.com/a.png'},
+      ]);
+      expect(link.icons!.single.src, 'https://example.com/a.png');
+    });
+
+    test('reads null icons when the server left them out', () {
+      final link = ResourceLink(uri: 'file:///a', name: 'a');
+      expect(link.icons, null);
+      expect((link as Map<String, Object?>).containsKey('icons'), isFalse);
     });
   });
 }

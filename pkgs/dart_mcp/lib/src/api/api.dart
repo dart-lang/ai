@@ -17,6 +17,7 @@ part 'elicitation.dart';
 part 'error_codes.dart';
 part 'icons.dart';
 part 'initialization.dart';
+part 'input_required.dart';
 part 'logging.dart';
 part 'prompts.dart';
 part 'resources.dart';
@@ -173,14 +174,23 @@ extension type Cursor(String _) {}
 /// - Prefix: If specified, MUST be a series of labels separated by dots
 ///   (`.`), followed by a slash (`/`). Labels MUST start with a letter and
 ///   end with a letter or digit; interior characters can be letters, digits,
-///   or hyphens (`-`). Any prefix beginning with zero or more valid labels,
-///   followed by `modelcontextprotocol` or `mcp`, followed by any valid
-///   label, is reserved for MCP use. For example: `modelcontextprotocol.io/`,
-///   `mcp.dev/`, `api.modelcontextprotocol.org/`, and `tools.mcp.com/` are
-///   all reserved.
+///   or hyphens (`-`). From the 2025-11-25 revision, implementations SHOULD
+///   use reverse DNS notation (e.g., `com.example/` rather than
+///   `example.com/`), and any prefix whose second label is
+///   `modelcontextprotocol` or `mcp` is reserved for MCP use. For example:
+///   `io.modelcontextprotocol/`, `dev.mcp/`, `org.modelcontextprotocol.api/`,
+///   and `com.mcp.tools/` are all reserved, while `com.example.mcp/` is not,
+///   because its second label is `example`. The 2025-06-18 revision reserved
+///   any prefix carrying `modelcontextprotocol` or `mcp` in a label other
+///   than the last.
 /// - Name: Unless empty, MUST begin and end with an alphanumeric character
 ///   (`[a-z0-9A-Z]`). MAY contain hyphens (`-`), underscores (`_`), dots
 ///   (`.`), and alphanumerics in between.
+///
+/// From the 2026-07-28 revision, `traceparent`, `tracestate`, and `baggage`
+/// are reserved for OpenTelemetry trace context, as an exception to the prefix
+/// rule. When present, their values MUST follow the W3C Trace Context and
+/// W3C Baggage formats respectively.
 extension type Meta.fromMap(Map<String, Object?> _value) {
   Object? operator [](String key) => _value[key];
 }
@@ -191,7 +201,10 @@ extension type Meta.fromMap(Map<String, Object?> _value) {
 /// different purpose.
 extension type BaseMetadata.fromMap(Map<String, Object?> _value) {
   factory BaseMetadata({required String name, String? title}) =>
-      BaseMetadata.fromMap({Keys.name: name, Keys.title: title});
+      BaseMetadata.fromMap({
+        Keys.name: name,
+        if (title != null) Keys.title: title,
+      });
 
   /// Intended for programmatic or logical use, but used as a display name in
   /// past specs for fallback (if title isn't present).
@@ -230,7 +243,9 @@ extension type WithProgressToken.fromMap(Map<String, Object?> _value) {
 extension type MetaWithProgressToken.fromMap(Map<String, Object?> _value)
     implements Meta, WithProgressToken {
   factory MetaWithProgressToken({ProgressToken? progressToken}) =>
-      MetaWithProgressToken.fromMap({Keys.progressToken: progressToken});
+      MetaWithProgressToken.fromMap({
+        if (progressToken != null) Keys.progressToken: progressToken,
+      });
 }
 
 /// Base interface for all types that can have arbitrary metadata attached.
@@ -644,6 +659,7 @@ extension type ResourceLink.fromMap(Map<String, Object?> _value)
     String? description,
     required String uri,
     String? mimeType,
+    List<Icon>? icons,
     Annotations? annotations,
     Meta? meta,
   }) => ResourceLink.fromMap({
@@ -652,6 +668,7 @@ extension type ResourceLink.fromMap(Map<String, Object?> _value)
     if (description != null) Keys.description: description,
     Keys.uri: uri,
     if (mimeType != null) Keys.mimeType: mimeType,
+    if (icons != null) Keys.icons: icons,
     Keys.type: expectedType,
     if (annotations != null) Keys.annotations: annotations,
     if (meta != null) Keys.meta: meta,
@@ -681,8 +698,9 @@ extension type ResourceLink.fromMap(Map<String, Object?> _value)
   /// The size of the resource in bytes.
   int? get size => _value[Keys.size] as int?;
 
-  /// List of icons for display in user interfaces
-  List<String>? get icons => (_value[Keys.icons] as List?)?.cast<String>();
+  /// Optional set of sized icons that the client can display in a user
+  /// interface.
+  List<Icon>? get icons => (_value[Keys.icons] as List?)?.cast<Icon>();
 }
 
 /// Base type for objects that include optional annotations for the client.
