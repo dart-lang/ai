@@ -93,7 +93,9 @@ class CreateCommand extends SkillsCommand {
     await skillsDir.create(recursive: true);
 
     final skillFile = File(p.join(skillsDir.path, 'SKILL.md'));
-    await skillFile.writeAsString(_template(fullSkillName, description));
+    await skillFile.writeAsString(
+      _createSkillTemplate(fullSkillName, description),
+    );
 
     logger.info(
       'Created empty skill in ${skillFile.path}, open that file and fill out '
@@ -116,7 +118,7 @@ String? _isValidSkillName(String name) {
 /// Skill names can only have letters/numbers and hyphens.
 final _validNameRegex = RegExp(r'^[a-z0-9-]+$');
 
-String _template(String fullSkillName, String description) =>
+String _createSkillTemplate(String fullSkillName, String description) =>
     '''---
 name: $fullSkillName
 description: ${jsonEncode(description)}
@@ -124,7 +126,9 @@ description: ${jsonEncode(description)}
 
 # $fullSkillName
 
-Brief overview of what this skill does and what it enables the agent to do.
+Brief overview of what this skill does and what it enables the agent to do. 
+Instruct the agent when to invoke this skill. (e.g. "Follow these instructions 
+when doing X, Y or Z in A package.")
 
 ## Instructions
 
@@ -137,5 +141,6 @@ Step-by-step instructions for the agent to follow:
 
 - Use clear, imperative language (e.g., "Run X", "Verify Y").
 - Include concrete examples of inputs and expected outputs where helpful.
-- Keep `SKILL.md` concise; move detailed reference docs to `references/` and helper scripts to `scripts/`.
+- Keep `SKILL.md` concise; move detailed reference docs to 
+  `references/` and helper scripts to `scripts/`.
 ''';
