@@ -24,10 +24,20 @@
   - Separate server feature registration from the legacy protocol handshake.
     `MCPServer.initialize` now accepts an `MCPServerInitialization` containing
     the protocol version, client information, and client capabilities, and
-    returns `ServerCapabilities`. The client information is optional, since
-    clients are no longer required to send it on every request, see
+    returns nothing. The client information is optional, since clients are no
+    longer required to send it on every request, see
     https://github.com/modelcontextprotocol/modelcontextprotocol/pull/3002.
     `MCPServer.clientInfo` is now nullable (`Implementation?`).
+  - Mixins and subclasses declare what a server supports by editing the
+    `MCPServer.capabilities` field, which is `final`, instead of editing the
+    `ServerCapabilities` on the `InitializeResult` that `super.initialize`
+    used to return.
+    - A mixin that returned a fresh object kept the handlers the rest of the
+      chain had registered while dropping the capabilities they declared, so
+      the server answered requests it did not advertise.
+    - The initialize response that `MCPServer.initializeLegacy` returns takes
+      its capabilities from that field.
+    - On the client, `MCPClient.capabilities` already worked this way.
   - Override `MCPServer.initializeLegacy` only to customize the legacy
     initialize response or version negotiation.
   - `ElicitationRequestSupport.elicit` now throws an `RpcException` with
@@ -172,8 +182,28 @@
   has no name for and the client is the one choosing between them. Its factory
   takes `ttlMs` and `cacheScope` on the same terms as the other five cacheable
   results, so the sixth operation the caching rules name is no longer the one
-  which cannot carry the hints. This adds the types only; the server does not
-  answer `server/discover` yet.
+  that cannot carry the hints.
+- Serve `server/discover` from `MCPServer.discover`, which answers with the
+  request-scoped protocol versions this package implements, the capabilities
+  `MCPServer.initialize` registered, and the instructions the server was given.
+  - Its result joins the ones carrying `ttlMs` and `cacheScope`, and the
+    dispatcher stamps the result type and the server's identity on it as it
+    does for every result.
+  - Only a server initialized for 2026-07-28 or later registers the handler,
+    since answering is how a server declares it speaks the request-scoped
+    protocol.
+  - A server on an earlier revision that answered would be taken for a modern
+    one, see
+    https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/stdio#backward-compatibility.
+  - The advertisement removes `subscribe` and the three `listChanged` bits,
+    since a client only hears those notifications over a
+    `subscriptions/listen` stream, and this package does not serve that
+    request yet.
+  - Every other key on those capabilities goes out as it is, and so does the
+    rest of the field, since capabilities are an open set.
+    `initializeLegacy` still sends all of them.
+  - The `ServerCapabilities` constructor writes `completions`, which it used to
+    drop, so a caller that passes one gets it back.
 - Add `package:dart_mcp/streamable_http.dart` with
   `handleStreamableHttpRequest`, the server side of the Streamable HTTP
   transport from the 2026-07-28 revision, see

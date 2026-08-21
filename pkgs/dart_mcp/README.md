@@ -22,8 +22,8 @@ that you can call.
 
 Register server-specific tools, resources, prompts, and request handlers by
 overriding `MCPServer.initialize(MCPServerInitialization)`. Always call the
-super method and return its `ServerCapabilities`, including any capability
-changes made by your server. This hook can be used independently of the legacy
+super method, and declare what your server supports by editing
+`MCPServer.capabilities`. This hook can be used independently of the legacy
 MCP handshake; the context supplies the protocol version, optional client
 information, and client capabilities for either lifecycle. A request-scoped
 transport completes `MCPServer.initialized` by calling `handleInitialized()`

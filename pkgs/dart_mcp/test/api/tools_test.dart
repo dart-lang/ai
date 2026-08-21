@@ -2340,10 +2340,8 @@ base class TestMCPServerWithTools extends TestMCPServer with ToolsSupport {
        _initialToolHandlers = toolHandlers;
 
   @override
-  FutureOr<ServerCapabilities> initialize(
-    MCPServerInitialization initialization,
-  ) async {
-    final capabilities = await super.initialize(initialization);
+  FutureOr<void> initialize(MCPServerInitialization initialization) async {
+    await super.initialize(initialization);
     for (final tool in _initialTools) {
       final handler = _initialToolHandlers[tool.name];
       if (handler != null) {
@@ -2352,6 +2350,5 @@ base class TestMCPServerWithTools extends TestMCPServer with ToolsSupport {
         throw StateError('No handler provided for tool: ${tool.name}');
       }
     }
-    return capabilities;
   }
 }
