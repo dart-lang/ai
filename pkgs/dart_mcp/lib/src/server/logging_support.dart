@@ -6,7 +6,7 @@ part of 'server.dart';
 
 /// A mixin for MCP servers which support the `logging` capability.
 ///
-/// See https://spec.modelcontextprotocol.io/specification/2025-11-05/server/utilities/logging/.
+/// See https://modelcontextprotocol.io/specification/2025-11-25/server/utilities/logging/.
 base mixin LoggingSupport on MCPServer {
   /// The level at or above which [log] sends messages, or `null` to send none.
   ///
