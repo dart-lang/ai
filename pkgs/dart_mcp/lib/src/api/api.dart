@@ -649,6 +649,7 @@ extension type ResourceLink.fromMap(Map<String, Object?> _value)
     String? description,
     required String uri,
     String? mimeType,
+    List<Icon>? icons,
     Annotations? annotations,
     Meta? meta,
   }) => ResourceLink.fromMap({
@@ -657,6 +658,7 @@ extension type ResourceLink.fromMap(Map<String, Object?> _value)
     if (description != null) Keys.description: description,
     Keys.uri: uri,
     if (mimeType != null) Keys.mimeType: mimeType,
+    if (icons != null) Keys.icons: icons,
     Keys.type: expectedType,
     if (annotations != null) Keys.annotations: annotations,
     if (meta != null) Keys.meta: meta,
@@ -686,8 +688,9 @@ extension type ResourceLink.fromMap(Map<String, Object?> _value)
   /// The size of the resource in bytes.
   int? get size => _value[Keys.size] as int?;
 
-  /// List of icons for display in user interfaces
-  List<String>? get icons => (_value[Keys.icons] as List?)?.cast<String>();
+  /// Optional set of sized icons that the client can display in a user
+  /// interface.
+  List<Icon>? get icons => (_value[Keys.icons] as List?)?.cast<Icon>();
 }
 
 /// Base type for objects that include optional annotations for the client.
