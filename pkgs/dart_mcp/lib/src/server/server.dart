@@ -311,7 +311,7 @@ abstract base class MCPServer extends MCPBase {
 
   /// A request to prompt the LLM owned by the client with a message.
   ///
-  /// See https://spec.modelcontextprotocol.io/specification/2025-11-05/client/sampling/.
+  /// See https://modelcontextprotocol.io/specification/2025-11-25/client/sampling/.
   ///
   /// This method will only succeed if the client has advertised the `sampling`
   /// capability.
