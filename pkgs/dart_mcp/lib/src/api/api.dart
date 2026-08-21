@@ -191,7 +191,10 @@ extension type Meta.fromMap(Map<String, Object?> _value) {
 /// different purpose.
 extension type BaseMetadata.fromMap(Map<String, Object?> _value) {
   factory BaseMetadata({required String name, String? title}) =>
-      BaseMetadata.fromMap({Keys.name: name, Keys.title: title});
+      BaseMetadata.fromMap({
+        Keys.name: name,
+        if (title != null) Keys.title: title,
+      });
 
   /// Intended for programmatic or logical use, but used as a display name in
   /// past specs for fallback (if title isn't present).
@@ -230,7 +233,9 @@ extension type WithProgressToken.fromMap(Map<String, Object?> _value) {
 extension type MetaWithProgressToken.fromMap(Map<String, Object?> _value)
     implements Meta, WithProgressToken {
   factory MetaWithProgressToken({ProgressToken? progressToken}) =>
-      MetaWithProgressToken.fromMap({Keys.progressToken: progressToken});
+      MetaWithProgressToken.fromMap({
+        if (progressToken != null) Keys.progressToken: progressToken,
+      });
 }
 
 /// Base interface for all types that can have arbitrary metadata attached.

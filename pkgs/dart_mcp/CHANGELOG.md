@@ -122,6 +122,9 @@
   two took. `SubscribeRequest` and `UnsubscribeRequest` stay for the revisions
   which have them. Serving the request, and delivering notifications on the
   stream it opens, land as separate changes.
+- Stop `BaseMetadata`, `MetaWithProgressToken`, `CompletionContext`,
+  `PromptReference` and `ElicitResult` from writing an explicit `null` for an
+  optional field that was not given. The schema types all five as non-nullable.
 - Fix `RequestId` so it can hold a JSON-RPC id. Its representation type was
   `json_rpc_2`'s `Parameter` rather than `Object`, which its sibling
   `ProgressToken` uses, so `CancelledNotification.requestId` threw for every
