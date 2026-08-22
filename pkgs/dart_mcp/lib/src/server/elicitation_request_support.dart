@@ -15,13 +15,14 @@ base mixin ElicitationRequestSupport on LoggingSupport {
   /// Only safe to call after calling [initialize] on `super` since this
   /// is based on the client capabilities.
   ///
-  /// A client which declared `elicitation` but named neither mode counts as
-  /// form support, the rule the 2025-11-25 revision added alongside the mode
-  /// split.
+  /// An empty `elicitation` object counts as form support, the backwards
+  /// compatibility rule the 2025-11-25 revision added alongside the mode
+  /// split. A client which named some other mode does not.
   bool get supportsFormElicitation {
     final elicitation = clientCapabilities.elicitation;
     if (elicitation == null) return false;
-    return elicitation.form != null || elicitation.url == null;
+    return elicitation.form != null ||
+        (elicitation as Map<String, Object?>).isEmpty;
   }
 
   /// Whether or not the connected client supports [ElicitationMode.url]

@@ -53,8 +53,8 @@ extension type ElicitRequest._fromMap(Map<String, Object?> _value)
   ///
   /// Null when the sender named no mode, which [mode] reads as
   /// [ElicitationMode.form]. A caller that has to tell a missing mode apart
-  /// from one this version does not know reads this instead, since [mode]
-  /// throws on the second.
+  /// from an unknown one reads this instead, since [mode] throws on the
+  /// second.
   Object? get rawMode => _value[Keys.mode];
 
   /// The mode of this elicitation.

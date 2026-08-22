@@ -51,9 +51,9 @@
     which comes from `package:json_rpc_2`.
   - `ElicitationRequestSupport.elicit` now checks which mode a request names. A
     server that guarded on `supportsElicitation` should read
-    `supportsFormElicitation` or `supportsUrlElicitation`. A request naming a
-    mode this version has no value for is answered with `-32602` (invalid
-    params) instead of going out with that mode still on it.
+    `supportsFormElicitation` or `supportsUrlElicitation`. A request naming an
+    unknown mode is answered with `-32602` (invalid params) instead of going out
+    with that mode still on it.
   - `ServerConnection` now answers an elicitation mode the client did not
     declare with `-32602` (invalid params), where it used to answer a `decline`,
     as if the user had sent it. An unrecognized one used to throw out of the
@@ -91,17 +91,17 @@
     revisions fill it in only when the server set none. `LoggingSupport` also
     stops registering `logging/setLevel` on that revision, which is what a
     transport dispatching on its own gets.
-- Add `supportsFormElicitation` and `supportsUrlElicitation` for a server to
-  ask before it sends. Naming neither mode still means form, the way
-  `elicitation` read before the split.
-- Add `ElicitRequest.rawMode`, which carries the mode as it arrived. `mode`
-  resolves it and throws on a value this version has no name for.
   - `IntegerSchema`'s four bounds and its default read `num` now, and its
     factory takes them that way. JSON Schema types the bounds `number`, and
     the spec gives integers and numbers one definition whose `minimum`,
     `maximum` and `default` are `number` too. A peer sending
     `{"type": "integer", "minimum": 0.5}` sent something the getter threw on.
     `multipleOf` next to them already read `num`.
+- Add `supportsFormElicitation` and `supportsUrlElicitation` for a server to
+  ask before it sends. An empty `elicitation` object still means form, the way
+  `elicitation` read before the split.
+- Add `ElicitRequest.rawMode`, which carries the mode as it arrived. `mode`
+  resolves it and throws on an unknown one.
 - Fix the `Meta` dartdoc, which still described the 2025-06-18 prefix rule, and
   document the `traceparent`, `tracestate`, and `baggage` keys reserved for
   OpenTelemetry trace context, see

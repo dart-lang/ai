@@ -170,8 +170,8 @@ void main() {
       await environment.initializeServer();
       final server = environment.server;
 
-      // A payload with no mode reads as form, and one naming a mode this
-      // version has no value for is not a url request either.
+      // A payload with no mode reads as form, and an unknown mode is not a
+      // url request either.
       final payloads = [
         <String, Object?>{Keys.message: 'Fill this in'},
         <String, Object?>{Keys.mode: 'voice', Keys.message: 'Fill this in'},

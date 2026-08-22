@@ -39,7 +39,7 @@ final class _ElicitingServer extends MCPServer
       _,
     ) async {
       // Cast the way `ServerConnection` does when it reads a request off the
-      // wire, since no constructor here can name a mode this version lacks.
+      // wire, since no constructor here can name an unknown mode.
       await elicit(
         <String, Object?>{Keys.mode: 'voice', Keys.message: 'speak up'}
             as ElicitRequest,
@@ -137,6 +137,21 @@ void main() {
     final result = await _call(
       'test/ask',
       ClientCapabilities(elicitation: ElicitationCapability(url: {})),
+    );
+
+    expect(_requiredCapabilities(result!), {
+      Keys.elicitation: {Keys.form: <String, Object?>{}},
+    });
+  });
+
+  test('a voice-only client does not clear the form check', () async {
+    final result = await _call(
+      'test/ask',
+      ClientCapabilities(
+        elicitation: ElicitationCapability.fromMap({
+          'voice': <String, Object?>{},
+        }),
+      ),
     );
 
     expect(_requiredCapabilities(result!), {
