@@ -4,6 +4,7 @@
 
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp/src/utils/constants.dart';
+import 'package:json_rpc_2/error_code.dart' as error_code;
 import 'package:test/test.dart';
 
 final class _ElicitingServer extends MCPServer
@@ -20,32 +21,213 @@ final class _ElicitingServer extends MCPServer
       );
       return CallToolResult(content: [TextContent(text: 'asked')]);
     });
+    registerTool(Tool(name: 'test/no-mode', inputSchema: ObjectSchema()), (
+      _,
+    ) async {
+      // The 2025-11-25 revision lets a server leave `mode` out of a form
+      // request, and no constructor here builds one without it.
+      await elicit(
+        <String, Object?>{
+              Keys.message: 'need input',
+              Keys.requestedSchema: ObjectSchema(),
+            }
+            as ElicitRequest,
+      );
+      return CallToolResult(content: [TextContent(text: 'asked')]);
+    });
+    registerTool(Tool(name: 'test/unknown', inputSchema: ObjectSchema()), (
+      _,
+    ) async {
+      // Cast the way `ServerConnection` does when it reads a request off the
+      // wire, since no constructor here can name an unknown mode.
+      await elicit(
+        <String, Object?>{Keys.mode: 'voice', Keys.message: 'speak up'}
+            as ElicitRequest,
+      );
+      return CallToolResult(content: [TextContent(text: 'asked')]);
+    });
+    registerTool(Tool(name: 'test/send', inputSchema: ObjectSchema()), (
+      _,
+    ) async {
+      await elicit(
+        ElicitRequest.url(
+          message: 'sign in',
+          url: 'https://e.test',
+          elicitationId: 'e1',
+        ),
+      );
+      return CallToolResult(content: [TextContent(text: 'sent')]);
+    });
   }
+}
+
+Future<Map<String, Object?>?> _call(
+  String tool,
+  ClientCapabilities capabilities,
+) => handleRequestScopedMessage(
+  {
+    Keys.jsonrpc: '2.0',
+    Keys.id: 1,
+    Keys.method: CallToolRequest.methodName,
+    Keys.params: {Keys.name: tool},
+  },
+  MCPServerInitialization(
+    protocolVersion: ProtocolVersion.v2026_07_28,
+    clientCapabilities: capabilities,
+  ),
+  _ElicitingServer.new,
+);
+
+const _missingCapability = McpErrorCodes.missingRequiredClientCapability;
+
+Object? _errorCode(Map<String, Object?> result) =>
+    (result[Keys.error] as Map<String, Object?>)[Keys.code];
+
+/// The request-scoped transport cannot route a request back to the client, so
+/// a call that clears the capability check still fails. These assert that it
+/// got that far.
+final _clearedTheCheck = isNot(_missingCapability);
+
+Object? _requiredCapabilities(Map<String, Object?> result) {
+  expect(_errorCode(result), _missingCapability);
+  final error = result[Keys.error] as Map<String, Object?>;
+  // In memory the data skips the JSON round trip and stays an untyped map.
+  return (error[Keys.data] as Map)[Keys.requiredCapabilities];
 }
 
 void main() {
   test('a tool which elicits fails with the missing capability code', () async {
-    final result = await handleRequestScopedMessage(
-      {
-        Keys.jsonrpc: '2.0',
-        Keys.id: 1,
-        Keys.method: CallToolRequest.methodName,
-        Keys.params: {Keys.name: 'test/ask'},
-      },
-      MCPServerInitialization(
-        protocolVersion: ProtocolVersion.v2026_07_28,
-        clientCapabilities: ClientCapabilities(),
-      ),
-      _ElicitingServer.new,
+    final result = await _call('test/ask', ClientCapabilities());
+
+    expect(_requiredCapabilities(result!), {
+      Keys.elicitation: {Keys.form: <String, Object?>{}},
+    });
+    expect(
+      (result[Keys.error] as Map<String, Object?>)[Keys.message],
+      contains('elicitation.form'),
+    );
+    expect(result[Keys.result], isNull);
+  });
+
+  test('the error names the mode the request needs', () async {
+    final result = await _call(
+      'test/send',
+      ClientCapabilities(elicitation: ElicitationCapability(form: {})),
     );
 
-    final error = result![Keys.error] as Map<String, Object?>;
-    expect(error[Keys.code], McpErrorCodes.missingRequiredClientCapability);
-    // In memory the data skips the JSON round trip, so it is an untyped map.
-    final data = error[Keys.data] as Map;
-    expect(data[Keys.requiredCapabilities], {
-      Keys.elicitation: <String, Object?>{},
+    expect(_requiredCapabilities(result!), {
+      Keys.elicitation: {Keys.url: <String, Object?>{}},
     });
-    expect(result[Keys.result], isNull);
+    expect(
+      (result[Keys.error] as Map<String, Object?>)[Keys.message],
+      contains('elicitation.url'),
+    );
+  });
+
+  test('a declared mode clears the capability check', () async {
+    final result = await _call(
+      'test/send',
+      ClientCapabilities(elicitation: ElicitationCapability(url: {})),
+    );
+
+    expect(_errorCode(result!), _clearedTheCheck);
+  });
+
+  test('naming one mode does not sign a client up for the other', () async {
+    final result = await _call(
+      'test/ask',
+      ClientCapabilities(elicitation: ElicitationCapability(url: {})),
+    );
+
+    expect(_requiredCapabilities(result!), {
+      Keys.elicitation: {Keys.form: <String, Object?>{}},
+    });
+  });
+
+  test('a voice-only client does not clear the form check', () async {
+    final result = await _call(
+      'test/ask',
+      ClientCapabilities(
+        elicitation: ElicitationCapability.fromMap({
+          'voice': <String, Object?>{},
+        }),
+      ),
+    );
+
+    expect(_requiredCapabilities(result!), {
+      Keys.elicitation: {Keys.form: <String, Object?>{}},
+    });
+  });
+
+  test('elicitation with no mode named clears the form check', () async {
+    final result = await _call(
+      'test/ask',
+      ClientCapabilities(elicitation: ElicitationCapability()),
+    );
+
+    expect(_errorCode(result!), _clearedTheCheck);
+  });
+
+  test('naming both modes clears either check', () async {
+    final capabilities = ClientCapabilities(
+      elicitation: ElicitationCapability(form: {}, url: {}),
+    );
+
+    expect(
+      _errorCode((await _call('test/ask', capabilities))!),
+      _clearedTheCheck,
+    );
+    expect(
+      _errorCode((await _call('test/send', capabilities))!),
+      _clearedTheCheck,
+    );
+  });
+
+  test('a url request needs the url mode, not just elicitation', () async {
+    final noElicitation = await _call('test/send', ClientCapabilities());
+    expect(_requiredCapabilities(noElicitation!), {
+      Keys.elicitation: {Keys.url: <String, Object?>{}},
+    });
+
+    final noModeNamed = await _call(
+      'test/send',
+      ClientCapabilities(elicitation: ElicitationCapability()),
+    );
+    expect(_requiredCapabilities(noModeNamed!), {
+      Keys.elicitation: {Keys.url: <String, Object?>{}},
+    });
+  });
+
+  test('an omitted mode is held to the form capability', () async {
+    final result = await _call(
+      'test/no-mode',
+      ClientCapabilities(elicitation: ElicitationCapability(url: {})),
+    );
+
+    expect(_requiredCapabilities(result!), {
+      Keys.elicitation: {Keys.form: <String, Object?>{}},
+    });
+  });
+
+  test('an unrecognized mode answers with invalid params', () async {
+    for (final capabilities in [
+      ElicitationCapability(url: {}),
+      ElicitationCapability(form: {}),
+    ]) {
+      final result = await _call(
+        'test/unknown',
+        ClientCapabilities(elicitation: capabilities),
+      );
+
+      expect(_errorCode(result!), error_code.INVALID_PARAMS);
+      expect(
+        (result[Keys.error] as Map<String, Object?>)[Keys.message],
+        allOf([
+          contains('"voice"'),
+          for (final mode in ElicitationMode.values) contains(mode.name),
+        ]),
+        reason: 'the rejection names the value and every mode it could be',
+      );
+    }
   });
 }
