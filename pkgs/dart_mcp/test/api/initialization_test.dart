@@ -33,6 +33,29 @@ void main() {
 
   // The factory tests assert on the map rather than on the getters, so that a
   // field the factory never wrote cannot be mistaken for one it wrote.
+  test('ServerCapabilities writes every field it is given', () {
+    final capabilities = ServerCapabilities(
+      experimental: {'x': 1},
+      completions: Completions(),
+      logging: Logging(),
+      prompts: Prompts(),
+      resources: Resources(),
+      tools: Tools(),
+      extensions: {'y': 2},
+    );
+
+    final map = capabilities as Map<String, Object?>;
+    expect(map.keys, {
+      'experimental',
+      'completions',
+      'logging',
+      'prompts',
+      'resources',
+      'tools',
+      'extensions',
+    });
+  });
+
   group('server/discover', () {
     test('the request carries no parameters of its own', () {
       expect(DiscoverRequest() as Map<String, Object?>, isEmpty);

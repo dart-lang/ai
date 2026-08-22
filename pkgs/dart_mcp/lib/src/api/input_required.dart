@@ -1,0 +1,109 @@
+// Copyright (c) 2026, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+part of 'api.dart';
+
+/// A request an [InputRequiredResult] carries, written the way the schema
+/// writes it: the method name next to the request it applies to.
+///
+/// The schema names [ElicitRequest], [CreateMessageRequest] and
+/// [ListRootsRequest] here and nothing else, so there is a constructor for
+/// each. Reading one back, dispatch on [method] and then read [params] as the
+/// matching type.
+///
+/// From the 2026-07-28 revision.
+extension type InputRequest._(Map<String, Object?> _value) {
+  factory InputRequest.fromMap(Map<String, Object?> value) {
+    assert(value.containsKey(Keys.method));
+    return InputRequest._(value);
+  }
+
+  factory InputRequest.elicit(ElicitRequest request) => InputRequest._({
+    Keys.method: ElicitRequest.methodName,
+    Keys.params: request,
+  });
+
+  factory InputRequest.sample(CreateMessageRequest request) => InputRequest._({
+    Keys.method: CreateMessageRequest.methodName,
+    Keys.params: request,
+  });
+
+  factory InputRequest.listRoots(ListRootsRequest request) => InputRequest._({
+    Keys.method: ListRootsRequest.methodName,
+    Keys.params: request,
+  });
+
+  /// The method this request is made under.
+  ///
+  /// The schema requires this on every kind it allows here.
+  String get method => _value[Keys.method] as String;
+
+  /// The request itself, which [method] says how to read.
+  ///
+  /// The schema requires this next to `elicitation/create` and
+  /// `sampling/createMessage`. For `roots/list` it only requires the method.
+  Request? get params => _value[Keys.params] as Request?;
+
+  /// Whether this carries an [ElicitRequest].
+  bool get isElicit => _value[Keys.method] == ElicitRequest.methodName;
+
+  /// Whether this carries a [CreateMessageRequest].
+  bool get isSample => _value[Keys.method] == CreateMessageRequest.methodName;
+
+  /// Whether this carries a [ListRootsRequest].
+  bool get isListRoots => _value[Keys.method] == ListRootsRequest.methodName;
+}
+
+/// Sent by a server in place of the result a request asked for, when it needs
+/// something from the client first.
+///
+/// The schema answers with one on `tools/call`, `prompts/get` and
+/// `resources/read`, and [Result.resultType] reads `input_required` on it. The
+/// client answers the [inputRequests] and then sends the original request
+/// again, with the answers and the [requestState] attached. That retry is a
+/// new request, so this result ends the exchange it belongs to.
+///
+/// The schema requires at least one of [inputRequests] and [requestState],
+/// since a result carrying neither asks for nothing and hands back nothing to
+/// retry with. The unnamed constructor asserts it, and goes one step further
+/// by treating an empty [inputRequests] the same way. An empty map is valid on
+/// the wire and a server may mean something by it, and `fromMap` keeps
+/// whatever a server sent.
+///
+/// From the 2026-07-28 revision.
+extension type InputRequiredResult.fromMap(Map<String, Object?> _value)
+    implements Result {
+  factory InputRequiredResult({
+    Map<String, InputRequest>? inputRequests,
+    String? requestState,
+    Meta? meta,
+  }) {
+    assert(
+      (inputRequests != null && inputRequests.isNotEmpty) ||
+          requestState != null,
+      'The schema requires at least one of `inputRequests` and `requestState`. '
+      'An empty `inputRequests` is valid on the wire, and this constructor '
+      'still takes it as asking for nothing.',
+    );
+    return InputRequiredResult.fromMap({
+      Keys.resultType: ResultTypes.inputRequired,
+      if (inputRequests != null) Keys.inputRequests: inputRequests,
+      if (requestState != null) Keys.requestState: requestState,
+      if (meta != null) Keys.meta: meta,
+    });
+  }
+
+  /// The requests the server issued, keyed by the name the client answers each
+  /// one under.
+  ///
+  /// The keys are the server's own identifiers, and the answers go back under
+  /// the same ones.
+  Map<String, InputRequest>? get inputRequests =>
+      (_value[Keys.inputRequests] as Map?)?.cast<String, InputRequest>();
+
+  /// State the server wants back when the client retries the request.
+  ///
+  /// This is opaque to the client, which sends it on unread.
+  String? get requestState => _value[Keys.requestState] as String?;
+}

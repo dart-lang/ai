@@ -7,9 +7,10 @@
 /// https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http.
 ///
 /// Every POST carries a single JSON-RPC request or notification along with
-/// its own client context; there is no session state between requests. This
-/// library only answers with JSON bodies; SSE response streams are not
-/// implemented yet.
+/// its own client context; there is no session state between requests. A
+/// request is answered on an SSE response stream if its handler emits related
+/// notifications, and with a JSON body otherwise. The list and resource change
+/// notifications reach `onNotification` alone.
 library;
 
 import 'dart:convert';
@@ -60,18 +61,20 @@ import 'src/utils/json_rpc_2_object.dart';
 /// error a request handler throws reaches the client with whatever payload
 /// `package:json_rpc_2` attached to it, including a Dart stack trace for
 /// errors which are not an [RpcException]. Handlers which must not disclose
-/// server internals to a remote client throw [RpcException]s instead. The
-/// status such a body gets follows its error code: an internal or server
-/// error is a 500, so a handler which fails is visible to intermediaries
-/// which never read the body, and a code the specification has not mapped to
-/// a status keeps 200.
+/// server internals to a remote client throw [RpcException]s instead. Until
+/// something has been written the status such a body gets follows its error
+/// code: an internal or server error is a 500, so a failing handler is visible
+/// to intermediaries that never read the body, and a code the specification
+/// has not mapped to a status keeps 200. Once a notification has gone out on
+/// the stream the status was spent on it at 200, and the error goes out as the
+/// last event of the stream instead.
 ///
-/// If [serverFactory] or [MCPServer.initialize] throws, the request is
-/// answered with 500 and an internal-error body, and the returned future then
-/// completes with that error so an embedder which awaits it can log or rethrow
-/// it. A client which disconnects while its body is still arriving leaves
-/// nothing to answer, so the returned future completes normally without
-/// writing a response.
+/// If [serverFactory] or [MCPServer.initialize] throws, the request gets an
+/// internal-error body, on the stream when one is open and with a 500 when it
+/// is not, and the returned future then completes with that error so an
+/// embedder awaiting it can log or rethrow it. If a client disconnects while
+/// its body is still arriving there is nothing to answer, so the returned
+/// future completes normally without writing a response.
 ///
 /// `Mcp-Session-Id` and `Last-Event-ID` headers are ignored, and no session
 /// id is ever minted: sessions and resumable streams were removed in this
@@ -80,9 +83,13 @@ import 'src/utils/json_rpc_2_object.dart';
 /// header is ever recognized, and it is ignored along with every other
 /// header this handler does not read.
 ///
-/// Notifications the server produces while handling the request are passed
-/// to [onNotification]; a JSON response body cannot carry them, so without a
-/// handler they are dropped.
+/// Notifications the server produces while handling the request go out on an
+/// SSE response stream. The first one commits `text/event-stream`, and the
+/// result follows it as the last event. A request answered without one gets a
+/// JSON body instead. The long-lived change notifications this revision
+/// delivers on a `subscriptions/listen` stream are held back from the response
+/// stream, since a server emits several of them without choosing to.
+/// [onNotification] sees every notification either way, held back or not.
 Future<void> handleStreamableHttpRequest(
   HttpRequest request,
   MCPServerFactory serverFactory, {
@@ -221,8 +228,7 @@ Future<void> handleStreamableHttpRequest(
   }
 
   // A request may be answered with either a JSON object or an SSE stream, so
-  // the client has to accept both shapes even though this handler only sends
-  // the first.
+  // the client has to accept both shapes.
   if (!_accepts(request, ContentType.json.mimeType) ||
       !_accepts(request, _eventStreamMimeType)) {
     return _reject(
@@ -429,6 +435,7 @@ Future<void> handleStreamableHttpRequest(
     );
   }
 
+  final answer = _Answer(response);
   final Map<String, Object?>? result;
   try {
     result = await handleRequestScopedMessage(
@@ -441,30 +448,32 @@ Future<void> handleStreamableHttpRequest(
         logLevel: logLevel,
       ),
       serverFactory,
-      onNotification: onNotification,
+      onNotification: (notification) {
+        if (!_listenStreamNotifications.contains(notification[Keys.method])) {
+          answer.notify(notification);
+        }
+        onNotification?.call(notification);
+      },
     );
   } catch (_) {
     // The server could not be built for this request. Answer before the error
     // leaves this function, so an embedder which discards the returned future
-    // does not leave the connection open.
-    await _reject(
-      response,
-      HttpStatus.internalServerError,
+    // does not leave the connection open. A server that emitted a notification
+    // while initializing has already committed the stream, and headers cannot
+    // be set on it a second time. The answer goes out on the stream instead of
+    // starting a fresh response.
+    await answer.finish(
       RpcException(
         error_code.INTERNAL_ERROR,
         'The server failed to initialize',
-      ),
-      decoded,
+      ).serialize(decoded),
     );
     rethrow;
   }
 
   // Notifications returned above, so a dispatched request always has a
   // response.
-  response.statusCode = _statusFor(result!);
-  response.headers.contentType = ContentType.json;
-  response.write(jsonEncode(result));
-  await response.close();
+  await answer.finish(result!);
 }
 
 /// The HTTP status for a dispatched JSON-RPC [response] map.
@@ -487,6 +496,75 @@ int _statusFor(Map<String, Object?> response) {
     error_code.SERVER_ERROR => HttpStatus.internalServerError,
     _ => HttpStatus.ok,
   };
+}
+
+/// The notifications this revision delivers on the stream of a
+/// `subscriptions/listen` request, so a response stream never carries them.
+///
+/// The four are the notifications `SubscriptionFilter` names.
+///
+/// [handleStreamableHttpRequest] passes them to its `onNotification` instead,
+/// where an embedder serving a listen stream picks them up. See
+/// https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http.
+const _listenStreamNotifications = {
+  ToolListChangedNotification.methodName,
+  PromptListChangedNotification.methodName,
+  ResourceListChangedNotification.methodName,
+  ResourceUpdatedNotification.methodName,
+};
+
+/// Frames [message] as one SSE `event: message` block.
+String _sseEvent(Map<String, Object?> message) =>
+    'event: message\ndata: ${jsonEncode(message)}\n\n';
+
+/// Answers one request, choosing between a JSON body and an SSE stream.
+///
+/// The choice is deferred. As long as nothing has been written the answer is a
+/// JSON body with the status [_statusFor] maps, keeping the `400` and `404`
+/// answers this revision defines available. The first notification
+/// commits `text/event-stream`, since a JSON body has nowhere to put one.
+/// Committing settles the status at `200`. An error raised after that goes out
+/// as the stream's last event, and the mapped status
+/// no longer applies to it, including the `400` this revision requires of a
+/// missing client capability.
+class _Answer {
+  _Answer(this._response);
+
+  final HttpResponse _response;
+  bool _committed = false;
+
+  /// Sends [notification] on the stream, committing to it if this is the first.
+  void notify(Map<String, Object?> notification) {
+    if (!_committed) _commit();
+    _response.write(_sseEvent(notification));
+  }
+
+  void _commit() {
+    _committed = true;
+    _response
+      ..statusCode = HttpStatus.ok
+      ..bufferOutput = false
+      ..headers.contentType = ContentType(
+        'text',
+        'event-stream',
+        charset: 'utf-8',
+      )
+      ..headers.set(HttpHeaders.cacheControlHeader, 'no-cache, no-transform')
+      ..headers.set('x-accel-buffering', 'no');
+  }
+
+  /// Sends [result] and closes.
+  Future<void> finish(Map<String, Object?> result) async {
+    if (_committed) {
+      _response.write(_sseEvent(result));
+    } else {
+      _response
+        ..statusCode = _statusFor(result)
+        ..headers.contentType = ContentType.json
+        ..write(jsonEncode(result));
+    }
+    await _response.close();
+  }
 }
 
 /// Writes [exception] serialized against [origin] as a JSON body with

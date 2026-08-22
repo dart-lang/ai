@@ -52,9 +52,10 @@ typedef MCPServerFactory =
 /// server your factory creates and call [MCPServer.shutdown] on it; the
 /// exchange then completes with an internal-error response.
 ///
-/// The [ServerCapabilities] returned by [MCPServer.initialize] are
-/// intentionally not surfaced: in this lifecycle clients discover
-/// capabilities with `server/discover` rather than per message.
+/// The [MCPServer.capabilities] a server registers are intentionally not
+/// surfaced here: in this lifecycle clients discover capabilities with
+/// `server/discover`, which [MCPServer.discover] answers, rather than per
+/// message.
 ///
 /// Notifications the server emits during the exchange, including any it emits
 /// while initializing, are passed to [onNotification] with their JSON-RPC
@@ -300,11 +301,9 @@ Map<String, Object?> _withServerFields(
 
 /// The requests whose results a server must send caching hints on.
 ///
-/// `server/discover` is on that list too, and joins this set when this package
-/// serves it.
-///
 /// https://modelcontextprotocol.io/specification/2026-07-28/server/utilities/caching
 const _cacheableMethods = {
+  DiscoverRequest.methodName,
   ListToolsRequest.methodName,
   ListPromptsRequest.methodName,
   ListResourcesRequest.methodName,

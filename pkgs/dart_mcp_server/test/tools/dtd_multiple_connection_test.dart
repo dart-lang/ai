@@ -2,6 +2,9 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+@Timeout.factor(2)
+library;
+
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp_server/src/mixins/dtd.dart';
 
@@ -175,6 +178,7 @@ void main() async {
   stderr.writeln('error from app 1');
   stdin.listen((data) {
     if (String.fromCharCodes(data).trim() == 'q') exit(0);
+    stderr.writeln('error from app 1');
   }, onDone: () => exit(0));
   while (true) {
     await Future.delayed(Duration(seconds: 1));
@@ -204,6 +208,7 @@ void main() async {
   stderr.writeln('error from app 2');
   stdin.listen((data) {
     if (String.fromCharCodes(data).trim() == 'q') exit(0);
+    stderr.writeln('error from app 2');
   }, onDone: () => exit(0));
   while (true) {
     await Future.delayed(Duration(seconds: 1));
@@ -252,7 +257,8 @@ void main() async {
           );
       expect(connectedAppUris, hasLength(2));
 
-      // Verify errors for App 1
+      // Trigger stderr write and verify errors for App 1
+      session1.appProcess.stdin.writeln('');
       final errors1 = await testHarness.callToolWithRetry(
         CallToolRequest(
           name: ToolNames.getRuntimeErrors.name,
@@ -265,7 +271,8 @@ void main() async {
         contains('error from app 1'),
       );
 
-      // Verify errors for App 2
+      // Trigger stderr write and verify errors for App 2
+      session2.appProcess.stdin.writeln('');
       final errors2 = await testHarness.callToolWithRetry(
         CallToolRequest(
           name: ToolNames.getRuntimeErrors.name,

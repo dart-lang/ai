@@ -116,6 +116,33 @@ void main() {
   Map<String, Object?> decode(String text) =>
       jsonDecode(text) as Map<String, Object?>;
 
+  /// The field lines of one SSE frame, keyed by field name.
+  Map<String, String> fields(String frame) {
+    final fields = <String, String>{};
+    for (final line in frame.split('\n')) {
+      final colon = line.indexOf(':');
+      if (colon > 0) {
+        fields[line.substring(0, colon)] = line.substring(colon + 1).trim();
+      }
+    }
+    return fields;
+  }
+
+  /// The frames an SSE response [text] carries.
+  ///
+  /// Reads the fields the way a client does instead of matching the bytes the
+  /// transport writes, which lets a change to the framing fail a test here.
+  List<Map<String, String>> frames(String text) => [
+    for (final frame in text.split('\n\n'))
+      if (frame.trim().isNotEmpty) fields(frame),
+  ];
+
+  /// The JSON-RPC messages an SSE response [text] carries, in order.
+  List<Map<String, Object?>> events(String text) => [
+    for (final frame in frames(text))
+      jsonDecode(frame['data']!) as Map<String, Object?>,
+  ];
+
   Object? errorCode(String text) =>
       (decode(text)[Keys.error] as Map<String, Object?>?)?[Keys.code];
 
@@ -256,7 +283,9 @@ void main() {
         json: body(listTools),
       );
       expect(status, 400);
-      expect(errorCode(text), McpErrorCodes.headerMismatch);
+      // Written out so the check does not read back the constant the
+      // response was built from.
+      expect(errorCode(text), -32020);
       expect(servers, isEmpty);
     });
 
@@ -730,7 +759,12 @@ void main() {
         json: logBody(logLevel: LoggingLevel.error.name),
       );
       expect(status, 200);
-      expect(errorCode(text), isNull);
+      final messages = events(text);
+      expect(
+        messages.first[Keys.method],
+        LoggingMessageNotification.methodName,
+      );
+      expect(messages.last[Keys.error], isNull);
       expect(
         notifications.single[Keys.method],
         LoggingMessageNotification.methodName,
@@ -962,7 +996,7 @@ void main() {
         json: {Keys.jsonrpc: '2.0', Keys.id: 1, Keys.method: initialize},
       );
       expect(status, 400);
-      expect(errorCode(text), McpErrorCodes.unsupportedProtocolVersion);
+      expect(errorCode(text), -32022);
       final data =
           (decode(text)[Keys.error] as Map<String, Object?>)[Keys.data]
               as Map<String, Object?>;
@@ -1025,7 +1059,7 @@ void main() {
         json: body(callTool, params: {Keys.name: 'test/needsSampling'}),
       );
       expect(status, 400);
-      expect(errorCode(text), McpErrorCodes.missingRequiredClientCapability);
+      expect(errorCode(text), -32021);
     });
 
     test('rejects an envelope without client capabilities', () async {
@@ -1215,7 +1249,12 @@ void main() {
         json: body(callTool, params: {Keys.name: 'test/notify'}),
       );
       expect(status, 200);
-      expect(errorCode(text), isNull);
+      final messages = events(text);
+      expect(
+        messages.first[Keys.method],
+        LoggingMessageNotification.methodName,
+      );
+      expect(messages.last[Keys.error], isNull);
       expect(notifications, hasLength(1));
       expect(
         notifications.single[Keys.method],
@@ -1223,7 +1262,237 @@ void main() {
       );
     });
   });
+
+  group('response shape', () {
+    test('keeps a list change off the response stream', () async {
+      const tool = 'test/registers-then-fails';
+      final (status, responseHeaders, text) = await post(
+        headers: {...headers(callTool), 'Mcp-Name': tool},
+        json: body(callTool, params: {Keys.name: tool}),
+      );
+
+      // The list change belongs on a `subscriptions/listen` stream. Writing it
+      // here would commit the response and spend the 400 this revision
+      // requires of the error the handler goes on to throw.
+      expect(status, 400);
+      expect(responseHeaders.contentType?.mimeType, 'application/json');
+      expect(errorCode(text), -32021);
+      expect(
+        notifications.map((notification) => notification[Keys.method]),
+        contains(ToolListChangedNotification.methodName),
+      );
+    });
+
+    test('answers a quiet handler with a json body', () async {
+      final (status, responseHeaders, text) = await post(
+        headers: {...headers(listTools)},
+        json: body(listTools),
+      );
+      expect(status, 200);
+      expect(responseHeaders.contentType?.mimeType, 'application/json');
+      expect(decode(text)[Keys.error], isNull);
+    });
+
+    test('delivers a notification before the result', () async {
+      releaseNotifyThenWait = Completer<void>();
+      addTearDown(() {
+        if (!releaseNotifyThenWait.isCompleted) {
+          releaseNotifyThenWait.complete();
+        }
+      });
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.openUrl('POST', uri);
+      headers(callTool).forEach(request.headers.set);
+      request.headers.set('Mcp-Name', 'test/notify-then-wait');
+      request.write(
+        jsonEncode(
+          body(callTool, params: {Keys.name: 'test/notify-then-wait'}),
+        ),
+      );
+      final response = await request.close();
+
+      // The handler is still parked. Anything read here arrived before the
+      // result did, and a buffered response would deliver nothing until close.
+      final chunks = StringBuffer();
+      final firstFrame = Completer<String>();
+      final subscription = response.transform(utf8.decoder).listen((chunk) {
+        chunks.write(chunk);
+        if (!firstFrame.isCompleted && chunks.toString().contains('\n\n')) {
+          firstFrame.complete(chunks.toString());
+        }
+      });
+      addTearDown(subscription.cancel);
+
+      final early = await firstFrame.future;
+      expect(
+        events(early).single[Keys.method],
+        LoggingMessageNotification.methodName,
+      );
+
+      releaseNotifyThenWait.complete();
+      await subscription.asFuture<void>();
+      expect(events(chunks.toString()), hasLength(2));
+    });
+
+    test('keeps the stream open for a second notification', () async {
+      final (status, responseHeaders, text) = await post(
+        headers: {...headers(callTool), 'Mcp-Name': 'test/notify-twice'},
+        json: body(callTool, params: {Keys.name: 'test/notify-twice'}),
+      );
+      expect(status, 200);
+      expect(responseHeaders.contentType?.mimeType, 'text/event-stream');
+      final messages = events(text);
+      expect(messages, hasLength(3));
+      expect(
+        messages.take(2).map((m) => m[Keys.method]),
+        everyElement(LoggingMessageNotification.methodName),
+      );
+      expect(messages.last[Keys.id], isNotNull);
+    });
+
+    test('answers an unknown method with 404 and a json body', () async {
+      const unknown = 'test/nothing-defines-this';
+      final (status, responseHeaders, text) = await post(
+        headers: headers(unknown),
+        json: body(unknown),
+      );
+      expect(status, 404);
+      expect(responseHeaders.contentType?.mimeType, 'application/json');
+      expect(errorCode(text), error_code.METHOD_NOT_FOUND);
+    });
+
+    test('sets the streaming headers with the first event', () async {
+      final (_, responseHeaders, text) = await post(
+        headers: {...headers(callTool), 'Mcp-Name': 'test/notify'},
+        json: body(callTool, params: {Keys.name: 'test/notify'}),
+      );
+      expect(responseHeaders.contentType?.charset, 'utf-8');
+      expect(
+        responseHeaders.value(HttpHeaders.cacheControlHeader),
+        contains('no-cache'),
+      );
+      // A SHOULD of this revision. A reverse proxy that honors it stops
+      // holding the events back until the response closes.
+      expect(responseHeaders.value('x-accel-buffering'), 'no');
+      expect(
+        frames(text).map((frame) => frame['event']),
+        everyElement('message'),
+      );
+    });
+
+    test('sends a late error as the last event on the stream', () async {
+      final (status, responseHeaders, text) = await post(
+        headers: {...headers(callTool), 'Mcp-Name': 'test/notify-then-throw'},
+        json: body(callTool, params: {Keys.name: 'test/notify-then-throw'}),
+      );
+      // The status is spent on the first notification. The mapped 400 this
+      // error carries when it arrives alone is no longer reachable.
+      expect(status, 200);
+      expect(responseHeaders.contentType?.mimeType, 'text/event-stream');
+      final messages = events(text);
+      expect(messages, hasLength(2));
+      expect(
+        (messages.last[Keys.error] as Map<String, Object?>)[Keys.code],
+        error_code.INVALID_PARAMS,
+      );
+    });
+
+    test('keeps a prompt list change off the response stream', () async {
+      final noisy = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => noisy.close(force: true));
+      const tool = 'test/adds-prompt';
+      noisy.listen(
+        (request) =>
+            handleStreamableHttpRequest(request, _PromptNoisyServer.new),
+      );
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(
+        Uri.http('${noisy.address.host}:${noisy.port}', '/mcp'),
+      );
+      final callHeaders = {...headers(callTool), 'Mcp-Name': tool};
+      callHeaders.forEach(request.headers.set);
+      request.write(jsonEncode(body(callTool, params: {Keys.name: tool})));
+      final response = await request.close();
+      final text = await utf8.decodeStream(response);
+
+      expect(response.statusCode, 200);
+      expect(response.headers.contentType?.mimeType, 'application/json');
+      expect(text, isNot(contains(PromptListChangedNotification.methodName)));
+    });
+
+    test('closes the stream when a notifying server fails', () async {
+      final failing = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => failing.close(force: true));
+      final failure = Completer<Object>();
+      failing.listen(
+        (request) => handleStreamableHttpRequest(
+          request,
+          _NoisyFailingServer.new,
+        ).onError<Object>((error, _) => failure.complete(error)),
+      );
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(
+        Uri.http('${failing.address.host}:${failing.port}', '/mcp'),
+      );
+      headers(listTools).forEach(request.headers.set);
+      request.write(jsonEncode(body(listTools)));
+      final response = await request.close();
+      // Without an answer through the stream this read never returns. The
+      // headers are already sent, and starting a fresh response throws inside
+      // the error path and leaves the connection open.
+      final text = await utf8.decodeStream(response);
+      expect(response.statusCode, 200);
+      expect(response.headers.contentType?.mimeType, 'text/event-stream');
+      final messages = events(text);
+      expect(messages, hasLength(2));
+      expect(
+        (messages.last[Keys.error] as Map<String, Object?>)[Keys.code],
+        error_code.INTERNAL_ERROR,
+      );
+      expect(await failure.future, isStateError);
+    });
+
+    test('writes the event before the handler callback sees it', () async {
+      final rude = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => rude.close(force: true));
+      final swallowed = <Object>[];
+      runZonedGuarded(
+        () => rude.listen(
+          (request) => handleStreamableHttpRequest(
+            request,
+            _HttpTestServer.new,
+            onNotification: (_) => throw StateError('a rude embedder'),
+          ),
+        ),
+        (error, _) => swallowed.add(error),
+      );
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(
+        Uri.http('${rude.address.host}:${rude.port}', '/mcp'),
+      );
+      final sent = {...headers(callTool), 'Mcp-Name': 'test/notify'};
+      sent.forEach(request.headers.set);
+      request.write(
+        jsonEncode(body(callTool, params: {Keys.name: 'test/notify'})),
+      );
+      final response = await request.close();
+      final text = await utf8.decodeStream(response);
+      // An embedder which throws must not be able to keep a notification off
+      // the protocol stream. Writing it first prevents that.
+      expect(response.statusCode, 200);
+      expect(response.headers.contentType?.mimeType, 'text/event-stream');
+      expect(events(text), hasLength(2));
+      expect(swallowed, isNotEmpty);
+    });
+  });
 }
+
+/// Held by `test/notify-then-wait` until a test releases it.
+Completer<void> releaseNotifyThenWait = Completer<void>();
 
 base class _HttpTestServer extends MCPServer with LoggingSupport, ToolsSupport {
   bool get _declaredSampling => clientCapabilities.sampling != null;
@@ -1287,10 +1556,111 @@ base class _HttpTestServer extends MCPServer with LoggingSupport, ToolsSupport {
       );
       return CallToolResult(content: [TextContent(text: 'notified')]);
     });
+    registerTool(Tool(name: 'test/notify-twice', inputSchema: ObjectSchema()), (
+      _,
+    ) {
+      for (final data in ['first', 'second']) {
+        sendNotification(
+          LoggingMessageNotification.methodName,
+          LoggingMessageNotification(level: LoggingLevel.error, data: data),
+        );
+      }
+      return CallToolResult(content: [TextContent(text: 'twice')]);
+    });
+    registerTool(
+      Tool(name: 'test/notify-then-wait', inputSchema: ObjectSchema()),
+      (_) async {
+        sendNotification(
+          LoggingMessageNotification.methodName,
+          LoggingMessageNotification(
+            level: LoggingLevel.error,
+            data: 'before the wait',
+          ),
+        );
+        await releaseNotifyThenWait.future;
+        return CallToolResult(content: [TextContent(text: 'released')]);
+      },
+    );
+    registerTool(
+      Tool(name: 'test/notify-then-throw', inputSchema: ObjectSchema()),
+      (_) {
+        sendNotification(
+          LoggingMessageNotification.methodName,
+          LoggingMessageNotification(
+            level: LoggingLevel.error,
+            data: 'before the failure',
+          ),
+        );
+        throw RpcException.invalidParams('This tool fails after notifying');
+      },
+    );
+    registerTool(
+      Tool(name: 'test/registers-then-fails', inputSchema: ObjectSchema()),
+      (_) {
+        // Registering a tool emits a list change on its own, which is what a
+        // dynamic tool set does while it answers.
+        registerTool(
+          Tool(name: 'test/added-while-answering', inputSchema: ObjectSchema()),
+          (_) => CallToolResult(content: [TextContent(text: 'added')]),
+        );
+        throw RpcException(
+          McpErrorCodes.missingRequiredClientCapability,
+          'This tool needs a capability the client left out',
+        );
+      },
+    );
     registerTool(Tool(name: 'test/log', inputSchema: ObjectSchema()), (_) {
       log(LoggingLevel.error, 'from tool');
       return CallToolResult(content: [TextContent(text: 'logged')]);
     });
+  }
+}
+
+/// A server whose tool registers a prompt while it answers, so the prompt list
+/// change lands mid-request the way a dynamic prompt set makes it.
+base class _PromptNoisyServer extends MCPServer
+    with LoggingSupport, ToolsSupport, PromptsSupport {
+  _PromptNoisyServer(super.channel)
+    : super.fromStreamChannel(
+        implementation: Implementation(
+          name: 'prompt noisy test server',
+          version: '0.1.0',
+        ),
+      );
+
+  @override
+  FutureOr<void> initialize(MCPServerInitialization initialization) {
+    registerTool(Tool(name: 'test/adds-prompt', inputSchema: ObjectSchema()), (
+      _,
+    ) {
+      addPrompt(
+        Prompt(name: 'added-while-answering'),
+        (_) => GetPromptResult(messages: []),
+      );
+      return CallToolResult(content: [TextContent(text: 'added')]);
+    });
+    return super.initialize(initialization);
+  }
+}
+
+/// A server which announces itself and then fails. The transport has already
+/// committed the stream by the time the error reaches it.
+base class _NoisyFailingServer extends _HttpTestServer {
+  _NoisyFailingServer(super.channel);
+
+  @override
+  FutureOr<ServerCapabilities> initialize(
+    MCPServerInitialization initialization,
+  ) async {
+    await super.initialize(initialization);
+    sendNotification(
+      LoggingMessageNotification.methodName,
+      LoggingMessageNotification(
+        level: LoggingLevel.error,
+        data: 'while starting up',
+      ),
+    );
+    throw StateError('initialize failed after announcing');
   }
 }
 

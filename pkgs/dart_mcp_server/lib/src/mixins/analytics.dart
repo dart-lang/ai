@@ -20,10 +20,7 @@ base mixin AnalyticsEvents
   Future<InitializeResult> initialize(InitializeRequest request) async {
     final result = await super.initialize(request);
     analytics?.send(
-      Event.dartMCPEvent(
-        client: clientInfo.name,
-        clientVersion: clientInfo.version,
-        serverVersion: implementation.version,
+      _createDartMCPEvent(
         type: AnalyticsEvent.initialize.name,
         additionalData: InitializeMetrics(
           supportsElicitation: request.capabilities.elicitation != null,
@@ -38,12 +35,7 @@ base mixin AnalyticsEvents
   @override
   FutureOr<ListPromptsResult> listPrompts([ListPromptsRequest? request]) {
     trySendAnalyticsEvent(
-      Event.dartMCPEvent(
-        client: clientInfo.name,
-        clientVersion: clientInfo.version,
-        serverVersion: implementation.version,
-        type: AnalyticsEvent.listPrompts.name,
-      ),
+      _createDartMCPEvent(type: AnalyticsEvent.listPrompts.name),
     );
     return super.listPrompts(request);
   }
@@ -57,10 +49,7 @@ base mixin AnalyticsEvents
     } finally {
       watch.stop();
       trySendAnalyticsEvent(
-        Event.dartMCPEvent(
-          client: clientInfo.name,
-          clientVersion: clientInfo.version,
-          serverVersion: implementation.version,
+        _createDartMCPEvent(
           type: AnalyticsEvent.getPrompt.name,
           additionalData: GetPromptMetrics(
             name: request.name,
@@ -76,12 +65,7 @@ base mixin AnalyticsEvents
   @override
   FutureOr<ListResourcesResult> listResources([ListResourcesRequest? request]) {
     trySendAnalyticsEvent(
-      Event.dartMCPEvent(
-        client: clientInfo.name,
-        clientVersion: clientInfo.version,
-        serverVersion: implementation.version,
-        type: AnalyticsEvent.listResources.name,
-      ),
+      _createDartMCPEvent(type: AnalyticsEvent.listResources.name),
     );
     return super.listResources(request);
   }
@@ -91,12 +75,7 @@ base mixin AnalyticsEvents
     ListResourceTemplatesRequest? request,
   ]) {
     trySendAnalyticsEvent(
-      Event.dartMCPEvent(
-        client: clientInfo.name,
-        clientVersion: clientInfo.version,
-        serverVersion: implementation.version,
-        type: AnalyticsEvent.listResourceTemplates.name,
-      ),
+      _createDartMCPEvent(type: AnalyticsEvent.listResourceTemplates.name),
     );
     return super.listResourceTemplates(request);
   }
@@ -104,12 +83,7 @@ base mixin AnalyticsEvents
   @override
   Future<ListToolsResult> listTools([ListToolsRequest? request]) async {
     trySendAnalyticsEvent(
-      Event.dartMCPEvent(
-        client: clientInfo.name,
-        clientVersion: clientInfo.version,
-        serverVersion: implementation.version,
-        type: AnalyticsEvent.listTools.name,
-      ),
+      _createDartMCPEvent(type: AnalyticsEvent.listTools.name),
     );
     return super.listTools(request);
   }
@@ -159,10 +133,7 @@ base mixin AnalyticsEvents
           toolName += '.$command';
         }
         trySendAnalyticsEvent(
-          Event.dartMCPEvent(
-            client: clientInfo.name,
-            clientVersion: clientInfo.version,
-            serverVersion: implementation.version,
+          _createDartMCPEvent(
             type: AnalyticsEvent.callTool.name,
             additionalData: CallToolMetrics(
               tool: toolName,
@@ -181,6 +152,18 @@ base mixin AnalyticsEvents
       }
     }, validateArguments: false);
   }
+
+  Event _createDartMCPEvent({
+    required String type,
+    CustomMetrics? additionalData,
+  }) => Event.dartMCPEvent(
+    client: clientInfo.name,
+    clientVersion: clientInfo.version,
+    serverVersion: implementation.version,
+    type: type,
+    agentPlugin: agentPlugin,
+    additionalData: additionalData,
+  );
 
   void trySendAnalyticsEvent(Event event) {
     try {

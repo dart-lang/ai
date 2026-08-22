@@ -57,6 +57,9 @@ void main() {
                 ParameterNames.summaryOnly: true,
               },
             ),
+            retryUntil: (result) => result.content.any(
+              (c) => c is TextContent && c.text.contains('MyHomePage'),
+            ),
           );
 
           expect(getWidgetTreeResult.isError, isNot(true));
@@ -713,6 +716,9 @@ void main() {
                 ParameterNames.command: WidgetInspectorCommand.getWidgetTree,
                 ParameterNames.summaryOnly: true,
               },
+            ),
+            retryUntil: (result) => result.content.any(
+              (c) => c is TextContent && c.text.contains('MyHomePage'),
             ),
           );
 

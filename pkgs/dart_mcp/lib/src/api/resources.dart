@@ -254,7 +254,7 @@ extension type Resource.fromMap(Map<String, Object?> _value)
   ///
   /// This can be used by Hosts to display file sizes and estimate context
   /// window usage.
-  int? get size => _value[Keys.size] as int;
+  int? get size => _value[Keys.size] as int?;
 
   /// Optional set of sized icons that the client can display in a user
   /// interface.
