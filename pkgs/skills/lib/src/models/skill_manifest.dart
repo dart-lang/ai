@@ -181,7 +181,7 @@ class SkillManifest {
   /// will be returned.
   Iterable<InstalledSkillEntry> allSkillsForAgent(String agent) sync* {
     for (final entry in sourceUrisForAgent(agent).values) {
-      yield* entry.skills;
+      yield* entry.skills.where((s) => s.isInstalled);
     }
   }
 
