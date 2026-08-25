@@ -183,4 +183,25 @@ void main() {
       );
     });
   });
+
+  group('MetaWithSubscriptionId', () {
+    test('reads back the id it was built with', () {
+      final meta = MetaWithSubscriptionId(subscriptionId: RequestId(7));
+      expect(meta.subscriptionId, RequestId(7));
+    });
+
+    test("reads the id beside a caller's own key", () {
+      final meta = MetaWithSubscriptionId.fromMap({
+        'com.example/trace': 'abc',
+        'io.modelcontextprotocol/subscriptionId': 's-1',
+      });
+      expect(meta.subscriptionId, RequestId('s-1'));
+      expect(meta['com.example/trace'], 'abc');
+    });
+
+    test('throws when the id is missing', () {
+      final meta = MetaWithSubscriptionId.fromMap({});
+      expect(() => meta.subscriptionId, throwsArgumentError);
+    });
+  });
 }

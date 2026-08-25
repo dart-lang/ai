@@ -86,25 +86,32 @@ extension type WithSubscriptionId.fromMap(Map<String, Object?> _value) {
   ///
   /// Every message on the stream carries it under the
   /// `io.modelcontextprotocol/subscriptionId` metadata key, which is how a
-  /// client tells its streams apart.
+  /// client tells its streams apart. This reads it off the message's
+  /// [MetaWithSubscriptionId].
+  RequestId get subscriptionId =>
+      MetaWithSubscriptionId.fromMap(
+        (_value[Keys.meta] as Map<String, Object?>?) ?? const {},
+      ).subscriptionId;
+}
+
+/// A [Meta] object carrying the [subscriptionId] every message on a
+/// `subscriptions/listen` stream needs.
+///
+/// Has arbitrary other keys.
+extension type MetaWithSubscriptionId.fromMap(Map<String, Object?> _value)
+    implements Meta {
+  factory MetaWithSubscriptionId({required RequestId subscriptionId}) =>
+      MetaWithSubscriptionId.fromMap({Keys.subscriptionIdMeta: subscriptionId});
+
+  /// The JSON-RPC id of the [SubscriptionsListenRequest] which opened the
+  /// stream this metadata belongs to.
   RequestId get subscriptionId {
-    final subscriptionId =
-        (_value[Keys.meta] as Meta?)?[Keys.subscriptionIdMeta];
+    final subscriptionId = _value[Keys.subscriptionIdMeta];
     if (subscriptionId == null) {
-      throw ArgumentError(
-        'Missing ${Keys.subscriptionIdMeta} metadata in $runtimeType',
-      );
+      throw ArgumentError('Missing ${Keys.subscriptionIdMeta} in $runtimeType');
     }
     return RequestId(subscriptionId);
   }
-}
-
-/// A [Meta] carrying the [subscriptionId] every message on a
-/// `subscriptions/listen` stream needs.
-extension type MetaWithSubscriptionId.fromMap(Map<String, Object?> _value)
-    implements Meta, WithSubscriptionId {
-  factory MetaWithSubscriptionId({required RequestId subscriptionId}) =>
-      MetaWithSubscriptionId.fromMap({Keys.subscriptionIdMeta: subscriptionId});
 }
 
 /// The response to a [SubscriptionsListenRequest], sent when the server ends

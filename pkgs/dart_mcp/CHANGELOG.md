@@ -155,9 +155,10 @@
   two took. `SubscribeRequest` and `UnsubscribeRequest` stay for the revisions
   which have them. Serving the request, and delivering notifications on the
   stream it opens, land as separate changes.
-- `SubscriptionsAcknowledgedNotification` takes the `subscriptionId` the spec
-  requires on it, and reads it back. A client with more than one stream open
-  needs it to tell which listen request an acknowledgement answers.
+- `SubscriptionsListenResult` and `SubscriptionsAcknowledgedNotification` take
+  a `MetaWithSubscriptionId`, the metadata object carrying the id the spec
+  requires on both. A client with more than one stream open needs that id to
+  tell which listen request a message answers.
 - Deprecate `IncludeContext.thisService` and replace it with `thisServer`, the
   name the specification uses, see
   https://modelcontextprotocol.io/specification/2026-07-28/client/sampling.
