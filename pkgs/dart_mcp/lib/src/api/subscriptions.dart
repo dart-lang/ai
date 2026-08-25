@@ -76,8 +76,8 @@ extension type SubscriptionsListenRequest.fromMap(Map<String, Object?> _value)
   }
 }
 
-/// A "mixin"-like extension type for any extension type which carries the id of
-/// the subscription it belongs to.
+/// A "mixin"-like extension type for any message on a `subscriptions/listen`
+/// stream that carries a [MetaWithSubscriptionId] at the key "_meta".
 ///
 /// Should be "mixed in" by implementing this type from other extension types.
 extension type WithSubscriptionId.fromMap(Map<String, Object?> _value) {
@@ -108,7 +108,9 @@ extension type MetaWithSubscriptionId.fromMap(Map<String, Object?> _value)
   RequestId get subscriptionId {
     final subscriptionId = _value[Keys.subscriptionIdMeta];
     if (subscriptionId == null) {
-      throw ArgumentError('Missing ${Keys.subscriptionIdMeta} in $runtimeType');
+      throw ArgumentError(
+        'Missing ${Keys.subscriptionIdMeta} in $MetaWithSubscriptionId.',
+      );
     }
     return RequestId(subscriptionId);
   }
@@ -126,6 +128,10 @@ extension type SubscriptionsListenResult.fromMap(Map<String, Object?> _value)
     implements Result, WithSubscriptionId {
   factory SubscriptionsListenResult({required MetaWithSubscriptionId meta}) =>
       SubscriptionsListenResult.fromMap({Keys.meta: meta});
+
+  /// The metadata this message carries, including the [subscriptionId].
+  MetaWithSubscriptionId? get meta =>
+      _value[Keys.meta] as MetaWithSubscriptionId?;
 }
 
 /// Sent by the server to acknowledge a [SubscriptionsListenRequest] and report
@@ -148,6 +154,10 @@ extension type SubscriptionsAcknowledgedNotification.fromMap(
     Keys.notifications: notifications,
     Keys.meta: meta,
   });
+
+  /// The metadata this message carries, including the [subscriptionId].
+  MetaWithSubscriptionId? get meta =>
+      _value[Keys.meta] as MetaWithSubscriptionId?;
 
   /// The notification types the server agreed to send on this stream.
   SubscriptionFilter get notifications {

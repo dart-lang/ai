@@ -186,8 +186,8 @@ void main() {
 
   group('MetaWithSubscriptionId', () {
     test('reads back the id it was built with', () {
-      final meta = MetaWithSubscriptionId(subscriptionId: RequestId(7));
-      expect(meta.subscriptionId, RequestId(7));
+      final meta = MetaWithSubscriptionId(subscriptionId: RequestId('s-9'));
+      expect(meta.subscriptionId, RequestId('s-9'));
     });
 
     test("reads the id beside a caller's own key", () {
@@ -197,6 +197,28 @@ void main() {
       });
       expect(meta.subscriptionId, RequestId('s-1'));
       expect(meta['com.example/trace'], 'abc');
+    });
+
+    test('hands the metadata back typed on both messages', () {
+      final meta = MetaWithSubscriptionId(subscriptionId: RequestId(7));
+      expect(SubscriptionsListenResult(meta: meta).meta?.subscriptionId, 7);
+      expect(
+        SubscriptionsAcknowledgedNotification(
+          notifications: SubscriptionFilter(),
+          meta: meta,
+        ).meta?.subscriptionId,
+        7,
+      );
+    });
+
+    test('has no metadata when the message carries none', () {
+      expect(SubscriptionsListenResult.fromMap({}).meta, isNull);
+      expect(
+        SubscriptionsAcknowledgedNotification.fromMap({
+          'notifications': SubscriptionFilter(),
+        }).meta,
+        isNull,
+      );
     });
 
     test('throws when the id is missing', () {
