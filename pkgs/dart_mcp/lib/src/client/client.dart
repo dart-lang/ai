@@ -13,6 +13,7 @@ import 'package:stream_channel/stream_channel.dart';
 import '../../stdio.dart';
 import '../api/api.dart';
 import '../shared.dart';
+import '../utils/constants.dart';
 
 part 'elicitation_support.dart';
 part 'roots_support.dart';
@@ -229,19 +230,28 @@ base class ServerConnection extends MCPBase {
 
     if (elicitationFormSupport != null || elicitationUrlSupport != null) {
       registerRequestHandler(ElicitRequest.methodName, (ElicitRequest request) {
+        final raw = request.rawMode;
+        if (raw != null && !ElicitationMode.values.any((m) => m.name == raw)) {
+          throw RpcException.invalidParams(
+            'The elicitation mode was "$raw", which is not one of: '
+            '${ElicitationMode.values.map((m) => m.name).join(', ')}',
+          );
+        }
         switch (request.mode) {
           case ElicitationMode.form:
-            if (elicitationFormSupport != null) {
-              return elicitationFormSupport.handleElicitation(request, this);
-            } else {
-              return ElicitResult(action: ElicitationAction.decline);
+            if (elicitationFormSupport == null) {
+              throw RpcException.invalidParams(
+                'This client did not declare the elicitation.form capability',
+              );
             }
+            return elicitationFormSupport.handleElicitation(request, this);
           case ElicitationMode.url:
-            if (elicitationUrlSupport != null) {
-              return elicitationUrlSupport.handleElicitation(request, this);
-            } else {
-              return ElicitResult(action: ElicitationAction.decline);
+            if (elicitationUrlSupport == null) {
+              throw RpcException.invalidParams(
+                'This client did not declare the elicitation.url capability',
+              );
             }
+            return elicitationUrlSupport.handleElicitation(request, this);
         }
       });
     }
@@ -334,7 +344,11 @@ base class ServerConnection extends MCPBase {
       final data = e.data;
       if (_elicitationUrlSupport?.autoHandleUrlElicitationRequired == true &&
           e.code == McpErrorCodes.urlElicitationRequired &&
-          data is Map) {
+          data is Map &&
+          // The schema makes `mode` required on a url elicitation, so a
+          // payload naming anything else does not belong on this path. Read
+          // it off the raw map, since the error is whatever the peer sent.
+          data[Keys.mode] == ElicitationMode.url.name) {
         // `RpcException.serialize` spreads the error data into an untyped map
         // literal (adding a `request` key), so the map arriving here is not a
         // `Map<String, Object?>` and a representation type check against

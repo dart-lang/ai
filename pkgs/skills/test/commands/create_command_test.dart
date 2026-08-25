@@ -39,7 +39,22 @@ name: my-package-my-skill
 description: "my description"
 ---
 
-Add your skill instructions here.
+# my-package-my-skill
+
+Brief overview of what this skill does and what it enables the agent to do.
+
+## Instructions
+
+Step-by-step instructions for the agent to follow:
+
+1. Step one...
+2. Step two...
+
+## Guidelines
+
+- Use clear, imperative language (e.g., "Run X", "Verify Y").
+- Include concrete examples of inputs and expected outputs where helpful.
+- Keep `SKILL.md` concise; move detailed reference docs to `references/` and helper scripts to `scripts/`.
 '''),
           ]),
         ]),
@@ -135,7 +150,22 @@ name: my-package-my-skill2
 description: "description with: a colon, \"quotes\", \nnewlines\tand backticks `like this`"
 ---
 
-Add your skill instructions here.
+# my-package-my-skill2
+
+Brief overview of what this skill does and what it enables the agent to do.
+
+## Instructions
+
+Step-by-step instructions for the agent to follow:
+
+1. Step one...
+2. Step two...
+
+## Guidelines
+
+- Use clear, imperative language (e.g., "Run X", "Verify Y").
+- Include concrete examples of inputs and expected outputs where helpful.
+- Keep `SKILL.md` concise; move detailed reference docs to `references/` and helper scripts to `scripts/`.
 '''),
             ]),
           ]),
