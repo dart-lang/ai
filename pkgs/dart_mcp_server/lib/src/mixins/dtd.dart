@@ -167,6 +167,7 @@ base mixin DartToolingDaemonSupport
             clientVersion: clientInfo.version,
             serverVersion: implementation.version,
             type: AnalyticsEvent.readResource.name,
+            agentPlugin: agentPlugin,
             additionalData: ReadResourceMetrics(
               kind: ResourceKind.runtimeErrors,
               length: result.contents.length,

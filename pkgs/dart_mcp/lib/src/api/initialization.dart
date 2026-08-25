@@ -318,6 +318,7 @@ extension type ServerCapabilities.fromMap(Map<String, Object?> _value) {
     Map<String, Object?>? extensions,
   }) => ServerCapabilities.fromMap({
     if (experimental != null) Keys.experimental: experimental,
+    if (completions != null) Keys.completions: completions,
     if (logging != null) Keys.logging: logging,
     if (prompts != null) Keys.prompts: prompts,
     if (resources != null) Keys.resources: resources,

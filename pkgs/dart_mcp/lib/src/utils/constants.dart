@@ -67,6 +67,7 @@ extension Keys on Never {
   static const id = 'id';
   static const idempotentHint = 'idempotentHint';
   static const includeContext = 'includeContext';
+  static const inputRequests = 'inputRequests';
   static const inputSchema = 'inputSchema';
   static const instructions = 'instructions';
   static const intelligencePriority = 'intelligencePriority';
@@ -124,6 +125,7 @@ extension Keys on Never {
   static const ref = 'ref';
   static const request = 'request';
   static const requestId = 'requestId';
+  static const requestState = 'requestState';
   static const requested = 'requested';
   static const requestedSchema = 'requestedSchema';
   static const required = 'required';

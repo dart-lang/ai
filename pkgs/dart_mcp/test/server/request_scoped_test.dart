@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp/src/utils/constants.dart';
 import 'package:json_rpc_2/error_code.dart' as error_code;
+import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:test/test.dart';
 
 import '../test_utils.dart';
@@ -675,6 +676,130 @@ void main() {
     );
   });
 
+  group('server/discover', () {
+    test('answers with the fields the schema requires', () async {
+      final harness = _DispatcherHarness();
+      final response = await harness.dispatch(_discover(), _initialization());
+
+      final result = _result(response);
+      // The schema makes all five of these required on a `DiscoverResult`.
+      // The handler answers the first two and the dispatcher stamps the rest.
+      expect(result, contains(Keys.supportedVersions));
+      expect(result, contains(Keys.capabilities));
+      expect(result, containsPair(Keys.resultType, ResultTypes.complete));
+      expect(result, containsPair(Keys.ttlMs, 0));
+      expect(result, containsPair(Keys.cacheScope, 'private'));
+    });
+
+    test('advertises only the request-scoped revisions', () async {
+      final harness = _DispatcherHarness();
+      final response = await harness.dispatch(_discover(), _initialization());
+
+      expect(DiscoverResult.fromMap(_result(response)).supportedVersions, [
+        ProtocolVersion.v2026_07_28.versionString,
+      ], reason: 'earlier revisions negotiate with the initialize handshake');
+    });
+
+    test('advertises the capabilities initialization registered', () async {
+      final harness = _DispatcherHarness();
+      final response = await harness.dispatch(_discover(), _initialization());
+
+      final capabilities =
+          DiscoverResult.fromMap(_result(response)).capabilities;
+      expect(capabilities.tools, isNotNull);
+      expect(
+        capabilities.tools?.listChanged,
+        isNull,
+        reason:
+            'list changes reach a client on a `subscriptions/listen` '
+            'stream, which this package does not serve yet',
+      );
+      expect(capabilities.resources?.listChanged, isNull);
+      expect(
+        capabilities.resources?.subscribe,
+        isNull,
+        reason:
+            'resource updates reach a client through the '
+            '`resourceSubscriptions` filter on the same stream',
+      );
+      expect(capabilities.logging, isNotNull);
+      expect(capabilities.completions, isNotNull);
+      expect(
+        capabilities.extensions,
+        isNotNull,
+        reason:
+            'capabilities are an open set, so anything the server put on '
+            'the field has to survive the trip',
+      );
+      expect(
+        capabilities.prompts,
+        isNull,
+        reason: 'this server registers no prompts, so it must not claim them',
+      );
+    });
+
+    test('keeps the capability fields it was not asked to drop', () async {
+      final response = await handleRequestScopedMessage(
+        _discover(),
+        _initialization(),
+        _ExtraResourceFieldServer.new,
+      );
+
+      final resources =
+          DiscoverResult.fromMap(_result(response)).capabilities.resources;
+      expect(resources?.listChanged, isNull);
+      expect(resources?.subscribe, isNull);
+      expect(
+        resources! as Map<String, Object?>,
+        containsPair(_ExtraResourceFieldServer.unknownField, true),
+        reason:
+            'only the bits this package cannot honor come off, so a field '
+            'a later revision adds still reaches the client',
+      );
+    });
+
+    test('carries the instructions the server was given', () async {
+      final harness = _DispatcherHarness();
+      final response = await harness.dispatch(_discover(), _initialization());
+
+      expect(
+        DiscoverResult.fromMap(_result(response)).instructions,
+        'A test server',
+      );
+    });
+
+    test('identifies the server in the result metadata', () async {
+      final harness = _DispatcherHarness();
+      final response = await harness.dispatch(_discover(), _initialization());
+
+      final meta = _result(response)[Keys.meta] as Map<String, Object?>;
+      final serverInfo = Implementation.fromMap(
+        meta[Keys.serverInfoMeta] as Map<String, Object?>,
+      );
+      expect(serverInfo.name, 'test server');
+    });
+
+    test(
+      'is not served on a revision that negotiates with initialize',
+      () async {
+        final harness = _DispatcherHarness();
+        final response = await harness.dispatch(
+          _discover(),
+          _initialization(protocolVersion: ProtocolVersion.v2025_11_25),
+        );
+
+        final error = response![Keys.error] as Map<String, Object?>;
+        expect(
+          error[Keys.code],
+          error_code.METHOD_NOT_FOUND,
+          reason:
+              'on an earlier revision the client negotiates with the '
+              'initialize handshake instead',
+        );
+      },
+    );
+  });
+
   group('legacy lifecycle', () {
     test('handshake still provides client info', () async {
       final environment = TestEnvironment(
@@ -686,6 +811,30 @@ void main() {
       expect(
         environment.server.clientInfo?.name,
         environment.client.implementation.name,
+      );
+    });
+
+    test('does not answer a discovery probe', () async {
+      final environment = TestEnvironment(
+        TestMCPClient(),
+        _DispatcherTestServer.new,
+      );
+      await environment.initializeServer();
+
+      // A client that speaks both eras probes with `server/discover` first,
+      // and an answer would tell it this connection is modern.
+      await expectLater(
+        environment.serverConnection.sendRequest(
+          DiscoverRequest.methodName,
+          DiscoverRequest(),
+        ),
+        throwsA(
+          isA<RpcException>().having(
+            (e) => e.code,
+            'code',
+            error_code.METHOD_NOT_FOUND,
+          ),
+        ),
       );
     });
   });
@@ -716,10 +865,14 @@ final class _DispatcherHarness {
 
 /// A server with tools which observe the request-scoped lifecycle.
 final class _DispatcherTestServer extends TestMCPServer
-    with LoggingSupport, ResourcesSupport, ToolsSupport {
+    with CompletionsSupport, LoggingSupport, ResourcesSupport, ToolsSupport {
   static const testNotification = 'notifications/test';
 
   _DispatcherTestServer(super.channel);
+
+  @override
+  CompleteResult handleComplete(CompleteRequest request) =>
+      CompleteResult(completion: Completion(values: const []));
 
   /// How many [testNotification] notifications this server received.
   int testNotifications = 0;
@@ -729,9 +882,8 @@ final class _DispatcherTestServer extends TestMCPServer
   Map<String, Object?>? retainedResult;
 
   @override
-  FutureOr<ServerCapabilities> initialize(
-    MCPServerInitialization initialization,
-  ) {
+  FutureOr<void> initialize(MCPServerInitialization initialization) {
+    capabilities.extensions = const {'io.example/dispatcher': true};
     registerNotificationHandler(testNotification, (Notification? _) {
       testNotifications++;
     });
@@ -820,6 +972,21 @@ final class _RootsTrackingDispatcherServer extends TestMCPServer
   _RootsTrackingDispatcherServer(super.channel);
 }
 
+/// A server carrying a `resources` capability field this package does not
+/// know, standing in for one a later revision adds.
+final class _ExtraResourceFieldServer extends TestMCPServer
+    with ResourcesSupport {
+  static const unknownField = 'io.example/unknownResourceField';
+
+  _ExtraResourceFieldServer(super.channel);
+
+  @override
+  FutureOr<void> initialize(MCPServerInitialization initialization) async {
+    await super.initialize(initialization);
+    (capabilities.resources! as Map<String, Object?>)[unknownField] = true;
+  }
+}
+
 /// A server whose initialization always fails.
 final class _FailingInitServer extends TestMCPServer {
   _FailingInitServer(super.channel);
@@ -827,9 +994,8 @@ final class _FailingInitServer extends TestMCPServer {
   @override
   // A server which fails to initialize cannot call super first.
   // ignore: must_call_super
-  FutureOr<ServerCapabilities> initialize(
-    MCPServerInitialization initialization,
-  ) => throw StateError('initialization failed');
+  FutureOr<void> initialize(MCPServerInitialization initialization) =>
+      throw StateError('initialization failed');
 }
 
 /// A server whose `resources/read` answers with whatever [shape] returns.
@@ -839,9 +1005,7 @@ final class _ShapedReadServer extends TestMCPServer with ResourcesSupport {
   final Map<String, Object?> Function(Map<String, Object?> result) shape;
 
   @override
-  FutureOr<ServerCapabilities> initialize(
-    MCPServerInitialization initialization,
-  ) {
+  FutureOr<void> initialize(MCPServerInitialization initialization) {
     addResource(
       Resource(uri: 'file:///probe', name: 'probe'),
       (_) async => ReadResourceResult(contents: []),
@@ -903,6 +1067,12 @@ Map<String, Object?> _setLevel() => {
   Keys.id: 1,
   Keys.method: SetLevelRequest.methodName,
   Keys.params: {Keys.level: LoggingLevel.debug.name},
+};
+
+Map<String, Object?> _discover() => {
+  Keys.jsonrpc: '2.0',
+  Keys.id: 1,
+  Keys.method: DiscoverRequest.methodName,
 };
 
 /// The request-scoped lifecycle arrived with 2026-07-28, so that is the

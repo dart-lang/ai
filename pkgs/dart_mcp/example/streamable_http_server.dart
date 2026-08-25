@@ -7,8 +7,9 @@
 ///
 /// Run it with `dart run example/streamable_http_server.dart`. It prints a
 /// `curl` command for the tool it registers; the transport has no client in
-/// this package yet, so that is how to drive it. The command is answered
-/// with 200 and a JSON body containing `Hello, world!`.
+/// this package yet, so that is how to drive it. The command asks for progress
+/// and the tool reports it, so the answer comes back as an SSE response
+/// stream: the report first, then a result containing `Hello, world!`.
 library;
 
 import 'dart:io' as io;
@@ -60,15 +61,14 @@ void main() async {
       await handleStreamableHttpRequest(
         request,
         MCPServerWithGreeting.new,
-        // A JSON response body cannot carry notifications, so anything the
-        // server sends while handling the request is dropped without this.
-        // `greet` sends one when the request carries a progress token, which
-        // the command below does.
+        // `greet` sends a notification when the request carries a progress
+        // token, which the command below does. It goes out on the response
+        // stream, and this callback is the host's own copy of it.
         onNotification:
             (notification) => io.stderr.writeln('notification: $notification'),
       );
     } catch (error) {
-      // The request already has its 500; this is the copy the host keeps.
+      // The request already carries the failure. This is the host's copy.
       io.stderr.writeln('request failed: $error');
     }
   });
@@ -126,8 +126,8 @@ base class MCPServerWithGreeting extends MCPServer with ToolsSupport {
 
   /// The implementation of the `greet` tool.
   CallToolResult _greet(CallToolRequest request) {
-    // The JSON body carries the result and nothing else, so this notification
-    // reaches the host through `onNotification` or not at all.
+    // Sending this commits the response to an SSE response stream, and the
+    // `curl` command above gets one back.
     if (request.meta?.progressToken case final progressToken?) {
       notifyProgress(
         ProgressNotification(

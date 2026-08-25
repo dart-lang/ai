@@ -11,6 +11,106 @@ import 'package:test/test.dart';
 import '../test_utils.dart';
 
 void main() {
+  test('includeContext round trips the values the schema names', () {
+    for (final (value, wire) in const [
+      (IncludeContext.none, 'none'),
+      (IncludeContext.thisServer, 'thisServer'),
+      (IncludeContext.allServers, 'allServers'),
+    ]) {
+      final sent =
+          CreateMessageRequest(
+                messages: [],
+                maxTokens: 1,
+                includeContext: value,
+              )
+              as Map<String, Object?>;
+      expect(sent['includeContext'], wire);
+      expect(
+        CreateMessageRequest.fromMap({
+          'messages': <Object?>[],
+          'maxTokens': 1,
+          'includeContext': wire,
+        }).includeContext,
+        value,
+      );
+    }
+  });
+
+  test('includeContext reads the name this package used to send', () {
+    expect(
+      CreateMessageRequest.fromMap({
+        'messages': <Object?>[],
+        'maxTokens': 1,
+        'includeContext': 'thisService',
+      }).includeContext,
+      IncludeContext.thisServer,
+    );
+  });
+
+  test('model preferences read an integer priority as a double', () {
+    final prefs = ModelPreferences.fromMap({
+      'costPriority': 1,
+      'speedPriority': 0,
+      'intelligencePriority': 1,
+    });
+
+    expect(prefs.costPriority, 1.0);
+    expect(prefs.speedPriority, 0.0);
+    expect(prefs.intelligencePriority, 1.0);
+  });
+
+  test('model preferences leave an absent priority null', () {
+    final prefs = ModelPreferences.fromMap({});
+
+    expect(prefs.costPriority, isNull);
+    expect(prefs.speedPriority, isNull);
+    expect(prefs.intelligencePriority, isNull);
+  });
+
+  test('model preferences read a fractional priority', () {
+    final prefs = ModelPreferences.fromMap({
+      'costPriority': 0.3,
+      'speedPriority': 0.8,
+      'intelligencePriority': 0.5,
+    });
+
+    expect(prefs.costPriority, 0.3);
+    expect(prefs.speedPriority, 0.8);
+    expect(prefs.intelligencePriority, 0.5);
+  });
+
+  test('temperature takes a fractional value', () {
+    expect(
+      CreateMessageRequest(
+        messages: [],
+        maxTokens: 1,
+        temperature: 0.7,
+      ).temperature,
+      0.7,
+    );
+  });
+
+  test('temperature is null when the map leaves it out', () {
+    expect(
+      CreateMessageRequest.fromMap({
+        'messages': <Object?>[],
+        'maxTokens': 1,
+      }).temperature,
+      isNull,
+    );
+  });
+
+  test('temperature reads an integer as a double', () {
+    expect(
+      CreateMessageRequest.fromMap({
+        'messages': <Object?>[],
+        'maxTokens': 1,
+        'temperature': 1,
+      }).temperature,
+      1.0,
+    );
+  });
+
   test('server can request LLM messages from the client', () async {
     final environment = TestEnvironment(
       SamplingTestMCPClient(),

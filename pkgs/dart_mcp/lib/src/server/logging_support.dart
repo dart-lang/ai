@@ -6,7 +6,7 @@ part of 'server.dart';
 
 /// A mixin for MCP servers which support the `logging` capability.
 ///
-/// See https://spec.modelcontextprotocol.io/specification/2025-11-05/server/utilities/logging/.
+/// See https://modelcontextprotocol.io/specification/2025-11-25/server/utilities/logging/.
 base mixin LoggingSupport on MCPServer {
   /// The level at or above which [log] sends messages, or `null` to send none.
   ///
@@ -18,9 +18,7 @@ base mixin LoggingSupport on MCPServer {
   LoggingLevel? loggingLevel;
 
   @override
-  FutureOr<ServerCapabilities> initialize(
-    MCPServerInitialization initialization,
-  ) async {
+  FutureOr<void> initialize(MCPServerInitialization initialization) async {
     if (initialization.protocolVersion < ProtocolVersion.v2026_07_28) {
       loggingLevel ??= LoggingLevel.warning;
       registerRequestHandler(SetLevelRequest.methodName, handleSetLevel);
@@ -31,7 +29,8 @@ base mixin LoggingSupport on MCPServer {
       loggingLevel = initialization.logLevel;
     }
 
-    return (await super.initialize(initialization))..logging ??= Logging();
+    await super.initialize(initialization);
+    capabilities.logging ??= Logging();
   }
 
   /// Sends a [LoggingMessageNotification] to the client, if [loggingLevel] is

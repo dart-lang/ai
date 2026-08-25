@@ -756,6 +756,7 @@ base mixin DartAnalyzerSupport
     final content = await file.readAsString();
     final newContent = _applyEditsToString(content, edits);
     await file.writeAsString(newContent);
+    diagnostics.remove(uri);
   }
 
   /// Applies a list of [edits] to [content] and returns the new content.

@@ -24,10 +24,20 @@
   - Separate server feature registration from the legacy protocol handshake.
     `MCPServer.initialize` now accepts an `MCPServerInitialization` containing
     the protocol version, client information, and client capabilities, and
-    returns `ServerCapabilities`. The client information is optional, since
-    clients are no longer required to send it on every request, see
+    returns nothing. The client information is optional, since clients are no
+    longer required to send it on every request, see
     https://github.com/modelcontextprotocol/modelcontextprotocol/pull/3002.
     `MCPServer.clientInfo` is now nullable (`Implementation?`).
+  - Mixins and subclasses declare what a server supports by editing the
+    `MCPServer.capabilities` field, which is `final`, instead of editing the
+    `ServerCapabilities` on the `InitializeResult` that `super.initialize`
+    used to return.
+    - A mixin that returned a fresh object kept the handlers the rest of the
+      chain had registered while dropping the capabilities they declared, so
+      the server answered requests it did not advertise.
+    - The initialize response that `MCPServer.initializeLegacy` returns takes
+      its capabilities from that field.
+    - On the client, `MCPClient.capabilities` already worked this way.
   - Override `MCPServer.initializeLegacy` only to customize the legacy
     initialize response or version negotiation.
   - `ElicitationRequestSupport.elicit` now throws an `RpcException` with
@@ -58,12 +68,29 @@
     server to client request at all. A server which expects either of those
     codes for an undeclared capability should read
     `MCPServer.supportsRoots` or `MCPServer.supportsSampling` first.
+  - `ResourceLink.icons` is now `List<Icon>?` instead of `List<String>?`, and
+    its factory takes the icons, the way the other five types carrying `icons`
+    already do. The field has been an array of icons since 2025-11-25 added it,
+    see
+    https://modelcontextprotocol.io/specification/2025-11-25/schema#resourcelink-icons.
+    Reading it off a resource link a server sent threw a type error on the
+    first element.
   - `LoggingSupport.loggingLevel` is now nullable (`LoggingLevel?`), `null`
     meaning `log` sends nothing. On 2026-07-28 `initialize` assigns the level
     the request named, over whatever the server set before it ran. Earlier
     revisions fill it in only when the server set none. `LoggingSupport` also
     stops registering `logging/setLevel` on that revision, which is what a
     transport dispatching on its own gets.
+  - `IntegerSchema`'s four bounds and its default read `num` now, and its
+    factory takes them that way. JSON Schema types the bounds `number`, and
+    the spec gives integers and numbers one definition whose `minimum`,
+    `maximum` and `default` are `number` too. A peer sending
+    `{"type": "integer", "minimum": 0.5}` sent something the getter threw on.
+    `multipleOf` next to them already read `num`.
+- Fix the `Meta` dartdoc, which still described the 2025-06-18 prefix rule, and
+  document the `traceparent`, `tracestate`, and `baggage` keys reserved for
+  OpenTelemetry trace context, see
+  https://modelcontextprotocol.io/specification/2026-07-28/basic#_meta.
 - Add `handleRequestScopedMessage` and `MCPServerFactory`, which serve each
   decoded JSON-RPC message on a fresh server instance for request-scoped
   transports. On 2026-07-28, successful results record the server
@@ -77,6 +104,8 @@
   The level goes in the `io.modelcontextprotocol/logLevel` metadata key, which
   `MCPServerInitialization` now carries and the Streamable HTTP handler reads
   off the envelope, answering invalid params when it is not a logging level.
+- `Resource.size` reads `null` for an absent size instead of throwing a type
+  error. The field is optional, and the getter cast it to a non-nullable `int`.
 - `RootsTrackingSupport` no longer surfaces an unhandled error when the
   connection closes while a `listRoots` request is in flight.
 - The URL elicitation retry rethrows the original error when its data is not
@@ -111,6 +140,10 @@
   and `.unsupportedProtocolVersion`. The same registry reserves `-32042`, so
   `urlElicitationRequired` now documents that only the 2025-11-25 revision
   emits it.
+- Add `InputRequiredResult` and `InputRequest`, the result a server answers with
+  when it needs input first, see
+  https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr.
+  Nothing sends or answers one yet.
 - Add `SubscriptionFilter`, `SubscriptionsListenRequest`,
   `SubscriptionsListenResult`, and `SubscriptionsAcknowledgedNotification`,
   modeling the `subscriptions/listen` request the 2026-07-28 revision adds, see
@@ -125,6 +158,26 @@
 - `SubscriptionsAcknowledgedNotification` takes the `subscriptionId` the spec
   requires on it, and reads it back. A client with more than one stream open
   needs it to tell which listen request an acknowledgement answers.
+- Deprecate `IncludeContext.thisService` and replace it with `thisServer`, the
+  name the specification uses, see
+  https://modelcontextprotocol.io/specification/2026-07-28/client/sampling.
+  Since the enum name is what a request carries, a server asking for that
+  context sent a value only another dart_mcp client could match. The
+  `CreateMessageRequest.includeContext` getter still reads `thisService`, since
+  this package sent it up to 0.5.2. Reading the corrected name needs 0.6.0.
+- Every getter returning a `double` now reads the JSON value as a `num` first.
+  A peer sending `1` for `1.0` used to throw except on the JavaScript
+  platforms. `CreateMessageRequest` takes `temperature` as a `num` because an
+  `int` cannot express a fractional one.
+- `NumberSchema`, `IntegerSchema` and `BooleanSchema` take a `default`, which
+  the schema gives them and `StringSchema` already had. A server could
+  pre-fill a text field on an elicitation form but not a number or a checkbox.
+- Fix `uniqueItems` on a list schema, which compared items with `Set`, so two
+  equal maps or lists decoded from JSON counted as different and a list the
+  schema forbids validated. JSON Schema compares by structural equality.
+- Stop `BaseMetadata`, `MetaWithProgressToken`, `CompletionContext`,
+  `PromptReference` and `ElicitResult` from writing an explicit `null` for an
+  optional field that was not given. The schema types all five as non-nullable.
 - Fix `RequestId` so it can hold a JSON-RPC id. Its representation type was
   `json_rpc_2`'s `Parameter` rather than `Object`, which its sibling
   `ProgressToken` uses, so `CancelledNotification.requestId` threw for every
@@ -145,16 +198,42 @@
   results, so the sixth operation the caching rules name is no longer the one
   which cannot carry the hints. This adds the types only; the server does not
   answer `server/discover` yet.
+- Answer a request whose handler emits related notifications on an SSE
+  response stream. A quiet handler keeps its JSON body. List changes and
+  resource updates reach `onNotification` alone, since this revision carries
+  those on a `subscriptions/listen` stream. Does not treat a closed stream as
+  cancellation, which the specification requires.
+  that cannot carry the hints.
+- Serve `server/discover` from `MCPServer.discover`, which answers with the
+  request-scoped protocol versions this package implements, the capabilities
+  `MCPServer.initialize` registered, and the instructions the server was given.
+  - Its result joins the ones carrying `ttlMs` and `cacheScope`, and the
+    dispatcher stamps the result type and the server's identity on it as it
+    does for every result.
+  - Only a server initialized for 2026-07-28 or later registers the handler,
+    since answering is how a server declares it speaks the request-scoped
+    protocol.
+  - A server on an earlier revision that answered would be taken for a modern
+    one, see
+    https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/stdio#backward-compatibility.
+  - The advertisement removes `subscribe` and the three `listChanged` bits,
+    since a client only hears those notifications over a
+    `subscriptions/listen` stream, and this package does not serve that
+    request yet.
+  - Every other key on those capabilities goes out as it is, and so does the
+    rest of the field, since capabilities are an open set.
+    `initializeLegacy` still sends all of them.
+  - The `ServerCapabilities` constructor writes `completions`, which it used to
+    drop, so a caller that passes one gets it back.
 - Add `package:dart_mcp/streamable_http.dart` with
   `handleStreamableHttpRequest`, the server side of the Streamable HTTP
   transport from the 2026-07-28 revision, see
   https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http.
   Each POST carries one JSON-RPC request or notification which is validated
   against the required headers and `_meta` envelope, then dispatched to a
-  fresh server instance via `handleRequestScopedMessage`. Responses are JSON
-  only. See `example/streamable_http_server.dart`. Does not add SSE response
-  streams, the legacy session routes, or an HTTP client; those land as
-  separate changes.
+  fresh server instance via `handleRequestScopedMessage`. See
+  `example/streamable_http_server.dart`. Does not add the legacy session
+  routes or an HTTP client; those land as separate changes.
 - Add `ProtocolVersion.addedMethods` and `.removedMethods`, listing what each
   revision of the protocol introduced and took out, and
   `ProtocolVersion.methodIsValid`, which walks back from a revision to answer
@@ -176,6 +255,9 @@
   Streamable HTTP handler already requires; the server map travels with
   `ServerCapabilities`, which is held by the legacy `initialize` result and
   by `DiscoverResult`.
+- Point the documentation at `modelcontextprotocol.io` and at protocol
+  revision 2025-11-25. The old host stopped serving HTTPS, and the old
+  revision number 2025-11-05 was never a published revision.
 
 ## 0.5.2
 
