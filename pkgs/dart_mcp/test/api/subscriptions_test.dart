@@ -93,7 +93,9 @@ void main() {
 
   group('SubscriptionsListenResult', () {
     test('writes the subscription id into the result metadata', () {
-      final result = SubscriptionsListenResult(subscriptionId: RequestId(7));
+      final result = SubscriptionsListenResult(
+        meta: MetaWithSubscriptionId(subscriptionId: RequestId(7)),
+      );
       expect(result as Map<String, Object?>, {
         '_meta': {'io.modelcontextprotocol/subscriptionId': 7},
       });
@@ -102,8 +104,10 @@ void main() {
 
     test('keeps the metadata it is given alongside the id', () {
       final result = SubscriptionsListenResult(
-        subscriptionId: RequestId('stream-1'),
-        meta: Meta.fromMap({'com.example/trace': 'abc'}),
+        meta: MetaWithSubscriptionId.fromMap({
+          'com.example/trace': 'abc',
+          'io.modelcontextprotocol/subscriptionId': RequestId('stream-1'),
+        }),
       );
       expect(result as Map<String, Object?>, {
         '_meta': {
@@ -133,7 +137,7 @@ void main() {
     test('writes the filter and the subscription id it is given', () {
       final acknowledged = SubscriptionsAcknowledgedNotification(
         notifications: SubscriptionFilter(toolsListChanged: true),
-        subscriptionId: RequestId(7),
+        meta: MetaWithSubscriptionId(subscriptionId: RequestId(7)),
       );
       expect(acknowledged as Map<String, Object?>, {
         'notifications': {'toolsListChanged': true},
@@ -146,8 +150,10 @@ void main() {
     test('keeps the metadata it is given alongside the id', () {
       final acknowledged = SubscriptionsAcknowledgedNotification(
         notifications: SubscriptionFilter(),
-        subscriptionId: RequestId('stream-1'),
-        meta: Meta.fromMap({'com.example/trace': 'abc'}),
+        meta: MetaWithSubscriptionId.fromMap({
+          'com.example/trace': 'abc',
+          'io.modelcontextprotocol/subscriptionId': RequestId('stream-1'),
+        }),
       );
       expect((acknowledged as Map<String, Object?>)['_meta'], {
         'com.example/trace': 'abc',

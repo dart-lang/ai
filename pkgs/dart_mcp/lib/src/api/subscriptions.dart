@@ -99,6 +99,14 @@ extension type WithSubscriptionId.fromMap(Map<String, Object?> _value) {
   }
 }
 
+/// A [Meta] carrying the [subscriptionId] every message on a
+/// `subscriptions/listen` stream needs.
+extension type MetaWithSubscriptionId.fromMap(Map<String, Object?> _value)
+    implements Meta, WithSubscriptionId {
+  factory MetaWithSubscriptionId({required RequestId subscriptionId}) =>
+      MetaWithSubscriptionId.fromMap({Keys.subscriptionIdMeta: subscriptionId});
+}
+
 /// The response to a [SubscriptionsListenRequest], sent when the server ends
 /// the subscription gracefully, for example while shutting down.
 ///
@@ -109,12 +117,8 @@ extension type WithSubscriptionId.fromMap(Map<String, Object?> _value) {
 /// From the 2026-07-28 revision.
 extension type SubscriptionsListenResult.fromMap(Map<String, Object?> _value)
     implements Result, WithSubscriptionId {
-  factory SubscriptionsListenResult({
-    required RequestId subscriptionId,
-    Meta? meta,
-  }) => SubscriptionsListenResult.fromMap({
-    Keys.meta: {...?meta?._value, Keys.subscriptionIdMeta: subscriptionId},
-  });
+  factory SubscriptionsListenResult({required MetaWithSubscriptionId meta}) =>
+      SubscriptionsListenResult.fromMap({Keys.meta: meta});
 }
 
 /// Sent by the server to acknowledge a [SubscriptionsListenRequest] and report
@@ -132,11 +136,10 @@ extension type SubscriptionsAcknowledgedNotification.fromMap(
 
   factory SubscriptionsAcknowledgedNotification({
     required SubscriptionFilter notifications,
-    required RequestId subscriptionId,
-    Meta? meta,
+    required MetaWithSubscriptionId meta,
   }) => SubscriptionsAcknowledgedNotification.fromMap({
     Keys.notifications: notifications,
-    Keys.meta: {...?meta?._value, Keys.subscriptionIdMeta: subscriptionId},
+    Keys.meta: meta,
   });
 
   /// The notification types the server agreed to send on this stream.
