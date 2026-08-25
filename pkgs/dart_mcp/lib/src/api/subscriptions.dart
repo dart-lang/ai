@@ -80,7 +80,7 @@ extension type SubscriptionsListenRequest.fromMap(Map<String, Object?> _value)
 /// stream that carries a [MetaWithSubscriptionId] at the key "_meta".
 ///
 /// Should be "mixed in" by implementing this type from other extension types.
-extension type WithSubscriptionId.fromMap(Map<String, Object?> _value) {
+extension type WithSubscriptionId._fromMap(Map<String, Object?> _value) {
   /// The JSON-RPC id of the [SubscriptionsListenRequest] which opened the
   /// stream this message belongs to.
   ///

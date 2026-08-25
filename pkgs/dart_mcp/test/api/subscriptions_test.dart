@@ -102,7 +102,7 @@ void main() {
       expect(result.subscriptionId, 7);
     });
 
-    test('keeps the metadata it is given alongside the id', () {
+    test('stores the metadata object it is given', () {
       final result = SubscriptionsListenResult(
         meta: MetaWithSubscriptionId.fromMap({
           'com.example/trace': 'abc',
@@ -147,7 +147,7 @@ void main() {
       expect(acknowledged.subscriptionId, 7);
     });
 
-    test('keeps the metadata it is given alongside the id', () {
+    test('stores the metadata object it is given', () {
       final acknowledged = SubscriptionsAcknowledgedNotification(
         notifications: SubscriptionFilter(),
         meta: MetaWithSubscriptionId.fromMap({
