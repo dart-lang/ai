@@ -103,12 +103,12 @@ void main() {
     });
 
     test('stores the metadata object it is given', () {
-      final result = SubscriptionsListenResult(
-        meta: MetaWithSubscriptionId.fromMap({
-          'com.example/trace': 'abc',
-          'io.modelcontextprotocol/subscriptionId': RequestId('stream-1'),
-        }),
-      );
+      final meta = MetaWithSubscriptionId.fromMap({
+        'com.example/trace': 'abc',
+        'io.modelcontextprotocol/subscriptionId': RequestId('stream-1'),
+      });
+      final result = SubscriptionsListenResult(meta: meta);
+      expect(result.meta, same(meta));
       expect(result as Map<String, Object?>, {
         '_meta': {
           'com.example/trace': 'abc',
@@ -148,13 +148,15 @@ void main() {
     });
 
     test('stores the metadata object it is given', () {
+      final meta = MetaWithSubscriptionId.fromMap({
+        'com.example/trace': 'abc',
+        'io.modelcontextprotocol/subscriptionId': RequestId('stream-1'),
+      });
       final acknowledged = SubscriptionsAcknowledgedNotification(
         notifications: SubscriptionFilter(),
-        meta: MetaWithSubscriptionId.fromMap({
-          'com.example/trace': 'abc',
-          'io.modelcontextprotocol/subscriptionId': RequestId('stream-1'),
-        }),
+        meta: meta,
       );
+      expect(acknowledged.meta, same(meta));
       expect((acknowledged as Map<String, Object?>)['_meta'], {
         'com.example/trace': 'abc',
         'io.modelcontextprotocol/subscriptionId': 'stream-1',
