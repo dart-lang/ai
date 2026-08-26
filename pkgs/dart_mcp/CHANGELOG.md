@@ -208,14 +208,12 @@
   has no name for and the client is the one choosing between them. Its factory
   takes `ttlMs` and `cacheScope` on the same terms as the other five cacheable
   results, so the sixth operation the caching rules name is no longer the one
-  which cannot carry the hints. This adds the types only; the server does not
-  answer `server/discover` yet.
+  that cannot carry the hints.
 - Answer a request whose handler emits related notifications on an SSE
   response stream. A quiet handler keeps its JSON body. List changes and
   resource updates reach `onNotification` alone, since this revision carries
   those on a `subscriptions/listen` stream. Does not treat a closed stream as
   cancellation, which the specification requires.
-  that cannot carry the hints.
 - Serve `server/discover` from `MCPServer.discover`, which answers with the
   request-scoped protocol versions this package implements, the capabilities
   `MCPServer.initialize` registered, and the instructions the server was given.
