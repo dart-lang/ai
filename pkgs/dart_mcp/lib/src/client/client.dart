@@ -329,6 +329,60 @@ base class ServerConnection extends MCPBase {
     return response;
   }
 
+  /// Asks the server which protocol versions and capabilities it supports,
+  /// without a handshake, see [DiscoverRequest].
+  ///
+  /// The 2026-07-28 revision asks a `server/discover` request to name the
+  /// protocol version and client capabilities in `_meta`, the same envelope
+  /// `handleStreamableHttpRequest` in `package:dart_mcp/streamable_http.dart`
+  /// requires of every request on that revision, so this method writes
+  /// [protocolVersion] and [capabilities] there, plus [clientInfo] when it is
+  /// given.
+  ///
+  /// A caller's own key in [meta] passes through unchanged, a progress
+  /// token for instance. `protocolVersion` and `clientCapabilities` are
+  /// different: the spec's per-request `_meta` table marks both required, so
+  /// an envelope leaving one out, or carrying one of the wrong type, is
+  /// malformed and a server answers it with `-32602`. This method's
+  /// [protocolVersion] and [capabilities] arguments therefore win over
+  /// whatever a caller carries in [meta] under those two keys. A [clientInfo]
+  /// given here wins the same way. Left out, whatever the caller put under
+  /// that name goes through, since the table does not require one.
+  ///
+  /// A server on an earlier revision does not implement this method and
+  /// usually answers with a method-not-found error. Some stdio servers
+  /// instead exit on any request that reaches them before `initialize`, and
+  /// nothing here times out, so the returned future waits until the
+  /// connection closes in that case. Probe on a connection you can discard
+  /// when the server might predate the revision.
+  ///
+  /// Use [ProtocolVersion.selectMutuallySupported] on the result's
+  /// [DiscoverResult.supportedVersions] to pick which version to use next.
+  ///
+  /// This does not update this connection's [protocolVersion],
+  /// [serverCapabilities], or [serverInfo]: those describe what [initialize]
+  /// negotiated, and a discover call can happen instead of, before, or after
+  /// that handshake.
+  Future<DiscoverResult> discover({
+    required ProtocolVersion protocolVersion,
+    required ClientCapabilities capabilities,
+    Implementation? clientInfo,
+    MetaWithProgressToken? meta,
+  }) {
+    final callerMeta = meta as Map<String, Object?>?;
+    return sendRequest(
+      DiscoverRequest.methodName,
+      DiscoverRequest(
+        meta: MetaWithProgressToken.fromMap({
+          ...?callerMeta,
+          Keys.protocolVersionMeta: protocolVersion.versionString,
+          if (clientInfo != null) Keys.clientInfoMeta: clientInfo,
+          Keys.clientCapabilitiesMeta: capabilities,
+        }),
+      ),
+    );
+  }
+
   /// List all the tools from this server.
   Future<ListToolsResult> listTools([ListToolsRequest? request]) =>
       sendRequest(ListToolsRequest.methodName, request);
