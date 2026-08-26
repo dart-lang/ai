@@ -42,16 +42,20 @@ extension type ListPromptsResult.fromMap(Map<String, Object?> _value)
 
 /// Used by the client to get a prompt provided by the server.
 extension type GetPromptRequest.fromMap(Map<String, Object?> _value)
-    implements Request {
+    implements WithInputResponses {
   static const methodName = 'prompts/get';
 
   factory GetPromptRequest({
     required String name,
     Map<String, Object?>? arguments,
+    Map<String, Result>? inputResponses,
+    String? requestState,
     MetaWithProgressToken? meta,
   }) => GetPromptRequest.fromMap({
     Keys.name: name,
     if (arguments != null) Keys.arguments: arguments,
+    if (inputResponses != null) Keys.inputResponses: inputResponses,
+    if (requestState != null) Keys.requestState: requestState,
     if (meta != null) Keys.meta: meta,
   });
 

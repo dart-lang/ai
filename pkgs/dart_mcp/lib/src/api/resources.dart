@@ -81,14 +81,18 @@ extension type ListResourceTemplatesResult.fromMap(Map<String, Object?> _value)
 
 /// Sent from the client to the server, to read a specific resource URI.
 extension type ReadResourceRequest.fromMap(Map<String, Object?> _value)
-    implements Request {
+    implements WithInputResponses {
   static const methodName = 'resources/read';
 
   factory ReadResourceRequest({
     required String uri,
+    Map<String, Result>? inputResponses,
+    String? requestState,
     MetaWithProgressToken? meta,
   }) => ReadResourceRequest.fromMap({
     Keys.uri: uri,
+    if (inputResponses != null) Keys.inputResponses: inputResponses,
+    if (requestState != null) Keys.requestState: requestState,
     if (meta != null) Keys.meta: meta,
   });
 

@@ -68,6 +68,7 @@ extension Keys on Never {
   static const idempotentHint = 'idempotentHint';
   static const includeContext = 'includeContext';
   static const inputRequests = 'inputRequests';
+  static const inputResponses = 'inputResponses';
   static const inputSchema = 'inputSchema';
   static const instructions = 'instructions';
   static const intelligencePriority = 'intelligencePriority';
