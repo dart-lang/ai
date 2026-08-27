@@ -558,7 +558,9 @@ void main() {
           capabilities: ClientCapabilities(sampling: {}),
         );
         final wire = jsonDecode(jsonEncode(refused)) as Map<String, Object?>;
-        final error = wire['error'] as Map<String, Object?>;
+        final rawError = wire['error'];
+        expect(rawError, isA<Map<String, Object?>>(), reason: field);
+        final error = rawError as Map<String, Object?>;
         expect(error['code'], -32021, reason: field);
         expect(error['message'], contains('sampling.tools'), reason: field);
         final data = error['data'] as Map<String, Object?>;
@@ -667,7 +669,13 @@ void main() {
         );
 
         final wire = jsonDecode(jsonEncode(response)) as Map<String, Object?>;
-        final error = wire['error'] as Map<String, Object?>;
+        final rawError = wire['error'];
+        expect(
+          rawError,
+          isA<Map<String, Object?>>(),
+          reason: '$tool: $capabilities',
+        );
+        final error = rawError as Map<String, Object?>;
         expect(error['code'], -32021, reason: '$tool: $capabilities');
         final data = error['data'] as Map<String, Object?>;
         expect(
@@ -819,7 +827,9 @@ void main() {
 
         final response = await _dispatchShapedRead(shape);
         final wire = jsonDecode(jsonEncode(response)) as Map<String, Object?>;
-        final error = wire['error'] as Map<String, Object?>;
+        final rawError = wire['error'];
+        expect(rawError, isA<Map<String, Object?>>(), reason: '$mode');
+        final error = rawError as Map<String, Object?>;
         expect(error['code'], -32603, reason: '$mode');
         expect(error['message'], contains('form'), reason: '$mode');
         expect(error['message'], contains('url'), reason: '$mode');
@@ -838,7 +848,9 @@ void main() {
           _initialization(),
         );
 
-        final error = response![Keys.error] as Map<String, Object?>;
+        final rawError = response![Keys.error];
+        expect(rawError, isA<Map<String, Object?>>(), reason: tool);
+        final error = rawError as Map<String, Object?>;
         expect(error[Keys.code], error_code.INTERNAL_ERROR, reason: tool);
       }
     });
@@ -850,7 +862,9 @@ void main() {
         _initialization(),
       );
 
-      final error = response![Keys.error] as Map<String, Object?>;
+      final rawError = response![Keys.error];
+      expect(rawError, isA<Map<String, Object?>>());
+      final error = rawError as Map<String, Object?>;
       expect(error[Keys.code], error_code.INTERNAL_ERROR);
       expect(error[Keys.message], contains(ElicitRequest.methodName));
       expect(error[Keys.message], contains(CreateMessageRequest.methodName));
@@ -879,7 +893,13 @@ void main() {
         );
 
         final wire = jsonDecode(jsonEncode(response)) as Map<String, Object?>;
-        final error = wire['error'] as Map<String, Object?>;
+        final rawError = wire['error'];
+        expect(
+          rawError,
+          isA<Map<String, Object?>>(),
+          reason: '$method: $params',
+        );
+        final error = rawError as Map<String, Object?>;
         expect(error['code'], -32603, reason: '$method: $params');
       }
     });
@@ -898,7 +918,9 @@ void main() {
         );
 
         final wire = jsonDecode(jsonEncode(response)) as Map<String, Object?>;
-        final error = wire['error'] as Map<String, Object?>;
+        final rawError = wire['error'];
+        expect(rawError, isA<Map<String, Object?>>(), reason: '$shape');
+        final error = rawError as Map<String, Object?>;
         expect(error['code'], -32603, reason: '$shape');
       }
     });
