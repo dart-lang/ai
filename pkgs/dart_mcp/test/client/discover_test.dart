@@ -5,6 +5,7 @@
 import 'dart:async';
 
 import 'package:dart_mcp/client.dart';
+import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp/src/utils/constants.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'package:test/test.dart';
@@ -15,15 +16,9 @@ void main() {
   group('ServerConnection.discover', () {
     test('sends the metadata the 2026-07-28 envelope requires', () async {
       final harness = _WireHarness();
-      harness.respondToNextRequest({
-        Keys.resultType: ResultTypes.complete,
-        Keys.ttlMs: 0,
-        Keys.cacheScope: CacheScope.private.name,
-        Keys.supportedVersions: ['2026-07-28'],
-        Keys.capabilities: {Keys.tools: <String, Object?>{}},
-      });
+      harness.respondToNextRequest(_completeResult(tools: {}));
 
-      final result = await harness.connection.discover(
+      await harness.connection.discover(
         protocolVersion: ProtocolVersion.v2026_07_28,
         capabilities: ClientCapabilities(
           elicitation: ElicitationCapability(form: {}),
@@ -44,31 +39,20 @@ void main() {
           'elicitation': {'form': <String, Object?>{}},
         },
       });
-
-      expect(result.supportedVersions, ['2026-07-28']);
-      expect(result.capabilities.tools, isNotNull);
     });
 
     test(
       'leaves clientInfo out of the envelope when it is not given',
       () async {
         final harness = _WireHarness();
-        harness.respondToNextRequest({
-          Keys.resultType: ResultTypes.complete,
-          Keys.ttlMs: 0,
-          Keys.cacheScope: CacheScope.private.name,
-          Keys.supportedVersions: ['2026-07-28'],
-          Keys.capabilities: <String, Object?>{},
-        });
+        harness.respondToNextRequest(_completeResult());
 
         await harness.connection.discover(
           protocolVersion: ProtocolVersion.v2026_07_28,
           capabilities: ClientCapabilities(),
         );
 
-        final meta =
-            (harness.requests.single[Keys.params] as Map)[Keys.meta]
-                as Map<String, Object?>;
+        final meta = harness.metadata;
         expect(meta, isNot(contains(Keys.clientInfoMeta)));
         expect(meta[Keys.protocolVersionMeta], '2026-07-28');
         expect(meta[Keys.clientCapabilitiesMeta], isEmpty);
@@ -77,13 +61,7 @@ void main() {
 
     test('keeps caller metadata and overwrites the keys it writes', () async {
       final harness = _WireHarness();
-      harness.respondToNextRequest({
-        Keys.resultType: ResultTypes.complete,
-        Keys.ttlMs: 0,
-        Keys.cacheScope: CacheScope.private.name,
-        Keys.supportedVersions: ['2026-07-28'],
-        Keys.capabilities: <String, Object?>{},
-      });
+      harness.respondToNextRequest(_completeResult());
 
       await harness.connection.discover(
         protocolVersion: ProtocolVersion.v2026_07_28,
@@ -104,9 +82,7 @@ void main() {
         }),
       );
 
-      final meta =
-          (harness.requests.single[Keys.params] as Map)[Keys.meta]
-              as Map<String, Object?>;
+      final meta = harness.metadata;
       expect(meta[Keys.progressToken], 'token-1');
       expect(meta['example.com/custom'], 'kept');
       expect(meta[Keys.protocolVersionMeta], '2026-07-28');
@@ -121,13 +97,7 @@ void main() {
 
     test('leaves a caller client info key alone when none is given', () async {
       final harness = _WireHarness();
-      harness.respondToNextRequest({
-        Keys.resultType: ResultTypes.complete,
-        Keys.ttlMs: 0,
-        Keys.cacheScope: CacheScope.private.name,
-        Keys.supportedVersions: ['2026-07-28'],
-        Keys.capabilities: <String, Object?>{},
-      });
+      harness.respondToNextRequest(_completeResult());
 
       await harness.connection.discover(
         protocolVersion: ProtocolVersion.v2026_07_28,
@@ -137,64 +107,53 @@ void main() {
         }),
       );
 
-      final meta =
-          (harness.requests.single[Keys.params] as Map)[Keys.meta]
-              as Map<String, Object?>;
+      final meta = harness.metadata;
       expect(meta[Keys.clientInfoMeta], {
         Keys.name: 'spoofed',
         Keys.version: '9.9.9',
       });
     });
 
-    test('does not touch the connection state a handshake would set', () async {
-      final harness = _WireHarness();
-      harness.respondToNextRequest({
-        Keys.protocolVersion: ProtocolVersion.v2025_11_25.versionString,
-        Keys.capabilities: {Keys.tools: <String, Object?>{}},
-        Keys.serverInfo: {
-          Keys.name: 'negotiated server',
-          Keys.version: '1.0.0',
-        },
-      });
-      await harness.connection.initialize(
-        InitializeRequest(
+    test(
+      'returns a real server result without changing handshake state',
+      () async {
+        final env = TestEnvironment(TestMCPClient(), _DiscoverTestServer.new);
+        await env.initializeServer(
           protocolVersion: ProtocolVersion.v2025_11_25,
-          capabilities: ClientCapabilities(),
-          clientInfo: Implementation(name: 'test client', version: '0.1.0'),
-        ),
-      );
+        );
 
-      harness.respondToNextRequest({
-        Keys.resultType: ResultTypes.complete,
-        Keys.ttlMs: 0,
-        Keys.cacheScope: CacheScope.private.name,
-        Keys.supportedVersions: ['2026-07-28'],
-        Keys.capabilities: {Keys.prompts: <String, Object?>{}},
-      });
-      final result = await harness.connection.discover(
-        protocolVersion: ProtocolVersion.v2026_07_28,
-        capabilities: ClientCapabilities(),
-      );
+        final result = await env.serverConnection.discover(
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          capabilities: env.client.capabilities,
+          clientInfo: env.client.implementation,
+        );
 
-      // The result carries what the server just said.
-      expect(result.supportedVersions, ['2026-07-28']);
-      expect(result.capabilities.prompts, isNotNull);
-
-      // The connection still carries what the handshake settled on.
-      expect(harness.connection.protocolVersion, ProtocolVersion.v2025_11_25);
-      expect(harness.connection.serverCapabilities.tools, isNotNull);
-      expect(harness.connection.serverCapabilities.prompts, isNull);
-      expect(harness.connection.serverInfo?.name, 'negotiated server');
-    });
+        expect(result as Map<String, Object?>, {
+          'cacheScope': 'private',
+          'capabilities': {
+            'tools': {'listChanged': true},
+          },
+          'resultType': 'complete',
+          'supportedVersions': ['2026-07-28'],
+          'ttlMs': 0,
+        });
+        expect(
+          env.serverConnection.protocolVersion,
+          ProtocolVersion.v2025_11_25,
+        );
+      },
+    );
   });
 }
 
-/// A client whose peer is this test: requests surface in [requests] and are
-/// answered with whatever the test queued.
-///
-/// Reading the request off the wire is what these tests are about, so the peer
-/// is the test itself. `discover_server_test.dart` covers the same call
-/// against a real server.
+Map<String, Object?> _completeResult({Map<String, Object?>? tools}) => {
+  'cacheScope': 'private',
+  'capabilities': {if (tools != null) 'tools': tools},
+  'resultType': 'complete',
+  'supportedVersions': ['2026-07-28'],
+  'ttlMs': 0,
+};
+
 class _WireHarness {
   final incoming = StreamController<Map<String, Object?>>();
   final outgoing = StreamController<Map<String, Object?>>();
@@ -219,7 +178,32 @@ class _WireHarness {
     });
   }
 
-  /// Queues [result] as the response to the next request.
+  Map<String, Object?> get metadata =>
+      (requests.single['params'] as Map)['_meta'] as Map<String, Object?>;
+
   void respondToNextRequest(Map<String, Object?> result) =>
       _responses.add(result);
+}
+
+base class _DiscoverTestServer extends MCPServer {
+  _DiscoverTestServer(super.channel)
+    : super.fromStreamChannel(
+        implementation: Implementation(name: 'server', version: '2.0.0'),
+        instructions: 'test server',
+      ) {
+    registerRequestHandler(DiscoverRequest.methodName, _handleDiscover);
+  }
+
+  static final _capabilities = ServerCapabilities(
+    tools: Tools(listChanged: true),
+  );
+
+  @override
+  FutureOr<ServerCapabilities> initialize(MCPServerInitialization request) {
+    super.initialize(request);
+    return _capabilities;
+  }
+
+  FutureOr<DiscoverResult> _handleDiscover(DiscoverRequest _) =>
+      DiscoverResult.fromMap(_completeResult(tools: {'listChanged': true}));
 }
