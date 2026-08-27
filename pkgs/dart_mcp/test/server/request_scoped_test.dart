@@ -231,7 +231,11 @@ void main() {
       // The schema gives `resources/read` an interim arm; `tools/list` has
       // none, so a list result is never the one waiting on input.
       final response = await _dispatchShapedRead(
-        (result) => {...result, Keys.resultType: ResultTypes.inputRequired},
+        (result) => {
+          ...result,
+          Keys.resultType: ResultTypes.inputRequired,
+          Keys.requestState: 'waiting',
+        },
       );
 
       expect(_result(response), isNot(contains(Keys.ttlMs)));
@@ -646,6 +650,16 @@ void main() {
           ClientCapabilities.fromMap({Keys.sampling: <Object?>[]}),
           {'sampling': <String, Object?>{}},
         ),
+        (
+          'asks_for_roots',
+          ClientCapabilities.fromMap({Keys.roots: true}),
+          {'roots': <String, Object?>{}},
+        ),
+        (
+          'asks_for_roots',
+          ClientCapabilities.fromMap({Keys.roots: <Object?>[]}),
+          {'roots': <String, Object?>{}},
+        ),
       ]) {
         final response = await harness.dispatch(
           _callTool(tool),
@@ -743,46 +757,76 @@ void main() {
       expect(bare![Keys.error], isNull);
     });
 
-    test('treats a missing or unknown elicitation mode as form', () async {
-      for (final params in [
-        <String, Object?>{Keys.message: 'Fill this in'},
-        <String, Object?>{Keys.mode: 'voice', Keys.message: 'Fill this in'},
-      ]) {
+    test('treats a missing elicitation mode as form', () async {
+      final params = <String, Object?>{
+        Keys.message: 'Fill this in',
+        Keys.requestedSchema: {
+          Keys.type: JsonType.object.typeName,
+          Keys.properties: <String, Object?>{},
+        },
+      };
+      Map<String, Object?> shape(Map<String, Object?> result) => {
+        ...result,
+        Keys.resultType: ResultTypes.inputRequired,
+        Keys.inputRequests: {
+          ElicitRequest.methodName: InputRequest.fromMap({
+            Keys.method: ElicitRequest.methodName,
+            Keys.params: params,
+          }),
+        },
+      };
+
+      final refused = await _dispatchShapedRead(
+        shape,
+        capabilities: ClientCapabilities(
+          elicitation: ElicitationCapability(url: {}),
+        ),
+      );
+      final wire = jsonDecode(jsonEncode(refused)) as Map<String, Object?>;
+      final error = wire['error'] as Map<String, Object?>;
+      expect(error['code'], -32021);
+      expect(error['message'], contains('elicitation.form'));
+
+      final served = await _dispatchShapedRead(
+        shape,
+        capabilities: ClientCapabilities(
+          elicitation: ElicitationCapability(form: {}),
+        ),
+      );
+      final servedWire = jsonDecode(jsonEncode(served)) as Map<String, Object?>;
+      expect(servedWire['error'], isNull);
+    });
+
+    test('rejects unknown elicitation modes', () async {
+      for (final mode in ['voice', 1]) {
         Map<String, Object?> shape(Map<String, Object?> result) => {
           ...result,
           Keys.resultType: ResultTypes.inputRequired,
           Keys.inputRequests: {
             ElicitRequest.methodName: InputRequest.fromMap({
               Keys.method: ElicitRequest.methodName,
-              Keys.params: params,
+              Keys.params: {
+                Keys.mode: mode,
+                Keys.message: 'Fill this in',
+                Keys.requestedSchema: {
+                  Keys.type: JsonType.object.typeName,
+                  Keys.properties: <String, Object?>{},
+                },
+              },
             }),
           },
         };
 
-        final refused = await _dispatchShapedRead(
-          shape,
-          capabilities: ClientCapabilities(
-            elicitation: ElicitationCapability(url: {}),
-          ),
-        );
-        final wire = jsonDecode(jsonEncode(refused)) as Map<String, Object?>;
+        final response = await _dispatchShapedRead(shape);
+        final wire = jsonDecode(jsonEncode(response)) as Map<String, Object?>;
         final error = wire['error'] as Map<String, Object?>;
-        expect(error['code'], -32021);
-        expect(error['message'], contains('elicitation.form'));
-
-        final served = await _dispatchShapedRead(
-          shape,
-          capabilities: ClientCapabilities(
-            elicitation: ElicitationCapability(form: {}),
-          ),
-        );
-        final servedWire =
-            jsonDecode(jsonEncode(served)) as Map<String, Object?>;
-        expect(servedWire['error'], isNull);
+        expect(error['code'], -32603, reason: '$mode');
+        expect(error['message'], contains('form'), reason: '$mode');
+        expect(error['message'], contains('url'), reason: '$mode');
       }
     });
 
-    test('leaves a malformed inputRequests alone', () async {
+    test('rejects malformed inputRequests', () async {
       final harness = _DispatcherHarness();
       for (final tool in [
         'bad_input_requests',
@@ -794,19 +838,87 @@ void main() {
           _initialization(),
         );
 
-        expect(response![Keys.error], isNull, reason: tool);
+        final error = response![Keys.error] as Map<String, Object?>;
+        expect(error[Keys.code], error_code.INTERNAL_ERROR, reason: tool);
       }
     });
 
-    test('leaves an input request it has no capability for alone', () async {
+    test('rejects an input request with an unknown method', () async {
       final harness = _DispatcherHarness();
       final response = await harness.dispatch(
         _callTool('asks_for_something_else'),
         _initialization(),
       );
 
-      expect(response![Keys.error], isNull);
-      expect(_result(response)[Keys.inputRequests], isNotEmpty);
+      final error = response![Keys.error] as Map<String, Object?>;
+      expect(error[Keys.code], error_code.INTERNAL_ERROR);
+      expect(error[Keys.message], contains(ElicitRequest.methodName));
+      expect(error[Keys.message], contains(CreateMessageRequest.methodName));
+      expect(error[Keys.message], contains(ListRootsRequest.methodName));
+    });
+
+    test('rejects malformed input request params', () async {
+      for (final (method, params) in [
+        (ElicitRequest.methodName, null),
+        (ElicitRequest.methodName, <Object?>[]),
+        (CreateMessageRequest.methodName, null),
+        (CreateMessageRequest.methodName, <Object?>[]),
+        (ListRootsRequest.methodName, 'not a map'),
+      ]) {
+        final response = await _dispatchShapedRead(
+          (result) => {
+            ...result,
+            Keys.resultType: ResultTypes.inputRequired,
+            Keys.inputRequests: {
+              'answer': {
+                Keys.method: method,
+                if (params != null) Keys.params: params,
+              },
+            },
+          },
+        );
+
+        final wire = jsonDecode(jsonEncode(response)) as Map<String, Object?>;
+        final error = wire['error'] as Map<String, Object?>;
+        expect(error['code'], -32603, reason: '$method: $params');
+      }
+    });
+
+    test('rejects an input_required result with no work or state', () async {
+      for (final shape in [
+        <String, Object?>{},
+        <String, Object?>{Keys.requestState: 7},
+      ]) {
+        final response = await _dispatchShapedRead(
+          (result) => {
+            ...result,
+            Keys.resultType: ResultTypes.inputRequired,
+            ...shape,
+          },
+        );
+
+        final wire = jsonDecode(jsonEncode(response)) as Map<String, Object?>;
+        final error = wire['error'] as Map<String, Object?>;
+        expect(error['code'], -32603, reason: '$shape');
+      }
+    });
+
+    test('serves empty inputRequests and string requestState', () async {
+      for (final shape in [
+        <String, Object?>{Keys.inputRequests: <String, Object?>{}},
+        <String, Object?>{Keys.requestState: 'waiting'},
+      ]) {
+        final response = await _dispatchShapedRead(
+          (result) => {
+            ...result,
+            Keys.resultType: ResultTypes.inputRequired,
+            ...shape,
+          },
+        );
+
+        final wire = jsonDecode(jsonEncode(response)) as Map<String, Object?>;
+        expect(wire['error'], isNull, reason: '$shape');
+      }
     });
 
     test('leaves input_required alone on an earlier revision', () async {

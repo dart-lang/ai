@@ -249,9 +249,8 @@ Map<String, Object?> _errorResponse(Object? id, String message) => {
 /// `package:dart_mcp/streamable_http.dart` maps that error to HTTP 400 while it
 /// can still send a JSON response.
 ///
-/// An entry naming a method outside [InputRequest] is left alone. The schema
-/// closes that set, so a server sending one has already left what any of this
-/// can check against.
+/// A malformed result or input request gets an internal error. The client
+/// capability check only runs after the wire shape has been validated.
 RpcException? _inputRequiredRefusal(
   Map<String, Object?> response,
   String method,
@@ -271,20 +270,121 @@ RpcException? _inputRequiredRefusal(
     );
   }
 
-  // Input requests and client capabilities are wire maps. Malformed requests
-  // are skipped, and malformed capability entries count as undeclared.
+  final hasInputRequests = result.containsKey(Keys.inputRequests);
+  final hasRequestState = result.containsKey(Keys.requestState);
+  if (!hasInputRequests && !hasRequestState) {
+    return RpcException(
+      error_code.INTERNAL_ERROR,
+      'The server answered with `${ResultTypes.inputRequired}` without '
+      '`${Keys.inputRequests}` or `${Keys.requestState}`.',
+    );
+  }
+  if (hasRequestState && result[Keys.requestState] is! String) {
+    return RpcException(
+      error_code.INTERNAL_ERROR,
+      'The server answered with `${ResultTypes.inputRequired}` whose '
+      '`${Keys.requestState}` was not a string.',
+    );
+  }
+  if (!hasInputRequests) return null;
+
   final requests = result[Keys.inputRequests];
-  if (requests is! Map) return null;
+  if (requests is! Map || requests.keys.any((key) => key is! String)) {
+    return RpcException(
+      error_code.INTERNAL_ERROR,
+      'The server answered with `${ResultTypes.inputRequired}` whose '
+      '`${Keys.inputRequests}` was not a string-keyed map.',
+    );
+  }
   final capabilities = initialization.clientCapabilities;
   final missing = <String>{};
   final required = <String, Object?>{};
   for (final request in requests.values) {
-    if (request is! Map) continue;
-    final method = request[Keys.method];
-    if (method is! String) continue;
+    if (request is! Map) {
+      return RpcException(
+        error_code.INTERNAL_ERROR,
+        'The server answered with `${ResultTypes.inputRequired}` whose '
+        '`${Keys.inputRequests}` contained a value that was not a map.',
+      );
+    }
+    final inputMethod = request[Keys.method];
+    final params = request[Keys.params];
+    if (inputMethod is! String) {
+      return RpcException(
+        error_code.INTERNAL_ERROR,
+        'The server answered with `${ResultTypes.inputRequired}` containing '
+        'an input request whose method was not one of '
+        '`${ElicitRequest.methodName}`, `${CreateMessageRequest.methodName}` '
+        'or `${ListRootsRequest.methodName}`.',
+      );
+    }
+    switch (inputMethod) {
+      case ListRootsRequest.methodName:
+        if (params != null && params is! Map) {
+          return RpcException(
+            error_code.INTERNAL_ERROR,
+            'The server answered with `${ResultTypes.inputRequired}` whose '
+            '`${ListRootsRequest.methodName}` params were not a map.',
+          );
+        }
+      case CreateMessageRequest.methodName:
+        if (params is! Map ||
+            params[Keys.messages] is! List ||
+            params[Keys.maxTokens] is! int) {
+          return RpcException(
+            error_code.INTERNAL_ERROR,
+            'The server answered with `${ResultTypes.inputRequired}` whose '
+            '`${CreateMessageRequest.methodName}` params did not contain a '
+            'messages list and integer maxTokens.',
+          );
+        }
+      case ElicitRequest.methodName:
+        if (params is! Map || params[Keys.message] is! String) {
+          return RpcException(
+            error_code.INTERNAL_ERROR,
+            'The server answered with `${ResultTypes.inputRequired}` whose '
+            '`${ElicitRequest.methodName}` params did not contain a message.',
+          );
+        }
+        final mode = params[Keys.mode];
+        if (mode == null || mode == ElicitationMode.form.name) {
+          final schema = params[Keys.requestedSchema];
+          if (schema is! Map ||
+              schema[Keys.type] != JsonType.object.typeName ||
+              schema[Keys.properties] is! Map) {
+            return RpcException(
+              error_code.INTERNAL_ERROR,
+              'The server answered with `${ResultTypes.inputRequired}` whose '
+              'form elicitation params did not contain an object schema.',
+            );
+          }
+        } else if (mode == ElicitationMode.url.name) {
+          if (params[Keys.url] is! String) {
+            return RpcException(
+              error_code.INTERNAL_ERROR,
+              'The server answered with `${ResultTypes.inputRequired}` whose '
+              'URL elicitation params did not contain a URL.',
+            );
+          }
+        } else {
+          return RpcException(
+            error_code.INTERNAL_ERROR,
+            'The server answered with `${ResultTypes.inputRequired}` whose '
+            'elicitation mode was not `form` or `url`.',
+          );
+        }
+      default:
+        return RpcException(
+          error_code.INTERNAL_ERROR,
+          'The server answered with `${ResultTypes.inputRequired}` containing '
+          'an input request whose method was not one of '
+          '`${ElicitRequest.methodName}`, `${CreateMessageRequest.methodName}` '
+          'or `${ListRootsRequest.methodName}`.',
+        );
+    }
     final requirement = _missingInputRequestCapability(
-      method,
-      request[Keys.params],
+      inputMethod,
+      params,
       capabilities,
     );
     if (requirement == null) continue;
@@ -316,7 +416,8 @@ RpcException? _inputRequiredRefusal(
 ) {
   switch (method) {
     case ListRootsRequest.methodName:
-      if (capabilities.roots != null) return null;
+      final roots = (capabilities as Map<String, Object?>)[Keys.roots];
+      if (roots is Map) return null;
       return (Keys.roots, {Keys.roots: <String, Object?>{}});
     case CreateMessageRequest.methodName:
       final sampling = (capabilities as Map<String, Object?>)[Keys.sampling];
