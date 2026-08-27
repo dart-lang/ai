@@ -92,16 +92,20 @@ extension type CallToolResult.fromMap(Map<String, Object?> _value)
 
 /// Used by the client to invoke a tool provided by the server.
 extension type CallToolRequest._fromMap(Map<String, Object?> _value)
-    implements Request {
+    implements WithInputResponses {
   static const methodName = 'tools/call';
 
   factory CallToolRequest({
     required String name,
     Map<String, Object?>? arguments,
+    Map<String, Result>? inputResponses,
+    String? requestState,
     MetaWithProgressToken? meta,
   }) => CallToolRequest._fromMap({
     Keys.name: name,
     if (arguments != null) Keys.arguments: arguments,
+    if (inputResponses != null) Keys.inputResponses: inputResponses,
+    if (requestState != null) Keys.requestState: requestState,
     if (meta != null) Keys.meta: meta,
   });
 

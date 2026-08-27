@@ -173,4 +173,127 @@ void main() {
       );
     });
   });
+
+  group('WithInputResponses', () {
+    final elicited = ElicitResult(action: ElicitationAction.accept);
+    final sampled = CreateMessageResult(
+      role: Role.assistant,
+      content: Content.text(text: 'Paris'),
+      model: 'a-model',
+    );
+
+    test('the retry carries what the client gathered', () {
+      final request = CallToolRequest(
+        name: 'deploy',
+        inputResponses: {'github_login': elicited, 'capital': sampled},
+        requestState: 'an opaque blob',
+      );
+
+      expect(request as Map<String, Object?>, {
+        'name': 'deploy',
+        'inputResponses': {'github_login': elicited, 'capital': sampled},
+        'requestState': 'an opaque blob',
+      });
+    });
+
+    test('a first attempt writes neither field', () {
+      expect(CallToolRequest(name: 'deploy') as Map<String, Object?>, {
+        'name': 'deploy',
+      });
+      expect(GetPromptRequest(name: 'review') as Map<String, Object?>, {
+        'name': 'review',
+      });
+      expect(ReadResourceRequest(uri: 'file:///a') as Map<String, Object?>, {
+        'uri': 'file:///a',
+      });
+    });
+
+    test('a server reads each response back as what it asked for', () {
+      final request = GetPromptRequest.fromMap({
+        'name': 'review',
+        'inputResponses': {'github_login': elicited, 'capital': sampled},
+      });
+
+      expect(
+        (request.inputResponses!['github_login']! as ElicitResult).action,
+        ElicitationAction.accept,
+      );
+      expect(
+        (request.inputResponses!['capital']! as CreateMessageResult).model,
+        'a-model',
+      );
+    });
+
+    test('writes an empty inputResponses next to a request state', () {
+      expect(
+        CallToolRequest(
+              name: 'deploy',
+              inputResponses: {},
+              requestState: 'opaque',
+            )
+            as Map<String, Object?>,
+        {
+          'name': 'deploy',
+          'inputResponses': <String, Result>{},
+          'requestState': 'opaque',
+        },
+      );
+      expect(
+        GetPromptRequest(
+              name: 'review',
+              inputResponses: {},
+              requestState: 'opaque',
+            )
+            as Map<String, Object?>,
+        {
+          'name': 'review',
+          'inputResponses': <String, Result>{},
+          'requestState': 'opaque',
+        },
+      );
+      expect(
+        ReadResourceRequest(
+              uri: 'file:///a',
+              inputResponses: {},
+              requestState: 'opaque',
+            )
+            as Map<String, Object?>,
+        {
+          'uri': 'file:///a',
+          'inputResponses': <String, Result>{},
+          'requestState': 'opaque',
+        },
+      );
+    });
+
+    test('reads both fields back off all three', () {
+      for (var request in <WithInputResponses>[
+        CallToolRequest(
+          name: 'deploy',
+          inputResponses: {'github_login': elicited},
+          requestState: 'state',
+        ),
+        GetPromptRequest(
+          name: 'review',
+          inputResponses: {'github_login': elicited},
+          requestState: 'state',
+        ),
+        ReadResourceRequest(
+          uri: 'file:///a',
+          inputResponses: {'github_login': elicited},
+          requestState: 'state',
+        ),
+      ]) {
+        expect(request.requestState, 'state');
+        expect(request.inputResponses, {'github_login': elicited});
+      }
+    });
+
+    test('a request without them reads both as null', () {
+      final request = ReadResourceRequest.fromMap({'uri': 'file:///a'});
+
+      expect(request.inputResponses, isNull);
+      expect(request.requestState, isNull);
+    });
+  });
 }

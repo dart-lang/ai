@@ -159,6 +159,10 @@
   when it needs input first, see
   https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr.
   Nothing sends or answers one yet.
+- Add `WithInputResponses`, the type a client's retry carries.
+  `CallToolRequest`, `GetPromptRequest` and `ReadResourceRequest` take an
+  `inputResponses` and a `requestState`, matching the three requests the schema
+  answers with an `InputRequiredResult`.
 - Add `SubscriptionFilter`, `SubscriptionsListenRequest`,
   `SubscriptionsListenResult`, and `SubscriptionsAcknowledgedNotification`,
   modeling the `subscriptions/listen` request the 2026-07-28 revision adds, see

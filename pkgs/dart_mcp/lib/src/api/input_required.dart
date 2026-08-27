@@ -107,3 +107,36 @@ extension type InputRequiredResult.fromMap(Map<String, Object?> _value)
   /// This is opaque to the client, which sends it on unread.
   String? get requestState => _value[Keys.requestState] as String?;
 }
+
+/// A "mixin"-like extension type for any request that contains input responses
+/// at the keys "inputResponses" and "requestState".
+///
+/// These are the other half of an [InputRequiredResult], what a client puts on
+/// the retry. The requests which can answer with one take them.
+///
+/// Should be "mixed in" by implementing this type from other extension types.
+///
+/// This type is not intended to be constructed directly and thus has no public
+/// constructor.
+///
+/// From the 2026-07-28 revision.
+extension type WithInputResponses._fromMap(Map<String, Object?> _value)
+    implements Request {
+  /// What the client got for each request in
+  /// [InputRequiredResult.inputRequests], under the keys the server gave them.
+  ///
+  /// These carry no method field the way an [InputRequest] does, so a server
+  /// reads each back as the type it asked for under that key. A key it did not
+  /// ask for is one to ignore.
+  Map<String, Result>? get inputResponses =>
+      (_value[Keys.inputResponses] as Map?)?.cast<String, Result>();
+
+  /// The [InputRequiredResult.requestState] the server sent, echoed back
+  /// unread.
+  ///
+  /// The value arrives from the client, and the spec has the server treat it
+  /// as attacker-controlled input. Nothing here signs or verifies it. A server
+  /// whose state carries anything it would not accept straight off the wire
+  /// has to protect and check it itself.
+  String? get requestState => _value[Keys.requestState] as String?;
+}
