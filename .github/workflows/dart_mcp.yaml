@@ -43,4 +43,4 @@ jobs:
 
       - run: dart pub get
 
-      - run: dart test -p vm -c exe
+      - run: dart test -p vm -c kernel
