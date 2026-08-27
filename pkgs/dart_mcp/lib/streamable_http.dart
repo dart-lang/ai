@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-/// The server side of the Streamable HTTP transport described by the
+/// The Streamable HTTP transport described by the
 /// 2026-07-28 revision of the Model Context Protocol specification,
 /// https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http.
 ///
@@ -23,6 +23,45 @@ import 'package:json_rpc_2/json_rpc_2.dart';
 import 'server.dart';
 import 'src/utils/constants.dart';
 import 'src/utils/json_rpc_2_object.dart';
+
+/// Decodes the `message` events in a Streamable HTTP SSE response [bytes].
+///
+/// Each event's `data` field must contain one JSON object. Other SSE fields
+/// and comment lines are ignored.
+Stream<Map<String, Object?>> sseMessageStream(Stream<List<int>> bytes) async* {
+  String? event;
+  String? data;
+  await for (final line in const LineSplitter().bind(
+    utf8.decoder.bind(bytes),
+  )) {
+    if (line.isEmpty) {
+      if (event == Keys.message && data != null) {
+        final decoded = jsonDecode(data);
+        if (decoded is! Map<String, Object?>) {
+          throw FormatException(
+            'SSE data must be a JSON object, got ${decoded.runtimeType}',
+            data,
+          );
+        }
+        yield decoded;
+      }
+      event = null;
+      data = null;
+      continue;
+    }
+
+    final separator = line.indexOf(':');
+    if (separator < 0) continue;
+    final field = line.substring(0, separator);
+    var value = line.substring(separator + 1);
+    if (value.startsWith(' ')) value = value.substring(1);
+    if (field == 'event') {
+      event = value;
+    } else if (field == Keys.data) {
+      data = value;
+    }
+  }
+}
 
 /// Handles one Streamable HTTP POST [request] by validating its headers and
 /// `_meta` envelope, dispatching the decoded message to a fresh server

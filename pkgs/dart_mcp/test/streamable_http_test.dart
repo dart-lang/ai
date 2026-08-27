@@ -170,6 +170,62 @@ void main() {
   String jsonBody(String response) =>
       response.substring(response.indexOf('{'), response.lastIndexOf('}') + 1);
 
+  group('SSE message stream', () {
+    test('decodes message events and skips comments', () async {
+      final bytes = Stream.value(
+        utf8.encode(
+          ':\n'
+          'event: message\n'
+          'data: {"jsonrpc":"2.0","method":"notifications/message"}\n\n'
+          'event: message\n'
+          'data: {"jsonrpc":"2.0","id":1,"result":{}}\n\n',
+        ),
+      );
+      final messages = await sseMessageStream(bytes).toList();
+
+      expect(messages, [
+        {'jsonrpc': '2.0', 'method': 'notifications/message'},
+        {'jsonrpc': '2.0', 'id': 1, 'result': <String, Object?>{}},
+      ]);
+    });
+
+    test('decodes a data line split across byte chunks', () async {
+      final bytes = Stream.fromIterable([
+        utf8.encode(
+          'event: message\n'
+          'data: {"jsonrpc":"2.0","id":1,"res',
+        ),
+        utf8.encode('ult":{"value":"split"}}\n\n'),
+      ]);
+      final messages = await sseMessageStream(bytes).toList();
+
+      expect(messages, [
+        {
+          'jsonrpc': '2.0',
+          'id': 1,
+          'result': {'value': 'split'},
+        },
+      ]);
+    });
+
+    test('rejects event data which is not a JSON object', () {
+      final bytes = Stream.value(utf8.encode('event: message\ndata: []\n\n'));
+
+      expect(
+        sseMessageStream(bytes).toList(),
+        throwsA(
+          isA<FormatException>()
+              .having((error) => error.message, 'message', contains('List'))
+              .having(
+                (error) => error.message,
+                'message',
+                contains('JSON object'),
+              ),
+        ),
+      );
+    });
+  });
+
   group('happy path', () {
     test('answers tools/list with JSON and server info', () async {
       final (status, responseHeaders, text) = await post(
