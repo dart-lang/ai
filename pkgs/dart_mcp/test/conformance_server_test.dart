@@ -126,12 +126,31 @@ void main() {
       params: {'name': _inputStateTool, 'arguments': <String, Object?>{}},
     );
     final stateResult = state['result'] as Map<String, Object?>;
+    final requestState = stateResult['requestState'] as String;
+    final completedState = await _post(
+      endpoint,
+      'tools/call',
+      params: {
+        'name': _inputStateTool,
+        'arguments': <String, Object?>{},
+        'inputResponses': {
+          'confirm': {
+            'action': 'accept',
+            'content': {'ok': true},
+          },
+        },
+        'requestState': requestState,
+      },
+    );
+    final completedStateResult =
+        completedState['result'] as Map<String, Object?>;
+    final completedStateContent =
+        completedStateResult['content'] as List<Object?>;
     expect(
-      stateResult['requestState'],
-      isA<String>().having(
-        (value) => value.startsWith('v1.'),
-        'prefix',
-        isTrue,
+      completedStateContent.single,
+      containsPair(
+        'text',
+        'state-ok: requestState verified and confirmation received',
       ),
     );
   });
