@@ -146,6 +146,8 @@ Test skill body.
         await realGitRunner.run([
           'add',
           '--global',
+          '--directory',
+          projectPath,
           '--agent',
           'cursor',
           '--all',

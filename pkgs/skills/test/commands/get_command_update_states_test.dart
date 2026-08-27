@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:io/ansi.dart';
 import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 import 'package:skills/src/commands/get_command.dart';
@@ -50,16 +51,19 @@ void main() {
       );
       final runner = SkillsCommandRunner('skills', 'Test')
         ..addCommand(getCommand);
-      await runner.run([
-        'get',
-        '--directory',
-        projectPath,
-        '--agent',
-        Agent.generic.cliName,
-        '--package',
-        'dep',
-        if (all) '--all',
-      ]);
+
+      await overrideAnsiOutput(false, () async {
+        await runner.run([
+          'get',
+          '--directory',
+          projectPath,
+          '--agent',
+          Agent.generic.cliName,
+          '--package',
+          'dep',
+          if (all) '--all',
+        ]);
+      });
     }
 
     Future<void> expectSkill({
