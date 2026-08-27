@@ -236,23 +236,18 @@ Map<String, Object?> _errorResponse(Object? id, String message) => {
   Keys.error: {Keys.code: error_code.INTERNAL_ERROR, Keys.message: message},
 };
 
-/// The error [response] has to be answered with instead of itself, or `null`
-/// when it can go out as it stands.
+/// The error [response] has to be answered with, or `null` when the response
+/// can be sent unchanged.
 ///
-/// The 2026-07-28 revision answers `input_required` on `tools/call`,
-/// `prompts/get` and `resources/read` and on no other request, and a server
-/// may not ask the client for input it never said it could give, see
+/// The 2026-07-28 revision permits an input-required result on tools/call,
+/// prompts/get and resources/read. It also prohibits requests for client
+/// capabilities that were not declared. See
 /// https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr.
-/// A result which breaks either rule asks the client for something it has no
-/// way to answer, so it is refused here and not sent on.
 ///
-/// A missing capability is the error the revision names for it,
-/// [McpErrorCodes.missingRequiredClientCapability], carrying what the client
-/// left out under `data.requiredCapabilities`, which
-/// `handleStreamableHttpRequest` answers with `400`. Which capability an entry
-/// needs is read the way the request which sends it reads it, down to the
-/// elicitation mode: [ElicitationRequestSupport.elicit] separates
-/// `elicitation.form` from `elicitation.url`, and so does this.
+/// Missing capabilities are returned together under
+/// `data.requiredCapabilities`. `handleStreamableHttpRequest` in
+/// `package:dart_mcp/streamable_http.dart` maps that error to HTTP 400 while it
+/// can still send a JSON response.
 ///
 /// An entry naming a method outside [InputRequest] is left alone. The schema
 /// closes that set, so a server sending one has already left what any of this
@@ -276,34 +271,45 @@ RpcException? _inputRequiredRefusal(
     );
   }
 
-  // Read the raw map, not the typed getters: a server may send anything here,
-  // and a cast throwing inside this check would reach the client as a frame it
-  // cannot read instead of the error naming what went wrong. An entry this
-  // cannot read is left to the dispatch which produced it.
+  // Input requests and client capabilities are wire maps. Malformed requests
+  // are skipped, and malformed capability entries count as undeclared.
   final requests = result[Keys.inputRequests];
   if (requests is! Map) return null;
+  final capabilities = initialization.clientCapabilities;
+  final missing = <String>{};
+  final required = <String, Object?>{};
   for (final request in requests.values) {
     if (request is! Map) continue;
     final method = request[Keys.method];
     if (method is! String) continue;
-    final missing = _missingInputRequestCapability(
+    final requirement = _missingInputRequestCapability(
       method,
       request[Keys.params],
-      initialization.clientCapabilities,
+      capabilities,
     );
-    if (missing != null) return missing;
+    if (requirement == null) continue;
+    missing.add(requirement.$1);
+    for (final entry in requirement.$2.entries) {
+      final current = required[entry.key];
+      final addition = entry.value;
+      required[entry.key] =
+          current is Map<String, Object?> && addition is Map<String, Object?>
+              ? {...current, ...addition}
+              : addition;
+    }
   }
-  return null;
+  if (missing.isEmpty) return null;
+  return RpcException(
+    McpErrorCodes.missingRequiredClientCapability,
+    'The client did not declare these capabilities: ${missing.join(', ')}',
+    data: {Keys.requiredCapabilities: ClientCapabilities.fromMap(required)},
+  );
 }
 
-/// The capability error for an input request made under [method], or `null`
-/// when [capabilities] declares what it needs.
+/// The missing capability name and payload for an input request made under
+/// [method], or `null` when [capabilities] declares what it needs.
 ///
-/// Reads each capability the way the request which sends it reads it:
-/// [MCPServer.listRoots], [MCPServer.createMessage] and
-/// [ElicitationRequestSupport.elicit]. A [method] outside those three needs
-/// nothing this can name.
-RpcException? _missingInputRequestCapability(
+(String, Map<String, Object?>)? _missingInputRequestCapability(
   String method,
   Object? params,
   ClientCapabilities capabilities,
@@ -311,49 +317,51 @@ RpcException? _missingInputRequestCapability(
   switch (method) {
     case ListRootsRequest.methodName:
       if (capabilities.roots != null) return null;
-      return _missingClientCapability(
-        'roots',
-        ClientCapabilities(roots: RootsCapabilities()),
-      );
+      return (Keys.roots, {Keys.roots: <String, Object?>{}});
     case CreateMessageRequest.methodName:
-      if (capabilities.sampling != null) return null;
-      return _missingClientCapability(
-        'sampling',
-        ClientCapabilities(sampling: {}),
+      final sampling = (capabilities as Map<String, Object?>)[Keys.sampling];
+      final usesTools =
+          params is Map &&
+          (params.containsKey(Keys.tools) ||
+              params.containsKey(Keys.toolChoice));
+      if (sampling is Map && (!usesTools || sampling[Keys.tools] is Map)) {
+        return null;
+      }
+      return (
+        usesTools ? '${Keys.sampling}.${Keys.tools}' : Keys.sampling,
+        {
+          Keys.sampling: <String, Object?>{
+            if (usesTools) Keys.tools: <String, Object?>{},
+          },
+        },
       );
     case ElicitRequest.methodName:
       final url =
           params is Map && params[Keys.mode] == ElicitationMode.url.name;
       if (url) {
-        if (_supportsUrlElicitation(capabilities)) return null;
-        return _missingClientCapability(
-          'elicitation.url',
-          ClientCapabilities(elicitation: ElicitationCapability(url: {})),
+        if (_supportsElicitationMode(capabilities, ElicitationMode.url)) {
+          return null;
+        }
+        return (
+          '${Keys.elicitation}.${Keys.url}',
+          {
+            Keys.elicitation: <String, Object?>{Keys.url: <String, Object?>{}},
+          },
         );
       }
-      if (_supportsFormElicitation(capabilities)) return null;
-      return _missingClientCapability(
-        'elicitation.form',
-        ClientCapabilities(elicitation: ElicitationCapability(form: {})),
+      if (_supportsElicitationMode(capabilities, ElicitationMode.form)) {
+        return null;
+      }
+      return (
+        '${Keys.elicitation}.${Keys.form}',
+        {
+          Keys.elicitation: <String, Object?>{Keys.form: <String, Object?>{}},
+        },
       );
     default:
       return null;
   }
 }
-
-/// Whether [capabilities] declares form elicitation, on the same terms as
-/// [ElicitationRequestSupport.supportsFormElicitation].
-bool _supportsFormElicitation(ClientCapabilities capabilities) {
-  final elicitation = capabilities.elicitation;
-  if (elicitation == null) return false;
-  return elicitation.form != null ||
-      (elicitation as Map<String, Object?>).isEmpty;
-}
-
-/// Whether [capabilities] declares url elicitation, on the same terms as
-/// [ElicitationRequestSupport.supportsUrlElicitation].
-bool _supportsUrlElicitation(ClientCapabilities capabilities) =>
-    capabilities.elicitation?.url != null;
 
 /// Returns a copy of [response] with the fields a server on this protocol
 /// revision must send and the handler for [method] did not, as

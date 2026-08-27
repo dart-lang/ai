@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp/src/utils/constants.dart';
@@ -463,64 +464,203 @@ void main() {
         _initialization(),
       );
 
-      final error = response![Keys.error] as Map<String, Object?>;
-      expect(error[Keys.code], error_code.INTERNAL_ERROR);
-      expect(error[Keys.message], contains(CompleteRequest.methodName));
-      expect(error[Keys.message], contains(CallToolRequest.methodName));
+      final wire = jsonDecode(jsonEncode(response)) as Map<String, Object?>;
+      final error = wire['error'] as Map<String, Object?>;
+      expect(error['code'], -32603);
+      expect(error['message'], contains(CompleteRequest.methodName));
+      expect(error['message'], contains(CallToolRequest.methodName));
     });
 
-    test('serves input_required on the three it is allowed on', () async {
+    test('serves input_required on allowed requests', () async {
       final harness = _DispatcherHarness();
-      for (final message in [
-        _callTool('interim'),
-        _getPrompt('interim'),
-        _readResource(),
+      for (final (method, response) in [
+        (
+          CallToolRequest.methodName,
+          await harness.dispatch(_callTool('interim'), _initialization()),
+        ),
+        (
+          GetPromptRequest.methodName,
+          await harness.dispatch(_getPrompt('interim'), _initialization()),
+        ),
+        (
+          ReadResourceRequest.methodName,
+          await _dispatchShapedRead(
+            (result) => {
+              ...result,
+              Keys.resultType: ResultTypes.inputRequired,
+              Keys.requestState: 'waiting',
+            },
+          ),
+        ),
       ]) {
-        final response = await harness.dispatch(message, _initialization());
-
+        final wire = jsonDecode(jsonEncode(response)) as Map<String, Object?>;
+        expect(wire['error'], isNull, reason: method);
         expect(
-          response![Keys.error],
-          isNull,
-          reason: '${message[Keys.method]}',
+          (wire['result'] as Map<String, Object?>)['resultType'],
+          'input_required',
+          reason: method,
         );
       }
-
-      // Only `tools/call` and `prompts/get` answer `input_required` here;
-      // `resources/read` answers a complete result, which is what makes the
-      // third method reachable at all.
-      final call = await harness.dispatch(
-        _callTool('interim'),
-        _initialization(),
-      );
-      expect(_result(call)[Keys.resultType], ResultTypes.inputRequired);
-      final prompt = await harness.dispatch(
-        _getPrompt('interim'),
-        _initialization(),
-      );
-      expect(_result(prompt)[Keys.resultType], ResultTypes.inputRequired);
     });
 
     test('refuses an input request the client cannot answer', () async {
       final harness = _DispatcherHarness();
-      for (final (tool, capability) in [
-        ('asks_to_elicit', 'elicitation.form'),
-        ('asks_to_sample', 'sampling'),
-        ('asks_for_roots', 'roots'),
+      for (final (tool, capability, required) in [
+        (
+          'asks_to_elicit',
+          'elicitation.form',
+          {
+            'elicitation': {'form': <String, Object?>{}},
+          },
+        ),
+        ('asks_to_sample', 'sampling', {'sampling': <String, Object?>{}}),
+        ('asks_for_roots', 'roots', {'roots': <String, Object?>{}}),
       ]) {
         final response = await harness.dispatch(
           _callTool(tool),
           _initialization(),
         );
 
-        final error = response![Keys.error] as Map<String, Object?>;
-        expect(
-          error[Keys.code],
-          McpErrorCodes.missingRequiredClientCapability,
-          reason: tool,
+        final wire = jsonDecode(jsonEncode(response)) as Map<String, Object?>;
+        final error = wire['error'] as Map<String, Object?>;
+        expect(error['code'], -32021, reason: tool);
+        expect(error['message'], contains(capability), reason: tool);
+        final data = error['data'] as Map<String, Object?>;
+        expect(data['requiredCapabilities'], required, reason: tool);
+      }
+    });
+
+    test('requires sampling.tools for tools and toolChoice', () async {
+      for (final field in [Keys.tools, Keys.toolChoice]) {
+        Map<String, Object?> shape(Map<String, Object?> result) => {
+          ...result,
+          Keys.resultType: ResultTypes.inputRequired,
+          Keys.inputRequests: {
+            CreateMessageRequest.methodName: InputRequest.sample(
+              CreateMessageRequest.fromMap({
+                Keys.messages: <Object?>[],
+                Keys.maxTokens: 1,
+                field:
+                    field == Keys.tools
+                        ? <Object?>[]
+                        : ToolChoice(mode: ToolChoiceMode.auto),
+              }),
+            ),
+          },
+        };
+
+        final refused = await _dispatchShapedRead(
+          shape,
+          capabilities: ClientCapabilities(sampling: {}),
         );
-        expect(error[Keys.message], contains(capability), reason: tool);
-        final data = error[Keys.data] as Map<String, Object?>;
-        expect(data, contains(Keys.requiredCapabilities), reason: tool);
+        final wire = jsonDecode(jsonEncode(refused)) as Map<String, Object?>;
+        final error = wire['error'] as Map<String, Object?>;
+        expect(error['code'], -32021, reason: field);
+        expect(error['message'], contains('sampling.tools'), reason: field);
+        final data = error['data'] as Map<String, Object?>;
+        expect(data['requiredCapabilities'], {
+          'sampling': {'tools': <String, Object?>{}},
+        }, reason: field);
+
+        final served = await _dispatchShapedRead(
+          shape,
+          capabilities: ClientCapabilities(
+            sampling: {Keys.tools: <String, Object?>{}},
+          ),
+        );
+        final servedWire =
+            jsonDecode(jsonEncode(served)) as Map<String, Object?>;
+        expect(servedWire['error'], isNull, reason: field);
+      }
+    });
+
+    test('reports all missing input request capabilities together', () async {
+      final response = await _dispatchShapedRead(
+        (result) => {
+          ...result,
+          Keys.resultType: ResultTypes.inputRequired,
+          Keys.inputRequests: {
+            ElicitRequest.methodName: InputRequest.elicit(
+              ElicitRequest.form(
+                message: 'Fill this in',
+                requestedSchema: ObjectSchema(),
+              ),
+            ),
+            CreateMessageRequest.methodName: InputRequest.sample(
+              CreateMessageRequest(messages: [], maxTokens: 1),
+            ),
+            ListRootsRequest.methodName: InputRequest.listRoots(
+              ListRootsRequest(),
+            ),
+          },
+        },
+      );
+
+      final wire = jsonDecode(jsonEncode(response)) as Map<String, Object?>;
+      final error = wire['error'] as Map<String, Object?>;
+      expect(error['code'], -32021);
+      for (final capability in ['elicitation.form', 'sampling', 'roots']) {
+        expect(error['message'], contains(capability));
+      }
+      final data = error['data'] as Map<String, Object?>;
+      expect(data['requiredCapabilities'], {
+        'elicitation': {'form': <String, Object?>{}},
+        'sampling': <String, Object?>{},
+        'roots': <String, Object?>{},
+      });
+    });
+
+    test('treats unreadable capability entries as absent', () async {
+      final harness = _DispatcherHarness();
+      for (final (tool, capabilities, required) in [
+        (
+          'asks_to_elicit',
+          ClientCapabilities.fromMap({Keys.elicitation: true}),
+          {
+            'elicitation': {'form': <String, Object?>{}},
+          },
+        ),
+        (
+          'asks_to_elicit',
+          ClientCapabilities.fromMap({Keys.elicitation: Keys.form}),
+          {
+            'elicitation': {'form': <String, Object?>{}},
+          },
+        ),
+        (
+          'asks_to_elicit',
+          ClientCapabilities.fromMap({
+            Keys.elicitation: {Keys.form: 1},
+          }),
+          {
+            'elicitation': {'form': <String, Object?>{}},
+          },
+        ),
+        (
+          'asks_to_sample',
+          ClientCapabilities.fromMap({Keys.sampling: 7}),
+          {'sampling': <String, Object?>{}},
+        ),
+        (
+          'asks_to_sample',
+          ClientCapabilities.fromMap({Keys.sampling: <Object?>[]}),
+          {'sampling': <String, Object?>{}},
+        ),
+      ]) {
+        final response = await harness.dispatch(
+          _callTool(tool),
+          _initialization(capabilities: capabilities),
+        );
+
+        final wire = jsonDecode(jsonEncode(response)) as Map<String, Object?>;
+        final error = wire['error'] as Map<String, Object?>;
+        expect(error['code'], -32021, reason: '$tool: $capabilities');
+        final data = error['data'] as Map<String, Object?>;
+        expect(
+          data['requiredCapabilities'],
+          required,
+          reason: '$tool: $capabilities',
+        );
       }
     });
 
@@ -554,9 +694,14 @@ void main() {
         urlOnly,
       );
 
-      final error = refused![Keys.error] as Map<String, Object?>;
-      expect(error[Keys.code], McpErrorCodes.missingRequiredClientCapability);
-      expect(error[Keys.message], contains('elicitation.form'));
+      final refusedWire =
+          jsonDecode(jsonEncode(refused)) as Map<String, Object?>;
+      final error = refusedWire['error'] as Map<String, Object?>;
+      expect(error['code'], -32021);
+      expect(error['message'], contains('elicitation.form'));
+      expect((error['data'] as Map)['requiredCapabilities'], {
+        'elicitation': {'form': <String, Object?>{}},
+      });
 
       // And the other way around: a client with only form support cannot
       // answer a url request.
@@ -570,12 +715,14 @@ void main() {
         formOnly,
       );
 
-      final urlError = urlRefused![Keys.error] as Map<String, Object?>;
-      expect(
-        urlError[Keys.code],
-        McpErrorCodes.missingRequiredClientCapability,
-      );
-      expect(urlError[Keys.message], contains('elicitation.url'));
+      final urlWire =
+          jsonDecode(jsonEncode(urlRefused)) as Map<String, Object?>;
+      final urlError = urlWire['error'] as Map<String, Object?>;
+      expect(urlError['code'], -32021);
+      expect(urlError['message'], contains('elicitation.url'));
+      expect((urlError['data'] as Map)['requiredCapabilities'], {
+        'elicitation': {'url': <String, Object?>{}},
+      });
 
       final urlServed = await harness.dispatch(
         _callTool('asks_to_elicit_by_url'),
@@ -594,6 +741,45 @@ void main() {
         ),
       );
       expect(bare![Keys.error], isNull);
+    });
+
+    test('treats a missing or unknown elicitation mode as form', () async {
+      for (final params in [
+        <String, Object?>{Keys.message: 'Fill this in'},
+        <String, Object?>{Keys.mode: 'voice', Keys.message: 'Fill this in'},
+      ]) {
+        Map<String, Object?> shape(Map<String, Object?> result) => {
+          ...result,
+          Keys.resultType: ResultTypes.inputRequired,
+          Keys.inputRequests: {
+            ElicitRequest.methodName: InputRequest.fromMap({
+              Keys.method: ElicitRequest.methodName,
+              Keys.params: params,
+            }),
+          },
+        };
+
+        final refused = await _dispatchShapedRead(
+          shape,
+          capabilities: ClientCapabilities(
+            elicitation: ElicitationCapability(url: {}),
+          ),
+        );
+        final wire = jsonDecode(jsonEncode(refused)) as Map<String, Object?>;
+        final error = wire['error'] as Map<String, Object?>;
+        expect(error['code'], -32021);
+        expect(error['message'], contains('elicitation.form'));
+
+        final served = await _dispatchShapedRead(
+          shape,
+          capabilities: ClientCapabilities(
+            elicitation: ElicitationCapability(form: {}),
+          ),
+        );
+        final servedWire =
+            jsonDecode(jsonEncode(served)) as Map<String, Object?>;
+        expect(servedWire['error'], isNull);
+      }
     });
 
     test('leaves a malformed inputRequests alone', () async {
@@ -1100,6 +1286,7 @@ final class _DispatcherTestServer extends TestMCPServer
       (_) => CallToolResult.fromMap({
         Keys.content: [TextContent(text: 'waiting')],
         Keys.resultType: ResultTypes.inputRequired,
+        Keys.requestState: 'waiting',
       }),
     );
     for (final entry
@@ -1150,6 +1337,7 @@ final class _DispatcherTestServer extends TestMCPServer
       (_) => GetPromptResult.fromMap({
         Keys.messages: <Object?>[],
         Keys.resultType: ResultTypes.inputRequired,
+        Keys.requestState: 'waiting',
       }),
     );
     registerTool(
@@ -1382,10 +1570,11 @@ Map<String, Object?> _result(Map<String, Object?>? response) =>
 /// Dispatches a `resources/read` to a server whose result is passed through
 /// [shape] first, so a test can say what the handler itself already set.
 Future<Map<String, Object?>?> _dispatchShapedRead(
-  Map<String, Object?> Function(Map<String, Object?> result) shape,
-) => handleRequestScopedMessage(
+  Map<String, Object?> Function(Map<String, Object?> result) shape, {
+  ClientCapabilities? capabilities,
+}) => handleRequestScopedMessage(
   _readResource(),
-  _initialization(),
+  _initialization(capabilities: capabilities),
   (channel) => _ShapedReadServer(channel, shape),
 );
 

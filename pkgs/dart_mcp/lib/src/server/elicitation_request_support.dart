@@ -11,7 +11,8 @@ base mixin ElicitationRequestSupport on LoggingSupport {
   ///
   /// Only safe to call after calling [initialize] on `super` since this
   /// is based on the client capabilities.
-  bool get supportsElicitation => clientCapabilities.elicitation != null;
+  bool get supportsElicitation =>
+      (clientCapabilities as Map<String, Object?>)[Keys.elicitation] is Map;
 
   /// Whether or not the connected client supports [ElicitationMode.form]
   /// requests.
@@ -22,12 +23,8 @@ base mixin ElicitationRequestSupport on LoggingSupport {
   /// An empty `elicitation` object counts as form support, the backwards
   /// compatibility rule the 2025-11-25 revision added alongside the mode
   /// split. A client which named some other mode does not.
-  bool get supportsFormElicitation {
-    final elicitation = clientCapabilities.elicitation;
-    if (elicitation == null) return false;
-    return elicitation.form != null ||
-        (elicitation as Map<String, Object?>).isEmpty;
-  }
+  bool get supportsFormElicitation =>
+      _supportsElicitationMode(clientCapabilities, ElicitationMode.form);
 
   /// Whether or not the connected client supports [ElicitationMode.url]
   /// requests.
@@ -35,7 +32,7 @@ base mixin ElicitationRequestSupport on LoggingSupport {
   /// Only safe to call after calling [initialize] on `super` since this
   /// is based on the client capabilities.
   bool get supportsUrlElicitation =>
-      clientCapabilities.elicitation?.url != null;
+      _supportsElicitationMode(clientCapabilities, ElicitationMode.url);
 
   @override
   FutureOr<void> initialize(MCPServerInitialization initialization) {
@@ -99,4 +96,14 @@ base mixin ElicitationRequestSupport on LoggingSupport {
     ElicitationCompleteNotification.methodName,
     notification,
   );
+}
+
+bool _supportsElicitationMode(
+  ClientCapabilities capabilities,
+  ElicitationMode mode,
+) {
+  final elicitation = (capabilities as Map<String, Object?>)[Keys.elicitation];
+  if (elicitation is! Map) return false;
+  return elicitation[mode.name] is Map ||
+      (mode == ElicitationMode.form && elicitation.isEmpty);
 }
