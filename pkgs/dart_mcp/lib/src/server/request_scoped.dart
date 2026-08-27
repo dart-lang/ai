@@ -339,9 +339,7 @@ RpcException? _inputRequiredRefusal(
       final url =
           params is Map && params[Keys.mode] == ElicitationMode.url.name;
       if (url) {
-        if (_supportsElicitationMode(capabilities, ElicitationMode.url)) {
-          return null;
-        }
+        if (capabilities.supportsUrlElicitation) return null;
         return (
           '${Keys.elicitation}.${Keys.url}',
           {
@@ -349,9 +347,7 @@ RpcException? _inputRequiredRefusal(
           },
         );
       }
-      if (_supportsElicitationMode(capabilities, ElicitationMode.form)) {
-        return null;
-      }
+      if (capabilities.supportsFormElicitation) return null;
       return (
         '${Keys.elicitation}.${Keys.form}',
         {

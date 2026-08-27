@@ -11,8 +11,7 @@ base mixin ElicitationRequestSupport on LoggingSupport {
   ///
   /// Only safe to call after calling [initialize] on `super` since this
   /// is based on the client capabilities.
-  bool get supportsElicitation =>
-      (clientCapabilities as Map<String, Object?>)[Keys.elicitation] is Map;
+  bool get supportsElicitation => clientCapabilities.supportsElicitation;
 
   /// Whether or not the connected client supports [ElicitationMode.form]
   /// requests.
@@ -24,15 +23,14 @@ base mixin ElicitationRequestSupport on LoggingSupport {
   /// compatibility rule the 2025-11-25 revision added alongside the mode
   /// split. A client which named some other mode does not.
   bool get supportsFormElicitation =>
-      _supportsElicitationMode(clientCapabilities, ElicitationMode.form);
+      clientCapabilities.supportsFormElicitation;
 
   /// Whether or not the connected client supports [ElicitationMode.url]
   /// requests.
   ///
   /// Only safe to call after calling [initialize] on `super` since this
   /// is based on the client capabilities.
-  bool get supportsUrlElicitation =>
-      _supportsElicitationMode(clientCapabilities, ElicitationMode.url);
+  bool get supportsUrlElicitation => clientCapabilities.supportsUrlElicitation;
 
   @override
   FutureOr<void> initialize(MCPServerInitialization initialization) {
@@ -98,12 +96,18 @@ base mixin ElicitationRequestSupport on LoggingSupport {
   );
 }
 
-bool _supportsElicitationMode(
-  ClientCapabilities capabilities,
-  ElicitationMode mode,
-) {
-  final elicitation = (capabilities as Map<String, Object?>)[Keys.elicitation];
-  if (elicitation is! Map) return false;
-  return elicitation[mode.name] is Map ||
-      (mode == ElicitationMode.form && elicitation.isEmpty);
+extension on ClientCapabilities {
+  bool get supportsElicitation =>
+      (this as Map<String, Object?>)[Keys.elicitation] is Map;
+
+  bool get supportsFormElicitation {
+    final elicitation = (this as Map<String, Object?>)[Keys.elicitation];
+    return elicitation is Map &&
+        (elicitation[Keys.form] is Map || elicitation.isEmpty);
+  }
+
+  bool get supportsUrlElicitation {
+    final elicitation = (this as Map<String, Object?>)[Keys.elicitation];
+    return elicitation is Map && elicitation[Keys.url] is Map;
+  }
 }
