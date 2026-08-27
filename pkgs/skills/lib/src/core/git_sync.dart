@@ -1,13 +1,17 @@
 import 'dart:io';
 
-import 'git_runner.dart';
+import 'package:logging/logging.dart';
+
 import 'git_repos.dart';
+import 'git_runner.dart';
 
 /// Syncs GitHub repos to the local `.dart_tool/skills/repos` directory.
 ///
 /// If a repo is not yet cloned, clones it. If it exists, runs git fetch and
 /// reset --hard to the remote HEAD. On clone/fetch failure, logs a warning
 /// and continues (Dart-only skills are still used).
+final _logger = Logger('GitSync');
+
 class GitSync {
   final GitRunner gitRunner;
 
@@ -60,7 +64,7 @@ class GitSync {
       runInShell: true,
     );
     if (result.exitCode != 0) {
-      stderr.writeln(
+      _logger.warning(
         'Warning: Failed to clone ${repo.cloneUrl}: ${result.stderr}',
       );
     }
@@ -79,7 +83,7 @@ class GitSync {
       runInShell: true,
     );
     if (result.exitCode != 0) {
-      stderr.writeln(
+      _logger.warning(
         'Warning: Failed to fetch ${repo.cloneUrl}: ${result.stderr}',
       );
       return;
@@ -91,7 +95,7 @@ class GitSync {
       runInShell: true,
     );
     if (result.exitCode != 0) {
-      stderr.writeln(
+      _logger.warning(
         'Warning: Failed to reset ${repo.cloneUrl}: ${result.stderr}',
       );
     }

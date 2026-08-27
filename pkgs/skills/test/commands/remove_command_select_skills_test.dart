@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:io/ansi.dart';
 import 'package:logging/logging.dart';
 import 'package:skills/src/commands/remove_command.dart';
 import 'package:skills/src/commands/skills_command_runner.dart';
@@ -88,15 +89,17 @@ void main() {
         // We select only index 0 (dep1-skill-1) to remove.
         fakeDialogSupport.multiSelectResults.add({0});
 
-        await runner.run([
-          'remove',
-          '--directory',
-          projectPath,
-          '--agent',
-          'cursor',
-          '--package',
-          'dep1',
-        ]);
+        await overrideAnsiOutput(false, () async {
+          await runner.run([
+            'remove',
+            '--directory',
+            projectPath,
+            '--agent',
+            'cursor',
+            '--package',
+            'dep1',
+          ]);
+        });
 
         expect(fakeDialogSupport.allMultiSelectOptions, hasLength(1));
         expect(
@@ -143,13 +146,15 @@ void main() {
           {0, 3},
         ];
 
-        await runner.run([
-          'remove',
-          '--directory',
-          projectPath,
-          '--agent',
-          'cursor',
-        ]);
+        await overrideAnsiOutput(false, () async {
+          await runner.run([
+            'remove',
+            '--directory',
+            projectPath,
+            '--agent',
+            'cursor',
+          ]);
+        });
 
         expect(fakeDialogSupport.allMultiSelectOptions, hasLength(2));
         expect(

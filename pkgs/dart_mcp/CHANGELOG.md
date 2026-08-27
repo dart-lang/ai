@@ -279,6 +279,7 @@
 - Point the documentation at `modelcontextprotocol.io` and at protocol
   revision 2025-11-25. The old host stopped serving HTTPS, and the old
   revision number 2025-11-05 was never a published revision.
+- Add missing license headers.
 
 ## 0.5.2
 
