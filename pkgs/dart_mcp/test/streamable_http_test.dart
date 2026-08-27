@@ -177,6 +177,8 @@ void main() {
           ':\n'
           'event: message\n'
           'data: {"jsonrpc":"2.0","method":"notifications/message"}\n\n'
+          'event: endpoint\n'
+          'data: {"jsonrpc":"2.0","id":"ignored"}\n\n'
           'event: message\n'
           'data: {"jsonrpc":"2.0","id":1,"result":{}}\n\n',
         ),
@@ -205,6 +207,35 @@ void main() {
           'id': 1,
           'result': {'value': 'split'},
         },
+      ]);
+    });
+
+    test('uses the default message event type', () async {
+      final bytes = Stream.value(
+        utf8.encode(
+          'data: {"jsonrpc":"2.0","id":1,"result":{}}\n\n'
+          'event:\n'
+          'data: {"jsonrpc":"2.0","id":2,"result":{}}\n\n',
+        ),
+      );
+
+      expect(await sseMessageStream(bytes).toList(), [
+        {'jsonrpc': '2.0', 'id': 1, 'result': <String, Object?>{}},
+        {'jsonrpc': '2.0', 'id': 2, 'result': <String, Object?>{}},
+      ]);
+    });
+
+    test('joins consecutive data fields', () async {
+      final bytes = Stream.value(
+        utf8.encode(
+          'event: message\n'
+          'data: {"jsonrpc":"2.0",\n'
+          'data: "id":1,"result":{}}\n\n',
+        ),
+      );
+
+      expect(await sseMessageStream(bytes).toList(), [
+        {'jsonrpc': '2.0', 'id': 1, 'result': <String, Object?>{}},
       ]);
     });
 

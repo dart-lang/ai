@@ -26,27 +26,29 @@ import 'src/utils/json_rpc_2_object.dart';
 
 /// Decodes the `message` events in a Streamable HTTP SSE response [bytes].
 ///
-/// Each event's `data` field must contain one JSON object. Other SSE fields
-/// and comment lines are ignored.
+/// Consecutive `data` fields are joined before the JSON object is decoded. An
+/// omitted or empty `event` field uses the `message` type. Other SSE fields and
+/// comment lines are ignored.
 Stream<Map<String, Object?>> sseMessageStream(Stream<List<int>> bytes) async* {
-  String? event;
-  String? data;
+  var event = '';
+  final data = <String>[];
   await for (final line in const LineSplitter().bind(
     utf8.decoder.bind(bytes),
   )) {
     if (line.isEmpty) {
-      if (event == Keys.message && data != null) {
-        final decoded = jsonDecode(data);
+      if ((event.isEmpty || event == Keys.message) && data.isNotEmpty) {
+        final source = data.join('\n');
+        final decoded = jsonDecode(source);
         if (decoded is! Map<String, Object?>) {
           throw FormatException(
             'SSE data must be a JSON object, got ${decoded.runtimeType}',
-            data,
+            source,
           );
         }
         yield decoded;
       }
-      event = null;
-      data = null;
+      event = '';
+      data.clear();
       continue;
     }
 
@@ -58,7 +60,7 @@ Stream<Map<String, Object?>> sseMessageStream(Stream<List<int>> bytes) async* {
     if (field == 'event') {
       event = value;
     } else if (field == Keys.data) {
-      data = value;
+      data.add(value);
     }
   }
 }
