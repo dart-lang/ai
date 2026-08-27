@@ -5,7 +5,7 @@
 import 'dart:async';
 import 'dart:collection';
 
-import 'package:async/async.dart';
+import 'package:async/async.dart' show StreamExtensions;
 import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_channel/stream_channel.dart';
@@ -134,6 +134,21 @@ base class ServerConnection extends MCPBase {
   /// The [ElicitationUrlSupport] for this connection, if any.
   final ElicitationUrlSupport? _elicitationUrlSupport;
 
+  /// The [ElicitationFormSupport] for this connection, if any.
+  final ElicitationFormSupport? _elicitationFormSupport;
+
+  /// The [SamplingSupport] for this connection, if any.
+  final SamplingSupport? _samplingSupport;
+
+  /// The [RootsSupport] for this connection, if any.
+  final RootsSupport? _rootsSupport;
+
+  /// Maximum number of automatic retries for an `input_required` result.
+  ///
+  /// This prevents an unbounded loop and matches the TypeScript and Python SDK
+  /// defaults.
+  static const _maxInputRequiredRounds = 10;
+
   @override
   String get name => serverInfo?.name ?? super.name;
 
@@ -211,7 +226,10 @@ base class ServerConnection extends MCPBase {
     ElicitationSupport? elicitationSupport,
     ElicitationFormSupport? elicitationFormSupport,
     ElicitationUrlSupport? elicitationUrlSupport,
-  }) : _elicitationUrlSupport = elicitationUrlSupport {
+  }) : _elicitationFormSupport = elicitationFormSupport ?? elicitationSupport,
+       _elicitationUrlSupport = elicitationUrlSupport,
+       _samplingSupport = samplingSupport,
+       _rootsSupport = rootsSupport {
     elicitationFormSupport ??= elicitationSupport;
     if (rootsSupport != null) {
       registerRequestHandler(
@@ -336,7 +354,7 @@ base class ServerConnection extends MCPBase {
   /// Invokes a [Tool] returned from the [ListToolsResult].
   Future<CallToolResult> callTool(CallToolRequest request) async {
     try {
-      return await sendRequest(CallToolRequest.methodName, request);
+      return await _sendRequestWithInputs(CallToolRequest.methodName, request);
     } on RpcException catch (e) {
       // If we are set up to try and auto handle url elicitation and we get
       // an error that the url elicitation is required, we will try and handle
@@ -362,7 +380,10 @@ base class ServerConnection extends MCPBase {
         );
         if (elicitResult.action == ElicitationAction.accept) {
           await elicitationComplete;
-          return await sendRequest(CallToolRequest.methodName, request);
+          return await _sendRequestWithInputs(
+            CallToolRequest.methodName,
+            request,
+          );
         }
       }
       rethrow;
@@ -376,7 +397,7 @@ base class ServerConnection extends MCPBase {
   /// Reads a [Resource] returned from the [ListResourcesResult] or matching
   /// a [ResourceTemplate] from a [ListResourceTemplatesResult].
   Future<ReadResourceResult> readResource(ReadResourceRequest request) =>
-      sendRequest(ReadResourceRequest.methodName, request);
+      _sendRequestWithInputs(ReadResourceRequest.methodName, request);
 
   /// Lists all the [ResourceTemplate]s from this server.
   Future<ListResourceTemplatesResult> listResourceTemplates([
@@ -389,7 +410,117 @@ base class ServerConnection extends MCPBase {
 
   /// Gets the requested [Prompt] from the server.
   Future<GetPromptResult> getPrompt(GetPromptRequest request) =>
-      sendRequest(GetPromptRequest.methodName, request);
+      _sendRequestWithInputs(GetPromptRequest.methodName, request);
+
+  Future<T> _sendRequestWithInputs<T extends Result>(
+    String methodName,
+    WithInputResponses request,
+  ) async {
+    final originalRequest = request as Map<String, Object?>;
+    var result = (await sendRequest<T>(methodName, request)) as Result;
+    for (
+      var round = 0;
+      result.resultType == ResultTypes.inputRequired;
+      round++
+    ) {
+      if (round == _maxInputRequiredRounds) {
+        throw StateError(
+          'The server returned `${ResultTypes.inputRequired}` after '
+          '$_maxInputRequiredRounds retries for `$methodName`. Expected '
+          '`${ResultTypes.complete}`.',
+        );
+      }
+      final inputRequired = result as InputRequiredResult;
+      final responses = <String, Result>{};
+      final inputRequests = inputRequired.inputRequests;
+      if (inputRequests != null) {
+        final handlers = [
+          for (final entry in inputRequests.entries)
+            MapEntry(entry.key, _inputRequestHandler(entry.value)),
+        ];
+        for (final handler in handlers) {
+          responses[handler.key] = await handler.value();
+        }
+      }
+      final retryRequest =
+          <String, Object?>{
+                for (final entry in originalRequest.entries)
+                  if (entry.key != Keys.inputResponses &&
+                      entry.key != Keys.requestState)
+                    entry.key: entry.value,
+                if (responses.isNotEmpty) Keys.inputResponses: responses,
+                if (inputRequired.requestState case final requestState?)
+                  Keys.requestState: requestState,
+              }
+              as WithInputResponses;
+      result = (await sendRequest<T>(methodName, retryRequest)) as Result;
+    }
+    return result as T;
+  }
+
+  Future<Result> Function() _inputRequestHandler(InputRequest inputRequest) {
+    switch (inputRequest.method) {
+      case ElicitRequest.methodName:
+        final request = inputRequest.params as ElicitRequest;
+        final raw = request.rawMode;
+        if (raw != null && !ElicitationMode.values.any((m) => m.name == raw)) {
+          throw StateError(
+            'The elicitation mode was "$raw", which is not one of: '
+            '${ElicitationMode.values.map((m) => m.name).join(', ')}',
+          );
+        }
+        switch (request.mode) {
+          case ElicitationMode.form:
+            final support = _elicitationFormSupport;
+            if (support == null) {
+              throw _missingClientCapability(
+                'elicitation.form',
+                ClientCapabilities(
+                  elicitation: ElicitationCapability(form: {}),
+                ),
+              );
+            }
+            return () async => await support.handleElicitation(request, this);
+          case ElicitationMode.url:
+            final support = _elicitationUrlSupport;
+            if (support == null) {
+              throw _missingClientCapability(
+                'elicitation.url',
+                ClientCapabilities(elicitation: ElicitationCapability(url: {})),
+              );
+            }
+            return () async => await support.handleElicitation(request, this);
+        }
+      case CreateMessageRequest.methodName:
+        final support = _samplingSupport;
+        if (support == null) {
+          throw _missingClientCapability(
+            'sampling',
+            ClientCapabilities(sampling: {}),
+          );
+        }
+        final request = inputRequest.params as CreateMessageRequest;
+        final serverInfo = this.serverInfo!;
+        return () async =>
+            await support.handleCreateMessage(request, serverInfo);
+      case ListRootsRequest.methodName:
+        final support = _rootsSupport;
+        if (support == null) {
+          throw _missingClientCapability(
+            'roots',
+            ClientCapabilities(roots: RootsCapabilities()),
+          );
+        }
+        final request = inputRequest.params as ListRootsRequest?;
+        return () async => await support.handleListRoots(request);
+      default:
+        throw StateError(
+          'The input request method was "${inputRequest.method}", which is '
+          'not one of: ${ElicitRequest.methodName}, '
+          '${CreateMessageRequest.methodName}, ${ListRootsRequest.methodName}',
+        );
+    }
+  }
 
   /// Subscribes this client to a resource by URI (at `request.uri`).
   ///
@@ -420,6 +551,15 @@ base class ServerConnection extends MCPBase {
   Future<CompleteResult> requestCompletions(CompleteRequest request) =>
       sendRequest(CompleteRequest.methodName, request);
 }
+
+RpcException _missingClientCapability(
+  String capability,
+  ClientCapabilities required,
+) => RpcException(
+  McpErrorCodes.missingRequiredClientCapability,
+  'The client did not declare the $capability capability',
+  data: {Keys.requiredCapabilities: required},
+);
 
 extension ElicitationServerConnection on ElicitRequest {
   /// Broadcast stream of notifications for this elicitation ID. Events are not

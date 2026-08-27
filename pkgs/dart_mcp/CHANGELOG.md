@@ -158,7 +158,10 @@
 - Add `InputRequiredResult` and `InputRequest`, the result a server answers with
   when it needs input first, see
   https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr.
-  Nothing sends or answers one yet.
+  `ServerConnection.callTool`, `.getPrompt`, and `.readResource` fulfill its
+  input requests through the client's elicitation, sampling, and roots
+  handlers, then retry the original request. Automatic retries stop after ten
+  rounds or when a required handler is unavailable.
 - Add `WithInputResponses`, the type a client's retry carries.
   `CallToolRequest`, `GetPromptRequest` and `ReadResourceRequest` take an
   `inputResponses` and a `requestState`, matching the three requests the schema
