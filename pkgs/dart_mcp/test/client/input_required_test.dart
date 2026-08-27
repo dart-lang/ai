@@ -10,6 +10,46 @@ import 'package:stream_channel/stream_channel.dart';
 import 'package:test/test.dart';
 
 void main() {
+  test('does not interpret input-required results before 2026-07-28', () async {
+    final client = MCPClient(
+      Implementation(name: 'test client', version: '0.1.0'),
+    );
+    final harness = _WireHarness(client, (request, requestNumber) {
+      return switch (request['method']) {
+        InitializeRequest.methodName => {
+          'protocolVersion': '2025-11-25',
+          'capabilities': <String, Object?>{},
+          'serverInfo': {'name': 'wire server', 'version': '1'},
+        },
+        CallToolRequest.methodName => {
+          'resultType': 'input_required',
+          'content': [
+            {'type': 'text', 'text': 'legacy result'},
+          ],
+        },
+        _ => throw StateError('Unexpected method ${request['method']}'),
+      };
+    }, protocolVersion: null);
+
+    await harness.connection.initialize(
+      InitializeRequest(
+        protocolVersion: ProtocolVersion.v2025_11_25,
+        capabilities: client.capabilities,
+        clientInfo: client.implementation,
+      ),
+    );
+    final result = await harness.connection.callTool(
+      CallToolRequest(name: 'task'),
+    );
+
+    expect(harness.connection.protocolVersion, ProtocolVersion.v2025_11_25);
+    expect((result.content.single as TextContent).text, 'legacy result');
+    expect(harness.requests.map((request) => request['method']), [
+      InitializeRequest.methodName,
+      CallToolRequest.methodName,
+    ]);
+  });
+
   test('dispatches each input request and retries the tool call', () async {
     final client =
         _InputClient()
@@ -84,6 +124,45 @@ void main() {
       {'uri': 'file:///workspace', 'name': 'workspace'},
     ]);
     expect(harness.requests.first['id'], isNot(harness.requests.last['id']));
+  });
+
+  test('retries after accepting a URL elicitation', () async {
+    final client = _UrlInputClient();
+    final harness = _WireHarness(client, (request, requestNumber) {
+      if (requestNumber == 1) {
+        return {
+          'resultType': 'input_required',
+          'inputRequests': {
+            'url': {
+              'method': 'elicitation/create',
+              'params': {
+                'mode': 'url',
+                'message': 'Open the URL',
+                'url': 'https://example.com',
+              },
+            },
+          },
+          'requestState': 'url-state',
+        };
+      }
+      return {
+        'resultType': 'complete',
+        'content': [
+          {'type': 'text', 'text': 'done'},
+        ],
+      };
+    });
+
+    await harness.connection.callTool(CallToolRequest(name: 'task'));
+
+    expect(client.callCount, 1);
+    expect(harness.requests, hasLength(2));
+    final retry = _params(harness.requests.last);
+    expect(retry['requestState'], 'url-state');
+    expect(
+      ((retry['inputResponses'] as Map)['url'] as Map)['action'],
+      'accept',
+    );
   });
 
   final requestCases = <
@@ -221,6 +300,76 @@ void main() {
     expect(secondRetry, isNot(contains('requestState')));
   });
 
+  for (final boundaryCase in [
+    (
+      name: 'an empty request state',
+      result: <String, Object?>{
+        'resultType': 'input_required',
+        'requestState': '',
+      },
+      expectedState: '',
+    ),
+    (
+      name: 'an empty input request map',
+      result: <String, Object?>{
+        'resultType': 'input_required',
+        'inputRequests': <String, Object?>{},
+      },
+      expectedState: null,
+    ),
+  ]) {
+    test('retries with ${boundaryCase.name}', () async {
+      final harness = _WireHarness(
+        MCPClient(Implementation(name: 'test client', version: '0.1.0')),
+        (request, requestNumber) =>
+            requestNumber == 1
+                ? boundaryCase.result
+                : {
+                  'resultType': 'complete',
+                  'content': [
+                    {'type': 'text', 'text': 'done'},
+                  ],
+                },
+      );
+
+      await harness.connection.callTool(CallToolRequest(name: 'task'));
+
+      final retry = _params(harness.requests.last);
+      expect(retry['requestState'], boundaryCase.expectedState);
+      expect(retry, isNot(contains('inputResponses')));
+    });
+  }
+
+  for (final method in [
+    ElicitRequest.methodName,
+    CreateMessageRequest.methodName,
+    ListRootsRequest.methodName,
+  ]) {
+    test('rejects non-object params for $method', () async {
+      final harness = _WireHarness(
+        _InputClient(),
+        (request, requestNumber) => {
+          'resultType': 'input_required',
+          'inputRequests': {
+            'invalid': {'method': method, 'params': 'not an object'},
+          },
+        },
+      );
+
+      await expectLater(
+        harness.connection.callTool(CallToolRequest(name: 'task')),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            allOf(contains(method), contains('expected an object')),
+          ),
+        ),
+      );
+      expect(harness.requests, hasLength(1));
+    });
+  }
+
   test('stops when an input request needs an undeclared capability', () async {
     final client = _ElicitationClient();
     final harness = _WireHarness(
@@ -261,6 +410,25 @@ void main() {
     );
     expect(harness.requests, hasLength(1));
     expect(client.callCount, 0);
+  });
+
+  test('rejects an input-required result without requests or state', () async {
+    final harness = _WireHarness(
+      MCPClient(Implementation(name: 'test client', version: '0.1.0')),
+      (request, requestNumber) => {'resultType': 'input_required'},
+    );
+
+    await expectLater(
+      harness.connection.callTool(CallToolRequest(name: 'task')),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          allOf(contains('inputRequests'), contains('requestState')),
+        ),
+      ),
+    );
+    expect(harness.requests, hasLength(1));
   });
 
   test('stops after ten input-required retry rounds', () async {
@@ -308,11 +476,18 @@ final class _WireHarness {
   late final ServerConnection connection;
   late final StreamSubscription<Map<String, Object?>> _subscription;
 
-  _WireHarness(this.client, this._respond) {
+  _WireHarness(
+    this.client,
+    this._respond, {
+    ProtocolVersion? protocolVersion = ProtocolVersion.v2026_07_28,
+  }) {
     connection = client.connectServer(
       StreamChannel.withGuarantees(_incoming.stream, _outgoing.sink),
     );
-    connection.serverInfo = Implementation(name: 'wire server', version: '1');
+    if (protocolVersion != null) {
+      connection.protocolVersion = protocolVersion;
+      connection.serverInfo = Implementation(name: 'wire server', version: '1');
+    }
     _subscription = _outgoing.stream.listen((request) {
       requests.add(request);
       _incoming.add({
@@ -373,6 +548,22 @@ final class _ElicitationClient extends MCPClient with ElicitationFormSupport {
   int callCount = 0;
 
   _ElicitationClient()
+    : super(Implementation(name: 'test client', version: '0.1.0'));
+
+  @override
+  FutureOr<ElicitResult> handleElicitation(
+    ElicitRequest request,
+    ServerConnection connection,
+  ) {
+    callCount++;
+    return ElicitResult(action: ElicitationAction.accept);
+  }
+}
+
+final class _UrlInputClient extends MCPClient with ElicitationUrlSupport {
+  int callCount = 0;
+
+  _UrlInputClient()
     : super(Implementation(name: 'test client', version: '0.1.0'));
 
   @override

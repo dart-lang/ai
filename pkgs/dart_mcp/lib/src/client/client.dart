@@ -416,6 +416,9 @@ base class ServerConnection extends MCPBase {
     String methodName,
     WithInputResponses request,
   ) async {
+    if (serverInfo == null || protocolVersion < ProtocolVersion.v2026_07_28) {
+      return sendRequest<T>(methodName, request);
+    }
     final originalRequest = request as Map<String, Object?>;
     var result = (await sendRequest<T>(methodName, request)) as Result;
     for (
@@ -433,6 +436,13 @@ base class ServerConnection extends MCPBase {
       final inputRequired = result as InputRequiredResult;
       final responses = <String, Result>{};
       final inputRequests = inputRequired.inputRequests;
+      final requestState = inputRequired.requestState;
+      if (inputRequests == null && requestState == null) {
+        throw StateError(
+          'The server returned `${ResultTypes.inputRequired}` without '
+          '`${Keys.inputRequests}` or `${Keys.requestState}`.',
+        );
+      }
       if (inputRequests != null) {
         final handlers = [
           for (final entry in inputRequests.entries)
@@ -449,8 +459,7 @@ base class ServerConnection extends MCPBase {
                       entry.key != Keys.requestState)
                     entry.key: entry.value,
                 if (responses.isNotEmpty) Keys.inputResponses: responses,
-                if (inputRequired.requestState case final requestState?)
-                  Keys.requestState: requestState,
+                if (requestState != null) Keys.requestState: requestState,
               }
               as WithInputResponses;
       result = (await sendRequest<T>(methodName, retryRequest)) as Result;
@@ -461,7 +470,8 @@ base class ServerConnection extends MCPBase {
   Future<Result> Function() _inputRequestHandler(InputRequest inputRequest) {
     switch (inputRequest.method) {
       case ElicitRequest.methodName:
-        final request = inputRequest.params as ElicitRequest;
+        final request =
+            _inputRequestParams(inputRequest, required: true)! as ElicitRequest;
         final raw = request.rawMode;
         if (raw != null && !ElicitationMode.values.any((m) => m.name == raw)) {
           throw StateError(
@@ -495,11 +505,13 @@ base class ServerConnection extends MCPBase {
         final support = _samplingSupport;
         if (support == null) {
           throw _missingClientCapability(
-            'sampling',
+            Keys.sampling,
             ClientCapabilities(sampling: {}),
           );
         }
-        final request = inputRequest.params as CreateMessageRequest;
+        final request =
+            _inputRequestParams(inputRequest, required: true)!
+                as CreateMessageRequest;
         final serverInfo = this.serverInfo!;
         return () async =>
             await support.handleCreateMessage(request, serverInfo);
@@ -507,11 +519,13 @@ base class ServerConnection extends MCPBase {
         final support = _rootsSupport;
         if (support == null) {
           throw _missingClientCapability(
-            'roots',
+            Keys.roots,
             ClientCapabilities(roots: RootsCapabilities()),
           );
         }
-        final request = inputRequest.params as ListRootsRequest?;
+        final request =
+            _inputRequestParams(inputRequest, required: false)
+                as ListRootsRequest?;
         return () async => await support.handleListRoots(request);
       default:
         throw StateError(
@@ -550,6 +564,21 @@ base class ServerConnection extends MCPBase {
   // TODO: Implement automatic debouncing.
   Future<CompleteResult> requestCompletions(CompleteRequest request) =>
       sendRequest(CompleteRequest.methodName, request);
+}
+
+Map<String, Object?>? _inputRequestParams(
+  InputRequest inputRequest, {
+  required bool required,
+}) {
+  final params = (inputRequest as Map<String, Object?>)[Keys.params];
+  if (params == null && !required) return null;
+  if (params is! Map) {
+    throw StateError(
+      'The input request params for "${inputRequest.method}" were '
+      '${params.runtimeType}, expected an object.',
+    );
+  }
+  return params.cast<String, Object?>();
 }
 
 RpcException _missingClientCapability(
