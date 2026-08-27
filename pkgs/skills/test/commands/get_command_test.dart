@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:io/ansi.dart';
 import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 import 'package:skills/skills.dart';
@@ -268,14 +269,16 @@ New skill body.
       final projectPath = d.path('project');
 
       // 1. Initial installation
-      await runner.run([
-        'get',
-        '--directory',
-        projectPath,
-        '--agent',
-        Agent.cursor.cliName,
-        '--all',
-      ]);
+      await overrideAnsiOutput(false, () async {
+        await runner.run([
+          'get',
+          '--directory',
+          projectPath,
+          '--agent',
+          Agent.cursor.cliName,
+          '--all',
+        ]);
+      });
 
       final skillPath = p.join(
         projectPath,
@@ -294,15 +297,17 @@ New skill body.
       // 3. User selects nothing to update
       fakeDialogSupport.multiSelectResults.add({});
 
-      await runner.run([
-        'get',
-        '--directory',
-        projectPath,
-        '--agent',
-        Agent.cursor.cliName,
-        '-p',
-        'dep_with_skills',
-      ]);
+      await overrideAnsiOutput(false, () async {
+        await runner.run([
+          'get',
+          '--directory',
+          projectPath,
+          '--agent',
+          Agent.cursor.cliName,
+          '-p',
+          'dep_with_skills',
+        ]);
+      });
 
       expect(fakeDialogSupport.allMultiSelectOptions, [
         [contains('dep_with_skills-test-skill (Local edits)')],

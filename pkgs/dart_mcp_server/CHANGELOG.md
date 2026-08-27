@@ -1,6 +1,7 @@
 ## 1.1.2-dev
 
 - Track `AGENT_PLUGIN` environment variable in analytics events.
+- Add missing license headers.
 
 ## 1.1.1
 
