@@ -69,16 +69,7 @@ base mixin ElicitationRequestSupport on LoggingSupport {
   /// into a [CallToolResult], so a tool which elicits reaches the client as
   /// that error rather than as a result whose text is a Dart stack trace.
   Future<ElicitResult> elicit(ElicitRequest request) async {
-    if (protocolVersion >= ProtocolVersion.v2026_07_28) {
-      throw RpcException(
-        error_code.INTERNAL_ERROR,
-        'Direct ${ElicitRequest.methodName} requests are unavailable on '
-        'protocol version ${protocolVersion.versionString}. '
-        'InputRequiredResult responses are allowed for '
-        '${CallToolRequest.methodName}, ${GetPromptRequest.methodName}, and '
-        '${ReadResourceRequest.methodName}.',
-      );
-    }
+    _rejectModernDirectRequest(ElicitRequest.methodName, protocolVersion);
     final raw = request.rawMode;
     if (raw != null && !ElicitationMode.values.any((m) => m.name == raw)) {
       throw RpcException.invalidParams(

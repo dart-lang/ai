@@ -136,6 +136,8 @@ void main() {
         'test/send',
         ClientCapabilities(elicitation: ElicitationCapability(url: {})),
       ),
+      ('test/no-mode', ClientCapabilities()),
+      ('test/unknown', ClientCapabilities()),
     ]) {
       final result = await _call(
         tool,
@@ -143,7 +145,7 @@ void main() {
         protocolVersion: ProtocolVersion.v2026_07_28,
       );
 
-      expect(_errorCode(result!), error_code.INTERNAL_ERROR);
+      expect(_errorCode(result!), -32603);
       expect(
         (result[Keys.error] as Map<String, Object?>)[Keys.message],
         'Direct elicitation/create requests are unavailable on protocol '

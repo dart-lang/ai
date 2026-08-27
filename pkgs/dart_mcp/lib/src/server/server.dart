@@ -303,16 +303,7 @@ abstract base class MCPServer extends MCPBase {
   /// capability. The protocol carries a [ListRootsRequest] in an
   /// [InputRequiredResult] on that revision.
   Future<ListRootsResult> listRoots([ListRootsRequest? request]) async {
-    if (protocolVersion >= ProtocolVersion.v2026_07_28) {
-      throw RpcException(
-        error_code.INTERNAL_ERROR,
-        'Direct ${ListRootsRequest.methodName} requests are unavailable on '
-        'protocol version ${protocolVersion.versionString}. '
-        'InputRequiredResult responses are allowed for '
-        '${CallToolRequest.methodName}, ${GetPromptRequest.methodName}, and '
-        '${ReadResourceRequest.methodName}.',
-      );
-    }
+    _rejectModernDirectRequest(ListRootsRequest.methodName, protocolVersion);
     if (!supportsRoots) {
       throw _missingClientCapability(
         'roots',
@@ -339,16 +330,10 @@ abstract base class MCPServer extends MCPBase {
   Future<CreateMessageResult> createMessage(
     CreateMessageRequest request,
   ) async {
-    if (protocolVersion >= ProtocolVersion.v2026_07_28) {
-      throw RpcException(
-        error_code.INTERNAL_ERROR,
-        'Direct ${CreateMessageRequest.methodName} requests are unavailable '
-        'on protocol version ${protocolVersion.versionString}. '
-        'InputRequiredResult responses are allowed for '
-        '${CallToolRequest.methodName}, ${GetPromptRequest.methodName}, and '
-        '${ReadResourceRequest.methodName}.',
-      );
-    }
+    _rejectModernDirectRequest(
+      CreateMessageRequest.methodName,
+      protocolVersion,
+    );
     if (!supportsSampling) {
       throw _missingClientCapability(
         'sampling',
@@ -357,6 +342,20 @@ abstract base class MCPServer extends MCPBase {
     }
     return sendRequest(CreateMessageRequest.methodName, request);
   }
+}
+
+void _rejectModernDirectRequest(
+  String method,
+  ProtocolVersion protocolVersion,
+) {
+  if (protocolVersion < ProtocolVersion.v2026_07_28) return;
+  throw RpcException(
+    error_code.INTERNAL_ERROR,
+    'Direct $method requests are unavailable on protocol version '
+    '${protocolVersion.versionString}. InputRequiredResult responses are '
+    'allowed for ${CallToolRequest.methodName}, '
+    '${GetPromptRequest.methodName}, and ${ReadResourceRequest.methodName}.',
+  );
 }
 
 /// The error a server must return when handling a request needs [capability],
