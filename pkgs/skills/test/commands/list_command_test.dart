@@ -96,7 +96,22 @@ void main() {
         },
       );
 
-      await d.dir('project', [pubspec('test_app')]).create();
+      await d.dir('project', [
+        pubspec('test_app'),
+        d.dir('.agents', [
+          d.dir('skills', [d.dir('deep-skill'), d.dir('root-skill')]),
+        ]),
+        d.dir('.cursor', [
+          d.dir('skills', [
+            d.dir('pkg_a-code-gen'),
+            d.dir('pkg_a-api-helper'),
+            d.dir('pkg_b-testing'),
+          ]),
+        ]),
+        d.dir('.claude', [
+          d.dir('skills', [d.dir('pkg_a-code-gen')]),
+        ]),
+      ]).create();
       projectPath = d.path('project');
       await manifest.save(File(SkillManifest.pathIn(projectPath)));
     });
@@ -206,6 +221,158 @@ void main() {
 
         final output = loggedMessages.join('\n');
         expect(output, contains('No managed skills installed.'));
+      },
+    );
+  });
+
+  group('Given a project with uninstalled skills (isInstalled: false)', () {
+    test(
+      'when some skills have isInstalled: false then only installed skills are listed',
+      () async {
+        final manifest = SkillManifest(
+          installations: {
+            'generic': {
+              'https://github.com/foo/bar.git': SkillsEntry(
+                skills: [
+                  InstalledSkillEntry(
+                    name: 'installed-skill',
+                    installedAt: DateTime.utc(2026, 2, 25),
+                    isInstalled: true,
+                  ),
+                  InstalledSkillEntry(
+                    name: 'uninstalled-skill',
+                    installedAt: DateTime.utc(2026, 2, 25),
+                    isInstalled: false,
+                  ),
+                ],
+              ),
+            },
+          },
+        );
+
+        await d.dir('uninstalled_project', [
+          pubspec('uninstalled_app'),
+          d.dir('.agents', [
+            d.dir('skills', [d.dir('installed-skill')]),
+          ]),
+        ]).create();
+        final projectPath = d.path('uninstalled_project');
+        await manifest.save(File(SkillManifest.pathIn(projectPath)));
+
+        await runner.run(['list', '--directory', projectPath]);
+
+        final output = loggedMessages.join('\n');
+        expect(output, contains('- installed-skill'));
+        expect(output, isNot(contains('uninstalled-skill')));
+      },
+    );
+
+    test(
+      'when all skills have isInstalled: false then messages no managed skills installed',
+      () async {
+        final manifest = SkillManifest(
+          installations: {
+            'generic': {
+              'https://github.com/foo/bar.git': SkillsEntry(
+                skills: [
+                  InstalledSkillEntry(
+                    name: 'uninstalled-skill',
+                    installedAt: DateTime.utc(2026, 2, 25),
+                    isInstalled: false,
+                  ),
+                ],
+              ),
+            },
+          },
+        );
+
+        await d.dir('all_uninstalled_project', [
+          pubspec('all_uninstalled_app'),
+        ]).create();
+        final projectPath = d.path('all_uninstalled_project');
+        await manifest.save(File(SkillManifest.pathIn(projectPath)));
+
+        await runner.run(['list', '--directory', projectPath]);
+
+        final output = loggedMessages.join('\n');
+        expect(output, contains('No managed skills installed.'));
+        expect(output, isNot(contains('uninstalled-skill')));
+      },
+    );
+  });
+
+  group('Given a project where installed skills were deleted from disk', () {
+    test(
+      'when one skill is deleted from disk then only remaining skill is listed',
+      () async {
+        final manifest = SkillManifest(
+          installations: {
+            'generic': {
+              'https://github.com/foo/bar.git': SkillsEntry(
+                skills: [
+                  InstalledSkillEntry(
+                    name: 'kept-skill',
+                    installedAt: DateTime.utc(2026, 2, 25),
+                    isInstalled: true,
+                  ),
+                  InstalledSkillEntry(
+                    name: 'deleted-skill',
+                    installedAt: DateTime.utc(2026, 2, 25),
+                    isInstalled: true,
+                  ),
+                ],
+              ),
+            },
+          },
+        );
+
+        await d.dir('deleted_skill_project', [
+          pubspec('deleted_skill_app'),
+          d.dir('.agents', [
+            d.dir('skills', [d.dir('kept-skill')]),
+          ]),
+        ]).create();
+        final projectPath = d.path('deleted_skill_project');
+        await manifest.save(File(SkillManifest.pathIn(projectPath)));
+
+        await runner.run(['list', '--directory', projectPath]);
+
+        final output = loggedMessages.join('\n');
+        expect(output, contains('- kept-skill'));
+        expect(output, isNot(contains('deleted-skill')));
+      },
+    );
+
+    test(
+      'when all skills are deleted from disk then messages no managed skills installed',
+      () async {
+        final manifest = SkillManifest(
+          installations: {
+            'generic': {
+              'https://github.com/foo/bar.git': SkillsEntry(
+                skills: [
+                  InstalledSkillEntry(
+                    name: 'deleted-skill',
+                    installedAt: DateTime.utc(2026, 2, 25),
+                    isInstalled: true,
+                  ),
+                ],
+              ),
+            },
+          },
+        );
+
+        await d.dir('all_deleted_project', [
+          pubspec('all_deleted_app'),
+        ]).create();
+        final projectPath = d.path('all_deleted_project');
+        await manifest.save(File(SkillManifest.pathIn(projectPath)));
+
+        await runner.run(['list', '--directory', projectPath]);
+
+        final output = loggedMessages.join('\n');
+        expect(output, contains('No managed skills installed.'));
+        expect(output, isNot(contains('deleted-skill')));
       },
     );
   });
