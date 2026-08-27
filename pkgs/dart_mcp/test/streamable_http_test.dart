@@ -214,11 +214,12 @@ void main() {
       final bytes = Stream.value(
         utf8.encode(
           'data: {"jsonrpc":"2.0","id":1,"result":{}}\n\n'
-          'event:\n'
           'data: {"jsonrpc":"2.0","id":2,"result":{}}\n\n'
+          'event:\n'
+          'data: {"jsonrpc":"2.0","id":3,"result":{}}\n\n'
           'event: endpoint\n'
           'event\n'
-          'data: {"jsonrpc":"2.0","id":3,"result":{}}\n\n',
+          'data: {"jsonrpc":"2.0","id":4,"result":{}}\n\n',
         ),
       );
 
@@ -226,6 +227,7 @@ void main() {
         {'jsonrpc': '2.0', 'id': 1, 'result': <String, Object?>{}},
         {'jsonrpc': '2.0', 'id': 2, 'result': <String, Object?>{}},
         {'jsonrpc': '2.0', 'id': 3, 'result': <String, Object?>{}},
+        {'jsonrpc': '2.0', 'id': 4, 'result': <String, Object?>{}},
       ]);
     });
 
