@@ -292,31 +292,31 @@ abstract base class MCPServer extends MCPBase {
 
   /// Lists all the root URIs from the client.
   ///
-  /// This method will only succeed if the client has advertised the `roots`
-  /// capability.
+  /// On revisions before 2026-07-28, this only succeeds if the client has
+  /// advertised the `roots` capability.
   ///
   /// Throws an [RpcException] with
   /// [McpErrorCodes.missingRequiredClientCapability] when it has not, naming
-  /// the capability the client is missing under `data.requiredCapabilities`,
-  /// which the 2026-07-28 revision requires of that error.
+  /// the capability the client is missing under `data.requiredCapabilities`.
   ///
-  /// On 2026-07-28 and later, throws an [RpcException] directing the caller
-  /// to return this request in an [InputRequiredResult].
+  /// From 2026-07-28, throws an [RpcException] before checking that
+  /// capability. The protocol carries a [ListRootsRequest] in an
+  /// [InputRequiredResult] on that revision.
   Future<ListRootsResult> listRoots([ListRootsRequest? request]) async {
+    if (protocolVersion >= ProtocolVersion.v2026_07_28) {
+      throw RpcException(
+        error_code.INTERNAL_ERROR,
+        'Direct ${ListRootsRequest.methodName} requests are unavailable on '
+        'protocol version ${protocolVersion.versionString}. '
+        'InputRequiredResult responses are allowed for '
+        '${CallToolRequest.methodName}, ${GetPromptRequest.methodName}, and '
+        '${ReadResourceRequest.methodName}.',
+      );
+    }
     if (!supportsRoots) {
       throw _missingClientCapability(
         'roots',
         ClientCapabilities(roots: RootsCapabilities()),
-      );
-    }
-    if (protocolVersion >= ProtocolVersion.v2026_07_28) {
-      throw RpcException(
-        error_code.INTERNAL_ERROR,
-        'The `${ListRootsRequest.methodName}` request cannot be sent directly '
-        'on protocol version `${protocolVersion.versionString}` and must be '
-        'returned in an InputRequiredResult for a '
-        '`${CallToolRequest.methodName}`, `${GetPromptRequest.methodName}`, or '
-        '`${ReadResourceRequest.methodName}` request.',
       );
     }
     return sendRequest(ListRootsRequest.methodName, request);
@@ -324,35 +324,35 @@ abstract base class MCPServer extends MCPBase {
 
   /// A request to prompt the LLM owned by the client with a message.
   ///
-  /// See https://modelcontextprotocol.io/specification/2025-11-25/client/sampling/.
+  /// See https://modelcontextprotocol.io/specification/2026-07-28/client/sampling/.
   ///
-  /// This method will only succeed if the client has advertised the `sampling`
-  /// capability.
+  /// On revisions before 2026-07-28, this only succeeds if the client has
+  /// advertised the `sampling` capability.
   ///
   /// Throws an [RpcException] with
   /// [McpErrorCodes.missingRequiredClientCapability] when it has not, naming
-  /// the capability the client is missing under `data.requiredCapabilities`,
-  /// which the 2026-07-28 revision requires of that error.
+  /// the capability the client is missing under `data.requiredCapabilities`.
   ///
-  /// On 2026-07-28 and later, throws an [RpcException] directing the caller
-  /// to return this request in an [InputRequiredResult].
+  /// From 2026-07-28, throws an [RpcException] before checking that
+  /// capability. The protocol carries a [CreateMessageRequest] in an
+  /// [InputRequiredResult] on that revision.
   Future<CreateMessageResult> createMessage(
     CreateMessageRequest request,
   ) async {
+    if (protocolVersion >= ProtocolVersion.v2026_07_28) {
+      throw RpcException(
+        error_code.INTERNAL_ERROR,
+        'Direct ${CreateMessageRequest.methodName} requests are unavailable '
+        'on protocol version ${protocolVersion.versionString}. '
+        'InputRequiredResult responses are allowed for '
+        '${CallToolRequest.methodName}, ${GetPromptRequest.methodName}, and '
+        '${ReadResourceRequest.methodName}.',
+      );
+    }
     if (!supportsSampling) {
       throw _missingClientCapability(
         'sampling',
         ClientCapabilities(sampling: {}),
-      );
-    }
-    if (protocolVersion >= ProtocolVersion.v2026_07_28) {
-      throw RpcException(
-        error_code.INTERNAL_ERROR,
-        'The `${CreateMessageRequest.methodName}` request cannot be sent '
-        'directly on protocol version `${protocolVersion.versionString}` and '
-        'must be returned in an InputRequiredResult for a '
-        '`${CallToolRequest.methodName}`, `${GetPromptRequest.methodName}`, or '
-        '`${ReadResourceRequest.methodName}` request.',
       );
     }
     return sendRequest(CreateMessageRequest.methodName, request);

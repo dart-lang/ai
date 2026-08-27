@@ -63,8 +63,9 @@ final class _ElicitingServer extends MCPServer
 
 Future<Map<String, Object?>?> _call(
   String tool,
-  ClientCapabilities capabilities,
-) => handleRequestScopedMessage(
+  ClientCapabilities capabilities, {
+  ProtocolVersion protocolVersion = ProtocolVersion.v2025_11_25,
+}) => handleRequestScopedMessage(
   {
     Keys.jsonrpc: '2.0',
     Keys.id: 1,
@@ -72,7 +73,7 @@ Future<Map<String, Object?>?> _call(
     Keys.params: {Keys.name: tool},
   },
   MCPServerInitialization(
-    protocolVersion: ProtocolVersion.v2026_07_28,
+    protocolVersion: protocolVersion,
     clientCapabilities: capabilities,
   ),
   _ElicitingServer.new,
@@ -83,9 +84,8 @@ const _missingCapability = McpErrorCodes.missingRequiredClientCapability;
 Object? _errorCode(Map<String, Object?> result) =>
     (result[Keys.error] as Map<String, Object?>)[Keys.code];
 
-/// The request-scoped transport cannot route a request back to the client, so
-/// a call that clears the capability check still fails. These assert that it
-/// got that far.
+/// On 2025-11-25, a call which passes the capability check reaches the
+/// request-scoped transport and fails there.
 final _clearedTheCheck = isNot(_missingCapability);
 
 Object? _requiredCapabilities(Map<String, Object?> result) {
@@ -124,19 +124,33 @@ void main() {
     );
   });
 
-  test('a declared mode stops before the request-scoped transport', () async {
-    final result = await _call(
-      'test/send',
-      ClientCapabilities(elicitation: ElicitationCapability(url: {})),
-    );
+  test('2026-07-28 rejects both modes before capability checks', () async {
+    for (final (tool, capabilities) in [
+      ('test/ask', ClientCapabilities()),
+      (
+        'test/ask',
+        ClientCapabilities(elicitation: ElicitationCapability(form: {})),
+      ),
+      ('test/send', ClientCapabilities()),
+      (
+        'test/send',
+        ClientCapabilities(elicitation: ElicitationCapability(url: {})),
+      ),
+    ]) {
+      final result = await _call(
+        tool,
+        capabilities,
+        protocolVersion: ProtocolVersion.v2026_07_28,
+      );
 
-    expect(_errorCode(result!), error_code.INTERNAL_ERROR);
-    expect(
-      (result[Keys.error] as Map<String, Object?>)[Keys.message],
-      'The `elicitation/create` request cannot be sent directly on protocol '
-      'version `2026-07-28` and must be returned in an InputRequiredResult '
-      'for a `tools/call`, `prompts/get`, or `resources/read` request.',
-    );
+      expect(_errorCode(result!), error_code.INTERNAL_ERROR);
+      expect(
+        (result[Keys.error] as Map<String, Object?>)[Keys.message],
+        'Direct elicitation/create requests are unavailable on protocol '
+        'version 2026-07-28. InputRequiredResult responses are allowed for '
+        'tools/call, prompts/get, and resources/read.',
+      );
+    }
   });
 
   test('naming one mode does not sign a client up for the other', () async {

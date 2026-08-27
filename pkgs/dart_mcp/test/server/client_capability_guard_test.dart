@@ -30,8 +30,9 @@ final class _RequestingServer extends MCPServer
 
 Future<Map<String, Object?>?> _callTool(
   String name,
-  ClientCapabilities capabilities,
-) => handleRequestScopedMessage(
+  ClientCapabilities capabilities, {
+  ProtocolVersion protocolVersion = ProtocolVersion.v2025_11_25,
+}) => handleRequestScopedMessage(
   {
     Keys.jsonrpc: '2.0',
     Keys.id: 1,
@@ -39,7 +40,7 @@ Future<Map<String, Object?>?> _callTool(
     Keys.params: {Keys.name: name},
   },
   MCPServerInitialization(
-    protocolVersion: ProtocolVersion.v2026_07_28,
+    protocolVersion: protocolVersion,
     clientCapabilities: capabilities,
   ),
   _RequestingServer.new,
@@ -74,36 +75,47 @@ void main() {
     },
   );
 
-  test('declared sampling stops before the request-scoped transport', () async {
-    final result = await _callTool(
-      'test/sample',
+  test('2026-07-28 rejects sampling before capability checks', () async {
+    for (final capabilities in [
+      ClientCapabilities(),
       ClientCapabilities(sampling: {}),
-    );
+    ]) {
+      final result = await _callTool(
+        'test/sample',
+        capabilities,
+        protocolVersion: ProtocolVersion.v2026_07_28,
+      );
 
-    final error = result![Keys.error] as Map<String, Object?>;
-    expect(error[Keys.code], error_code.INTERNAL_ERROR);
-    expect(
-      error[Keys.message],
-      'The `sampling/createMessage` request cannot be sent directly on '
-      'protocol version `2026-07-28` and must be returned in an '
-      'InputRequiredResult for a `tools/call`, `prompts/get`, or '
-      '`resources/read` request.',
-    );
+      final error = result![Keys.error] as Map<String, Object?>;
+      expect(error[Keys.code], error_code.INTERNAL_ERROR);
+      expect(
+        error[Keys.message],
+        'Direct sampling/createMessage requests are unavailable on protocol '
+        'version 2026-07-28. InputRequiredResult responses are allowed for '
+        'tools/call, prompts/get, and resources/read.',
+      );
+    }
   });
 
-  test('declared roots stop before the request-scoped transport', () async {
-    final result = await _callTool(
-      'test/roots',
+  test('2026-07-28 rejects roots before capability checks', () async {
+    for (final capabilities in [
+      ClientCapabilities(),
       ClientCapabilities(roots: RootsCapabilities()),
-    );
+    ]) {
+      final result = await _callTool(
+        'test/roots',
+        capabilities,
+        protocolVersion: ProtocolVersion.v2026_07_28,
+      );
 
-    final error = result![Keys.error] as Map<String, Object?>;
-    expect(error[Keys.code], error_code.INTERNAL_ERROR);
-    expect(
-      error[Keys.message],
-      'The `roots/list` request cannot be sent directly on protocol version '
-      '`2026-07-28` and must be returned in an InputRequiredResult for a '
-      '`tools/call`, `prompts/get`, or `resources/read` request.',
-    );
+      final error = result![Keys.error] as Map<String, Object?>;
+      expect(error[Keys.code], error_code.INTERNAL_ERROR);
+      expect(
+        error[Keys.message],
+        'Direct roots/list requests are unavailable on protocol version '
+        '2026-07-28. InputRequiredResult responses are allowed for '
+        'tools/call, prompts/get, and resources/read.',
+      );
+    }
   });
 }

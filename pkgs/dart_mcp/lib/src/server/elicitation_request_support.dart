@@ -49,22 +49,32 @@ base mixin ElicitationRequestSupport on LoggingSupport {
 
   /// Sends an `elicitation/create` request to the client.
   ///
-  /// This method will only succeed if the client has advertised the mode the
-  /// request asks for, as [supportsFormElicitation] and
-  /// [supportsUrlElicitation] read it.
+  /// On revisions before 2026-07-28, this only succeeds if the client has
+  /// advertised the mode the request asks for, as [supportsFormElicitation]
+  /// and [supportsUrlElicitation] read it.
   ///
   /// Throws an [RpcException] with
   /// [McpErrorCodes.missingRequiredClientCapability] when the client has not,
-  /// naming the capability it is missing under `data.requiredCapabilities`,
-  /// which the 2026-07-28 revision requires of that error.
+  /// naming the capability it is missing under `data.requiredCapabilities`.
   ///
-  /// On 2026-07-28 and later, throws an [RpcException] directing the caller
-  /// to return this request in an [InputRequiredResult].
+  /// From 2026-07-28, throws an [RpcException] before checking that
+  /// capability. The protocol carries an [ElicitRequest] in an
+  /// [InputRequiredResult] on that revision.
   ///
   /// [ToolsSupport.callTool] rethrows an [RpcException] instead of folding it
   /// into a [CallToolResult], so a tool which elicits reaches the client as
   /// that error rather than as a result whose text is a Dart stack trace.
   Future<ElicitResult> elicit(ElicitRequest request) async {
+    if (protocolVersion >= ProtocolVersion.v2026_07_28) {
+      throw RpcException(
+        error_code.INTERNAL_ERROR,
+        'Direct ${ElicitRequest.methodName} requests are unavailable on '
+        'protocol version ${protocolVersion.versionString}. '
+        'InputRequiredResult responses are allowed for '
+        '${CallToolRequest.methodName}, ${GetPromptRequest.methodName}, and '
+        '${ReadResourceRequest.methodName}.',
+      );
+    }
     final raw = request.rawMode;
     if (raw != null && !ElicitationMode.values.any((m) => m.name == raw)) {
       throw RpcException.invalidParams(
@@ -87,16 +97,6 @@ base mixin ElicitationRequestSupport on LoggingSupport {
             ClientCapabilities(elicitation: ElicitationCapability(form: {})),
           );
         }
-    }
-    if (protocolVersion >= ProtocolVersion.v2026_07_28) {
-      throw RpcException(
-        error_code.INTERNAL_ERROR,
-        'The `${ElicitRequest.methodName}` request cannot be sent directly on '
-        'protocol version `${protocolVersion.versionString}` and must be '
-        'returned in an InputRequiredResult for a '
-        '`${CallToolRequest.methodName}`, `${GetPromptRequest.methodName}`, or '
-        '`${ReadResourceRequest.methodName}` request.',
-      );
     }
     return sendRequest(ElicitRequest.methodName, request);
   }

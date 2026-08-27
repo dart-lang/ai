@@ -437,11 +437,14 @@ void main() {
       expect(legacy![Keys.result], isNotNull);
     });
 
-    test('fails a server ping instead of hanging', () async {
+    test('rejects a 2025-11-25 roots request instead of hanging', () async {
       final harness = _DispatcherHarness();
       final response = await harness.dispatch(
-        _callTool('ping'),
-        _initialization(),
+        _callTool('roots'),
+        _initialization(
+          capabilities: ClientCapabilities(roots: RootsCapabilities()),
+          protocolVersion: ProtocolVersion.v2025_11_25,
+        ),
       );
 
       final error = response![Keys.error] as Map<String, Object?>;
@@ -663,6 +666,7 @@ void main() {
           },
           _initialization(
             capabilities: ClientCapabilities(roots: RootsCapabilities()),
+            protocolVersion: ProtocolVersion.v2025_11_25,
           ),
           _RootsTrackingDispatcherServer.new,
         );
@@ -939,9 +943,9 @@ final class _DispatcherTestServer extends TestMCPServer
       log(LoggingLevel.error, 'from the handler');
       return CallToolResult(content: [TextContent(text: 'notified')]);
     });
-    registerTool(Tool(name: 'ping', inputSchema: ObjectSchema()), (_) async {
-      await ping();
-      return CallToolResult(content: [TextContent(text: 'unreachable')]);
+    registerTool(Tool(name: 'roots', inputSchema: ObjectSchema()), (_) async {
+      final roots = await listRoots(ListRootsRequest());
+      return CallToolResult(content: [TextContent(text: '$roots')]);
     });
     registerTool(Tool(name: 'shutdown', inputSchema: ObjectSchema()), (
       _,

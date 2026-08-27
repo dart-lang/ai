@@ -66,18 +66,25 @@
     Dart stack trace attached. A server which overrides `readResource` and
     catches the `ArgumentError` its dartdoc used to promise needs to catch
     `RpcException` from `package:json_rpc_2` instead.
-  - `MCPServer.listRoots` and `MCPServer.createMessage` now throw an
-    `RpcException` with `McpErrorCodes.missingRequiredClientCapability` when
-    the client did not declare `roots` or `sampling`, naming the missing
-    capability under `data.requiredCapabilities`, the same way
-    `ElicitationRequestSupport.elicit` already did. The 2026-07-28 revision
-    requires a server not to send a request which relies on a capability the
-    client left out. Both used to send the request anyway, so what came back
+  - On revisions before 2026-07-28, `MCPServer.listRoots` and
+    `MCPServer.createMessage` now throw an `RpcException` with
+    `McpErrorCodes.missingRequiredClientCapability` when the client did not
+    declare `roots` or `sampling`, naming the missing capability under
+    `data.requiredCapabilities`, the same way `ElicitationRequestSupport.elicit`
+    already did. Both used to send the request anyway, so what came back
     depended on the peer: a client with no handler answered `-32601`, and a
     request-scoped transport answered `-32603` because it cannot carry a
     server to client request at all. A server which expects either of those
-    codes for an undeclared capability should read
-    `MCPServer.supportsRoots` or `MCPServer.supportsSampling` first.
+    codes for an undeclared capability should read `MCPServer.supportsRoots`
+    or `MCPServer.supportsSampling` first.
+  - From protocol version 2026-07-28, `MCPServer.listRoots`,
+    `MCPServer.createMessage`, and `ElicitationRequestSupport.elicit` throw an
+    `RpcException` with `-32603` before checking the client capability, even
+    when it is declared. Direct `roots/list`, `sampling/createMessage`, and
+    `elicitation/create` requests are unavailable on that revision and later.
+    The protocol carries them in an `InputRequiredResult` response to
+    `tools/call`, `prompts/get`, or `resources/read`, see
+    https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr.
   - `ResourceLink.icons` is now `List<Icon>?` instead of `List<String>?`, and
     its factory takes the icons, the way the other five types carrying `icons`
     already do. The field has been an array of icons since 2025-11-25 added it,
