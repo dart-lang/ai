@@ -53,9 +53,8 @@ Stream<Map<String, Object?>> sseMessageStream(Stream<List<int>> bytes) async* {
     }
 
     final separator = line.indexOf(':');
-    if (separator < 0) continue;
-    final field = line.substring(0, separator);
-    var value = line.substring(separator + 1);
+    final field = separator < 0 ? line : line.substring(0, separator);
+    var value = separator < 0 ? '' : line.substring(separator + 1);
     if (value.startsWith(' ')) value = value.substring(1);
     if (field == 'event') {
       event = value;

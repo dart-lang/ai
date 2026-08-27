@@ -219,7 +219,7 @@
   those on a `subscriptions/listen` stream. Does not treat a closed stream as
   cancellation, which the specification requires.
 - Add `sseMessageStream`, which reads `message` events from a Streamable HTTP
-  SSE response as JSON-RPC objects, including events that omit the type and
+  SSE response as JSON objects, including events that omit the type and
   payloads split across consecutive `data` fields.
 - Serve `server/discover` from `MCPServer.discover`, which answers with the
   request-scoped protocol versions this package implements, the capabilities

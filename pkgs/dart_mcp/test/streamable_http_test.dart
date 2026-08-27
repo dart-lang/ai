@@ -215,7 +215,28 @@ void main() {
         utf8.encode(
           'data: {"jsonrpc":"2.0","id":1,"result":{}}\n\n'
           'event:\n'
-          'data: {"jsonrpc":"2.0","id":2,"result":{}}\n\n',
+          'data: {"jsonrpc":"2.0","id":2,"result":{}}\n\n'
+          'event: endpoint\n'
+          'event\n'
+          'data: {"jsonrpc":"2.0","id":3,"result":{}}\n\n',
+        ),
+      );
+
+      expect(await sseMessageStream(bytes).toList(), [
+        {'jsonrpc': '2.0', 'id': 1, 'result': <String, Object?>{}},
+        {'jsonrpc': '2.0', 'id': 2, 'result': <String, Object?>{}},
+        {'jsonrpc': '2.0', 'id': 3, 'result': <String, Object?>{}},
+      ]);
+    });
+
+    test('joins consecutive data fields', () async {
+      final bytes = Stream.value(
+        utf8.encode(
+          'event: message\n'
+          'data: {"jsonrpc":"2.0",\n'
+          'data: "id":1,"result":{}}\n\n'
+          'data: {"jsonrpc":"2.0",\n'
+          'data: "id":2,"result":{}}\n\n',
         ),
       );
 
@@ -225,18 +246,21 @@ void main() {
       ]);
     });
 
-    test('joins consecutive data fields', () async {
+    test('preserves line feeds between data fields', () {
       final bytes = Stream.value(
         utf8.encode(
-          'event: message\n'
-          'data: {"jsonrpc":"2.0",\n'
-          'data: "id":1,"result":{}}\n\n',
+          'data: {"jsonrpc":"2.0","id":1,"result":{"value":1\n'
+          'data: 2}}\n\n',
         ),
       );
 
-      expect(await sseMessageStream(bytes).toList(), [
-        {'jsonrpc': '2.0', 'id': 1, 'result': <String, Object?>{}},
-      ]);
+      expect(sseMessageStream(bytes).toList(), throwsFormatException);
+    });
+
+    test('treats a colonless data field as empty', () {
+      final bytes = Stream.value(utf8.encode('data\n\n'));
+
+      expect(sseMessageStream(bytes).toList(), throwsFormatException);
     });
 
     test('rejects event data which is not a JSON object', () {
