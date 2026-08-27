@@ -299,11 +299,24 @@ abstract base class MCPServer extends MCPBase {
   /// [McpErrorCodes.missingRequiredClientCapability] when it has not, naming
   /// the capability the client is missing under `data.requiredCapabilities`,
   /// which the 2026-07-28 revision requires of that error.
+  ///
+  /// On 2026-07-28 and later, throws an [RpcException] directing the caller
+  /// to return this request in an [InputRequiredResult].
   Future<ListRootsResult> listRoots([ListRootsRequest? request]) async {
     if (!supportsRoots) {
       throw _missingClientCapability(
         'roots',
         ClientCapabilities(roots: RootsCapabilities()),
+      );
+    }
+    if (protocolVersion >= ProtocolVersion.v2026_07_28) {
+      throw RpcException(
+        error_code.INTERNAL_ERROR,
+        'The `${ListRootsRequest.methodName}` request cannot be sent directly '
+        'on protocol version `${protocolVersion.versionString}` and must be '
+        'returned in an InputRequiredResult for a '
+        '`${CallToolRequest.methodName}`, `${GetPromptRequest.methodName}`, or '
+        '`${ReadResourceRequest.methodName}` request.',
       );
     }
     return sendRequest(ListRootsRequest.methodName, request);
@@ -320,6 +333,9 @@ abstract base class MCPServer extends MCPBase {
   /// [McpErrorCodes.missingRequiredClientCapability] when it has not, naming
   /// the capability the client is missing under `data.requiredCapabilities`,
   /// which the 2026-07-28 revision requires of that error.
+  ///
+  /// On 2026-07-28 and later, throws an [RpcException] directing the caller
+  /// to return this request in an [InputRequiredResult].
   Future<CreateMessageResult> createMessage(
     CreateMessageRequest request,
   ) async {
@@ -327,6 +343,16 @@ abstract base class MCPServer extends MCPBase {
       throw _missingClientCapability(
         'sampling',
         ClientCapabilities(sampling: {}),
+      );
+    }
+    if (protocolVersion >= ProtocolVersion.v2026_07_28) {
+      throw RpcException(
+        error_code.INTERNAL_ERROR,
+        'The `${CreateMessageRequest.methodName}` request cannot be sent '
+        'directly on protocol version `${protocolVersion.versionString}` and '
+        'must be returned in an InputRequiredResult for a '
+        '`${CallToolRequest.methodName}`, `${GetPromptRequest.methodName}`, or '
+        '`${ReadResourceRequest.methodName}` request.',
       );
     }
     return sendRequest(CreateMessageRequest.methodName, request);

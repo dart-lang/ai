@@ -58,6 +58,9 @@ base mixin ElicitationRequestSupport on LoggingSupport {
   /// naming the capability it is missing under `data.requiredCapabilities`,
   /// which the 2026-07-28 revision requires of that error.
   ///
+  /// On 2026-07-28 and later, throws an [RpcException] directing the caller
+  /// to return this request in an [InputRequiredResult].
+  ///
   /// [ToolsSupport.callTool] rethrows an [RpcException] instead of folding it
   /// into a [CallToolResult], so a tool which elicits reaches the client as
   /// that error rather than as a result whose text is a Dart stack trace.
@@ -84,6 +87,16 @@ base mixin ElicitationRequestSupport on LoggingSupport {
             ClientCapabilities(elicitation: ElicitationCapability(form: {})),
           );
         }
+    }
+    if (protocolVersion >= ProtocolVersion.v2026_07_28) {
+      throw RpcException(
+        error_code.INTERNAL_ERROR,
+        'The `${ElicitRequest.methodName}` request cannot be sent directly on '
+        'protocol version `${protocolVersion.versionString}` and must be '
+        'returned in an InputRequiredResult for a '
+        '`${CallToolRequest.methodName}`, `${GetPromptRequest.methodName}`, or '
+        '`${ReadResourceRequest.methodName}` request.',
+      );
     }
     return sendRequest(ElicitRequest.methodName, request);
   }

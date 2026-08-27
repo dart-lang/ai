@@ -4,6 +4,7 @@
 
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp/src/utils/constants.dart';
+import 'package:json_rpc_2/error_code.dart' as error_code;
 import 'package:test/test.dart';
 
 final class _RequestingServer extends MCPServer
@@ -73,20 +74,36 @@ void main() {
     },
   );
 
-  test('a declared capability reaches the transport instead', () async {
-    // The request-scoped transport cannot carry a server to client request, so
-    // it answers with its own error. Reaching that error is what shows the
-    // guard let the request through.
+  test('declared sampling stops before the request-scoped transport', () async {
     final result = await _callTool(
       'test/sample',
       ClientCapabilities(sampling: {}),
     );
 
     final error = result![Keys.error] as Map<String, Object?>;
+    expect(error[Keys.code], error_code.INTERNAL_ERROR);
     expect(
-      error[Keys.code],
-      isNot(McpErrorCodes.missingRequiredClientCapability),
+      error[Keys.message],
+      'The `sampling/createMessage` request cannot be sent directly on '
+      'protocol version `2026-07-28` and must be returned in an '
+      'InputRequiredResult for a `tools/call`, `prompts/get`, or '
+      '`resources/read` request.',
     );
-    expect(error[Keys.message], contains('request-scoped transport'));
+  });
+
+  test('declared roots stop before the request-scoped transport', () async {
+    final result = await _callTool(
+      'test/roots',
+      ClientCapabilities(roots: RootsCapabilities()),
+    );
+
+    final error = result![Keys.error] as Map<String, Object?>;
+    expect(error[Keys.code], error_code.INTERNAL_ERROR);
+    expect(
+      error[Keys.message],
+      'The `roots/list` request cannot be sent directly on protocol version '
+      '`2026-07-28` and must be returned in an InputRequiredResult for a '
+      '`tools/call`, `prompts/get`, or `resources/read` request.',
+    );
   });
 }

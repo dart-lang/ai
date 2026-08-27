@@ -75,8 +75,6 @@ typedef MCPServerFactory =
 /// request-scoped is the transport's job. Errors thrown by [serverFactory] or
 /// by [MCPServer.initialize] propagate to the caller; a server that was
 /// created is shut down first.
-// TODO: Support server-to-client requests once a transport can route them.
-// https://github.com/dart-lang/ai/issues/162
 Future<Map<String, Object?>?> handleRequestScopedMessage(
   Map<String, Object?> message,
   MCPServerInitialization initialization,

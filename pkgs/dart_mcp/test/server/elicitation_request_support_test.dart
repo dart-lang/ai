@@ -124,13 +124,19 @@ void main() {
     );
   });
 
-  test('a declared mode clears the capability check', () async {
+  test('a declared mode stops before the request-scoped transport', () async {
     final result = await _call(
       'test/send',
       ClientCapabilities(elicitation: ElicitationCapability(url: {})),
     );
 
-    expect(_errorCode(result!), _clearedTheCheck);
+    expect(_errorCode(result!), error_code.INTERNAL_ERROR);
+    expect(
+      (result[Keys.error] as Map<String, Object?>)[Keys.message],
+      'The `elicitation/create` request cannot be sent directly on protocol '
+      'version `2026-07-28` and must be returned in an InputRequiredResult '
+      'for a `tools/call`, `prompts/get`, or `resources/read` request.',
+    );
   });
 
   test('naming one mode does not sign a client up for the other', () async {
