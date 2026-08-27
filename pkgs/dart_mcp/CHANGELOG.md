@@ -1,5 +1,6 @@
 ## 0.6.0-wip
 
+- Add a local HTTP probe for the MCP conformance suite.
 - **BREAKING**:
   - `MCPBase` (including the `MCPServer.fromStreamChannel` and
     `ServerConnection.fromStreamChannel` constructors),
