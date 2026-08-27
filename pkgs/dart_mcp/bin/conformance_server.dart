@@ -2,10 +2,14 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+// ignore_for_file: depend_on_referenced_packages
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
+import 'package:crypto/crypto.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp/streamable_http.dart';
 import 'package:json_rpc_2/json_rpc_2.dart';
@@ -29,6 +33,7 @@ const _mixedContentTool = 'test_multiple_content_types';
 const _errorTool = 'test_error_handling';
 const _progressTool = 'test_tool_with_progress';
 const _missingCapabilityTool = 'test_missing_capability';
+const _headerTool = 'test_x_mcp_header';
 const _jsonSchemaTool = 'json_schema_2020_12_tool';
 const _inputElicitationTool = 'test_input_required_result_elicitation';
 const _inputSamplingTool = 'test_input_required_result_sampling';
@@ -49,16 +54,21 @@ const _embeddedResourcePrompt = 'test_prompt_with_embedded_resource';
 const _imagePrompt = 'test_prompt_with_image';
 const _inputPrompt = 'test_input_required_result_prompt';
 
-const _requestState = 'request-state';
-const _multipleRequestState = 'multiple-request-state';
-const _roundOneState = 'round-one-state';
-const _roundTwoState = 'round-two-state';
-const _tamperState = 'tamper-state';
+final _stateRandom = Random.secure();
+final _stateKey = List<int>.unmodifiable(
+  List<int>.generate(32, (_) => _stateRandom.nextInt(256)),
+);
+final _stateHmac = Hmac(sha256, _stateKey);
 
 final _headerToolSchema = ObjectSchema.fromMap({
   'type': 'object',
   'properties': {
-    'name': {'type': 'string', 'x-mcp-header': 'Name'},
+    'region': {
+      'type': 'string',
+      'description': 'mirrored into Mcp-Param-Region',
+      'x-mcp-header': 'Region',
+    },
+    'level': {'type': 'integer', 'description': 'non-mirrored argument'},
   },
 });
 
@@ -191,11 +201,25 @@ base class _ConformanceServer extends MCPServer
       Tool(
         name: _simpleTextTool,
         description: _simpleTextTool,
-        inputSchema: _headerToolSchema,
+        inputSchema: ObjectSchema(),
       ),
       (_) => CallToolResult(
         content: [
           TextContent(text: 'This is a simple text response for testing.'),
+        ],
+      ),
+    );
+    registerTool(
+      Tool(
+        name: _headerTool,
+        description: _headerTool,
+        inputSchema: _headerToolSchema,
+      ),
+      (request) => CallToolResult(
+        content: [
+          TextContent(
+            text: 'region=${request.arguments?['region'] ?? '<none>'}',
+          ),
         ],
       ),
     );
@@ -455,8 +479,9 @@ base class _ConformanceServer extends MCPServer
   }
 
   CallToolResult _requestElicitationInput(CallToolRequest request) {
-    if (_inputResponse(request, 'user_name') != null) {
-      return _completeTool('Hello');
+    final name = _acceptedString(request, 'user_name', 'name');
+    if (name != null) {
+      return _completeTool('Hello, $name!');
     }
     return _toolInputRequired(
       InputRequiredResult(
@@ -471,8 +496,9 @@ base class _ConformanceServer extends MCPServer
   }
 
   CallToolResult _requestSamplingInput(CallToolRequest request) {
-    if (_inputResponse(request, 'capital_question') != null) {
-      return _completeTool('Sampling complete');
+    final text = _sampledText(request, 'capital_question');
+    if (text != null) {
+      return _completeTool('Sampling response: $text');
     }
     return _toolInputRequired(
       InputRequiredResult(
@@ -487,8 +513,10 @@ base class _ConformanceServer extends MCPServer
   }
 
   CallToolResult _requestRootsInput(CallToolRequest request) {
-    if (_inputResponse(request, 'client_roots') != null) {
-      return _completeTool('Roots received');
+    final roots = _rootsResponse(request, 'client_roots');
+    if (roots != null) {
+      final uris = roots.map((root) => root['uri']).join(', ');
+      return _completeTool('Client exposed ${roots.length} root(s): $uris');
     }
     return _toolInputRequired(
       InputRequiredResult(
@@ -500,26 +528,32 @@ base class _ConformanceServer extends MCPServer
   }
 
   CallToolResult _requestStateInput(CallToolRequest request) {
-    if (_inputResponse(request, 'confirm') != null &&
-        request.requestState == _requestState) {
-      return _completeTool('state-ok');
+    final confirmation = _acceptedBool(request, 'confirm', 'ok');
+    if (confirmation != null) {
+      _verifyState(request.requestState, expectedTool: _inputStateTool);
+      return _completeTool(
+        'state-ok: requestState verified and confirmation received',
+      );
     }
     return _toolInputRequired(
       InputRequiredResult(
         inputRequests: {
           'confirm': _elicitBool(message: 'Please confirm', property: 'ok'),
         },
-        requestState: _requestState,
+        requestState: _mintState({'tool': _inputStateTool}),
       ),
     );
   }
 
   CallToolResult _requestMultipleInputs(CallToolRequest request) {
-    if (_inputResponse(request, 'user_name') != null &&
-        _inputResponse(request, 'greeting') != null &&
-        _inputResponse(request, 'client_roots') != null &&
-        request.requestState == _multipleRequestState) {
-      return _completeTool('Multiple inputs received');
+    if (request.requestState != null) {
+      _verifyState(request.requestState, expectedTool: _inputMultipleTool);
+    }
+    final name = _acceptedString(request, 'user_name', 'name');
+    final greeting = _sampledText(request, 'greeting');
+    final roots = _rootsResponse(request, 'client_roots');
+    if (name != null && greeting != null && roots != null) {
+      return _completeTool('$greeting $name, ${roots.length} root(s) visible');
     }
     return _toolInputRequired(
       InputRequiredResult(
@@ -528,88 +562,279 @@ base class _ConformanceServer extends MCPServer
             message: 'What is your name?',
             property: 'name',
           ),
-          'greeting': _sample('Write a short greeting', maxTokens: 50),
+          'greeting': _sample('Generate a greeting', maxTokens: 50),
           'client_roots': InputRequest.listRoots(ListRootsRequest()),
         },
-        requestState: _multipleRequestState,
+        requestState: _mintState({'tool': _inputMultipleTool}),
       ),
     );
   }
 
   CallToolResult _requestMultiRoundInput(CallToolRequest request) {
-    if (_inputResponse(request, 'step2') != null &&
-        request.requestState == _roundTwoState) {
-      return _completeTool('Two rounds complete');
-    }
-    if (_inputResponse(request, 'step1') != null &&
-        request.requestState == _roundOneState) {
+    if (request.requestState == null) {
       return _toolInputRequired(
         InputRequiredResult(
           inputRequests: {
-            'step2': _elicitString(
-              message: 'What is your favorite color?',
-              property: 'color',
+            'step1': _elicitString(
+              message: 'Step 1: What is your name?',
+              property: 'name',
             ),
           },
-          requestState: _roundTwoState,
+          requestState: _mintState({'tool': _inputMultiRoundTool, 'round': 1}),
         ),
       );
     }
-    return _toolInputRequired(
-      InputRequiredResult(
-        inputRequests: {
-          'step1': _elicitString(
-            message: 'What is your name?',
-            property: 'name',
-          ),
-        },
-        requestState: _roundOneState,
-      ),
+    final state = _verifyState(
+      request.requestState,
+      expectedTool: _inputMultiRoundTool,
     );
+    switch (state['round']) {
+      case 1:
+        final name = _acceptedString(request, 'step1', 'name');
+        if (name == null) {
+          return _toolInputRequired(
+            InputRequiredResult(
+              inputRequests: {
+                'step1': _elicitString(
+                  message: 'Step 1: What is your name?',
+                  property: 'name',
+                ),
+              },
+              requestState: request.requestState,
+            ),
+          );
+        }
+        return _toolInputRequired(
+          InputRequiredResult(
+            inputRequests: {
+              'step2': _elicitString(
+                message: 'Step 2: What is your favorite color?',
+                property: 'color',
+              ),
+            },
+            requestState: _mintState({
+              'tool': _inputMultiRoundTool,
+              'round': 2,
+              'name': name,
+            }),
+          ),
+        );
+      case 2:
+        final color = _acceptedString(request, 'step2', 'color');
+        if (color == null) {
+          return _toolInputRequired(
+            InputRequiredResult(
+              inputRequests: {
+                'step2': _elicitString(
+                  message: 'Step 2: What is your favorite color?',
+                  property: 'color',
+                ),
+              },
+              requestState: request.requestState,
+            ),
+          );
+        }
+        return _completeTool(
+          'Multi-round complete: ${state['name']} likes $color',
+        );
+      default:
+        throw RpcException.invalidParams(
+          'Received requestState with round "${state['round']}". '
+          'Expected round 1 or 2.',
+        );
+    }
   }
 
   CallToolResult _requestTamperCheckedInput(CallToolRequest request) {
-    if (_inputResponse(request, 'confirm') != null) {
-      if (request.requestState != _tamperState) {
-        throw RpcException.invalidParams(
-          'Received requestState "${request.requestState}". '
-          'Expected "$_tamperState".',
-        );
+    if (request.requestState != null) {
+      _verifyState(request.requestState, expectedTool: _inputTamperedTool);
+      if (_acceptedBool(request, 'confirm', 'ok') != null) {
+        return _completeTool('integrity-ok: requestState verified');
       }
-      return _completeTool('State accepted');
     }
     return _toolInputRequired(
       InputRequiredResult(
         inputRequests: {
           'confirm': _elicitBool(message: 'Please confirm', property: 'ok'),
         },
-        requestState: _tamperState,
+        requestState: _mintState({'tool': _inputTamperedTool}),
       ),
     );
   }
 
-  CallToolResult _requestCapabilityInputs(CallToolRequest _) {
+  CallToolResult _requestCapabilityInputs(CallToolRequest request) {
+    if (request.inputResponses != null) {
+      return _completeTool('Capability-aware input requests fulfilled');
+    }
     final requests = <String, InputRequest>{};
     if (clientCapabilities.sampling != null) {
-      requests['sampling'] = _sample('Say hello', maxTokens: 20);
+      requests['greeting'] = _sample(
+        'Generate a short greeting',
+        maxTokens: 50,
+      );
     }
     if (clientCapabilities.elicitation != null) {
-      requests['elicitation'] = _elicitString(
+      requests['user_name'] = _elicitString(
         message: 'What is your name?',
         property: 'name',
       );
     }
     if (clientCapabilities.roots != null) {
-      requests['roots'] = InputRequest.listRoots(ListRootsRequest());
+      requests['client_roots'] = InputRequest.listRoots(ListRootsRequest());
     }
-    if (requests.isEmpty) return _completeTool('No inputs requested');
+    if (requests.isEmpty) {
+      return _completeTool(
+        'No declared client capability supports an in-band input request',
+      );
+    }
     return _toolInputRequired(InputRequiredResult(inputRequests: requests));
   }
 
-  Result? _inputResponse(WithInputResponses request, String key) {
-    final responses = request.inputResponses;
-    if (responses == null || !responses.containsKey(key)) return null;
-    return responses[key];
+  Map<String, Object?>? _inputResponse(WithInputResponses request, String key) {
+    final values = request as Map<String, Object?>;
+    final responses = values['inputResponses'];
+    if (responses is! Map || !responses.containsKey(key)) return null;
+    final response = responses[key];
+    return response is Map ? response.cast<String, Object?>() : null;
+  }
+
+  String? _acceptedString(
+    WithInputResponses request,
+    String key,
+    String property,
+  ) {
+    final content = _acceptedContent(request, key);
+    final value = content?[property];
+    return value is String ? value : null;
+  }
+
+  bool? _acceptedBool(WithInputResponses request, String key, String property) {
+    final content = _acceptedContent(request, key);
+    final value = content?[property];
+    return value is bool ? value : null;
+  }
+
+  Map<String, Object?>? _acceptedContent(
+    WithInputResponses request,
+    String key,
+  ) {
+    final response = _inputResponse(request, key);
+    if (response?['action'] != 'accept') return null;
+    final content = response?['content'];
+    return content is Map ? content.cast<String, Object?>() : null;
+  }
+
+  String? _sampledText(WithInputResponses request, String key) {
+    final response = _inputResponse(request, key);
+    final content = response?['content'];
+    if (content is! Map) return null;
+    final values = content.cast<String, Object?>();
+    final text = values['text'];
+    return values['type'] == 'text' && text is String ? text : null;
+  }
+
+  List<Map<String, Object?>>? _rootsResponse(
+    WithInputResponses request,
+    String key,
+  ) {
+    final response = _inputResponse(request, key);
+    final roots = response?['roots'];
+    if (roots is! List) return null;
+    final result = <Map<String, Object?>>[];
+    for (final root in roots) {
+      if (root is! Map) return null;
+      final values = root.cast<String, Object?>();
+      if (values['uri'] is! String) return null;
+      result.add(values);
+    }
+    return result;
+  }
+
+  String _mintState(Map<String, Object?> state) {
+    final envelope = {
+      'p': {
+        ...state,
+        'nonce': base64UrlEncode(
+          List<int>.generate(16, (_) => _stateRandom.nextInt(256)),
+        ),
+      },
+      'exp':
+          DateTime.now().millisecondsSinceEpoch ~/
+              Duration.millisecondsPerSecond +
+          600,
+    };
+    final body = base64UrlEncode(
+      utf8.encode(jsonEncode(envelope)),
+    ).replaceAll('=', '');
+    final signature = base64UrlEncode(
+      _stateHmac.convert(utf8.encode('v1.$body')).bytes,
+    ).replaceAll('=', '');
+    return 'v1.$body.$signature';
+  }
+
+  Map<String, Object?> _verifyState(
+    String? state, {
+    required String expectedTool,
+  }) {
+    try {
+      if (state == null) throw const FormatException('Missing state');
+      final signatureSeparator = state.lastIndexOf('.');
+      if (!state.startsWith('v1.') || signatureSeparator <= 3) {
+        throw const FormatException('Invalid state');
+      }
+      final body = state.substring(3, signatureSeparator);
+      final expectedSignature = base64UrlEncode(
+        _stateHmac.convert(utf8.encode('v1.$body')).bytes,
+      ).replaceAll('=', '');
+      if (!_constantTimeEquals(
+        state.substring(signatureSeparator + 1),
+        expectedSignature,
+      )) {
+        throw const FormatException('Invalid signature');
+      }
+      final decoded = jsonDecode(
+        utf8.decode(base64Url.decode(_withBase64Padding(body))),
+      );
+      if (decoded is! Map) throw const FormatException('Invalid envelope');
+      final envelope = decoded.cast<String, Object?>();
+      final expiresAt = envelope['exp'];
+      final now =
+          DateTime.now().millisecondsSinceEpoch ~/
+          Duration.millisecondsPerSecond;
+      if (expiresAt is! num || expiresAt < now) {
+        throw const FormatException('Expired state');
+      }
+      final statePayload = envelope['p'];
+      if (statePayload is! Map) {
+        throw const FormatException('Invalid payload');
+      }
+      final payload = statePayload.cast<String, Object?>();
+      if (payload['tool'] != expectedTool) {
+        throw const FormatException('Invalid tool');
+      }
+      return payload;
+    } on FormatException {
+      throw RpcException.invalidParams(
+        'Received a requestState that failed integrity validation. '
+        'Expected an unmodified state issued by this server.',
+      );
+    }
+  }
+
+  String _withBase64Padding(String value) {
+    final padding = (4 - value.length % 4) % 4;
+    return value.padRight(value.length + padding, '=');
+  }
+
+  bool _constantTimeEquals(String left, String right) {
+    var difference = left.length ^ right.length;
+    final length = max(left.length, right.length);
+    for (var index = 0; index < length; index++) {
+      final leftCode = index < left.length ? left.codeUnitAt(index) : 0;
+      final rightCode = index < right.length ? right.codeUnitAt(index) : 0;
+      difference |= leftCode ^ rightCode;
+    }
+    return difference == 0;
   }
 
   CallToolResult _completeTool(String text) =>
@@ -740,12 +965,13 @@ base class _ConformanceServer extends MCPServer
       ),
     );
     addPrompt(Prompt(name: _inputPrompt, description: _inputPrompt), (request) {
-      if (_inputResponse(request, 'user_context') != null) {
+      final context = _acceptedString(request, 'user_context', 'context');
+      if (context != null) {
         return GetPromptResult(
           messages: [
             PromptMessage(
               role: Role.user,
-              content: TextContent(text: 'Context received'),
+              content: TextContent(text: 'Use the following context: $context'),
             ),
           ],
         );
@@ -754,7 +980,7 @@ base class _ConformanceServer extends MCPServer
         InputRequiredResult(
           inputRequests: {
             'user_context': _elicitString(
-              message: 'Please provide context',
+              message: 'What context should the prompt use?',
               property: 'context',
             ),
           },
