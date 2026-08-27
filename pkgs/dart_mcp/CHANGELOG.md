@@ -277,11 +277,7 @@
   needs no handshake, so it can run before `initialize`. The request carries
   `protocolVersion` and `capabilities` in `_meta` under the reserved keys
   `handleStreamableHttpRequest` already requires, and any other key the caller
-  gave passes through. Add `ProtocolVersion.selectMutuallySupported`, which
-  picks the newest version this package has a name for out of a list like
-  `DiscoverResult.supportedVersions`, skipping what it cannot name, see
-  https://modelcontextprotocol.io/specification/2026-07-28/basic/versioning.
-  There is no HTTP channel to run it over yet.
+  gave passes through.
 
 ## 0.5.2
 

@@ -17,6 +17,8 @@ void main() {
       final harness = _WireHarness();
       harness.respondToNextRequest({
         Keys.resultType: ResultTypes.complete,
+        Keys.ttlMs: 0,
+        Keys.cacheScope: CacheScope.private.name,
         Keys.supportedVersions: ['2026-07-28'],
         Keys.capabilities: {Keys.tools: <String, Object?>{}},
       });
@@ -30,16 +32,17 @@ void main() {
       );
 
       final request = harness.requests.single;
-      expect(request[Keys.method], DiscoverRequest.methodName);
-      final meta =
-          (request[Keys.params] as Map)[Keys.meta] as Map<String, Object?>;
-      expect(meta[Keys.protocolVersionMeta], '2026-07-28');
-      expect(meta[Keys.clientInfoMeta], {
-        Keys.name: 'test client',
-        Keys.version: '0.1.0',
-      });
-      expect(meta[Keys.clientCapabilitiesMeta], {
-        Keys.elicitation: {Keys.form: <String, Object?>{}},
+      expect(request['method'], 'server/discover');
+      final meta = (request['params'] as Map)['_meta'] as Map<String, Object?>;
+      expect(meta, {
+        'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+        'io.modelcontextprotocol/clientInfo': {
+          'name': 'test client',
+          'version': '0.1.0',
+        },
+        'io.modelcontextprotocol/clientCapabilities': {
+          'elicitation': {'form': <String, Object?>{}},
+        },
       });
 
       expect(result.supportedVersions, ['2026-07-28']);
@@ -52,6 +55,8 @@ void main() {
         final harness = _WireHarness();
         harness.respondToNextRequest({
           Keys.resultType: ResultTypes.complete,
+          Keys.ttlMs: 0,
+          Keys.cacheScope: CacheScope.private.name,
           Keys.supportedVersions: ['2026-07-28'],
           Keys.capabilities: <String, Object?>{},
         });
@@ -74,6 +79,8 @@ void main() {
       final harness = _WireHarness();
       harness.respondToNextRequest({
         Keys.resultType: ResultTypes.complete,
+        Keys.ttlMs: 0,
+        Keys.cacheScope: CacheScope.private.name,
         Keys.supportedVersions: ['2026-07-28'],
         Keys.capabilities: <String, Object?>{},
       });
@@ -116,6 +123,8 @@ void main() {
       final harness = _WireHarness();
       harness.respondToNextRequest({
         Keys.resultType: ResultTypes.complete,
+        Keys.ttlMs: 0,
+        Keys.cacheScope: CacheScope.private.name,
         Keys.supportedVersions: ['2026-07-28'],
         Keys.capabilities: <String, Object?>{},
       });
@@ -157,6 +166,8 @@ void main() {
 
       harness.respondToNextRequest({
         Keys.resultType: ResultTypes.complete,
+        Keys.ttlMs: 0,
+        Keys.cacheScope: CacheScope.private.name,
         Keys.supportedVersions: ['2026-07-28'],
         Keys.capabilities: {Keys.prompts: <String, Object?>{}},
       });
@@ -175,28 +186,6 @@ void main() {
       expect(harness.connection.serverCapabilities.prompts, isNull);
       expect(harness.connection.serverInfo?.name, 'negotiated server');
     });
-
-    test(
-      'DiscoverResult.supportedVersions feeds selectMutuallySupported',
-      () async {
-        final harness = _WireHarness();
-        harness.respondToNextRequest({
-          Keys.resultType: ResultTypes.complete,
-          Keys.supportedVersions: ['2026-07-28', '1900-01-01'],
-          Keys.capabilities: <String, Object?>{},
-        });
-
-        final result = await harness.connection.discover(
-          protocolVersion: ProtocolVersion.v2026_07_28,
-          capabilities: ClientCapabilities(),
-        );
-
-        expect(
-          ProtocolVersion.selectMutuallySupported(result.supportedVersions),
-          ProtocolVersion.v2026_07_28,
-        );
-      },
-    );
   });
 }
 

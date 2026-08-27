@@ -75,61 +75,6 @@ void main() {
     );
   });
 
-  group('ProtocolVersion.selectMutuallySupported', () {
-    test('picks the newest version it recognizes', () {
-      expect(
-        ProtocolVersion.selectMutuallySupported([
-          '2025-03-26',
-          '2026-07-28',
-          '2024-11-05',
-        ]),
-        ProtocolVersion.v2026_07_28,
-      );
-    });
-
-    test('skips a version it has no name for', () {
-      expect(
-        ProtocolVersion.selectMutuallySupported([
-          '1900-01-01',
-          '2025-06-18',
-          '3000-01-01',
-        ]),
-        ProtocolVersion.v2025_06_18,
-      );
-    });
-
-    test('returns null when nothing in the list is recognized', () {
-      expect(ProtocolVersion.selectMutuallySupported(['1900-01-01']), isNull);
-    });
-
-    test('returns null for an empty list', () {
-      expect(ProtocolVersion.selectMutuallySupported(const []), isNull);
-    });
-
-    test('skips an element which is not a string', () {
-      expect(
-        ProtocolVersion.selectMutuallySupported([
-          42,
-          null,
-          '2025-11-25',
-          <String, Object?>{},
-        ]),
-        ProtocolVersion.v2025_11_25,
-      );
-    });
-
-    test('is order-independent', () {
-      expect(
-        ProtocolVersion.selectMutuallySupported([
-          '2026-07-28',
-          '2024-11-05',
-          '2025-11-25',
-        ]),
-        ProtocolVersion.v2026_07_28,
-      );
-    });
-  });
-
   test('the legacy handshake does not support the request-scoped era', () {
     // The 2026-07-28 revision is spoken by its own transport; the legacy
     // handshake refusing it is what downgrades a modern server talking to a

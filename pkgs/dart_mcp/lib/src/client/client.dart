@@ -349,15 +349,7 @@ base class ServerConnection extends MCPBase {
   /// given here wins the same way. Left out, whatever the caller put under
   /// that name goes through, since the table does not require one.
   ///
-  /// A server on an earlier revision does not implement this method and
-  /// usually answers with a method-not-found error. Some stdio servers
-  /// instead exit on any request that reaches them before `initialize`, and
-  /// nothing here times out, so the returned future waits until the
-  /// connection closes in that case. Probe on a connection you can discard
-  /// when the server might predate the revision.
-  ///
-  /// Use [ProtocolVersion.selectMutuallySupported] on the result's
-  /// [DiscoverResult.supportedVersions] to pick which version to use next.
+  /// This method does not add a timeout or fall back to [initialize].
   ///
   /// This does not update this connection's [protocolVersion],
   /// [serverCapabilities], or [serverInfo]: those describe what [initialize]

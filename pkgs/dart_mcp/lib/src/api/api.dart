@@ -124,37 +124,6 @@ enum ProtocolVersion {
   static ProtocolVersion? tryParse(String version) =>
       values.firstWhereOrNull((v) => v.versionString == version);
 
-  /// Returns the newest version in [supported] that this API has a name for,
-  /// or `null` when it has a name for none of them.
-  ///
-  /// [supported] holds version strings as they appear on the wire, the shape
-  /// [DiscoverResult.supportedVersions] uses. On a `-32022 Unsupported
-  /// protocol version` error the revision asks a client to "select a mutually
-  /// supported version from the supported list and retry the request, or
-  /// surface an error to the user if no compatible version exists", see
-  /// https://modelcontextprotocol.io/specification/2026-07-28/basic/versioning.
-  /// A `null` result is that second case. A server's `server/discover` answer
-  /// carries the same shape without asking for a retry, since nothing was
-  /// rejected.
-  ///
-  /// Having a name for a version is not [isSupported], which is about the
-  /// legacy `initialize` handshake alone. A transport for a request-scoped
-  /// revision carries its own set, so a caller checks against the transport it
-  /// is about to use.
-  ///
-  /// A version with no name here is skipped, since a server may list versions
-  /// published after this package was. An element which is not a string is
-  /// skipped the same way.
-  static ProtocolVersion? selectMutuallySupported(Iterable<Object?> supported) {
-    ProtocolVersion? best;
-    for (final version in supported) {
-      if (version is! String) continue;
-      final parsed = tryParse(version);
-      if (parsed != null && (best == null || parsed > best)) best = parsed;
-    }
-    return best;
-  }
-
   /// The oldest version supported by the current API.
   static const oldestSupported = ProtocolVersion.v2024_11_05;
 
