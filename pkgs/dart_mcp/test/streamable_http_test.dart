@@ -155,9 +155,13 @@ void main() {
   /// probe with and folds repeated header lines into one, so those requests
   /// have to go over a socket. The payload must ask for `Connection: close`
   /// or the read below never finishes.
-  Future<String> rawRequest(String payload) async {
+  Future<String> rawRequest(
+    String payload, [
+    List<int> bodyBytes = const [],
+  ]) async {
     final socket = await Socket.connect(httpServer.address, httpServer.port);
-    socket.write(payload);
+    socket.add(latin1.encode(payload));
+    socket.add(bodyBytes);
     await socket.flush();
     final response = utf8.decode(
       await socket.fold(<int>[], (bytes, chunk) => bytes..addAll(chunk)),
@@ -589,17 +593,6 @@ void main() {
       expect(errorCode(text), McpErrorCodes.headerMismatch);
     });
 
-    test('rejects an overlapping base64 sentinel without hanging', () async {
-      // '=?base64?=' is 10 characters: the prefix and suffix share a '?', so
-      // a naive slice throws a RangeError the handler would never answer.
-      final (status, _, text) = await post(
-        headers: {...headers(callTool), 'Mcp-Name': '=?base64?='},
-        json: body(callTool, params: {Keys.name: 'test/version'}),
-      );
-      expect(status, 400);
-      expect(errorCode(text), McpErrorCodes.headerMismatch);
-    });
-
     test('rejects a resources/read without an Mcp-Name header', () async {
       final (status, _, text) = await post(
         headers: headers(readResource),
@@ -620,6 +613,357 @@ void main() {
     });
   });
 
+  group('x-mcp-header custom headers', () {
+    /// A `tools/call` body for `test/withHeaderParam` with [arguments].
+    Map<String, Object?> callWithHeaderParam(Map<String, Object?> arguments) =>
+        body(
+          callTool,
+          params: {
+            Keys.name: 'test/withHeaderParam',
+            Keys.arguments: arguments,
+          },
+        );
+
+    /// The transport, `Mcp-Method`, and `Mcp-Name` headers for a
+    /// `test/withHeaderParam` call, plus any [extra] headers.
+    Map<String, String> callWithHeaderParamHeaders([
+      Map<String, String> extra = const {},
+    ]) => {...headers(callTool), 'Mcp-Name': 'test/withHeaderParam', ...extra};
+
+    test('ignores an unannotated property with an array type', () async {
+      // `label` permits a string or null and has no header annotation.
+      final (status, _, text) = await post(
+        headers: callWithHeaderParamHeaders({'Mcp-Param-Label': 'wrong'}),
+        json: callWithHeaderParam({'label': 'right'}),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('accepts a matching value without listing tools', () async {
+      final (status, _, text) = await post(
+        headers: callWithHeaderParamHeaders({'Mcp-Param-Region': 'us-west1'}),
+        json: callWithHeaderParam({'region': 'us-west1'}),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+      expect(servers.single.listToolsCalls, 0);
+    });
+
+    test('rejects a non-ASCII header field value', () async {
+      final bodyBytes = utf8.encode(
+        jsonEncode(callWithHeaderParam({'region': 'é'})),
+      );
+      final response = await rawRequest(
+        'POST /mcp HTTP/1.1\r\n'
+        'Host: ${httpServer.address.host}:${httpServer.port}\r\n'
+        'Content-Type: application/json\r\n'
+        'Accept: application/json, text/event-stream\r\n'
+        'Mcp-Protocol-Version: $version\r\n'
+        'Mcp-Method: $callTool\r\n'
+        'Mcp-Name: test/withHeaderParam\r\n'
+        'Mcp-Param-Region: é\r\n'
+        'Content-Length: ${bodyBytes.length}\r\n'
+        'Connection: close\r\n'
+        '\r\n',
+        bodyBytes,
+      );
+      expect(response, startsWith('HTTP/1.1 400'));
+      expect(errorCode(jsonBody(response)), -32020);
+    });
+
+    test('rejects a header value which does not match the body', () async {
+      final (status, _, text) = await post(
+        headers: callWithHeaderParamHeaders({'Mcp-Param-Region': 'eu-west1'}),
+        json: callWithHeaderParam({'region': 'us-west1'}),
+      );
+      expect(status, 400);
+      expect(errorCode(text), -32020);
+      expect(errorMessage(text), contains('eu-west1'));
+      expect(errorMessage(text), contains('us-west1'));
+    });
+
+    test('rejects a request missing a header its body requires', () async {
+      final (status, _, text) = await post(
+        headers: callWithHeaderParamHeaders(),
+        json: callWithHeaderParam({'region': 'us-west1'}),
+      );
+      expect(status, 400);
+      expect(errorCode(text), -32020);
+      expect(errorMessage(text), contains('no single Mcp-Param-Region'));
+      expect(errorMessage(text), contains('us-west1'));
+    });
+
+    test('rejects a header for an absent argument', () async {
+      final (status, _, text) = await post(
+        headers: callWithHeaderParamHeaders({'Mcp-Param-Region': 'us-west1'}),
+        json: callWithHeaderParam(const {}),
+      );
+      expect(status, 400);
+      expect(errorCode(text), -32020);
+      expect(errorMessage(text), contains('Mcp-Param-Region'));
+      expect(errorMessage(text), contains('params.arguments.region'));
+    });
+
+    test('rejects a header for a null argument', () async {
+      final (status, _, text) = await post(
+        headers: callWithHeaderParamHeaders({'Mcp-Param-Region': 'us-west1'}),
+        json: callWithHeaderParam({'region': null}),
+      );
+      expect(status, 400);
+      expect(errorCode(text), -32020);
+      expect(errorMessage(text), contains('Mcp-Param-Region'));
+      expect(errorMessage(text), contains('params.arguments.region'));
+    });
+
+    test('rejects before an initialization notification commits', () async {
+      final notifying = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => notifying.close(force: true));
+      notifying.listen(
+        (request) =>
+            handleStreamableHttpRequest(request, _NotifyingInitServer.new),
+      );
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(
+        Uri.http('${notifying.address.host}:${notifying.port}', '/mcp'),
+      );
+      callWithHeaderParamHeaders().forEach(request.headers.set);
+      request.write(jsonEncode(callWithHeaderParam({'region': 'us-west1'})));
+      final response = await request.close();
+      final text = await utf8.decodeStream(response);
+
+      expect(response.statusCode, 400);
+      expect(response.headers.contentType?.mimeType, 'application/json');
+      expect(errorCode(text), -32020);
+    });
+
+    test(
+      'does not require a header for an argument the body leaves null',
+      () async {
+        final (status, _, text) = await post(
+          headers: callWithHeaderParamHeaders(),
+          json: callWithHeaderParam({'region': null}),
+        );
+        expect(status, 200);
+        expect(errorCode(text), isNull);
+      },
+    );
+
+    test('decodes a base64-sentinel header value before comparing', () async {
+      final encoded = base64.encode(utf8.encode('us-west1'));
+      final (status, _, text) = await post(
+        headers: callWithHeaderParamHeaders({
+          'Mcp-Param-Region': '=?base64?$encoded?=',
+        }),
+        json: callWithHeaderParam({'region': 'us-west1'}),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('rejects a url-safe base64-sentinel header value', () async {
+      final (status, _, text) = await post(
+        headers: callWithHeaderParamHeaders({
+          'Mcp-Param-Region': '=?base64?YWJ-eg==?=',
+        }),
+        json: callWithHeaderParam({'region': 'ab~z'}),
+      );
+      expect(status, 400);
+      expect(errorCode(text), -32020);
+    });
+
+    test('rejects a base64-sentinel header value with bad padding', () async {
+      final (status, _, text) = await post(
+        // The base64 encoding of "us-west1" is "dXMtd2VzdDE=", with its
+        // required padding character stripped here.
+        headers: callWithHeaderParamHeaders({
+          'Mcp-Param-Region': '=?base64?dXMtd2VzdDE?=',
+        }),
+        json: callWithHeaderParam({'region': 'us-west1'}),
+      );
+      expect(status, 400);
+      expect(errorCode(text), -32020);
+      expect(errorMessage(text), contains('=?base64?dXMtd2VzdDE?='));
+      expect(errorMessage(text), contains('standard base64'));
+    });
+
+    test(
+      'rejects a base64-sentinel header value with invalid characters',
+      () async {
+        final (status, _, text) = await post(
+          headers: callWithHeaderParamHeaders({
+            'Mcp-Param-Region': '=?base64?not!valid!base64?=',
+          }),
+          json: callWithHeaderParam({'region': 'us-west1'}),
+        );
+        expect(status, 400);
+        expect(errorCode(text), -32020);
+      },
+    );
+
+    test('treats a value missing the base64 prefix as a literal', () async {
+      // "dXMtd2VzdDE=" is valid base64, but without the `=?base64?` prefix
+      // it is compared to the body as-is instead of being decoded.
+      final (status, _, text) = await post(
+        headers: callWithHeaderParamHeaders({
+          'Mcp-Param-Region': 'dXMtd2VzdDE=',
+        }),
+        json: callWithHeaderParam({'region': 'dXMtd2VzdDE='}),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('treats a value missing the base64 suffix as a literal', () async {
+      final (status, _, text) = await post(
+        headers: callWithHeaderParamHeaders({
+          'Mcp-Param-Region': '=?base64?dXMtd2VzdDE=',
+        }),
+        json: callWithHeaderParam({'region': '=?base64?dXMtd2VzdDE='}),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('compares an integer property numerically', () async {
+      // The specification's own example of a numeric comparison: the header
+      // spells the number differently and still matches.
+      for (final header in ['42', '42.0']) {
+        final (status, _, text) = await post(
+          headers: callWithHeaderParamHeaders({'Mcp-Param-Count': header}),
+          json: callWithHeaderParam({'count': 42}),
+        );
+        expect(status, 200, reason: header);
+        expect(errorCode(text), isNull, reason: header);
+      }
+    });
+
+    test('rejects an integer header which is not a decimal', () async {
+      // A client is told to send the decimal spelling, so anything else in the
+      // header is a value some other component wrote. Letting `0x2a` match a
+      // body of `42` would be the disagreement this check exists to catch.
+      // Leading whitespace never reaches here: the HTTP layer trims a header
+      // value before this sees it.
+      for (final header in ['0x2a', '0X2A', '+42', '42.']) {
+        final (status, _, text) = await post(
+          headers: callWithHeaderParamHeaders({'Mcp-Param-Count': header}),
+          json: callWithHeaderParam({'count': 42}),
+        );
+        expect(status, 400, reason: header);
+        expect(errorCode(text), -32020, reason: header);
+      }
+
+      final (status, _, text) = await post(
+        headers: callWithHeaderParamHeaders({'Mcp-Param-Count': '1e3'}),
+        json: callWithHeaderParam({'count': 1000}),
+      );
+      expect(status, 400);
+      expect(errorCode(text), -32020);
+    });
+
+    test('rejects a mismatched integer property', () async {
+      final (status, _, text) = await post(
+        headers: callWithHeaderParamHeaders({'Mcp-Param-Count': '7'}),
+        json: callWithHeaderParam({'count': 42}),
+      );
+      expect(status, 400);
+      expect(errorCode(text), -32020);
+    });
+
+    test('compares a boolean property', () async {
+      final (status, _, text) = await post(
+        headers: callWithHeaderParamHeaders({'Mcp-Param-Flag': 'true'}),
+        json: callWithHeaderParam({'flag': true}),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('rejects a mismatched boolean property', () async {
+      final (status, _, text) = await post(
+        headers: callWithHeaderParamHeaders({'Mcp-Param-Flag': 'false'}),
+        json: callWithHeaderParam({'flag': true}),
+      );
+      expect(status, 400);
+      expect(errorCode(text), -32020);
+    });
+  });
+
+  group('nested x-mcp-header custom headers', () {
+    /// A `tools/call` body for `test/withNestedHeaderParam` with
+    /// [arguments].
+    Map<String, Object?> callWithNestedHeaderParam(
+      Map<String, Object?> arguments,
+    ) => body(
+      callTool,
+      params: {
+        Keys.name: 'test/withNestedHeaderParam',
+        Keys.arguments: arguments,
+      },
+    );
+
+    /// The transport, `Mcp-Method`, and `Mcp-Name` headers for a
+    /// `test/withNestedHeaderParam` call, plus any [extra] headers.
+    Map<String, String> callWithNestedHeaderParamHeaders([
+      Map<String, String> extra = const {},
+    ]) => {
+      ...headers(callTool),
+      'Mcp-Name': 'test/withNestedHeaderParam',
+      ...extra,
+    };
+
+    test('accepts a header matching a nested property', () async {
+      final (status, _, text) = await post(
+        headers: callWithNestedHeaderParamHeaders({
+          'Mcp-Param-Region': 'us-west1',
+        }),
+        json: callWithNestedHeaderParam({
+          'location': {'region': 'us-west1'},
+        }),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('rejects a header that does not match a nested property', () async {
+      final (status, _, text) = await post(
+        headers: callWithNestedHeaderParamHeaders({
+          'Mcp-Param-Region': 'eu-west1',
+        }),
+        json: callWithNestedHeaderParam({
+          'location': {'region': 'us-west1'},
+        }),
+      );
+      expect(status, 400);
+      expect(errorCode(text), -32020);
+    });
+
+    test(
+      'rejects a request missing the header a nested property requires',
+      () async {
+        final (status, _, text) = await post(
+          headers: callWithNestedHeaderParamHeaders(),
+          json: callWithNestedHeaderParam({
+            'location': {'region': 'us-west1'},
+          }),
+        );
+        expect(status, 400);
+        expect(errorCode(text), -32020);
+      },
+    );
+
+    test('does not require a header when the object carrying a nested '
+        'property is absent', () async {
+      final (status, _, text) = await post(
+        headers: callWithNestedHeaderParamHeaders(),
+        json: callWithNestedHeaderParam(const {}),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+  });
+
   group('removed 2025-11-25 mechanisms', () {
     test('ignores an Mcp-Session-Id header and mints none', () async {
       final (status, responseHeaders, text) = await post(
@@ -635,28 +979,6 @@ void main() {
       final (status, _, text) = await post(
         headers: {...headers(listTools), 'Last-Event-ID': '42'},
         json: body(listTools),
-      );
-      expect(status, 200);
-      expect(errorCode(text), isNull);
-    });
-
-    test('ignores an Mcp-Param header which contradicts the body', () async {
-      // Nothing here opts into `x-mcp-header`, so `Mcp-Param-*` is a header
-      // this handler does not recognize, and it is ignored rather than
-      // guessed at.
-      final (status, _, text) = await post(
-        headers: {
-          ...headers(callTool),
-          'Mcp-Name': 'test/version',
-          'Mcp-Param-Region': 'eu-west1',
-        },
-        json: body(
-          callTool,
-          params: {
-            Keys.name: 'test/version',
-            Keys.arguments: {'region': 'us-west1'},
-          },
-        ),
       );
       expect(status, 200);
       expect(errorCode(text), isNull);
@@ -1496,6 +1818,13 @@ Completer<void> releaseNotifyThenWait = Completer<void>();
 
 base class _HttpTestServer extends MCPServer with LoggingSupport, ToolsSupport {
   bool get _declaredSampling => clientCapabilities.sampling != null;
+  int listToolsCalls = 0;
+
+  @override
+  FutureOr<ListToolsResult> listTools([ListToolsRequest? request]) {
+    listToolsCalls++;
+    return super.listTools(request);
+  }
 
   _HttpTestServer(super.channel)
     : super.fromStreamChannel(
@@ -1507,6 +1836,56 @@ base class _HttpTestServer extends MCPServer with LoggingSupport, ToolsSupport {
     registerTool(
       Tool(name: 'test/version', inputSchema: ObjectSchema()),
       (_) => CallToolResult(content: [TextContent(text: '1.2.3')]),
+    );
+    registerTool(
+      Tool(
+        name: 'test/withHeaderParam',
+        inputSchema: ObjectSchema(
+          properties: {
+            // `x-mcp-header` is a schema extension the typed [Schema]
+            // factories do not have a parameter for, so these are built
+            // from a raw map instead.
+            'region': Schema.fromMap({
+              Keys.type: JsonType.string.typeName,
+              Keys.xMcpHeader: 'Region',
+            }),
+            'count': Schema.fromMap({
+              Keys.type: JsonType.int.typeName,
+              Keys.xMcpHeader: 'Count',
+            }),
+            'flag': Schema.fromMap({
+              Keys.type: JsonType.bool.typeName,
+              Keys.xMcpHeader: 'Flag',
+            }),
+            'label': Schema.fromMap({
+              Keys.type: <Object?>[
+                JsonType.string.typeName,
+                JsonType.nil.typeName,
+              ],
+            }),
+          },
+        ),
+      ),
+      (_) => CallToolResult(content: [TextContent(text: 'ok')]),
+      validateArguments: false,
+    );
+    registerTool(
+      Tool(
+        name: 'test/withNestedHeaderParam',
+        inputSchema: ObjectSchema(
+          properties: {
+            'location': Schema.fromMap({
+              Keys.properties: <String, Schema>{
+                'region': Schema.fromMap({
+                  Keys.type: JsonType.string.typeName,
+                  Keys.xMcpHeader: 'Region',
+                }),
+              },
+            }),
+          },
+        ),
+      ),
+      (_) => CallToolResult(content: [TextContent(text: 'ok')]),
     );
     registerTool(
       Tool(name: 'test/throw', inputSchema: ObjectSchema()),
@@ -1613,6 +1992,23 @@ base class _HttpTestServer extends MCPServer with LoggingSupport, ToolsSupport {
       log(LoggingLevel.error, 'from tool');
       return CallToolResult(content: [TextContent(text: 'logged')]);
     });
+  }
+}
+
+/// A server which emits a notification while a request is initializing.
+base class _NotifyingInitServer extends _HttpTestServer {
+  _NotifyingInitServer(super.channel);
+
+  @override
+  FutureOr<void> initialize(MCPServerInitialization initialization) async {
+    await super.initialize(initialization);
+    sendNotification(
+      LoggingMessageNotification.methodName,
+      LoggingMessageNotification(
+        level: LoggingLevel.error,
+        data: 'while starting up',
+      ),
+    );
   }
 }
 

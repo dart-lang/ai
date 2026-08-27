@@ -68,6 +68,11 @@ typedef MCPServerFactory =
 /// [RpcException] inside their handler, or with a [StateError] if the exchange
 /// has already been torn down.
 ///
+/// If [beforeDispatch] is given, it receives the initialized server and the
+/// registered [Tool] for a `tools/call`, if found. It runs before [message] is
+/// delivered. A non-`null` result stops dispatch. Requests receive the
+/// serialized error and notifications receive no response.
+///
 /// Throws an [ArgumentError] if [message] is not a JSON-RPC request or
 /// notification (no string `method`, a `null` id, or a `result` or `error`
 /// member), or if its method is the legacy `initialize` request or
@@ -82,6 +87,8 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
   MCPServerInitialization initialization,
   MCPServerFactory serverFactory, {
   void Function(Map<String, Object?> notification)? onNotification,
+  FutureOr<RpcException?> Function(MCPServer server, Tool? tool)?
+  beforeDispatch,
 }) async {
   final object = JsonRpc2Object.fromMap(message);
   if (object.kind == JsonRpc2Kind.response) {
@@ -195,6 +202,22 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
   try {
     await server.initialize(initialization);
     server.handleInitialized();
+    Tool? tool;
+    final params = message[Keys.params];
+    if (method == CallToolRequest.methodName &&
+        server is ToolsSupport &&
+        params is Map<String, Object?>) {
+      final toolName = params[Keys.name];
+      if (toolName is String) tool = server._registeredTools[toolName];
+    }
+    final rejection = await beforeDispatch?.call(server, tool);
+    if (rejection != null) {
+      // The message is never added to `inbound`, so the server never sees
+      // it. The `finally` block below still tears the server down exactly
+      // as it would after a dispatched exchange, by closing `inbound` on an
+      // empty stream.
+      return isRequest ? rejection.serialize(message) : null;
+    }
     inbound.add(message);
     if (isRequest) return await response.future;
     return null;

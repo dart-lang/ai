@@ -31,6 +31,68 @@ void main() {
       );
     });
 
+    test('returns a rejection before calling a registered tool', () async {
+      final harness = _DispatcherHarness();
+      MCPServer? callbackServer;
+      Tool? callbackTool;
+      bool? callbackReady;
+      final response = await harness.dispatch(
+        _callTool('retained'),
+        _initialization(),
+        beforeDispatch: (server, tool) {
+          callbackServer = server;
+          callbackTool = tool;
+          callbackReady = server.ready;
+          return RpcException.invalidParams('blocked before dispatch');
+        },
+      );
+
+      final server = harness.servers.single;
+      expect(callbackServer, same(server));
+      expect(callbackTool?.name, 'retained');
+      expect(callbackReady, isTrue);
+      expect((response![Keys.error] as Map)[Keys.code], -32602);
+      expect(server.retainedResult, isNull);
+      await server.done;
+      expect(server.isActive, isFalse);
+    });
+
+    test('drops a rejection for a notification', () async {
+      final harness = _DispatcherHarness();
+      final notification = _callTool('retained')..remove(Keys.id);
+      final response = await harness.dispatch(
+        notification,
+        _initialization(),
+        beforeDispatch: (_, tool) {
+          expect(tool?.name, 'retained');
+          return RpcException.invalidParams('blocked before dispatch');
+        },
+      );
+
+      final server = harness.servers.single;
+      expect(response, isNull);
+      expect(server.retainedResult, isNull);
+      await server.done;
+      expect(server.isActive, isFalse);
+    });
+
+    test('closes the server when beforeDispatch throws', () async {
+      final harness = _DispatcherHarness();
+      await expectLater(
+        harness.dispatch(
+          _callTool('retained'),
+          _initialization(),
+          beforeDispatch: (_, _) => throw StateError('callback failed'),
+        ),
+        throwsStateError,
+      );
+
+      final server = harness.servers.single;
+      expect(server.retainedResult, isNull);
+      await server.done;
+      expect(server.isActive, isFalse);
+    });
+
     test('records server info on the response', () async {
       final harness = _DispatcherHarness();
       final response = await harness.dispatch(
@@ -855,12 +917,20 @@ final class _DispatcherHarness {
     Map<String, Object?> message,
     MCPServerInitialization initialization, {
     void Function(Map<String, Object?> notification)? onNotification,
-  }) => handleRequestScopedMessage(message, initialization, (channel) {
-    final server = _DispatcherTestServer(channel);
-    if (pickedLogLevel != null) server.loggingLevel = pickedLogLevel;
-    servers.add(server);
-    return server;
-  }, onNotification: onNotification);
+    FutureOr<RpcException?> Function(MCPServer server, Tool? tool)?
+    beforeDispatch,
+  }) => handleRequestScopedMessage(
+    message,
+    initialization,
+    (channel) {
+      final server = _DispatcherTestServer(channel);
+      if (pickedLogLevel != null) server.loggingLevel = pickedLogLevel;
+      servers.add(server);
+      return server;
+    },
+    onNotification: onNotification,
+    beforeDispatch: beforeDispatch,
+  );
 }
 
 /// A server with tools which observe the request-scoped lifecycle.
