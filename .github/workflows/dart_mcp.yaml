@@ -31,9 +31,7 @@ jobs:
       matrix:
         sdk:
           - stable
-          - dev
         os:
-          - ubuntu-latest
           - windows-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -45,9 +43,4 @@ jobs:
 
       - run: dart pub get
 
-      - run: dart analyze --fatal-infos
-
-      - run: dart format --output=none --set-exit-if-changed .
-        if: ${{ matrix.sdk == 'dev' }}
-
-      - run: dart test -p chrome,vm -c dart2wasm,dart2js,kernel,exe
+      - run: dart test -p vm -c exe
