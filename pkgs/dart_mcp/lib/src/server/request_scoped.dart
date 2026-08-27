@@ -42,8 +42,13 @@ typedef MCPServerFactory =
 /// bug in the server: it asserts, and in a build with asserts disabled it is
 /// replaced the same way a field left `null` is. None of
 /// this reaches a result on an earlier revision, and every error response is
-/// returned unchanged. If the server closes before responding to a request,
-/// an internal-error response is returned instead. The server may still be
+/// returned unchanged. On 2026-07-28 an `input_required` result the client
+/// cannot act on is refused here instead of being sent on: one on a method the
+/// revision does not answer that way is an internal error, and one asking for
+/// a capability the client left out is
+/// [McpErrorCodes.missingRequiredClientCapability]. If the server closes
+/// before responding to a request, an internal-error response is returned
+/// instead. The server may still be
 /// processing a notification when the returned future completes.
 ///
 /// The returned future completes once the server responds or the exchange
@@ -154,13 +159,20 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
             }
           case JsonRpc2Kind.response:
             if (!response.isCompleted) {
+              final refusal = _inputRequiredRefusal(
+                data,
+                method,
+                initialization,
+              );
               response.complete(
-                _withServerFields(
-                  data,
-                  server.implementation,
-                  method,
-                  initialization.protocolVersion,
-                ),
+                refusal == null
+                    ? _withServerFields(
+                      data,
+                      server.implementation,
+                      method,
+                      initialization.protocolVersion,
+                    )
+                    : _rpcErrorResponse(message[Keys.id], refusal),
               );
             }
         }
@@ -205,12 +217,143 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
   }
 }
 
+/// A JSON-RPC error response to the request with the given [id], carrying the
+/// code, message and data of [exception].
+Map<String, Object?> _rpcErrorResponse(Object? id, RpcException exception) => {
+  Keys.jsonrpc: '2.0',
+  Keys.id: id,
+  Keys.error: {
+    Keys.code: exception.code,
+    Keys.message: exception.message,
+    if (exception.data != null) Keys.data: exception.data,
+  },
+};
+
 /// A JSON-RPC internal-error response to the request with the given [id].
 Map<String, Object?> _errorResponse(Object? id, String message) => {
   Keys.jsonrpc: '2.0',
   Keys.id: id,
   Keys.error: {Keys.code: error_code.INTERNAL_ERROR, Keys.message: message},
 };
+
+/// The error [response] has to be answered with instead of itself, or `null`
+/// when it can go out as it stands.
+///
+/// The 2026-07-28 revision answers `input_required` on `tools/call`,
+/// `prompts/get` and `resources/read` and on no other request, and a server
+/// may not ask the client for input it never said it could give, see
+/// https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr.
+/// A result which breaks either rule asks the client for something it has no
+/// way to answer, so it is refused here and not sent on.
+///
+/// A missing capability is the error the revision names for it,
+/// [McpErrorCodes.missingRequiredClientCapability], carrying what the client
+/// left out under `data.requiredCapabilities`, which
+/// `handleStreamableHttpRequest` answers with `400`. Which capability an entry
+/// needs is read the way the request which sends it reads it, down to the
+/// elicitation mode: [ElicitationRequestSupport.elicit] separates
+/// `elicitation.form` from `elicitation.url`, and so does this.
+///
+/// An entry naming a method outside [InputRequest] is left alone. The schema
+/// closes that set, so a server sending one has already left what any of this
+/// can check against.
+RpcException? _inputRequiredRefusal(
+  Map<String, Object?> response,
+  String method,
+  MCPServerInitialization initialization,
+) {
+  if (initialization.protocolVersion < ProtocolVersion.v2026_07_28) return null;
+  final result = JsonRpc2Response.fromMap(response).result;
+  if (result is! Map<String, Object?>) return null;
+  if (result[Keys.resultType] != ResultTypes.inputRequired) return null;
+
+  if (!_inputRequiredMethods.contains(method)) {
+    return RpcException(
+      error_code.INTERNAL_ERROR,
+      'The server answered $method with `${ResultTypes.inputRequired}`, '
+      'which this revision allows only on '
+      '${_inputRequiredMethods.map((m) => '`$m`').join(', ')}.',
+    );
+  }
+
+  // Read the raw map, not the typed getters: a server may send anything here,
+  // and a cast throwing inside this check would reach the client as a frame it
+  // cannot read instead of the error naming what went wrong. An entry this
+  // cannot read is left to the dispatch which produced it.
+  final requests = result[Keys.inputRequests];
+  if (requests is! Map) return null;
+  for (final request in requests.values) {
+    if (request is! Map) continue;
+    final method = request[Keys.method];
+    if (method is! String) continue;
+    final missing = _missingInputRequestCapability(
+      method,
+      request[Keys.params],
+      initialization.clientCapabilities,
+    );
+    if (missing != null) return missing;
+  }
+  return null;
+}
+
+/// The capability error for an input request made under [method], or `null`
+/// when [capabilities] declares what it needs.
+///
+/// Reads each capability the way the request which sends it reads it:
+/// [MCPServer.listRoots], [MCPServer.createMessage] and
+/// [ElicitationRequestSupport.elicit]. A [method] outside those three needs
+/// nothing this can name.
+RpcException? _missingInputRequestCapability(
+  String method,
+  Object? params,
+  ClientCapabilities capabilities,
+) {
+  switch (method) {
+    case ListRootsRequest.methodName:
+      if (capabilities.roots != null) return null;
+      return _missingClientCapability(
+        'roots',
+        ClientCapabilities(roots: RootsCapabilities()),
+      );
+    case CreateMessageRequest.methodName:
+      if (capabilities.sampling != null) return null;
+      return _missingClientCapability(
+        'sampling',
+        ClientCapabilities(sampling: {}),
+      );
+    case ElicitRequest.methodName:
+      final url =
+          params is Map && params[Keys.mode] == ElicitationMode.url.name;
+      if (url) {
+        if (_supportsUrlElicitation(capabilities)) return null;
+        return _missingClientCapability(
+          'elicitation.url',
+          ClientCapabilities(elicitation: ElicitationCapability(url: {})),
+        );
+      }
+      if (_supportsFormElicitation(capabilities)) return null;
+      return _missingClientCapability(
+        'elicitation.form',
+        ClientCapabilities(elicitation: ElicitationCapability(form: {})),
+      );
+    default:
+      return null;
+  }
+}
+
+/// Whether [capabilities] declares form elicitation, on the same terms as
+/// [ElicitationRequestSupport.supportsFormElicitation].
+bool _supportsFormElicitation(ClientCapabilities capabilities) {
+  final elicitation = capabilities.elicitation;
+  if (elicitation == null) return false;
+  return elicitation.form != null ||
+      (elicitation as Map<String, Object?>).isEmpty;
+}
+
+/// Whether [capabilities] declares url elicitation, on the same terms as
+/// [ElicitationRequestSupport.supportsUrlElicitation].
+bool _supportsUrlElicitation(ClientCapabilities capabilities) =>
+    capabilities.elicitation?.url != null;
 
 /// Returns a copy of [response] with the fields a server on this protocol
 /// revision must send and the handler for [method] did not, as
@@ -298,6 +441,15 @@ Map<String, Object?> _withServerFields(
     },
   };
 }
+
+/// The requests a server may answer with an [InputRequiredResult].
+///
+/// https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr
+const _inputRequiredMethods = {
+  CallToolRequest.methodName,
+  GetPromptRequest.methodName,
+  ReadResourceRequest.methodName,
+};
 
 /// The requests whose results a server must send caching hints on.
 ///

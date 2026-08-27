@@ -214,9 +214,12 @@ void main() {
     test('records caching hints despite a result type the schema does not '
         'give the request', () async {
       // `tools/list` has no interim arm, so a non-complete type there does not
-      // make the result one the caching rules exempt.
+      // make the result one the caching rules exempt. The schema types
+      // `resultType` as a bare string, so a server may send one this package
+      // has no name for; `input_required` is not among the ones it may send
+      // here, and the dispatcher refuses that separately.
       final response = await _dispatchShapedList(
-        (result) => {...result, Keys.resultType: ResultTypes.inputRequired},
+        (result) => {...result, Keys.resultType: 'io.example/other'},
       );
 
       expect(_result(response), containsPair(Keys.ttlMs, 0));
@@ -451,6 +454,184 @@ void main() {
       final error = response![Keys.error] as Map<String, Object?>;
       expect(error[Keys.code], error_code.INTERNAL_ERROR);
       expect(error[Keys.message], contains('request-scoped transport'));
+    });
+
+    test('refuses input_required on a request it is not allowed on', () async {
+      final harness = _DispatcherHarness();
+      final response = await harness.dispatch(
+        _complete('input_required'),
+        _initialization(),
+      );
+
+      final error = response![Keys.error] as Map<String, Object?>;
+      expect(error[Keys.code], error_code.INTERNAL_ERROR);
+      expect(error[Keys.message], contains(CompleteRequest.methodName));
+      expect(error[Keys.message], contains(CallToolRequest.methodName));
+    });
+
+    test('serves input_required on the three it is allowed on', () async {
+      final harness = _DispatcherHarness();
+      for (final message in [
+        _callTool('interim'),
+        _getPrompt('interim'),
+        _readResource(),
+      ]) {
+        final response = await harness.dispatch(message, _initialization());
+
+        expect(
+          response![Keys.error],
+          isNull,
+          reason: '${message[Keys.method]}',
+        );
+      }
+
+      // Only `tools/call` and `prompts/get` answer `input_required` here;
+      // `resources/read` answers a complete result, which is what makes the
+      // third method reachable at all.
+      final call = await harness.dispatch(
+        _callTool('interim'),
+        _initialization(),
+      );
+      expect(_result(call)[Keys.resultType], ResultTypes.inputRequired);
+      final prompt = await harness.dispatch(
+        _getPrompt('interim'),
+        _initialization(),
+      );
+      expect(_result(prompt)[Keys.resultType], ResultTypes.inputRequired);
+    });
+
+    test('refuses an input request the client cannot answer', () async {
+      final harness = _DispatcherHarness();
+      for (final (tool, capability) in [
+        ('asks_to_elicit', 'elicitation.form'),
+        ('asks_to_sample', 'sampling'),
+        ('asks_for_roots', 'roots'),
+      ]) {
+        final response = await harness.dispatch(
+          _callTool(tool),
+          _initialization(),
+        );
+
+        final error = response![Keys.error] as Map<String, Object?>;
+        expect(
+          error[Keys.code],
+          McpErrorCodes.missingRequiredClientCapability,
+          reason: tool,
+        );
+        expect(error[Keys.message], contains(capability), reason: tool);
+        final data = error[Keys.data] as Map<String, Object?>;
+        expect(data, contains(Keys.requiredCapabilities), reason: tool);
+      }
+    });
+
+    test('serves an input request the client declared', () async {
+      final harness = _DispatcherHarness();
+      final response = await harness.dispatch(
+        _callTool('asks_to_elicit'),
+        _initialization(
+          capabilities: ClientCapabilities(
+            elicitation: ElicitationCapability(form: {}),
+          ),
+        ),
+      );
+
+      expect(response![Keys.error], isNull);
+      expect(_result(response)[Keys.inputRequests], isNotEmpty);
+    });
+
+    test('reads the elicitation mode the way the request does', () async {
+      // A client which declared only url elicitation cannot answer a form
+      // request, and `ElicitationRequestSupport.elicit` refuses the same
+      // request on a connected transport.
+      final harness = _DispatcherHarness();
+      final urlOnly = _initialization(
+        capabilities: ClientCapabilities(
+          elicitation: ElicitationCapability(url: {}),
+        ),
+      );
+      final refused = await harness.dispatch(
+        _callTool('asks_to_elicit'),
+        urlOnly,
+      );
+
+      final error = refused![Keys.error] as Map<String, Object?>;
+      expect(error[Keys.code], McpErrorCodes.missingRequiredClientCapability);
+      expect(error[Keys.message], contains('elicitation.form'));
+
+      // And the other way around: a client with only form support cannot
+      // answer a url request.
+      final formOnly = _initialization(
+        capabilities: ClientCapabilities(
+          elicitation: ElicitationCapability(form: {}),
+        ),
+      );
+      final urlRefused = await harness.dispatch(
+        _callTool('asks_to_elicit_by_url'),
+        formOnly,
+      );
+
+      final urlError = urlRefused![Keys.error] as Map<String, Object?>;
+      expect(
+        urlError[Keys.code],
+        McpErrorCodes.missingRequiredClientCapability,
+      );
+      expect(urlError[Keys.message], contains('elicitation.url'));
+
+      final urlServed = await harness.dispatch(
+        _callTool('asks_to_elicit_by_url'),
+        urlOnly,
+      );
+      expect(urlServed![Keys.error], isNull);
+
+      // An empty `elicitation` object still counts as form support, the
+      // backwards compatibility rule the mode split came with.
+      final bare = await harness.dispatch(
+        _callTool('asks_to_elicit'),
+        _initialization(
+          capabilities: ClientCapabilities(
+            elicitation: ElicitationCapability.fromMap({}),
+          ),
+        ),
+      );
+      expect(bare![Keys.error], isNull);
+    });
+
+    test('leaves a malformed inputRequests alone', () async {
+      final harness = _DispatcherHarness();
+      for (final tool in [
+        'bad_input_requests',
+        'bad_input_request_entry',
+        'input_request_without_a_method',
+      ]) {
+        final response = await harness.dispatch(
+          _callTool(tool),
+          _initialization(),
+        );
+
+        expect(response![Keys.error], isNull, reason: tool);
+      }
+    });
+
+    test('leaves an input request it has no capability for alone', () async {
+      final harness = _DispatcherHarness();
+      final response = await harness.dispatch(
+        _callTool('asks_for_something_else'),
+        _initialization(),
+      );
+
+      expect(response![Keys.error], isNull);
+      expect(_result(response)[Keys.inputRequests], isNotEmpty);
+    });
+
+    test('leaves input_required alone on an earlier revision', () async {
+      final harness = _DispatcherHarness();
+      final response = await harness.dispatch(
+        _callTool('asks_to_elicit'),
+        _initialization(protocolVersion: ProtocolVersion.v2025_11_25),
+      );
+
+      expect(response![Keys.error], isNull);
+      expect(_result(response)[Keys.inputRequests], isNotEmpty);
     });
 
     test('shuts the server down after a dispatch', () async {
@@ -872,7 +1053,12 @@ final class _DispatcherTestServer extends TestMCPServer
 
   @override
   CompleteResult handleComplete(CompleteRequest request) =>
-      CompleteResult(completion: Completion(values: const []));
+      request.argument.name == 'input_required'
+          ? CompleteResult.fromMap({
+            Keys.completion: Completion(values: const []),
+            Keys.resultType: ResultTypes.inputRequired,
+          })
+          : CompleteResult(completion: Completion(values: const []));
 
   /// How many [testNotification] notifications this server received.
   int testNotifications = 0;
@@ -914,6 +1100,92 @@ final class _DispatcherTestServer extends TestMCPServer
       (_) => CallToolResult.fromMap({
         Keys.content: [TextContent(text: 'waiting')],
         Keys.resultType: ResultTypes.inputRequired,
+      }),
+    );
+    for (final entry
+        in {
+          'asks_to_elicit': InputRequest.elicit(
+            ElicitRequest.form(
+              message: 'What is your name?',
+              requestedSchema: ObjectSchema(
+                properties: {'name': StringSchema()},
+              ),
+            ),
+          ),
+          'asks_to_sample': InputRequest.sample(
+            CreateMessageRequest(messages: [], maxTokens: 1),
+          ),
+          'asks_for_roots': InputRequest.listRoots(ListRootsRequest()),
+        }.entries) {
+      registerTool(
+        Tool(name: entry.key, inputSchema: ObjectSchema()),
+        (_) => CallToolResult.fromMap({
+          Keys.content: [TextContent(text: 'waiting')],
+          Keys.resultType: ResultTypes.inputRequired,
+          Keys.inputRequests: {'answer': entry.value},
+        }),
+      );
+    }
+    registerTool(
+      Tool(name: 'asks_to_elicit_by_url', inputSchema: ObjectSchema()),
+      (_) => CallToolResult.fromMap({
+        Keys.content: [TextContent(text: 'waiting')],
+        Keys.resultType: ResultTypes.inputRequired,
+        Keys.inputRequests: {
+          'answer': InputRequest.elicit(
+            ElicitRequest.url(
+              message: 'Sign in',
+              url: 'https://example.com/sign-in',
+              elicitationId: 'e1',
+            ),
+          ),
+        },
+      }),
+    );
+    // Registered directly instead of mixing in `PromptsSupport`: the guard
+    // dispatches on the method, and the mixin would also change what this
+    // server advertises, which other tests here assert on.
+    registerRequestHandler<GetPromptRequest, GetPromptResult>(
+      GetPromptRequest.methodName,
+      (_) => GetPromptResult.fromMap({
+        Keys.messages: <Object?>[],
+        Keys.resultType: ResultTypes.inputRequired,
+      }),
+    );
+    registerTool(
+      Tool(name: 'input_request_without_a_method', inputSchema: ObjectSchema()),
+      (_) => CallToolResult.fromMap({
+        Keys.content: [TextContent(text: 'waiting')],
+        Keys.resultType: ResultTypes.inputRequired,
+        Keys.inputRequests: {
+          'answer': {Keys.params: <String, Object?>{}},
+        },
+      }),
+    );
+    registerTool(
+      Tool(name: 'bad_input_requests', inputSchema: ObjectSchema()),
+      (_) => CallToolResult.fromMap({
+        Keys.content: [TextContent(text: 'waiting')],
+        Keys.resultType: ResultTypes.inputRequired,
+        Keys.inputRequests: 'not a map',
+      }),
+    );
+    registerTool(
+      Tool(name: 'bad_input_request_entry', inputSchema: ObjectSchema()),
+      (_) => CallToolResult.fromMap({
+        Keys.content: [TextContent(text: 'waiting')],
+        Keys.resultType: ResultTypes.inputRequired,
+        Keys.inputRequests: {'answer': 'not a map either'},
+      }),
+    );
+    registerTool(
+      Tool(name: 'asks_for_something_else', inputSchema: ObjectSchema()),
+      (_) => CallToolResult.fromMap({
+        Keys.content: [TextContent(text: 'waiting')],
+        Keys.resultType: ResultTypes.inputRequired,
+        Keys.inputRequests: {
+          'answer': {Keys.method: 'io.example/ask'},
+        },
       }),
     );
     registerTool(
@@ -1032,6 +1304,23 @@ final class _ShapedListServer extends TestMCPServer with ToolsSupport {
         shape(await super.listTools(request) as Map<String, Object?>),
       );
 }
+
+Map<String, Object?> _complete(String argumentName) => {
+  Keys.jsonrpc: '2.0',
+  Keys.id: 1,
+  Keys.method: CompleteRequest.methodName,
+  Keys.params: CompleteRequest(
+    ref: ResourceTemplateReference(uri: 'file:///{name}'),
+    argument: CompletionArgument(name: argumentName, value: ''),
+  ),
+};
+
+Map<String, Object?> _getPrompt(String name) => {
+  Keys.jsonrpc: '2.0',
+  Keys.id: 1,
+  Keys.method: GetPromptRequest.methodName,
+  Keys.params: {Keys.name: name},
+};
 
 Map<String, Object?> _callTool(
   String name, {
