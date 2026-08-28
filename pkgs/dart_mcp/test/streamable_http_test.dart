@@ -1386,8 +1386,8 @@ void main() {
         headers: {...headers(callTool), 'Mcp-Name': 'test/notify'},
         json: body(callTool, params: {Keys.name: 'test/notify'}),
       );
-      // Every other test of the decoder spells its input out by hand. The
-      // framing this transport writes is the one input none of them cover.
+      // The decoder's own tests spell their input out by hand. This one
+      // reads back what the transport wrote.
       final messages =
           await sseMessageStream(Stream.value(utf8.encode(text))).toList();
 
