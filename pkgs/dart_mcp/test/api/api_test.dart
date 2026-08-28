@@ -99,7 +99,7 @@ void main() {
     expect(ProtocolVersion.v2026_07_28.methodIsValid('server/discover'), true);
   });
 
-  test('the 2026-07-28 revision removes the methods it stopped accepting', () {
+  test('the 2026-07-28 removal set is pinned', () {
     // Pinned so an entry cannot fall out of the set unnoticed. The walk test
     // below reads the set and would follow it. `elicitation/create`,
     // `roots/list`, and `sampling/createMessage` are in here with their types
