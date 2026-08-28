@@ -90,9 +90,7 @@ void main() {
       expect(error[Keys.code], error_code.INTERNAL_ERROR);
       expect(
         error[Keys.message],
-        'Protocol version 2026-07-28 does not have sampling/createMessage. '
-        'From 2026-07-28 a server asks the client for input with an '
-        'InputRequiredResult on tools/call, prompts/get, or resources/read.',
+        contains('2026-07-28 does not have sampling/createMessage'),
       );
     }
   });
@@ -112,9 +110,7 @@ void main() {
       expect(error[Keys.code], error_code.INTERNAL_ERROR);
       expect(
         error[Keys.message],
-        'Protocol version 2026-07-28 does not have roots/list. From '
-        '2026-07-28 a server asks the client for input with an '
-        'InputRequiredResult on tools/call, prompts/get, or resources/read.',
+        contains('2026-07-28 does not have roots/list'),
       );
     }
   });

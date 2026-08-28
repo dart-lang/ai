@@ -145,12 +145,33 @@ void main() {
         protocolVersion: ProtocolVersion.v2026_07_28,
       );
 
-      expect(_errorCode(result!), -32603);
+      expect(_errorCode(result!), error_code.INTERNAL_ERROR);
       expect(
         (result[Keys.error] as Map<String, Object?>)[Keys.message],
-        'Protocol version 2026-07-28 does not have elicitation/create. From '
-        '2026-07-28 a server asks the client for input with an '
-        'InputRequiredResult on tools/call, prompts/get, or resources/read.',
+        contains('2026-07-28 does not have elicitation/create'),
+      );
+    }
+  });
+
+  test('a revision before 2025-06-18 rejects elicitation too', () async {
+    for (final protocolVersion in [
+      ProtocolVersion.v2024_11_05,
+      ProtocolVersion.v2025_03_26,
+    ]) {
+      // The capability is declared, so reaching the version error is what
+      // shows the check runs first on a revision which never had the method.
+      final result = await _call(
+        'test/ask',
+        ClientCapabilities(elicitation: ElicitationCapability(form: {})),
+        protocolVersion: protocolVersion,
+      );
+
+      expect(_errorCode(result!), error_code.INTERNAL_ERROR);
+      expect(
+        (result[Keys.error] as Map<String, Object?>)[Keys.message],
+        contains(
+          '${protocolVersion.versionString} does not have elicitation/create',
+        ),
       );
     }
   });

@@ -111,9 +111,8 @@
     `{"type": "integer", "minimum": 0.5}` sent something the getter threw on.
     `multipleOf` next to them already read `num`.
 - Add `supportsFormElicitation` and `supportsUrlElicitation` for a server to
-  ask before it sends, on a revision which has `elicitation/create` to send.
-  An empty `elicitation` object still means form, the way `elicitation` read
-  before the split.
+  ask before it sends. An empty `elicitation` object still means form, the way
+  `elicitation` read before the split.
 - Add `ElicitRequest.rawMode`, which carries the mode as it arrived. `mode`
   resolves it and throws on an unknown one.
 - Fix the `Meta` dartdoc, which still described the 2025-06-18 prefix rule, and
