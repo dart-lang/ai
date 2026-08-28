@@ -49,6 +49,35 @@ void main() {
     ]);
   });
 
+  test('does not interpret an input-required result before a version is '
+      'settled', () async {
+    final client =
+        _InputClient()
+          ..addRoot(Root(uri: 'file:///workspace', name: 'workspace'));
+    final harness = _WireHarness(
+      client,
+      (request, requestNumber) => {
+        'resultType': 'input_required',
+        'content': [
+          {'type': 'text', 'text': 'unsettled result'},
+        ],
+        'inputRequests': {
+          'roots': {'method': 'roots/list', 'params': <String, Object?>{}},
+        },
+      },
+      protocolVersion: null,
+    );
+
+    final result = await harness.connection.callTool(
+      CallToolRequest(name: 'task'),
+    );
+
+    expect(harness.connection.protocolVersion, isNull);
+    expect((result.content.single as TextContent).text, 'unsettled result');
+    expect(client.handled, isEmpty);
+    expect(harness.requests, hasLength(1));
+  });
+
   test('retries on a connection whose transport settled the version', () async {
     final client =
         _InputClient()
@@ -392,7 +421,36 @@ void main() {
       await expectLater(
         harness.connection.callTool(CallToolRequest(name: 'task')),
         throwsA(
-          isA<StateError>().having(
+          isA<ArgumentError>().having(
+            (error) => error.message,
+            'message',
+            allOf(contains(method), contains('expected an object')),
+          ),
+        ),
+      );
+      expect(harness.requests, hasLength(1));
+    });
+  }
+
+  for (final method in [
+    ElicitRequest.methodName,
+    CreateMessageRequest.methodName,
+  ]) {
+    test('rejects absent params for $method', () async {
+      final harness = _WireHarness(
+        _InputClient(),
+        (request, requestNumber) => {
+          'resultType': 'input_required',
+          'inputRequests': {
+            'absent': {'method': method},
+          },
+        },
+      );
+
+      await expectLater(
+        harness.connection.callTool(CallToolRequest(name: 'task')),
+        throwsA(
+          isA<ArgumentError>().having(
             (error) => error.message,
             'message',
             allOf(contains(method), contains('expected an object')),
@@ -421,7 +479,7 @@ void main() {
     await expectLater(
       harness.connection.callTool(CallToolRequest(name: 'task')),
       throwsA(
-        isA<StateError>().having(
+        isA<ArgumentError>().having(
           (error) => error.message,
           'message',
           allOf(contains('voice'), contains('form')),
@@ -511,7 +569,7 @@ void main() {
     await expectLater(
       harness.connection.callTool(CallToolRequest(name: 'task')),
       throwsA(
-        isA<StateError>().having(
+        isA<ArgumentError>().having(
           (error) => error.message,
           'message',
           allOf(contains('inputRequests'), contains('requestState')),

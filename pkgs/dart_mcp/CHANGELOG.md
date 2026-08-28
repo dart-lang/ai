@@ -161,13 +161,14 @@
 - Add `InputRequiredResult` and `InputRequest`, the result a server answers with
   when it needs input first, see
   https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr.
+  A server built with this package does not send one yet.
 - On a 2026-07-28 connection, `ServerConnection.callTool`, `.getPrompt` and
   `.readResource` answer an `input_required` result from the client's
   elicitation, sampling and roots handlers, then send the original request
   again. Retries stop after ten rounds.
-- Add `MCPBase.sendRequestKeepingProgress` and `MCPBase.closeProgress`, for a
-  caller which sends several requests under one progress token and closes the
-  stream once it stops sending.
+- Add `MCPBase.sendRequestKeepingProgress` and `MCPBase.closeProgress`.
+  `sendRequest` closes a progress stream once its request is done, and this
+  pair splits that apart so a retry loop can hold one token across rounds.
 - Add `WithInputResponses`, the type a client's retry carries.
   `CallToolRequest`, `GetPromptRequest` and `ReadResourceRequest` take an
   `inputResponses` and a `requestState`, matching the three requests the schema

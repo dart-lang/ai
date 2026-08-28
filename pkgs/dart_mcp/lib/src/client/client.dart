@@ -118,9 +118,8 @@ base class ServerConnection extends MCPBase {
   /// The version of the protocol this connection speaks, or `null` until one
   /// is settled.
   ///
-  /// [initialize] fills this in for a version this client supports. A
-  /// transport which carries its own supported versions assigns it directly,
-  /// since 2026-07-28 has no handshake to negotiate one.
+  /// [initialize] fills this in for a version this client supports. Assign it
+  /// directly if your transport settles the version outside the handshake.
   ///
   /// Some APIs may error if you attempt to use them without first checking the
   /// protocol version.
@@ -128,8 +127,9 @@ base class ServerConnection extends MCPBase {
 
   /// The [Implementation] returned from the [initialize] request.
   ///
-  /// Only non-null after [initialize] has successfully completed, or once a
-  /// transport which settles the version itself sets it. Sampling needs one.
+  /// Only non-null after [initialize] has successfully completed. Sampling
+  /// hands it to the handler, so set it too wherever you set
+  /// [protocolVersion].
   Implementation? serverInfo;
 
   /// The [ServerCapabilities] returned from the [initialize] request.
@@ -452,7 +452,7 @@ base class ServerConnection extends MCPBase {
       final inputRequests = inputRequired.inputRequests;
       final requestState = inputRequired.requestState;
       if (inputRequests == null && requestState == null) {
-        throw StateError(
+        throw ArgumentError(
           'The server returned `${ResultTypes.inputRequired}` without '
           '`${Keys.inputRequests}` or `${Keys.requestState}`.',
         );
@@ -460,6 +460,8 @@ base class ServerConnection extends MCPBase {
       // TODO: Delay a retry that carries no input requests, so it cannot spin.
       // https://github.com/dart-lang/ai/issues/162
       if (inputRequests != null) {
+        // Resolve every handler before running any, so a request this client
+        // cannot serve stops the round before a partial dispatch.
         final handlers = [
           for (final entry in inputRequests.entries)
             MapEntry(entry.key, _inputRequestHandler(entry.value)),
@@ -491,7 +493,7 @@ base class ServerConnection extends MCPBase {
         final request =
             _inputRequestParams(inputRequest, required: true)! as ElicitRequest;
         final badMode = _invalidElicitationMode(request);
-        if (badMode != null) throw StateError(badMode);
+        if (badMode != null) throw ArgumentError(badMode);
         switch (request.mode) {
           case ElicitationMode.form:
             final support = _elicitationFormSupport;
@@ -534,7 +536,7 @@ base class ServerConnection extends MCPBase {
                 as ListRootsRequest?;
         return () async => await support.handleListRoots(request);
       default:
-        throw StateError(
+        throw ArgumentError(
           'The input request method was "${inputRequest.method}", which is '
           'not one of: ${ElicitRequest.methodName}, '
           '${CreateMessageRequest.methodName}, ${ListRootsRequest.methodName}',
@@ -579,7 +581,7 @@ Map<String, Object?>? _inputRequestParams(
   final params = (inputRequest as Map<String, Object?>)[Keys.params];
   if (params == null && !required) return null;
   if (params is! Map) {
-    throw StateError(
+    throw ArgumentError(
       'The input request params for "${inputRequest.method}" were '
       '${params.runtimeType}, expected an object.',
     );
@@ -591,8 +593,9 @@ Map<String, Object?>? _inputRequestParams(
 /// [ElicitationMode], or null if this client can read its mode.
 ///
 /// [ElicitRequest.mode] reports an unknown mode as `Bad state: No element`, so
-/// both entry points check the raw value first and name it themselves. They
-/// throw different types, which is why this returns the message.
+/// both entry points check the raw value first and name it themselves. One
+/// answers the server with an [RpcException] and the other throws to the
+/// caller, so this returns the message and lets each one wrap it.
 String? _invalidElicitationMode(ElicitRequest request) {
   final raw = request.rawMode;
   if (raw == null || ElicitationMode.values.any((m) => m.name == raw)) {
