@@ -82,10 +82,16 @@ export 'src/utils/sse.dart' show sseMessageStream;
 ///
 /// `Mcp-Session-Id` and `Last-Event-ID` headers are ignored, and no session
 /// id is ever minted: sessions and resumable streams were removed in this
-/// revision. The `Mcp-Param-{Name}` headers this revision defines are not
-/// supported either: nothing here opts into `x-mcp-header`, so no such
-/// header is ever recognized, and it is ignored along with every other
-/// header this handler does not read.
+/// revision.
+///
+/// For `tools/call`, a string, integer, or boolean property annotated with
+/// `x-mcp-header` requires its `Mcp-Param-{Name}` header when the argument has
+/// a non-`null` value. An annotation on any other type is not recognized. The
+/// registered tool is resolved before dispatch, sentinel values are decoded,
+/// integers are compared numerically, and nested `properties` maps are
+/// followed. A validation failure answers `400` with a header mismatch and
+/// drops the notifications the server emitted before dispatch, since those are
+/// what would otherwise have committed the stream.
 ///
 /// Notifications the server produces while handling the request go out on an
 /// SSE response stream. The first one commits `text/event-stream`, and the
@@ -440,6 +446,27 @@ Future<void> handleStreamableHttpRequest(
   }
 
   final answer = _Answer(response);
+  var pendingNotifications =
+      method == CallToolRequest.methodName ? <Map<String, Object?>>[] : null;
+
+  /// Writes [notification] to the response stream, skipping the ones an
+  /// embedder serves on a listen stream.
+  void writeNotification(Map<String, Object?> notification) {
+    if (!_listenStreamNotifications.contains(notification[Keys.method])) {
+      answer.notify(notification);
+    }
+  }
+
+  /// Writes the notifications held back so far and stops holding any more.
+  void releasePendingNotifications() {
+    final pending = pendingNotifications;
+    if (pending == null) return;
+    pendingNotifications = null;
+    for (final notification in pending) {
+      writeNotification(notification);
+    }
+  }
+
   final Map<String, Object?>? result;
   try {
     result = await handleRequestScopedMessage(
@@ -453,19 +480,37 @@ Future<void> handleStreamableHttpRequest(
       ),
       serverFactory,
       onNotification: (notification) {
-        if (!_listenStreamNotifications.contains(notification[Keys.method])) {
-          answer.notify(notification);
+        final pending = pendingNotifications;
+        if (pending == null) {
+          writeNotification(notification);
+        } else {
+          pending.add(notification);
         }
         onNotification?.call(notification);
       },
+      beforeDispatch:
+          method == CallToolRequest.methodName
+              ? (server) {
+                final rejection = _checkMcpParamHeaders(
+                  request,
+                  params,
+                  server,
+                );
+                if (rejection != null) return rejection;
+                releasePendingNotifications();
+                return null;
+              }
+              : null,
     );
   } catch (_) {
     // The server could not be built for this request. Answer before the error
-    // leaves this function, so an embedder which discards the returned future
+    // leaves this function, so an embedder that discards the returned future
     // does not leave the connection open. A server that emitted a notification
     // while initializing has already committed the stream, and headers cannot
     // be set on it a second time. The answer goes out on the stream instead of
-    // starting a fresh response.
+    // starting a fresh response, so a `tools/call` releases the notifications
+    // it was holding back before answering.
+    releasePendingNotifications();
     await answer.finish(
       RpcException(
         error_code.INTERNAL_ERROR,
@@ -668,3 +713,164 @@ const _mcpNameParams = {
   GetPromptRequest.methodName: Keys.name,
   ReadResourceRequest.methodName: Keys.uri,
 };
+
+/// A number with an optional minus sign and fractional part.
+///
+/// https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http
+final _decimal = RegExp(r'^-?\d+(\.\d+)?$');
+
+/// The prefix of the header a property's `x-mcp-header` annotation names, so
+/// a property annotated `x-mcp-header: "Region"` is mirrored on
+/// `Mcp-Param-Region`.
+const _mcpParamHeaderPrefix = 'Mcp-Param-';
+
+/// Validates annotated primitive arguments in [params] against [request].
+///
+/// A server that registers no tools, or has none under the requested name,
+/// has no schema to read an annotation from and nothing to check.
+RpcException? _checkMcpParamHeaders(
+  HttpRequest request,
+  Map<String, Object?> params,
+  MCPServer server,
+) {
+  if (server is! ToolsSupport) return null;
+  final toolName = params[Keys.name];
+  if (toolName is! String) return null;
+
+  final tool = server.registeredTools[toolName];
+  if (tool == null) return null;
+
+  final properties = _readableProperties(tool.inputSchema);
+  if (properties == null) return null;
+
+  // The protocol types `arguments` as an object. Reading another shape as an
+  // empty map reports every annotated argument as absent, and blames a header
+  // naming one for what the body got wrong.
+  final arguments = params[Keys.arguments];
+  if (arguments is! Map<String, Object?>?) {
+    return RpcException.invalidParams(
+      'params.${Keys.arguments} must be an object',
+    );
+  }
+
+  return _checkMcpParamHeadersForProperties(
+    request,
+    properties,
+    arguments ?? const {},
+    '',
+  );
+}
+
+/// The `properties` map of [schema], or `null` when [schema] does not carry one
+/// this check can read.
+///
+/// A subschema is a boolean wherever JSON Schema allows one, and `properties`
+/// holds whatever the server put there. Neither shape can name an
+/// `x-mcp-header`, so both read as nothing to check. [schema] is [Object] here
+/// because `Tool.inputSchema` is an extension type over a map and does not
+/// implement `Map<String, Object?>`.
+Map<String, Object?>? _readableProperties(Object? schema) {
+  if (schema is! Map<String, Object?>) return null;
+  final properties = schema[Keys.properties];
+  return properties is Map<String, Object?> ? properties : null;
+}
+
+/// Validates [properties] and descends through each nested `properties` map.
+/// [pathPrefix] is the dotted argument path used in errors.
+RpcException? _checkMcpParamHeadersForProperties(
+  HttpRequest request,
+  Map<String, Object?> properties,
+  Map<String, Object?> argumentMap,
+  String pathPrefix,
+) {
+  for (final MapEntry(key: property, value: schemaMap) in properties.entries) {
+    if (schemaMap is! Map<String, Object?>) continue;
+    final argumentValue = argumentMap[property];
+    final hasValue = argumentMap.containsKey(property) && argumentValue != null;
+    final propertyPath = '$pathPrefix$property';
+
+    final nestedProperties = _readableProperties(schemaMap);
+    if (nestedProperties != null) {
+      // Only `params.arguments` is typed by the protocol. What a tool takes
+      // under it belongs to the tool's own schema. A present non-object holds
+      // no nested arguments to compare, and this leaves the subtree unread.
+      final nestedArguments = argumentValue ?? const <String, Object?>{};
+      if (nestedArguments is! Map<String, Object?>) continue;
+      final failure = _checkMcpParamHeadersForProperties(
+        request,
+        nestedProperties,
+        nestedArguments,
+        '$propertyPath.',
+      );
+      if (failure != null) return failure;
+      continue;
+    }
+
+    final suffix = schemaMap[Keys.xMcpHeader];
+    if (suffix is! String) continue;
+
+    // The specification allows the annotation on a string, integer, or boolean
+    // property only, and it is the client that rejects a tool definition
+    // putting it anywhere else. An annotation on another type is one this does
+    // not recognize, so the header it names goes unread.
+    final type = schemaMap[Keys.type];
+    if (type != JsonType.string.typeName &&
+        type != JsonType.int.typeName &&
+        type != JsonType.bool.typeName) {
+      continue;
+    }
+
+    final headerName = '$_mcpParamHeaderPrefix$suffix';
+    if (!hasValue) {
+      if (request.headers[headerName] == null) continue;
+      return RpcException(
+        McpErrorCodes.headerMismatch,
+        'Received a $headerName header for '
+        'params.arguments.$propertyPath. Expected no header because the '
+        'argument is absent or null',
+      );
+    }
+    final headerValue = _singleHeader(request, headerName);
+    if (headerValue == null) {
+      return RpcException(
+        McpErrorCodes.headerMismatch,
+        'Received no single $headerName header. Expected '
+        '${jsonEncode(argumentValue)} from params.arguments.$propertyPath',
+      );
+    }
+    if (headerValue.codeUnits.any(
+      (unit) => unit != 0x09 && (unit < 0x20 || unit > 0x7e),
+    )) {
+      return RpcException(
+        McpErrorCodes.headerMismatch,
+        'The $headerName header ${jsonEncode(headerValue)} must contain only '
+        'HTAB, space, or visible ASCII characters',
+      );
+    }
+    final String decodedValue;
+    try {
+      decodedValue = _decodeSentinel(headerValue);
+    } on FormatException {
+      return RpcException(
+        McpErrorCodes.headerMismatch,
+        'The $headerName header ${jsonEncode(headerValue)} is not valid base64 '
+        'inside the =?base64?...?= sentinel',
+      );
+    }
+    final matches =
+        type == JsonType.int.typeName
+            ? argumentValue is num &&
+                _decimal.hasMatch(decodedValue) &&
+                num.tryParse(decodedValue) == argumentValue
+            : decodedValue == argumentValue.toString();
+    if (!matches) {
+      return RpcException(
+        McpErrorCodes.headerMismatch,
+        'The $headerName header ${jsonEncode(headerValue)} decodes to '
+        '${jsonEncode(decodedValue)}. Expected ${jsonEncode(argumentValue)} '
+        'from params.arguments.$propertyPath',
+      );
+    }
+  }
+  return null;
+}

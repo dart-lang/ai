@@ -78,6 +78,10 @@ typedef MCPServerFactory =
 /// [MCPBase.ping] does not read the revision, so a ping still fails inside its
 /// handler.
 ///
+/// If [beforeDispatch] is given, it receives the initialized server and runs
+/// before [message] is delivered. A non-`null` result stops dispatch: requests
+/// receive the serialized error and notifications receive no response.
+///
 /// Throws an [ArgumentError] if [message] is not a JSON-RPC request or
 /// notification (no string `method`, a `null` id, or a `result` or `error`
 /// member), or if its method is the legacy `initialize` request or
@@ -92,6 +96,7 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
   MCPServerInitialization initialization,
   MCPServerFactory serverFactory, {
   void Function(Map<String, Object?> notification)? onNotification,
+  FutureOr<RpcException?> Function(MCPServer server)? beforeDispatch,
 }) async {
   final object = JsonRpc2Object.fromMap(message);
   if (object.kind == JsonRpc2Kind.response) {
@@ -221,6 +226,14 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
   try {
     await server.initialize(initialization);
     server.handleInitialized();
+    final rejection = await beforeDispatch?.call(server);
+    if (rejection != null) {
+      // The message is never added to `inbound`, so the server never sees
+      // it. The `finally` block below still tears the server down exactly
+      // as it would after a dispatched exchange, by closing `inbound` on an
+      // empty stream.
+      return isRequest ? rejection.serialize(message) : null;
+    }
     inbound.add(message);
     if (isRequest) return await response.future;
     return null;

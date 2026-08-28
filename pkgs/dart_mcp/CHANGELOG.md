@@ -295,6 +295,17 @@
   Streamable HTTP handler already requires; the server map travels with
   `ServerCapabilities`, which is held by the legacy `initialize` result and
   by `DiscoverResult`.
+- Support `x-mcp-header` in `handleStreamableHttpRequest`. A `tools/call`
+  argument annotated with it is checked against its `Mcp-Param-{Name}` header.
+  - Nested `properties` paths and `=?base64?...?=` values are supported, and
+    integers are compared numerically.
+  - A missing, extra, malformed, or mismatched header answers `400 Bad Request`
+    with `McpErrorCodes.headerMismatch` and drops any notification the server
+    emitted before dispatch.
+  - A `tools/call` whose `arguments` is not an object answers `400 Bad Request`
+    with invalid params.
+  - `handleRequestScopedMessage` gained `beforeDispatch`, and
+    `ToolsSupport.registeredTools` exposes the registered tools by name.
 - Point the documentation at `modelcontextprotocol.io` and at protocol
   revision 2025-11-25. The old host stopped serving HTTPS, and the old
   revision number 2025-11-05 was never a published revision.
