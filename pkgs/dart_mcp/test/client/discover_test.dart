@@ -15,8 +15,7 @@ import '../test_utils.dart';
 void main() {
   group('ServerConnection.discover', () {
     test('sends the metadata the 2026-07-28 envelope requires', () async {
-      final harness = _WireHarness();
-      harness.respondToNextRequest(_completeResult(tools: {}));
+      final harness = _WireHarness.answering(_answer);
 
       await harness.connection.discover(
         protocolVersion: ProtocolVersion.v2026_07_28,
@@ -26,10 +25,10 @@ void main() {
         clientInfo: Implementation(name: 'test client', version: '0.1.0'),
       );
 
-      final request = harness.requests.single;
-      expect(request['method'], 'server/discover');
-      final meta = (request['params'] as Map)['_meta'] as Map<String, Object?>;
-      expect(meta, {
+      // The reserved keys are spelled out here, since the point of this test
+      // is that they match the specification and not our own constants.
+      expect(harness.requests.single[Keys.method], 'server/discover');
+      expect(harness.metadata, {
         'io.modelcontextprotocol/protocolVersion': '2026-07-28',
         'io.modelcontextprotocol/clientInfo': {
           'name': 'test client',
@@ -44,8 +43,7 @@ void main() {
     test(
       'leaves clientInfo out of the envelope when it is not given',
       () async {
-        final harness = _WireHarness();
-        harness.respondToNextRequest(_completeResult());
+        final harness = _WireHarness.answering(_answer);
 
         await harness.connection.discover(
           protocolVersion: ProtocolVersion.v2026_07_28,
@@ -60,8 +58,7 @@ void main() {
     );
 
     test('keeps caller metadata and overwrites the keys it writes', () async {
-      final harness = _WireHarness();
-      harness.respondToNextRequest(_completeResult());
+      final harness = _WireHarness.answering(_answer);
 
       await harness.connection.discover(
         protocolVersion: ProtocolVersion.v2026_07_28,
@@ -96,8 +93,7 @@ void main() {
     });
 
     test('leaves a caller client info key alone when none is given', () async {
-      final harness = _WireHarness();
-      harness.respondToNextRequest(_completeResult());
+      final harness = _WireHarness.answering(_answer);
 
       await harness.connection.discover(
         protocolVersion: ProtocolVersion.v2026_07_28,
@@ -107,103 +103,106 @@ void main() {
         }),
       );
 
-      final meta = harness.metadata;
-      expect(meta[Keys.clientInfoMeta], {
+      expect(harness.metadata[Keys.clientInfoMeta], {
         Keys.name: 'spoofed',
         Keys.version: '9.9.9',
       });
     });
 
-    test(
-      'returns a real server result without changing handshake state',
-      () async {
-        final env = TestEnvironment(TestMCPClient(), _DiscoverTestServer.new);
-        await env.initializeServer(
-          protocolVersion: ProtocolVersion.v2025_11_25,
-        );
+    test('reads a server answer without taking over the connection', () async {
+      final harness = _WireHarness.dispatching();
 
-        final result = await env.serverConnection.discover(
-          protocolVersion: ProtocolVersion.v2026_07_28,
-          capabilities: env.client.capabilities,
-          clientInfo: env.client.implementation,
-        );
+      final result = await harness.connection.discover(
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        capabilities: ClientCapabilities(),
+        clientInfo: Implementation(name: 'test client', version: '0.1.0'),
+      );
 
-        expect(result as Map<String, Object?>, {
-          'cacheScope': 'private',
-          'capabilities': {
-            'tools': {'listChanged': true},
-          },
-          'resultType': 'complete',
-          'supportedVersions': ['2026-07-28'],
-          'ttlMs': 0,
-        });
-        expect(
-          env.serverConnection.protocolVersion,
-          ProtocolVersion.v2025_11_25,
-        );
-      },
-    );
+      expect(result.supportedVersions, ['2026-07-28']);
+      expect(result.instructions, 'A test server');
+      expect(harness.connection.serverInfo, isNull);
+    });
   });
 }
 
-Map<String, Object?> _completeResult({Map<String, Object?>? tools}) => {
-  'cacheScope': 'private',
-  'capabilities': {if (tools != null) 'tools': tools},
-  'resultType': 'complete',
+/// A well-formed answer for the tests which only look at the request.
+const _answer = <String, Object?>{
   'supportedVersions': ['2026-07-28'],
-  'ttlMs': 0,
+  'capabilities': <String, Object?>{},
 };
 
+/// Drives a [ServerConnection] over an in-memory channel, recording the
+/// requests it sends and answering each one with `_respond`.
 class _WireHarness {
-  final incoming = StreamController<Map<String, Object?>>();
-  final outgoing = StreamController<Map<String, Object?>>();
-  final requests = <Map<String, Object?>>[];
-  final _responses = <Map<String, Object?>>[];
-
-  late final ServerConnection connection;
-
-  _WireHarness() {
+  _WireHarness(this._respond) {
     final client = TestMCPClient();
     addTearDown(client.shutdown);
+    addTearDown(_incoming.close);
     connection = client.connectServer(
-      StreamChannel.withGuarantees(incoming.stream, outgoing.sink),
+      StreamChannel.withGuarantees(_incoming.stream, _outgoing.sink),
     );
-    outgoing.stream.listen((request) {
+    _outgoing.stream.listen((request) async {
       requests.add(request);
-      incoming.add({
+      _incoming.add({
         Keys.jsonrpc: '2.0',
         Keys.id: request[Keys.id],
-        Keys.result: _responses.removeAt(0),
+        Keys.result: await _respond(request),
       });
     });
   }
 
-  Map<String, Object?> get metadata =>
-      (requests.single['params'] as Map)['_meta'] as Map<String, Object?>;
+  /// Answers every request with [result], for tests about what was sent.
+  _WireHarness.answering(Map<String, Object?> result)
+    : this((_) async => result);
 
-  void respondToNextRequest(Map<String, Object?> result) =>
-      _responses.add(result);
+  /// Answers with a real [TestMCPServer], reached the way a request-scoped
+  /// transport reaches one.
+  ///
+  /// This is where the two halves of the envelope meet: the per-request
+  /// context comes from the `_meta` the client wrote, so a request which does
+  /// not carry it cannot be served.
+  _WireHarness.dispatching() : this(_dispatch);
+
+  final Future<Map<String, Object?>> Function(Map<String, Object?> request)
+  _respond;
+  final _incoming = StreamController<Map<String, Object?>>();
+  final _outgoing = StreamController<Map<String, Object?>>();
+
+  /// The requests the connection has sent.
+  final requests = <Map<String, Object?>>[];
+
+  late final ServerConnection connection;
+
+  /// The `_meta` envelope on the one request that was sent.
+  Map<String, Object?> get metadata =>
+      (requests.single[Keys.params] as Map<String, Object?>)[Keys.meta]
+          as Map<String, Object?>;
 }
 
-base class _DiscoverTestServer extends MCPServer {
-  _DiscoverTestServer(super.channel)
-    : super.fromStreamChannel(
-        implementation: Implementation(name: 'server', version: '2.0.0'),
-        instructions: 'test server',
-      ) {
-    registerRequestHandler(DiscoverRequest.methodName, _handleDiscover);
-  }
+Future<Map<String, Object?>> _dispatch(Map<String, Object?> request) async {
+  final params = request[Keys.params];
+  final meta = params is Map<String, Object?> ? params[Keys.meta] : null;
+  if (meta is! Map<String, Object?>) fail('No envelope on $request');
 
-  static final _capabilities = ServerCapabilities(
-    tools: Tools(listChanged: true),
+  final version = ProtocolVersion.tryParse('${meta[Keys.protocolVersionMeta]}');
+  if (version == null) fail('No protocol version in the envelope $meta');
+  final capabilities = meta[Keys.clientCapabilitiesMeta];
+  if (capabilities is! Map<String, Object?>) {
+    fail('No client capabilities in the envelope $meta');
+  }
+  final clientInfo = meta[Keys.clientInfoMeta] as Map<String, Object?>?;
+
+  final response = await handleRequestScopedMessage(
+    request,
+    MCPServerInitialization(
+      protocolVersion: version,
+      clientCapabilities: ClientCapabilities.fromMap(capabilities),
+      clientInfo:
+          clientInfo == null ? null : Implementation.fromMap(clientInfo),
+    ),
+    TestMCPServer.new,
   );
-
-  @override
-  FutureOr<ServerCapabilities> initialize(MCPServerInitialization request) {
-    super.initialize(request);
-    return _capabilities;
-  }
-
-  FutureOr<DiscoverResult> _handleDiscover(DiscoverRequest _) =>
-      DiscoverResult.fromMap(_completeResult(tools: {'listChanged': true}));
+  final result = response?[Keys.result];
+  if (result is! Map<String, Object?>) fail('The server answered $response');
+  return result;
 }
