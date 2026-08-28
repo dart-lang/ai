@@ -4,7 +4,14 @@
 
 import 'dart:convert';
 
-import 'constants.dart';
+/// The SSE field which names the type of an event.
+const _eventField = 'event';
+
+/// The SSE field which carries the payload of an event.
+const _dataField = 'data';
+
+/// The type of an event which names none.
+const _messageType = 'message';
 
 /// Decodes the `message` events in a Streamable HTTP SSE response [bytes].
 ///
@@ -44,7 +51,7 @@ Stream<String> _sseMessageData(Stream<List<int>> bytes) async* {
   )) {
     if (line.isEmpty) {
       final source = data.join('\n');
-      if (source.isNotEmpty && (event.isEmpty || event == Keys.message)) {
+      if (source.isNotEmpty && (event.isEmpty || event == _messageType)) {
         yield source;
       }
       event = '';
@@ -56,9 +63,9 @@ Stream<String> _sseMessageData(Stream<List<int>> bytes) async* {
     final field = separator < 0 ? line : line.substring(0, separator);
     var value = separator < 0 ? '' : line.substring(separator + 1);
     if (value.startsWith(' ')) value = value.substring(1);
-    if (field == 'event') {
+    if (field == _eventField) {
       event = value;
-    } else if (field == Keys.data) {
+    } else if (field == _dataField) {
       data.add(value);
     }
   }
