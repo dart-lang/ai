@@ -820,6 +820,11 @@ void main() {
         (CreateMessageRequest.methodName, null),
         (CreateMessageRequest.methodName, <Object?>[]),
         (ListRootsRequest.methodName, 'not a map'),
+        (
+          ElicitRequest.methodName,
+          {Keys.message: 'Fill this in', Keys.requestedSchema: 'not a schema'},
+        ),
+        (ElicitRequest.methodName, {Keys.mode: 'url', Keys.message: 'Sign in'}),
       ]) {
         final response = await _dispatchShapedRead(
           (result) => {
