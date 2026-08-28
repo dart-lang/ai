@@ -13,7 +13,7 @@ const _dataField = 'data';
 /// The type of an event which names none.
 const _messageType = 'message';
 
-/// Decodes the `message` events in a Streamable HTTP SSE response [bytes].
+/// Decodes the `message` events of a Streamable HTTP SSE response [bytes].
 ///
 /// Consecutive `data` fields are joined with a line feed before the JSON
 /// object is decoded. An omitted or empty `event` field means the `message`
@@ -25,8 +25,10 @@ const _messageType = 'message';
 /// delivered. An error on [bytes] itself ends the stream, since there is
 /// nothing left to read.
 ///
-/// Bytes that are not valid UTF-8 become the replacement character instead of
-/// an error.
+/// Bytes which are not valid UTF-8 become the replacement character, and a
+/// frame which [bytes] ends in the middle of is dropped, both because the
+/// event stream parsing rules ask for it:
+/// https://html.spec.whatwg.org/multipage/server-sent-events.html#event-stream-interpretation.
 Stream<Map<String, Object?>> sseMessageStream(Stream<List<int>> bytes) =>
     _sseMessageData(bytes).map<Map<String, Object?>>((source) {
       final decoded = jsonDecode(source);
