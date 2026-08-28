@@ -72,6 +72,42 @@ void main() {
     ]);
   });
 
+  test('ends lines on CRLF', () async {
+    // CRLF is the framing real servers send, so it is the one line ending
+    // this decoder meets most often.
+    final bytes = Stream.value(
+      utf8.encode(
+        'event: message\r\n'
+        'data: {"jsonrpc":"2.0","id":1,"result":{}}\r\n'
+        '\r\n'
+        'data: {"jsonrpc":"2.0","id":2,"result":{}}\r\n'
+        '\r\n',
+      ),
+    );
+
+    expect(await sseMessageStream(bytes).toList(), [
+      {'jsonrpc': '2.0', 'id': 1, 'result': <String, Object?>{}},
+      {'jsonrpc': '2.0', 'id': 2, 'result': <String, Object?>{}},
+    ]);
+  });
+
+  test('ends lines on a bare carriage return', () async {
+    final bytes = Stream.value(
+      utf8.encode(
+        'event: message\r'
+        'data: {"jsonrpc":"2.0","id":1,"result":{}}\r'
+        '\r'
+        'data: {"jsonrpc":"2.0","id":2,"result":{}}\r'
+        '\r',
+      ),
+    );
+
+    expect(await sseMessageStream(bytes).toList(), [
+      {'jsonrpc': '2.0', 'id': 1, 'result': <String, Object?>{}},
+      {'jsonrpc': '2.0', 'id': 2, 'result': <String, Object?>{}},
+    ]);
+  });
+
   test('uses the default message event type', () async {
     final bytes = Stream.value(
       utf8.encode(

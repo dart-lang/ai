@@ -12,13 +12,14 @@ import 'dart:convert';
 /// ignored.
 ///
 /// A frame whose data does not decode to a JSON object arrives as a
-/// [FormatException] error event. The frames behind it are still delivered.
-/// An error on [bytes] itself ends the stream, since there is nothing left
-/// to read.
+/// [FormatException] error event. The frames behind it stay on the stream,
+/// but `await for` cancels on the first error and will not reach them. An
+/// error on [bytes] itself ends the stream, since there is nothing left to
+/// read.
 ///
-/// Invalid UTF-8 becomes the replacement character. A frame cut short by the
-/// end of [bytes] is dropped. The event stream interpretation rules ask for
-/// both:
+/// A frame cut short by the end of [bytes] is dropped. The event stream
+/// interpretation rules ask for that, and for the UTF-8 decode algorithm,
+/// which turns invalid bytes into the replacement character:
 /// https://html.spec.whatwg.org/multipage/server-sent-events.html#event-stream-interpretation.
 Stream<Map<String, Object?>> sseMessageStream(Stream<List<int>> bytes) =>
     _sseMessageData(bytes).map<Map<String, Object?>>((source) {
