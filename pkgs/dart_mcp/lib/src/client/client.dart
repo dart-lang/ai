@@ -348,21 +348,16 @@ base class ServerConnection extends MCPBase {
     required ProtocolVersion protocolVersion,
     required ClientCapabilities capabilities,
     Implementation? clientInfo,
-    MetaWithProgressToken? meta,
-  }) {
-    final callerMeta = meta as Map<String, Object?>?;
-    return sendRequest(
-      DiscoverRequest.methodName,
-      DiscoverRequest(
-        meta: MetaWithProgressToken.fromMap({
-          ...?callerMeta,
-          Keys.protocolVersionMeta: protocolVersion.versionString,
-          if (clientInfo != null) Keys.clientInfoMeta: clientInfo,
-          Keys.clientCapabilitiesMeta: capabilities,
-        }),
-      ),
-    );
-  }
+  }) => sendRequest(
+    DiscoverRequest.methodName,
+    DiscoverRequest(
+      meta: MetaWithProgressToken.fromMap({
+        Keys.protocolVersionMeta: protocolVersion.versionString,
+        if (clientInfo != null) Keys.clientInfoMeta: clientInfo,
+        Keys.clientCapabilitiesMeta: capabilities,
+      }),
+    ),
+  );
 
   /// List all the tools from this server.
   Future<ListToolsResult> listTools([ListToolsRequest? request]) =>

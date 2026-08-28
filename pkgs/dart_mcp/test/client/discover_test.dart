@@ -57,58 +57,19 @@ void main() {
       },
     );
 
-    test('keeps caller metadata and overwrites the keys it writes', () async {
-      final harness = _WireHarness.answering(_answer);
+    test(
+      'sends the version it is given, not the one it is built for',
+      () async {
+        final harness = _WireHarness.answering(_answer);
 
-      await harness.connection.discover(
-        protocolVersion: ProtocolVersion.v2025_11_25,
-        capabilities: ClientCapabilities(
-          elicitation: ElicitationCapability(form: {}),
-        ),
-        clientInfo: Implementation(name: 'test client', version: '0.1.0'),
-        meta: MetaWithProgressToken.fromMap({
-          Keys.progressToken: 'token-1',
-          'example.com/custom': 'kept',
-          // The three reserved keys, set to values the method must replace
-          // with the ones it was given.
-          Keys.protocolVersionMeta: '1900-01-01',
-          Keys.clientCapabilitiesMeta: {Keys.sampling: <String, Object?>{}},
-          Keys.clientInfoMeta: {
-            Keys.name: 'spoofed client',
-            Keys.version: '9.9.9',
-          },
-        }),
-      );
+        await harness.connection.discover(
+          protocolVersion: ProtocolVersion.v2025_11_25,
+          capabilities: ClientCapabilities(),
+        );
 
-      final meta = harness.metadata;
-      expect(meta[Keys.progressToken], 'token-1');
-      expect(meta['example.com/custom'], 'kept');
-      expect(meta[Keys.protocolVersionMeta], '2025-11-25');
-      expect(meta[Keys.clientCapabilitiesMeta], {
-        Keys.elicitation: {Keys.form: <String, Object?>{}},
-      });
-      expect(meta[Keys.clientInfoMeta], {
-        Keys.name: 'test client',
-        Keys.version: '0.1.0',
-      });
-    });
-
-    test('leaves a caller client info key alone when none is given', () async {
-      final harness = _WireHarness.answering(_answer);
-
-      await harness.connection.discover(
-        protocolVersion: ProtocolVersion.v2026_07_28,
-        capabilities: ClientCapabilities(),
-        meta: MetaWithProgressToken.fromMap({
-          Keys.clientInfoMeta: {Keys.name: 'spoofed', Keys.version: '9.9.9'},
-        }),
-      );
-
-      expect(harness.metadata[Keys.clientInfoMeta], {
-        Keys.name: 'spoofed',
-        Keys.version: '9.9.9',
-      });
-    });
+        expect(harness.metadata[Keys.protocolVersionMeta], '2025-11-25');
+      },
+    );
 
     test('reads a server answer without taking over the connection', () async {
       final harness = _WireHarness.dispatching();
