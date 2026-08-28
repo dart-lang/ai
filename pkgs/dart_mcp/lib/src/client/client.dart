@@ -242,15 +242,10 @@ base class ServerConnection extends MCPBase {
       );
     }
 
-    if (_elicitationFormSupport != null || elicitationUrlSupport != null) {
+    if (_elicitationFormSupport != null || _elicitationUrlSupport != null) {
       registerRequestHandler(ElicitRequest.methodName, (ElicitRequest request) {
-        final raw = request.rawMode;
-        if (raw != null && !ElicitationMode.values.any((m) => m.name == raw)) {
-          throw RpcException.invalidParams(
-            'The elicitation mode was "$raw", which is not one of: '
-            '${ElicitationMode.values.map((m) => m.name).join(', ')}',
-          );
-        }
+        final badMode = _invalidElicitationMode(request);
+        if (badMode != null) throw RpcException.invalidParams(badMode);
         switch (request.mode) {
           case ElicitationMode.form:
             final formSupport = _elicitationFormSupport;
@@ -261,12 +256,13 @@ base class ServerConnection extends MCPBase {
             }
             return formSupport.handleElicitation(request, this);
           case ElicitationMode.url:
-            if (elicitationUrlSupport == null) {
+            final urlSupport = _elicitationUrlSupport;
+            if (urlSupport == null) {
               throw RpcException.invalidParams(
                 'This client did not declare the elicitation.url capability',
               );
             }
-            return elicitationUrlSupport.handleElicitation(request, this);
+            return urlSupport.handleElicitation(request, this);
         }
       });
     }
@@ -454,7 +450,7 @@ base class ServerConnection extends MCPBase {
           '`${Keys.inputRequests}` or `${Keys.requestState}`.',
         );
       }
-      // TODO: Pace a retry for a result that carries no input requests.
+      // TODO: Delay a retry that carries no input requests, so it cannot spin.
       if (inputRequests != null) {
         final handlers = [
           for (final entry in inputRequests.entries)
@@ -486,13 +482,8 @@ base class ServerConnection extends MCPBase {
       case ElicitRequest.methodName:
         final request =
             _inputRequestParams(inputRequest, required: true)! as ElicitRequest;
-        final raw = request.rawMode;
-        if (raw != null && !ElicitationMode.values.any((m) => m.name == raw)) {
-          throw StateError(
-            'The elicitation mode was "$raw", which is not one of: '
-            '${ElicitationMode.values.map((m) => m.name).join(', ')}',
-          );
-        }
+        final badMode = _invalidElicitationMode(request);
+        if (badMode != null) throw StateError(badMode);
         switch (request.mode) {
           case ElicitationMode.form:
             final support = _elicitationFormSupport;
@@ -579,6 +570,21 @@ Map<String, Object?>? _inputRequestParams(
     );
   }
   return params.cast<String, Object?>();
+}
+
+/// The error message for [request] if it names a mode that is not an
+/// [ElicitationMode], or null if this client can read its mode.
+///
+/// [ElicitRequest.mode] reports an unknown mode as `Bad state: No element`, so
+/// both entry points check the raw value first and name it themselves. They
+/// throw different types, which is why this returns the message.
+String? _invalidElicitationMode(ElicitRequest request) {
+  final raw = request.rawMode;
+  if (raw == null || ElicitationMode.values.any((m) => m.name == raw)) {
+    return null;
+  }
+  return 'The elicitation mode was "$raw", which is not one of: '
+      '${ElicitationMode.values.map((m) => m.name).join(', ')}';
 }
 
 StateError _undeclaredCapability(String capability) => StateError(
