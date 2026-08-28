@@ -63,8 +63,9 @@ final class _ElicitingServer extends MCPServer
 
 Future<Map<String, Object?>?> _call(
   String tool,
-  ClientCapabilities capabilities,
-) => handleRequestScopedMessage(
+  ClientCapabilities capabilities, {
+  ProtocolVersion protocolVersion = ProtocolVersion.v2025_11_25,
+}) => handleRequestScopedMessage(
   {
     Keys.jsonrpc: '2.0',
     Keys.id: 1,
@@ -72,7 +73,7 @@ Future<Map<String, Object?>?> _call(
     Keys.params: {Keys.name: tool},
   },
   MCPServerInitialization(
-    protocolVersion: ProtocolVersion.v2026_07_28,
+    protocolVersion: protocolVersion,
     clientCapabilities: capabilities,
   ),
   _ElicitingServer.new,
@@ -83,9 +84,8 @@ const _missingCapability = McpErrorCodes.missingRequiredClientCapability;
 Object? _errorCode(Map<String, Object?> result) =>
     (result[Keys.error] as Map<String, Object?>)[Keys.code];
 
-/// The request-scoped transport cannot route a request back to the client, so
-/// a call that clears the capability check still fails. These assert that it
-/// got that far.
+/// On 2025-11-25, a call that clears the capability check reaches the
+/// request-scoped transport and fails there.
 final _clearedTheCheck = isNot(_missingCapability);
 
 Object? _requiredCapabilities(Map<String, Object?> result) {
@@ -124,13 +124,68 @@ void main() {
     );
   });
 
-  test('a declared mode clears the capability check', () async {
-    final result = await _call(
-      'test/send',
-      ClientCapabilities(elicitation: ElicitationCapability(url: {})),
-    );
+  test('2026-07-28 rejects both modes before capability checks', () async {
+    for (final (tool, capabilities) in [
+      ('test/ask', ClientCapabilities()),
+      (
+        'test/ask',
+        ClientCapabilities(elicitation: ElicitationCapability(form: {})),
+      ),
+      ('test/send', ClientCapabilities()),
+      (
+        'test/send',
+        ClientCapabilities(elicitation: ElicitationCapability(url: {})),
+      ),
+      ('test/no-mode', ClientCapabilities()),
+      ('test/unknown', ClientCapabilities()),
+    ]) {
+      final result = await _call(
+        tool,
+        capabilities,
+        protocolVersion: ProtocolVersion.v2026_07_28,
+      );
 
-    expect(_errorCode(result!), _clearedTheCheck);
+      expect(_errorCode(result!), error_code.INTERNAL_ERROR);
+      expect(
+        (result[Keys.error] as Map<String, Object?>)[Keys.message],
+        allOf(
+          contains(
+            '2026-07-28 does not have '
+            '${ElicitRequest.methodName}',
+          ),
+          contains('InputRequiredResult'),
+        ),
+      );
+    }
+  });
+
+  test('a revision before 2025-06-18 rejects elicitation too', () async {
+    for (final protocolVersion in [
+      ProtocolVersion.v2024_11_05,
+      ProtocolVersion.v2025_03_26,
+    ]) {
+      // The capability is declared, so reaching the version error shows the
+      // version check runs before it on these revisions too.
+      final result = await _call(
+        'test/ask',
+        ClientCapabilities(elicitation: ElicitationCapability(form: {})),
+        protocolVersion: protocolVersion,
+      );
+
+      expect(_errorCode(result!), error_code.INTERNAL_ERROR);
+      expect(
+        (result[Keys.error] as Map<String, Object?>)[Keys.message],
+        allOf(
+          contains(
+            '${protocolVersion.versionString} does not have '
+            '${ElicitRequest.methodName}',
+          ),
+          // Neither revision has an `InputRequiredResult` to send instead, so
+          // the error must not send the caller after one.
+          isNot(contains('InputRequiredResult')),
+        ),
+      );
+    }
   });
 
   test('naming one mode does not sign a client up for the other', () async {

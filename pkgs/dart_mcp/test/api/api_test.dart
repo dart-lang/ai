@@ -99,10 +99,11 @@ void main() {
     expect(ProtocolVersion.v2026_07_28.methodIsValid('server/discover'), true);
   });
 
-  test('the 2026-07-28 revision removes what its schema removed', () {
-    // Pinned against the schema so an entry cannot fall out of the set
-    // unnoticed; the walk test below reads the set and would follow it.
+  test('the 2026-07-28 removal set is pinned', () {
+    // Pinned so an entry cannot fall out of the set unnoticed. The walk test
+    // below reads the set and would follow it.
     expect(ProtocolVersion.v2026_07_28.removedMethods, {
+      'elicitation/create',
       'initialize',
       'logging/setLevel',
       'notifications/elicitation/complete',
@@ -112,6 +113,8 @@ void main() {
       'ping',
       'resources/subscribe',
       'resources/unsubscribe',
+      'roots/list',
+      'sampling/createMessage',
       'tasks/cancel',
       'tasks/get',
       'tasks/list',

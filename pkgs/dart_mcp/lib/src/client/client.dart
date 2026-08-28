@@ -354,16 +354,48 @@ base class ServerConnection extends MCPBase {
       InitializeRequest.methodName,
       request,
     );
-    serverInfo = response.serverInfo;
     serverCapabilities = response.capabilities;
     final serverVersion = response.protocolVersion;
     if (serverVersion == null || !serverVersion.isSupported) {
       await shutdown();
     } else {
       protocolVersion = serverVersion;
+      serverInfo = response.serverInfo;
     }
     return response;
   }
+
+  /// Asks the server which protocol versions and capabilities it supports,
+  /// see [DiscoverRequest].
+  ///
+  /// Sends [protocolVersion] and [capabilities] under the two reserved
+  /// envelope keys the schema requires, plus [clientInfo], [logLevel] and
+  /// [progressToken] when given.
+  ///
+  /// Returns the result as it arrived: this connection's
+  /// [ServerConnection.protocolVersion], [serverCapabilities] and [serverInfo]
+  /// still come from [initialize].
+  ///
+  /// Clients should probe with this before sending any other request, see
+  /// https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/stdio#backward-compatibility.
+  Future<DiscoverResult> discover({
+    required ProtocolVersion protocolVersion,
+    required ClientCapabilities capabilities,
+    Implementation? clientInfo,
+    LoggingLevel? logLevel,
+    ProgressToken? progressToken,
+  }) => sendRequest(
+    DiscoverRequest.methodName,
+    DiscoverRequest(
+      meta: MetaWithRequestEnvelope(
+        protocolVersion: protocolVersion,
+        capabilities: capabilities,
+        clientInfo: clientInfo,
+        logLevel: logLevel,
+        progressToken: progressToken,
+      ),
+    ),
+  );
 
   /// List all the tools from this server.
   Future<ListToolsResult> listTools([ListToolsRequest? request]) =>
