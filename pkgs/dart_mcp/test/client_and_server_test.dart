@@ -347,6 +347,7 @@ void main() {
         await environment.initializeServer();
         expect(environment.client.connections, isEmpty);
         expect(environment.serverConnection.isActive, false);
+        expect(environment.serverConnection.serverInfo, isNull);
       },
     );
   });
