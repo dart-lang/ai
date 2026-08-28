@@ -1008,6 +1008,17 @@ void main() {
       expect(errorCode(text), isNull);
     });
 
+    test('rejects a header for an absent nested argument', () async {
+      final (status, _, text) = await post(
+        headers: callWithNestedHeaderParamHeaders({
+          'Mcp-Param-Region': 'us-west1',
+        }),
+        json: callWithNestedHeaderParam(const {}),
+      );
+      expect(status, 400);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+    });
+
     test('does not require a header when the object carrying a nested '
         'property is absent', () async {
       final (status, _, text) = await post(
