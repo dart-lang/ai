@@ -210,12 +210,18 @@ void main() {
     });
 
     test('decodes a data line split across byte chunks', () async {
+      final head = utf8.encode(
+        'event: message\n'
+        'data: {"jsonrpc":"2.0","id":1,"res',
+      );
+      final tail = utf8.encode('ult":{"value":"€"}}\n\n');
+      // The second cut falls after the first of the three bytes of the euro
+      // sign, so decoding a chunk on its own cannot put it back together.
+      final cut = tail.indexOf(0xe2) + 1;
       final bytes = Stream.fromIterable([
-        utf8.encode(
-          'event: message\n'
-          'data: {"jsonrpc":"2.0","id":1,"res',
-        ),
-        utf8.encode('ult":{"value":"split"}}\n\n'),
+        head,
+        tail.sublist(0, cut),
+        tail.sublist(cut),
       ]);
       final messages = await sseMessageStream(bytes).toList();
 
@@ -223,7 +229,7 @@ void main() {
         {
           'jsonrpc': '2.0',
           'id': 1,
-          'result': {'value': 'split'},
+          'result': {'value': '€'},
         },
       ]);
     });
@@ -282,7 +288,7 @@ void main() {
       expect(errors, [isFormatException]);
     });
 
-    test('skips events which carry no data', () async {
+    test('skips events with no data', () async {
       final (messages, errors) = await decode(
         Stream.value(
           utf8.encode(
@@ -301,7 +307,23 @@ void main() {
       ]);
     });
 
-    test('reports event data which is not a JSON object', () async {
+    test('keeps reading past invalid UTF-8', () async {
+      final (messages, errors) = await decode(
+        Stream<List<int>>.fromIterable([
+          utf8.encode('data: {"jsonrpc":"2.0","id":1,"result":{}}\n\n'),
+          [0xff], // never valid in UTF-8
+          utf8.encode('\n\ndata: {"jsonrpc":"2.0","id":2,"result":{}}\n\n'),
+        ]),
+      );
+
+      expect(errors, isEmpty);
+      expect(messages, [
+        {'jsonrpc': '2.0', 'id': 1, 'result': <String, Object?>{}},
+        {'jsonrpc': '2.0', 'id': 2, 'result': <String, Object?>{}},
+      ]);
+    });
+
+    test('reports event data that is not a JSON object', () async {
       final (messages, errors) = await decode(
         Stream.value(utf8.encode('event: message\ndata: []\n\n')),
       );
@@ -319,7 +341,7 @@ void main() {
       ]);
     });
 
-    test('delivers the events after a frame which fails to decode', () async {
+    test('delivers the events after a frame fails to decode', () async {
       final (messages, errors) = await decode(
         Stream.value(
           utf8.encode(

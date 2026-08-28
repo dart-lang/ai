@@ -33,8 +33,9 @@ import 'src/utils/json_rpc_2_object.dart';
 ///
 /// A frame whose data does not decode to a JSON object arrives as a
 /// [FormatException] error event, and the frames behind it are still
-/// delivered. An error on [bytes] itself ends the stream, since there is
-/// nothing left to read.
+/// delivered. Bytes that are not valid UTF-8 become the replacement
+/// character instead of an error. An error on [bytes] itself ends the
+/// stream, since there is nothing left to read.
 Stream<Map<String, Object?>> sseMessageStream(Stream<List<int>> bytes) =>
     _sseMessageData(bytes).map<Map<String, Object?>>((source) {
       final decoded = jsonDecode(source);
@@ -548,7 +549,7 @@ Stream<String> _sseMessageData(Stream<List<int>> bytes) async* {
   var event = '';
   final data = <String>[];
   await for (final line in const LineSplitter().bind(
-    utf8.decoder.bind(bytes),
+    const Utf8Decoder(allowMalformed: true).bind(bytes),
   )) {
     if (line.isEmpty) {
       final source = data.join('\n');

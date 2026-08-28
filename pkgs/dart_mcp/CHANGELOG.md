@@ -222,7 +222,8 @@
   SSE response as JSON objects, including events that omit the type and
   payloads split across consecutive `data` fields. Events which carry no data
   are skipped, and data which does not decode to a JSON object arrives as a
-  `FormatException` error event, leaving the events behind it readable.
+  `FormatException` error event, leaving the events behind it readable. Bytes
+  that are not valid UTF-8 become the replacement character.
 - Serve `server/discover` from `MCPServer.discover`, which answers with the
   request-scoped protocol versions this package implements, the capabilities
   `MCPServer.initialize` registered, and the instructions the server was given.
