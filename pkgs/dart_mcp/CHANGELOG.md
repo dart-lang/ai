@@ -114,6 +114,12 @@
   carry the `ttlMs` and `cacheScope` hints, which the handler may set itself.
   A server answering an earlier revision gets none of them. Does **not** add
   any transport.
+- On protocol 2026-07-28, `handleRequestScopedMessage` now validates
+  input-required results before forwarding them, see
+  https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr.
+  Asking for a client capability that was never declared answers
+  `McpErrorCodes.missingRequiredClientCapability`, a malformed shape an
+  internal error.
 - Support a per-request log level on 2026-07-28, see
   https://modelcontextprotocol.io/specification/2026-07-28/server/utilities/logging.
   The level goes in the `io.modelcontextprotocol/logLevel` metadata key, which

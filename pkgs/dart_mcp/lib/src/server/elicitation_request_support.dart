@@ -22,20 +22,15 @@ base mixin ElicitationRequestSupport on LoggingSupport {
   /// An empty `elicitation` object counts as form support, the backwards
   /// compatibility rule the 2025-11-25 revision added alongside the mode
   /// split. A client which named some other mode does not.
-  bool get supportsFormElicitation {
-    final elicitation = clientCapabilities.elicitation;
-    if (elicitation == null) return false;
-    return elicitation.form != null ||
-        (elicitation as Map<String, Object?>).isEmpty;
-  }
+  bool get supportsFormElicitation =>
+      clientCapabilities.supportsFormElicitation;
 
   /// Whether or not the connected client supports [ElicitationMode.url]
   /// requests.
   ///
   /// Only safe to call after calling [initialize] on `super` since this
   /// is based on the client capabilities.
-  bool get supportsUrlElicitation =>
-      clientCapabilities.elicitation?.url != null;
+  bool get supportsUrlElicitation => clientCapabilities.supportsUrlElicitation;
 
   @override
   FutureOr<void> initialize(MCPServerInitialization initialization) {
@@ -76,17 +71,11 @@ base mixin ElicitationRequestSupport on LoggingSupport {
     switch (request.mode) {
       case ElicitationMode.url:
         if (!supportsUrlElicitation) {
-          throw _missingClientCapability(
-            'elicitation.url',
-            ClientCapabilities(elicitation: ElicitationCapability(url: {})),
-          );
+          throw _missingUrlElicitation;
         }
       case ElicitationMode.form:
         if (!supportsFormElicitation) {
-          throw _missingClientCapability(
-            'elicitation.form',
-            ClientCapabilities(elicitation: ElicitationCapability(form: {})),
-          );
+          throw _missingFormElicitation;
         }
     }
     return sendRequest(ElicitRequest.methodName, request);

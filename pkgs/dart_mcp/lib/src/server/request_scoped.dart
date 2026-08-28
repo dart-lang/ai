@@ -40,11 +40,16 @@ typedef MCPServerFactory =
 /// put a private answer in a cache shared across authorization contexts.
 /// A `ttlMs` below zero or a `cacheScope` outside `public` and `private` is a
 /// bug in the server: it asserts, and in a build with asserts disabled it is
-/// replaced the same way a field left `null` is. None of
-/// this reaches a result on an earlier revision, and every error response is
-/// returned unchanged. If the server closes before responding to a request,
-/// an internal-error response is returned instead. The server may still be
-/// processing a notification when the returned future completes.
+/// replaced the same way a field left `null` is. None of this reaches a result
+/// on an earlier revision, and every error response is returned unchanged. On
+/// 2026-07-28 an `input_required` result the client cannot act on is refused
+/// here, not sent on: one on a method the revision does not answer that way
+/// asserts and returns an internal error, and one asking for a
+/// capability the client left out is
+/// [McpErrorCodes.missingRequiredClientCapability]. If the server closes
+/// before responding to a request, an internal-error response is returned
+/// instead. The server may still be processing a notification when the
+/// returned future completes.
 ///
 /// The returned future completes once the server responds or the exchange
 /// closes; it does not time out on its own. A handler that never returns
@@ -154,13 +159,29 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
             }
           case JsonRpc2Kind.response:
             if (!response.isCompleted) {
+              final refusal = _inputRequiredRefusal(
+                data,
+                method,
+                initialization,
+              );
               response.complete(
-                _withServerFields(
-                  data,
-                  server.implementation,
-                  method,
-                  initialization.protocolVersion,
-                ),
+                refusal == null
+                    ? _withServerFields(
+                      data,
+                      server.implementation,
+                      method,
+                      initialization.protocolVersion,
+                    )
+                    : _rpcErrorResponse(message[Keys.id], refusal),
+              );
+              // A result the schema does not allow here is a bug in the
+              // server. Let it reach the zone the way a frame this dispatcher
+              // cannot process does. The client still gets the refusal above.
+              // Asking for a capability the client left out is not a bug: a
+              // server cannot know what the next client declares.
+              assert(
+                refusal == null || refusal.code != error_code.INTERNAL_ERROR,
+                refusal.message,
               );
             }
         }
@@ -205,12 +226,193 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
   }
 }
 
-/// A JSON-RPC internal-error response to the request with the given [id].
-Map<String, Object?> _errorResponse(Object? id, String message) => {
+/// A JSON-RPC error response to the request with the given [id], carrying the
+/// code, message and data of [exception].
+Map<String, Object?> _rpcErrorResponse(Object? id, RpcException exception) => {
   Keys.jsonrpc: '2.0',
   Keys.id: id,
-  Keys.error: {Keys.code: error_code.INTERNAL_ERROR, Keys.message: message},
+  Keys.error: {
+    Keys.code: exception.code,
+    Keys.message: exception.message,
+    if (exception.data != null) Keys.data: exception.data,
+  },
 };
+
+/// A JSON-RPC internal-error response to the request with the given [id].
+Map<String, Object?> _errorResponse(Object? id, String message) =>
+    _rpcErrorResponse(id, RpcException(error_code.INTERNAL_ERROR, message));
+
+/// The error [response] has to be answered with, or `null` when the response
+/// can be sent unchanged.
+///
+/// The 2026-07-28 revision permits an input-required result on tools/call,
+/// prompts/get and resources/read. It also prohibits requests for client
+/// capabilities that were not declared. See
+/// https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr.
+///
+/// An undeclared capability is refused with [_missingClientCapability], the
+/// error [MCPServer.listRoots] and [ElicitationRequestSupport.elicit] raise for
+/// the same request on a connected transport, which
+/// `handleStreamableHttpRequest` in `package:dart_mcp/streamable_http.dart`
+/// maps to HTTP 400 while it can still send a JSON response.
+///
+/// A malformed result or input request gets an internal error. The client
+/// capability check only runs after the wire shape has been validated.
+RpcException? _inputRequiredRefusal(
+  Map<String, Object?> response,
+  String method,
+  MCPServerInitialization initialization,
+) {
+  if (initialization.protocolVersion < ProtocolVersion.v2026_07_28) return null;
+  final result = JsonRpc2Response.fromMap(response).result;
+  if (result is! Map<String, Object?>) return null;
+  if (result[Keys.resultType] != ResultTypes.inputRequired) return null;
+
+  if (!_inputRequiredMethods.contains(method)) {
+    return _malformedInputRequired(
+      'on $method, which this revision allows only on '
+      '${_inputRequiredMethods.map((m) => '`$m`').join(', ')}.',
+    );
+  }
+
+  final hasInputRequests = result.containsKey(Keys.inputRequests);
+  final hasRequestState = result.containsKey(Keys.requestState);
+  if (!hasInputRequests && !hasRequestState) {
+    return _malformedInputRequired(
+      'without `${Keys.inputRequests}` or `${Keys.requestState}`.',
+    );
+  }
+  if (hasRequestState && result[Keys.requestState] is! String) {
+    return _malformedInputRequired(
+      'whose `${Keys.requestState}` was not a string.',
+    );
+  }
+  if (!hasInputRequests) return null;
+
+  final requests = result[Keys.inputRequests];
+  if (requests is! Map || requests.keys.any((key) => key is! String)) {
+    return _malformedInputRequired(
+      'whose `${Keys.inputRequests}` was not a string-keyed map.',
+    );
+  }
+  final capabilities = initialization.clientCapabilities;
+  for (final request in requests.values) {
+    if (request is! Map) {
+      return _malformedInputRequired(
+        'whose `${Keys.inputRequests}` contained a value that was not a map.',
+      );
+    }
+    final inputMethod = request[Keys.method];
+    final params = request[Keys.params];
+    if (inputMethod is! String ||
+        !InputRequest.methodNames.contains(inputMethod)) {
+      return _malformedInputRequired(
+        'containing an input request whose method was not one of '
+        '${InputRequest.methodNames.map((m) => '`$m`').join(', ')}.',
+      );
+    }
+    switch (inputMethod) {
+      case ListRootsRequest.methodName:
+        if (params != null && params is! Map) {
+          return _malformedInputRequired(
+            'whose `${ListRootsRequest.methodName}` params were not a map.',
+          );
+        }
+      case CreateMessageRequest.methodName:
+        if (params is! Map ||
+            params[Keys.messages] is! List ||
+            params[Keys.maxTokens] is! int) {
+          return _malformedInputRequired(
+            'whose `${CreateMessageRequest.methodName}` params did not contain '
+            'a messages list and integer maxTokens.',
+          );
+        }
+      case ElicitRequest.methodName:
+        if (params is! Map || params[Keys.message] is! String) {
+          return _malformedInputRequired(
+            'whose `${ElicitRequest.methodName}` params did not contain a '
+            'message.',
+          );
+        }
+        final mode = params[Keys.mode];
+        if (mode == null || mode == ElicitationMode.form.name) {
+          final schema = params[Keys.requestedSchema];
+          if (schema is! Map ||
+              schema[Keys.type] != JsonType.object.typeName ||
+              schema[Keys.properties] is! Map) {
+            return _malformedInputRequired(
+              'whose form elicitation params did not contain an object schema.',
+            );
+          }
+        } else if (mode == ElicitationMode.url.name) {
+          if (params[Keys.url] is! String) {
+            return _malformedInputRequired(
+              'whose URL elicitation params did not contain a URL.',
+            );
+          }
+        } else {
+          return _malformedInputRequired(
+            'whose elicitation mode was not '
+            '`${ElicitationMode.form.name}` or `${ElicitationMode.url.name}`.',
+          );
+        }
+    }
+    final missing = _missingInputRequestCapability(
+      inputMethod,
+      params,
+      capabilities,
+    );
+    if (missing != null) return missing;
+  }
+  return null;
+}
+
+/// The internal error refusing an `input_required` result [detail] describes.
+RpcException _malformedInputRequired(String detail) => RpcException(
+  error_code.INTERNAL_ERROR,
+  'The server answered with `${ResultTypes.inputRequired}` $detail',
+);
+
+/// The [_missingClientCapability] error an input request made under [method]
+/// has to be refused with, or `null` when [capabilities] declares what it
+/// needs.
+///
+/// Sampling that carries `tools` or `toolChoice` needs `sampling.tools`. An
+/// elicitation needs the capability for the mode it asks for. A client that
+/// declared only `elicitation.url` is never asked for a form.
+/// `sampling.context` is left alone: without it the schema only says a server
+/// SHOULD leave `includeContext` at `none`. Refusing would go past that.
+RpcException? _missingInputRequestCapability(
+  String method,
+  Object? params,
+  ClientCapabilities capabilities,
+) {
+  switch (method) {
+    case ListRootsRequest.methodName:
+      if (capabilities.supportsRoots) return null;
+      return _missingRoots;
+    case CreateMessageRequest.methodName:
+      final usesTools =
+          params is Map &&
+          (params.containsKey(Keys.tools) ||
+              params.containsKey(Keys.toolChoice));
+      if (!usesTools) {
+        if (capabilities.supportsSampling) return null;
+        return _missingSampling;
+      }
+      if (capabilities.supportsSamplingTools) return null;
+      return _missingSamplingTools;
+    case ElicitRequest.methodName:
+      if (params is Map && params[Keys.mode] == ElicitationMode.url.name) {
+        if (capabilities.supportsUrlElicitation) return null;
+        return _missingUrlElicitation;
+      }
+      if (capabilities.supportsFormElicitation) return null;
+      return _missingFormElicitation;
+    default:
+      return null;
+  }
+}
 
 /// Returns a copy of [response] with the fields a server on this protocol
 /// revision must send and the handler for [method] did not, as
@@ -298,6 +500,15 @@ Map<String, Object?> _withServerFields(
     },
   };
 }
+
+/// The requests a server may answer with an [InputRequiredResult].
+///
+/// https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr
+const _inputRequiredMethods = {
+  CallToolRequest.methodName,
+  GetPromptRequest.methodName,
+  ReadResourceRequest.methodName,
+};
 
 /// The requests whose results a server must send caching hints on.
 ///
