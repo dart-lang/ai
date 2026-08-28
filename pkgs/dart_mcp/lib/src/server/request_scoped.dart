@@ -69,8 +69,9 @@ typedef MCPServerFactory =
 /// has already been torn down. When the negotiated revision does not have one,
 /// [MCPServer.listRoots], [MCPServer.createMessage], and
 /// [ElicitationRequestSupport.elicit] refuse it before it gets this far.
-/// 2026-07-28 has none of the three. It dropped [MCPBase.ping] too, and that
-/// one is not gated, so a ping still fails inside its handler.
+/// 2026-07-28 has none of the three. It dropped `ping` as well, and
+/// [MCPBase.ping] does not read the revision, so a ping still fails inside its
+/// handler.
 ///
 /// Throws an [ArgumentError] if [message] is not a JSON-RPC request or
 /// notification (no string `method`, a `null` id, or a `result` or `error`
