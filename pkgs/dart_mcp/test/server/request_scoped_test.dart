@@ -39,9 +39,11 @@ void main() {
       final response = await harness.dispatch(
         _callTool('retained'),
         _initialization(),
-        beforeDispatch: (server, tool) {
+        beforeDispatch: (server) {
           callbackServer = server;
-          callbackTool = tool;
+          // The tools the server registers while initializing are already
+          // there, which is what lets a transport read one's schema here.
+          callbackTool = (server as ToolsSupport).registeredTools['retained'];
           callbackReady = server.ready;
           return RpcException.invalidParams('blocked before dispatch');
         },
@@ -63,8 +65,11 @@ void main() {
       final response = await harness.dispatch(
         notification,
         _initialization(),
-        beforeDispatch: (_, tool) {
-          expect(tool?.name, 'retained');
+        beforeDispatch: (server) {
+          expect(
+            (server as ToolsSupport).registeredTools['retained'],
+            isNotNull,
+          );
           return RpcException.invalidParams('blocked before dispatch');
         },
       );
@@ -82,7 +87,7 @@ void main() {
         harness.dispatch(
           _callTool('retained'),
           _initialization(),
-          beforeDispatch: (_, _) => throw StateError('callback failed'),
+          beforeDispatch: (_) => throw StateError('callback failed'),
         ),
         throwsStateError,
       );
@@ -917,8 +922,7 @@ final class _DispatcherHarness {
     Map<String, Object?> message,
     MCPServerInitialization initialization, {
     void Function(Map<String, Object?> notification)? onNotification,
-    FutureOr<RpcException?> Function(MCPServer server, Tool? tool)?
-    beforeDispatch,
+    FutureOr<RpcException?> Function(MCPServer server)? beforeDispatch,
   }) => handleRequestScopedMessage(
     message,
     initialization,

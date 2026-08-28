@@ -15,6 +15,15 @@ base mixin ToolsSupport on MCPServer {
   /// The registered tools by name.
   final Map<String, Tool> _registeredTools = {};
 
+  /// The tools registered on this server, by name.
+  ///
+  /// [registerTool] and [unregisterTool] are what change this; the view
+  /// itself is read only. Reading it does not run [listTools], so a transport
+  /// can look a tool up without invoking an override.
+  late final Map<String, Tool> registeredTools = UnmodifiableMapView(
+    _registeredTools,
+  );
+
   /// The registered tool implementations by name.
   final Map<String, FutureOr<CallToolResult> Function(CallToolRequest)>
   _registeredToolImpls = {};

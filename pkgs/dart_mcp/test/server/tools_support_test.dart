@@ -58,6 +58,34 @@ void main() {
     );
   });
 
+  test('registeredTools tracks registration and is read only', () async {
+    final environment = TestEnvironment(
+      TestMCPClient(),
+      TestMCPServerWithTools.new,
+    );
+    await environment.initializeServer();
+
+    final server = environment.server;
+    expect(server.registeredTools.keys, {'hello_world', 'echo'});
+    expect(
+      server.registeredTools['echo'],
+      same(TestMCPServerWithTools.echo),
+      reason:
+          'the registered tool itself is what a transport reads a schema '
+          'from',
+    );
+
+    server.unregisterTool('echo');
+    expect(server.registeredTools.keys, {'hello_world'});
+
+    // A caller which gets hold of the map must not be able to register or
+    // drop a tool behind `registerTool`'s back.
+    expect(
+      () => server.registeredTools['echo'] = TestMCPServerWithTools.echo,
+      throwsUnsupportedError,
+    );
+  });
+
   test('client can list and invoke tools from the server', () async {
     final environment = TestEnvironment(
       TestMCPClient(),

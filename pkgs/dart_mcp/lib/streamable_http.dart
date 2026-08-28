@@ -84,10 +84,12 @@ import 'src/utils/json_rpc_2_object.dart';
 /// `x-mcp-header` requires its `Mcp-Param-{Name}` header when the argument has
 /// a non-`null` value. The registered tool is resolved before dispatch.
 /// Sentinel values are decoded, integers are compared numerically, and nested
-/// `properties` maps are followed. A validation failure returns header
-/// mismatch. Notifications the server emits before dispatch are held back, so
-/// a mismatch answers `400` rather than an event on a stream one of them
-/// already committed.
+/// `properties` maps are followed. An annotation on any other type is a bug in
+/// the server, not in the request, and asserts. A validation failure returns
+/// header mismatch. Notifications the server emits before dispatch are held
+/// back, so a mismatch answers `400` and not an event on a stream one of them
+/// already committed. A rejected call sends none of them: a `400` cannot be
+/// set on a committed stream, so the error is the whole response.
 ///
 /// Notifications the server produces while handling the request go out on an
 /// SSE response stream. The first one commits `text/event-stream`, and the
@@ -424,13 +426,6 @@ Future<void> handleStreamableHttpRequest(
     }
   }
 
-  final initialization = MCPServerInitialization(
-    protocolVersion: protocolVersion,
-    clientCapabilities: ClientCapabilities.fromMap(capabilities),
-    clientInfo: clientInfo == null ? null : Implementation.fromMap(clientInfo),
-    logLevel: logLevel,
-  );
-
   if (!protocolVersion.methodIsValid(method) && _someRevisionDefines(method)) {
     // A method an earlier revision defined and this one took out is unknown
     // here, not a dispatcher error. A mixin or a capability registers handlers
@@ -471,7 +466,13 @@ Future<void> handleStreamableHttpRequest(
   try {
     result = await handleRequestScopedMessage(
       decoded,
-      initialization,
+      MCPServerInitialization(
+        protocolVersion: protocolVersion,
+        clientCapabilities: ClientCapabilities.fromMap(capabilities),
+        clientInfo:
+            clientInfo == null ? null : Implementation.fromMap(clientInfo),
+        logLevel: logLevel,
+      ),
       serverFactory,
       onNotification: (notification) {
         final pending = pendingNotifications;
@@ -484,8 +485,12 @@ Future<void> handleStreamableHttpRequest(
       },
       beforeDispatch:
           method == CallToolRequest.methodName
-              ? (_, tool) {
-                final rejection = _checkMcpParamHeaders(request, params, tool);
+              ? (server) {
+                final rejection = _checkMcpParamHeaders(
+                  request,
+                  params,
+                  server,
+                );
                 if (rejection != null) return rejection;
                 releasePendingNotifications();
                 return null;
@@ -499,8 +504,9 @@ Future<void> handleStreamableHttpRequest(
     // initializing are released first: they are what commits the stream, and
     // once its headers are sent they cannot be set a second time, so the answer
     // goes out on the stream instead of starting a fresh response. Holding them
-    // past this point would drop them and change the answer to a `tools/call`
-    // into a status no other method returns here.
+    // past this point would drop them and answer a `tools/call` with a fresh
+    // `500`, so the same failure would be reported one way for `tools/call`
+    // and another for every other method.
     releasePendingNotifications();
     await answer.finish(
       RpcException(
@@ -672,28 +678,6 @@ String _decodeSentinel(String value) =>
         ? utf8.decode(base64.decode(value.substring(9, value.length - 2)))
         : value;
 
-/// Decodes the sentinel encoding used by an `Mcp-Param` header.
-///
-/// Throws a [FormatException] if the payload is not standard base64.
-String _decodeMcpParamSentinel(String value) {
-  // The `=?base64?` prefix is 9 characters and the `?=` suffix is 2.
-  // Under 11 characters the markers overlap, so guard before slicing.
-  if (value.length < 11 ||
-      !value.startsWith('=?base64?') ||
-      !value.endsWith('?=')) {
-    return value;
-  }
-  final payload = value.substring(9, value.length - 2);
-  if (!_standardBase64.hasMatch(payload)) {
-    throw FormatException('Not standard base64', payload);
-  }
-  return utf8.decode(base64.decode(payload));
-}
-
-/// The standard base64 alphabet with its padding, which is what the
-/// `=?base64?...?=` sentinel carries.
-final _standardBase64 = RegExp(r'^[A-Za-z0-9+/]*={0,2}$');
-
 // Header field names are case insensitive, so these are used both to look
 // headers up and to name them in error messages, in the casing the
 // specification writes them in.
@@ -739,12 +723,18 @@ const _mcpParamHeaderPrefix = 'Mcp-Param-';
 
 /// Validates annotated primitive arguments in [params] against [request].
 ///
-/// [tool] is the registered tool named by the request, if one was found.
+/// A server which registers no tools, or which has none under the requested
+/// name, has no schema to read an annotation from and nothing to check.
 RpcException? _checkMcpParamHeaders(
   HttpRequest request,
   Map<String, Object?> params,
-  Tool? tool,
+  MCPServer server,
 ) {
+  if (server is! ToolsSupport) return null;
+  final toolName = params[Keys.name];
+  if (toolName is! String) return null;
+
+  final tool = server.registeredTools[toolName];
   if (tool == null) return null;
 
   final properties = _readableProperties(tool.inputSchema);
@@ -806,14 +796,25 @@ RpcException? _checkMcpParamHeadersForProperties(
       continue;
     }
 
-    final type = schemaMap[Keys.type];
-    if (type != JsonType.string.typeName &&
-        type != JsonType.int.typeName &&
-        type != JsonType.bool.typeName) {
-      continue;
-    }
     final suffix = schemaMap[Keys.xMcpHeader];
     if (suffix is! String) continue;
+
+    // The annotation is read before the type so that one the specification
+    // does not allow is reported. Skipping it silently would leave the server
+    // believing a header is checked when nothing checks it, and the request
+    // would go through either way.
+    final type = schemaMap[Keys.type];
+    final isPrimitive =
+        type == JsonType.string.typeName ||
+        type == JsonType.int.typeName ||
+        type == JsonType.bool.typeName;
+    assert(
+      isPrimitive,
+      'params.arguments.$propertyPath is annotated '
+      '${Keys.xMcpHeader}: $suffix, but the specification only allows the '
+      'annotation on a string, integer, or boolean property.',
+    );
+    if (!isPrimitive) continue;
 
     final headerName = '$_mcpParamHeaderPrefix$suffix';
     if (!hasValue) {
@@ -844,12 +845,12 @@ RpcException? _checkMcpParamHeadersForProperties(
     }
     final String decodedValue;
     try {
-      decodedValue = _decodeMcpParamSentinel(headerValue);
+      decodedValue = _decodeSentinel(headerValue);
     } on FormatException {
       return RpcException(
         McpErrorCodes.headerMismatch,
-        'The $headerName header ${jsonEncode(headerValue)} must use standard '
-        'base64 inside the =?base64?...?= sentinel',
+        'The $headerName header ${jsonEncode(headerValue)} is not valid base64 '
+        'inside the =?base64?...?= sentinel',
       );
     }
     final matches =

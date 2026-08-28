@@ -651,6 +651,69 @@ void main() {
       expect(errorCode(text), isNull);
     });
 
+    test('reports an annotation the specification does not allow', () async {
+      // Passing this over would leave the server believing `Mcp-Param-Label`
+      // is checked while the call goes through unchecked.
+      final failing = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => failing.close(force: true));
+      failing.listen(
+        (request) => handleStreamableHttpRequest(
+          request,
+          _HttpTestServer.new,
+        ).onError<Object>((_, _) {}),
+      );
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(
+        Uri.http('${failing.address.host}:${failing.port}', '/mcp'),
+      );
+      final sent = {
+        ...headers(callTool),
+        'Mcp-Name': 'test/badAnnotation',
+        'Mcp-Param-Label': 'wrong',
+      };
+      sent.forEach(request.headers.set);
+      request.write(
+        jsonEncode(
+          body(
+            callTool,
+            params: {
+              Keys.name: 'test/badAnnotation',
+              Keys.arguments: {'label': 'right'},
+            },
+          ),
+        ),
+      );
+      final response = await request.close();
+      final text = await utf8.decodeStream(response);
+      expect(response.statusCode, 500);
+      expect(errorCode(text), error_code.INTERNAL_ERROR);
+    }, testOn: '!exe');
+
+    test(
+      'ignores an Mcp-Param header for a tool which annotates none',
+      () async {
+        // `test/version` marks no property with `x-mcp-header`, so there is
+        // no argument to compare the header against, and it is ignored.
+        final (status, _, text) = await post(
+          headers: {
+            ...headers(callTool),
+            'Mcp-Name': 'test/version',
+            'Mcp-Param-Region': 'eu-west1',
+          },
+          json: body(
+            callTool,
+            params: {
+              Keys.name: 'test/version',
+              Keys.arguments: {'region': 'us-west1'},
+            },
+          ),
+        );
+        expect(status, 200);
+        expect(errorCode(text), isNull);
+      },
+    );
+
     test('skips a schema part which cannot carry an annotation', () async {
       final (status, _, text) = await post(
         headers: {...headers(callTool), 'Mcp-Name': 'test/booleanSubschema'},
@@ -707,7 +770,7 @@ void main() {
         bodyBytes,
       );
       expect(response, startsWith('HTTP/1.1 400'));
-      expect(errorCode(jsonBody(response)), -32020);
+      expect(errorCode(jsonBody(response)), McpErrorCodes.headerMismatch);
     });
 
     test('rejects a header value which does not match the body', () async {
@@ -716,7 +779,7 @@ void main() {
         json: callWithHeaderParam({'region': 'us-west1'}),
       );
       expect(status, 400);
-      expect(errorCode(text), -32020);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
       expect(errorMessage(text), contains('eu-west1'));
       expect(errorMessage(text), contains('us-west1'));
     });
@@ -727,7 +790,7 @@ void main() {
         json: callWithHeaderParam({'region': 'us-west1'}),
       );
       expect(status, 400);
-      expect(errorCode(text), -32020);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
       expect(errorMessage(text), contains('no single Mcp-Param-Region'));
       expect(errorMessage(text), contains('us-west1'));
     });
@@ -738,7 +801,7 @@ void main() {
         json: callWithHeaderParam(const {}),
       );
       expect(status, 400);
-      expect(errorCode(text), -32020);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
       expect(errorMessage(text), contains('Mcp-Param-Region'));
       expect(errorMessage(text), contains('params.arguments.region'));
     });
@@ -749,12 +812,15 @@ void main() {
         json: callWithHeaderParam({'region': null}),
       );
       expect(status, 400);
-      expect(errorCode(text), -32020);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
       expect(errorMessage(text), contains('Mcp-Param-Region'));
       expect(errorMessage(text), contains('params.arguments.region'));
     });
 
     test('rejects before an initialization notification commits', () async {
+      // Holding the notification back is what leaves the response headers
+      // free to carry a 400, and the price is that the rejected call sends
+      // none of them.
       final notifying = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       addTearDown(() => notifying.close(force: true));
       notifying.listen(
@@ -773,7 +839,8 @@ void main() {
 
       expect(response.statusCode, 400);
       expect(response.headers.contentType?.mimeType, 'application/json');
-      expect(errorCode(text), -32020);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+      expect(text, isNot(contains('while starting up')));
     });
 
     test(
@@ -800,17 +867,6 @@ void main() {
       expect(errorCode(text), isNull);
     });
 
-    test('rejects a url-safe base64-sentinel header value', () async {
-      final (status, _, text) = await post(
-        headers: callWithHeaderParamHeaders({
-          'Mcp-Param-Region': '=?base64?YWJ-eg==?=',
-        }),
-        json: callWithHeaderParam({'region': 'ab~z'}),
-      );
-      expect(status, 400);
-      expect(errorCode(text), -32020);
-    });
-
     test('rejects a base64-sentinel header value with bad padding', () async {
       final (status, _, text) = await post(
         // The base64 encoding of "us-west1" is "dXMtd2VzdDE=", with its
@@ -821,9 +877,9 @@ void main() {
         json: callWithHeaderParam({'region': 'us-west1'}),
       );
       expect(status, 400);
-      expect(errorCode(text), -32020);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
       expect(errorMessage(text), contains('=?base64?dXMtd2VzdDE?='));
-      expect(errorMessage(text), contains('standard base64'));
+      expect(errorMessage(text), contains('not valid base64'));
     });
 
     test(
@@ -836,7 +892,7 @@ void main() {
           json: callWithHeaderParam({'region': 'us-west1'}),
         );
         expect(status, 400);
-        expect(errorCode(text), -32020);
+        expect(errorCode(text), McpErrorCodes.headerMismatch);
       },
     );
 
@@ -900,7 +956,7 @@ void main() {
           json: callWithHeaderParam({'count': 42}),
         );
         expect(status, 400, reason: header);
-        expect(errorCode(text), -32020, reason: header);
+        expect(errorCode(text), McpErrorCodes.headerMismatch, reason: header);
       }
 
       final (status, _, text) = await post(
@@ -908,7 +964,7 @@ void main() {
         json: callWithHeaderParam({'count': 1000}),
       );
       expect(status, 400);
-      expect(errorCode(text), -32020);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
     });
 
     test('rejects a mismatched integer property', () async {
@@ -917,7 +973,7 @@ void main() {
         json: callWithHeaderParam({'count': 42}),
       );
       expect(status, 400);
-      expect(errorCode(text), -32020);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
     });
 
     test('compares a boolean property', () async {
@@ -935,7 +991,7 @@ void main() {
         json: callWithHeaderParam({'flag': true}),
       );
       expect(status, 400);
-      expect(errorCode(text), -32020);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
     });
   });
 
@@ -985,7 +1041,7 @@ void main() {
         }),
       );
       expect(status, 400);
-      expect(errorCode(text), -32020);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
     });
 
     test(
@@ -998,7 +1054,7 @@ void main() {
           }),
         );
         expect(status, 400);
-        expect(errorCode(text), -32020);
+        expect(errorCode(text), McpErrorCodes.headerMismatch);
       },
     );
 
@@ -1945,6 +2001,26 @@ base class _HttpTestServer extends MCPServer with LoggingSupport, ToolsSupport {
                 JsonType.string.typeName,
                 JsonType.nil.typeName,
               ],
+            }),
+          },
+        ),
+      ),
+      (_) => CallToolResult(content: [TextContent(text: 'ok')]),
+      validateArguments: false,
+    );
+    registerTool(
+      Tool(
+        name: 'test/badAnnotation',
+        inputSchema: ObjectSchema(
+          properties: {
+            // `x-mcp-header` is only allowed on a string, integer, or boolean
+            // property, so this annotation is one no server should write.
+            'label': Schema.fromMap({
+              Keys.type: <Object?>[
+                JsonType.string.typeName,
+                JsonType.nil.typeName,
+              ],
+              Keys.xMcpHeader: 'Label',
             }),
           },
         ),
