@@ -11,6 +11,8 @@
 /// request is answered on an SSE response stream if its handler emits related
 /// notifications, and with a JSON body otherwise. The list and resource change
 /// notifications reach `onNotification` alone.
+///
+/// A client can decode the SSE responses with `sseMessageStream`.
 library;
 
 import 'dart:convert';
@@ -23,6 +25,8 @@ import 'package:json_rpc_2/json_rpc_2.dart';
 import 'server.dart';
 import 'src/utils/constants.dart';
 import 'src/utils/json_rpc_2_object.dart';
+
+export 'src/utils/sse.dart' show sseMessageStream;
 
 /// Handles one Streamable HTTP POST [request] by validating its headers and
 /// `_meta` envelope, dispatching the decoded message to a fresh server

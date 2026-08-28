@@ -1381,6 +1381,24 @@ void main() {
       );
     });
 
+    test('hands its own stream to sseMessageStream', () async {
+      final (_, _, text) = await post(
+        headers: {...headers(callTool), 'Mcp-Name': 'test/notify'},
+        json: body(callTool, params: {Keys.name: 'test/notify'}),
+      );
+      // The decoder's own tests spell their input out by hand. This one
+      // reads back what the transport wrote.
+      final messages =
+          await sseMessageStream(Stream.value(utf8.encode(text))).toList();
+
+      expect(messages, hasLength(2));
+      expect(
+        messages.first[Keys.method],
+        LoggingMessageNotification.methodName,
+      );
+      expect(messages.last[Keys.id], isNotNull);
+    });
+
     test('sends a late error as the last event on the stream', () async {
       final (status, responseHeaders, text) = await post(
         headers: {...headers(callTool), 'Mcp-Name': 'test/notify-then-throw'},

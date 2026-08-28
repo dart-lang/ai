@@ -241,6 +241,9 @@
   resource updates reach `onNotification` alone, since this revision carries
   those on a `subscriptions/listen` stream. Does not treat a closed stream as
   cancellation, which the specification requires.
+- Add `sseMessageStream`, decoding the `message` events of an SSE response
+  into JSON objects. Undecodable data becomes an error event without ending
+  the stream, though `await for` stops on the first one.
 - Serve `server/discover` from `MCPServer.discover`, which answers with the
   request-scoped protocol versions this package implements, the capabilities
   `MCPServer.initialize` registered, and the instructions the server was given.
