@@ -716,6 +716,37 @@ void main() {
     expect(harness.requests, hasLength(3));
   });
 
+  test('stops without retrying on a negative round cap', () async {
+    final harness = _WireHarness(
+      MCPClient(Implementation(name: 'test client', version: '0.1.0')),
+      (request, requestNumber) =>
+          requestNumber == 1
+              ? {
+                'resultType': 'input_required',
+                'requestState': 'still-waiting',
+              }
+              : {
+                'resultType': 'complete',
+                'content': [
+                  {'type': 'text', 'text': 'done'},
+                ],
+              },
+    );
+    harness.connection.maxInputRequiredRounds = -1;
+
+    await expectLater(
+      harness.connection.callTool(CallToolRequest(name: 'task')),
+      throwsA(
+        isA<ArgumentError>().having(
+          (error) => error.message,
+          'message',
+          allOf(contains('input_required'), contains('0 retries')),
+        ),
+      ),
+    );
+    expect(harness.requests, hasLength(1));
+  });
+
   test('reports progress from every round under the original token', () async {
     final harness = _WireHarness(
       MCPClient(Implementation(name: 'test client', version: '0.1.0')),
