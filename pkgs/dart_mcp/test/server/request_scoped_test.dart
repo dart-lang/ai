@@ -216,8 +216,8 @@ void main() {
         'give the request', () async {
       // `tools/list` has no interim arm, so a non-complete type there does not
       // make the result one the caching rules exempt. The schema types
-      // `resultType` as a bare string, so a server may send one this package
-      // has no name for; `input_required` is not among the ones it may send
+      // `resultType` as a bare string, and a server may send one this package
+      // has no name for. `input_required` is not among the ones it may send
       // here, and the dispatcher refuses that separately.
       final response = await _dispatchShapedList(
         (result) => {...result, Keys.resultType: 'io.example/other'},
@@ -1480,7 +1480,7 @@ final class _DispatcherTestServer extends TestMCPServer
         },
       }),
     );
-    // Registered directly instead of mixing in `PromptsSupport`: the guard
+    // Registered directly, not by mixing in `PromptsSupport`: the guard
     // dispatches on the method, and the mixin would also change what this
     // server advertises. Other tests here assert on those capabilities.
     registerRequestHandler<GetPromptRequest, GetPromptResult>(
@@ -1696,9 +1696,9 @@ Future<Map<String, Object?>?> _dispatchShapedRead(
 /// Dispatches [shape] the way [_dispatchShapedRead] does, and returns the
 /// answer next to whatever the dispatcher let reach the zone.
 ///
-/// Refusing a result the schema does not allow asserts. A test reading that
-/// answer has to collect the assertion instead of failing on it. A build with
-/// asserts disabled collects nothing.
+/// Refusing a result the schema does not allow asserts. Collecting it from
+/// the zone lets a test read the answer without that assertion failing it. A
+/// build with asserts disabled collects nothing.
 Future<(Map<String, Object?>?, List<Object>)> _dispatchRefusedRead(
   Map<String, Object?> Function(Map<String, Object?> result) shape, {
   ClientCapabilities? capabilities,

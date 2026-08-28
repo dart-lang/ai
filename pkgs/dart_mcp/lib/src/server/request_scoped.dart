@@ -43,8 +43,8 @@ typedef MCPServerFactory =
 /// replaced the same way a field left `null` is. None of this reaches a result
 /// on an earlier revision, and every error response is returned unchanged. On
 /// 2026-07-28 an `input_required` result the client cannot act on is refused
-/// here instead of being sent on: one on a method the revision does not answer
-/// that way asserts and returns an internal error, and one asking for a
+/// here, not sent on: one on a method the revision does not answer that way
+/// asserts and returns an internal error, and one asking for a
 /// capability the client left out is
 /// [McpErrorCodes.missingRequiredClientCapability]. If the server closes
 /// before responding to a request, an internal-error response is returned
@@ -377,9 +377,9 @@ RpcException _malformedInputRequired(String detail) => RpcException(
 /// has to be refused with, or `null` when [capabilities] declares what it
 /// needs.
 ///
-/// Sampling that carries `tools` or `toolChoice` needs `sampling.tools`, and
-/// an elicitation needs the capability for the mode it asks for, so a client
-/// that declared only `elicitation.url` is never asked for a form.
+/// Sampling that carries `tools` or `toolChoice` needs `sampling.tools`. An
+/// elicitation needs the capability for the mode it asks for. A client that
+/// declared only `elicitation.url` is never asked for a form.
 /// `sampling.context` is left alone: without it the schema only says a server
 /// SHOULD leave `includeContext` at `none`. Refusing would go past that.
 RpcException? _missingInputRequestCapability(
