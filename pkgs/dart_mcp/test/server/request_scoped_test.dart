@@ -648,8 +648,7 @@ void main() {
 
     test('reads the elicitation mode the way the request does', () async {
       // A client that declared only url elicitation cannot answer a form
-      // request, and `ElicitationRequestSupport.elicit` refuses the same
-      // request on a connected transport.
+      // request. `ElicitationRequestSupport.elicit` turns down that one too.
       final harness = _DispatcherHarness();
       final urlOnly = _initialization(
         capabilities: ClientCapabilities(
