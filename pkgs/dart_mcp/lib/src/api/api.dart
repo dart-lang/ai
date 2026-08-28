@@ -78,9 +78,8 @@ enum ProtocolVersion {
       SubscriptionsListenRequest.methodName,
     },
     // This revision dropped the `ServerRequest` union, so the last three
-    // requests a server could make of a client are here with the rest of what
-    // it took out. Their types stay, because an `InputRequiredResult` carries
-    // them.
+    // requests a server could make of a client are listed here too. Their
+    // types stay, because an `InputRequiredResult` carries them.
     removedMethods: {
       ElicitRequest.methodName,
       InitializeRequest.methodName,

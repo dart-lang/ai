@@ -296,8 +296,8 @@ abstract base class MCPServer extends MCPBase {
   /// `roots/list`. 2026-07-28 took it out, and carries a [ListRootsRequest]
   /// in an [InputRequiredResult] instead.
   ///
-  /// On a revision which has it, this only succeeds if the client has
-  /// advertised the `roots` capability, and throws an [RpcException] with
+  /// Otherwise this only succeeds if the client has advertised the `roots`
+  /// capability, and throws an [RpcException] with
   /// [McpErrorCodes.missingRequiredClientCapability] when it has not, naming
   /// the capability the client is missing under `data.requiredCapabilities`.
   Future<ListRootsResult> listRoots([ListRootsRequest? request]) async {
@@ -319,8 +319,8 @@ abstract base class MCPServer extends MCPBase {
   /// `sampling/createMessage`. 2026-07-28 took it out, and carries a
   /// [CreateMessageRequest] in an [InputRequiredResult] instead.
   ///
-  /// On a revision which has it, this only succeeds if the client has
-  /// advertised the `sampling` capability, and throws an [RpcException] with
+  /// Otherwise this only succeeds if the client has advertised the `sampling`
+  /// capability, and throws an [RpcException] with
   /// [McpErrorCodes.missingRequiredClientCapability] when it has not, naming
   /// the capability the client is missing under `data.requiredCapabilities`.
   Future<CreateMessageResult> createMessage(
@@ -337,12 +337,11 @@ abstract base class MCPServer extends MCPBase {
   }
 }
 
-/// Refuses to send [method] when [protocolVersion] does not have it, which
-/// [ProtocolVersion.methodIsValid] answers.
+/// Refuses to send [method] when [ProtocolVersion.methodIsValid] says
+/// [protocolVersion] does not have it.
 ///
-/// 2026-07-28 took the three requests a server can make of a client out with
-/// the rest of the `ServerRequest` union, so on that revision all three end up
-/// here.
+/// 2026-07-28 dropped the `ServerRequest` union, so all three requests a
+/// server can make of a client end up here on that revision.
 void _rejectRemovedMethod(String method, ProtocolVersion protocolVersion) {
   if (protocolVersion.methodIsValid(method)) return;
   throw RpcException(

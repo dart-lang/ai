@@ -84,7 +84,7 @@ const _missingCapability = McpErrorCodes.missingRequiredClientCapability;
 Object? _errorCode(Map<String, Object?> result) =>
     (result[Keys.error] as Map<String, Object?>)[Keys.code];
 
-/// On 2025-11-25, a call which passes the capability check reaches the
+/// On 2025-11-25, a call that clears the capability check reaches the
 /// request-scoped transport and fails there.
 final _clearedTheCheck = isNot(_missingCapability);
 
@@ -158,8 +158,8 @@ void main() {
       ProtocolVersion.v2024_11_05,
       ProtocolVersion.v2025_03_26,
     ]) {
-      // The capability is declared, so reaching the version error is what
-      // shows the check runs first on a revision which never had the method.
+      // The capability is declared, so reaching the version error shows the
+      // version check runs before it on these revisions too.
       final result = await _call(
         'test/ask',
         ClientCapabilities(elicitation: ElicitationCapability(form: {})),

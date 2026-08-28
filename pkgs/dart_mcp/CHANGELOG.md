@@ -40,7 +40,7 @@
     - On the client, `MCPClient.capabilities` already worked this way.
   - Override `MCPServer.initializeLegacy` only to customize the legacy
     initialize response or version negotiation.
-  - On a revision which has `elicitation/create`,
+  - On revisions that have `elicitation/create`,
     `ElicitationRequestSupport.elicit` now throws an `RpcException` with
     `McpErrorCodes.missingRequiredClientCapability` instead of a `StateError`
     when the client did not declare the capability the request needs, naming
@@ -49,12 +49,11 @@
     reaches the client as that error rather than as a `CallToolResult` whose
     text is a Dart stack trace. A server catching the `StateError` needs to
     catch `RpcException` instead, which comes from `package:json_rpc_2`.
-  - On a revision which has `elicitation/create`,
-    `ElicitationRequestSupport.elicit` now checks which mode a request names. A
-    server that guarded on `supportsElicitation` should read
-    `supportsFormElicitation` or `supportsUrlElicitation`. A request naming an
-    unknown mode is answered with `-32602` (invalid params) instead of going out
-    with that mode still on it.
+  - `ElicitationRequestSupport.elicit` also checks which mode a request names
+    on those same revisions. A server that guarded on `supportsElicitation`
+    should read `supportsFormElicitation` or `supportsUrlElicitation`. A
+    request naming an unknown mode is answered with `-32602` (invalid params)
+    instead of going out with that mode still on it.
   - `ServerConnection` now answers an elicitation mode the client did not
     declare with `-32602` (invalid params), where it used to answer a `decline`,
     as if the user had sent it. An unrecognized one used to throw out of the
@@ -85,9 +84,9 @@
     `ProtocolVersion.v2026_07_28.removedMethods` now lists `roots/list`,
     `sampling/createMessage`, and `elicitation/create`, which that revision
     dropped along with the rest of the `ServerRequest` union, so
-    `ProtocolVersion.methodIsValid` is the single answer all three read. A
-    server on it asks the client for input with an `InputRequiredResult` on
-    `tools/call`, `prompts/get`, or `resources/read` instead, see
+    `ProtocolVersion.methodIsValid` answers for all three. A server on it asks
+    the client for input with an `InputRequiredResult` on `tools/call`,
+    `prompts/get`, or `resources/read` instead, see
     https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr.
     `elicit` also throws on 2024-11-05 and 2025-03-26, the two revisions before
     2025-06-18 added `elicitation/create`.

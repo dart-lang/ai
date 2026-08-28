@@ -55,12 +55,11 @@ base mixin ElicitationRequestSupport on LoggingSupport {
   ///
   /// Throws an [RpcException] when [protocolVersion] does not have
   /// `elicitation/create`. 2026-07-28 took it out, and carries an
-  /// [ElicitRequest] in an [InputRequiredResult] instead. 2025-06-18 is the
-  /// revision which added it.
+  /// [ElicitRequest] in an [InputRequiredResult] instead. 2025-06-18 added it.
   ///
-  /// On a revision which has it, this only succeeds if the client has
-  /// advertised the mode the request asks for, as [supportsFormElicitation]
-  /// and [supportsUrlElicitation] read it, and throws an [RpcException] with
+  /// Otherwise this only succeeds if the client has advertised the mode the
+  /// request asks for, as [supportsFormElicitation] and
+  /// [supportsUrlElicitation] read it, and throws an [RpcException] with
   /// [McpErrorCodes.missingRequiredClientCapability] when the client has not,
   /// naming the capability it is missing under `data.requiredCapabilities`.
   ///
