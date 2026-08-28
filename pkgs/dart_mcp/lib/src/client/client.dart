@@ -332,37 +332,31 @@ base class ServerConnection extends MCPBase {
   /// Asks the server which protocol versions and capabilities it supports,
   /// see [DiscoverRequest].
   ///
-  /// A client that also speaks the legacy `initialize` handshake probes with
-  /// this first. A [DiscoverResult] means the server is modern, and so does a
-  /// recognized modern error such as
-  /// [McpErrorCodes.unsupportedProtocolVersion]. That server wants a retry on
-  /// a version it does advertise, not a fallback. Only some other error, or
-  /// no answer at all, means legacy, and reading that MUST NOT key on one
-  /// error code, since a legacy server treats an unknown pre-`initialize`
-  /// method however it likes, see
+  /// Sends [protocolVersion] and [capabilities] under the two reserved
+  /// envelope keys the schema requires, plus [clientInfo] and
+  /// [progressToken] when given.
+  ///
+  /// Returns the result as it arrived: this connection's
+  /// [ServerConnection.protocolVersion], [serverCapabilities] and [serverInfo]
+  /// still come from [initialize].
+  ///
+  /// A client that also speaks the legacy handshake probes with this first,
+  /// see
   /// https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/stdio#backward-compatibility.
-  ///
-  /// A server built on this package answers `-32601` on a connection that
-  /// negotiated with the handshake.
-  ///
-  /// Sends [protocolVersion] and [capabilities] in the request metadata, the
-  /// two keys the envelope requires, plus [clientInfo] when given.
-  ///
-  /// The result is returned as it arrived. This connection's
-  /// [ServerConnection.protocolVersion], [serverCapabilities], and
-  /// [serverInfo] still come from [initialize].
   Future<DiscoverResult> discover({
     required ProtocolVersion protocolVersion,
     required ClientCapabilities capabilities,
     Implementation? clientInfo,
+    ProgressToken? progressToken,
   }) => sendRequest(
     DiscoverRequest.methodName,
     DiscoverRequest(
-      meta: MetaWithProgressToken.fromMap({
-        Keys.protocolVersionMeta: protocolVersion.versionString,
-        if (clientInfo != null) Keys.clientInfoMeta: clientInfo,
-        Keys.clientCapabilitiesMeta: capabilities,
-      }),
+      meta: MetaWithRequestEnvelope(
+        protocolVersion: protocolVersion,
+        capabilities: capabilities,
+        clientInfo: clientInfo,
+        progressToken: progressToken,
+      ),
     ),
   );
 

@@ -273,13 +273,13 @@
   revision 2025-11-25. The old host stopped serving HTTPS, and the old
   revision number 2025-11-05 was never a published revision.
 - Add missing license headers.
+- Add `MetaWithRequestEnvelope`, a `_meta` type for the reserved keys a request
+  on the 2026-07-28 revision carries.
 - Add `ServerConnection.discover`, the client side of `server/discover`.
-  - The request carries `protocolVersion` and `capabilities` in `_meta` under
-    the two reserved keys the schema makes required there, plus `clientInfo`
-    when one is given, see
+  - The request carries `protocolVersion` and `capabilities` under the two
+    reserved keys the schema makes required, plus `clientInfo` and
+    `progressToken` when they are given, see
     https://modelcontextprotocol.io/specification/2026-07-28/server/discover.
-  - The method's documentation names the three answers a probe can get, and
-    why a fallback to `initialize` cannot be keyed to one error code.
 
 ## 0.5.2
 

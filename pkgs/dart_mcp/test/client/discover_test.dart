@@ -57,6 +57,18 @@ void main() {
       },
     );
 
+    test('carries a progress token when one is given', () async {
+      final harness = _WireHarness.answering(_answer);
+
+      await harness.connection.discover(
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        capabilities: ClientCapabilities(),
+        progressToken: ProgressToken(7),
+      );
+
+      expect(harness.metadata[Keys.progressToken], 7);
+    });
+
     test(
       'sends the version it is given, not the one it is built for',
       () async {
