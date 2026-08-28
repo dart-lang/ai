@@ -1664,8 +1664,8 @@ Future<Map<String, Object?>?> _dispatchShapedRead(
 /// Dispatches [shape] the way [_dispatchShapedRead] does, and returns the
 /// answer next to whatever the dispatcher let reach the zone.
 ///
-/// Refusing a result the schema does not allow asserts, so a test reading that
-/// answer has to collect the assertion rather than fail on it. A build with
+/// Refusing a result the schema does not allow asserts. A test reading that
+/// answer has to collect the assertion instead of failing on it. A build with
 /// asserts disabled collects nothing.
 Future<(Map<String, Object?>?, List<Object>)> _dispatchRefusedRead(
   Map<String, Object?> Function(Map<String, Object?> result) shape, {

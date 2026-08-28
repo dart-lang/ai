@@ -175,11 +175,10 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
                     : _rpcErrorResponse(message[Keys.id], refusal),
               );
               // A result the schema does not allow here is a bug in the
-              // server, so let it reach the zone the way a frame this
-              // dispatcher cannot process does. The client still gets the
-              // refusal above. Asking for a capability the client left out
-              // is not a bug: a server cannot know what the next client
-              // declares.
+              // server. Let it reach the zone the way a frame this dispatcher
+              // cannot process does. The client still gets the refusal above.
+              // Asking for a capability the client left out is not a bug: a
+              // server cannot know what the next client declares.
               assert(
                 refusal == null || refusal.code != error_code.INTERNAL_ERROR,
                 refusal.message,
@@ -382,7 +381,7 @@ RpcException _malformedInputRequired(String detail) => RpcException(
 /// an elicitation needs the capability for the mode it asks for, so a client
 /// that declared only `elicitation.url` is never asked for a form.
 /// `sampling.context` is left alone: without it the schema only says a server
-/// SHOULD leave `includeContext` at `none`, so refusing would go past it.
+/// SHOULD leave `includeContext` at `none`. Refusing would go past that.
 RpcException? _missingInputRequestCapability(
   String method,
   Object? params,
