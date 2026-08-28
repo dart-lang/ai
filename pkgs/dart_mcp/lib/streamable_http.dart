@@ -24,7 +24,7 @@ import 'server.dart';
 import 'src/utils/constants.dart';
 import 'src/utils/json_rpc_2_object.dart';
 
-export 'src/utils/sse.dart';
+export 'src/utils/sse.dart' show sseMessageStream;
 
 /// Handles one Streamable HTTP POST [request] by validating its headers and
 /// `_meta` envelope, dispatching the decoded message to a fresh server
