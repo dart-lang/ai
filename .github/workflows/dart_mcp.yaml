@@ -43,4 +43,5 @@ jobs:
 
       - run: dart pub get
 
-      - run: timeout 5m dart test -p chrome,vm -c dart2wasm,dart2js,kernel,exe
+      - run: dart test -p chrome,vm -c dart2wasm,dart2js,kernel,exe
+        timeout-minutes: 5
