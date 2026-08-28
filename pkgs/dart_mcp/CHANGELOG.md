@@ -269,21 +269,21 @@
   Streamable HTTP handler already requires; the server map travels with
   `ServerCapabilities`, which is held by the legacy `initialize` result and
   by `DiscoverResult`.
-- Support `x-mcp-header` in `handleStreamableHttpRequest`. For annotated
-  string, integer, and boolean tool arguments, matching `Mcp-Param-{Name}`
-  headers are checked against the corresponding argument. Nested `properties`
-  paths and the `=?base64?...?=` encoding are supported. Missing required
-  headers, headers for absent values, malformed headers, and mismatches return
-  `400 Bad Request` with `McpErrorCodes.headerMismatch`. A rejected call sends
-  none of the notifications the server emitted before dispatch, because a
-  `400` cannot be set on a stream one of them has committed. An annotation on
-  any other type asserts, and a `500` from the handler now reads `The server
-  failed to answer the request`: the check shares that answer with server
-  construction and initialization, so it names neither.
-  `handleRequestScopedMessage` gained `beforeDispatch`, which runs against the
-  initialized server, and `ToolsSupport.registeredTools` exposes the
-  registered tools by name so a transport can read one's schema without
-  running a `listTools` override.
+- Support `x-mcp-header` in `handleStreamableHttpRequest`. For `tools/call`, a
+  string, integer, or boolean argument annotated with `x-mcp-header` is checked
+  against its `Mcp-Param-{Name}` header.
+  - Nested `properties` paths and the `=?base64?...?=` encoding are supported.
+  - Missing required headers, headers for absent values, malformed headers, and
+    mismatches return `400 Bad Request` with `McpErrorCodes.headerMismatch`.
+  - A rejected call sends none of the notifications the server emitted before
+    dispatch, because a `400` cannot be set on a stream one of them has
+    committed.
+  - An annotation on any other type asserts. A `500` from the handler now reads
+    `The server failed to answer the request`, because the check shares that
+    answer with server construction and initialization.
+  - `handleRequestScopedMessage` gained `beforeDispatch`, which runs against the
+    initialized server, and `ToolsSupport.registeredTools` exposes the
+    registered tools by name.
 - Point the documentation at `modelcontextprotocol.io` and at protocol
   revision 2025-11-25. The old host stopped serving HTTPS, and the old
   revision number 2025-11-05 was never a published revision.
