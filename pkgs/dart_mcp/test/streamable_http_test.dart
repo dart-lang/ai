@@ -1930,8 +1930,7 @@ base class _HttpTestServer extends MCPServer with LoggingSupport, ToolsSupport {
         name: 'test/badAnnotation',
         inputSchema: ObjectSchema(
           properties: {
-            // `x-mcp-header` is only allowed on a string, integer, or boolean
-            // property, so this annotation is one no server should write.
+            // A non-primitive carrying the annotation.
             'label': Schema.fromMap({
               Keys.type: <Object?>[
                 JsonType.string.typeName,
@@ -1948,8 +1947,7 @@ base class _HttpTestServer extends MCPServer with LoggingSupport, ToolsSupport {
     registerTool(
       Tool(
         name: 'test/booleanSubschema',
-        // JSON Schema lets a subschema be a boolean, and `properties` holds
-        // whatever a server put there. Neither can name an `x-mcp-header`.
+        // A boolean subschema, and a nested `properties` that is a number.
         inputSchema: ObjectSchema.fromMap({
           Keys.type: JsonType.object.typeName,
           Keys.properties: {
