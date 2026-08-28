@@ -472,7 +472,7 @@ base class ServerConnection extends MCPBase {
           '`${Keys.inputRequests}` or `${Keys.requestState}`.',
         );
       }
-      // TODO: Delay a retry that carries no input requests, so it cannot spin.
+      // TODO: Delay a retry that carries no input requests.
       // https://github.com/dart-lang/ai/issues/162
       if (inputRequests != null) {
         // Resolve every handler before running any, so a request this client
