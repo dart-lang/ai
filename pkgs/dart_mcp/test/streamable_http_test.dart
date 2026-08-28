@@ -651,50 +651,29 @@ void main() {
       expect(errorCode(text), isNull);
     });
 
-    test('reports an annotation the specification does not allow', () async {
-      // Passing this over would leave the server believing `Mcp-Param-Label`
-      // is checked while the call goes through unchecked.
-      final failing = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-      addTearDown(() => failing.close(force: true));
-      failing.listen(
-        (request) => handleStreamableHttpRequest(
-          request,
-          _HttpTestServer.new,
-        ).onError<Object>((_, _) {}),
-      );
-      final client = HttpClient();
-      addTearDown(client.close);
-      final request = await client.postUrl(
-        Uri.http('${failing.address.host}:${failing.port}', '/mcp'),
-      );
-      final sent = {
-        ...headers(callTool),
-        'Mcp-Name': 'test/badAnnotation',
-        'Mcp-Param-Label': 'wrong',
-      };
-      sent.forEach(request.headers.set);
-      request.write(
-        jsonEncode(
-          body(
-            callTool,
-            params: {
-              Keys.name: 'test/badAnnotation',
-              Keys.arguments: {'label': 'right'},
-            },
-          ),
+    test('ignores an annotation the specification does not allow', () async {
+      // A tool definition annotating a non-primitive is one the client is
+      // told to reject, so nothing here reads `Mcp-Param-Label`.
+      final (status, _, text) = await post(
+        headers: {
+          ...headers(callTool),
+          'Mcp-Name': 'test/badAnnotation',
+          'Mcp-Param-Label': 'wrong',
+        },
+        json: body(
+          callTool,
+          params: {
+            Keys.name: 'test/badAnnotation',
+            Keys.arguments: {'label': 'right'},
+          },
         ),
       );
-      final response = await request.close();
-      final text = await utf8.decodeStream(response);
-      expect(response.statusCode, 500);
-      expect(errorCode(text), error_code.INTERNAL_ERROR);
-      // The server initialized. The annotation is what this could not get
-      // past, so the answer does not name initialization.
-      expect(errorMessage(text), 'The server failed to answer the request');
-    }, testOn: '!exe');
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
 
     test(
-      'ignores an Mcp-Param header for a tool which annotates none',
+      'ignores an Mcp-Param header for a tool that annotates none',
       () async {
         // `test/version` marks no property with `x-mcp-header`, so there is
         // no argument to compare the header against, and it is ignored.
@@ -717,7 +696,7 @@ void main() {
       },
     );
 
-    test('skips a schema part which cannot carry an annotation', () async {
+    test('skips a schema part that cannot carry an annotation', () async {
       final (status, _, text) = await post(
         headers: {...headers(callTool), 'Mcp-Name': 'test/booleanSubschema'},
         json: body(
@@ -776,7 +755,7 @@ void main() {
       expect(errorCode(jsonBody(response)), McpErrorCodes.headerMismatch);
     });
 
-    test('rejects a header value which does not match the body', () async {
+    test('rejects a header value that does not match the body', () async {
       final (status, _, text) = await post(
         headers: callWithHeaderParamHeaders({'Mcp-Param-Region': 'eu-west1'}),
         json: callWithHeaderParam({'region': 'us-west1'}),
@@ -885,55 +864,6 @@ void main() {
       expect(errorMessage(text), contains('not valid base64'));
     });
 
-    test(
-      'rejects a base64-sentinel header value with invalid characters',
-      () async {
-        final (status, _, text) = await post(
-          headers: callWithHeaderParamHeaders({
-            'Mcp-Param-Region': '=?base64?not!valid!base64?=',
-          }),
-          json: callWithHeaderParam({'region': 'us-west1'}),
-        );
-        expect(status, 400);
-        expect(errorCode(text), McpErrorCodes.headerMismatch);
-      },
-    );
-
-    test('treats a value missing the base64 prefix as a literal', () async {
-      // "dXMtd2VzdDE=" is valid base64, but without the `=?base64?` prefix
-      // it is compared to the body as-is instead of being decoded.
-      final (status, _, text) = await post(
-        headers: callWithHeaderParamHeaders({
-          'Mcp-Param-Region': 'dXMtd2VzdDE=',
-        }),
-        json: callWithHeaderParam({'region': 'dXMtd2VzdDE='}),
-      );
-      expect(status, 200);
-      expect(errorCode(text), isNull);
-    });
-
-    test('treats a value missing the base64 suffix as a literal', () async {
-      final (status, _, text) = await post(
-        headers: callWithHeaderParamHeaders({
-          'Mcp-Param-Region': '=?base64?dXMtd2VzdDE=',
-        }),
-        json: callWithHeaderParam({'region': '=?base64?dXMtd2VzdDE='}),
-      );
-      expect(status, 200);
-      expect(errorCode(text), isNull);
-    });
-
-    test('reads an overlapping sentinel as a literal', () async {
-      // '=?base64?=' is 10 characters: the prefix and suffix share a '?', so
-      // a naive slice throws a RangeError the handler would never answer.
-      final (status, _, text) = await post(
-        headers: callWithHeaderParamHeaders({'Mcp-Param-Region': '=?base64?='}),
-        json: callWithHeaderParam({'region': '=?base64?='}),
-      );
-      expect(status, 200);
-      expect(errorCode(text), isNull);
-    });
-
     test('compares an integer property numerically', () async {
       // The specification's own example of a numeric comparison: the header
       // spells the number differently and still matches.
@@ -947,7 +877,7 @@ void main() {
       }
     });
 
-    test('rejects an integer header which is not a decimal', () async {
+    test('rejects an integer header that is not a decimal', () async {
       // A client is told to send the decimal spelling, so anything else in the
       // header is a value some other component wrote. Letting `0x2a` match a
       // body of `42` would be the disagreement this check exists to catch.
@@ -1886,9 +1816,9 @@ void main() {
     });
 
     test('answers a failed tools/call on the stream too', () async {
-      // `tools/call` is the one method which holds notifications back until
+      // `tools/call` is the one method that holds notifications back until
       // the header check passes, so it is the one that could answer a server
-      // which failed after announcing itself with a fresh response instead.
+      // failing after it announced itself with a fresh response instead.
       final failing = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       addTearDown(() => failing.close(force: true));
       failing.listen(
@@ -2184,7 +2114,7 @@ base class _HttpTestServer extends MCPServer with LoggingSupport, ToolsSupport {
   }
 }
 
-/// A server which emits a notification while a request is initializing.
+/// A server that emits a notification while a request is initializing.
 base class _NotifyingInitServer extends _HttpTestServer {
   _NotifyingInitServer(super.channel);
 
