@@ -54,7 +54,7 @@ void main() {
     );
     final tail = utf8.encode('ult":{"value":"€"}}\n\n');
     // The second cut falls after the first of the three bytes of the euro
-    // sign, so decoding a chunk on its own cannot put it back together.
+    // sign. Decoding a chunk on its own cannot put it back together.
     final cut = tail.indexOf(0xe2) + 1;
     final bytes = Stream.fromIterable([
       head,
@@ -94,7 +94,7 @@ void main() {
   });
 
   test('reads the event type of one frame only', () async {
-    // The frame behind the endpoint one names no type, so it is a message
+    // The frame behind the endpoint one names no type. It is a message
     // event, and it is dropped if the endpoint type carries over.
     final messages =
         await sseMessageStream(
@@ -178,6 +178,24 @@ void main() {
       {'jsonrpc': '2.0', 'id': 1, 'result': <String, Object?>{}},
       {'jsonrpc': '2.0', 'id': 2, 'result': <String, Object?>{}},
     ]);
+  });
+
+  test('drops the frame the response ends in the middle of', () async {
+    // The response is cut off before the blank line that would end the second
+    // frame, and half of a frame has no data worth handing on.
+    final (messages, errors) = await decode(
+      Stream.value(
+        utf8.encode(
+          'data: {"jsonrpc":"2.0","id":1,"result":{}}\n\n'
+          'data: {"jsonrpc":"2.0","id":2,"res',
+        ),
+      ),
+    );
+
+    expect(messages, [
+      {'jsonrpc': '2.0', 'id': 1, 'result': <String, Object?>{}},
+    ]);
+    expect(errors, isEmpty);
   });
 
   test('reports event data that is not a JSON object', () async {
