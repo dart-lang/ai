@@ -11,7 +11,7 @@ base mixin ElicitationRequestSupport on LoggingSupport {
   ///
   /// Only safe to call after calling [initialize] on `super` since this
   /// is based on the client capabilities.
-  bool get supportsElicitation => clientCapabilities.supportsElicitation;
+  bool get supportsElicitation => clientCapabilities.elicitation != null;
 
   /// Whether or not the connected client supports [ElicitationMode.form]
   /// requests.
@@ -96,18 +96,15 @@ base mixin ElicitationRequestSupport on LoggingSupport {
   );
 }
 
+/// The mode reads [ElicitationRequestSupport] does, for
+/// [handleRequestScopedMessage], which has the capabilities but not the mixin.
 extension on ClientCapabilities {
-  bool get supportsElicitation =>
-      (this as Map<String, Object?>)[Keys.elicitation] is Map;
-
   bool get supportsFormElicitation {
-    final elicitation = (this as Map<String, Object?>)[Keys.elicitation];
-    return elicitation is Map &&
-        (elicitation[Keys.form] is Map || elicitation.isEmpty);
+    final elicitation = this.elicitation;
+    if (elicitation == null) return false;
+    return elicitation.form != null ||
+        (elicitation as Map<String, Object?>).isEmpty;
   }
 
-  bool get supportsUrlElicitation {
-    final elicitation = (this as Map<String, Object?>)[Keys.elicitation];
-    return elicitation is Map && elicitation[Keys.url] is Map;
-  }
+  bool get supportsUrlElicitation => elicitation?.url != null;
 }

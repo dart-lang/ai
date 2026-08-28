@@ -153,8 +153,7 @@ abstract base class MCPServer extends MCPBase {
     protocolVersion = initialization.protocolVersion;
     clientCapabilities = initialization.clientCapabilities;
     clientInfo = initialization.clientInfo;
-    final roots = (clientCapabilities as Map<String, Object?>)[Keys.roots];
-    if (roots is Map && roots[Keys.listChanged] == true) {
+    if (clientCapabilities.roots?.listChanged == true) {
       _rootsListChangedController =
           StreamController<RootsListChangedNotification?>.broadcast();
       registerNotificationHandler(
@@ -283,8 +282,7 @@ abstract base class MCPServer extends MCPBase {
   ///
   /// Only safe to call after calling [initialize] on `super` since this
   /// is based on the client capabilities.
-  bool get supportsRoots =>
-      (clientCapabilities as Map<String, Object?>)[Keys.roots] is Map;
+  bool get supportsRoots => clientCapabilities.roots != null;
 
   /// Whether or not the connected client supports [createMessage].
   ///

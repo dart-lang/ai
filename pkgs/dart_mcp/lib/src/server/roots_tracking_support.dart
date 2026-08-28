@@ -34,10 +34,8 @@ base mixin RootsTrackingSupport on LoggingSupport {
   ///
   /// Only safe to call after calling [initialize] on `super` since this
   /// is based on the client capabilities.
-  bool get supportsRootsChanged {
-    final roots = (clientCapabilities as Map<String, Object?>)[Keys.roots];
-    return roots is Map && roots[Keys.listChanged] == true;
-  }
+  bool get supportsRootsChanged =>
+      clientCapabilities.roots?.listChanged == true;
 
   @override
   FutureOr<void> initialize(MCPServerInitialization initialization) {
