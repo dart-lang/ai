@@ -278,9 +278,8 @@
     the reserved keys `handleStreamableHttpRequest` already requires, plus
     `clientInfo` when one is given. Any other key the caller gave passes
     through.
-  - A server built on this package answers `-32601` on a connection made with
-    the `initialize` handshake. A client probing for the era it is talking to
-    reads that as a legacy server.
+  - A connection made with the `initialize` handshake answers `-32601`, which
+    a client probing for the era reads as a legacy server.
 
 ## 0.5.2
 

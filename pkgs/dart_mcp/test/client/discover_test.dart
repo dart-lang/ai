@@ -126,7 +126,7 @@ void main() {
   });
 }
 
-/// A well-formed answer for the tests which only look at the request.
+/// A well-formed answer for the tests that only look at the request.
 const _answer = <String, Object?>{
   'supportedVersions': ['2026-07-28'],
   'capabilities': <String, Object?>{},
@@ -159,9 +159,8 @@ class _WireHarness {
   /// Answers with a real [TestMCPServer], reached the way a request-scoped
   /// transport reaches one.
   ///
-  /// This is where the two halves of the envelope meet: the per-request
-  /// context comes from the `_meta` the client wrote, so a request which does
-  /// not carry it cannot be served.
+  /// The per-request context comes from the `_meta` the client wrote, so a
+  /// request that does not carry it cannot be served.
   _WireHarness.dispatching() : this(_dispatch);
 
   final Future<Map<String, Object?>> Function(Map<String, Object?> request)
