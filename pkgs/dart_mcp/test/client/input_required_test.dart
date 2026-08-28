@@ -369,6 +369,35 @@ void main() {
     });
   }
 
+  test('rejects an input request whose elicitation mode is unknown', () async {
+    final client = _InputClient();
+    final harness = _WireHarness(
+      client,
+      (request, requestNumber) => {
+        'resultType': 'input_required',
+        'inputRequests': {
+          'form': {
+            'method': 'elicitation/create',
+            'params': {'mode': 'voice', 'message': 'Enter a value'},
+          },
+        },
+      },
+    );
+
+    await expectLater(
+      harness.connection.callTool(CallToolRequest(name: 'task')),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          allOf(contains('voice'), contains('form')),
+        ),
+      ),
+    );
+    expect(harness.requests, hasLength(1));
+    expect(client.handled, isEmpty);
+  });
+
   test('stops when an input request needs an undeclared capability', () async {
     final client = _ElicitationClient();
     final harness = _WireHarness(
