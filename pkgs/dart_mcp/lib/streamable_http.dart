@@ -739,14 +739,21 @@ RpcException? _checkMcpParamHeaders(
   final properties = _readableProperties(tool.inputSchema);
   if (properties == null) return null;
 
+  // The protocol types `arguments` as an object. Reading a value of another
+  // shape as an empty map reports every annotated argument as absent, and
+  // answers a header naming one of them with a mismatch the client did not
+  // cause.
   final arguments = params[Keys.arguments];
-  final argumentMap =
-      arguments is Map<String, Object?> ? arguments : const <String, Object?>{};
+  if (arguments is! Map<String, Object?>?) {
+    return RpcException.invalidParams(
+      'params.${Keys.arguments} must be an object',
+    );
+  }
 
   return _checkMcpParamHeadersForProperties(
     request,
     properties,
-    argumentMap,
+    arguments ?? const {},
     '',
   );
 }

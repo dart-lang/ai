@@ -723,6 +723,22 @@ void main() {
       expect(servers.single.listToolsCalls, 0);
     });
 
+    test('rejects arguments that are not an object', () async {
+      final (status, _, text) = await post(
+        headers: callWithHeaderParamHeaders({'Mcp-Param-Region': 'us-west1'}),
+        json: body(
+          callTool,
+          params: {
+            Keys.name: 'test/withHeaderParam',
+            Keys.arguments: 'us-west1',
+          },
+        ),
+      );
+      expect(status, 400);
+      expect(errorCode(text), error_code.INVALID_PARAMS);
+      expect(errorMessage(text), contains('params.arguments'));
+    });
+
     test('rejects a non-ASCII header field value', () async {
       final bodyBytes = utf8.encode(
         jsonEncode(callWithHeaderParam({'region': 'é'})),

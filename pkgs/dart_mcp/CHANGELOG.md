@@ -276,6 +276,8 @@
   - A missing, extra, malformed, or mismatched header answers `400 Bad Request`
     with `McpErrorCodes.headerMismatch` and drops any notification the server
     emitted before dispatch.
+  - A `tools/call` whose `arguments` is not an object answers `400 Bad Request`
+    with invalid params.
   - `handleRequestScopedMessage` gained `beforeDispatch`, and
     `ToolsSupport.registeredTools` exposes the registered tools by name.
 - Point the documentation at `modelcontextprotocol.io` and at protocol
