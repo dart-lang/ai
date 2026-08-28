@@ -857,6 +857,38 @@ void main() {
           {Keys.message: 'Fill this in', Keys.requestedSchema: 'not a schema'},
         ),
         (ElicitRequest.methodName, {Keys.mode: 'url', Keys.message: 'Sign in'}),
+        (CreateMessageRequest.methodName, {Keys.maxTokens: 1}),
+        (
+          CreateMessageRequest.methodName,
+          {Keys.messages: <Object?>[], Keys.maxTokens: 'lots'},
+        ),
+        (
+          ElicitRequest.methodName,
+          {
+            Keys.message: 7,
+            Keys.requestedSchema: {
+              Keys.type: 'object',
+              Keys.properties: <String, Object?>{},
+            },
+          },
+        ),
+        (
+          ElicitRequest.methodName,
+          {
+            Keys.message: 'Fill this in',
+            Keys.requestedSchema: {
+              Keys.type: 'string',
+              Keys.properties: <String, Object?>{},
+            },
+          },
+        ),
+        (
+          ElicitRequest.methodName,
+          {
+            Keys.message: 'Fill this in',
+            Keys.requestedSchema: {Keys.type: 'object', Keys.properties: 'no'},
+          },
+        ),
       ]) {
         final (response, escaped) = await _dispatchRefusedRead(
           (result) => {
