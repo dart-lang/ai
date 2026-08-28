@@ -332,14 +332,20 @@ base class ServerConnection extends MCPBase {
   /// Asks the server which protocol versions and capabilities it supports,
   /// see [DiscoverRequest].
   ///
-  /// A client that also speaks the legacy `initialize` handshake sends this
-  /// first to find out which of the two a server speaks. A [DiscoverResult]
-  /// means the server is modern, and anything else means fall back to
-  /// [initialize]. That fallback MUST NOT key on one error code, because a
-  /// legacy server answers an unknown pre-`initialize` method however it
-  /// likes, or not at all, see
+  /// A client that also speaks the legacy `initialize` handshake probes with
+  /// this first. A [DiscoverResult] means the server is modern, and so does a
+  /// recognized modern error such as
+  /// [McpErrorCodes.unsupportedProtocolVersion]. That server wants a retry on
+  /// a version it does advertise, not a fallback. Only some other error, or
+  /// no answer at all, means legacy, and reading that MUST NOT key on one
+  /// error code, since a legacy server treats an unknown pre-`initialize`
+  /// method however it likes, see
   /// https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/stdio#backward-compatibility.
-  /// This package's own server answers `-32601`.
+  ///
+  /// A server built on this package answers `-32601` on a connection that
+  /// negotiated with the handshake. Its streamable HTTP transport answers
+  /// `-32022` before dispatch when the request carries a version that
+  /// transport does not serve.
   ///
   /// Sends [protocolVersion] and [capabilities] in the request metadata, the
   /// two keys the envelope requires, plus [clientInfo] when given.
