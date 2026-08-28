@@ -49,8 +49,7 @@ void main() {
     ]);
   });
 
-  test('does not interpret an input-required result before a version is '
-      'settled', () async {
+  test('treats an unsettled version like one before 2026-07-28', () async {
     final client =
         _InputClient()
           ..addRoot(Root(uri: 'file:///workspace', name: 'workspace'));
@@ -692,6 +691,29 @@ void main() {
       harness.requests.map((request) => request['id']).toSet(),
       hasLength(11),
     );
+  });
+
+  test('stops after the rounds the caller set', () async {
+    final harness = _WireHarness(
+      MCPClient(Implementation(name: 'test client', version: '0.1.0')),
+      (request, requestNumber) => {
+        'resultType': 'input_required',
+        'requestState': 'still-waiting',
+      },
+    );
+    harness.connection.maxInputRequiredRounds = 2;
+
+    await expectLater(
+      harness.connection.callTool(CallToolRequest(name: 'task')),
+      throwsA(
+        isA<ArgumentError>().having(
+          (error) => error.message,
+          'message',
+          allOf(contains('input_required'), contains('2')),
+        ),
+      ),
+    );
+    expect(harness.requests, hasLength(3));
   });
 
   test('reports progress from every round under the original token', () async {
