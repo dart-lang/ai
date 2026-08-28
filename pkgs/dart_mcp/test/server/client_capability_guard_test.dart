@@ -28,6 +28,9 @@ final class _RequestingServer extends MCPServer
   }
 }
 
+/// Calls [name] on [protocolVersion]. It defaults to a revision with the
+/// requests these tools send, so a capability test reaches the capability
+/// check.
 Future<Map<String, Object?>?> _callTool(
   String name,
   ClientCapabilities capabilities, {
@@ -90,7 +93,10 @@ void main() {
       expect(error[Keys.code], error_code.INTERNAL_ERROR);
       expect(
         error[Keys.message],
-        contains('2026-07-28 does not have sampling/createMessage'),
+        contains(
+          '2026-07-28 does not have '
+          '${CreateMessageRequest.methodName}',
+        ),
       );
     }
   });
@@ -110,7 +116,7 @@ void main() {
       expect(error[Keys.code], error_code.INTERNAL_ERROR);
       expect(
         error[Keys.message],
-        contains('2026-07-28 does not have roots/list'),
+        contains('2026-07-28 does not have ${ListRootsRequest.methodName}'),
       );
     }
   });

@@ -149,7 +149,10 @@ void main() {
       expect(
         (result[Keys.error] as Map<String, Object?>)[Keys.message],
         allOf(
-          contains('2026-07-28 does not have elicitation/create'),
+          contains(
+            '2026-07-28 does not have '
+            '${ElicitRequest.methodName}',
+          ),
           contains('InputRequiredResult'),
         ),
       );
@@ -174,7 +177,8 @@ void main() {
         (result[Keys.error] as Map<String, Object?>)[Keys.message],
         allOf(
           contains(
-            '${protocolVersion.versionString} does not have elicitation/create',
+            '${protocolVersion.versionString} does not have '
+            '${ElicitRequest.methodName}',
           ),
           // Neither revision has an `InputRequiredResult` to send instead, so
           // the error must not send the caller after one.
