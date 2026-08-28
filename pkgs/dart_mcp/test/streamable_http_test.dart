@@ -171,6 +171,24 @@ void main() {
       response.substring(response.indexOf('{'), response.lastIndexOf('}') + 1);
 
   group('SSE message stream', () {
+    /// The messages and the errors [sseMessageStream] delivers for [bytes],
+    /// read to the end so that one error cannot hide the events behind it.
+    Future<(List<Map<String, Object?>>, List<Object>)> decode(
+      Stream<List<int>> bytes,
+    ) async {
+      final messages = <Map<String, Object?>>[];
+      final errors = <Object>[];
+      final done = Completer<void>();
+      sseMessageStream(bytes).listen(
+        messages.add,
+        onError: errors.add,
+        onDone: done.complete,
+        cancelOnError: false,
+      );
+      await done.future;
+      return (messages, errors);
+    }
+
     test('decodes message events and skips comments', () async {
       final bytes = Stream.value(
         utf8.encode(
@@ -248,38 +266,90 @@ void main() {
       ]);
     });
 
-    test('preserves line feeds between data fields', () {
-      final bytes = Stream.value(
-        utf8.encode(
-          'data: {"jsonrpc":"2.0","id":1,"result":{"value":1\n'
-          'data: 2}}\n\n',
+    test('preserves line feeds between data fields', () async {
+      // Joining the two fields without the line feed would decode as a
+      // `value` of 12, so the failure to decode is what proves it is kept.
+      final (messages, errors) = await decode(
+        Stream.value(
+          utf8.encode(
+            'data: {"jsonrpc":"2.0","id":1,"result":{"value":1\n'
+            'data: 2}}\n\n',
+          ),
         ),
       );
 
-      expect(sseMessageStream(bytes).toList(), throwsFormatException);
+      expect(messages, isEmpty);
+      expect(errors, [isFormatException]);
     });
 
-    test('treats a colonless data field as empty', () {
-      final bytes = Stream.value(utf8.encode('data\n\n'));
-
-      expect(sseMessageStream(bytes).toList(), throwsFormatException);
-    });
-
-    test('rejects event data which is not a JSON object', () {
-      final bytes = Stream.value(utf8.encode('event: message\ndata: []\n\n'));
-
-      expect(
-        sseMessageStream(bytes).toList(),
-        throwsA(
-          isA<FormatException>()
-              .having((error) => error.message, 'message', contains('List'))
-              .having(
-                (error) => error.message,
-                'message',
-                contains('JSON object'),
-              ),
+    test('skips events which carry no data', () async {
+      final (messages, errors) = await decode(
+        Stream.value(
+          utf8.encode(
+            ': keep-alive\n\n'
+            'data:\n\n'
+            'data\n\n'
+            'event: message\n\n'
+            'data: {"jsonrpc":"2.0","id":1,"result":{}}\n\n',
+          ),
         ),
       );
+
+      expect(errors, isEmpty);
+      expect(messages, [
+        {'jsonrpc': '2.0', 'id': 1, 'result': <String, Object?>{}},
+      ]);
+    });
+
+    test('reports event data which is not a JSON object', () async {
+      final (messages, errors) = await decode(
+        Stream.value(utf8.encode('event: message\ndata: []\n\n')),
+      );
+
+      expect(messages, isEmpty);
+      expect(errors, [
+        isA<FormatException>()
+            .having((error) => error.message, 'message', contains('List'))
+            .having(
+              (error) => error.message,
+              'message',
+              contains('JSON object'),
+            )
+            .having((error) => error.source, 'source', '[]'),
+      ]);
+    });
+
+    test('delivers the events after a frame which fails to decode', () async {
+      final (messages, errors) = await decode(
+        Stream.value(
+          utf8.encode(
+            'data: {"jsonrpc":"2.0","id":1,"result":{}}\n\n'
+            'data: {"jsonrpc":\n\n'
+            'data: 7\n\n'
+            'data: {"jsonrpc":"2.0","id":2,"result":{}}\n\n',
+          ),
+        ),
+      );
+
+      expect(messages, [
+        {'jsonrpc': '2.0', 'id': 1, 'result': <String, Object?>{}},
+        {'jsonrpc': '2.0', 'id': 2, 'result': <String, Object?>{}},
+      ]);
+      expect(errors, [isFormatException, isFormatException]);
+    });
+
+    test('ends the stream when the response fails', () async {
+      Stream<List<int>> response() async* {
+        yield utf8.encode('data: {"jsonrpc":"2.0","id":1,"result":{}}\n\n');
+        throw const SocketException('connection reset');
+      }
+
+      final (messages, errors) = await decode(response());
+
+      expect(messages, [
+        {'jsonrpc': '2.0', 'id': 1, 'result': <String, Object?>{}},
+      ]);
+      expect(errors, [isA<SocketException>()]);
     });
   });
 
