@@ -78,7 +78,7 @@ void main() {
     server.unregisterTool('echo');
     expect(server.registeredTools.keys, {'hello_world'});
 
-    // A caller which gets hold of the map must not be able to register or
+    // A caller that gets hold of the map must not be able to register or
     // drop a tool behind `registerTool`'s back.
     expect(
       () => server.registeredTools['echo'] = TestMCPServerWithTools.echo,

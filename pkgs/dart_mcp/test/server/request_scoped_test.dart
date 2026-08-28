@@ -42,7 +42,7 @@ void main() {
         beforeDispatch: (server) {
           callbackServer = server;
           // The tools the server registers while initializing are already
-          // there, which is what lets a transport read one's schema here.
+          // there, so a transport can read one's schema here.
           callbackTool = (server as ToolsSupport).registeredTools['retained'];
           callbackReady = server.ready;
           return RpcException.invalidParams('blocked before dispatch');
