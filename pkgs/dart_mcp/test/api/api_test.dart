@@ -103,6 +103,7 @@ void main() {
     // Pinned against the schema so an entry cannot fall out of the set
     // unnoticed; the walk test below reads the set and would follow it.
     expect(ProtocolVersion.v2026_07_28.removedMethods, {
+      'elicitation/create',
       'initialize',
       'logging/setLevel',
       'notifications/elicitation/complete',
@@ -112,6 +113,8 @@ void main() {
       'ping',
       'resources/subscribe',
       'resources/unsubscribe',
+      'roots/list',
+      'sampling/createMessage',
       'tasks/cancel',
       'tasks/get',
       'tasks/list',

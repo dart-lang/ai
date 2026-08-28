@@ -40,16 +40,17 @@
     - On the client, `MCPClient.capabilities` already worked this way.
   - Override `MCPServer.initializeLegacy` only to customize the legacy
     initialize response or version negotiation.
-  - `ElicitationRequestSupport.elicit` now throws an `RpcException` with
+  - On a revision which has `elicitation/create`,
+    `ElicitationRequestSupport.elicit` now throws an `RpcException` with
     `McpErrorCodes.missingRequiredClientCapability` instead of a `StateError`
-    when the client did not declare the capability the request needs, naming the
-    missing capability under `data.requiredCapabilities`, which the 2026-07-28
-    revision requires of that error. `ToolsSupport.callTool` rethrows an
-    `RpcException`, so a tool which elicits reaches the client as that error
-    rather than as a `CallToolResult` whose text is a Dart stack trace. A
-    server catching the `StateError` needs to catch `RpcException` instead,
-    which comes from `package:json_rpc_2`.
-  - `ElicitationRequestSupport.elicit` now checks which mode a request names. A
+    when the client did not declare the capability the request needs, naming
+    the missing capability under `data.requiredCapabilities`.
+    `ToolsSupport.callTool` rethrows an `RpcException`, so a tool which elicits
+    reaches the client as that error rather than as a `CallToolResult` whose
+    text is a Dart stack trace. A server catching the `StateError` needs to
+    catch `RpcException` instead, which comes from `package:json_rpc_2`.
+  - On a revision which has `elicitation/create`,
+    `ElicitationRequestSupport.elicit` now checks which mode a request names. A
     server that guarded on `supportsElicitation` should read
     `supportsFormElicitation` or `supportsUrlElicitation`. A request naming an
     unknown mode is answered with `-32602` (invalid params) instead of going out
@@ -77,14 +78,19 @@
     server to client request at all. A server which expects either of those
     codes for an undeclared capability should read `MCPServer.supportsRoots`
     or `MCPServer.supportsSampling` first.
-  - From protocol version 2026-07-28, `MCPServer.listRoots`,
-    `MCPServer.createMessage`, and `ElicitationRequestSupport.elicit` throw an
-    `RpcException` with `-32603` before checking the client capability, even
-    when it is declared. Direct `roots/list`, `sampling/createMessage`, and
-    `elicitation/create` requests are unavailable on that revision and later.
-    The protocol carries them in an `InputRequiredResult` response to
-    `tools/call`, `prompts/get`, or `resources/read`, see
+  - `MCPServer.listRoots`, `MCPServer.createMessage`, and
+    `ElicitationRequestSupport.elicit` now throw an `RpcException` with
+    `-32603` when the negotiated protocol version does not have the method,
+    before they read any client capability.
+    `ProtocolVersion.v2026_07_28.removedMethods` now lists `roots/list`,
+    `sampling/createMessage`, and `elicitation/create`, which that revision
+    dropped along with the rest of the `ServerRequest` union, so
+    `ProtocolVersion.methodIsValid` is the single answer all three read. A
+    server on it asks the client for input with an `InputRequiredResult` on
+    `tools/call`, `prompts/get`, or `resources/read` instead, see
     https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr.
+    `elicit` also throws on 2024-11-05 and 2025-03-26, the two revisions before
+    2025-06-18 added `elicitation/create`.
   - `ResourceLink.icons` is now `List<Icon>?` instead of `List<String>?`, and
     its factory takes the icons, the way the other five types carrying `icons`
     already do. The field has been an array of icons since 2025-11-25 added it,
@@ -105,8 +111,9 @@
     `{"type": "integer", "minimum": 0.5}` sent something the getter threw on.
     `multipleOf` next to them already read `num`.
 - Add `supportsFormElicitation` and `supportsUrlElicitation` for a server to
-  ask before it sends. An empty `elicitation` object still means form, the way
-  `elicitation` read before the split.
+  ask before it sends, on a revision which has `elicitation/create` to send.
+  An empty `elicitation` object still means form, the way `elicitation` read
+  before the split.
 - Add `ElicitRequest.rawMode`, which carries the mode as it arrived. `mode`
   resolves it and throws on an unknown one.
 - Fix the `Meta` dartdoc, which still described the 2025-06-18 prefix rule, and

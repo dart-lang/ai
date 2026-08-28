@@ -90,9 +90,9 @@ void main() {
       expect(error[Keys.code], error_code.INTERNAL_ERROR);
       expect(
         error[Keys.message],
-        'Direct sampling/createMessage requests are unavailable on protocol '
-        'version 2026-07-28. InputRequiredResult responses are allowed for '
-        'tools/call, prompts/get, and resources/read.',
+        'Protocol version 2026-07-28 does not have sampling/createMessage. '
+        'From 2026-07-28 a server asks the client for input with an '
+        'InputRequiredResult on tools/call, prompts/get, or resources/read.',
       );
     }
   });
@@ -112,9 +112,9 @@ void main() {
       expect(error[Keys.code], error_code.INTERNAL_ERROR);
       expect(
         error[Keys.message],
-        'Direct roots/list requests are unavailable on protocol version '
-        '2026-07-28. InputRequiredResult responses are allowed for '
-        'tools/call, prompts/get, and resources/read.',
+        'Protocol version 2026-07-28 does not have roots/list. From '
+        '2026-07-28 a server asks the client for input with an '
+        'InputRequiredResult on tools/call, prompts/get, or resources/read.',
       );
     }
   });

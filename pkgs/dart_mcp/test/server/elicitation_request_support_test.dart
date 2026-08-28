@@ -148,9 +148,9 @@ void main() {
       expect(_errorCode(result!), -32603);
       expect(
         (result[Keys.error] as Map<String, Object?>)[Keys.message],
-        'Direct elicitation/create requests are unavailable on protocol '
-        'version 2026-07-28. InputRequiredResult responses are allowed for '
-        'tools/call, prompts/get, and resources/read.',
+        'Protocol version 2026-07-28 does not have elicitation/create. From '
+        '2026-07-28 a server asks the client for input with an '
+        'InputRequiredResult on tools/call, prompts/get, or resources/read.',
       );
     }
   });

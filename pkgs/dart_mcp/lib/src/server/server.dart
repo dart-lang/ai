@@ -292,18 +292,16 @@ abstract base class MCPServer extends MCPBase {
 
   /// Lists all the root URIs from the client.
   ///
-  /// On revisions before 2026-07-28, this only succeeds if the client has
-  /// advertised the `roots` capability.
+  /// Throws an [RpcException] when [protocolVersion] does not have
+  /// `roots/list`. 2026-07-28 took it out, and carries a [ListRootsRequest]
+  /// in an [InputRequiredResult] instead.
   ///
-  /// Throws an [RpcException] with
+  /// On a revision which has it, this only succeeds if the client has
+  /// advertised the `roots` capability, and throws an [RpcException] with
   /// [McpErrorCodes.missingRequiredClientCapability] when it has not, naming
   /// the capability the client is missing under `data.requiredCapabilities`.
-  ///
-  /// From 2026-07-28, throws an [RpcException] before checking that
-  /// capability. The protocol carries a [ListRootsRequest] in an
-  /// [InputRequiredResult] on that revision.
   Future<ListRootsResult> listRoots([ListRootsRequest? request]) async {
-    _rejectModernDirectRequest(ListRootsRequest.methodName, protocolVersion);
+    _rejectRemovedMethod(ListRootsRequest.methodName, protocolVersion);
     if (!supportsRoots) {
       throw _missingClientCapability(
         'roots',
@@ -317,23 +315,18 @@ abstract base class MCPServer extends MCPBase {
   ///
   /// See https://modelcontextprotocol.io/specification/2026-07-28/client/sampling/.
   ///
-  /// On revisions before 2026-07-28, this only succeeds if the client has
-  /// advertised the `sampling` capability.
+  /// Throws an [RpcException] when [protocolVersion] does not have
+  /// `sampling/createMessage`. 2026-07-28 took it out, and carries a
+  /// [CreateMessageRequest] in an [InputRequiredResult] instead.
   ///
-  /// Throws an [RpcException] with
+  /// On a revision which has it, this only succeeds if the client has
+  /// advertised the `sampling` capability, and throws an [RpcException] with
   /// [McpErrorCodes.missingRequiredClientCapability] when it has not, naming
   /// the capability the client is missing under `data.requiredCapabilities`.
-  ///
-  /// From 2026-07-28, throws an [RpcException] before checking that
-  /// capability. The protocol carries a [CreateMessageRequest] in an
-  /// [InputRequiredResult] on that revision.
   Future<CreateMessageResult> createMessage(
     CreateMessageRequest request,
   ) async {
-    _rejectModernDirectRequest(
-      CreateMessageRequest.methodName,
-      protocolVersion,
-    );
+    _rejectRemovedMethod(CreateMessageRequest.methodName, protocolVersion);
     if (!supportsSampling) {
       throw _missingClientCapability(
         'sampling',
@@ -344,17 +337,20 @@ abstract base class MCPServer extends MCPBase {
   }
 }
 
-void _rejectModernDirectRequest(
-  String method,
-  ProtocolVersion protocolVersion,
-) {
-  if (protocolVersion < ProtocolVersion.v2026_07_28) return;
+/// Refuses to send [method] when [protocolVersion] does not have it, which
+/// [ProtocolVersion.methodIsValid] answers.
+///
+/// 2026-07-28 took the three requests a server can make of a client out with
+/// the rest of the `ServerRequest` union, so on that revision all three end up
+/// here.
+void _rejectRemovedMethod(String method, ProtocolVersion protocolVersion) {
+  if (protocolVersion.methodIsValid(method)) return;
   throw RpcException(
     error_code.INTERNAL_ERROR,
-    'Direct $method requests are unavailable on protocol version '
-    '${protocolVersion.versionString}. InputRequiredResult responses are '
-    'allowed for ${CallToolRequest.methodName}, '
-    '${GetPromptRequest.methodName}, and ${ReadResourceRequest.methodName}.',
+    'Protocol version ${protocolVersion.versionString} does not have $method. '
+    'From 2026-07-28 a server asks the client for input with an '
+    'InputRequiredResult on ${CallToolRequest.methodName}, '
+    '${GetPromptRequest.methodName}, or ${ReadResourceRequest.methodName}.',
   );
 }
 

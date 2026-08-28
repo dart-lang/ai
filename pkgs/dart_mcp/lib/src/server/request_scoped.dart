@@ -63,13 +63,13 @@ typedef MCPServerFactory =
 /// [onNotification] are reported as uncaught errors and do not fail the
 /// exchange.
 ///
-/// On revisions before 2026-07-28, server-to-client requests such as
-/// `roots/list` can reach this exchange but cannot be answered within it. They
-/// fail with an [RpcException] inside their handler, or with a [StateError] if
-/// the exchange has already been torn down. From 2026-07-28,
+/// A server-to-client request such as `roots/list` reaches this exchange on a
+/// revision which has it, and cannot be answered within it. It fails with an
+/// [RpcException] inside its handler, or with a [StateError] if the exchange
+/// has already been torn down. On a revision which does not have it,
 /// [MCPServer.listRoots], [MCPServer.createMessage], and
-/// [ElicitationRequestSupport.elicit] reject direct requests before reaching
-/// this exchange.
+/// [ElicitationRequestSupport.elicit] refuse it before it gets here, which is
+/// all three of them on 2026-07-28.
 ///
 /// Throws an [ArgumentError] if [message] is not a JSON-RPC request or
 /// notification (no string `method`, a `null` id, or a `result` or `error`

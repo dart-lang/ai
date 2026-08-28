@@ -77,7 +77,12 @@ enum ProtocolVersion {
       DiscoverRequest.methodName,
       SubscriptionsListenRequest.methodName,
     },
+    // This revision dropped the `ServerRequest` union, so the last three
+    // requests a server could make of a client are here with the rest of what
+    // it took out. Their types stay, because an `InputRequiredResult` carries
+    // them.
     removedMethods: {
+      ElicitRequest.methodName,
       InitializeRequest.methodName,
       SetLevelRequest.methodName,
       ElicitationCompleteNotification.methodName,
@@ -87,6 +92,8 @@ enum ProtocolVersion {
       PingRequest.methodName,
       SubscribeRequest.methodName,
       UnsubscribeRequest.methodName,
+      ListRootsRequest.methodName,
+      CreateMessageRequest.methodName,
       'tasks/cancel',
       'tasks/get',
       'tasks/list',
