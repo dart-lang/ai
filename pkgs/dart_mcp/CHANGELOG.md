@@ -114,16 +114,12 @@
   carry the `ttlMs` and `cacheScope` hints, which the handler may set itself.
   A server answering an earlier revision gets none of them. Does **not** add
   any transport.
-- Refuse an `input_required` result the client cannot act on in
-  `handleRequestScopedMessage`, see
+- On protocol 2026-07-28, `handleRequestScopedMessage` now validates
+  input-required results before forwarding them, see
   https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr.
-  Answering a method outside the three the revision allows gets an internal
-  error back, as does an invalid result or embedded request shape. Asking for
-  an elicitation, sampling or roots the client left out gets
-  `McpErrorCodes.missingRequiredClientCapability` instead. The error carries
-  every missing capability. An elicitation is read down to its mode, so a
-  client which declared only `elicitation.url` does not get asked for a form.
-  A sampling request with `tools` or `toolChoice` requires `sampling.tools`.
+  An undeclared client capability answers
+  `McpErrorCodes.missingRequiredClientCapability`, a malformed shape an
+  internal error.
 - Support a per-request log level on 2026-07-28, see
   https://modelcontextprotocol.io/specification/2026-07-28/server/utilities/logging.
   The level goes in the `io.modelcontextprotocol/logLevel` metadata key, which

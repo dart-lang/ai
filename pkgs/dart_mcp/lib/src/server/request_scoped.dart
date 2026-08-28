@@ -409,6 +409,10 @@ RpcException? _inputRequiredRefusal(
 /// The missing capability name and payload for an input request made under
 /// [method], or `null` when [capabilities] declares what it needs.
 ///
+/// Sampling that carries `tools` or `toolChoice` needs `sampling.tools`, and
+/// an elicitation needs the capability for the mode it asks for, so a client
+/// that declared only `elicitation.url` is never asked for a form.
+///
 (String, Map<String, Object?>)? _missingInputRequestCapability(
   String method,
   Object? params,
