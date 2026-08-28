@@ -739,10 +739,9 @@ RpcException? _checkMcpParamHeaders(
   final properties = _readableProperties(tool.inputSchema);
   if (properties == null) return null;
 
-  // The protocol types `arguments` as an object. Reading a value of another
-  // shape as an empty map reports every annotated argument as absent, and
-  // answers a header naming one of them with a mismatch the client did not
-  // cause.
+  // The protocol types `arguments` as an object. Reading another shape as an
+  // empty map reports every annotated argument as absent, and blames a header
+  // naming one for what the body got wrong.
   final arguments = params[Keys.arguments];
   if (arguments is! Map<String, Object?>?) {
     return RpcException.invalidParams(
@@ -788,16 +787,11 @@ RpcException? _checkMcpParamHeadersForProperties(
 
     final nestedProperties = _readableProperties(schemaMap);
     if (nestedProperties != null) {
-      // Only `params.arguments` itself is typed by the protocol. What a tool
-      // takes under it belongs to the tool's own schema, and that schema
-      // validates the shape. An argument present but not an object holds no
-      // nested arguments to compare, and this leaves the subtree alone instead
-      // of reading them as absent.
-      if (hasValue && argumentValue is! Map<String, Object?>) continue;
-      final nestedArguments =
-          argumentValue is Map<String, Object?>
-              ? argumentValue
-              : const <String, Object?>{};
+      // Only `params.arguments` is typed by the protocol. What a tool takes
+      // under it belongs to the tool's own schema. A present non-object holds
+      // no nested arguments to compare, and this leaves the subtree unread.
+      final nestedArguments = argumentValue ?? const <String, Object?>{};
+      if (nestedArguments is! Map<String, Object?>) continue;
       final failure = _checkMcpParamHeadersForProperties(
         request,
         nestedProperties,
