@@ -94,8 +94,8 @@ void main() {
   });
 
   test('reads the event type of one frame only', () async {
-    // The frame behind the endpoint one names no type. It is a message
-    // event, and it is dropped if the endpoint type carries over.
+    // The frame behind the endpoint one names no type. That makes it a
+    // message event. It would be dropped if the endpoint type carried over.
     final messages =
         await sseMessageStream(
           Stream.value(
@@ -182,7 +182,7 @@ void main() {
 
   test('drops the frame the response ends in the middle of', () async {
     // The response is cut off before the blank line that would end the second
-    // frame, and half of a frame has no data worth handing on.
+    // frame. Half of a frame has no data worth handing on.
     final (messages, errors) = await decode(
       Stream.value(
         utf8.encode(

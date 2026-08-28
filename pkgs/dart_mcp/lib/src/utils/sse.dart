@@ -12,13 +12,13 @@ import 'dart:convert';
 /// ignored.
 ///
 /// A frame whose data does not decode to a JSON object arrives as a
-/// [FormatException] error event, and the frames behind it are still
-/// delivered. An error on [bytes] itself ends the stream, since there is
-/// nothing left to read.
+/// [FormatException] error event. The frames behind it are still delivered.
+/// An error on [bytes] itself ends the stream, since there is nothing left
+/// to read.
 ///
-/// Invalid UTF-8 becomes the replacement character, and a frame cut short by
-/// the end of [bytes] is dropped, both because the event stream parsing rules
-/// ask for it:
+/// Invalid UTF-8 becomes the replacement character. A frame cut short by the
+/// end of [bytes] is dropped. The event stream interpretation rules ask for
+/// both:
 /// https://html.spec.whatwg.org/multipage/server-sent-events.html#event-stream-interpretation.
 Stream<Map<String, Object?>> sseMessageStream(Stream<List<int>> bytes) =>
     _sseMessageData(bytes).map<Map<String, Object?>>((source) {
@@ -36,6 +36,9 @@ Stream<Map<String, Object?>> sseMessageStream(Stream<List<int>> bytes) =>
 ///
 /// An event with no data has nothing to decode and never reaches the
 /// stream.
+///
+/// `data` and `message` also spell MCP payload keys. Here they name SSE
+/// framing, a separate namespace.
 Stream<String> _sseMessageData(Stream<List<int>> bytes) async* {
   var event = '';
   final data = <String>[];
@@ -56,8 +59,6 @@ Stream<String> _sseMessageData(Stream<List<int>> bytes) async* {
     final field = separator < 0 ? line : line.substring(0, separator);
     var value = separator < 0 ? '' : line.substring(separator + 1);
     if (value.startsWith(' ')) value = value.substring(1);
-    // These field names belong to the event stream framing. They spell MCP
-    // payload keys too, and the two are free to drift apart.
     if (field == 'event') {
       event = value;
     } else if (field == 'data') {
