@@ -99,12 +99,12 @@ void main() {
     expect(ProtocolVersion.v2026_07_28.methodIsValid('server/discover'), true);
   });
 
-  test('the 2026-07-28 revision removes more than its schema does', () {
-    // Pinned so an entry cannot fall out of the set unnoticed; the walk test
+  test('the 2026-07-28 revision removes the methods it stopped accepting', () {
+    // Pinned so an entry cannot fall out of the set unnoticed. The walk test
     // below reads the set and would follow it. `elicitation/create`,
-    // `roots/list`, and `sampling/createMessage` are in it because that
-    // revision dropped the `ServerRequest` union that carried them, not
-    // because their types went: those stay, for `InputRequiredResult`.
+    // `roots/list`, and `sampling/createMessage` are in here with their types
+    // intact, because that revision left them only as an `InputRequest`
+    // inside an `InputRequiredResult`.
     expect(ProtocolVersion.v2026_07_28.removedMethods, {
       'elicitation/create',
       'initialize',
