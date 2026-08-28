@@ -295,10 +295,10 @@ RpcException? _inputRequiredRefusal(
     }
     final inputMethod = request[Keys.method];
     final params = request[Keys.params];
-    if (inputMethod is! String || !_inputRequestMethods.contains(inputMethod)) {
+    if (inputMethod is! String || !_clientInputMethods.contains(inputMethod)) {
       return _malformedInputRequired(
         'containing an input request whose method was not one of '
-        '${_inputRequestMethods.map((m) => '`$m`').join(', ')}.',
+        '${_clientInputMethods.map((m) => '`$m`').join(', ')}.',
       );
     }
     switch (inputMethod) {
@@ -519,7 +519,7 @@ const _inputRequiredMethods = {
 /// [InputRequiredResult].
 ///
 /// https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr
-const _inputRequestMethods = {
+const _clientInputMethods = {
   ElicitRequest.methodName,
   CreateMessageRequest.methodName,
   ListRootsRequest.methodName,
