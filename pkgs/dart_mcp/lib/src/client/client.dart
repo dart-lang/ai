@@ -150,8 +150,12 @@ base class ServerConnection extends MCPBase {
   /// The [RootsSupport] for this connection, if any.
   final RootsSupport? _rootsSupport;
 
-  /// Maximum number of automatic retries for an `input_required` result.
-  static const _maxInputRequiredRounds = 10;
+  /// How many `input_required` rounds [sendRequestWithInputs] answers before
+  /// it gives up.
+  ///
+  /// The spec sets no bound on the rounds. This one only guards against a
+  /// server that never stops asking, and a caller can move it.
+  int maxInputRequiredRounds = 10;
 
   @override
   String get name => serverInfo?.name ?? super.name;
@@ -368,7 +372,7 @@ base class ServerConnection extends MCPBase {
   /// Invokes a [Tool] returned from the [ListToolsResult].
   Future<CallToolResult> callTool(CallToolRequest request) async {
     try {
-      return await _sendRequestWithInputs(CallToolRequest.methodName, request);
+      return await sendRequestWithInputs(CallToolRequest.methodName, request);
     } on RpcException catch (e) {
       // If we are set up to try and auto handle url elicitation and we get
       // an error that the url elicitation is required, we will try and handle
@@ -394,7 +398,7 @@ base class ServerConnection extends MCPBase {
         );
         if (elicitResult.action == ElicitationAction.accept) {
           await elicitationComplete;
-          return await _sendRequestWithInputs(
+          return await sendRequestWithInputs(
             CallToolRequest.methodName,
             request,
           );
@@ -411,7 +415,7 @@ base class ServerConnection extends MCPBase {
   /// Reads a [Resource] returned from the [ListResourcesResult] or matching
   /// a [ResourceTemplate] from a [ListResourceTemplatesResult].
   Future<ReadResourceResult> readResource(ReadResourceRequest request) =>
-      _sendRequestWithInputs(ReadResourceRequest.methodName, request);
+      sendRequestWithInputs(ReadResourceRequest.methodName, request);
 
   /// Lists all the [ResourceTemplate]s from this server.
   Future<ListResourceTemplatesResult> listResourceTemplates([
@@ -424,13 +428,21 @@ base class ServerConnection extends MCPBase {
 
   /// Gets the requested [Prompt] from the server.
   Future<GetPromptResult> getPrompt(GetPromptRequest request) =>
-      _sendRequestWithInputs(GetPromptRequest.methodName, request);
+      sendRequestWithInputs(GetPromptRequest.methodName, request);
 
-  Future<T> _sendRequestWithInputs<T extends Result>(
+  /// Sends [request] like [sendRequest] does, answering any `input_required`
+  /// result before it returns.
+  ///
+  /// Before 2026-07-28 it sends once. An extension adding a method that takes
+  /// input responses can go through here.
+  Future<T> sendRequestWithInputs<T extends Result>(
     String methodName,
     WithInputResponses request,
   ) async {
     final version = protocolVersion;
+    // An unsettled version is not an error. 2026-07-28 dropped the handshake,
+    // and something outside `initialize` settles this one. Either way the
+    // connection has not told us it speaks the revision.
     if (version == null || version < ProtocolVersion.v2026_07_28) {
       return sendRequest<T>(methodName, request);
     }
@@ -455,10 +467,10 @@ base class ServerConnection extends MCPBase {
       result.resultType == ResultTypes.inputRequired;
       round++
     ) {
-      if (round == _maxInputRequiredRounds) {
+      if (round == maxInputRequiredRounds) {
         throw ArgumentError(
           'The server returned `${ResultTypes.inputRequired}` after '
-          '$_maxInputRequiredRounds retries for `$methodName`. Expected '
+          '$maxInputRequiredRounds retries for `$methodName`. Expected '
           '`${ResultTypes.complete}`.',
         );
       }
@@ -502,11 +514,16 @@ base class ServerConnection extends MCPBase {
     return result as T;
   }
 
+  /// Resolves the handler for [inputRequest], one of the three methods a
+  /// server can ask for in an `input_required` result.
+  ///
+  /// Answering those and sending the original request again is a multi
+  /// round-trip request, see
+  /// https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr.
   Future<Result> Function() _inputRequestHandler(InputRequest inputRequest) {
     switch (inputRequest.method) {
       case ElicitRequest.methodName:
-        final request =
-            _inputRequestParams(inputRequest, required: true)! as ElicitRequest;
+        final request = _requiredParams(inputRequest) as ElicitRequest;
         final badMode = _invalidElicitationMode(request);
         if (badMode != null) throw ArgumentError(badMode);
         switch (request.mode) {
@@ -528,9 +545,7 @@ base class ServerConnection extends MCPBase {
         if (support == null) {
           throw _undeclaredCapability(Keys.sampling);
         }
-        final request =
-            _inputRequestParams(inputRequest, required: true)!
-                as CreateMessageRequest;
+        final request = _requiredParams(inputRequest) as CreateMessageRequest;
         final serverInfo = _samplingServerInfo;
         return () async =>
             await support.handleCreateMessage(request, serverInfo);
@@ -539,9 +554,7 @@ base class ServerConnection extends MCPBase {
         if (support == null) {
           throw _undeclaredCapability(Keys.roots);
         }
-        final request =
-            _inputRequestParams(inputRequest, required: false)
-                as ListRootsRequest?;
+        final request = inputRequest.params as ListRootsRequest?;
         return () async => await support.handleListRoots(request);
       default:
         throw ArgumentError(
@@ -582,20 +595,15 @@ base class ServerConnection extends MCPBase {
       sendRequest(CompleteRequest.methodName, request);
 }
 
-Map<String, Object?>? _inputRequestParams(
-  InputRequest inputRequest, {
-  required bool required,
-}) {
-  final params = (inputRequest as Map<String, Object?>)[Keys.params];
-  if (params == null && !required) return null;
-  if (params is! Map) {
-    throw ArgumentError(
-      'The input request params for "${inputRequest.method}" were '
-      '${params.runtimeType}, expected an object.',
-    );
-  }
-  return params.cast<String, Object?>();
-}
+/// [InputRequest.params] for a method whose schema requires them.
+///
+/// Throws an [ArgumentError] naming the method when a server left them out.
+Request _requiredParams(InputRequest inputRequest) =>
+    inputRequest.params ??
+    (throw ArgumentError(
+      'The input request params for "${inputRequest.method}" were absent, '
+      'expected an object.',
+    ));
 
 /// The error message for [request] if it names a mode that is not an
 /// [ElicitationMode], or null if this client can read its mode.
