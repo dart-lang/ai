@@ -125,11 +125,12 @@ base class ServerConnection extends MCPBase {
   /// protocol version.
   ProtocolVersion? protocolVersion;
 
-  /// The [Implementation] returned from the [initialize] request.
+  /// The [Implementation] the server described itself with, or `null` until
+  /// one settles it.
   ///
-  /// Only non-null after [initialize] has successfully completed. Sampling
-  /// hands it to the handler, so set it too wherever you set
-  /// [protocolVersion].
+  /// [initialize] fills this in. Assign it directly if your transport settles
+  /// the version outside the handshake, since sampling hands it to the
+  /// handler.
   Implementation? serverInfo;
 
   /// The [ServerCapabilities] returned from the [initialize] request.
