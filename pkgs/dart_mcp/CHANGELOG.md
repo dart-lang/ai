@@ -278,10 +278,8 @@
     the two reserved keys the schema makes required there, plus `clientInfo`
     when one is given, see
     https://modelcontextprotocol.io/specification/2026-07-28/server/discover.
-  - A result means the server is modern. A client falling back to `initialize`
-    must not key that on one error code, since a legacy server answers an
-    unknown pre-`initialize` method however it likes. This package's own server
-    answers `-32601`.
+  - The method's documentation names the three answers a probe can get, and
+    why a fallback to `initialize` cannot be keyed to one error code.
 
 ## 0.5.2
 
