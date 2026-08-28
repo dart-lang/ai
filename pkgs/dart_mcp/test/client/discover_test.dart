@@ -75,7 +75,7 @@ void main() {
         logLevel: LoggingLevel.debug,
       );
 
-      expect(harness.metadata[Keys.logLevelMeta], 'debug');
+      expect(harness.metadata['io.modelcontextprotocol/logLevel'], 'debug');
     });
 
     test(
