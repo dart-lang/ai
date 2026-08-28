@@ -118,6 +118,11 @@
     the way its dartdoc already described, instead of holding the rejected
     server's implementation. `initialize` still returns that result and
     `serverCapabilities` still holds what the server sent.
+  - `ToolsSupport.callTool`, `PromptsSupport.getPrompt` and
+    `ResourcesSupport.readResource` return `CallToolResponse`,
+    `GetPromptResponse` and `ReadResourceResponse`, which both the completed
+    result and `InputRequiredResult` implement, so a handler can ask for input
+    before it answers. `Result.isInputRequired` tells them apart.
 - Add `supportsFormElicitation` and `supportsUrlElicitation` for a server to
   ask before it sends. An empty `elicitation` object still means form, the way
   `elicitation` read before the split.
@@ -185,7 +190,6 @@
 - Add `InputRequiredResult` and `InputRequest`, the result a server answers with
   when it needs input first, see
   https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr.
-  A server built with this package does not send one yet.
 - On a 2026-07-28 connection, `ServerConnection.callTool`, `.getPrompt` and
   `.readResource` answer an `input_required` result from the client's
   elicitation, sampling and roots handlers, then send the original request

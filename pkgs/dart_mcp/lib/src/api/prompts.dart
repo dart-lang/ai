@@ -73,9 +73,19 @@ extension type GetPromptRequest.fromMap(Map<String, Object?> _value)
       (_value[Keys.arguments] as Map?)?.cast<String, Object?>();
 }
 
-/// The server's response to a prompts/get request from the client.
+/// A response to a `prompts/get` request, which is either a [GetPromptResult]
+/// or an [InputRequiredResult].
+///
+/// Check [isInputRequired] and then cast to one of those.
+///
+/// This type is not intended to be constructed directly and thus has no public
+/// constructor.
+extension type GetPromptResponse._fromMap(Map<String, Object?> _value)
+    implements Result {}
+
+/// The server's completed response to a prompts/get request from the client.
 extension type GetPromptResult.fromMap(Map<String, Object?> _value)
-    implements Result {
+    implements GetPromptResponse {
   factory GetPromptResult({
     String? description,
     required List<PromptMessage> messages,

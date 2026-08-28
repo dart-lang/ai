@@ -18,7 +18,7 @@ base mixin PromptsSupport on MCPServer {
   final Map<String, Prompt> _prompts = {};
 
   /// The added prompt implementations by name.
-  final Map<String, FutureOr<GetPromptResult> Function(GetPromptRequest)>
+  final Map<String, FutureOr<GetPromptResponse> Function(GetPromptRequest)>
   _promptImpls = {};
 
   @override
@@ -38,7 +38,7 @@ base mixin PromptsSupport on MCPServer {
 
   /// Gets the response for a given prompt.
   @mustCallSuper
-  FutureOr<GetPromptResult> getPrompt(GetPromptRequest request) {
+  FutureOr<GetPromptResponse> getPrompt(GetPromptRequest request) {
     final impl = _promptImpls[request.name];
     if (impl == null) {
       throw ArgumentError.value(request.name, 'name', 'Prompt not found');
@@ -49,7 +49,7 @@ base mixin PromptsSupport on MCPServer {
   /// Adds a prompt and notifies clients that the list has changed.
   void addPrompt(
     Prompt prompt,
-    FutureOr<GetPromptResult> Function(GetPromptRequest) impl,
+    FutureOr<GetPromptResponse> Function(GetPromptRequest) impl,
   ) {
     if (_prompts.containsKey(prompt.name)) {
       throw StateError(
