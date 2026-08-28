@@ -2,8 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-/// The Streamable HTTP transport described by the 2026-07-28 revision of the
-/// Model Context Protocol specification,
+/// The server side of the Streamable HTTP transport described by the
+/// 2026-07-28 revision of the Model Context Protocol specification,
 /// https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http.
 ///
 /// Every POST carries a single JSON-RPC request or notification along with
@@ -11,6 +11,8 @@
 /// request is answered on an SSE response stream if its handler emits related
 /// notifications, and with a JSON body otherwise. The list and resource change
 /// notifications reach `onNotification` alone.
+///
+/// A client can decode the SSE responses with `sseMessageStream`.
 library;
 
 import 'dart:convert';
