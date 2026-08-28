@@ -53,7 +53,10 @@ void main() {
       expect(callbackServer, same(server));
       expect(callbackTool?.name, 'retained');
       expect(callbackReady, isTrue);
-      expect((response![Keys.error] as Map)[Keys.code], -32602);
+      expect(
+        (response![Keys.error] as Map)[Keys.code],
+        error_code.INVALID_PARAMS,
+      );
       expect(server.retainedResult, isNull);
       await server.done;
       expect(server.isActive, isFalse);
