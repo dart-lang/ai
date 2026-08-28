@@ -292,6 +292,13 @@
   revision 2025-11-25. The old host stopped serving HTTPS, and the old
   revision number 2025-11-05 was never a published revision.
 - Add missing license headers.
+- Add `MetaWithRequestEnvelope`, a `_meta` type for the reserved keys a request
+  on the 2026-07-28 revision carries.
+- Add `ServerConnection.discover`, the client side of `server/discover`.
+  - The request carries `protocolVersion` and `capabilities` under the two
+    reserved keys the schema makes required, plus `clientInfo`, `logLevel` and
+    `progressToken` when they are given, see
+    https://modelcontextprotocol.io/specification/2026-07-28/server/discover.
 
 ## 0.5.2
 
