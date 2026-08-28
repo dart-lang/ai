@@ -788,8 +788,14 @@ RpcException? _checkMcpParamHeadersForProperties(
 
     final nestedProperties = _readableProperties(schemaMap);
     if (nestedProperties != null) {
+      // Only `params.arguments` itself is typed by the protocol. What a tool
+      // takes under it belongs to the tool's own schema, and that schema
+      // validates the shape. An argument present but not an object holds no
+      // nested arguments to compare, and this leaves the subtree alone instead
+      // of reading them as absent.
+      if (hasValue && argumentValue is! Map<String, Object?>) continue;
       final nestedArguments =
-          hasValue && argumentValue is Map<String, Object?>
+          argumentValue is Map<String, Object?>
               ? argumentValue
               : const <String, Object?>{};
       final failure = _checkMcpParamHeadersForProperties(

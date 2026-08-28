@@ -997,6 +997,17 @@ void main() {
       },
     );
 
+    test('skips a subtree whose carrying argument is not an object', () async {
+      final (status, _, text) = await post(
+        headers: callWithNestedHeaderParamHeaders({
+          'Mcp-Param-Region': 'us-west1',
+        }),
+        json: callWithNestedHeaderParam({'location': 'us-west1'}),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
     test('does not require a header when the object carrying a nested '
         'property is absent', () async {
       final (status, _, text) = await post(
