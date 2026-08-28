@@ -230,7 +230,6 @@ base class ServerConnection extends MCPBase {
        _elicitationUrlSupport = elicitationUrlSupport,
        _samplingSupport = samplingSupport,
        _rootsSupport = rootsSupport {
-    elicitationFormSupport ??= elicitationSupport;
     if (rootsSupport != null) {
       registerRequestHandler(
         ListRootsRequest.methodName,
@@ -246,7 +245,7 @@ base class ServerConnection extends MCPBase {
       );
     }
 
-    if (elicitationFormSupport != null || elicitationUrlSupport != null) {
+    if (_elicitationFormSupport != null || elicitationUrlSupport != null) {
       registerRequestHandler(ElicitRequest.methodName, (ElicitRequest request) {
         final raw = request.rawMode;
         if (raw != null && !ElicitationMode.values.any((m) => m.name == raw)) {
@@ -257,12 +256,13 @@ base class ServerConnection extends MCPBase {
         }
         switch (request.mode) {
           case ElicitationMode.form:
-            if (elicitationFormSupport == null) {
+            final formSupport = _elicitationFormSupport;
+            if (formSupport == null) {
               throw RpcException.invalidParams(
                 'This client did not declare the elicitation.form capability',
               );
             }
-            return elicitationFormSupport.handleElicitation(request, this);
+            return formSupport.handleElicitation(request, this);
           case ElicitationMode.url:
             if (elicitationUrlSupport == null) {
               throw RpcException.invalidParams(
@@ -433,7 +433,8 @@ base class ServerConnection extends MCPBase {
     WithInputResponses request,
   ) async {
     final originalRequest = request as Map<String, Object?>;
-    var result = (await sendRequest<T>(methodName, request)) as Result;
+    var result =
+        (await sendRequestKeepingProgress<T>(methodName, request)) as Result;
     for (
       var round = 0;
       result.resultType == ResultTypes.inputRequired;
@@ -456,6 +457,8 @@ base class ServerConnection extends MCPBase {
           '`${Keys.inputRequests}` or `${Keys.requestState}`.',
         );
       }
+      // TODO: Pace a leg carrying only request state, which nothing else slows
+      // down, the way the TypeScript and Python SDKs do.
       if (inputRequests != null) {
         final handlers = [
           for (final entry in inputRequests.entries)
@@ -475,7 +478,9 @@ base class ServerConnection extends MCPBase {
                 if (requestState != null) Keys.requestState: requestState,
               }
               as WithInputResponses;
-      result = (await sendRequest<T>(methodName, retryRequest)) as Result;
+      result =
+          (await sendRequestKeepingProgress<T>(methodName, retryRequest))
+              as Result;
     }
     return result as T;
   }
@@ -496,31 +501,20 @@ base class ServerConnection extends MCPBase {
           case ElicitationMode.form:
             final support = _elicitationFormSupport;
             if (support == null) {
-              throw _missingClientCapability(
-                'elicitation.form',
-                ClientCapabilities(
-                  elicitation: ElicitationCapability(form: {}),
-                ),
-              );
+              throw _undeclaredCapability('elicitation.form');
             }
             return () async => await support.handleElicitation(request, this);
           case ElicitationMode.url:
             final support = _elicitationUrlSupport;
             if (support == null) {
-              throw _missingClientCapability(
-                'elicitation.url',
-                ClientCapabilities(elicitation: ElicitationCapability(url: {})),
-              );
+              throw _undeclaredCapability('elicitation.url');
             }
             return () async => await support.handleElicitation(request, this);
         }
       case CreateMessageRequest.methodName:
         final support = _samplingSupport;
         if (support == null) {
-          throw _missingClientCapability(
-            Keys.sampling,
-            ClientCapabilities(sampling: {}),
-          );
+          throw _undeclaredCapability(Keys.sampling);
         }
         final request =
             _inputRequestParams(inputRequest, required: true)!
@@ -531,10 +525,7 @@ base class ServerConnection extends MCPBase {
       case ListRootsRequest.methodName:
         final support = _rootsSupport;
         if (support == null) {
-          throw _missingClientCapability(
-            Keys.roots,
-            ClientCapabilities(roots: RootsCapabilities()),
-          );
+          throw _undeclaredCapability(Keys.roots);
         }
         final request =
             _inputRequestParams(inputRequest, required: false)
@@ -594,13 +585,9 @@ Map<String, Object?>? _inputRequestParams(
   return params.cast<String, Object?>();
 }
 
-RpcException _missingClientCapability(
-  String capability,
-  ClientCapabilities required,
-) => RpcException(
-  McpErrorCodes.missingRequiredClientCapability,
-  'The client did not declare the $capability capability',
-  data: {Keys.requiredCapabilities: required},
+StateError _undeclaredCapability(String capability) => StateError(
+  'The server sent an input request needing the $capability capability, '
+  'which this client did not declare.',
 );
 
 extension ElicitationServerConnection on ElicitRequest {

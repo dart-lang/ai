@@ -158,16 +158,16 @@
 - Add `InputRequiredResult` and `InputRequest`, the result a server answers with
   when it needs input first, see
   https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr.
-  On 2026-07-28 connections, `ServerConnection.callTool`, `.getPrompt`, and
-  `.readResource` fulfill its input requests through the client's elicitation,
-  sampling, and roots handlers, then retry the original request. Automatic
-  retries stop after ten rounds or when a required handler is unavailable. A
-  result with neither input requests nor request state is rejected before the
-  retry. Every round goes out under the progress token the first request
-  carried, and the stream `onProgress` returned stays open until the rounds
-  end: `MCPBase.sendRequest` leaves it open on an `input_required` result, and
-  the new `MCPBase.closeProgress` closes it for a caller which spans several
-  requests under one token.
+  On a connection whose `protocolVersion` is 2026-07-28,
+  `ServerConnection.callTool`, `.getPrompt` and `.readResource` fulfill its
+  input requests through the client's elicitation, sampling and roots handlers,
+  then retry the original request. `initialize` does not negotiate that version
+  yet, so a transport carrying its own supported versions is what reaches this.
+  Retries stop after ten rounds, or when the server asks for a handler the
+  client did not declare, and a result carrying neither input requests nor
+  request state is rejected before any retry. Every round goes out under the
+  progress token the first request carried, which is what the new
+  `MCPBase.sendRequestKeepingProgress` and `MCPBase.closeProgress` are for.
 - Add `WithInputResponses`, the type a client's retry carries.
   `CallToolRequest`, `GetPromptRequest` and `ReadResourceRequest` take an
   `inputResponses` and a `requestState`, matching the three requests the schema

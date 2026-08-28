@@ -5,7 +5,6 @@
 import 'dart:async';
 
 import 'package:dart_mcp/client.dart';
-import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'package:test/test.dart';
 
@@ -399,13 +398,11 @@ void main() {
     await expectLater(
       harness.connection.callTool(CallToolRequest(name: 'task')),
       throwsA(
-        isA<RpcException>()
-            .having((error) => error.code, 'code', -32021)
-            .having(
-              (error) => (error.data as Map)['requiredCapabilities'],
-              'required capabilities',
-              {'sampling': <String, Object?>{}},
-            ),
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          contains('sampling'),
+        ),
       ),
     );
     expect(harness.requests, hasLength(1));
@@ -529,6 +526,34 @@ void main() {
     expect(progress, hasLength(11));
     expect(streamClosed, isTrue);
   });
+
+  test(
+    'releases the progress token on a connection before 2026-07-28',
+    () async {
+      final harness = _WireHarness(
+        MCPClient(Implementation(name: 'test client', version: '0.1.0')),
+        (request, requestNumber) => {
+          'resultType': 'input_required',
+          'requestState': 'state',
+        },
+        protocolVersion: ProtocolVersion.v2025_11_25,
+      );
+      final request = CallToolRequest(
+        name: 'task',
+        meta: MetaWithProgressToken(progressToken: ProgressToken('token')),
+      );
+      var streamClosed = false;
+      harness.connection
+          .onProgress(request)
+          .listen((notification) {}, onDone: () => streamClosed = true);
+
+      await harness.connection.callTool(request);
+      await pumpEventQueue();
+
+      expect(harness.requests, hasLength(1));
+      expect(streamClosed, isTrue);
+    },
+  );
 }
 
 Map<String, Object?> _params(Map<String, Object?> request) =>
