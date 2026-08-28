@@ -764,6 +764,7 @@ void main() {
       for (final requests in [
         'not a map',
         {'answer': 'not a map either'},
+        <int, Object?>{1: InputRequest.listRoots(ListRootsRequest())},
       ]) {
         final response = await _dispatchShapedRead(
           (result) => {
