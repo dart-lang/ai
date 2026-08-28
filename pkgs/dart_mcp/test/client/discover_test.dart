@@ -137,8 +137,10 @@ const _answer = <String, Object?>{
 class _WireHarness {
   _WireHarness(this._respond) {
     final client = TestMCPClient();
-    addTearDown(client.shutdown);
+    // Registered so that LIFO runs them in this order: the client lets go of
+    // the channel before the controller behind it closes.
     addTearDown(_incoming.close);
+    addTearDown(client.shutdown);
     connection = client.connectServer(
       StreamChannel.withGuarantees(_incoming.stream, _outgoing.sink),
     );
