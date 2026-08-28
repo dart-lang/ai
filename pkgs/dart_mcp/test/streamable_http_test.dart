@@ -593,6 +593,17 @@ void main() {
       expect(errorCode(text), McpErrorCodes.headerMismatch);
     });
 
+    test('rejects an overlapping base64 sentinel without hanging', () async {
+      // '=?base64?=' is 10 characters: the prefix and suffix share a '?', so
+      // a naive slice throws a RangeError the handler would never answer.
+      final (status, _, text) = await post(
+        headers: {...headers(callTool), 'Mcp-Name': '=?base64?='},
+        json: body(callTool, params: {Keys.name: 'test/version'}),
+      );
+      expect(status, 400);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+    });
+
     test('rejects a resources/read without an Mcp-Name header', () async {
       final (status, _, text) = await post(
         headers: headers(readResource),
@@ -635,6 +646,33 @@ void main() {
       final (status, _, text) = await post(
         headers: callWithHeaderParamHeaders({'Mcp-Param-Label': 'wrong'}),
         json: callWithHeaderParam({'label': 'right'}),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('skips a schema part which cannot carry an annotation', () async {
+      final (status, _, text) = await post(
+        headers: {...headers(callTool), 'Mcp-Name': 'test/booleanSubschema'},
+        json: body(
+          callTool,
+          params: {
+            Keys.name: 'test/booleanSubschema',
+            Keys.arguments: {
+              'anything': 'x',
+              'nested': {'region': 'us-west1'},
+            },
+          },
+        ),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('skips a tool whose properties are not an object', () async {
+      final (status, _, text) = await post(
+        headers: {...headers(callTool), 'Mcp-Name': 'test/nonObjectProperties'},
+        json: body(callTool, params: {Keys.name: 'test/nonObjectProperties'}),
       );
       expect(status, 200);
       expect(errorCode(text), isNull);
@@ -821,6 +859,17 @@ void main() {
           'Mcp-Param-Region': '=?base64?dXMtd2VzdDE=',
         }),
         json: callWithHeaderParam({'region': '=?base64?dXMtd2VzdDE='}),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('reads an overlapping sentinel as a literal', () async {
+      // '=?base64?=' is 10 characters: the prefix and suffix share a '?', so
+      // a naive slice throws a RangeError the handler would never answer.
+      final (status, _, text) = await post(
+        headers: callWithHeaderParamHeaders({'Mcp-Param-Region': '=?base64?='}),
+        json: callWithHeaderParam({'region': '=?base64?='}),
       );
       expect(status, 200);
       expect(errorCode(text), isNull);
@@ -1777,6 +1826,40 @@ void main() {
       expect(await failure.future, isStateError);
     });
 
+    test('answers a failed tools/call on the stream too', () async {
+      // `tools/call` is the one method which holds notifications back until
+      // the header check passes, so it is the one that could answer a server
+      // which failed after announcing itself with a fresh response instead.
+      final failing = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => failing.close(force: true));
+      failing.listen(
+        (request) => handleStreamableHttpRequest(
+          request,
+          _NoisyFailingServer.new,
+        ).onError<Object>((_, _) {}),
+      );
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(
+        Uri.http('${failing.address.host}:${failing.port}', '/mcp'),
+      );
+      final callHeaders = {...headers(callTool), 'Mcp-Name': 'test/version'};
+      callHeaders.forEach(request.headers.set);
+      request.write(
+        jsonEncode(body(callTool, params: {Keys.name: 'test/version'})),
+      );
+      final response = await request.close();
+      final text = await utf8.decodeStream(response);
+      expect(response.statusCode, 200);
+      expect(response.headers.contentType?.mimeType, 'text/event-stream');
+      final messages = events(text);
+      expect(messages, hasLength(2));
+      expect(
+        (messages.last[Keys.error] as Map<String, Object?>)[Keys.code],
+        error_code.INTERNAL_ERROR,
+      );
+    });
+
     test('writes the event before the handler callback sees it', () async {
       final rude = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       addTearDown(() => rude.close(force: true));
@@ -1865,6 +1948,33 @@ base class _HttpTestServer extends MCPServer with LoggingSupport, ToolsSupport {
             }),
           },
         ),
+      ),
+      (_) => CallToolResult(content: [TextContent(text: 'ok')]),
+      validateArguments: false,
+    );
+    registerTool(
+      Tool(
+        name: 'test/booleanSubschema',
+        // JSON Schema lets a subschema be a boolean, and `properties` holds
+        // whatever a server put there. Neither can name an `x-mcp-header`.
+        inputSchema: ObjectSchema.fromMap({
+          Keys.type: JsonType.object.typeName,
+          Keys.properties: {
+            'anything': true,
+            'nested': {Keys.properties: 5},
+          },
+        }),
+      ),
+      (_) => CallToolResult(content: [TextContent(text: 'ok')]),
+      validateArguments: false,
+    );
+    registerTool(
+      Tool(
+        name: 'test/nonObjectProperties',
+        inputSchema: ObjectSchema.fromMap({
+          Keys.type: JsonType.object.typeName,
+          Keys.properties: <Object>[1, 2],
+        }),
       ),
       (_) => CallToolResult(content: [TextContent(text: 'ok')]),
       validateArguments: false,

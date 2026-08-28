@@ -85,8 +85,9 @@ import 'src/utils/json_rpc_2_object.dart';
 /// a non-`null` value. The registered tool is resolved before dispatch.
 /// Sentinel values are decoded, integers are compared numerically, and nested
 /// `properties` maps are followed. A validation failure returns header
-/// mismatch. Initialization notifications are buffered until validation
-/// succeeds.
+/// mismatch. Notifications the server emits before dispatch are held back, so
+/// a mismatch answers `400` rather than an event on a stream one of them
+/// already committed.
 ///
 /// Notifications the server produces while handling the request go out on an
 /// SSE response stream. The first one commits `text/event-stream`, and the
@@ -456,6 +457,16 @@ Future<void> handleStreamableHttpRequest(
     }
   }
 
+  /// Writes the notifications held back so far and stops holding any more.
+  void releasePendingNotifications() {
+    final pending = pendingNotifications;
+    if (pending == null) return;
+    pendingNotifications = null;
+    for (final notification in pending) {
+      writeNotification(notification);
+    }
+  }
+
   final Map<String, Object?>? result;
   try {
     result = await handleRequestScopedMessage(
@@ -476,11 +487,7 @@ Future<void> handleStreamableHttpRequest(
               ? (_, tool) {
                 final rejection = _checkMcpParamHeaders(request, params, tool);
                 if (rejection != null) return rejection;
-                final pending = pendingNotifications!;
-                pendingNotifications = null;
-                for (final notification in pending) {
-                  writeNotification(notification);
-                }
+                releasePendingNotifications();
                 return null;
               }
               : null,
@@ -488,10 +495,13 @@ Future<void> handleStreamableHttpRequest(
   } catch (_) {
     // The server could not be built for this request. Answer before the error
     // leaves this function, so an embedder which discards the returned future
-    // does not leave the connection open. A server that emitted a notification
-    // while initializing has already committed the stream, and headers cannot
-    // be set on it a second time. The answer goes out on the stream instead of
-    // starting a fresh response.
+    // does not leave the connection open. Notifications a server emitted while
+    // initializing are released first: they are what commits the stream, and
+    // once its headers are sent they cannot be set a second time, so the answer
+    // goes out on the stream instead of starting a fresh response. Holding them
+    // past this point would drop them and change the answer to a `tools/call`
+    // into a status no other method returns here.
+    releasePendingNotifications();
     await answer.finish(
       RpcException(
         error_code.INTERNAL_ERROR,
@@ -737,7 +747,7 @@ RpcException? _checkMcpParamHeaders(
 ) {
   if (tool == null) return null;
 
-  final properties = tool.inputSchema.properties;
+  final properties = _readableProperties(tool.inputSchema);
   if (properties == null) return null;
 
   final arguments = params[Keys.arguments];
@@ -752,22 +762,35 @@ RpcException? _checkMcpParamHeaders(
   );
 }
 
+/// The `properties` map of [schema], or `null` when [schema] does not carry one
+/// this check can read.
+///
+/// A subschema is a boolean wherever JSON Schema allows one, and `properties`
+/// holds whatever the server put there. Neither shape can name an
+/// `x-mcp-header`, so both read as nothing to check. Reading them as a map
+/// instead would fail a request over a part of the schema this has no
+/// annotation to find.
+Map<String, Object?>? _readableProperties(Object? schema) {
+  if (schema is! Map<String, Object?>) return null;
+  final properties = schema[Keys.properties];
+  return properties is Map<String, Object?> ? properties : null;
+}
+
 /// Validates [properties] and descends through each nested `properties` map.
 /// [pathPrefix] is the dotted argument path used in errors.
 RpcException? _checkMcpParamHeadersForProperties(
   HttpRequest request,
-  Map<String, Schema> properties,
+  Map<String, Object?> properties,
   Map<String, Object?> argumentMap,
   String pathPrefix,
 ) {
-  for (final MapEntry(key: property, value: schema) in properties.entries) {
+  for (final MapEntry(key: property, value: schemaMap) in properties.entries) {
+    if (schemaMap is! Map<String, Object?>) continue;
     final argumentValue = argumentMap[property];
     final hasValue = argumentMap.containsKey(property) && argumentValue != null;
     final propertyPath = '$pathPrefix$property';
-    final schemaMap = schema as Map<String, Object?>;
 
-    final nestedProperties =
-        (schemaMap[Keys.properties] as Map?)?.cast<String, Schema>();
+    final nestedProperties = _readableProperties(schemaMap);
     if (nestedProperties != null) {
       final nestedArguments =
           hasValue && argumentValue is Map<String, Object?>
