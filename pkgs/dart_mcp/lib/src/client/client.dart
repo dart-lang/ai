@@ -333,13 +333,16 @@ base class ServerConnection extends MCPBase {
   /// see [DiscoverRequest].
   ///
   /// A client that also speaks the legacy `initialize` handshake sends this
-  /// first to find out which of the two a server speaks. A server built on
-  /// this package only registers the handler for 2026-07-28 and later, so a
-  /// legacy connection answers `-32601` here.
+  /// first to find out which of the two a server speaks. A [DiscoverResult]
+  /// means the server is modern, and anything else means fall back to
+  /// [initialize]. That fallback MUST NOT key on one error code, because a
+  /// legacy server answers an unknown pre-`initialize` method however it
+  /// likes, or not at all, see
+  /// https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/stdio#backward-compatibility.
+  /// This package's own server answers `-32601`.
   ///
-  /// Sends [protocolVersion] and [capabilities] in the request metadata, plus
-  /// [clientInfo] when given. Entries from [meta] pass through unless an
-  /// argument sets the same key.
+  /// Sends [protocolVersion] and [capabilities] in the request metadata, the
+  /// two keys the envelope requires, plus [clientInfo] when given.
   ///
   /// The result is returned as it arrived. This connection's
   /// [ServerConnection.protocolVersion], [serverCapabilities], and

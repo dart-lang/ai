@@ -275,11 +275,13 @@
 - Add missing license headers.
 - Add `ServerConnection.discover`, the client side of `server/discover`.
   - The request carries `protocolVersion` and `capabilities` in `_meta` under
-    the reserved keys `handleStreamableHttpRequest` already requires, plus
-    `clientInfo` when one is given. Any other key the caller gave passes
-    through.
-  - A connection made with the `initialize` handshake answers `-32601`, which
-    a client probing for the era reads as a legacy server.
+    the two reserved keys the schema makes required there, plus `clientInfo`
+    when one is given, see
+    https://modelcontextprotocol.io/specification/2026-07-28/server/discover.
+  - A result means the server is modern. A client falling back to `initialize`
+    must not key that on one error code, since a legacy server answers an
+    unknown pre-`initialize` method however it likes. This package's own server
+    answers `-32601`.
 
 ## 0.5.2
 
