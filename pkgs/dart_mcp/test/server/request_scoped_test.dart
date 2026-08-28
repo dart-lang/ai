@@ -1299,7 +1299,7 @@ void main() {
         isNull,
         reason:
             'list changes reach a client on a `subscriptions/listen` '
-            'stream, which this package does not serve yet',
+            'stream, and fresh request servers do not share notifications',
       );
       expect(capabilities.resources?.listChanged, isNull);
       expect(

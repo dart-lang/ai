@@ -93,18 +93,22 @@ void main() {
 
   group('SubscriptionsListenResult', () {
     test('writes the subscription id into the result metadata', () {
-      final result = SubscriptionsListenResult(subscriptionId: RequestId(7));
+      final result = SubscriptionsListenResult(
+        meta: MetaWithSubscriptionId(subscriptionId: RequestId(7)),
+      );
       expect(result as Map<String, Object?>, {
         '_meta': {'io.modelcontextprotocol/subscriptionId': 7},
       });
       expect(result.subscriptionId, 7);
     });
 
-    test('keeps the metadata it is given alongside the id', () {
-      final result = SubscriptionsListenResult(
-        subscriptionId: RequestId('stream-1'),
-        meta: Meta.fromMap({'com.example/trace': 'abc'}),
-      );
+    test('stores the metadata object it is given', () {
+      final meta = MetaWithSubscriptionId.fromMap({
+        'com.example/trace': 'abc',
+        'io.modelcontextprotocol/subscriptionId': RequestId('stream-1'),
+      });
+      final result = SubscriptionsListenResult(meta: meta);
+      expect(result.meta, same(meta));
       expect(result as Map<String, Object?>, {
         '_meta': {
           'com.example/trace': 'abc',
@@ -130,14 +134,34 @@ void main() {
   });
 
   group('SubscriptionsAcknowledgedNotification', () {
-    test('writes the filter it is given', () {
+    test('writes the filter and the subscription id it is given', () {
       final acknowledged = SubscriptionsAcknowledgedNotification(
         notifications: SubscriptionFilter(toolsListChanged: true),
+        meta: MetaWithSubscriptionId(subscriptionId: RequestId(7)),
       );
       expect(acknowledged as Map<String, Object?>, {
         'notifications': {'toolsListChanged': true},
+        '_meta': {'io.modelcontextprotocol/subscriptionId': 7},
       });
       expect(acknowledged.notifications.toolsListChanged, true);
+      expect(acknowledged.subscriptionId, 7);
+    });
+
+    test('stores the metadata object it is given', () {
+      final meta = MetaWithSubscriptionId.fromMap({
+        'com.example/trace': 'abc',
+        'io.modelcontextprotocol/subscriptionId': RequestId('stream-1'),
+      });
+      final acknowledged = SubscriptionsAcknowledgedNotification(
+        notifications: SubscriptionFilter(),
+        meta: meta,
+      );
+      expect(acknowledged.meta, same(meta));
+      expect((acknowledged as Map<String, Object?>)['_meta'], {
+        'com.example/trace': 'abc',
+        'io.modelcontextprotocol/subscriptionId': 'stream-1',
+      });
+      expect(acknowledged.subscriptionId, 'stream-1');
     });
 
     test('throws when the filter is missing', () {
@@ -145,6 +169,63 @@ void main() {
         () => SubscriptionsAcknowledgedNotification.fromMap({}).notifications,
         throwsArgumentError,
       );
+    });
+
+    test('throws when the subscription id is missing', () {
+      expect(
+        () => SubscriptionsAcknowledgedNotification.fromMap({}).subscriptionId,
+        throwsArgumentError,
+      );
+      expect(
+        () =>
+            SubscriptionsAcknowledgedNotification.fromMap({
+              '_meta': <String, Object?>{},
+            }).subscriptionId,
+        throwsArgumentError,
+      );
+    });
+  });
+
+  group('MetaWithSubscriptionId', () {
+    test('reads back the id it was built with', () {
+      final meta = MetaWithSubscriptionId(subscriptionId: RequestId('s-9'));
+      expect(meta.subscriptionId, RequestId('s-9'));
+    });
+
+    test("reads the id beside a caller's own key", () {
+      final meta = MetaWithSubscriptionId.fromMap({
+        'com.example/trace': 'abc',
+        'io.modelcontextprotocol/subscriptionId': 's-1',
+      });
+      expect(meta.subscriptionId, RequestId('s-1'));
+      expect(meta['com.example/trace'], 'abc');
+    });
+
+    test('hands the metadata back typed on both messages', () {
+      final meta = MetaWithSubscriptionId(subscriptionId: RequestId(7));
+      expect(SubscriptionsListenResult(meta: meta).meta?.subscriptionId, 7);
+      expect(
+        SubscriptionsAcknowledgedNotification(
+          notifications: SubscriptionFilter(),
+          meta: meta,
+        ).meta?.subscriptionId,
+        7,
+      );
+    });
+
+    test('has no metadata when the message carries none', () {
+      expect(SubscriptionsListenResult.fromMap({}).meta, isNull);
+      expect(
+        SubscriptionsAcknowledgedNotification.fromMap({
+          'notifications': SubscriptionFilter(),
+        }).meta,
+        isNull,
+      );
+    });
+
+    test('throws when the id is missing', () {
+      final meta = MetaWithSubscriptionId.fromMap({});
+      expect(() => meta.subscriptionId, throwsArgumentError);
     });
   });
 }

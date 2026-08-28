@@ -46,22 +46,37 @@ const transportHeaders = {
 void main() {
   late HttpServer httpServer;
   late Uri uri;
-  final servers = <_HttpTestServer>[];
+  late MCPServerFactory serverFactory;
+  late StreamController<Map<String, Object?>> subscriptionNotifications;
+  final servers = <MCPServer>[];
   final notifications = <Map<String, Object?>>[];
 
   setUp(() async {
+    serverFactory = _HttpTestServer.new;
     servers.clear();
     notifications.clear();
+    subscriptionNotifications = StreamController.broadcast(sync: true);
     httpServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     uri = Uri.http('${httpServer.address.host}:${httpServer.port}', '/mcp');
     httpServer.listen(
-      (request) => handleStreamableHttpRequest(request, (channel) {
-        final server = _HttpTestServer(channel);
-        servers.add(server);
-        return server;
-      }, onNotification: notifications.add),
+      (request) => handleStreamableHttpRequest(
+        request,
+        (channel) {
+          final server = serverFactory(channel);
+          servers.add(server);
+          return server;
+        },
+        onNotification: (notification) {
+          notifications.add(notification);
+          subscriptionNotifications.add(notification);
+        },
+        subscriptionNotifications: subscriptionNotifications.stream,
+      ),
     );
-    addTearDown(() => httpServer.close(force: true));
+    addTearDown(() async {
+      await httpServer.close(force: true);
+      await subscriptionNotifications.close();
+    });
   });
 
   /// A request body for [method] carrying the standard envelope.
@@ -207,6 +222,539 @@ void main() {
       final result = decode(text)[Keys.result] as Map<String, Object?>;
       final content = result[Keys.content] as List;
       expect((content.single as Map<String, Object?>)[Keys.text], '1.2.3');
+    });
+  });
+
+  group('subscriptions/listen', () {
+    test('streams accepted changes before the result', () async {
+      serverFactory = _EquippedServer.new;
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(uri);
+      headers(
+        SubscriptionsListenRequest.methodName,
+      ).forEach(request.headers.set);
+      request.write(
+        jsonEncode(
+          body(
+            SubscriptionsListenRequest.methodName,
+            id: 'listen-1',
+            params: {
+              Keys.notifications: {
+                Keys.toolsListChanged: true,
+                Keys.promptsListChanged: true,
+                Keys.resourcesListChanged: true,
+                Keys.resourceSubscriptions: ['file:///a'],
+              },
+            },
+          ),
+        ),
+      );
+      final response = await request.close();
+
+      final chunks = StringBuffer();
+      final firstFrame = Completer<void>();
+      final changesFrame = Completer<void>();
+      final done = Completer<void>();
+      final subscription = response.transform(utf8.decoder).listen((chunk) {
+        chunks.write(chunk);
+        final count = frames(chunks.toString()).length;
+        if (count >= 1 && !firstFrame.isCompleted) firstFrame.complete();
+        if (count >= 5 && !changesFrame.isCompleted) changesFrame.complete();
+      }, onDone: done.complete);
+      addTearDown(subscription.cancel);
+
+      await firstFrame.future;
+      expect(response.statusCode, 200);
+      expect(response.headers.contentType?.mimeType, 'text/event-stream');
+      expect(done.isCompleted, isFalse);
+      expect(events(chunks.toString()).single, {
+        'jsonrpc': '2.0',
+        'method': 'notifications/subscriptions/acknowledged',
+        'params': {
+          'notifications': {
+            'toolsListChanged': true,
+            'promptsListChanged': true,
+            'resourcesListChanged': true,
+            'resourceSubscriptions': ['file:///a'],
+          },
+          '_meta': {'io.modelcontextprotocol/subscriptionId': 'listen-1'},
+        },
+      });
+
+      final server = servers.single;
+      addTearDown(() async {
+        if (server.isActive) await server.shutdown();
+      });
+      server.sendNotification(
+        ToolListChangedNotification.methodName,
+        ToolListChangedNotification(),
+      );
+      server.sendNotification(
+        PromptListChangedNotification.methodName,
+        PromptListChangedNotification(),
+      );
+      server.sendNotification(
+        ResourceListChangedNotification.methodName,
+        ResourceListChangedNotification(),
+      );
+      server.sendNotification(
+        ResourceUpdatedNotification.methodName,
+        ResourceUpdatedNotification(uri: 'file:///b'),
+      );
+      server.sendNotification(
+        ResourceUpdatedNotification.methodName,
+        ResourceUpdatedNotification(uri: 'file:///a'),
+      );
+
+      await changesFrame.future;
+      final early = events(chunks.toString());
+      expect(early, hasLength(5));
+      expect(early.skip(1), [
+        {
+          'jsonrpc': '2.0',
+          'method': 'notifications/tools/list_changed',
+          'params': {
+            '_meta': {'io.modelcontextprotocol/subscriptionId': 'listen-1'},
+          },
+        },
+        {
+          'jsonrpc': '2.0',
+          'method': 'notifications/prompts/list_changed',
+          'params': {
+            '_meta': {'io.modelcontextprotocol/subscriptionId': 'listen-1'},
+          },
+        },
+        {
+          'jsonrpc': '2.0',
+          'method': 'notifications/resources/list_changed',
+          'params': {
+            '_meta': {'io.modelcontextprotocol/subscriptionId': 'listen-1'},
+          },
+        },
+        {
+          'jsonrpc': '2.0',
+          'method': 'notifications/resources/updated',
+          'params': {
+            'uri': 'file:///a',
+            '_meta': {'io.modelcontextprotocol/subscriptionId': 'listen-1'},
+          },
+        },
+      ]);
+
+      await server.shutdown();
+      await done.future;
+      final messages = events(chunks.toString());
+      expect(messages, hasLength(6));
+      expect(messages.last[Keys.id], 'listen-1');
+      final result = messages.last[Keys.result] as Map<String, Object?>;
+      expect(result[Keys.resultType], 'complete');
+      final meta = result[Keys.meta] as Map<String, Object?>;
+      expect(meta[Keys.subscriptionIdMeta], 'listen-1');
+      expect(meta[Keys.serverInfoMeta], {
+        'name': 'equipped test server',
+        'version': '0.1.0',
+      });
+    });
+
+    test('streams a change produced by another request server', () async {
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(uri);
+      headers(
+        SubscriptionsListenRequest.methodName,
+      ).forEach(request.headers.set);
+      request.write(
+        jsonEncode(
+          body(
+            SubscriptionsListenRequest.methodName,
+            id: 'listen-2',
+            params: {
+              Keys.notifications: {Keys.toolsListChanged: true},
+            },
+          ),
+        ),
+      );
+      final response = await request.close();
+      final chunks = StringBuffer();
+      final acknowledged = Completer<void>();
+      final done = Completer<void>();
+      final subscription = response.transform(utf8.decoder).listen((chunk) {
+        chunks.write(chunk);
+        final messages = events(chunks.toString());
+        if (messages.isNotEmpty && !acknowledged.isCompleted) {
+          acknowledged.complete();
+        }
+      }, onDone: done.complete);
+      addTearDown(subscription.cancel);
+
+      await acknowledged.future;
+      final listener = servers.single;
+      addTearDown(() async {
+        if (listener.isActive) await listener.shutdown();
+      });
+      final (status, _, text) = await post(
+        headers: {
+          ...headers(callTool),
+          'Mcp-Name': 'test/registers-then-fails',
+        },
+        json: body(callTool, params: {Keys.name: 'test/registers-then-fails'}),
+      );
+
+      expect(status, 400);
+      expect(errorCode(text), McpErrorCodes.missingRequiredClientCapability);
+      await pumpEventQueue(times: 20);
+      final messages = events(chunks.toString());
+      expect(messages, hasLength(2));
+      final change = messages[1];
+      expect(change[Keys.method], ToolListChangedNotification.methodName);
+      expect(change[Keys.params], {
+        Keys.meta: {Keys.subscriptionIdMeta: 'listen-2'},
+      });
+
+      await listener.shutdown();
+      await done.future;
+    });
+
+    test('treats false and absent filters as not requested', () async {
+      final filters = <Map<String, Object?>>[];
+      for (final notifications in [
+        {Keys.toolsListChanged: false},
+        <String, Object?>{},
+        {Keys.resourceSubscriptions: <String>[]},
+      ]) {
+        final acknowledgements = <Map<String, Object?>>[];
+        final acknowledged = Completer<void>();
+        late _HttpTestServer server;
+        final responseFuture = handleRequestScopedMessage(
+          body(
+            SubscriptionsListenRequest.methodName,
+            params: {Keys.notifications: notifications},
+          ),
+          MCPServerInitialization(
+            protocolVersion: ProtocolVersion.v2026_07_28,
+            clientCapabilities: ClientCapabilities(),
+          ),
+          (channel) => server = _HttpTestServer(channel),
+          onNotification: (notification) {
+            acknowledgements.add(notification);
+            acknowledged.complete();
+          },
+        );
+        await acknowledged.future;
+        await server.shutdown();
+        final response = await responseFuture;
+        expect(response![Keys.error], isNull);
+        final params =
+            acknowledgements.single[Keys.params] as Map<String, Object?>;
+        filters.add(
+          (params[Keys.notifications] as Map).cast<String, Object?>(),
+        );
+      }
+
+      expect(filters, [
+        <String, Object?>{},
+        <String, Object?>{},
+        <String, Object?>{},
+      ]);
+    });
+
+    test('omits an empty resource subscription list from the ack', () async {
+      serverFactory = _EquippedServer.new;
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(uri);
+      headers(
+        SubscriptionsListenRequest.methodName,
+      ).forEach(request.headers.set);
+      request.write(
+        jsonEncode(
+          body(
+            SubscriptionsListenRequest.methodName,
+            params: {
+              Keys.notifications: {Keys.resourceSubscriptions: <String>[]},
+            },
+          ),
+        ),
+      );
+      final response = await request.close();
+      final first = await response
+          .transform(utf8.decoder)
+          .firstWhere((chunk) => frames(chunk).isNotEmpty);
+      final acknowledgement = events(first).single;
+      final params = acknowledgement[Keys.params] as Map<String, Object?>;
+
+      expect(params[Keys.notifications], <String, Object?>{});
+      client.close(force: true);
+    });
+
+    test('acknowledges every requested server filter', () async {
+      final resources = ['file:///a'];
+      final notifications = <Map<String, Object?>>[];
+      final acknowledged = Completer<void>();
+      late _EquippedServer server;
+      final responseFuture = handleRequestScopedMessage(
+        body(
+          SubscriptionsListenRequest.methodName,
+          params: {
+            Keys.notifications: {
+              Keys.toolsListChanged: true,
+              Keys.promptsListChanged: true,
+              Keys.resourcesListChanged: true,
+              Keys.resourceSubscriptions: resources,
+            },
+          },
+        ),
+        MCPServerInitialization(
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          clientCapabilities: ClientCapabilities(),
+        ),
+        (channel) => server = _EquippedServer(channel),
+        onNotification: (notification) {
+          notifications.add(notification);
+          acknowledged.complete();
+        },
+      );
+      await acknowledged.future;
+      resources.add('file:///b');
+      await server.shutdown();
+      final response = await responseFuture;
+
+      expect(response![Keys.error], isNull);
+      final params = notifications.single[Keys.params] as Map<String, Object?>;
+      expect(params[Keys.notifications], {
+        'toolsListChanged': true,
+        'promptsListChanged': true,
+        'resourcesListChanged': true,
+        'resourceSubscriptions': ['file:///a'],
+      });
+    });
+
+    test('omits filters the server cannot deliver', () async {
+      final acknowledgements = <Map<String, Object?>>[];
+      final acknowledged = Completer<void>();
+      late _HttpTestServer server;
+      final responseFuture = handleRequestScopedMessage(
+        body(
+          SubscriptionsListenRequest.methodName,
+          params: {
+            Keys.notifications: {
+              Keys.toolsListChanged: true,
+              Keys.promptsListChanged: true,
+              Keys.resourcesListChanged: true,
+              Keys.resourceSubscriptions: ['file:///a'],
+            },
+          },
+        ),
+        MCPServerInitialization(
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          clientCapabilities: ClientCapabilities(),
+        ),
+        (channel) => server = _HttpTestServer(channel),
+        onNotification: (notification) {
+          acknowledgements.add(notification);
+          acknowledged.complete();
+        },
+      );
+
+      await acknowledged.future;
+      await server.shutdown();
+      final response = await responseFuture;
+
+      expect(response![Keys.error], isNull);
+      final params =
+          acknowledgements.single[Keys.params] as Map<String, Object?>;
+      expect(params[Keys.notifications], {'toolsListChanged': true});
+    });
+
+    test('rejects malformed filters without opening a stream', () async {
+      serverFactory = _EquippedServer.new;
+      final malformed = [
+        body(SubscriptionsListenRequest.methodName, params: {}),
+        body(
+          SubscriptionsListenRequest.methodName,
+          params: {Keys.notifications: null},
+        ),
+        body(
+          SubscriptionsListenRequest.methodName,
+          params: {Keys.notifications: 42},
+        ),
+        body(
+          SubscriptionsListenRequest.methodName,
+          params: {
+            Keys.notifications: {Keys.toolsListChanged: 42},
+          },
+        ),
+        body(
+          SubscriptionsListenRequest.methodName,
+          params: {
+            Keys.notifications: {
+              Keys.resourceSubscriptions: [42],
+            },
+          },
+        ),
+      ];
+      final uncaught = <Object>[];
+      final responses = <(int, HttpHeaders, String)>[];
+
+      await runZonedGuarded(() async {
+        for (final requestBody in malformed) {
+          responses.add(
+            await post(
+              headers: headers(SubscriptionsListenRequest.methodName),
+              json: requestBody,
+            ),
+          );
+        }
+      }, (error, _) => uncaught.add(error));
+      await pumpEventQueue();
+
+      expect(uncaught, isEmpty);
+      for (final (status, responseHeaders, text) in responses) {
+        expect(status, 400);
+        expect(responseHeaders.contentType?.mimeType, 'application/json');
+        expect(errorCode(text), error_code.INVALID_PARAMS);
+        expect(
+          text,
+          isNot(contains(SubscriptionsAcknowledgedNotification.methodName)),
+        );
+        expect(text, isNot(contains('"stack"')));
+      }
+    });
+
+    test('rejects explicit null filter values', () async {
+      for (final key in [
+        Keys.toolsListChanged,
+        Keys.promptsListChanged,
+        Keys.resourcesListChanged,
+        Keys.resourceSubscriptions,
+      ]) {
+        late _EquippedServer server;
+        final acknowledgements = <Map<String, Object?>>[];
+        final response = await handleRequestScopedMessage(
+          body(
+            SubscriptionsListenRequest.methodName,
+            params: {
+              Keys.notifications: {key: null},
+            },
+          ),
+          MCPServerInitialization(
+            protocolVersion: ProtocolVersion.v2026_07_28,
+            clientCapabilities: ClientCapabilities(),
+          ),
+          (channel) => server = _EquippedServer(channel),
+          onNotification: (notification) {
+            acknowledgements.add(notification);
+            unawaited(Future<void>.delayed(Duration.zero, server.shutdown));
+          },
+        );
+
+        expect(response, containsPair(Keys.error, isA<Map<String, Object?>>()));
+        final error = response![Keys.error] as Map<String, Object?>;
+        expect(error[Keys.code], error_code.INVALID_PARAMS);
+        expect(acknowledgements, isEmpty);
+      }
+    });
+
+    test('advertises the filters its listen stream can deliver', () async {
+      serverFactory = _EquippedServer.new;
+      final (status, _, text) = await post(
+        headers: headers(DiscoverRequest.methodName),
+        json: body(DiscoverRequest.methodName),
+      );
+
+      expect(status, 200);
+      final result = decode(text)[Keys.result] as Map<String, Object?>;
+      final capabilities = result[Keys.capabilities] as Map<String, Object?>;
+      expect(capabilities['tools'], {'listChanged': true});
+      expect(capabilities['prompts'], {'listChanged': true});
+      expect(capabilities['resources'], {
+        'subscribe': true,
+        'listChanged': true,
+      });
+    });
+
+    test('keeps advertised capabilities separate from server state', () async {
+      late _EquippedServer server;
+      final response = await handleRequestScopedMessage(
+        body(DiscoverRequest.methodName),
+        MCPServerInitialization(
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          clientCapabilities: ClientCapabilities(),
+        ),
+        (channel) => server = _EquippedServer(channel),
+      );
+      final result = response![Keys.result] as Map<String, Object?>;
+      final advertised = result[Keys.capabilities] as Map<String, Object?>;
+      advertised[Keys.tools] = <String, Object?>{};
+
+      expect(server.capabilities.tools?.listChanged, isTrue);
+    });
+
+    test('shuts down the server when the client disconnects', () async {
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(uri);
+      headers(
+        SubscriptionsListenRequest.methodName,
+      ).forEach(request.headers.set);
+      request.write(
+        jsonEncode(
+          body(
+            SubscriptionsListenRequest.methodName,
+            params: {
+              Keys.notifications: {Keys.toolsListChanged: true},
+            },
+          ),
+        ),
+      );
+      final response = await request.close();
+      final acknowledged = Completer<void>();
+      final responseEnded = Completer<void>();
+      final chunks = StringBuffer();
+      final subscription = response
+          .transform(utf8.decoder)
+          .listen(
+            (chunk) {
+              chunks.write(chunk);
+              if (frames(chunks.toString()).isNotEmpty &&
+                  !acknowledged.isCompleted) {
+                acknowledged.complete();
+              }
+            },
+            onError: (Object _) {
+              if (!responseEnded.isCompleted) responseEnded.complete();
+            },
+            onDone: () {
+              if (!responseEnded.isCompleted) responseEnded.complete();
+            },
+          );
+      addTearDown(subscription.cancel);
+
+      await acknowledged.future;
+      final server = servers.single;
+      client.close(force: true);
+
+      await server.done.timeout(const Duration(seconds: 5));
+      await responseEnded.future.timeout(const Duration(seconds: 5));
+      expect(server.isActive, isFalse);
+    });
+
+    test('does not register on earlier revisions', () async {
+      final response = await handleRequestScopedMessage(
+        body(
+          SubscriptionsListenRequest.methodName,
+          params: {Keys.notifications: <String, Object?>{}},
+        ),
+        MCPServerInitialization(
+          protocolVersion: ProtocolVersion.v2025_11_25,
+          clientCapabilities: ClientCapabilities(),
+        ),
+        _HttpTestServer.new,
+      );
+
+      final error = response![Keys.error] as Map<String, Object?>;
+      expect(error[Keys.code], -32601);
     });
   });
 
@@ -1934,7 +2482,8 @@ void main() {
 /// Held by `test/notify-then-wait` until a test releases it.
 Completer<void> releaseNotifyThenWait = Completer<void>();
 
-base class _HttpTestServer extends MCPServer with LoggingSupport, ToolsSupport {
+base class _HttpTestServer extends MCPServer
+    with LoggingSupport, ToolsSupport, SubscriptionsSupport {
   bool get _declaredSampling => clientCapabilities.sampling != null;
   int listToolsCalls = 0;
 
@@ -2221,7 +2770,12 @@ base class _NoisyFailingServer extends _HttpTestServer {
 /// request handlers the 2026-07-28 revision removed, so a request for one of
 /// them reaches a handler unless the transport turns it away first.
 base class _EquippedServer extends MCPServer
-    with ToolsSupport, LoggingSupport, ResourcesSupport {
+    with
+        ToolsSupport,
+        LoggingSupport,
+        ResourcesSupport,
+        PromptsSupport,
+        SubscriptionsSupport {
   _EquippedServer(super.channel)
     : super.fromStreamChannel(
         implementation: Implementation(
