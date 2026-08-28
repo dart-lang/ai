@@ -344,7 +344,7 @@ abstract base class MCPServer extends MCPBase {
 /// server can make of a client end up here on that revision.
 void _rejectRemovedMethod(String method, ProtocolVersion protocolVersion) {
   if (protocolVersion.methodIsValid(method)) return;
-  // Only a revision which has `InputRequiredResult` can be pointed at it, and
+  // Only a revision with an `InputRequiredResult` can be pointed at it, and
   // `elicit` also lands here on the revisions before 2025-06-18 added
   // `elicitation/create`.
   final replacement =
