@@ -340,8 +340,8 @@ abstract base class MCPServer extends MCPBase {
 /// Refuses to send [method] when [ProtocolVersion.methodIsValid] says
 /// [protocolVersion] does not have it.
 ///
-/// 2026-07-28 dropped the `ServerRequest` union, so the three requests an
-/// [InputRequiredResult] carries end up here on that revision.
+/// Each sender calls this first, so a method the revision does not have fails
+/// for that reason instead of for a missing client capability.
 void _rejectRemovedMethod(String method, ProtocolVersion protocolVersion) {
   if (protocolVersion.methodIsValid(method)) return;
   // Only a revision with an `InputRequiredResult` can be pointed at it, and
