@@ -43,7 +43,20 @@ extension type InputRequest._(Map<String, Object?> _value) {
   ///
   /// The schema requires this next to `elicitation/create` and
   /// `sampling/createMessage`. For `roots/list` it only requires the method.
-  Request? get params => _value[Keys.params] as Request?;
+  ///
+  /// Throws an [ArgumentError] when a server sent something other than an
+  /// object here.
+  Request? get params {
+    final params = _value[Keys.params];
+    if (params == null) return null;
+    if (params is! Map) {
+      throw ArgumentError(
+        'The input request params for "$method" were ${params.runtimeType}, '
+        'expected an object.',
+      );
+    }
+    return params.cast<String, Object?>() as Request;
+  }
 
   /// Whether this carries an [ElicitRequest].
   bool get isElicit => _value[Keys.method] == ElicitRequest.methodName;
