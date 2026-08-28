@@ -156,6 +156,20 @@ base class ServerConnection extends MCPBase {
   @override
   String get name => serverInfo?.name ?? super.name;
 
+  /// The [serverInfo] to hand [SamplingSupport.handleCreateMessage], which
+  /// takes it non-null.
+  Implementation get _samplingServerInfo {
+    final serverInfo = this.serverInfo;
+    if (serverInfo == null) {
+      throw StateError(
+        'The server asked for sampling, but this connection has no '
+        '`serverInfo` to give the handler. Set it alongside `protocolVersion` '
+        'when your transport settles the version.',
+      );
+    }
+    return serverInfo;
+  }
+
   /// Emits an event any time the server notifies us of a change to the list of
   /// prompts it supports.
   ///
@@ -245,7 +259,7 @@ base class ServerConnection extends MCPBase {
       registerRequestHandler(
         CreateMessageRequest.methodName,
         (CreateMessageRequest request) =>
-            samplingSupport.handleCreateMessage(request, serverInfo!),
+            samplingSupport.handleCreateMessage(request, _samplingServerInfo),
       );
     }
 
@@ -517,14 +531,7 @@ base class ServerConnection extends MCPBase {
         final request =
             _inputRequestParams(inputRequest, required: true)!
                 as CreateMessageRequest;
-        final serverInfo = this.serverInfo;
-        if (serverInfo == null) {
-          throw StateError(
-            'The server sent a sampling input request, but this connection '
-            'has no `serverInfo` to give the handler. Set it alongside '
-            '`protocolVersion` when your transport settles the version.',
-          );
-        }
+        final serverInfo = _samplingServerInfo;
         return () async =>
             await support.handleCreateMessage(request, serverInfo);
       case ListRootsRequest.methodName:

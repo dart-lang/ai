@@ -560,6 +560,29 @@ void main() {
     expect(client.handled, isEmpty);
   });
 
+  test('names the missing serverInfo on a direct sampling request', () async {
+    final client = _InputClient();
+    final harness = _WireHarness(
+      client,
+      (request, requestNumber) => throw StateError('no client requests here'),
+      withServerInfo: false,
+    );
+
+    harness.send({
+      'jsonrpc': '2.0',
+      'id': 'sample',
+      'method': CreateMessageRequest.methodName,
+      'params': {'messages': <Object?>[], 'maxTokens': 1},
+    });
+    await pumpEventQueue();
+
+    expect(
+      (harness.responses.single['error'] as Map)['message'],
+      contains('`serverInfo`'),
+    );
+    expect(client.handled, isEmpty);
+  });
+
   test('rejects an input-required result without requests or state', () async {
     final harness = _WireHarness(
       MCPClient(Implementation(name: 'test client', version: '0.1.0')),
@@ -728,6 +751,9 @@ final class _WireHarness {
   final _outgoing = StreamController<Map<String, Object?>>();
   final requests = <Map<String, Object?>>[];
 
+  /// What this client answered the requests [send] made, in order.
+  final responses = <Map<String, Object?>>[];
+
   /// How many progress notifications [sendProgress] has sent so far.
   int progressSent = 0;
 
@@ -749,6 +775,10 @@ final class _WireHarness {
       connection.serverInfo = Implementation(name: 'wire server', version: '1');
     }
     _subscription = _outgoing.stream.listen((request) {
+      if (!request.containsKey('method')) {
+        responses.add(request);
+        return;
+      }
       requests.add(request);
       final token = (_params(request)['_meta'] as Map?)?['progressToken'];
       if (sendProgress && token != null) {
@@ -766,6 +796,9 @@ final class _WireHarness {
     });
     addTearDown(_close);
   }
+
+  /// Sends [request] to the client the way a server would.
+  void send(Map<String, Object?> request) => _incoming.add(request);
 
   Future<void> _close() async {
     await client.shutdown();

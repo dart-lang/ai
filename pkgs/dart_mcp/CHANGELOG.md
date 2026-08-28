@@ -99,7 +99,8 @@
     `multipleOf` next to them already read `num`.
   - `ServerConnection.protocolVersion` is nullable, and is `null` until
     something settles a version. It used to be a `late` field, which threw
-    when read before then.
+    when read before then. Set `serverInfo` alongside it. Sampling hands that
+    to the handler.
 - Add `supportsFormElicitation` and `supportsUrlElicitation` for a server to
   ask before it sends. An empty `elicitation` object still means form, the way
   `elicitation` read before the split.
