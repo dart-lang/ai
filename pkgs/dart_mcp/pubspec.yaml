@@ -21,21 +21,21 @@ dependencies:
 
 dev_dependencies:
   dart_flutter_team_lints: ^3.2.1
-  test: any
+  test: ^1.31.0
 
-dependency_overrides:
-  test:
-    git:
-      url: https://github.com/dart-lang/test.git
-      ref: unawaited-socket-cancel
-      path: pkgs/test
-  test_api:
-    git:
-      url: https://github.com/dart-lang/test.git
-      ref: unawaited-socket-cancel
-      path: pkgs/test_api
-  test_core:
-    git:
-      url: https://github.com/dart-lang/test.git
-      ref: unawaited-socket-cancel
-      path: pkgs/test_core
+# dependency_overrides:
+#   test:
+#     git:
+#       url: https://github.com/dart-lang/test.git
+#       ref: unawaited-socket-cancel
+#       path: pkgs/test
+#   test_api:
+#     git:
+#       url: https://github.com/dart-lang/test.git
+#       ref: unawaited-socket-cancel
+#       path: pkgs/test_api
+#   test_core:
+#     git:
+#       url: https://github.com/dart-lang/test.git
+#       ref: unawaited-socket-cancel
+#       path: pkgs/test_core
