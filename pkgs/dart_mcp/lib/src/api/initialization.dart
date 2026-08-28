@@ -114,11 +114,13 @@ extension type MetaWithRequestEnvelope.fromMap(Map<String, Object?> _value)
     required ProtocolVersion protocolVersion,
     required ClientCapabilities capabilities,
     Implementation? clientInfo,
+    LoggingLevel? logLevel,
     ProgressToken? progressToken,
   }) => MetaWithRequestEnvelope.fromMap({
     Keys.protocolVersionMeta: protocolVersion.versionString,
     Keys.clientCapabilitiesMeta: capabilities,
     if (clientInfo != null) Keys.clientInfoMeta: clientInfo,
+    if (logLevel != null) Keys.logLevelMeta: logLevel.name,
     if (progressToken != null) Keys.progressToken: progressToken,
   });
 }

@@ -333,7 +333,7 @@ base class ServerConnection extends MCPBase {
   /// see [DiscoverRequest].
   ///
   /// Sends [protocolVersion] and [capabilities] under the two reserved
-  /// envelope keys the schema requires, plus [clientInfo] and
+  /// envelope keys the schema requires, plus [clientInfo], [logLevel] and
   /// [progressToken] when given.
   ///
   /// Returns the result as it arrived: this connection's
@@ -347,6 +347,7 @@ base class ServerConnection extends MCPBase {
     required ProtocolVersion protocolVersion,
     required ClientCapabilities capabilities,
     Implementation? clientInfo,
+    LoggingLevel? logLevel,
     ProgressToken? progressToken,
   }) => sendRequest(
     DiscoverRequest.methodName,
@@ -355,6 +356,7 @@ base class ServerConnection extends MCPBase {
         protocolVersion: protocolVersion,
         capabilities: capabilities,
         clientInfo: clientInfo,
+        logLevel: logLevel,
         progressToken: progressToken,
       ),
     ),

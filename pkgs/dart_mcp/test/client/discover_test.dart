@@ -69,6 +69,32 @@ void main() {
       expect(harness.metadata[Keys.progressToken], 7);
     });
 
+    test('carries the log level by name when one is given', () async {
+      final harness = _WireHarness.answering(_answer);
+
+      await harness.connection.discover(
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        capabilities: ClientCapabilities(),
+        logLevel: LoggingLevel.debug,
+      );
+
+      expect(harness.metadata[Keys.logLevelMeta], 'debug');
+    });
+
+    test(
+      'leaves the log level out of the envelope when it is not given',
+      () async {
+        final harness = _WireHarness.answering(_answer);
+
+        await harness.connection.discover(
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          capabilities: ClientCapabilities(),
+        );
+
+        expect(harness.metadata, isNot(contains(Keys.logLevelMeta)));
+      },
+    );
+
     test(
       'sends the version it is given, not the one it is built for',
       () async {

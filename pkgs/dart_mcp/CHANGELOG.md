@@ -277,7 +277,7 @@
   on the 2026-07-28 revision carries.
 - Add `ServerConnection.discover`, the client side of `server/discover`.
   - The request carries `protocolVersion` and `capabilities` under the two
-    reserved keys the schema makes required, plus `clientInfo` and
+    reserved keys the schema makes required, plus `clientInfo`, `logLevel` and
     `progressToken` when they are given, see
     https://modelcontextprotocol.io/specification/2026-07-28/server/discover.
 
