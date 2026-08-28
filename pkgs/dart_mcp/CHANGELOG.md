@@ -97,6 +97,9 @@
     `maximum` and `default` are `number` too. A peer sending
     `{"type": "integer", "minimum": 0.5}` sent something the getter threw on.
     `multipleOf` next to them already read `num`.
+  - `ServerConnection.protocolVersion` is nullable, and is `null` until
+    something settles a version. It used to be a `late` field, which threw
+    when read before then.
 - Add `supportsFormElicitation` and `supportsUrlElicitation` for a server to
   ask before it sends. An empty `elicitation` object still means form, the way
   `elicitation` read before the split.
@@ -158,16 +161,13 @@
 - Add `InputRequiredResult` and `InputRequest`, the result a server answers with
   when it needs input first, see
   https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr.
-  On a connection whose `protocolVersion` is 2026-07-28,
-  `ServerConnection.callTool`, `.getPrompt` and `.readResource` fulfill its
-  input requests through the client's elicitation, sampling and roots handlers,
-  then retry the original request. `initialize` does not negotiate that version
-  yet, so a transport carrying its own supported versions is what reaches this.
-  Retries stop after ten rounds, or when the server asks for a handler the
-  client did not declare, and a result carrying neither input requests nor
-  request state is rejected before any retry. Every round goes out under the
-  progress token the first request carried, which is what the new
-  `MCPBase.sendRequestKeepingProgress` and `MCPBase.closeProgress` are for.
+- On a 2026-07-28 connection, `ServerConnection.callTool`, `.getPrompt` and
+  `.readResource` answer an `input_required` result from the client's
+  elicitation, sampling and roots handlers, then send the original request
+  again. Retries stop after ten rounds.
+- Add `MCPBase.sendRequestKeepingProgress` and `MCPBase.closeProgress`, for a
+  caller which sends several requests under one progress token and closes the
+  stream once it stops sending.
 - Add `WithInputResponses`, the type a client's retry carries.
   `CallToolRequest`, `GetPromptRequest` and `ReadResourceRequest` take an
   `inputResponses` and a `requestState`, matching the three requests the schema
