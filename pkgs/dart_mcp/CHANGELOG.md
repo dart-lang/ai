@@ -117,7 +117,7 @@
 - On protocol 2026-07-28, `handleRequestScopedMessage` now validates
   input-required results before forwarding them, see
   https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr.
-  An undeclared client capability answers
+  Asking for a client capability that was never declared answers
   `McpErrorCodes.missingRequiredClientCapability`, a malformed shape an
   internal error.
 - Support a per-request log level on 2026-07-28, see
