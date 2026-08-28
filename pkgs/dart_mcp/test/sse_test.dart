@@ -73,8 +73,7 @@ void main() {
   });
 
   test('ends lines on CRLF', () async {
-    // CRLF is the framing real servers send, so it is the one line ending
-    // this decoder meets most often.
+    // An event stream may end its lines with CRLF, LF, or a bare CR.
     final bytes = Stream.value(
       utf8.encode(
         'event: message\r\n'
