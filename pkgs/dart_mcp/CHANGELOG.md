@@ -40,20 +40,21 @@
     - On the client, `MCPClient.capabilities` already worked this way.
   - Override `MCPServer.initializeLegacy` only to customize the legacy
     initialize response or version negotiation.
-  - `ElicitationRequestSupport.elicit` now throws an `RpcException` with
+  - On revisions that have `elicitation/create`,
+    `ElicitationRequestSupport.elicit` now throws an `RpcException` with
     `McpErrorCodes.missingRequiredClientCapability` instead of a `StateError`
-    when the client did not declare the capability the request needs, naming the
-    missing capability under `data.requiredCapabilities`, which the 2026-07-28
-    revision requires of that error. `ToolsSupport.callTool` rethrows an
-    `RpcException`, so a tool which elicits reaches the client as that error
-    rather than as a `CallToolResult` whose text is a Dart stack trace. A
-    server catching the `StateError` needs to catch `RpcException` instead,
-    which comes from `package:json_rpc_2`.
-  - `ElicitationRequestSupport.elicit` now checks which mode a request names. A
-    server that guarded on `supportsElicitation` should read
-    `supportsFormElicitation` or `supportsUrlElicitation`. A request naming an
-    unknown mode is answered with `-32602` (invalid params) instead of going out
-    with that mode still on it.
+    when the client did not declare the capability the request needs, naming
+    the missing capability under `data.requiredCapabilities`, which the
+    2026-07-28 revision requires of that error.
+    `ToolsSupport.callTool` rethrows an `RpcException`, so a tool which elicits
+    reaches the client as that error rather than as a `CallToolResult` whose
+    text is a Dart stack trace. A server catching the `StateError` needs to
+    catch `RpcException` instead, which comes from `package:json_rpc_2`.
+  - `ElicitationRequestSupport.elicit` also checks which mode a request names
+    on those same revisions. A server that guarded on `supportsElicitation`
+    should read `supportsFormElicitation` or `supportsUrlElicitation`. A
+    request naming an unknown mode is answered with `-32602` (invalid params)
+    instead of going out with that mode still on it.
   - `ServerConnection` now answers an elicitation mode the client did not
     declare with `-32602` (invalid params), where it used to answer a `decline`,
     as if the user had sent it. An unrecognized one used to throw out of the
@@ -66,18 +67,30 @@
     Dart stack trace attached. A server which overrides `readResource` and
     catches the `ArgumentError` its dartdoc used to promise needs to catch
     `RpcException` from `package:json_rpc_2` instead.
-  - `MCPServer.listRoots` and `MCPServer.createMessage` now throw an
-    `RpcException` with `McpErrorCodes.missingRequiredClientCapability` when
-    the client did not declare `roots` or `sampling`, naming the missing
-    capability under `data.requiredCapabilities`, the same way
-    `ElicitationRequestSupport.elicit` already did. The 2026-07-28 revision
-    requires a server not to send a request which relies on a capability the
-    client left out. Both used to send the request anyway, so what came back
+  - On revisions before 2026-07-28, `MCPServer.listRoots` and
+    `MCPServer.createMessage` now throw an `RpcException` with
+    `McpErrorCodes.missingRequiredClientCapability` when the client did not
+    declare `roots` or `sampling`, naming the missing capability under
+    `data.requiredCapabilities`, the same way `ElicitationRequestSupport.elicit`
+    already did. Both used to send the request anyway, so what came back
     depended on the peer: a client with no handler answered `-32601`, and a
     request-scoped transport answered `-32603` because it cannot carry a
     server to client request at all. A server which expects either of those
-    codes for an undeclared capability should read
-    `MCPServer.supportsRoots` or `MCPServer.supportsSampling` first.
+    codes for an undeclared capability should read `MCPServer.supportsRoots`
+    or `MCPServer.supportsSampling` first.
+  - `MCPServer.listRoots`, `MCPServer.createMessage`, and
+    `ElicitationRequestSupport.elicit` now throw an `RpcException` with
+    `-32603` when the negotiated protocol version does not have the method,
+    before they read any client capability.
+    `ProtocolVersion.v2026_07_28.removedMethods` now lists `roots/list`,
+    `sampling/createMessage`, and `elicitation/create`, which that revision
+    dropped along with the rest of the `ServerRequest` union, so
+    `ProtocolVersion.methodIsValid` answers for all three. A server on it asks
+    the client for input with an `InputRequiredResult` on `tools/call`,
+    `prompts/get`, or `resources/read` instead, see
+    https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr.
+    `elicit` also throws on 2024-11-05 and 2025-03-26, the two revisions before
+    2025-06-18 added `elicitation/create`.
   - `ResourceLink.icons` is now `List<Icon>?` instead of `List<String>?`, and
     its factory takes the icons, the way the other five types carrying `icons`
     already do. The field has been an array of icons since 2025-11-25 added it,

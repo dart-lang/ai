@@ -71,7 +71,12 @@ typedef MCPServerFactory =
 /// Requests from the server back to the client, such as `roots/list`, cannot
 /// be answered within a single-message exchange: they fail with an
 /// [RpcException] inside their handler, or with a [StateError] if the exchange
-/// has already been torn down.
+/// has already been torn down. When the negotiated revision does not have one,
+/// [MCPServer.listRoots], [MCPServer.createMessage], and
+/// [ElicitationRequestSupport.elicit] refuse it before it gets this far.
+/// 2026-07-28 has none of the three. It dropped `ping` as well, and
+/// [MCPBase.ping] does not read the revision, so a ping still fails inside its
+/// handler.
 ///
 /// Throws an [ArgumentError] if [message] is not a JSON-RPC request or
 /// notification (no string `method`, a `null` id, or a `result` or `error`
@@ -80,7 +85,7 @@ typedef MCPServerFactory =
 /// request-scoped is the transport's job. Errors thrown by [serverFactory] or
 /// by [MCPServer.initialize] propagate to the caller; a server that was
 /// created is shut down first.
-// TODO: Support server-to-client requests once a transport can route them.
+// TODO: Route server-to-client requests on revisions before 2026-07-28.
 // https://github.com/dart-lang/ai/issues/162
 Future<Map<String, Object?>?> handleRequestScopedMessage(
   Map<String, Object?> message,

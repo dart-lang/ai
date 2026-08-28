@@ -48,19 +48,21 @@ base mixin ElicitationRequestSupport on LoggingSupport {
 
   /// Sends an `elicitation/create` request to the client.
   ///
-  /// This method will only succeed if the client has advertised the mode the
-  /// request asks for, as [supportsFormElicitation] and
-  /// [supportsUrlElicitation] read it.
+  /// Throws an [RpcException] when [protocolVersion] does not have
+  /// `elicitation/create`. 2026-07-28 took it out, and carries an
+  /// [ElicitRequest] in an [InputRequiredResult] instead. 2025-06-18 added it.
   ///
-  /// Throws an [RpcException] with
+  /// Otherwise this only succeeds if the client has advertised the mode the
+  /// request asks for, as [supportsFormElicitation] and
+  /// [supportsUrlElicitation] read it, and throws an [RpcException] with
   /// [McpErrorCodes.missingRequiredClientCapability] when the client has not,
-  /// naming the capability it is missing under `data.requiredCapabilities`,
-  /// which the 2026-07-28 revision requires of that error.
+  /// naming the capability it is missing under `data.requiredCapabilities`.
   ///
   /// [ToolsSupport.callTool] rethrows an [RpcException] instead of folding it
   /// into a [CallToolResult], so a tool which elicits reaches the client as
   /// that error rather than as a result whose text is a Dart stack trace.
   Future<ElicitResult> elicit(ElicitRequest request) async {
+    _rejectRemovedMethod(ElicitRequest.methodName, protocolVersion);
     final raw = request.rawMode;
     if (raw != null && !ElicitationMode.values.any((m) => m.name == raw)) {
       throw RpcException.invalidParams(

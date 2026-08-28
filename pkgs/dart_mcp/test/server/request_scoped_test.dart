@@ -445,14 +445,13 @@ void main() {
       expect(legacy![Keys.result], isNotNull);
     });
 
-    test('fails server to client requests instead of hanging', () async {
+    test('rejects a 2025-11-25 roots request instead of hanging', () async {
       final harness = _DispatcherHarness();
-      // The client declares roots, so `listRoots` reaches the transport rather
-      // than being refused for the missing capability.
       final response = await harness.dispatch(
         _callTool('roots'),
         _initialization(
           capabilities: ClientCapabilities(roots: RootsCapabilities()),
+          protocolVersion: ProtocolVersion.v2025_11_25,
         ),
       );
 
@@ -1184,6 +1183,7 @@ void main() {
           },
           _initialization(
             capabilities: ClientCapabilities(roots: RootsCapabilities()),
+            protocolVersion: ProtocolVersion.v2025_11_25,
           ),
           _RootsTrackingDispatcherServer.new,
         );
