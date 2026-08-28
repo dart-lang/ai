@@ -110,6 +110,10 @@
     `maximum` and `default` are `number` too. A peer sending
     `{"type": "integer", "minimum": 0.5}` sent something the getter threw on.
     `multipleOf` next to them already read `num`.
+  - `ServerConnection.protocolVersion` is nullable, and is `null` until
+    something settles a version. It used to be a `late` field, which threw
+    when read before then. Set `serverInfo` alongside it. Sampling hands that
+    to the handler.
   - `ServerConnection.serverInfo` stays `null` when version negotiation fails,
     the way its dartdoc already described, instead of holding the rejected
     server's implementation. `initialize` still returns that result and
@@ -181,7 +185,16 @@
 - Add `InputRequiredResult` and `InputRequest`, the result a server answers with
   when it needs input first, see
   https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr.
-  Nothing sends or answers one yet.
+  A server built with this package does not send one yet.
+- On a 2026-07-28 connection, `ServerConnection.callTool`, `.getPrompt` and
+  `.readResource` answer an `input_required` result from the client's
+  elicitation, sampling and roots handlers, then send the original request
+  again, through the new `ServerConnection.sendRequestWithInputs`. The spec
+  bounds the rounds nowhere, so `ServerConnection.maxInputRequiredRounds`
+  stops them, at ten unless a caller moves it or clears it with `null`.
+- Add `MCPBase.sendRequestKeepingProgress` and `MCPBase.closeProgress`.
+  `sendRequest` closes a progress stream once its request is done, and this
+  pair splits that apart so a retry loop can hold one token across rounds.
 - Add `WithInputResponses`, the type a client's retry carries.
   `CallToolRequest`, `GetPromptRequest` and `ReadResourceRequest` take an
   `inputResponses` and a `requestState`, matching the three requests the schema
