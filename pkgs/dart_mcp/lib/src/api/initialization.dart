@@ -104,6 +104,25 @@ extension type InitializedNotification.fromMap(Map<String, Object?> _value)
       InitializedNotification.fromMap({if (meta != null) Keys.meta: meta});
 }
 
+/// A [Meta] object carrying the envelope keys a request on the 2026-07-28
+/// revision sends.
+///
+/// Has arbitrary other keys.
+extension type MetaWithRequestEnvelope.fromMap(Map<String, Object?> _value)
+    implements MetaWithProgressToken {
+  factory MetaWithRequestEnvelope({
+    required ProtocolVersion protocolVersion,
+    required ClientCapabilities capabilities,
+    Implementation? clientInfo,
+    ProgressToken? progressToken,
+  }) => MetaWithRequestEnvelope.fromMap({
+    Keys.protocolVersionMeta: protocolVersion.versionString,
+    Keys.clientCapabilitiesMeta: capabilities,
+    if (clientInfo != null) Keys.clientInfoMeta: clientInfo,
+    if (progressToken != null) Keys.progressToken: progressToken,
+  });
+}
+
 /// A request from the client asking the server to advertise its supported
 /// protocol versions, capabilities, and other metadata.
 ///
