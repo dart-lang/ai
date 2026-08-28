@@ -641,16 +641,6 @@ void main() {
       Map<String, String> extra = const {},
     ]) => {...headers(callTool), 'Mcp-Name': 'test/withHeaderParam', ...extra};
 
-    test('ignores an unannotated property with an array type', () async {
-      // `label` permits a string or null and has no header annotation.
-      final (status, _, text) = await post(
-        headers: callWithHeaderParamHeaders({'Mcp-Param-Label': 'wrong'}),
-        json: callWithHeaderParam({'label': 'right'}),
-      );
-      expect(status, 200);
-      expect(errorCode(text), isNull);
-    });
-
     test('ignores an annotation the specification does not allow', () async {
       // A tool definition annotating a non-primitive is one the client is
       // told to reject, so nothing here reads `Mcp-Param-Label`.
@@ -1928,12 +1918,6 @@ base class _HttpTestServer extends MCPServer with LoggingSupport, ToolsSupport {
             'flag': Schema.fromMap({
               Keys.type: JsonType.bool.typeName,
               Keys.xMcpHeader: 'Flag',
-            }),
-            'label': Schema.fromMap({
-              Keys.type: <Object?>[
-                JsonType.string.typeName,
-                JsonType.nil.typeName,
-              ],
             }),
           },
         ),

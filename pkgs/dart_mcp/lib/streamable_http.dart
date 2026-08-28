@@ -753,9 +753,7 @@ RpcException? _checkMcpParamHeaders(
 ///
 /// A subschema is a boolean wherever JSON Schema allows one, and `properties`
 /// holds whatever the server put there. Neither shape can name an
-/// `x-mcp-header`, so both read as nothing to check. Reading them as a map
-/// instead would fail a request over a part of the schema this has no
-/// annotation to find.
+/// `x-mcp-header`, so both read as nothing to check.
 Map<String, Object?>? _readableProperties(Object? schema) {
   if (schema is! Map<String, Object?>) return null;
   final properties = schema[Keys.properties];
