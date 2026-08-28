@@ -273,11 +273,15 @@
   revision 2025-11-25. The old host stopped serving HTTPS, and the old
   revision number 2025-11-05 was never a published revision.
 - Add missing license headers.
-- Add `ServerConnection.discover`, the client side of `server/discover`. It
-  needs no handshake, so it can run before `initialize`. The request carries
-  `protocolVersion` and `capabilities` in `_meta` under the reserved keys
-  `handleStreamableHttpRequest` already requires, and any other key the caller
-  gave passes through.
+- Add `ServerConnection.discover`, the client side of `server/discover`.
+  - The request carries `protocolVersion` and `capabilities` in `_meta` under
+    the reserved keys `handleStreamableHttpRequest` already requires, plus
+    `clientInfo` when one is given. Any other key the caller gave passes
+    through.
+  - A server reached through the `initialize` handshake answers `-32601`, since
+    that handshake settles on `ProtocolVersion.latestSupported`, below the
+    revision that added the method. A client probing for the era it is talking
+    to reads that as a legacy server.
 
 ## 0.5.2
 

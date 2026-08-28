@@ -330,14 +330,21 @@ base class ServerConnection extends MCPBase {
   }
 
   /// Asks the server which protocol versions and capabilities it supports,
-  /// without a handshake, see [DiscoverRequest].
+  /// see [DiscoverRequest].
+  ///
+  /// A client that also speaks the legacy `initialize` handshake sends this
+  /// first to find out which of the two a server speaks. A server built on
+  /// this package registers the handler in `MCPServer.initialize`, and only
+  /// for 2026-07-28 and later, so a connection that negotiated with the
+  /// handshake answers `-32601` here.
   ///
   /// Sends [protocolVersion] and [capabilities] in the request metadata, plus
   /// [clientInfo] when given. Entries from [meta] pass through unless an
   /// argument sets the same key.
   ///
-  /// This does not update this connection's [protocolVersion],
-  /// [serverCapabilities], or [serverInfo].
+  /// The result is returned as it arrived. This connection's
+  /// [ServerConnection.protocolVersion], [serverCapabilities], and
+  /// [serverInfo] still come from [initialize].
   Future<DiscoverResult> discover({
     required ProtocolVersion protocolVersion,
     required ClientCapabilities capabilities,
