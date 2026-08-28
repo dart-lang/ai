@@ -230,11 +230,8 @@ Map<String, Object?> _rpcErrorResponse(Object? id, RpcException exception) => {
 };
 
 /// A JSON-RPC internal-error response to the request with the given [id].
-Map<String, Object?> _errorResponse(Object? id, String message) => {
-  Keys.jsonrpc: '2.0',
-  Keys.id: id,
-  Keys.error: {Keys.code: error_code.INTERNAL_ERROR, Keys.message: message},
-};
+Map<String, Object?> _errorResponse(Object? id, String message) =>
+    _rpcErrorResponse(id, RpcException(error_code.INTERNAL_ERROR, message));
 
 /// The error [response] has to be answered with, or `null` when the response
 /// can be sent unchanged.
@@ -244,10 +241,11 @@ Map<String, Object?> _errorResponse(Object? id, String message) => {
 /// capabilities that were not declared. See
 /// https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr.
 ///
-/// Missing capabilities are returned together under
-/// `data.requiredCapabilities`. `handleStreamableHttpRequest` in
-/// `package:dart_mcp/streamable_http.dart` maps that error to HTTP 400 while it
-/// can still send a JSON response.
+/// An undeclared capability is refused with [_missingClientCapability], the
+/// error [MCPServer.listRoots] and [ElicitationRequestSupport.elicit] raise for
+/// the same request on a connected transport, which
+/// `handleStreamableHttpRequest` in `package:dart_mcp/streamable_http.dart`
+/// maps to HTTP 400 while it can still send a JSON response.
 ///
 /// A malformed result or input request gets an internal error. The client
 /// capability check only runs after the wire shape has been validated.
@@ -262,10 +260,8 @@ RpcException? _inputRequiredRefusal(
   if (result[Keys.resultType] != ResultTypes.inputRequired) return null;
 
   if (!_inputRequiredMethods.contains(method)) {
-    return RpcException(
-      error_code.INTERNAL_ERROR,
-      'The server answered $method with `${ResultTypes.inputRequired}`, '
-      'which this revision allows only on '
+    return _malformedInputRequired(
+      'on $method, which this revision allows only on '
       '${_inputRequiredMethods.map((m) => '`$m`').join(', ')}.',
     );
   }
@@ -273,77 +269,59 @@ RpcException? _inputRequiredRefusal(
   final hasInputRequests = result.containsKey(Keys.inputRequests);
   final hasRequestState = result.containsKey(Keys.requestState);
   if (!hasInputRequests && !hasRequestState) {
-    return RpcException(
-      error_code.INTERNAL_ERROR,
-      'The server answered with `${ResultTypes.inputRequired}` without '
-      '`${Keys.inputRequests}` or `${Keys.requestState}`.',
+    return _malformedInputRequired(
+      'without `${Keys.inputRequests}` or `${Keys.requestState}`.',
     );
   }
   if (hasRequestState && result[Keys.requestState] is! String) {
-    return RpcException(
-      error_code.INTERNAL_ERROR,
-      'The server answered with `${ResultTypes.inputRequired}` whose '
-      '`${Keys.requestState}` was not a string.',
+    return _malformedInputRequired(
+      'whose `${Keys.requestState}` was not a string.',
     );
   }
   if (!hasInputRequests) return null;
 
   final requests = result[Keys.inputRequests];
   if (requests is! Map || requests.keys.any((key) => key is! String)) {
-    return RpcException(
-      error_code.INTERNAL_ERROR,
-      'The server answered with `${ResultTypes.inputRequired}` whose '
-      '`${Keys.inputRequests}` was not a string-keyed map.',
+    return _malformedInputRequired(
+      'whose `${Keys.inputRequests}` was not a string-keyed map.',
     );
   }
   final capabilities = initialization.clientCapabilities;
-  final missing = <String>{};
-  final required = <String, Object?>{};
   for (final request in requests.values) {
     if (request is! Map) {
-      return RpcException(
-        error_code.INTERNAL_ERROR,
-        'The server answered with `${ResultTypes.inputRequired}` whose '
-        '`${Keys.inputRequests}` contained a value that was not a map.',
+      return _malformedInputRequired(
+        'whose `${Keys.inputRequests}` contained a value that was not a map.',
       );
     }
     final inputMethod = request[Keys.method];
     final params = request[Keys.params];
-    if (inputMethod is! String) {
-      return RpcException(
-        error_code.INTERNAL_ERROR,
-        'The server answered with `${ResultTypes.inputRequired}` containing '
-        'an input request whose method was not one of '
-        '`${ElicitRequest.methodName}`, `${CreateMessageRequest.methodName}` '
-        'or `${ListRootsRequest.methodName}`.',
+    if (inputMethod is! String || !_inputRequestMethods.contains(inputMethod)) {
+      return _malformedInputRequired(
+        'containing an input request whose method was not one of '
+        '${_inputRequestMethods.map((m) => '`$m`').join(', ')}.',
       );
     }
     switch (inputMethod) {
       case ListRootsRequest.methodName:
         if (params != null && params is! Map) {
-          return RpcException(
-            error_code.INTERNAL_ERROR,
-            'The server answered with `${ResultTypes.inputRequired}` whose '
-            '`${ListRootsRequest.methodName}` params were not a map.',
+          return _malformedInputRequired(
+            'whose `${ListRootsRequest.methodName}` params were not a map.',
           );
         }
       case CreateMessageRequest.methodName:
         if (params is! Map ||
             params[Keys.messages] is! List ||
             params[Keys.maxTokens] is! int) {
-          return RpcException(
-            error_code.INTERNAL_ERROR,
-            'The server answered with `${ResultTypes.inputRequired}` whose '
-            '`${CreateMessageRequest.methodName}` params did not contain a '
-            'messages list and integer maxTokens.',
+          return _malformedInputRequired(
+            'whose `${CreateMessageRequest.methodName}` params did not contain '
+            'a messages list and integer maxTokens.',
           );
         }
       case ElicitRequest.methodName:
         if (params is! Map || params[Keys.message] is! String) {
-          return RpcException(
-            error_code.INTERNAL_ERROR,
-            'The server answered with `${ResultTypes.inputRequired}` whose '
-            '`${ElicitRequest.methodName}` params did not contain a message.',
+          return _malformedInputRequired(
+            'whose `${ElicitRequest.methodName}` params did not contain a '
+            'message.',
           );
         }
         final mode = params[Keys.mode];
@@ -352,112 +330,89 @@ RpcException? _inputRequiredRefusal(
           if (schema is! Map ||
               schema[Keys.type] != JsonType.object.typeName ||
               schema[Keys.properties] is! Map) {
-            return RpcException(
-              error_code.INTERNAL_ERROR,
-              'The server answered with `${ResultTypes.inputRequired}` whose '
-              'form elicitation params did not contain an object schema.',
+            return _malformedInputRequired(
+              'whose form elicitation params did not contain an object schema.',
             );
           }
         } else if (mode == ElicitationMode.url.name) {
           if (params[Keys.url] is! String) {
-            return RpcException(
-              error_code.INTERNAL_ERROR,
-              'The server answered with `${ResultTypes.inputRequired}` whose '
-              'URL elicitation params did not contain a URL.',
+            return _malformedInputRequired(
+              'whose URL elicitation params did not contain a URL.',
             );
           }
         } else {
-          return RpcException(
-            error_code.INTERNAL_ERROR,
-            'The server answered with `${ResultTypes.inputRequired}` whose '
-            'elicitation mode was not `form` or `url`.',
+          return _malformedInputRequired(
+            'whose elicitation mode was not '
+            '`${ElicitationMode.form.name}` or `${ElicitationMode.url.name}`.',
           );
         }
-      default:
-        return RpcException(
-          error_code.INTERNAL_ERROR,
-          'The server answered with `${ResultTypes.inputRequired}` containing '
-          'an input request whose method was not one of '
-          '`${ElicitRequest.methodName}`, `${CreateMessageRequest.methodName}` '
-          'or `${ListRootsRequest.methodName}`.',
-        );
     }
-    final requirement = _missingInputRequestCapability(
+    final missing = _missingInputRequestCapability(
       inputMethod,
       params,
       capabilities,
     );
-    if (requirement == null) continue;
-    missing.add(requirement.$1);
-    for (final entry in requirement.$2.entries) {
-      final current = required[entry.key];
-      final addition = entry.value;
-      required[entry.key] =
-          current is Map<String, Object?> && addition is Map<String, Object?>
-              ? {...current, ...addition}
-              : addition;
-    }
+    if (missing != null) return missing;
   }
-  if (missing.isEmpty) return null;
-  return RpcException(
-    McpErrorCodes.missingRequiredClientCapability,
-    'The client did not declare these capabilities: ${missing.join(', ')}',
-    data: {Keys.requiredCapabilities: ClientCapabilities.fromMap(required)},
-  );
+  return null;
 }
 
-/// The missing capability name and payload for an input request made under
-/// [method], or `null` when [capabilities] declares what it needs.
+/// The internal error an `input_required` result which [detail] describes has
+/// to be refused with.
+RpcException _malformedInputRequired(String detail) => RpcException(
+  error_code.INTERNAL_ERROR,
+  'The server answered with `${ResultTypes.inputRequired}` $detail',
+);
+
+/// The [_missingClientCapability] error an input request made under [method]
+/// has to be refused with, or `null` when [capabilities] declares what it
+/// needs.
 ///
 /// Sampling that carries `tools` or `toolChoice` needs `sampling.tools`, and
 /// an elicitation needs the capability for the mode it asks for, so a client
 /// that declared only `elicitation.url` is never asked for a form.
-///
-(String, Map<String, Object?>)? _missingInputRequestCapability(
+RpcException? _missingInputRequestCapability(
   String method,
   Object? params,
   ClientCapabilities capabilities,
 ) {
   switch (method) {
     case ListRootsRequest.methodName:
-      final roots = (capabilities as Map<String, Object?>)[Keys.roots];
-      if (roots is Map) return null;
-      return (Keys.roots, {Keys.roots: <String, Object?>{}});
+      if (capabilities.roots != null) return null;
+      return _missingClientCapability(
+        'roots',
+        ClientCapabilities(roots: RootsCapabilities()),
+      );
     case CreateMessageRequest.methodName:
-      final sampling = (capabilities as Map<String, Object?>)[Keys.sampling];
+      final sampling = capabilities.sampling;
       final usesTools =
           params is Map &&
           (params.containsKey(Keys.tools) ||
               params.containsKey(Keys.toolChoice));
-      if (sampling is Map && (!usesTools || sampling[Keys.tools] is Map)) {
-        return null;
+      if (!usesTools) {
+        if (sampling != null) return null;
+        return _missingClientCapability(
+          'sampling',
+          ClientCapabilities(sampling: {}),
+        );
       }
-      return (
-        usesTools ? '${Keys.sampling}.${Keys.tools}' : Keys.sampling,
-        {
-          Keys.sampling: <String, Object?>{
-            if (usesTools) Keys.tools: <String, Object?>{},
-          },
-        },
+      if (sampling?[Keys.tools] != null) return null;
+      return _missingClientCapability(
+        'sampling.tools',
+        ClientCapabilities(sampling: {Keys.tools: <String, Object?>{}}),
       );
     case ElicitRequest.methodName:
-      final url =
-          params is Map && params[Keys.mode] == ElicitationMode.url.name;
-      if (url) {
+      if (params is Map && params[Keys.mode] == ElicitationMode.url.name) {
         if (capabilities.supportsUrlElicitation) return null;
-        return (
-          '${Keys.elicitation}.${Keys.url}',
-          {
-            Keys.elicitation: <String, Object?>{Keys.url: <String, Object?>{}},
-          },
+        return _missingClientCapability(
+          'elicitation.url',
+          ClientCapabilities(elicitation: ElicitationCapability(url: {})),
         );
       }
       if (capabilities.supportsFormElicitation) return null;
-      return (
-        '${Keys.elicitation}.${Keys.form}',
-        {
-          Keys.elicitation: <String, Object?>{Keys.form: <String, Object?>{}},
-        },
+      return _missingClientCapability(
+        'elicitation.form',
+        ClientCapabilities(elicitation: ElicitationCapability(form: {})),
       );
     default:
       return null;
@@ -558,6 +513,16 @@ const _inputRequiredMethods = {
   CallToolRequest.methodName,
   GetPromptRequest.methodName,
   ReadResourceRequest.methodName,
+};
+
+/// The requests a server may ask the client to answer in an
+/// [InputRequiredResult].
+///
+/// https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr
+const _inputRequestMethods = {
+  ElicitRequest.methodName,
+  CreateMessageRequest.methodName,
+  ListRootsRequest.methodName,
 };
 
 /// The requests whose results a server must send caching hints on.

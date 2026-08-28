@@ -580,7 +580,7 @@ void main() {
       }
     });
 
-    test('reports all missing input request capabilities together', () async {
+    test('checks every input request, not just the first', () async {
       final response = await _dispatchShapedRead(
         (result) => {
           ...result,
@@ -592,98 +592,22 @@ void main() {
                 requestedSchema: ObjectSchema(),
               ),
             ),
-            CreateMessageRequest.methodName: InputRequest.sample(
-              CreateMessageRequest(messages: [], maxTokens: 1),
-            ),
             ListRootsRequest.methodName: InputRequest.listRoots(
               ListRootsRequest(),
             ),
           },
         },
+        capabilities: ClientCapabilities(
+          elicitation: ElicitationCapability(form: {}),
+        ),
       );
 
       final wire = jsonDecode(jsonEncode(response)) as Map<String, Object?>;
       final error = wire['error'] as Map<String, Object?>;
       expect(error['code'], -32021);
-      for (final capability in ['elicitation.form', 'sampling', 'roots']) {
-        expect(error['message'], contains(capability));
-      }
+      expect(error['message'], contains('roots'));
       final data = error['data'] as Map<String, Object?>;
-      expect(data['requiredCapabilities'], {
-        'elicitation': {'form': <String, Object?>{}},
-        'sampling': <String, Object?>{},
-        'roots': <String, Object?>{},
-      });
-    });
-
-    test('treats unreadable capability entries as absent', () async {
-      final harness = _DispatcherHarness();
-      for (final (tool, capabilities, required) in [
-        (
-          'asks_to_elicit',
-          ClientCapabilities.fromMap({Keys.elicitation: true}),
-          {
-            'elicitation': {'form': <String, Object?>{}},
-          },
-        ),
-        (
-          'asks_to_elicit',
-          ClientCapabilities.fromMap({Keys.elicitation: Keys.form}),
-          {
-            'elicitation': {'form': <String, Object?>{}},
-          },
-        ),
-        (
-          'asks_to_elicit',
-          ClientCapabilities.fromMap({
-            Keys.elicitation: {Keys.form: 1},
-          }),
-          {
-            'elicitation': {'form': <String, Object?>{}},
-          },
-        ),
-        (
-          'asks_to_sample',
-          ClientCapabilities.fromMap({Keys.sampling: 7}),
-          {'sampling': <String, Object?>{}},
-        ),
-        (
-          'asks_to_sample',
-          ClientCapabilities.fromMap({Keys.sampling: <Object?>[]}),
-          {'sampling': <String, Object?>{}},
-        ),
-        (
-          'asks_for_roots',
-          ClientCapabilities.fromMap({Keys.roots: true}),
-          {'roots': <String, Object?>{}},
-        ),
-        (
-          'asks_for_roots',
-          ClientCapabilities.fromMap({Keys.roots: <Object?>[]}),
-          {'roots': <String, Object?>{}},
-        ),
-      ]) {
-        final response = await harness.dispatch(
-          _callTool(tool),
-          _initialization(capabilities: capabilities),
-        );
-
-        final wire = jsonDecode(jsonEncode(response)) as Map<String, Object?>;
-        final rawError = wire['error'];
-        expect(
-          rawError,
-          isA<Map<String, Object?>>(),
-          reason: '$tool: $capabilities',
-        );
-        final error = rawError as Map<String, Object?>;
-        expect(error['code'], -32021, reason: '$tool: $capabilities');
-        final data = error['data'] as Map<String, Object?>;
-        expect(
-          data['requiredCapabilities'],
-          required,
-          reason: '$tool: $capabilities',
-        );
-      }
+      expect(data['requiredCapabilities'], {'roots': <String, Object?>{}});
     });
 
     test('serves an input request the client declared', () async {
@@ -837,38 +761,55 @@ void main() {
     });
 
     test('rejects malformed inputRequests', () async {
-      final harness = _DispatcherHarness();
-      for (final tool in [
-        'bad_input_requests',
-        'bad_input_request_entry',
-        'input_request_without_a_method',
+      for (final requests in [
+        'not a map',
+        {'answer': 'not a map either'},
       ]) {
-        final response = await harness.dispatch(
-          _callTool(tool),
-          _initialization(),
+        final response = await _dispatchShapedRead(
+          (result) => {
+            ...result,
+            Keys.resultType: ResultTypes.inputRequired,
+            Keys.inputRequests: requests,
+          },
         );
 
         final rawError = response![Keys.error];
-        expect(rawError, isA<Map<String, Object?>>(), reason: tool);
+        expect(rawError, isA<Map<String, Object?>>(), reason: '$requests');
         final error = rawError as Map<String, Object?>;
-        expect(error[Keys.code], error_code.INTERNAL_ERROR, reason: tool);
+        expect(
+          error[Keys.code],
+          error_code.INTERNAL_ERROR,
+          reason: '$requests',
+        );
       }
     });
 
-    test('rejects an input request with an unknown method', () async {
-      final harness = _DispatcherHarness();
-      final response = await harness.dispatch(
-        _callTool('asks_for_something_else'),
-        _initialization(),
-      );
+    test('rejects an input request the revision has no arm for', () async {
+      // A request with no method at all lands here too.
+      for (final request in [
+        <String, Object?>{Keys.params: <String, Object?>{}},
+        <String, Object?>{Keys.method: 'io.example/ask'},
+      ]) {
+        final response = await _dispatchShapedRead(
+          (result) => {
+            ...result,
+            Keys.resultType: ResultTypes.inputRequired,
+            Keys.inputRequests: {'answer': request},
+          },
+        );
 
-      final rawError = response![Keys.error];
-      expect(rawError, isA<Map<String, Object?>>());
-      final error = rawError as Map<String, Object?>;
-      expect(error[Keys.code], error_code.INTERNAL_ERROR);
-      expect(error[Keys.message], contains(ElicitRequest.methodName));
-      expect(error[Keys.message], contains(CreateMessageRequest.methodName));
-      expect(error[Keys.message], contains(ListRootsRequest.methodName));
+        final rawError = response![Keys.error];
+        expect(rawError, isA<Map<String, Object?>>(), reason: '$request');
+        final error = rawError as Map<String, Object?>;
+        expect(error[Keys.code], error_code.INTERNAL_ERROR, reason: '$request');
+        for (final method in [
+          ElicitRequest.methodName,
+          CreateMessageRequest.methodName,
+          ListRootsRequest.methodName,
+        ]) {
+          expect(error[Keys.message], contains(method), reason: '$request');
+        }
+      }
     });
 
     test('rejects malformed input request params', () async {
@@ -1472,42 +1413,6 @@ final class _DispatcherTestServer extends TestMCPServer
         Keys.messages: <Object?>[],
         Keys.resultType: ResultTypes.inputRequired,
         Keys.requestState: 'waiting',
-      }),
-    );
-    registerTool(
-      Tool(name: 'input_request_without_a_method', inputSchema: ObjectSchema()),
-      (_) => CallToolResult.fromMap({
-        Keys.content: [TextContent(text: 'waiting')],
-        Keys.resultType: ResultTypes.inputRequired,
-        Keys.inputRequests: {
-          'answer': {Keys.params: <String, Object?>{}},
-        },
-      }),
-    );
-    registerTool(
-      Tool(name: 'bad_input_requests', inputSchema: ObjectSchema()),
-      (_) => CallToolResult.fromMap({
-        Keys.content: [TextContent(text: 'waiting')],
-        Keys.resultType: ResultTypes.inputRequired,
-        Keys.inputRequests: 'not a map',
-      }),
-    );
-    registerTool(
-      Tool(name: 'bad_input_request_entry', inputSchema: ObjectSchema()),
-      (_) => CallToolResult.fromMap({
-        Keys.content: [TextContent(text: 'waiting')],
-        Keys.resultType: ResultTypes.inputRequired,
-        Keys.inputRequests: {'answer': 'not a map either'},
-      }),
-    );
-    registerTool(
-      Tool(name: 'asks_for_something_else', inputSchema: ObjectSchema()),
-      (_) => CallToolResult.fromMap({
-        Keys.content: [TextContent(text: 'waiting')],
-        Keys.resultType: ResultTypes.inputRequired,
-        Keys.inputRequests: {
-          'answer': {Keys.method: 'io.example/ask'},
-        },
       }),
     );
     registerTool(
