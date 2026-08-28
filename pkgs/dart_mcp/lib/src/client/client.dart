@@ -340,8 +340,7 @@ base class ServerConnection extends MCPBase {
   /// [ServerConnection.protocolVersion], [serverCapabilities] and [serverInfo]
   /// still come from [initialize].
   ///
-  /// A client that also speaks the legacy handshake should probe with this
-  /// first, and one that only speaks this revision should too, see
+  /// Clients should probe with this before sending any other request, see
   /// https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/stdio#backward-compatibility.
   Future<DiscoverResult> discover({
     required ProtocolVersion protocolVersion,
