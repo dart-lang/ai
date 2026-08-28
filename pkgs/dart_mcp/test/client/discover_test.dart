@@ -61,7 +61,7 @@ void main() {
       final harness = _WireHarness.answering(_answer);
 
       await harness.connection.discover(
-        protocolVersion: ProtocolVersion.v2026_07_28,
+        protocolVersion: ProtocolVersion.v2025_11_25,
         capabilities: ClientCapabilities(
           elicitation: ElicitationCapability(form: {}),
         ),
@@ -69,7 +69,8 @@ void main() {
         meta: MetaWithProgressToken.fromMap({
           Keys.progressToken: 'token-1',
           'example.com/custom': 'kept',
-          // The three reserved keys, set to values the method must replace.
+          // The three reserved keys, set to values the method must replace
+          // with the ones it was given.
           Keys.protocolVersionMeta: '1900-01-01',
           Keys.clientCapabilitiesMeta: {Keys.sampling: <String, Object?>{}},
           Keys.clientInfoMeta: {
@@ -82,7 +83,7 @@ void main() {
       final meta = harness.metadata;
       expect(meta[Keys.progressToken], 'token-1');
       expect(meta['example.com/custom'], 'kept');
-      expect(meta[Keys.protocolVersionMeta], '2026-07-28');
+      expect(meta[Keys.protocolVersionMeta], '2025-11-25');
       expect(meta[Keys.clientCapabilitiesMeta], {
         Keys.elicitation: {Keys.form: <String, Object?>{}},
       });
