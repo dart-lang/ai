@@ -444,6 +444,9 @@ Future<void> handleStreamableHttpRequest(
   final answer = _Answer(response);
   var pendingNotifications =
       method == CallToolRequest.methodName ? <Map<String, Object?>>[] : null;
+
+  /// Writes [notification] to the response stream, skipping the ones an
+  /// embedder serves on a listen stream.
   void writeNotification(Map<String, Object?> notification) {
     if (!_listenStreamNotifications.contains(notification[Keys.method])) {
       answer.notify(notification);
@@ -753,7 +756,9 @@ RpcException? _checkMcpParamHeaders(
 ///
 /// A subschema is a boolean wherever JSON Schema allows one, and `properties`
 /// holds whatever the server put there. Neither shape can name an
-/// `x-mcp-header`, so both read as nothing to check.
+/// `x-mcp-header`, so both read as nothing to check. [schema] is [Object] here
+/// because `Tool.inputSchema` is an extension type over a map and does not
+/// implement `Map<String, Object?>`.
 Map<String, Object?>? _readableProperties(Object? schema) {
   if (schema is! Map<String, Object?>) return null;
   final properties = schema[Keys.properties];
