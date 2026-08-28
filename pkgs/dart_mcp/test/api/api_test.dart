@@ -101,10 +101,7 @@ void main() {
 
   test('the 2026-07-28 removal set is pinned', () {
     // Pinned so an entry cannot fall out of the set unnoticed. The walk test
-    // below reads the set and would follow it. `elicitation/create`,
-    // `roots/list`, and `sampling/createMessage` are in here with their types
-    // intact, because that revision left them only as an `InputRequest`
-    // inside an `InputRequiredResult`.
+    // below reads the set and would follow it.
     expect(ProtocolVersion.v2026_07_28.removedMethods, {
       'elicitation/create',
       'initialize',
