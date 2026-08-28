@@ -44,7 +44,8 @@
     `ElicitationRequestSupport.elicit` now throws an `RpcException` with
     `McpErrorCodes.missingRequiredClientCapability` instead of a `StateError`
     when the client did not declare the capability the request needs, naming
-    the missing capability under `data.requiredCapabilities`.
+    the missing capability under `data.requiredCapabilities`, which the
+    2026-07-28 revision requires of that error.
     `ToolsSupport.callTool` rethrows an `RpcException`, so a tool which elicits
     reaches the client as that error rather than as a `CallToolResult` whose
     text is a Dart stack trace. A server catching the `StateError` needs to
