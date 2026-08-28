@@ -47,6 +47,26 @@ void main() {
     ]);
   });
 
+  test('reads no field out of a comment line', () async {
+    // A keep-alive comment can spell anything, including text that reads as
+    // a field. The colon the line opens with is what makes it a comment.
+    final (messages, errors) = await decode(
+      Stream.value(
+        utf8.encode(
+          ':data: {"jsonrpc":"2.0","id":1,"result":{}}\n'
+          ':event: message\n'
+          '\n'
+          'data: {"jsonrpc":"2.0","id":2,"result":{}}\n\n',
+        ),
+      ),
+    );
+
+    expect(errors, isEmpty);
+    expect(messages, [
+      {'jsonrpc': '2.0', 'id': 2, 'result': <String, Object?>{}},
+    ]);
+  });
+
   test('decodes a data line split across byte chunks', () async {
     final head = utf8.encode(
       'event: message\n'

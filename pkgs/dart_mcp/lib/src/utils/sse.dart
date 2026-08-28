@@ -35,6 +35,18 @@ Stream<Map<String, Object?>> sseMessageStream(Stream<List<int>> bytes) =>
 
 /// The joined `data` of each `message` event in an SSE response [bytes].
 ///
+/// A line ends on CRLF, LF, or a bare CR and holds either a comment or a
+/// field, as the event stream grammar has it:
+/// https://html.spec.whatwg.org/multipage/server-sent-events.html#parsing-an-event-stream.
+/// A field name cannot open with a colon. A line that does is a comment, and
+/// is skipped before a field is read out of it. Servers send those to keep a
+/// quiet stream alive.
+///
+/// The `id` and `retry` fields carry stream metadata, not payload: a last
+/// event ID and a reconnection time. This revision has no resumable streams
+/// to reconnect, and nothing here surfaces event metadata to a caller, so
+/// neither field is read.
+///
 /// An event with no data has nothing to decode and never reaches the
 /// stream.
 ///
@@ -55,6 +67,8 @@ Stream<String> _sseMessageData(Stream<List<int>> bytes) async* {
       data.clear();
       continue;
     }
+
+    if (line.startsWith(':')) continue;
 
     final separator = line.indexOf(':');
     final field = separator < 0 ? line : line.substring(0, separator);
