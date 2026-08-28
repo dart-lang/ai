@@ -463,17 +463,38 @@ void main() {
 
     test('refuses input_required on a request it is not allowed on', () async {
       final harness = _DispatcherHarness();
-      final response = await harness.dispatch(
-        _complete('input_required'),
-        _initialization(),
-      );
+      final escaped = <Object>[];
+      Map<String, Object?>? response;
+      await runZonedGuarded(() async {
+        response = await harness.dispatch(
+          _complete('input_required'),
+          _initialization(),
+        );
+      }, (error, _) => escaped.add(error));
 
+      expect(escaped, everyElement(isA<AssertionError>()));
       final wire = jsonDecode(jsonEncode(response)) as Map<String, Object?>;
       final error = wire['error'] as Map<String, Object?>;
       expect(error['code'], -32603);
       expect(error['message'], contains(CompleteRequest.methodName));
       expect(error['message'], contains(CallToolRequest.methodName));
     });
+
+    test(
+      'reports a refused input_required result as a bug in the server',
+      () async {
+        // The refusal above answers the client, and this is the other half: the
+        // server that sent it still hears about it. A compiled executable has
+        // asserts stripped, so there is nothing to catch there.
+        final (_, escaped) = await _dispatchRefusedRead(
+          (result) => {...result, Keys.resultType: ResultTypes.inputRequired},
+        );
+
+        expect(escaped.single, isA<AssertionError>());
+        expect(escaped.single.toString(), contains(ResultTypes.inputRequired));
+      },
+      testOn: '!exe',
+    );
 
     test('serves input_required on allowed requests', () async {
       final harness = _DispatcherHarness();
@@ -626,7 +647,7 @@ void main() {
     });
 
     test('reads the elicitation mode the way the request does', () async {
-      // A client which declared only url elicitation cannot answer a form
+      // A client that declared only url elicitation cannot answer a form
       // request, and `ElicitationRequestSupport.elicit` refuses the same
       // request on a connected transport.
       final harness = _DispatcherHarness();
@@ -749,7 +770,8 @@ void main() {
           },
         };
 
-        final response = await _dispatchShapedRead(shape);
+        final (response, escaped) = await _dispatchRefusedRead(shape);
+        expect(escaped, everyElement(isA<AssertionError>()), reason: '$mode');
         final wire = jsonDecode(jsonEncode(response)) as Map<String, Object?>;
         final rawError = wire['error'];
         expect(rawError, isA<Map<String, Object?>>(), reason: '$mode');
@@ -766,7 +788,7 @@ void main() {
         {'answer': 'not a map either'},
         <int, Object?>{1: InputRequest.listRoots(ListRootsRequest())},
       ]) {
-        final response = await _dispatchShapedRead(
+        final (response, escaped) = await _dispatchRefusedRead(
           (result) => {
             ...result,
             Keys.resultType: ResultTypes.inputRequired,
@@ -774,6 +796,11 @@ void main() {
           },
         );
 
+        expect(
+          escaped,
+          everyElement(isA<AssertionError>()),
+          reason: '$requests',
+        );
         final rawError = response![Keys.error];
         expect(rawError, isA<Map<String, Object?>>(), reason: '$requests');
         final error = rawError as Map<String, Object?>;
@@ -791,7 +818,7 @@ void main() {
         <String, Object?>{Keys.params: <String, Object?>{}},
         <String, Object?>{Keys.method: 'io.example/ask'},
       ]) {
-        final response = await _dispatchShapedRead(
+        final (response, escaped) = await _dispatchRefusedRead(
           (result) => {
             ...result,
             Keys.resultType: ResultTypes.inputRequired,
@@ -799,6 +826,11 @@ void main() {
           },
         );
 
+        expect(
+          escaped,
+          everyElement(isA<AssertionError>()),
+          reason: '$request',
+        );
         final rawError = response![Keys.error];
         expect(rawError, isA<Map<String, Object?>>(), reason: '$request');
         final error = rawError as Map<String, Object?>;
@@ -826,7 +858,7 @@ void main() {
         ),
         (ElicitRequest.methodName, {Keys.mode: 'url', Keys.message: 'Sign in'}),
       ]) {
-        final response = await _dispatchShapedRead(
+        final (response, escaped) = await _dispatchRefusedRead(
           (result) => {
             ...result,
             Keys.resultType: ResultTypes.inputRequired,
@@ -839,6 +871,11 @@ void main() {
           },
         );
 
+        expect(
+          escaped,
+          everyElement(isA<AssertionError>()),
+          reason: '$method: $params',
+        );
         final wire = jsonDecode(jsonEncode(response)) as Map<String, Object?>;
         final rawError = wire['error'];
         expect(
@@ -856,7 +893,7 @@ void main() {
         <String, Object?>{},
         <String, Object?>{Keys.requestState: 7},
       ]) {
-        final response = await _dispatchShapedRead(
+        final (response, escaped) = await _dispatchRefusedRead(
           (result) => {
             ...result,
             Keys.resultType: ResultTypes.inputRequired,
@@ -864,6 +901,7 @@ void main() {
           },
         );
 
+        expect(escaped, everyElement(isA<AssertionError>()), reason: '$shape');
         final wire = jsonDecode(jsonEncode(response)) as Map<String, Object?>;
         final rawError = wire['error'];
         expect(rawError, isA<Map<String, Object?>>(), reason: '$shape');
@@ -1412,7 +1450,7 @@ final class _DispatcherTestServer extends TestMCPServer
     );
     // Registered directly instead of mixing in `PromptsSupport`: the guard
     // dispatches on the method, and the mixin would also change what this
-    // server advertises, which other tests here assert on.
+    // server advertises. Other tests here assert on those capabilities.
     registerRequestHandler<GetPromptRequest, GetPromptResult>(
       GetPromptRequest.methodName,
       (_) => GetPromptResult.fromMap({
@@ -1622,6 +1660,24 @@ Future<Map<String, Object?>?> _dispatchShapedRead(
   _initialization(capabilities: capabilities),
   (channel) => _ShapedReadServer(channel, shape),
 );
+
+/// Dispatches [shape] the way [_dispatchShapedRead] does, and returns the
+/// answer next to whatever the dispatcher let reach the zone.
+///
+/// Refusing a result the schema does not allow asserts, so a test reading that
+/// answer has to collect the assertion rather than fail on it. A build with
+/// asserts disabled collects nothing.
+Future<(Map<String, Object?>?, List<Object>)> _dispatchRefusedRead(
+  Map<String, Object?> Function(Map<String, Object?> result) shape, {
+  ClientCapabilities? capabilities,
+}) async {
+  final escaped = <Object>[];
+  Map<String, Object?>? response;
+  await runZonedGuarded(() async {
+    response = await _dispatchShapedRead(shape, capabilities: capabilities);
+  }, (error, _) => escaped.add(error));
+  return (response, escaped);
+}
 
 /// Dispatches a `tools/list` to a server whose result is passed through
 /// [shape] first, so a test can say what the handler itself already set.

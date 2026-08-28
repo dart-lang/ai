@@ -40,17 +40,16 @@ typedef MCPServerFactory =
 /// put a private answer in a cache shared across authorization contexts.
 /// A `ttlMs` below zero or a `cacheScope` outside `public` and `private` is a
 /// bug in the server: it asserts, and in a build with asserts disabled it is
-/// replaced the same way a field left `null` is. None of
-/// this reaches a result on an earlier revision, and every error response is
-/// returned unchanged. On 2026-07-28 an `input_required` result the client
-/// cannot act on is refused here instead of being sent on: one on a method the
-/// revision does not answer that way is an internal error, and one asking for
-/// a capability the client left out is
+/// replaced the same way a field left `null` is. None of this reaches a result
+/// on an earlier revision, and every error response is returned unchanged. On
+/// 2026-07-28 an `input_required` result the client cannot act on is refused
+/// here instead of being sent on: one on a method the revision does not answer
+/// that way asserts and returns an internal error, and one asking for a
+/// capability the client left out is
 /// [McpErrorCodes.missingRequiredClientCapability]. If the server closes
 /// before responding to a request, an internal-error response is returned
-/// instead. The server may still be
-/// processing a notification when the returned future completes.
-///
+/// instead. The server may still be processing a notification when the
+/// returned future completes.
 /// The returned future completes once the server responds or the exchange
 /// closes; it does not time out on its own. A handler that never returns
 /// leaves it pending and the server alive. To bound execution, retain the
@@ -174,6 +173,16 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
                     )
                     : _rpcErrorResponse(message[Keys.id], refusal),
               );
+              // A result the schema does not allow here is a bug in the
+              // server, so let it reach the zone the way a frame this
+              // dispatcher cannot process does. The client still gets the
+              // refusal above. Asking for a capability the client left out
+              // is not a bug: a server cannot know what the next client
+              // declares.
+              assert(
+                refusal == null || refusal.code != error_code.INTERNAL_ERROR,
+                refusal.message,
+              );
             }
         }
       } catch (_) {
@@ -295,10 +304,11 @@ RpcException? _inputRequiredRefusal(
     }
     final inputMethod = request[Keys.method];
     final params = request[Keys.params];
-    if (inputMethod is! String || !_clientInputMethods.contains(inputMethod)) {
+    if (inputMethod is! String ||
+        !InputRequest.methodNames.contains(inputMethod)) {
       return _malformedInputRequired(
         'containing an input request whose method was not one of '
-        '${_clientInputMethods.map((m) => '`$m`').join(', ')}.',
+        '${InputRequest.methodNames.map((m) => '`$m`').join(', ')}.',
       );
     }
     switch (inputMethod) {
@@ -357,8 +367,7 @@ RpcException? _inputRequiredRefusal(
   return null;
 }
 
-/// The internal error an `input_required` result which [detail] describes has
-/// to be refused with.
+/// The internal error refusing an `input_required` result [detail] describes.
 RpcException _malformedInputRequired(String detail) => RpcException(
   error_code.INTERNAL_ERROR,
   'The server answered with `${ResultTypes.inputRequired}` $detail',
@@ -371,6 +380,8 @@ RpcException _malformedInputRequired(String detail) => RpcException(
 /// Sampling that carries `tools` or `toolChoice` needs `sampling.tools`, and
 /// an elicitation needs the capability for the mode it asks for, so a client
 /// that declared only `elicitation.url` is never asked for a form.
+/// `sampling.context` is left alone: without it the schema only says a server
+/// SHOULD leave `includeContext` at `none`, so refusing would go past it.
 RpcException? _missingInputRequestCapability(
   String method,
   Object? params,
@@ -378,25 +389,24 @@ RpcException? _missingInputRequestCapability(
 ) {
   switch (method) {
     case ListRootsRequest.methodName:
-      if (capabilities.roots != null) return null;
+      if (capabilities.supportsRoots) return null;
       return _missingClientCapability(
         'roots',
         ClientCapabilities(roots: RootsCapabilities()),
       );
     case CreateMessageRequest.methodName:
-      final sampling = capabilities.sampling;
       final usesTools =
           params is Map &&
           (params.containsKey(Keys.tools) ||
               params.containsKey(Keys.toolChoice));
       if (!usesTools) {
-        if (sampling != null) return null;
+        if (capabilities.supportsSampling) return null;
         return _missingClientCapability(
           'sampling',
           ClientCapabilities(sampling: {}),
         );
       }
-      if (sampling?[Keys.tools] != null) return null;
+      if (capabilities.supportsSamplingTools) return null;
       return _missingClientCapability(
         'sampling.tools',
         ClientCapabilities(sampling: {Keys.tools: <String, Object?>{}}),
@@ -513,16 +523,6 @@ const _inputRequiredMethods = {
   CallToolRequest.methodName,
   GetPromptRequest.methodName,
   ReadResourceRequest.methodName,
-};
-
-/// The requests a server may ask the client to answer in an
-/// [InputRequiredResult].
-///
-/// https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr
-const _clientInputMethods = {
-  ElicitRequest.methodName,
-  CreateMessageRequest.methodName,
-  ListRootsRequest.methodName,
 };
 
 /// The requests whose results a server must send caching hints on.

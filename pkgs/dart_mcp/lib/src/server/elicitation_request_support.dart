@@ -95,16 +95,3 @@ base mixin ElicitationRequestSupport on LoggingSupport {
     notification,
   );
 }
-
-/// The mode reads [ElicitationRequestSupport] does, for
-/// [handleRequestScopedMessage], which has the capabilities but not the mixin.
-extension on ClientCapabilities {
-  bool get supportsFormElicitation {
-    final elicitation = this.elicitation;
-    if (elicitation == null) return false;
-    return elicitation.form != null ||
-        (elicitation as Map<String, Object?>).isEmpty;
-  }
-
-  bool get supportsUrlElicitation => elicitation?.url != null;
-}

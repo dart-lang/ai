@@ -282,13 +282,13 @@ abstract base class MCPServer extends MCPBase {
   ///
   /// Only safe to call after calling [initialize] on `super` since this
   /// is based on the client capabilities.
-  bool get supportsRoots => clientCapabilities.roots != null;
+  bool get supportsRoots => clientCapabilities.supportsRoots;
 
   /// Whether or not the connected client supports [createMessage].
   ///
   /// Only safe to call after calling [initialize] on `super` since this
   /// is based on the client capabilities.
-  bool get supportsSampling => clientCapabilities.sampling != null;
+  bool get supportsSampling => clientCapabilities.supportsSampling;
 
   /// Lists all the root URIs from the client.
   ///
@@ -344,3 +344,28 @@ RpcException _missingClientCapability(
   'The client did not declare the $capability capability',
   data: {Keys.requiredCapabilities: required},
 );
+
+/// The client capability reads a server makes, on the capabilities themselves
+/// so that [handleRequestScopedMessage] can make them without a server.
+///
+/// [MCPServer] and [ElicitationRequestSupport] expose and document all of
+/// these but [supportsSamplingTools], which only the input request guard
+/// needs.
+extension on ClientCapabilities {
+  bool get supportsRoots => roots != null;
+
+  bool get supportsSampling => sampling != null;
+
+  /// Whether or not the client can answer a sampling request carrying `tools`
+  /// or `toolChoice`.
+  bool get supportsSamplingTools => sampling?[Keys.tools] != null;
+
+  bool get supportsFormElicitation {
+    final elicitation = this.elicitation;
+    if (elicitation == null) return false;
+    return elicitation.form != null ||
+        (elicitation as Map<String, Object?>).isEmpty;
+  }
+
+  bool get supportsUrlElicitation => elicitation?.url != null;
+}
