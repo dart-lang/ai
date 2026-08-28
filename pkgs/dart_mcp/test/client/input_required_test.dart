@@ -49,6 +49,40 @@ void main() {
     ]);
   });
 
+  test('retries on a connection whose transport settled the version', () async {
+    final client =
+        _InputClient()
+          ..addRoot(Root(uri: 'file:///workspace', name: 'workspace'));
+    final harness = _WireHarness(client, (request, requestNumber) {
+      if (requestNumber == 1) {
+        return {
+          'resultType': 'input_required',
+          'inputRequests': {
+            'roots': {'method': 'roots/list', 'params': <String, Object?>{}},
+          },
+        };
+      }
+      return {
+        'resultType': 'complete',
+        'content': [
+          {'type': 'text', 'text': 'done'},
+        ],
+      };
+    }, withServerInfo: false);
+
+    final result = await harness.connection.callTool(
+      CallToolRequest(name: 'task'),
+    );
+
+    expect(harness.connection.serverInfo, isNull);
+    expect((result.content.single as TextContent).text, 'done');
+    expect(client.handled, ['roots/list']);
+    expect(harness.requests, hasLength(2));
+    expect((_params(harness.requests.last)['inputResponses'] as Map).keys, [
+      'roots',
+    ]);
+  });
+
   test('dispatches each input request and retries the tool call', () async {
     final client =
         _InputClient()
@@ -438,6 +472,36 @@ void main() {
     expect(client.callCount, 0);
   });
 
+  test('stops when a sampling input request has no serverInfo', () async {
+    final client = _InputClient();
+    final harness = _WireHarness(
+      client,
+      (request, requestNumber) => {
+        'resultType': 'input_required',
+        'inputRequests': {
+          'sample': {
+            'method': 'sampling/createMessage',
+            'params': {'messages': <Object?>[], 'maxTokens': 1},
+          },
+        },
+      },
+      withServerInfo: false,
+    );
+
+    await expectLater(
+      harness.connection.callTool(CallToolRequest(name: 'task')),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          contains('serverInfo'),
+        ),
+      ),
+    );
+    expect(harness.requests, hasLength(1));
+    expect(client.handled, isEmpty);
+  });
+
   test('rejects an input-required result without requests or state', () async {
     final harness = _WireHarness(
       MCPClient(Implementation(name: 'test client', version: '0.1.0')),
@@ -617,12 +681,13 @@ final class _WireHarness {
     this._respond, {
     ProtocolVersion? protocolVersion = ProtocolVersion.v2026_07_28,
     this.sendProgress = false,
+    bool withServerInfo = true,
   }) {
     connection = client.connectServer(
       StreamChannel.withGuarantees(_incoming.stream, _outgoing.sink),
     );
-    if (protocolVersion != null) {
-      connection.protocolVersion = protocolVersion;
+    connection.protocolVersion = protocolVersion;
+    if (protocolVersion != null && withServerInfo) {
       connection.serverInfo = Implementation(name: 'wire server', version: '1');
     }
     _subscription = _outgoing.stream.listen((request) {

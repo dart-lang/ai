@@ -115,15 +115,21 @@ base class MCPClient {
 
 /// An active server connection.
 base class ServerConnection extends MCPBase {
-  /// The version of the protocol that was negotiated during initialization.
+  /// The version of the protocol this connection speaks, or `null` until one
+  /// is settled.
+  ///
+  /// [initialize] fills this in for a version this client supports. A
+  /// transport which carries its own supported versions assigns it directly,
+  /// since 2026-07-28 has no handshake to negotiate one.
   ///
   /// Some APIs may error if you attempt to use them without first checking the
   /// protocol version.
-  late ProtocolVersion protocolVersion;
+  ProtocolVersion? protocolVersion;
 
   /// The [Implementation] returned from the [initialize] request.
   ///
-  /// Only non-null after [initialize] has successfully completed.
+  /// Only non-null after [initialize] has successfully completed, or once a
+  /// transport which settles the version itself sets it. Sampling needs one.
   Implementation? serverInfo;
 
   /// The [ServerCapabilities] returned from the [initialize] request.
@@ -409,7 +415,8 @@ base class ServerConnection extends MCPBase {
     String methodName,
     WithInputResponses request,
   ) async {
-    if (serverInfo == null || protocolVersion < ProtocolVersion.v2026_07_28) {
+    final version = protocolVersion;
+    if (version == null || version < ProtocolVersion.v2026_07_28) {
       return sendRequest<T>(methodName, request);
     }
     try {
@@ -451,6 +458,7 @@ base class ServerConnection extends MCPBase {
         );
       }
       // TODO: Delay a retry that carries no input requests, so it cannot spin.
+      // https://github.com/dart-lang/ai/issues/162
       if (inputRequests != null) {
         final handlers = [
           for (final entry in inputRequests.entries)
@@ -506,7 +514,14 @@ base class ServerConnection extends MCPBase {
         final request =
             _inputRequestParams(inputRequest, required: true)!
                 as CreateMessageRequest;
-        final serverInfo = this.serverInfo!;
+        final serverInfo = this.serverInfo;
+        if (serverInfo == null) {
+          throw StateError(
+            'The server sent a sampling input request, but this connection '
+            'has no `serverInfo` to give the handler. Only `initialize` fills '
+            'it in, and 2026-07-28 has no handshake to run.',
+          );
+        }
         return () async =>
             await support.handleCreateMessage(request, serverInfo);
       case ListRootsRequest.methodName:
