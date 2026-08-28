@@ -343,9 +343,7 @@ base class ServerConnection extends MCPBase {
   /// https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/stdio#backward-compatibility.
   ///
   /// A server built on this package answers `-32601` on a connection that
-  /// negotiated with the handshake. Its streamable HTTP transport answers
-  /// `-32022` before dispatch when the request carries a version that
-  /// transport does not serve.
+  /// negotiated with the handshake.
   ///
   /// Sends [protocolVersion] and [capabilities] in the request metadata, the
   /// two keys the envelope requires, plus [clientInfo] when given.
