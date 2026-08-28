@@ -4,20 +4,11 @@
 
 import 'dart:convert';
 
-/// The SSE field which names the type of an event.
-const _eventField = 'event';
-
-/// The SSE field which carries the payload of an event.
-const _dataField = 'data';
-
-/// The type of an event which names none.
-const _messageType = 'message';
-
 /// Decodes the `message` events of a Streamable HTTP SSE response [bytes].
 ///
 /// Consecutive `data` fields are joined with a line feed before the JSON
 /// object is decoded. An omitted or empty `event` field means the `message`
-/// type. Other event types, comment lines, and events which carry no data are
+/// type. Other event types, comment lines, and events carrying no data are
 /// ignored.
 ///
 /// A frame whose data does not decode to a JSON object arrives as a
@@ -25,9 +16,9 @@ const _messageType = 'message';
 /// delivered. An error on [bytes] itself ends the stream, since there is
 /// nothing left to read.
 ///
-/// Bytes which are not valid UTF-8 become the replacement character, and a
-/// frame which [bytes] ends in the middle of is dropped, both because the
-/// event stream parsing rules ask for it:
+/// Invalid UTF-8 becomes the replacement character, and a frame cut short by
+/// the end of [bytes] is dropped, both because the event stream parsing rules
+/// ask for it:
 /// https://html.spec.whatwg.org/multipage/server-sent-events.html#event-stream-interpretation.
 Stream<Map<String, Object?>> sseMessageStream(Stream<List<int>> bytes) =>
     _sseMessageData(bytes).map<Map<String, Object?>>((source) {
@@ -43,7 +34,7 @@ Stream<Map<String, Object?>> sseMessageStream(Stream<List<int>> bytes) =>
 
 /// The joined `data` of each `message` event in an SSE response [bytes].
 ///
-/// An event with no data has nothing to decode, so it never reaches the
+/// An event with no data has nothing to decode and never reaches the
 /// stream.
 Stream<String> _sseMessageData(Stream<List<int>> bytes) async* {
   var event = '';
@@ -53,7 +44,7 @@ Stream<String> _sseMessageData(Stream<List<int>> bytes) async* {
   )) {
     if (line.isEmpty) {
       final source = data.join('\n');
-      if (source.isNotEmpty && (event.isEmpty || event == _messageType)) {
+      if (source.isNotEmpty && (event.isEmpty || event == 'message')) {
         yield source;
       }
       event = '';
@@ -65,9 +56,11 @@ Stream<String> _sseMessageData(Stream<List<int>> bytes) async* {
     final field = separator < 0 ? line : line.substring(0, separator);
     var value = separator < 0 ? '' : line.substring(separator + 1);
     if (value.startsWith(' ')) value = value.substring(1);
-    if (field == _eventField) {
+    // These field names belong to the event stream framing. They spell MCP
+    // payload keys too, and the two are free to drift apart.
+    if (field == 'event') {
       event = value;
-    } else if (field == _dataField) {
+    } else if (field == 'data') {
       data.add(value);
     }
   }
