@@ -1696,9 +1696,9 @@ Future<Map<String, Object?>?> _dispatchShapedRead(
 /// Dispatches [shape] the way [_dispatchShapedRead] does, and returns the
 /// answer next to whatever the dispatcher let reach the zone.
 ///
-/// Refusing a result the schema does not allow asserts. Collecting it from
-/// the zone lets a test read the answer without that assertion failing it. A
-/// build with asserts disabled collects nothing.
+/// A malformed `input_required` asserts on its way out. Collecting that
+/// assertion lets a test read the answer without it failing the test. A build
+/// with asserts disabled collects nothing.
 Future<(Map<String, Object?>?, List<Object>)> _dispatchRefusedRead(
   Map<String, Object?> Function(Map<String, Object?> result) shape, {
   ClientCapabilities? capabilities,
