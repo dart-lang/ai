@@ -498,7 +498,8 @@ Future<void> handleStreamableHttpRequest(
               : null,
     );
   } catch (_) {
-    // The server could not be built for this request. Answer before the error
+    // Building the server, initializing it, and the pre-dispatch check all
+    // land here, so the message names none of them. Answer before the error
     // leaves this function, so an embedder which discards the returned future
     // does not leave the connection open. Notifications a server emitted while
     // initializing are released first: they are what commits the stream, and
@@ -511,7 +512,7 @@ Future<void> handleStreamableHttpRequest(
     await answer.finish(
       RpcException(
         error_code.INTERNAL_ERROR,
-        'The server failed to initialize',
+        'The server failed to answer the request',
       ).serialize(decoded),
     );
     rethrow;
@@ -723,8 +724,8 @@ const _mcpParamHeaderPrefix = 'Mcp-Param-';
 
 /// Validates annotated primitive arguments in [params] against [request].
 ///
-/// A server which registers no tools, or which has none under the requested
-/// name, has no schema to read an annotation from and nothing to check.
+/// A server that registers no tools, or has none under the requested name,
+/// has no schema to read an annotation from and nothing to check.
 RpcException? _checkMcpParamHeaders(
   HttpRequest request,
   Map<String, Object?> params,

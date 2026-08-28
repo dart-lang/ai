@@ -688,6 +688,9 @@ void main() {
       final text = await utf8.decodeStream(response);
       expect(response.statusCode, 500);
       expect(errorCode(text), error_code.INTERNAL_ERROR);
+      // The server initialized. The annotation is what this could not get
+      // past, so the answer does not name initialization.
+      expect(errorMessage(text), 'The server failed to answer the request');
     }, testOn: '!exe');
 
     test(

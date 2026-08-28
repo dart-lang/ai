@@ -276,7 +276,10 @@
   headers, headers for absent values, malformed headers, and mismatches return
   `400 Bad Request` with `McpErrorCodes.headerMismatch`. A rejected call sends
   none of the notifications the server emitted before dispatch, because a
-  `400` cannot be set on a stream one of them has committed.
+  `400` cannot be set on a stream one of them has committed. An annotation on
+  any other type asserts, and a `500` from the handler now reads `The server
+  failed to answer the request`: the check shares that answer with server
+  construction and initialization, so it names neither.
   `handleRequestScopedMessage` gained `beforeDispatch`, which runs against the
   initialized server, and `ToolsSupport.registeredTools` exposes the
   registered tools by name so a transport can read one's schema without
