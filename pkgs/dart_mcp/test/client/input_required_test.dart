@@ -362,6 +362,41 @@ void main() {
     expect(secondRetry, isNot(contains('requestState')));
   });
 
+  test(
+    'drops earlier input responses on a round that answers nothing',
+    () async {
+      final harness = _WireHarness(
+        MCPClient(Implementation(name: 'test client', version: '0.1.0')),
+        (request, requestNumber) =>
+            requestNumber == 1
+                ? {'resultType': 'input_required', 'requestState': 'state-only'}
+                : {
+                  'resultType': 'complete',
+                  'content': [
+                    {'type': 'text', 'text': 'done'},
+                  ],
+                },
+      );
+
+      await harness.connection.callTool(
+        CallToolRequest(
+          name: 'task',
+          inputResponses: {
+            'old': ElicitResult(action: ElicitationAction.decline),
+          },
+        ),
+      );
+
+      expect(harness.requests, hasLength(2));
+      expect((_params(harness.requests.first)['inputResponses'] as Map).keys, [
+        'old',
+      ]);
+      final retry = _params(harness.requests.last);
+      expect(retry, isNot(contains('inputResponses')));
+      expect(retry['requestState'], 'state-only');
+    },
+  );
+
   for (final boundaryCase in [
     (
       name: 'an empty request state',
@@ -460,6 +495,37 @@ void main() {
       expect(harness.requests, hasLength(1));
     });
   }
+
+  test('answers a roots/list request that carries no params', () async {
+    final client =
+        _InputClient()
+          ..addRoot(Root(uri: 'file:///workspace', name: 'workspace'));
+    final harness = _WireHarness(
+      client,
+      (request, requestNumber) =>
+          requestNumber == 1
+              ? {
+                'resultType': 'input_required',
+                'inputRequests': {
+                  'roots': {'method': 'roots/list'},
+                },
+              }
+              : {
+                'resultType': 'complete',
+                'content': [
+                  {'type': 'text', 'text': 'done'},
+                ],
+              },
+    );
+
+    await harness.connection.callTool(CallToolRequest(name: 'task'));
+
+    expect(client.handled, ['roots/list']);
+    expect(harness.requests, hasLength(2));
+    expect((_params(harness.requests.last)['inputResponses'] as Map).keys, [
+      'roots',
+    ]);
+  });
 
   test('rejects an input request whose elicitation mode is unknown', () async {
     final client = _InputClient();
