@@ -14,7 +14,7 @@ import '../test_utils.dart';
 
 void main() {
   group('ServerConnection.discover', () {
-    test('sends the metadata the 2026-07-28 envelope requires', () async {
+    test('writes the envelope the schema describes', () async {
       final harness = _WireHarness.answering(_answer);
 
       await harness.connection.discover(
@@ -40,22 +40,19 @@ void main() {
       });
     });
 
-    test(
-      'leaves clientInfo out of the envelope when it is not given',
-      () async {
-        final harness = _WireHarness.answering(_answer);
+    test('writes only the required keys when nothing else is given', () async {
+      final harness = _WireHarness.answering(_answer);
 
-        await harness.connection.discover(
-          protocolVersion: ProtocolVersion.v2026_07_28,
-          capabilities: ClientCapabilities(),
-        );
+      await harness.connection.discover(
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        capabilities: ClientCapabilities(),
+      );
 
-        final meta = harness.metadata;
-        expect(meta, isNot(contains(Keys.clientInfoMeta)));
-        expect(meta[Keys.protocolVersionMeta], '2026-07-28');
-        expect(meta[Keys.clientCapabilitiesMeta], isEmpty);
-      },
-    );
+      expect(harness.metadata, {
+        Keys.protocolVersionMeta: '2026-07-28',
+        Keys.clientCapabilitiesMeta: <String, Object?>{},
+      });
+    });
 
     test('carries a progress token when one is given', () async {
       final harness = _WireHarness.answering(_answer);
@@ -80,20 +77,6 @@ void main() {
 
       expect(harness.metadata[Keys.logLevelMeta], 'debug');
     });
-
-    test(
-      'leaves the log level out of the envelope when it is not given',
-      () async {
-        final harness = _WireHarness.answering(_answer);
-
-        await harness.connection.discover(
-          protocolVersion: ProtocolVersion.v2026_07_28,
-          capabilities: ClientCapabilities(),
-        );
-
-        expect(harness.metadata, isNot(contains(Keys.logLevelMeta)));
-      },
-    );
 
     test(
       'sends the version it is given, not the one it is built for',
