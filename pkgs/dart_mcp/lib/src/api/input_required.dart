@@ -14,6 +14,13 @@ part of 'api.dart';
 ///
 /// From the 2026-07-28 revision.
 extension type InputRequest._(Map<String, Object?> _value) {
+  /// The methods a request here may be made under.
+  static const methodNames = {
+    ElicitRequest.methodName,
+    CreateMessageRequest.methodName,
+    ListRootsRequest.methodName,
+  };
+
   factory InputRequest.fromMap(Map<String, Object?> value) {
     assert(value.containsKey(Keys.method));
     return InputRequest._(value);
