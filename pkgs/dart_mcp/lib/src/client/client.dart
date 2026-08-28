@@ -151,11 +151,11 @@ base class ServerConnection extends MCPBase {
   final RootsSupport? _rootsSupport;
 
   /// How many `input_required` rounds [sendRequestWithInputs] answers before
-  /// it gives up.
+  /// it gives up, or `null` for as many as the server sends.
   ///
   /// The spec sets no bound on the rounds. This one only guards against a
-  /// server that never stops asking, and a caller can move it.
-  int maxInputRequiredRounds = 10;
+  /// server that never stops asking.
+  int? maxInputRequiredRounds = 10;
 
   @override
   String get name => serverInfo?.name ?? super.name;
@@ -467,7 +467,8 @@ base class ServerConnection extends MCPBase {
       result.resultType == ResultTypes.inputRequired;
       round++
     ) {
-      if (round >= maxInputRequiredRounds) {
+      final maxRounds = maxInputRequiredRounds;
+      if (maxRounds != null && round >= maxRounds) {
         throw ArgumentError(
           'The server returned `${ResultTypes.inputRequired}` after '
           '$round retries for `$methodName`. Expected '

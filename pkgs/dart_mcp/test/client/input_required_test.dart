@@ -747,6 +747,32 @@ void main() {
     expect(harness.requests, hasLength(1));
   });
 
+  test('answers past the default cap when the caller clears it', () async {
+    final harness = _WireHarness(
+      MCPClient(Implementation(name: 'test client', version: '0.1.0')),
+      (request, requestNumber) =>
+          requestNumber <= 12
+              ? {
+                'resultType': 'input_required',
+                'requestState': 'still-waiting',
+              }
+              : {
+                'resultType': 'complete',
+                'content': [
+                  {'type': 'text', 'text': 'done'},
+                ],
+              },
+    );
+    harness.connection.maxInputRequiredRounds = null;
+
+    final result = await harness.connection.callTool(
+      CallToolRequest(name: 'task'),
+    );
+
+    expect((result.content.single as TextContent).text, 'done');
+    expect(harness.requests, hasLength(13));
+  });
+
   test('reports progress from every round under the original token', () async {
     final harness = _WireHarness(
       MCPClient(Implementation(name: 'test client', version: '0.1.0')),
