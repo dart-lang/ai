@@ -50,6 +50,7 @@ typedef MCPServerFactory =
 /// before responding to a request, an internal-error response is returned
 /// instead. The server may still be processing a notification when the
 /// returned future completes.
+///
 /// The returned future completes once the server responds or the exchange
 /// closes; it does not time out on its own. A handler that never returns
 /// leaves it pending and the server alive. To bound execution, retain the
