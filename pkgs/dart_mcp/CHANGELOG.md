@@ -97,6 +97,10 @@
     `maximum` and `default` are `number` too. A peer sending
     `{"type": "integer", "minimum": 0.5}` sent something the getter threw on.
     `multipleOf` next to them already read `num`.
+  - `ServerConnection.serverInfo` stays `null` when version negotiation fails,
+    the way its dartdoc already described, instead of holding the rejected
+    server's implementation. `initialize` still returns that result and
+    `serverCapabilities` still holds what the server sent.
 - Add `supportsFormElicitation` and `supportsUrlElicitation` for a server to
   ask before it sends. An empty `elicitation` object still means form, the way
   `elicitation` read before the split.

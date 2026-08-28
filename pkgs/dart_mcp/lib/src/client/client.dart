@@ -318,13 +318,13 @@ base class ServerConnection extends MCPBase {
       InitializeRequest.methodName,
       request,
     );
-    serverInfo = response.serverInfo;
     serverCapabilities = response.capabilities;
     final serverVersion = response.protocolVersion;
     if (serverVersion == null || !serverVersion.isSupported) {
       await shutdown();
     } else {
       protocolVersion = serverVersion;
+      serverInfo = response.serverInfo;
     }
     return response;
   }
