@@ -27,12 +27,15 @@ dependency_overrides:
   test:
     git:
       url: https://github.com/dart-lang/test.git
+      ref: debug-timeout
       path: pkgs/test
   test_api:
     git:
       url: https://github.com/dart-lang/test.git
+      ref: debug-timeout
       path: pkgs/test_api
   test_core:
     git:
       url: https://github.com/dart-lang/test.git
+      ref: debug-timeout
       path: pkgs/test_core
