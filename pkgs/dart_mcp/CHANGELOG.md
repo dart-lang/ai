@@ -218,12 +218,9 @@
   resource updates reach `onNotification` alone, since this revision carries
   those on a `subscriptions/listen` stream. Does not treat a closed stream as
   cancellation, which the specification requires.
-- Add `sseMessageStream`, which reads `message` events from a Streamable HTTP
-  SSE response as JSON objects, including events that omit the type and
-  payloads split across consecutive `data` fields. Events which carry no data
-  are skipped, and data which does not decode to a JSON object arrives as a
-  `FormatException` error event, leaving the events behind it readable. Bytes
-  that are not valid UTF-8 become the replacement character.
+- Add `sseMessageStream`, decoding the `message` events of Streamable HTTP SSE
+  bodies into JSON objects. Undecodable data becomes an error event and bad
+  UTF-8 the replacement character, without ending the stream.
 - Serve `server/discover` from `MCPServer.discover`, which answers with the
   request-scoped protocol versions this package implements, the capabilities
   `MCPServer.initialize` registered, and the instructions the server was given.
