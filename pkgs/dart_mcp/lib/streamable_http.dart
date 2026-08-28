@@ -82,14 +82,12 @@ import 'src/utils/json_rpc_2_object.dart';
 ///
 /// For `tools/call`, a string, integer, or boolean property annotated with
 /// `x-mcp-header` requires its `Mcp-Param-{Name}` header when the argument has
-/// a non-`null` value. The registered tool is resolved before dispatch.
-/// Sentinel values are decoded, integers are compared numerically, and nested
-/// `properties` maps are followed. An annotation on any other type is a bug in
-/// the server, not in the request, and asserts. A validation failure returns
-/// header mismatch. Notifications the server emits before dispatch are held
-/// back, so a mismatch answers `400` and not an event on a stream one of them
-/// already committed. A rejected call sends none of them: a `400` cannot be
-/// set on a committed stream, so the error is the whole response.
+/// a non-`null` value. An annotation on any other type is not recognized. The
+/// registered tool is resolved before dispatch, sentinel values are decoded,
+/// integers are compared numerically, and nested `properties` maps are
+/// followed. A validation failure answers `400` with a header mismatch and
+/// drops the notifications the server emitted before dispatch, since those are
+/// what would otherwise have committed the stream.
 ///
 /// Notifications the server produces while handling the request go out on an
 /// SSE response stream. The first one commits `text/event-stream`, and the
@@ -498,21 +496,18 @@ Future<void> handleStreamableHttpRequest(
               : null,
     );
   } catch (_) {
-    // Building the server, initializing it, and the pre-dispatch check all
-    // land here, so the message names none of them. Answer before the error
-    // leaves this function, so an embedder which discards the returned future
-    // does not leave the connection open. Notifications a server emitted while
-    // initializing are released first: they are what commits the stream, and
-    // once its headers are sent they cannot be set a second time, so the answer
-    // goes out on the stream instead of starting a fresh response. Holding them
-    // past this point would drop them and answer a `tools/call` with a fresh
-    // `500`, so the same failure would be reported one way for `tools/call`
-    // and another for every other method.
+    // The server could not be built for this request. Answer before the error
+    // leaves this function, so an embedder that discards the returned future
+    // does not leave the connection open. A server that emitted a notification
+    // while initializing has already committed the stream, and headers cannot
+    // be set on it a second time. The answer goes out on the stream instead of
+    // starting a fresh response, so a `tools/call` releases the notifications
+    // it was holding back before answering.
     releasePendingNotifications();
     await answer.finish(
       RpcException(
         error_code.INTERNAL_ERROR,
-        'The server failed to answer the request',
+        'The server failed to initialize',
       ).serialize(decoded),
     );
     rethrow;
@@ -673,7 +668,7 @@ bool _accepts(HttpRequest request, String mimeType) {
 ///
 /// Throws a [FormatException] if the sentinel payload is not valid base64.
 String _decodeSentinel(String value) =>
-    // The `=?base64?` prefix is 9 characters and the `?=` suffix is 2. Under
+    // The `=?base64?` prefix is 9 characters and the `?=` suffix is 2; under
     // 11 characters they overlap, so guard the length before slicing.
     value.length >= 11 && value.startsWith('=?base64?') && value.endsWith('?=')
         ? utf8.decode(base64.decode(value.substring(9, value.length - 2)))
@@ -800,22 +795,16 @@ RpcException? _checkMcpParamHeadersForProperties(
     final suffix = schemaMap[Keys.xMcpHeader];
     if (suffix is! String) continue;
 
-    // The annotation is read before the type so that one the specification
-    // does not allow is reported. Skipping it silently would leave the server
-    // believing a header is checked when nothing checks it, and the request
-    // would go through either way.
+    // The specification allows the annotation on a string, integer, or boolean
+    // property only, and it is the client that rejects a tool definition
+    // putting it anywhere else. An annotation on another type is one this does
+    // not recognize, so the header it names goes unread.
     final type = schemaMap[Keys.type];
-    final isPrimitive =
-        type == JsonType.string.typeName ||
-        type == JsonType.int.typeName ||
-        type == JsonType.bool.typeName;
-    assert(
-      isPrimitive,
-      'params.arguments.$propertyPath is annotated '
-      '${Keys.xMcpHeader}: $suffix, but the specification only allows the '
-      'annotation on a string, integer, or boolean property.',
-    );
-    if (!isPrimitive) continue;
+    if (type != JsonType.string.typeName &&
+        type != JsonType.int.typeName &&
+        type != JsonType.bool.typeName) {
+      continue;
+    }
 
     final headerName = '$_mcpParamHeaderPrefix$suffix';
     if (!hasValue) {
