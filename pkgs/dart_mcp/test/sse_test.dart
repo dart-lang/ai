@@ -93,6 +93,25 @@ void main() {
     ]);
   });
 
+  test('reads the event type of one frame only', () async {
+    // The frame behind the endpoint one names no type, so it is a message
+    // event, and it is dropped if the endpoint type carries over.
+    final messages =
+        await sseMessageStream(
+          Stream.value(
+            utf8.encode(
+              'event: endpoint\n'
+              'data: {"jsonrpc":"2.0","id":"ignored"}\n\n'
+              'data: {"jsonrpc":"2.0","id":1,"result":{}}\n\n',
+            ),
+          ),
+        ).toList();
+
+    expect(messages, [
+      {'jsonrpc': '2.0', 'id': 1, 'result': <String, Object?>{}},
+    ]);
+  });
+
   test('joins consecutive data fields', () async {
     final bytes = Stream.value(
       utf8.encode(
