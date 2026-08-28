@@ -419,6 +419,19 @@ base class ServerConnection extends MCPBase {
     if (serverInfo == null || protocolVersion < ProtocolVersion.v2026_07_28) {
       return sendRequest<T>(methodName, request);
     }
+    try {
+      return await _retryWhileInputRequired<T>(methodName, request);
+    } finally {
+      // Every round runs under the progress token the caller put on the first
+      // request, so the stream it opened outlives all of them.
+      await closeProgress(request);
+    }
+  }
+
+  Future<T> _retryWhileInputRequired<T extends Result>(
+    String methodName,
+    WithInputResponses request,
+  ) async {
     final originalRequest = request as Map<String, Object?>;
     var result = (await sendRequest<T>(methodName, request)) as Result;
     for (

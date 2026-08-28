@@ -163,7 +163,11 @@
   sampling, and roots handlers, then retry the original request. Automatic
   retries stop after ten rounds or when a required handler is unavailable. A
   result with neither input requests nor request state is rejected before the
-  retry.
+  retry. Every round goes out under the progress token the first request
+  carried, and the stream `onProgress` returned stays open until the rounds
+  end: `MCPBase.sendRequest` leaves it open on an `input_required` result, and
+  the new `MCPBase.closeProgress` closes it for a caller which spans several
+  requests under one token.
 - Add `WithInputResponses`, the type a client's retry carries.
   `CallToolRequest`, `GetPromptRequest` and `ReadResourceRequest` take an
   `inputResponses` and a `requestState`, matching the three requests the schema

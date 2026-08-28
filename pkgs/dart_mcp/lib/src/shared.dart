@@ -14,6 +14,7 @@ import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'api/api.dart';
+import 'utils/constants.dart';
 
 /// Base class for MCP server-related implementations.
 ///
@@ -116,20 +117,23 @@ base class MCPBase {
   /// Sends [request] to the peer, and handles coercing the response to the
   /// type [T].
   ///
-  /// Closes any progress streams for [request] once the response has been
-  /// received.
+  /// Closes any progress streams for [request] once the request is done. An
+  /// `input_required` result does not finish it, since the client sends the
+  /// request again under the same progress token, so that stream stays open
+  /// and whoever retries closes it with [closeProgress].
   Future<T> sendRequest<T extends Result?>(
     String methodName, [
     Request? request,
   ]) async {
+    Map<String, Object?>? response;
     try {
-      return ((await _peer.sendRequest(methodName, request)) as Map?)
-              ?.cast<String, Object?>()
-          as T;
+      response =
+          ((await _peer.sendRequest(methodName, request)) as Map?)
+              ?.cast<String, Object?>();
+      return response as T;
     } finally {
-      final token = request?.meta?.progressToken;
-      if (token != null) {
-        await _progressControllers.remove(token)?.close();
+      if ((response as Result?)?.resultType != ResultTypes.inputRequired) {
+        await closeProgress(request);
       }
     }
   }
@@ -163,6 +167,17 @@ base class MCPBase {
     return (_progressControllers[token] ??=
             StreamController<ProgressNotification>.broadcast())
         .stream;
+  }
+
+  /// Closes the stream [onProgress] returned for [request], if it opened one.
+  ///
+  /// [sendRequest] calls this when a request is done. A caller which sends
+  /// several requests under one progress token, such as an `input_required`
+  /// retry, calls it once it stops sending them.
+  @protected
+  Future<void> closeProgress(Request? request) async {
+    final token = request?.meta?.progressToken;
+    if (token != null) await _progressControllers.remove(token)?.close();
   }
 
   /// Pings the peer, and returns whether or not it responded within

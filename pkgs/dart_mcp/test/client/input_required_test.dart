@@ -456,6 +456,79 @@ void main() {
       hasLength(11),
     );
   });
+
+  test('reports progress from every round under the original token', () async {
+    final harness = _WireHarness(
+      MCPClient(Implementation(name: 'test client', version: '0.1.0')),
+      (request, requestNumber) =>
+          requestNumber == 1
+              ? {'resultType': 'input_required', 'requestState': 'state'}
+              : {
+                'resultType': 'complete',
+                'content': [
+                  {'type': 'text', 'text': 'done'},
+                ],
+              },
+      sendProgress: true,
+    );
+    final request = CallToolRequest(
+      name: 'task',
+      meta: MetaWithProgressToken(progressToken: ProgressToken('token')),
+    );
+    final progress = <num>[];
+    var streamClosed = false;
+    harness.connection
+        .onProgress(request)
+        .listen(
+          (notification) => progress.add(notification.progress),
+          onDone: () => streamClosed = true,
+        );
+
+    await harness.connection.callTool(request);
+    await pumpEventQueue();
+
+    expect(harness.requests, hasLength(2));
+    expect(harness.progressSent, 2);
+    expect(progress, [1, 2]);
+    expect(streamClosed, isTrue);
+  });
+
+  test('closes the progress stream once the retries stop', () async {
+    final harness = _WireHarness(
+      MCPClient(Implementation(name: 'test client', version: '0.1.0')),
+      (request, requestNumber) => {
+        'resultType': 'input_required',
+        'requestState': 'still-waiting',
+      },
+      sendProgress: true,
+    );
+    final request = CallToolRequest(
+      name: 'task',
+      meta: MetaWithProgressToken(progressToken: ProgressToken('token')),
+    );
+    final progress = <num>[];
+    var streamClosed = false;
+    harness.connection
+        .onProgress(request)
+        .listen(
+          (notification) => progress.add(notification.progress),
+          onDone: () => streamClosed = true,
+        );
+
+    await expectLater(
+      harness.connection.callTool(request),
+      throwsA(isA<StateError>()),
+    );
+    await pumpEventQueue();
+
+    expect(harness.requests, hasLength(11));
+    expect(
+      harness.requests.map((request) => _params(request)['_meta']),
+      everyElement({'progressToken': 'token'}),
+    );
+    expect(progress, hasLength(11));
+    expect(streamClosed, isTrue);
+  });
 }
 
 Map<String, Object?> _params(Map<String, Object?> request) =>
@@ -470,9 +543,18 @@ typedef _Responder =
 final class _WireHarness {
   final MCPClient client;
   final _Responder _respond;
+
+  /// Whether to answer a request carrying a progress token with one progress
+  /// notification before its result.
+  final bool sendProgress;
+
   final _incoming = StreamController<Map<String, Object?>>();
   final _outgoing = StreamController<Map<String, Object?>>();
   final requests = <Map<String, Object?>>[];
+
+  /// How many progress notifications [sendProgress] has sent so far.
+  int progressSent = 0;
+
   late final ServerConnection connection;
   late final StreamSubscription<Map<String, Object?>> _subscription;
 
@@ -480,6 +562,7 @@ final class _WireHarness {
     this.client,
     this._respond, {
     ProtocolVersion? protocolVersion = ProtocolVersion.v2026_07_28,
+    this.sendProgress = false,
   }) {
     connection = client.connectServer(
       StreamChannel.withGuarantees(_incoming.stream, _outgoing.sink),
@@ -490,6 +573,14 @@ final class _WireHarness {
     }
     _subscription = _outgoing.stream.listen((request) {
       requests.add(request);
+      final token = (_params(request)['_meta'] as Map?)?['progressToken'];
+      if (sendProgress && token != null) {
+        _incoming.add({
+          'jsonrpc': '2.0',
+          'method': ProgressNotification.methodName,
+          'params': {'progressToken': token, 'progress': ++progressSent},
+        });
+      }
       _incoming.add({
         'jsonrpc': '2.0',
         'id': request['id'],
