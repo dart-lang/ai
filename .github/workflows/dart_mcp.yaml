@@ -43,4 +43,4 @@ jobs:
 
       - run: dart pub get
 
-      - run: dart test -p chrome -c dart2wasm,dart2js,kernel,exe
+      - run: dart test -p vm -c dart2wasm,dart2js,kernel,exe
