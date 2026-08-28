@@ -614,7 +614,7 @@ void main() {
     await expectLater(
       harness.connection.callTool(CallToolRequest(name: 'task')),
       throwsA(
-        isA<StateError>().having(
+        isA<ArgumentError>().having(
           (error) => error.message,
           'message',
           allOf(contains('input_required'), contains('10')),
@@ -688,7 +688,7 @@ void main() {
 
     await expectLater(
       harness.connection.callTool(request),
-      throwsA(isA<StateError>()),
+      throwsA(isA<ArgumentError>()),
     );
     await pumpEventQueue();
 

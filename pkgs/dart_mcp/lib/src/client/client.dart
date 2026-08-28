@@ -456,7 +456,7 @@ base class ServerConnection extends MCPBase {
       round++
     ) {
       if (round == _maxInputRequiredRounds) {
-        throw StateError(
+        throw ArgumentError(
           'The server returned `${ResultTypes.inputRequired}` after '
           '$_maxInputRequiredRounds retries for `$methodName`. Expected '
           '`${ResultTypes.complete}`.',
