@@ -520,8 +520,8 @@ base class ServerConnection extends MCPBase {
         if (serverInfo == null) {
           throw StateError(
             'The server sent a sampling input request, but this connection '
-            'has no `serverInfo` to give the handler. Only `initialize` fills '
-            'it in, and 2026-07-28 has no handshake to run.',
+            'has no `serverInfo` to give the handler. Set it alongside '
+            '`protocolVersion` when your transport settles the version.',
           );
         }
         return () async =>
