@@ -132,7 +132,7 @@ base class MCPBase {
   /// Sends [request] to the peer like [sendRequest] does, but leaves any
   /// progress stream for it open.
   ///
-  /// This is for a caller which sends several requests under one progress
+  /// This is for a caller that sends several requests under one progress
   /// token, such as an `input_required` retry. That caller owns the token and
   /// hands it back with [closeProgress] once it stops sending.
   @protected

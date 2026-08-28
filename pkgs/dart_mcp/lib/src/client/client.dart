@@ -144,9 +144,6 @@ base class ServerConnection extends MCPBase {
   final RootsSupport? _rootsSupport;
 
   /// Maximum number of automatic retries for an `input_required` result.
-  ///
-  /// This prevents an unbounded loop and matches the TypeScript and Python SDK
-  /// defaults.
   static const _maxInputRequiredRounds = 10;
 
   @override
@@ -457,8 +454,7 @@ base class ServerConnection extends MCPBase {
           '`${Keys.inputRequests}` or `${Keys.requestState}`.',
         );
       }
-      // TODO: Pace a leg carrying only request state, which nothing else slows
-      // down, the way the TypeScript and Python SDKs do.
+      // TODO: Pace a retry for a result that carries no input requests.
       if (inputRequests != null) {
         final handlers = [
           for (final entry in inputRequests.entries)
