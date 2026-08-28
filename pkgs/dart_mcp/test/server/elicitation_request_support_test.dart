@@ -148,7 +148,10 @@ void main() {
       expect(_errorCode(result!), error_code.INTERNAL_ERROR);
       expect(
         (result[Keys.error] as Map<String, Object?>)[Keys.message],
-        contains('2026-07-28 does not have elicitation/create'),
+        allOf(
+          contains('2026-07-28 does not have elicitation/create'),
+          contains('InputRequiredResult'),
+        ),
       );
     }
   });
@@ -169,8 +172,13 @@ void main() {
       expect(_errorCode(result!), error_code.INTERNAL_ERROR);
       expect(
         (result[Keys.error] as Map<String, Object?>)[Keys.message],
-        contains(
-          '${protocolVersion.versionString} does not have elicitation/create',
+        allOf(
+          contains(
+            '${protocolVersion.versionString} does not have elicitation/create',
+          ),
+          // Neither revision has an `InputRequiredResult` to send instead, so
+          // the error must not send the caller after one.
+          isNot(contains('InputRequiredResult')),
         ),
       );
     }

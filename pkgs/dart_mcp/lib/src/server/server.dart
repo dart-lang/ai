@@ -344,12 +344,19 @@ abstract base class MCPServer extends MCPBase {
 /// server can make of a client end up here on that revision.
 void _rejectRemovedMethod(String method, ProtocolVersion protocolVersion) {
   if (protocolVersion.methodIsValid(method)) return;
+  // Only a revision which has `InputRequiredResult` can be pointed at it, and
+  // `elicit` also lands here on the revisions before 2025-06-18 added
+  // `elicitation/create`.
+  final replacement =
+      protocolVersion >= ProtocolVersion.v2026_07_28
+          ? ' Ask the client for input with an InputRequiredResult on '
+              '${CallToolRequest.methodName}, ${GetPromptRequest.methodName}, '
+              'or ${ReadResourceRequest.methodName} instead.'
+          : '';
   throw RpcException(
     error_code.INTERNAL_ERROR,
-    'Protocol version ${protocolVersion.versionString} does not have $method. '
-    'From 2026-07-28 a server asks the client for input with an '
-    'InputRequiredResult on ${CallToolRequest.methodName}, '
-    '${GetPromptRequest.methodName}, or ${ReadResourceRequest.methodName}.',
+    'Protocol version ${protocolVersion.versionString} does not have '
+    '$method.$replacement',
   );
 }
 
