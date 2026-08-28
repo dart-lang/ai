@@ -71,17 +71,11 @@ base mixin ElicitationRequestSupport on LoggingSupport {
     switch (request.mode) {
       case ElicitationMode.url:
         if (!supportsUrlElicitation) {
-          throw _missingClientCapability(
-            'elicitation.url',
-            ClientCapabilities(elicitation: ElicitationCapability(url: {})),
-          );
+          throw _missingUrlElicitation;
         }
       case ElicitationMode.form:
         if (!supportsFormElicitation) {
-          throw _missingClientCapability(
-            'elicitation.form',
-            ClientCapabilities(elicitation: ElicitationCapability(form: {})),
-          );
+          throw _missingFormElicitation;
         }
     }
     return sendRequest(ElicitRequest.methodName, request);

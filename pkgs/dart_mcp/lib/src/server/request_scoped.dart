@@ -390,10 +390,7 @@ RpcException? _missingInputRequestCapability(
   switch (method) {
     case ListRootsRequest.methodName:
       if (capabilities.supportsRoots) return null;
-      return _missingClientCapability(
-        'roots',
-        ClientCapabilities(roots: RootsCapabilities()),
-      );
+      return _missingRoots;
     case CreateMessageRequest.methodName:
       final usesTools =
           params is Map &&
@@ -401,29 +398,17 @@ RpcException? _missingInputRequestCapability(
               params.containsKey(Keys.toolChoice));
       if (!usesTools) {
         if (capabilities.supportsSampling) return null;
-        return _missingClientCapability(
-          'sampling',
-          ClientCapabilities(sampling: {}),
-        );
+        return _missingSampling;
       }
       if (capabilities.supportsSamplingTools) return null;
-      return _missingClientCapability(
-        'sampling.tools',
-        ClientCapabilities(sampling: {Keys.tools: <String, Object?>{}}),
-      );
+      return _missingSamplingTools;
     case ElicitRequest.methodName:
       if (params is Map && params[Keys.mode] == ElicitationMode.url.name) {
         if (capabilities.supportsUrlElicitation) return null;
-        return _missingClientCapability(
-          'elicitation.url',
-          ClientCapabilities(elicitation: ElicitationCapability(url: {})),
-        );
+        return _missingUrlElicitation;
       }
       if (capabilities.supportsFormElicitation) return null;
-      return _missingClientCapability(
-        'elicitation.form',
-        ClientCapabilities(elicitation: ElicitationCapability(form: {})),
-      );
+      return _missingFormElicitation;
     default:
       return null;
   }

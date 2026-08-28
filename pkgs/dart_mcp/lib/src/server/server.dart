@@ -301,10 +301,7 @@ abstract base class MCPServer extends MCPBase {
   /// which the 2026-07-28 revision requires of that error.
   Future<ListRootsResult> listRoots([ListRootsRequest? request]) async {
     if (!supportsRoots) {
-      throw _missingClientCapability(
-        'roots',
-        ClientCapabilities(roots: RootsCapabilities()),
-      );
+      throw _missingRoots;
     }
     return sendRequest(ListRootsRequest.methodName, request);
   }
@@ -324,10 +321,7 @@ abstract base class MCPServer extends MCPBase {
     CreateMessageRequest request,
   ) async {
     if (!supportsSampling) {
-      throw _missingClientCapability(
-        'sampling',
-        ClientCapabilities(sampling: {}),
-      );
+      throw _missingSampling;
     }
     return sendRequest(CreateMessageRequest.methodName, request);
   }
@@ -343,6 +337,34 @@ RpcException _missingClientCapability(
   McpErrorCodes.missingRequiredClientCapability,
   'The client did not declare the $capability capability',
   data: {Keys.requiredCapabilities: required},
+);
+
+/// The refusal for a client that did not declare `roots`.
+RpcException get _missingRoots => _missingClientCapability(
+  'roots',
+  ClientCapabilities(roots: RootsCapabilities()),
+);
+
+/// The refusal for a client that did not declare `sampling`.
+RpcException get _missingSampling =>
+    _missingClientCapability('sampling', ClientCapabilities(sampling: {}));
+
+/// The refusal for a client whose `sampling` left out `tools`.
+RpcException get _missingSamplingTools => _missingClientCapability(
+  'sampling.tools',
+  ClientCapabilities(sampling: {Keys.tools: <String, Object?>{}}),
+);
+
+/// The refusal for a client that did not declare `elicitation.form`.
+RpcException get _missingFormElicitation => _missingClientCapability(
+  'elicitation.form',
+  ClientCapabilities(elicitation: ElicitationCapability(form: {})),
+);
+
+/// The refusal for a client that did not declare `elicitation.url`.
+RpcException get _missingUrlElicitation => _missingClientCapability(
+  'elicitation.url',
+  ClientCapabilities(elicitation: ElicitationCapability(url: {})),
 );
 
 /// The client capability reads a server makes, on the capabilities themselves
