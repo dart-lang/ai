@@ -8,6 +8,9 @@ import 'package:dart_mcp/client.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'package:test/test.dart';
 
+/// Timers can fire a little early where the platform clock is coarse.
+const _timerSlack = Duration(milliseconds: 15);
+
 void main() {
   test('does not interpret input-required results before 2026-07-28', () async {
     final client = MCPClient(
@@ -796,7 +799,7 @@ void main() {
 
     await harness.connection.callTool(CallToolRequest(name: 'task'));
 
-    expect(stopwatch.elapsed, greaterThanOrEqualTo(delay));
+    expect(stopwatch.elapsed, greaterThanOrEqualTo(delay - _timerSlack));
     expect(harness.requests, hasLength(2));
   });
 
@@ -822,7 +825,7 @@ void main() {
 
     await harness.connection.callTool(CallToolRequest(name: 'task'));
 
-    expect(stopwatch.elapsed, greaterThanOrEqualTo(delay));
+    expect(stopwatch.elapsed, greaterThanOrEqualTo(delay - _timerSlack));
     expect(stopwatch.elapsed, lessThan(const Duration(milliseconds: 200)));
     expect(harness.requests, hasLength(2));
   });
@@ -909,7 +912,7 @@ void main() {
 
       await harness.connection.callTool(CallToolRequest(name: 'task'));
 
-      expect(stopwatch.elapsed, greaterThanOrEqualTo(delay));
+      expect(stopwatch.elapsed, greaterThanOrEqualTo(delay - _timerSlack));
       expect(harness.requests, hasLength(2));
       expect(_params(harness.requests.last), isNot(contains('inputResponses')));
     },
