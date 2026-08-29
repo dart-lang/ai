@@ -641,6 +641,44 @@ void main() {
       },
     );
 
+    test(
+      'rejects a tools/call with the wrong shape before opening the POST',
+      () async {
+        // Bind and close so a POST would fail to connect. The shape error
+        // must be raised before postUrl, or the error would be the
+        // connection failure instead.
+        final wireServer = await ServerSocket.bind(
+          InternetAddress.loopbackIPv4,
+          0,
+        );
+        final closedUri = Uri.http(
+          '${wireServer.address.host}:${wireServer.port}',
+          '/mcp',
+        );
+        await wireServer.close();
+
+        final channel = streamableHttpClientChannel(
+          closedUri,
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          clientCapabilities: ClientCapabilities(),
+        );
+        addTearDown(() => channel.sink.close());
+        final response = channel.stream.first;
+        channel.sink.add({
+          Keys.jsonrpc: '2.0',
+          Keys.id: 46,
+          Keys.method: callTool,
+          Keys.params: <dynamic, dynamic>{
+            Keys.name: 'any',
+            Keys.arguments: <String, Object?>{},
+          },
+        });
+
+        final error = (await response)[Keys.error] as Map<String, Object?>;
+        expect(error[Keys.message], contains('(${Keys.params})'));
+      },
+    );
+
     test('emits a JSON-RPC error from a 404 response', () async {
       final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       addTearDown(() => wireServer.close(force: true));

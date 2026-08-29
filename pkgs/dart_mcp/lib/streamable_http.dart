@@ -6,9 +6,9 @@
 /// Model Context Protocol specification,
 /// https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http.
 ///
-/// Every POST carries a single JSON-RPC request or notification along with its
-/// own client context. There is no session state between requests. A request
-/// is answered on an SSE response stream if its handler emits related
+/// Every POST carries a single JSON-RPC request or notification along with
+/// its own client context; there is no session state between requests. A
+/// request is answered on an SSE response stream if its handler emits related
 /// notifications, and with a JSON body otherwise. The list and resource change
 /// notifications reach `onNotification` alone.
 ///
@@ -38,6 +38,9 @@ export 'src/utils/sse.dart' show sseMessageStream;
 /// `MCP-Protocol-Version`. [clientCapabilities] and [clientInfo] merge into
 /// `_meta`. JSON replies use `jsonDecode` and SSE replies use
 /// [sseMessageStream]. A failed POST is a JSON-RPC error for that request id.
+/// A `202` on a notification is not an inbound message. Valid `x-mcp-header`
+/// annotations from `tools/list` are mirrored on later `tools/call` requests;
+/// invalid tool definitions are dropped. Does not send `initialize`.
 StreamChannel<Map<String, Object?>> streamableHttpClientChannel(
   Uri uri, {
   required ProtocolVersion protocolVersion,
