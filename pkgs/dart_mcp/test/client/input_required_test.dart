@@ -773,6 +773,148 @@ void main() {
     expect(harness.requests, hasLength(13));
   });
 
+  test('waits before a retry that carries no input requests', () async {
+    final harness = _WireHarness(
+      MCPClient(Implementation(name: 'test client', version: '0.1.0')),
+      (request, requestNumber) =>
+          requestNumber == 1
+              ? {
+                'resultType': 'input_required',
+                'requestState': 'still-waiting',
+              }
+              : {
+                'resultType': 'complete',
+                'content': [
+                  {'type': 'text', 'text': 'done'},
+                ],
+              },
+      keepRetryDelay: true,
+    );
+    final delay = const Duration(milliseconds: 250);
+    expect(harness.connection.inputRequiredRetryDelay, delay);
+    final stopwatch = Stopwatch()..start();
+
+    await harness.connection.callTool(CallToolRequest(name: 'task'));
+
+    expect(stopwatch.elapsed, greaterThanOrEqualTo(delay));
+    expect(harness.requests, hasLength(2));
+  });
+
+  test('waits the delay a caller moved', () async {
+    final harness = _WireHarness(
+      MCPClient(Implementation(name: 'test client', version: '0.1.0')),
+      (request, requestNumber) =>
+          requestNumber == 1
+              ? {
+                'resultType': 'input_required',
+                'requestState': 'still-waiting',
+              }
+              : {
+                'resultType': 'complete',
+                'content': [
+                  {'type': 'text', 'text': 'done'},
+                ],
+              },
+    );
+    final delay = const Duration(milliseconds: 50);
+    harness.connection.inputRequiredRetryDelay = delay;
+    final stopwatch = Stopwatch()..start();
+
+    await harness.connection.callTool(CallToolRequest(name: 'task'));
+
+    expect(stopwatch.elapsed, greaterThanOrEqualTo(delay));
+    expect(stopwatch.elapsed, lessThan(const Duration(milliseconds: 200)));
+    expect(harness.requests, hasLength(2));
+  });
+
+  test('does not wait when the retry delay is null', () async {
+    final harness = _WireHarness(
+      MCPClient(Implementation(name: 'test client', version: '0.1.0')),
+      (request, requestNumber) =>
+          requestNumber == 1
+              ? {
+                'resultType': 'input_required',
+                'requestState': 'still-waiting',
+              }
+              : {
+                'resultType': 'complete',
+                'content': [
+                  {'type': 'text', 'text': 'done'},
+                ],
+              },
+    );
+    expect(harness.connection.inputRequiredRetryDelay, isNull);
+    final stopwatch = Stopwatch()..start();
+
+    await harness.connection.callTool(CallToolRequest(name: 'task'));
+    stopwatch.stop();
+
+    expect(stopwatch.elapsed, lessThan(const Duration(milliseconds: 50)));
+    expect(harness.requests, hasLength(2));
+  });
+
+  test('does not wait before a retry that carries input requests', () async {
+    final client =
+        _InputClient()
+          ..addRoot(Root(uri: 'file:///workspace', name: 'workspace'));
+    final harness = _WireHarness(client, (request, requestNumber) {
+      if (requestNumber == 1) {
+        return {
+          'resultType': 'input_required',
+          'inputRequests': {
+            'roots': {'method': 'roots/list', 'params': <String, Object?>{}},
+          },
+        };
+      }
+      return {
+        'resultType': 'complete',
+        'content': [
+          {'type': 'text', 'text': 'done'},
+        ],
+      };
+    });
+    final delay = const Duration(milliseconds: 400);
+    harness.connection.inputRequiredRetryDelay = delay;
+    final stopwatch = Stopwatch()..start();
+
+    await harness.connection.callTool(CallToolRequest(name: 'task'));
+
+    expect(stopwatch.elapsed, lessThan(delay));
+    expect(harness.requests, hasLength(2));
+    expect(client.handled, ['roots/list']);
+  });
+
+  test(
+    'waits before a retry that carries an empty input request map',
+    () async {
+      final harness = _WireHarness(
+        MCPClient(Implementation(name: 'test client', version: '0.1.0')),
+        (request, requestNumber) =>
+            requestNumber == 1
+                ? {
+                  'resultType': 'input_required',
+                  'inputRequests': <String, Object?>{},
+                  'requestState': 'still-waiting',
+                }
+                : {
+                  'resultType': 'complete',
+                  'content': [
+                    {'type': 'text', 'text': 'done'},
+                  ],
+                },
+      );
+      final delay = const Duration(milliseconds: 50);
+      harness.connection.inputRequiredRetryDelay = delay;
+      final stopwatch = Stopwatch()..start();
+
+      await harness.connection.callTool(CallToolRequest(name: 'task'));
+
+      expect(stopwatch.elapsed, greaterThanOrEqualTo(delay));
+      expect(harness.requests, hasLength(2));
+      expect(_params(harness.requests.last), isNot(contains('inputResponses')));
+    },
+  );
+
   test('reports progress from every round under the original token', () async {
     final harness = _WireHarness(
       MCPClient(Implementation(name: 'test client', version: '0.1.0')),
@@ -911,11 +1053,15 @@ final class _WireHarness {
     ProtocolVersion? protocolVersion = ProtocolVersion.v2026_07_28,
     this.sendProgress = false,
     bool withServerInfo = true,
+    bool keepRetryDelay = false,
   }) {
     connection = client.connectServer(
       StreamChannel.withGuarantees(_incoming.stream, _outgoing.sink),
     );
     connection.protocolVersion = protocolVersion;
+    if (!keepRetryDelay) {
+      connection.inputRequiredRetryDelay = null;
+    }
     if (protocolVersion != null && withServerInfo) {
       connection.serverInfo = Implementation(name: 'wire server', version: '1');
     }
