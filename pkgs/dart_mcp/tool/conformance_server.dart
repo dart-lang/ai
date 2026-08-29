@@ -444,11 +444,21 @@ base class _ConformanceServer extends MCPServer
     );
   }
 
-  Future<CallToolResult> _requireSampling(CallToolRequest _) async {
-    if (!supportsSampling) {
-      await createMessage(CreateMessageRequest(messages: [], maxTokens: 1));
+  CallToolResult _requireSampling(CallToolRequest request) {
+    final text = _sampledText(request, 'capability_sample');
+    if (text != null) {
+      return _completeTool('Success');
     }
-    return CallToolResult(content: [TextContent(text: 'Success')]);
+    return _toolInputRequired(
+      InputRequiredResult(
+        inputRequests: {
+          'capability_sample': _sample(
+            'Need sampling to continue',
+            maxTokens: 1,
+          ),
+        },
+      ),
+    );
   }
 
   ReadResourceResult? _readTemplate(ReadResourceRequest request) {
