@@ -109,6 +109,30 @@ void main() {
     expect((await listening).subscriptionId, 'a');
   });
 
+  test('does not keep a reserved id after a malformed filter', () async {
+    environment.server.nextSubscriptionId = RequestId('leaked');
+    await expectLater(
+      environment.serverConnection.sendRequest(
+        SubscriptionsListenRequest.methodName,
+        SubscriptionsListenRequest.fromMap(<String, Object?>{
+          Keys.notifications: 42,
+        }),
+      ),
+      throwsA(
+        isA<RpcException>().having(
+          (e) => e.code,
+          'code',
+          error_code.INVALID_PARAMS,
+        ),
+      ),
+    );
+    expect(
+      environment.server.nextSubscriptionId,
+      isNull,
+      reason: 'a rejected request must not name the next one',
+    );
+  });
+
   test(
     'refuses a duplicate subscription id and keeps the first open',
     () async {

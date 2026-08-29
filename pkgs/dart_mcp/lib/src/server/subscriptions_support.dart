@@ -83,6 +83,8 @@ base mixin SubscriptionsSupport on MCPServer {
   FutureOr<SubscriptionsListenResult> handleSubscriptionsListen(
     SubscriptionsListenRequest request,
   ) async {
+    final subscriptionId = nextSubscriptionId;
+    nextSubscriptionId = null;
     final fields = request as Map<String, Object?>;
     final notifications = fields[Keys.notifications];
     if (notifications is! Map<String, Object?>) {
@@ -139,8 +141,6 @@ base mixin SubscriptionsSupport on MCPServer {
               ? requestedResources
               : null,
     );
-    final subscriptionId = nextSubscriptionId;
-    nextSubscriptionId = null;
     if (subscriptionId == null) {
       throw RpcException(
         error_code.INVALID_REQUEST,

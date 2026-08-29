@@ -694,6 +694,7 @@ class _Answer {
   final HttpResponse _response;
   final Duration? keepAliveInterval;
   bool _committed = false;
+  bool _finished = false;
   Timer? _firstKeepAlive;
   Timer? _keepAlive;
 
@@ -726,8 +727,10 @@ class _Answer {
     }
   }
 
-  /// Sends [result] and closes.
+  /// Sends [result] and closes. A second call is ignored.
   Future<void> finish(Map<String, Object?> result) async {
+    if (_finished) return;
+    _finished = true;
     cancel();
     if (_committed) {
       _response.write(_sseEvent(result));

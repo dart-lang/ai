@@ -787,6 +787,63 @@ void main() {
       expect(errorMessage(text), contains('must be a JSON object'));
       expect(text, isNot(contains('"stack"')));
     });
+
+    test('does not throw when finish runs after initialize already closed '
+        'the response', () async {
+      final failing = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => failing.close(force: true));
+      final uncaught = <Object>[];
+      final failure = Completer<Object>();
+      runZonedGuarded(() {
+        failing.listen(
+          (request) => handleStreamableHttpRequest(
+            request,
+            _AckThenFailInitialize.new,
+          ).onError<Object>((error, _) {
+            if (!failure.isCompleted) failure.complete(error);
+          }),
+        );
+      }, (error, _) => uncaught.add(error));
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(
+        Uri.http('${failing.address.host}:${failing.port}', '/mcp'),
+      );
+      headers(
+        SubscriptionsListenRequest.methodName,
+      ).forEach(request.headers.set);
+      request.write(
+        jsonEncode(
+          body(
+            SubscriptionsListenRequest.methodName,
+            params: {
+              Keys.notifications: {Keys.toolsListChanged: true},
+            },
+          ),
+        ),
+      );
+      final response = await request.close().timeout(
+        const Duration(seconds: 5),
+      );
+      final text = await utf8.decodeStream(response);
+      await pumpEventQueue(times: 20);
+
+      expect(response.statusCode, HttpStatus.internalServerError);
+      expect(errorCode(text), error_code.INTERNAL_ERROR);
+      expect(
+        await failure.future,
+        isA<StateError>().having(
+          (e) => e.message,
+          'message',
+          'initialize failed after announcing',
+        ),
+      );
+      expect(
+        uncaught,
+        isEmpty,
+        reason: 'a second finish must not throw after the response is closed',
+      );
+    });
   });
 
   group('notifications and responses', () {
@@ -2793,6 +2850,24 @@ base class _NoisyFailingServer extends _HttpTestServer {
         data: 'while starting up',
       ),
     );
+    throw StateError('initialize failed after announcing');
+  }
+}
+
+/// Sends a nameless acknowledgement while initializing, then fails, so the
+/// listen error path and the initialize error path both close the response.
+base class _AckThenFailInitialize extends _HttpTestServer {
+  _AckThenFailInitialize(super.channel);
+
+  @override
+  FutureOr<ServerCapabilities> initialize(
+    MCPServerInitialization initialization,
+  ) async {
+    await super.initialize(initialization);
+    sendNotification(SubscriptionsAcknowledgedNotification.methodName);
+    // Let the listen error path close the response before this throw
+    // reaches the initialize error path, so both call finish.
+    await pumpEventQueue(times: 20);
     throw StateError('initialize failed after announcing');
   }
 }
