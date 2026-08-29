@@ -63,6 +63,9 @@ final class _ClientResponseCache {
   final _entries = <_CacheKey, _CacheEntry>{};
   final _pending = <_CacheKey, Object>{};
   final _clock = Stopwatch()..start();
+  Duration _elapsedOffset = Duration.zero;
+
+  Duration get _elapsed => _clock.elapsed + _elapsedOffset;
 
   Future<T> sendRequest<T extends Result?>(
     String methodName,
@@ -98,7 +101,7 @@ final class _ClientResponseCache {
   ) async {
     final entry = _entries[key];
     if (entry != null) {
-      if (entry.expiresAt.compareTo(_clock.elapsed) > 0) {
+      if (entry.expiresAt.compareTo(_elapsed) > 0) {
         return _copyMap(entry.result) as T;
       }
       _entries.remove(key);
@@ -108,7 +111,7 @@ final class _ClientResponseCache {
     _pending[key] = token;
     try {
       final result = await send();
-      final receivedAt = _clock.elapsed;
+      final receivedAt = _elapsed;
       if (result == null || _pending[key] != token) return result;
 
       final resultMap = result as Map<String, Object?>;

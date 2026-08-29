@@ -567,6 +567,33 @@ void main() {
       expect(server.calls[ListToolsRequest.methodName], 1);
     });
 
+    test('clamps a ttl past a day', () async {
+      // 36 hours sits between the one-day cap and a two-day cap, so a
+      // 48-hour clamp would still have this entry after a day.
+      server.ttlMs = const Duration(hours: 36).inMilliseconds;
+
+      await listTools();
+      connection.elapseCachedResponses(
+        const Duration(hours: 24) - const Duration(seconds: 1),
+      );
+      await listTools();
+      expect(server.calls[ListToolsRequest.methodName], 1);
+
+      connection.elapseCachedResponses(const Duration(seconds: 2));
+      await listTools();
+      expect(server.calls[ListToolsRequest.methodName], 2);
+    });
+
+    test('drops cached entries on shutdown', () async {
+      await listTools();
+      await listTools();
+      expect(server.calls[ListToolsRequest.methodName], 1);
+      expect(connection.cachedResponseCount, 1);
+
+      await connection.shutdown();
+      expect(connection.cachedResponseCount, 0);
+    });
+
     test('delivers a resource notification which leaves out its uri', () async {
       final updates = <ResourceUpdatedNotification>[];
       final subscription = connection.resourceUpdated.listen(updates.add);

@@ -120,6 +120,16 @@ base class MCPClient {
 base class ServerConnection extends MCPBase {
   final _responseCache = _ClientResponseCache();
 
+  /// The number of stored responses on this connection.
+  @visibleForTesting
+  int get cachedResponseCount => _responseCache._entries.length;
+
+  /// Advances the cache clock by [duration].
+  @visibleForTesting
+  void elapseCachedResponses(Duration duration) {
+    _responseCache._elapsedOffset += duration;
+  }
+
   /// The version of the protocol this connection speaks, or `null` until one
   /// is settled.
   ///
