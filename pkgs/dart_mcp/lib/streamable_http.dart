@@ -188,14 +188,14 @@ Stream<Map<String, Object?>> _sendStreamableHttpMessage(
     );
   } catch (error) {
     if (!message.containsKey(Keys.id)) return;
-    yield {
+    yield state.recordIncoming({
       Keys.jsonrpc: '2.0',
       Keys.id: message[Keys.id],
       Keys.error: {
         Keys.code: error_code.SERVER_ERROR,
         Keys.message: error.toString(),
       },
-    };
+    });
   }
 }
 

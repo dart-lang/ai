@@ -395,6 +395,75 @@ void main() {
       });
     });
 
+    test('does not drop tools from a later result that reuses a failed '
+        'tools/list id', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      final invalidTool = {
+        Keys.name: 'invalid',
+        Keys.inputSchema: {
+          Keys.type: 'object',
+          Keys.properties: {
+            'ratio': {Keys.type: 'number', Keys.xMcpHeader: 'Ratio'},
+          },
+        },
+      };
+      wireServer.listen((request) async {
+        final sent =
+            jsonDecode(await utf8.decodeStream(request))
+                as Map<String, Object?>;
+        if (sent[Keys.method] == listTools) {
+          request.response
+            ..statusCode = HttpStatus.badGateway
+            ..headers.contentType = ContentType.text
+            ..write('upstream stopped');
+        } else {
+          request.response
+            ..headers.contentType = ContentType.json
+            ..write(
+              jsonEncode({
+                Keys.jsonrpc: '2.0',
+                Keys.id: 47,
+                Keys.result: {
+                  Keys.tools: [invalidTool],
+                },
+              }),
+            );
+        }
+        await request.response.close();
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final iterator = StreamIterator(channel.stream);
+      addTearDown(iterator.cancel);
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 47,
+        Keys.method: listTools,
+      });
+      expect(await iterator.moveNext(), isTrue);
+      expect(iterator.current[Keys.error], isNotNull);
+
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 47,
+        Keys.method: 'test/other',
+      });
+      expect(await iterator.moveNext(), isTrue);
+      expect(iterator.current, {
+        Keys.jsonrpc: '2.0',
+        Keys.id: 47,
+        Keys.result: {
+          Keys.tools: [invalidTool],
+        },
+      });
+    });
+
     test('mirrors tool parameters learned from tools/list', () async {
       final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       addTearDown(() => wireServer.close(force: true));
