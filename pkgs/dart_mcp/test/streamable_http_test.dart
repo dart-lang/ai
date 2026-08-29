@@ -1268,7 +1268,7 @@ void main() {
       );
       expect(status, 200);
       expect(errorCode(text), isNull);
-      expect(servers.single.listToolsCalls, 0);
+      expect((servers.single as _HttpTestServer).listToolsCalls, 0);
     });
 
     test('rejects arguments that are not an object', () async {
