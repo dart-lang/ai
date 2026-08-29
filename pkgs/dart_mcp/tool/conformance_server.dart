@@ -129,6 +129,13 @@ final _jsonSchema = ObjectSchema.fromMap({
 });
 
 /// Runs the server fixture used by the MCP conformance suite.
+///
+/// This prints an endpoint to stdout. Run the suite against that endpoint with
+///
+/// ```sh
+/// npx @modelcontextprotocol/conformance@0.2.0-alpha.11 \
+///   server --url ENDPOINT --requirements 2026-07-28
+/// ```
 Future<void> main(List<String> arguments) async {
   final port = arguments.isEmpty ? 0 : int.parse(arguments.single);
   final httpServer = await HttpServer.bind(InternetAddress.loopbackIPv4, port);
