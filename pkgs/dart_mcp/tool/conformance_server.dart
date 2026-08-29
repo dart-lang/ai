@@ -151,23 +151,23 @@ Future<void> main(List<String> arguments) async {
 }
 
 Future<void> _handleRequest(HttpRequest request) async {
-  if (request.uri.path != _path) {
-    request.response
-      ..statusCode = HttpStatus.notFound
-      ..contentLength = 0;
-    await request.response.close();
-    return;
-  }
-
-  if (!_hasLocalTarget(request)) {
-    request.response
-      ..statusCode = HttpStatus.forbidden
-      ..contentLength = 0;
-    await request.response.close();
-    return;
-  }
-
   try {
+    if (request.uri.path != _path) {
+      request.response
+        ..statusCode = HttpStatus.notFound
+        ..contentLength = 0;
+      await request.response.close();
+      return;
+    }
+
+    if (!_hasLocalTarget(request)) {
+      request.response
+        ..statusCode = HttpStatus.forbidden
+        ..contentLength = 0;
+      await request.response.close();
+      return;
+    }
+
     await handleStreamableHttpRequest(request, _ConformanceServer.new);
   } catch (error) {
     stderr.writeln(error);

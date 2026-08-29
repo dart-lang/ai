@@ -36,16 +36,22 @@ void main() {
       await errorSubscription.cancel();
     });
 
-    final endpoint = Uri.parse(
-      await process.stdout
-          .transform(utf8.decoder)
-          .transform(const LineSplitter())
-          .first
-          .timeout(
-            const Duration(seconds: 30),
-            onTimeout: () => fail('Server did not report an endpoint: $errors'),
-          ),
-    );
+    // Take a list instead of the first element, since a server that exits
+    // before printing closes the stream empty, and reading the first element
+    // of an empty stream throws past the timeout below with stderr lost.
+    final reported = await process.stdout
+        .transform(utf8.decoder)
+        .transform(const LineSplitter())
+        .take(1)
+        .toList()
+        .timeout(
+          const Duration(seconds: 30),
+          onTimeout: () => fail('Server did not report an endpoint: $errors'),
+        );
+    if (reported.isEmpty) {
+      fail('Server exited before reporting an endpoint: $errors');
+    }
+    final endpoint = Uri.parse(reported.single);
 
     final tools = await _post(endpoint, 'tools/list');
     final toolsResult = tools['result'] as Map<String, Object?>;
