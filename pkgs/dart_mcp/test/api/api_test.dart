@@ -225,6 +225,19 @@ void main() {
         'streaming',
       );
     });
+    test('isInputRequired is true only for input_required results', () {
+      expect((<String, Object?>{} as Result).isInputRequired, false);
+      expect(
+        (<String, Object?>{'resultType': 'input_required'} as Result)
+            .isInputRequired,
+        true,
+      );
+      expect(
+        (<String, Object?>{'resultType': 'streaming'} as Result)
+            .isInputRequired,
+        false,
+      );
+    });
     test('cacheable result fields default when absent and parse known '
         'values', () {
       final empty = <String, Object?>{} as CacheableResult;

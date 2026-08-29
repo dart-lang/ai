@@ -88,14 +88,11 @@ void main() {
       (_) => InputRequiredResult(requestState: 'waiting'),
     );
 
-    expect(
-      await server.getPrompt(GetPromptRequest(name: 'needs input')),
-      isA<InputRequiredResult>().having(
-        (result) => result.requestState,
-        'requestState',
-        'waiting',
-      ),
+    final result = await server.getPrompt(
+      GetPromptRequest(name: 'needs input'),
     );
+    expect(result.isInputRequired, true);
+    expect((result as InputRequiredResult).requestState, 'waiting');
 
     await environment.shutdown();
   });
