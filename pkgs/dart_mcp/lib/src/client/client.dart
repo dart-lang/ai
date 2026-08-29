@@ -6,6 +6,8 @@ import 'dart:async';
 import 'dart:collection';
 
 import 'package:async/async.dart' show StreamExtensions;
+import 'package:collection/collection.dart';
+import 'package:json_rpc_2/error_code.dart' as error_code;
 import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_channel/stream_channel.dart';
@@ -16,6 +18,7 @@ import '../shared.dart';
 import '../utils/constants.dart';
 
 part 'elicitation_support.dart';
+part 'response_cache.dart';
 part 'roots_support.dart';
 part 'sampling_support.dart';
 
@@ -115,6 +118,8 @@ base class MCPClient {
 
 /// An active server connection.
 base class ServerConnection extends MCPBase {
+  final _responseCache = _ClientResponseCache();
+
   /// The version of the protocol this connection speaks, or `null` until one
   /// is settled.
   ///
@@ -292,24 +297,40 @@ base class ServerConnection extends MCPBase {
       });
     }
 
-    registerNotificationHandler(
+    registerNotificationHandler<PromptListChangedNotification?>(
       PromptListChangedNotification.methodName,
-      _promptListChangedController.sink.add,
+      (notification) {
+        _responseCache.invalidateMethod(ListPromptsRequest.methodName);
+        _promptListChangedController.sink.add(notification);
+      },
     );
 
-    registerNotificationHandler(
+    registerNotificationHandler<ToolListChangedNotification?>(
       ToolListChangedNotification.methodName,
-      _toolListChangedController.sink.add,
+      (notification) {
+        _responseCache.invalidateMethod(ListToolsRequest.methodName);
+        _toolListChangedController.sink.add(notification);
+      },
     );
 
-    registerNotificationHandler(
+    registerNotificationHandler<ResourceListChangedNotification?>(
       ResourceListChangedNotification.methodName,
-      _resourceListChangedController.sink.add,
+      (notification) {
+        _responseCache
+          ..invalidateMethod(ListResourcesRequest.methodName)
+          ..invalidateMethod(ListResourceTemplatesRequest.methodName);
+        _resourceListChangedController.sink.add(notification);
+      },
     );
 
-    registerNotificationHandler(
+    registerNotificationHandler<ResourceUpdatedNotification>(
       ResourceUpdatedNotification.methodName,
-      _resourceUpdatedController.sink.add,
+      (notification) {
+        // A notification which leaves `uri` out still reaches subscribers.
+        final uri = (notification as Map<String, Object?>)[Keys.uri];
+        if (uri is String) _responseCache.invalidateResource(uri);
+        _resourceUpdatedController.sink.add(notification);
+      },
     );
 
     registerNotificationHandler(
@@ -326,6 +347,7 @@ base class ServerConnection extends MCPBase {
   /// Close all connections and streams so the process can cleanly exit.
   @override
   Future<void> shutdown() async {
+    _responseCache.clear();
     await Future.wait([
       super.shutdown(),
       _promptListChangedController.close(),
@@ -334,6 +356,33 @@ base class ServerConnection extends MCPBase {
       _resourceUpdatedController.close(),
       _logController.close(),
     ]);
+  }
+
+  /// Sends a request to the server, and answers it from this connection's
+  /// response cache where the 2026-07-28 caching rules allow it.
+  ///
+  /// [sendRequest] and [sendRequestWithInputs] both go through here, so a
+  /// `resources/read` that later retries still consults the cache. Only a
+  /// request whose `_meta` names 2026-07-28 is cached. Cached answers drop
+  /// when the matching list-changed or resource-updated notification arrives,
+  /// when a paginated request reports its cursor is no longer valid, and on
+  /// [shutdown].
+  @override
+  Future<T> sendRequestKeepingProgress<T extends Result?>(
+    String methodName, [
+    Request? request,
+  ]) {
+    final meta = (request as Map<String, Object?>?)?[Keys.meta];
+    final version =
+        meta is Map<String, Object?> ? meta[Keys.protocolVersionMeta] : null;
+    if (version != ProtocolVersion.v2026_07_28.versionString) {
+      return super.sendRequestKeepingProgress<T>(methodName, request);
+    }
+    return _responseCache.sendRequest<T>(
+      methodName,
+      request,
+      () => super.sendRequestKeepingProgress<T>(methodName, request),
+    );
   }
 
   /// Called after a successful call to [initialize].
