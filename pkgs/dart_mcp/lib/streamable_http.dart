@@ -2,17 +2,18 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-/// The server side of the Streamable HTTP transport described by the
-/// 2026-07-28 revision of the Model Context Protocol specification,
+/// The Streamable HTTP transport described by the 2026-07-28 revision of the
+/// Model Context Protocol specification,
 /// https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http.
 ///
-/// Every POST carries a single JSON-RPC request or notification along with
-/// its own client context; there is no session state between requests. A
-/// request is answered on an SSE response stream if its handler emits related
+/// Every POST carries a single JSON-RPC request or notification along with its
+/// own client context. There is no session state between requests. A request
+/// is answered on an SSE response stream if its handler emits related
 /// notifications, and with a JSON body otherwise. The list and resource change
 /// notifications reach `onNotification` alone.
 ///
-/// A client can decode the SSE responses with `sseMessageStream`.
+/// A client posts with `streamableHttpClientChannel`. JSON replies use
+/// `jsonDecode` and SSE replies use `sseMessageStream`.
 library;
 
 import 'dart:convert';
@@ -21,12 +22,360 @@ import 'dart:io';
 import 'package:collection/collection.dart';
 import 'package:json_rpc_2/error_code.dart' as error_code;
 import 'package:json_rpc_2/json_rpc_2.dart';
+import 'package:stream_channel/stream_channel.dart';
+import 'package:stream_transform/stream_transform.dart';
 
 import 'server.dart';
 import 'src/utils/constants.dart';
 import 'src/utils/json_rpc_2_object.dart';
+import 'src/utils/sse.dart' show sseMessageStream;
 
 export 'src/utils/sse.dart' show sseMessageStream;
+
+/// Creates a [StreamChannel] which POSTs each JSON-RPC message to [uri].
+///
+/// [protocolVersion] must be 2026-07-28 and is written to `_meta` and
+/// `MCP-Protocol-Version`. [clientCapabilities] and [clientInfo] merge into
+/// `_meta`. JSON replies use `jsonDecode` and SSE replies use
+/// [sseMessageStream]. A failed POST is a JSON-RPC error for that request id.
+StreamChannel<Map<String, Object?>> streamableHttpClientChannel(
+  Uri uri, {
+  required ProtocolVersion protocolVersion,
+  required ClientCapabilities clientCapabilities,
+  Implementation? clientInfo,
+}) {
+  if (protocolVersion != ProtocolVersion.v2026_07_28) {
+    throw ArgumentError.value(
+      protocolVersion.versionString,
+      Keys.protocolVersion,
+      'The Streamable HTTP client channel only allows one of: '
+      '${ProtocolVersion.v2026_07_28.versionString}',
+    );
+  }
+
+  final controller = StreamChannelController<Map<String, Object?>>();
+  final httpClient = HttpClient();
+  final state = _StreamableHttpClientState();
+  controller.local.stream
+      .tap(null, onDone: () => httpClient.close(force: true))
+      .concurrentAsyncExpand(
+        (message) => _sendStreamableHttpMessage(
+          httpClient,
+          uri,
+          message,
+          protocolVersion,
+          clientCapabilities,
+          clientInfo,
+          state,
+        ),
+      )
+      .listen(
+        controller.local.sink.add,
+        onError: controller.local.sink.addError,
+        onDone: controller.local.sink.close,
+      );
+  return controller.foreign;
+}
+
+/// Sends one JSON-RPC [message] and emits each message in its response.
+Stream<Map<String, Object?>> _sendStreamableHttpMessage(
+  HttpClient httpClient,
+  Uri uri,
+  Map<String, Object?> message,
+  ProtocolVersion protocolVersion,
+  ClientCapabilities clientCapabilities,
+  Implementation? clientInfo,
+  _StreamableHttpClientState state,
+) async* {
+  try {
+    final object = JsonRpc2Object.fromMap(message);
+    final method = object.method;
+    if (object.kind == JsonRpc2Kind.response || method == null) {
+      throw ArgumentError.value(
+        message,
+        Keys.message,
+        'Streamable HTTP only allows JSON-RPC requests or notifications. '
+        'Got ${object.kind.name} with method $method.',
+      );
+    }
+
+    final params = (message[Keys.params] as Map?)?.cast<String, Object?>();
+    final meta = (params?[Keys.meta] as Map?)?.cast<String, Object?>();
+    final body = <String, Object?>{
+      ...message,
+      Keys.params: <String, Object?>{
+        ...?params,
+        Keys.meta: <String, Object?>{
+          ...?meta,
+          Keys.protocolVersionMeta: protocolVersion.versionString,
+          Keys.clientCapabilitiesMeta: clientCapabilities,
+          if (clientInfo != null) Keys.clientInfoMeta: clientInfo,
+        },
+      },
+    };
+
+    final nameParam =
+        object.kind == JsonRpc2Kind.request ? _mcpNameParams[method] : null;
+    final rawName = nameParam == null ? null : params?[nameParam];
+    if (nameParam != null && rawName is! String) {
+      throw ArgumentError.value(
+        rawName,
+        nameParam,
+        '$method requires a String $nameParam parameter. '
+        'Got ${rawName.runtimeType}.',
+      );
+    }
+
+    state.recordOutgoing(message, method);
+    // Resolve mirrored headers before opening the POST so a shape error does
+    // not leave an unsent request hanging.
+    final extraHeaders =
+        object.kind == JsonRpc2Kind.request
+            ? state.headersFor(message)
+            : const <String, String>{};
+    final request = await httpClient.postUrl(uri);
+    request.headers
+      ..contentType = ContentType.json
+      ..set(
+        HttpHeaders.acceptHeader,
+        '${ContentType.json.mimeType}, $_eventStreamMimeType',
+      )
+      ..set(_protocolVersionHeader, protocolVersion.versionString);
+
+    if (object.kind == JsonRpc2Kind.request) {
+      request.headers.set(_mcpMethodHeader, method);
+      if (rawName is String) {
+        request.headers.set(_mcpNameHeader, _encodeSentinel(rawName));
+      }
+      for (final MapEntry(:key, :value) in extraHeaders.entries) {
+        request.headers.set(key, value);
+      }
+    }
+
+    request.write(jsonEncode(body));
+    final response = await request.close();
+    if (response.statusCode == HttpStatus.accepted) {
+      await response.drain<void>();
+      if (object.kind == JsonRpc2Kind.notification) return;
+      throw StateError(
+        'A Streamable HTTP request must return application/json or '
+        'text/event-stream. Got HTTP ${HttpStatus.accepted}.',
+      );
+    }
+
+    final responseType = response.headers.contentType?.mimeType;
+    if (responseType == ContentType.json.mimeType) {
+      final decoded =
+          (jsonDecode(await utf8.decodeStream(response)) as Map)
+              .cast<String, Object?>();
+      yield state.recordIncoming(decoded);
+      return;
+    }
+    if (responseType == _eventStreamMimeType) {
+      await for (final event in sseMessageStream(response)) {
+        yield state.recordIncoming(event);
+      }
+      return;
+    }
+    final responseBody = await utf8.decodeStream(response);
+    throw UnsupportedError(
+      'A Streamable HTTP request must return ${ContentType.json.mimeType} or '
+      '$_eventStreamMimeType. Got HTTP ${response.statusCode} '
+      '"$responseType" with body "$responseBody".',
+    );
+  } catch (error) {
+    if (!message.containsKey(Keys.id)) return;
+    yield {
+      Keys.jsonrpc: '2.0',
+      Keys.id: message[Keys.id],
+      Keys.error: {
+        Keys.code: error_code.SERVER_ERROR,
+        Keys.message: error.toString(),
+      },
+    };
+  }
+}
+
+/// Request state shared by the POSTs on one client channel.
+final class _StreamableHttpClientState {
+  final _listToolsRequestIds = <Object?>{};
+  final _toolHeaders = <String, List<_McpHeaderDeclaration>>{};
+
+  void recordOutgoing(Map<String, Object?> message, String method) {
+    if (method == ListToolsRequest.methodName && message.containsKey(Keys.id)) {
+      _listToolsRequestIds.add(message[Keys.id]);
+    }
+  }
+
+  Map<String, String> headersFor(Map<String, Object?> message) {
+    if (message[Keys.method] != CallToolRequest.methodName) return const {};
+    final params = message[Keys.params];
+    if (params is! Map<String, Object?>) {
+      throw ArgumentError.value(
+        params,
+        Keys.params,
+        '${CallToolRequest.methodName} requires a params object. '
+        'Got ${params.runtimeType}.',
+      );
+    }
+    final name = params[Keys.name];
+    final arguments = params[Keys.arguments];
+    if (arguments is! Map<String, Object?>?) {
+      throw ArgumentError.value(
+        arguments,
+        Keys.arguments,
+        '${CallToolRequest.methodName} requires ${Keys.arguments} to be an '
+        'object. Got ${arguments.runtimeType}.',
+      );
+    }
+    if (name is! String || arguments == null) return const {};
+    final declarations = _toolHeaders[name];
+    if (declarations == null) return const {};
+    final headers = <String, String>{};
+    for (final declaration in declarations) {
+      final value = _valueAtPath(arguments, declaration.path);
+      final encoded = switch ((declaration.type, value)) {
+        (final String type, final String value)
+            when type == JsonType.string.typeName =>
+          _encodeSentinel(value),
+        (final String type, final int value)
+            when type == JsonType.int.typeName &&
+                value >= _minimumSafeInteger &&
+                value <= _maximumSafeInteger =>
+          '$value',
+        (final String type, final bool value)
+            when type == JsonType.bool.typeName =>
+          '$value',
+        _ => null,
+      };
+      if (encoded != null) {
+        headers['$_mcpParamHeaderPrefix${declaration.header}'] = encoded;
+      }
+    }
+    return headers;
+  }
+
+  Map<String, Object?> recordIncoming(Map<String, Object?> message) {
+    if (message[Keys.method] == ToolListChangedNotification.methodName) {
+      _toolHeaders.clear();
+      return message;
+    }
+    if (!_listToolsRequestIds.remove(message[Keys.id])) return message;
+    final result = message[Keys.result];
+    if (result is! Map<String, Object?>) return message;
+    final tools = result[Keys.tools];
+    if (tools is! List) return message;
+    final validTools = <Object?>[];
+    for (final tool in tools) {
+      if (tool is! Map<String, Object?>) continue;
+      final name = tool[Keys.name];
+      final inputSchema = tool[Keys.inputSchema];
+      if (name is! String || inputSchema is! Map<String, Object?>) continue;
+      final declarations = _mcpHeaderDeclarations(inputSchema);
+      if (declarations == null) continue;
+      _toolHeaders[name] = declarations;
+      validTools.add(tool);
+    }
+    return {
+      ...message,
+      Keys.result: {...result, Keys.tools: validTools},
+    };
+  }
+}
+
+typedef _McpHeaderDeclaration =
+    ({List<String> path, String header, String type});
+
+/// Reads valid custom header annotations from a tool input [schema].
+List<_McpHeaderDeclaration>? _mcpHeaderDeclarations(
+  Map<String, Object?> schema,
+) {
+  final declarations = <_McpHeaderDeclaration>[];
+  final seen = <String>{};
+  bool visit(Object? node, List<String> path, {required bool reachable}) {
+    if (node is! Map<String, Object?>) return true;
+    if (node.containsKey(Keys.xMcpHeader)) {
+      final header = node[Keys.xMcpHeader];
+      final type = node[Keys.type];
+      if (!reachable ||
+          path.isEmpty ||
+          header is! String ||
+          !_httpToken.hasMatch(header) ||
+          (type != JsonType.string.typeName &&
+              type != JsonType.int.typeName &&
+              type != JsonType.bool.typeName) ||
+          !seen.add(header.toLowerCase())) {
+        return false;
+      }
+      declarations.add((path: path, header: header, type: type as String));
+    }
+    final properties = node[Keys.properties];
+    if (properties is Map<String, Object?>) {
+      for (final MapEntry(:key, :value) in properties.entries) {
+        if (!visit(value, [...path, key], reachable: reachable)) return false;
+      }
+    }
+    for (final keyword in _subschemaKeywords) {
+      final subschema = node[keyword];
+      if (subschema == null) continue;
+      final branches =
+          subschema is List
+              ? subschema
+              : subschema is Map<String, Object?> &&
+                  _mapValuedSubschemaKeywords.contains(keyword)
+              ? subschema.values
+              : [subschema];
+      for (final branch in branches) {
+        if (!visit(branch, [...path, keyword], reachable: false)) return false;
+      }
+    }
+    return true;
+  }
+
+  return visit(schema, const [], reachable: true) ? declarations : null;
+}
+
+Object? _valueAtPath(Map<String, Object?> arguments, List<String> path) {
+  Object? node = arguments;
+  for (final key in path) {
+    if (node is! Map<String, Object?>) return null;
+    node = node[key];
+  }
+  return node;
+}
+
+const _subschemaKeywords = {
+  Keys.items,
+  Keys.prefixItems,
+  Keys.additionalProperties,
+  Keys.unevaluatedProperties,
+  Keys.unevaluatedItems,
+  Keys.propertyNames,
+  Keys.patternProperties,
+  Keys.oneOf,
+  Keys.anyOf,
+  Keys.allOf,
+  Keys.not,
+  'contains',
+  'dependentSchemas',
+  'if',
+  'then',
+  'else',
+  r'$defs',
+  'definitions',
+};
+
+const _mapValuedSubschemaKeywords = {
+  Keys.patternProperties,
+  'dependentSchemas',
+  r'$defs',
+  'definitions',
+};
+
+final _httpToken = RegExp(r"^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$");
+
+const _minimumSafeInteger = -9007199254740991;
+const _maximumSafeInteger = 9007199254740991;
 
 /// Handles one Streamable HTTP POST [request] by validating its headers and
 /// `_meta` envelope, dispatching the decoded message to a fresh server
@@ -680,6 +1029,21 @@ String _decodeSentinel(String value) =>
     value.length >= 11 && value.startsWith('=?base64?') && value.endsWith('?=')
         ? utf8.decode(base64.decode(value.substring(9, value.length - 2)))
         : value;
+
+/// Encodes [value] when it is not a safe plain ASCII header value.
+String _encodeSentinel(String value) {
+  final matchesSentinel = value.startsWith('=?base64?') && value.endsWith('?=');
+  final needsEncoding =
+      value.isEmpty ||
+      value != value.trim() ||
+      matchesSentinel ||
+      value.codeUnits.any(
+        (unit) => unit != 0x09 && (unit < 0x20 || unit > 0x7e),
+      );
+  return needsEncoding
+      ? '=?base64?${base64.encode(utf8.encode(value))}?='
+      : value;
+}
 
 // Header field names are case insensitive, so these are used both to look
 // headers up and to name them in error messages, in the casing the

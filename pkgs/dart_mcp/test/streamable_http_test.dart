@@ -174,6 +174,624 @@ void main() {
   String jsonBody(String response) =>
       response.substring(response.indexOf('{'), response.lastIndexOf('}') + 1);
 
+  group('client channel', () {
+    test('posts request metadata and emits the JSON response', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      final observed = Completer<void>();
+      wireServer.listen((request) async {
+        try {
+          final sent =
+              jsonDecode(await utf8.decodeStream(request))
+                  as Map<String, Object?>;
+          expect(request.method, 'POST');
+          expect(request.headers.contentType?.mimeType, 'application/json');
+          expect(
+            request.headers.value(HttpHeaders.acceptHeader),
+            'application/json, text/event-stream',
+          );
+          expect(request.headers.value('MCP-Protocol-Version'), version);
+          expect(request.headers.value('Mcp-Method'), 'tools/call');
+          expect(request.headers.value('Mcp-Name'), '=?base64?IGNhZsOpIA==?=');
+
+          final params = sent[Keys.params] as Map<String, Object?>;
+          expect(params[Keys.arguments], {'value': 1});
+          final meta = params[Keys.meta] as Map<String, Object?>;
+          expect(meta['com.example/keep'], true);
+          expect(meta[Keys.protocolVersionMeta], version);
+          expect(meta[Keys.clientCapabilitiesMeta], {
+            'sampling': <String, Object?>{},
+          });
+          expect(meta[Keys.clientInfoMeta], {
+            'name': 'test client',
+            'version': '1.0.0',
+          });
+          observed.complete();
+        } catch (error, stackTrace) {
+          observed.completeError(error, stackTrace);
+        } finally {
+          request.response
+            ..headers.contentType = ContentType.json
+            ..write(
+              jsonEncode({
+                Keys.jsonrpc: '2.0',
+                Keys.id: 7,
+                Keys.result: {'value': 'done'},
+              }),
+            );
+          await request.response.close();
+        }
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(sampling: {}),
+        clientInfo: Implementation(name: 'test client', version: '1.0.0'),
+      );
+      addTearDown(() => channel.sink.close());
+      final response = channel.stream.first;
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 7,
+        Keys.method: callTool,
+        Keys.params: {
+          Keys.name: ' café ',
+          Keys.arguments: {'value': 1},
+          Keys.meta: {'com.example/keep': true},
+        },
+      });
+
+      final results = await Future.wait<Object?>([response, observed.future]);
+      expect(results.first, {
+        Keys.jsonrpc: '2.0',
+        Keys.id: 7,
+        Keys.result: {'value': 'done'},
+      });
+    });
+
+    test('omits absent client information from request metadata', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      final observed = Completer<void>();
+      wireServer.listen((request) async {
+        try {
+          final sent =
+              jsonDecode(await utf8.decodeStream(request))
+                  as Map<String, Object?>;
+          final params = sent[Keys.params] as Map<String, Object?>;
+          final meta = params[Keys.meta] as Map<String, Object?>;
+          expect(meta, isNot(contains(Keys.clientInfoMeta)));
+          observed.complete();
+        } catch (error, stackTrace) {
+          observed.completeError(error, stackTrace);
+        } finally {
+          request.response
+            ..headers.contentType = ContentType.json
+            ..write(
+              jsonEncode({
+                Keys.jsonrpc: '2.0',
+                Keys.id: 8,
+                Keys.result: <String, Object?>{},
+              }),
+            );
+          await request.response.close();
+        }
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 8,
+        Keys.method: 'test/request',
+      });
+
+      await Future.wait([channel.stream.first, observed.future]);
+    });
+
+    test('decodes every message from an SSE response', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      wireServer.listen((request) async {
+        await request.drain<void>();
+        request.response.headers.contentType = ContentType(
+          'text',
+          'event-stream',
+        );
+        request.response.write(
+          'event: message\n'
+          'data: {"jsonrpc":"2.0","method":"notifications/progress"}\n\n'
+          'event: message\n'
+          'data: {"jsonrpc":"2.0","id":12,"result":{"value":1}}\n\n',
+        );
+        await request.response.close();
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final events = channel.stream
+          .take(2)
+          .toList()
+          .timeout(const Duration(seconds: 3));
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 12,
+        Keys.method: 'test/request',
+      });
+
+      expect(await events, [
+        {Keys.jsonrpc: '2.0', Keys.method: progressNotification},
+        {
+          Keys.jsonrpc: '2.0',
+          Keys.id: 12,
+          Keys.result: {'value': 1},
+        },
+      ]);
+    });
+
+    test('keeps a failed POST local to its request id', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      wireServer.listen((request) async {
+        final sent =
+            jsonDecode(await utf8.decodeStream(request))
+                as Map<String, Object?>;
+        if (sent[Keys.id] == 20) {
+          request.response
+            ..statusCode = HttpStatus.badGateway
+            ..headers.contentType = ContentType.text
+            ..write('upstream stopped');
+        } else {
+          request.response
+            ..headers.contentType = ContentType.json
+            ..write(
+              jsonEncode({
+                Keys.jsonrpc: '2.0',
+                Keys.id: 21,
+                Keys.result: {'value': 'available'},
+              }),
+            );
+        }
+        await request.response.close();
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final responses = channel.stream.take(2).toList();
+      channel.sink
+        ..add({Keys.jsonrpc: '2.0', Keys.id: 20, Keys.method: 'test/failed'})
+        ..add({
+          Keys.jsonrpc: '2.0',
+          Keys.id: 21,
+          Keys.method: 'test/available',
+        });
+
+      final byId = {
+        for (final response in await responses) response[Keys.id]: response,
+      };
+      final failed = byId[20]![Keys.error] as Map<String, Object?>;
+      expect(failed[Keys.code], -32000);
+      expect(
+        failed[Keys.message],
+        allOf(contains('HTTP 502'), contains('upstream stopped')),
+      );
+      expect(byId[21], {
+        Keys.jsonrpc: '2.0',
+        Keys.id: 21,
+        Keys.result: {'value': 'available'},
+      });
+    });
+
+    test('mirrors tool parameters learned from tools/list', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      final observedHeader = Completer<void>();
+      wireServer.listen((request) async {
+        final sent =
+            jsonDecode(await utf8.decodeStream(request))
+                as Map<String, Object?>;
+        if (sent[Keys.method] == listTools) {
+          request.response
+            ..headers.contentType = ContentType.json
+            ..write(
+              jsonEncode({
+                Keys.jsonrpc: '2.0',
+                Keys.id: 30,
+                Keys.result: {
+                  Keys.tools: [
+                    {
+                      Keys.name: 'valid',
+                      Keys.inputSchema: {
+                        Keys.type: 'object',
+                        Keys.properties: {
+                          'context': {
+                            Keys.type: 'object',
+                            Keys.properties: {
+                              'region': {
+                                Keys.type: 'string',
+                                Keys.xMcpHeader: 'Region',
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                    {
+                      Keys.name: 'invalid',
+                      Keys.inputSchema: {
+                        Keys.type: 'object',
+                        Keys.properties: {
+                          'ratio': {
+                            Keys.type: 'number',
+                            Keys.xMcpHeader: 'Ratio',
+                          },
+                        },
+                      },
+                    },
+                  ],
+                },
+              }),
+            );
+        } else {
+          try {
+            expect(
+              request.headers.value('Mcp-Param-Region'),
+              '=?base64?IGNhZsOpIA==?=',
+            );
+            observedHeader.complete();
+          } catch (error, stackTrace) {
+            observedHeader.completeError(error, stackTrace);
+          }
+          request.response
+            ..headers.contentType = ContentType.json
+            ..write(
+              jsonEncode({
+                Keys.jsonrpc: '2.0',
+                Keys.id: 31,
+                Keys.result: <String, Object?>{},
+              }),
+            );
+        }
+        await request.response.close();
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final iterator = StreamIterator(channel.stream);
+      addTearDown(iterator.cancel);
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 30,
+        Keys.method: listTools,
+      });
+      expect(await iterator.moveNext(), isTrue);
+      final result = iterator.current[Keys.result] as Map<String, Object?>;
+      final tools = result[Keys.tools] as List;
+      expect(tools, hasLength(1));
+      expect((tools.single as Map<String, Object?>)[Keys.name], 'valid');
+
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 31,
+        Keys.method: callTool,
+        Keys.params: {
+          Keys.name: 'valid',
+          Keys.arguments: {
+            'context': {'region': ' café '},
+          },
+        },
+      });
+      expect(await iterator.moveNext(), isTrue);
+      await observedHeader.future;
+    });
+
+    test(
+      'keeps a failed notification from producing an inbound message',
+      () async {
+        final channel = streamableHttpClientChannel(
+          uri,
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          clientCapabilities: ClientCapabilities(),
+        );
+        addTearDown(() => channel.sink.close());
+        final response = channel.stream.first;
+        // A non-String method throws before the POST. A notification has no id
+        // to attach a JSON-RPC error to.
+        channel.sink.add({Keys.jsonrpc: '2.0', Keys.method: 42});
+        channel.sink.add({
+          Keys.jsonrpc: '2.0',
+          Keys.id: 43,
+          Keys.method: listTools,
+        });
+
+        final message = await response;
+        expect(message[Keys.id], 43);
+        expect(message[Keys.result], isNotNull);
+      },
+    );
+
+    test('acknowledges a notification without an inbound message', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      final notificationReceived = Completer<void>();
+      wireServer.listen((request) async {
+        final sent =
+            jsonDecode(await utf8.decodeStream(request))
+                as Map<String, Object?>;
+        if (!sent.containsKey(Keys.id)) {
+          request.response.statusCode = HttpStatus.accepted;
+          notificationReceived.complete();
+        } else {
+          request.response
+            ..headers.contentType = ContentType.json
+            ..write(
+              jsonEncode({
+                Keys.jsonrpc: '2.0',
+                Keys.id: 40,
+                Keys.result: <String, Object?>{},
+              }),
+            );
+        }
+        await request.response.close();
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final response = channel.stream.first;
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.method: progressNotification,
+      });
+      await notificationReceived.future;
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 40,
+        Keys.method: 'test/request',
+      });
+
+      expect(await response, {
+        Keys.jsonrpc: '2.0',
+        Keys.id: 40,
+        Keys.result: <String, Object?>{},
+      });
+    });
+
+    test('names an invalid outgoing message in its request error', () async {
+      final channel = streamableHttpClientChannel(
+        uri,
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final response = channel.stream.first;
+      channel.sink.add({Keys.jsonrpc: '2.0', Keys.id: 41, Keys.result: {}});
+
+      final error = (await response)[Keys.error] as Map<String, Object?>;
+      expect(error[Keys.message], contains('(message)'));
+    });
+
+    test(
+      'names a tools/call whose params are not a string-keyed map',
+      () async {
+        final channel = streamableHttpClientChannel(
+          uri,
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          clientCapabilities: ClientCapabilities(),
+        );
+        addTearDown(() => channel.sink.close());
+        final response = channel.stream.first;
+        channel.sink.add({
+          Keys.jsonrpc: '2.0',
+          Keys.id: 44,
+          Keys.method: callTool,
+          Keys.params: <dynamic, dynamic>{
+            Keys.name: 'any',
+            Keys.arguments: <String, Object?>{},
+          },
+        });
+
+        final error = (await response)[Keys.error] as Map<String, Object?>;
+        expect(error[Keys.message], contains('(${Keys.params})'));
+      },
+    );
+
+    test(
+      'names a tools/call whose arguments are not a string-keyed map',
+      () async {
+        final channel = streamableHttpClientChannel(
+          uri,
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          clientCapabilities: ClientCapabilities(),
+        );
+        addTearDown(() => channel.sink.close());
+        final response = channel.stream.first;
+        channel.sink.add({
+          Keys.jsonrpc: '2.0',
+          Keys.id: 45,
+          Keys.method: callTool,
+          Keys.params: {
+            Keys.name: 'any',
+            Keys.arguments: <dynamic, dynamic>{'x': 1},
+          },
+        });
+
+        final error = (await response)[Keys.error] as Map<String, Object?>;
+        expect(error[Keys.message], contains('(${Keys.arguments})'));
+      },
+    );
+
+    test('emits a JSON-RPC error from a 404 response', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      wireServer.listen((request) async {
+        await request.drain<void>();
+        request.response
+          ..statusCode = HttpStatus.notFound
+          ..headers.contentType = ContentType.json
+          ..write(
+            jsonEncode({
+              Keys.jsonrpc: '2.0',
+              Keys.id: 9,
+              Keys.error: {Keys.code: -32601, Keys.message: 'Unknown method'},
+            }),
+          );
+        await request.response.close();
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final response = channel.stream.first;
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 9,
+        Keys.method: 'test/unknown',
+      });
+
+      expect(await response, {
+        Keys.jsonrpc: '2.0',
+        Keys.id: 9,
+        Keys.error: {Keys.code: -32601, Keys.message: 'Unknown method'},
+      });
+    });
+
+    test('emits a request error for a 202 response', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      wireServer.listen((request) async {
+        await request.drain<void>();
+        request.response.statusCode = HttpStatus.accepted;
+        await request.response.close();
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final response = channel.stream.first;
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 10,
+        Keys.method: 'test/request',
+      });
+
+      final error = (await response)[Keys.error] as Map<String, Object?>;
+      expect(error[Keys.code], -32000);
+      expect(error[Keys.message], contains('Got HTTP 202'));
+    });
+
+    test('rejects a protocol version outside its set', () {
+      expect(
+        () => streamableHttpClientChannel(
+          uri,
+          protocolVersion: ProtocolVersion.v2025_11_25,
+          clientCapabilities: ClientCapabilities(),
+        ),
+        throwsA(
+          isA<ArgumentError>()
+              .having(
+                (error) => error.invalidValue,
+                'invalidValue',
+                '2025-11-25',
+              )
+              .having(
+                (error) => error.message,
+                'message',
+                contains('2026-07-28'),
+              ),
+        ),
+      );
+    });
+
+    test('closes an in-flight HTTP request with the channel', () async {
+      final wireServer = await ServerSocket.bind(
+        InternetAddress.loopbackIPv4,
+        0,
+      );
+      Socket? acceptedSocket;
+      addTearDown(() async {
+        acceptedSocket?.destroy();
+        await wireServer.close();
+      });
+      final requestStarted = Completer<void>();
+      final socketDone = Completer<void>();
+      void completeSocket() {
+        if (!socketDone.isCompleted) socketDone.complete();
+      }
+
+      wireServer.listen((socket) {
+        acceptedSocket = socket;
+        final requestBytes = <int>[];
+        var responseStarted = false;
+        socket.listen(
+          (bytes) async {
+            requestBytes.addAll(bytes);
+            if (responseStarted ||
+                !latin1.decode(requestBytes).contains('\r\n\r\n')) {
+              return;
+            }
+            responseStarted = true;
+            socket.write(
+              'HTTP/1.1 200 OK\r\n'
+              'Content-Type: application/json\r\n'
+              'Content-Length: 2\r\n'
+              '\r\n'
+              '{',
+            );
+            await socket.flush();
+            requestStarted.complete();
+          },
+          onError: (_, _) => completeSocket(),
+          onDone: completeSocket,
+        );
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      final channelDone = Completer<void>();
+      channel.stream.listen(null, onDone: channelDone.complete);
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 11,
+        Keys.method: 'test/request',
+      });
+
+      await requestStarted.future;
+      await channel.sink.close();
+      await channelDone.future;
+      await socketDone.future.timeout(const Duration(seconds: 3));
+    });
+  });
+
   group('happy path', () {
     test('answers tools/list with JSON and server info', () async {
       final (status, responseHeaders, text) = await post(
