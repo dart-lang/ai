@@ -756,6 +756,37 @@ void main() {
       final error = response![Keys.error] as Map<String, Object?>;
       expect(error[Keys.code], -32601);
     });
+
+    test('answers an acknowledgement whose params are not a map with an '
+        'error', () async {
+      serverFactory = _AckWithoutParamsServer.new;
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(uri);
+      headers(
+        SubscriptionsListenRequest.methodName,
+      ).forEach(request.headers.set);
+      request.write(
+        jsonEncode(
+          body(
+            SubscriptionsListenRequest.methodName,
+            params: {
+              Keys.notifications: {Keys.toolsListChanged: true},
+            },
+          ),
+        ),
+      );
+      final response = await request.close().timeout(
+        const Duration(seconds: 5),
+      );
+      final text = await utf8.decodeStream(response);
+
+      expect(response.statusCode, HttpStatus.internalServerError);
+      expect(response.headers.contentType?.mimeType, 'application/json');
+      expect(errorCode(text), error_code.INTERNAL_ERROR);
+      expect(errorMessage(text), contains('must be a JSON object'));
+      expect(text, isNot(contains('"stack"')));
+    });
   });
 
   group('notifications and responses', () {
@@ -2763,6 +2794,26 @@ base class _NoisyFailingServer extends _HttpTestServer {
       ),
     );
     throw StateError('initialize failed after announcing');
+  }
+}
+
+/// Sends `notifications/subscriptions/acknowledged` with no params, the
+/// shape that used to leave `accepted` null and the listen stream unfiltered.
+base class _AckWithoutParamsServer extends MCPServer with SubscriptionsSupport {
+  _AckWithoutParamsServer(super.channel)
+    : super.fromStreamChannel(
+        implementation: Implementation(
+          name: 'ack without params',
+          version: '0.1.0',
+        ),
+      );
+
+  @override
+  FutureOr<SubscriptionsListenResult> handleSubscriptionsListen(
+    SubscriptionsListenRequest request,
+  ) {
+    sendNotification(SubscriptionsAcknowledgedNotification.methodName);
+    return SubscriptionsListenResult.fromMap({});
   }
 }
 

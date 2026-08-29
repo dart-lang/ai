@@ -467,6 +467,7 @@ Future<void> handleStreamableHttpRequest(
   MCPServer? activeServer;
   StreamSubscription<Map<String, Object?>>? notificationSubscription;
   var responseClosed = false;
+  var listenFailed = false;
   if (method == SubscriptionsListenRequest.methodName) {
     unawaited(() async {
       try {
@@ -556,7 +557,21 @@ Future<void> handleStreamableHttpRequest(
           if (notificationMethod ==
               SubscriptionsAcknowledgedNotification.methodName) {
             final params = notification[Keys.params];
-            if (params is Map<String, Object?>) {
+            if (params is! Map<String, Object?>) {
+              listenFailed = true;
+              unawaited(() async {
+                await notificationSubscription?.cancel();
+                await answer.finish(
+                  RpcException(
+                    error_code.INTERNAL_ERROR,
+                    'The `${SubscriptionsAcknowledgedNotification.methodName}` '
+                    'params got `$params`, but must be a JSON object.',
+                  ).serialize(decoded),
+                );
+                final server = activeServer;
+                if (server != null && server.isActive) await server.shutdown();
+              }());
+            } else {
               accepted =
                   SubscriptionsAcknowledgedNotification.fromMap(
                     params,
@@ -616,7 +631,7 @@ Future<void> handleStreamableHttpRequest(
 
   // Notifications returned above, so a dispatched request always has a
   // response.
-  if (responseClosed) return;
+  if (responseClosed || listenFailed) return;
   await notificationSubscription?.cancel();
   await answer.finish(result!);
 }

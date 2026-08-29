@@ -210,15 +210,24 @@
   two took. `SubscribeRequest` and `UnsubscribeRequest` stay for the revisions
   which have them.
 - Serve `subscriptions/listen` from `SubscriptionsSupport`, which
-  acknowledges the filter the server can honor, see
+  acknowledges the filter the server can honor, stamps the subscription
+  id, and holds the request until shutdown, see
   https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/subscriptions.
+  - A handler cannot read the JSON-RPC id of the request it answers, so a
+    transport names the subscription by setting
+    `SubscriptionsSupport.nextSubscriptionId` before delivering it.
+    `handleRequestScopedMessage` does. A request arriving without one is
+    answered with `-32600`.
   - The Streamable HTTP handler keeps that response open as SSE and routes
     matching list and resource notifications onto it. A client that closes
-    the response ends the subscription without a final result.
-  - The dispatcher stamps the request id on the acknowledgement and the
-    result under `io.modelcontextprotocol/subscriptionId`. The factories
-    for those two types now take a required `MetaWithSubscriptionId`
-    through the new `WithSubscriptionId` shape.
+    the response ends the subscription without a final result. An
+    acknowledgement whose params are not a JSON object is answered with an
+    error rather than dropped.
+  - The dispatcher still fills the request id into the acknowledgement and
+    the result under `io.modelcontextprotocol/subscriptionId` when a
+    handler leaves it out. The factories for those two types now take a
+    required `MetaWithSubscriptionId` through the new `WithSubscriptionId`
+    shape.
   - Only a server whose negotiated version has the method registers the
     handler.
   - A server that mixes this in keeps the `subscribe` and `listChanged`

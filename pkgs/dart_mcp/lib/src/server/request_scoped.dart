@@ -36,7 +36,9 @@ typedef MCPServerFactory =
 /// `resultType`, and, for the requests the caching rules name, carries `ttlMs`
 /// and `cacheScope` unless it is an interim `resources/read` result, which is
 /// not cacheable. The acknowledgement and result for `subscriptions/listen`
-/// carry the request id under `io.modelcontextprotocol/subscriptionId`. A
+/// carry the request id under `io.modelcontextprotocol/subscriptionId`.
+/// A listen request is named before delivery by setting
+/// [SubscriptionsSupport.nextSubscriptionId] to that id. A
 /// field the handler left out is filled in: a `resultType`
 /// left `null` becomes `complete`, a `ttlMs` which is `null` becomes `0`, and
 /// a `cacheScope` which is `null` becomes `private`. The dispatcher cannot
@@ -244,6 +246,10 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
       // as it would after a dispatched exchange, by closing `inbound` on an
       // empty stream.
       return isRequest ? rejection.serialize(message) : null;
+    }
+    if (server case final SubscriptionsSupport subscriptions
+        when isRequest && method == SubscriptionsListenRequest.methodName) {
+      subscriptions.nextSubscriptionId = RequestId(message[Keys.id]!);
     }
     inbound.add(message);
     if (isRequest) {
