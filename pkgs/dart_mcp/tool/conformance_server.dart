@@ -17,6 +17,8 @@ const _imageMimeType = 'image/png';
 const _audioMimeType = 'audio/wav';
 const _textMimeType = 'text/plain';
 const _jsonMimeType = 'application/json';
+// 1x1 PNG and a silent WAV. tools-call-image and tools-call-audio only
+// require a valid payload of the declared mime type.
 const _imageData =
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ'
     'AAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==';
@@ -52,12 +54,15 @@ const _embeddedResourcePrompt = 'test_prompt_with_embedded_resource';
 const _imagePrompt = 'test_prompt_with_image';
 const _inputPrompt = 'test_input_required_result_prompt';
 
+// HMAC-SHA256 over an opaque requestState so
+// input-required-result-tampered-state can detect a modified payload.
 final _stateRandom = Random.secure();
 final _stateKey = List<int>.unmodifiable(
   List<int>.generate(32, (_) => _stateRandom.nextInt(256)),
 );
 final _stateHmac = Hmac(sha256, _stateKey);
 
+// http-header-validation. Only `region` is annotated with `x-mcp-header`.
 final _headerToolSchema = ObjectSchema.fromMap({
   'type': 'object',
   'properties': {
@@ -70,6 +75,9 @@ final _headerToolSchema = ObjectSchema.fromMap({
   },
 });
 
+// json-schema-2020-12 round-trips `$schema`, `$defs`, `$ref`, `$anchor`,
+// `allOf`/`anyOf`, and `if`/`then`/`else`. The package validator does not
+// implement that draft, so the tool registers with validateArguments: false.
 final _jsonSchema = ObjectSchema.fromMap({
   r'$schema': 'https://json-schema.org/draft/2020-12/schema',
   'type': 'object',
@@ -154,13 +162,13 @@ Future<void> _handleRequest(HttpRequest request) async {
 
   try {
     await handleStreamableHttpRequest(request, _ConformanceServer.new);
-  } catch (error, stackTrace) {
-    stderr
-      ..writeln(error)
-      ..writeln(stackTrace);
+  } catch (error) {
+    stderr.writeln(error);
   }
 }
 
+// dns-rebinding-protection. Host must be loopback. Origin, if sent, must be
+// too.
 bool _hasLocalTarget(HttpRequest request) {
   final hosts = request.headers[HttpHeaders.hostHeader];
   if (hosts == null ||
@@ -194,6 +202,7 @@ base class _ConformanceServer extends MCPServer
     _registerPrompts();
   }
 
+  // Tools named by the tools-call-* and input-required-result-* scenarios.
   void _registerTools() {
     registerTool(
       Tool(
@@ -398,6 +407,8 @@ base class _ConformanceServer extends MCPServer
     return CallToolResult(content: [TextContent(text: '$progressToken')]);
   }
 
+  // Resources named by resources-read-text, resources-read-binary, and
+  // resources-templates-read.
   void _registerResources() {
     addResource(
       Resource(
@@ -890,6 +901,7 @@ base class _ConformanceServer extends MCPServer
         ),
       );
 
+  // Prompts named by prompts-get-* and input-required-result-non-tool-request.
   void _registerPrompts() {
     addPrompt(
       Prompt(name: _simplePrompt, description: _simplePrompt),
@@ -997,6 +1009,8 @@ base class _ConformanceServer extends MCPServer
     });
   }
 
+  // completion-complete only needs the method to answer. Empty values are
+  // enough.
   @override
   FutureOr<CompleteResult> handleComplete(CompleteRequest request) =>
       CompleteResult(
