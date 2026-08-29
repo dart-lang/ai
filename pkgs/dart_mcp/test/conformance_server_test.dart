@@ -17,6 +17,9 @@ const _inputStateTool = 'test_input_required_result_request_state';
 const _templateUri = 'test://template/{id}/data';
 const _expandedTemplateUri = 'test://template/123/data';
 const _simplePrompt = 'test_simple_prompt';
+const _formElicitationCapabilities = <String, Object?>{
+  'elicitation': <String, Object?>{'form': <String, Object?>{}},
+};
 
 void main() {
   test('conformance server advertises and serves fixture contracts', () async {
@@ -111,6 +114,7 @@ void main() {
       endpoint,
       'tools/call',
       params: {'name': _inputElicitationTool, 'arguments': <String, Object?>{}},
+      capabilities: _formElicitationCapabilities,
     );
     final elicitationResult = elicitation['result'] as Map<String, Object?>;
     final inputRequests =
@@ -124,6 +128,7 @@ void main() {
       endpoint,
       'tools/call',
       params: {'name': _inputStateTool, 'arguments': <String, Object?>{}},
+      capabilities: _formElicitationCapabilities,
     );
     final stateResult = state['result'] as Map<String, Object?>;
     final requestState = stateResult['requestState'] as String;
@@ -141,6 +146,7 @@ void main() {
         },
         'requestState': requestState,
       },
+      capabilities: _formElicitationCapabilities,
     );
     final completedStateResult =
         completedState['result'] as Map<String, Object?>;
@@ -160,6 +166,7 @@ Future<Map<String, Object?>> _post(
   Uri endpoint,
   String method, {
   Map<String, Object?> params = const {},
+  Map<String, Object?> capabilities = const {},
 }) async {
   final client = HttpClient();
   try {
@@ -182,8 +189,7 @@ Future<Map<String, Object?>> _post(
           ...params,
           '_meta': {
             'io.modelcontextprotocol/protocolVersion': _protocolVersion,
-            'io.modelcontextprotocol/clientCapabilities':
-                const <String, Object?>{},
+            'io.modelcontextprotocol/clientCapabilities': capabilities,
           },
         },
       }),
