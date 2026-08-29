@@ -78,6 +78,7 @@ enum ProtocolVersion {
       SubscriptionsListenRequest.methodName,
     },
     removedMethods: {
+      ElicitRequest.methodName,
       InitializeRequest.methodName,
       SetLevelRequest.methodName,
       ElicitationCompleteNotification.methodName,
@@ -87,6 +88,8 @@ enum ProtocolVersion {
       PingRequest.methodName,
       SubscribeRequest.methodName,
       UnsubscribeRequest.methodName,
+      ListRootsRequest.methodName,
+      CreateMessageRequest.methodName,
       'tasks/cancel',
       'tasks/get',
       'tasks/list',
@@ -103,14 +106,20 @@ enum ProtocolVersion {
   /// The methods this revision introduced.
   final Set<String> addedMethods;
 
-  /// The methods this revision took out.
+  /// The methods this revision stopped accepting.
+  ///
+  /// A method belongs here even when the revision kept its type, as long as it
+  /// took away the way to send it. 2026-07-28 keeps [ElicitRequest],
+  /// [ListRootsRequest] and [CreateMessageRequest] for the [InputRequest] an
+  /// [InputRequiredResult] carries, and none of the three can be sent on its
+  /// own there.
   final Set<String> removedMethods;
 
-  /// Whether [method] is part of this revision.
+  /// Whether [method] is one this revision accepts.
   ///
   /// Walks back from this revision to the first one, so a method holds until
-  /// some later revision removes it. A method no revision ever added is not
-  /// part of any of them.
+  /// some later revision lists it in [removedMethods]. A method no revision
+  /// ever added is not part of any of them.
   bool methodIsValid(String method) {
     for (var version = this; ; version = values[version.index - 1]) {
       if (version.removedMethods.contains(method)) return false;

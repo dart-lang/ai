@@ -5,7 +5,7 @@
 import 'dart:async';
 import 'dart:collection';
 
-import 'package:async/async.dart';
+import 'package:async/async.dart' show StreamExtensions;
 import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_channel/stream_channel.dart';
@@ -115,15 +115,22 @@ base class MCPClient {
 
 /// An active server connection.
 base class ServerConnection extends MCPBase {
-  /// The version of the protocol that was negotiated during initialization.
+  /// The version of the protocol this connection speaks, or `null` until one
+  /// is settled.
+  ///
+  /// [initialize] fills this in for a version this client supports. Assign it
+  /// directly if your transport settles the version outside the handshake.
   ///
   /// Some APIs may error if you attempt to use them without first checking the
   /// protocol version.
-  late ProtocolVersion protocolVersion;
+  ProtocolVersion? protocolVersion;
 
-  /// The [Implementation] returned from the [initialize] request.
+  /// The [Implementation] the server described itself with, or `null` until
+  /// one settles it.
   ///
-  /// Only non-null after [initialize] has successfully completed.
+  /// [initialize] fills this in. Assign it directly if your transport settles
+  /// the version outside the handshake, since sampling hands it to the
+  /// handler.
   Implementation? serverInfo;
 
   /// The [ServerCapabilities] returned from the [initialize] request.
@@ -134,8 +141,38 @@ base class ServerConnection extends MCPBase {
   /// The [ElicitationUrlSupport] for this connection, if any.
   final ElicitationUrlSupport? _elicitationUrlSupport;
 
+  /// The [ElicitationFormSupport] for this connection, if any.
+  final ElicitationFormSupport? _elicitationFormSupport;
+
+  /// The [SamplingSupport] for this connection, if any.
+  final SamplingSupport? _samplingSupport;
+
+  /// The [RootsSupport] for this connection, if any.
+  final RootsSupport? _rootsSupport;
+
+  /// How many `input_required` rounds [sendRequestWithInputs] answers before
+  /// it gives up, or `null` for as many as the server sends.
+  ///
+  /// The spec sets no bound on the rounds. This one only guards against a
+  /// server that never stops asking.
+  int? maxInputRequiredRounds = 10;
+
   @override
   String get name => serverInfo?.name ?? super.name;
+
+  /// The [serverInfo] to hand [SamplingSupport.handleCreateMessage], which
+  /// takes it non-null.
+  Implementation get _samplingServerInfo {
+    final serverInfo = this.serverInfo;
+    if (serverInfo == null) {
+      throw StateError(
+        'The server asked for sampling, but this connection has no '
+        '`serverInfo` to give the handler. Set it alongside `protocolVersion` '
+        'when your transport settles the version.',
+      );
+    }
+    return serverInfo;
+  }
 
   /// Emits an event any time the server notifies us of a change to the list of
   /// prompts it supports.
@@ -211,8 +248,10 @@ base class ServerConnection extends MCPBase {
     ElicitationSupport? elicitationSupport,
     ElicitationFormSupport? elicitationFormSupport,
     ElicitationUrlSupport? elicitationUrlSupport,
-  }) : _elicitationUrlSupport = elicitationUrlSupport {
-    elicitationFormSupport ??= elicitationSupport;
+  }) : _elicitationFormSupport = elicitationFormSupport ?? elicitationSupport,
+       _elicitationUrlSupport = elicitationUrlSupport,
+       _samplingSupport = samplingSupport,
+       _rootsSupport = rootsSupport {
     if (rootsSupport != null) {
       registerRequestHandler(
         ListRootsRequest.methodName,
@@ -224,34 +263,31 @@ base class ServerConnection extends MCPBase {
       registerRequestHandler(
         CreateMessageRequest.methodName,
         (CreateMessageRequest request) =>
-            samplingSupport.handleCreateMessage(request, serverInfo!),
+            samplingSupport.handleCreateMessage(request, _samplingServerInfo),
       );
     }
 
-    if (elicitationFormSupport != null || elicitationUrlSupport != null) {
+    if (_elicitationFormSupport != null || _elicitationUrlSupport != null) {
       registerRequestHandler(ElicitRequest.methodName, (ElicitRequest request) {
-        final raw = request.rawMode;
-        if (raw != null && !ElicitationMode.values.any((m) => m.name == raw)) {
-          throw RpcException.invalidParams(
-            'The elicitation mode was "$raw", which is not one of: '
-            '${ElicitationMode.values.map((m) => m.name).join(', ')}',
-          );
-        }
+        final badMode = _invalidElicitationMode(request);
+        if (badMode != null) throw RpcException.invalidParams(badMode);
         switch (request.mode) {
           case ElicitationMode.form:
-            if (elicitationFormSupport == null) {
+            final formSupport = _elicitationFormSupport;
+            if (formSupport == null) {
               throw RpcException.invalidParams(
                 'This client did not declare the elicitation.form capability',
               );
             }
-            return elicitationFormSupport.handleElicitation(request, this);
+            return formSupport.handleElicitation(request, this);
           case ElicitationMode.url:
-            if (elicitationUrlSupport == null) {
+            final urlSupport = _elicitationUrlSupport;
+            if (urlSupport == null) {
               throw RpcException.invalidParams(
                 'This client did not declare the elicitation.url capability',
               );
             }
-            return elicitationUrlSupport.handleElicitation(request, this);
+            return urlSupport.handleElicitation(request, this);
         }
       });
     }
@@ -318,16 +354,48 @@ base class ServerConnection extends MCPBase {
       InitializeRequest.methodName,
       request,
     );
-    serverInfo = response.serverInfo;
     serverCapabilities = response.capabilities;
     final serverVersion = response.protocolVersion;
     if (serverVersion == null || !serverVersion.isSupported) {
       await shutdown();
     } else {
       protocolVersion = serverVersion;
+      serverInfo = response.serverInfo;
     }
     return response;
   }
+
+  /// Asks the server which protocol versions and capabilities it supports,
+  /// see [DiscoverRequest].
+  ///
+  /// Sends [protocolVersion] and [capabilities] under the two reserved
+  /// envelope keys the schema requires, plus [clientInfo], [logLevel] and
+  /// [progressToken] when given.
+  ///
+  /// Returns the result as it arrived: this connection's
+  /// [ServerConnection.protocolVersion], [serverCapabilities] and [serverInfo]
+  /// still come from [initialize].
+  ///
+  /// Clients should probe with this before sending any other request, see
+  /// https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/stdio#backward-compatibility.
+  Future<DiscoverResult> discover({
+    required ProtocolVersion protocolVersion,
+    required ClientCapabilities capabilities,
+    Implementation? clientInfo,
+    LoggingLevel? logLevel,
+    ProgressToken? progressToken,
+  }) => sendRequest(
+    DiscoverRequest.methodName,
+    DiscoverRequest(
+      meta: MetaWithRequestEnvelope(
+        protocolVersion: protocolVersion,
+        capabilities: capabilities,
+        clientInfo: clientInfo,
+        logLevel: logLevel,
+        progressToken: progressToken,
+      ),
+    ),
+  );
 
   /// List all the tools from this server.
   Future<ListToolsResult> listTools([ListToolsRequest? request]) =>
@@ -336,7 +404,7 @@ base class ServerConnection extends MCPBase {
   /// Invokes a [Tool] returned from the [ListToolsResult].
   Future<CallToolResult> callTool(CallToolRequest request) async {
     try {
-      return await sendRequest(CallToolRequest.methodName, request);
+      return await sendRequestWithInputs(CallToolRequest.methodName, request);
     } on RpcException catch (e) {
       // If we are set up to try and auto handle url elicitation and we get
       // an error that the url elicitation is required, we will try and handle
@@ -362,7 +430,10 @@ base class ServerConnection extends MCPBase {
         );
         if (elicitResult.action == ElicitationAction.accept) {
           await elicitationComplete;
-          return await sendRequest(CallToolRequest.methodName, request);
+          return await sendRequestWithInputs(
+            CallToolRequest.methodName,
+            request,
+          );
         }
       }
       rethrow;
@@ -376,7 +447,7 @@ base class ServerConnection extends MCPBase {
   /// Reads a [Resource] returned from the [ListResourcesResult] or matching
   /// a [ResourceTemplate] from a [ListResourceTemplatesResult].
   Future<ReadResourceResult> readResource(ReadResourceRequest request) =>
-      sendRequest(ReadResourceRequest.methodName, request);
+      sendRequestWithInputs(ReadResourceRequest.methodName, request);
 
   /// Lists all the [ResourceTemplate]s from this server.
   Future<ListResourceTemplatesResult> listResourceTemplates([
@@ -389,7 +460,143 @@ base class ServerConnection extends MCPBase {
 
   /// Gets the requested [Prompt] from the server.
   Future<GetPromptResult> getPrompt(GetPromptRequest request) =>
-      sendRequest(GetPromptRequest.methodName, request);
+      sendRequestWithInputs(GetPromptRequest.methodName, request);
+
+  /// Sends [request] like [sendRequest] does, answering any `input_required`
+  /// result before it returns.
+  ///
+  /// Before 2026-07-28 it sends once. An extension adding a method that takes
+  /// input responses can go through here.
+  Future<T> sendRequestWithInputs<T extends Result>(
+    String methodName,
+    WithInputResponses request,
+  ) async {
+    final version = protocolVersion;
+    // An unsettled version is not an error. 2026-07-28 dropped the handshake,
+    // and something outside `initialize` settles this one. Either way the
+    // connection has not told us it speaks the revision.
+    if (version == null || version < ProtocolVersion.v2026_07_28) {
+      return sendRequest<T>(methodName, request);
+    }
+    try {
+      return await _retryWhileInputRequired<T>(methodName, request);
+    } finally {
+      // Every round runs under the progress token the caller put on the first
+      // request, so the stream it opened outlives all of them.
+      await closeProgress(request);
+    }
+  }
+
+  Future<T> _retryWhileInputRequired<T extends Result>(
+    String methodName,
+    WithInputResponses request,
+  ) async {
+    final originalRequest = request as Map<String, Object?>;
+    var result =
+        (await sendRequestKeepingProgress<T>(methodName, request)) as Result;
+    for (
+      var round = 0;
+      result.resultType == ResultTypes.inputRequired;
+      round++
+    ) {
+      final maxRounds = maxInputRequiredRounds;
+      if (maxRounds != null && round >= maxRounds) {
+        throw ArgumentError(
+          'The server returned `${ResultTypes.inputRequired}` after '
+          '$round retries for `$methodName`. Expected '
+          '`${ResultTypes.complete}`.',
+        );
+      }
+      final inputRequired = result as InputRequiredResult;
+      final responses = <String, Result>{};
+      final inputRequests = inputRequired.inputRequests;
+      final requestState = inputRequired.requestState;
+      if (inputRequests == null && requestState == null) {
+        throw ArgumentError(
+          'The server returned `${ResultTypes.inputRequired}` without '
+          '`${Keys.inputRequests}` or `${Keys.requestState}`.',
+        );
+      }
+      // TODO: Delay a retry that carries no input requests.
+      // https://github.com/dart-lang/ai/issues/162
+      if (inputRequests != null) {
+        // Resolve every handler before running any, so a request this client
+        // cannot serve stops the round before a partial dispatch.
+        final handlers = [
+          for (final entry in inputRequests.entries)
+            MapEntry(entry.key, _inputRequestHandler(entry.value)),
+        ];
+        for (final handler in handlers) {
+          responses[handler.key] = await handler.value();
+        }
+      }
+      final retryRequest =
+          <String, Object?>{
+                for (final entry in originalRequest.entries)
+                  if (entry.key != Keys.inputResponses &&
+                      entry.key != Keys.requestState)
+                    entry.key: entry.value,
+                if (responses.isNotEmpty) Keys.inputResponses: responses,
+                if (requestState != null) Keys.requestState: requestState,
+              }
+              as WithInputResponses;
+      result =
+          (await sendRequestKeepingProgress<T>(methodName, retryRequest))
+              as Result;
+    }
+    return result as T;
+  }
+
+  /// Resolves the handler for [inputRequest], one of the three methods a
+  /// server can ask for in an `input_required` result.
+  ///
+  /// Answering those and sending the original request again is a multi
+  /// round-trip request, see
+  /// https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr.
+  Future<Result> Function() _inputRequestHandler(InputRequest inputRequest) {
+    switch (inputRequest.method) {
+      case ElicitRequest.methodName:
+        final request = _requiredParams(inputRequest) as ElicitRequest;
+        final badMode = _invalidElicitationMode(request);
+        if (badMode != null) throw ArgumentError(badMode);
+        switch (request.mode) {
+          case ElicitationMode.form:
+            final support = _elicitationFormSupport;
+            if (support == null) {
+              throw _undeclaredCapability('elicitation.form');
+            }
+            return () async => await support.handleElicitation(request, this);
+          case ElicitationMode.url:
+            final support = _elicitationUrlSupport;
+            if (support == null) {
+              throw _undeclaredCapability('elicitation.url');
+            }
+            return () async => await support.handleElicitation(request, this);
+        }
+      case CreateMessageRequest.methodName:
+        final support = _samplingSupport;
+        if (support == null) {
+          throw _undeclaredCapability(Keys.sampling);
+        }
+        final request = _requiredParams(inputRequest) as CreateMessageRequest;
+        final serverInfo = _samplingServerInfo;
+        return () async =>
+            await support.handleCreateMessage(request, serverInfo);
+      case ListRootsRequest.methodName:
+        final support = _rootsSupport;
+        if (support == null) {
+          throw _undeclaredCapability(Keys.roots);
+        }
+        final request = inputRequest.params as ListRootsRequest?;
+        return () async => await support.handleListRoots(request);
+      default:
+        throw ArgumentError(
+          'The input request method was "${inputRequest.method}", which is '
+          'not one of: ${ElicitRequest.methodName}, '
+          '${CreateMessageRequest.methodName}, ${ListRootsRequest.methodName}',
+        );
+    }
+  }
 
   /// Subscribes this client to a resource by URI (at `request.uri`).
   ///
@@ -420,6 +627,37 @@ base class ServerConnection extends MCPBase {
   Future<CompleteResult> requestCompletions(CompleteRequest request) =>
       sendRequest(CompleteRequest.methodName, request);
 }
+
+/// [InputRequest.params] for a method whose schema requires them.
+///
+/// Throws an [ArgumentError] naming the method when a server left them out.
+Request _requiredParams(InputRequest inputRequest) =>
+    inputRequest.params ??
+    (throw ArgumentError(
+      'The input request params for "${inputRequest.method}" were absent, '
+      'expected an object.',
+    ));
+
+/// The error message for [request] if it names a mode that is not an
+/// [ElicitationMode], or null if this client can read its mode.
+///
+/// [ElicitRequest.mode] reports an unknown mode as `Bad state: No element`, so
+/// both entry points check the raw value first and name it themselves. One
+/// answers the server with an [RpcException] and the other throws to the
+/// caller, so this returns the message and lets each one wrap it.
+String? _invalidElicitationMode(ElicitRequest request) {
+  final raw = request.rawMode;
+  if (raw == null || ElicitationMode.values.any((m) => m.name == raw)) {
+    return null;
+  }
+  return 'The elicitation mode was "$raw", which is not one of: '
+      '${ElicitationMode.values.map((m) => m.name).join(', ')}';
+}
+
+StateError _undeclaredCapability(String capability) => StateError(
+  'The server sent an input request needing the $capability capability, '
+  'which this client did not declare.',
+);
 
 extension ElicitationServerConnection on ElicitRequest {
   /// Broadcast stream of notifications for this elicitation ID. Events are not

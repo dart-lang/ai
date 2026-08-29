@@ -41,20 +41,21 @@
     - On the client, `MCPClient.capabilities` already worked this way.
   - Override `MCPServer.initializeLegacy` only to customize the legacy
     initialize response or version negotiation.
-  - `ElicitationRequestSupport.elicit` now throws an `RpcException` with
+  - On revisions that have `elicitation/create`,
+    `ElicitationRequestSupport.elicit` now throws an `RpcException` with
     `McpErrorCodes.missingRequiredClientCapability` instead of a `StateError`
-    when the client did not declare the capability the request needs, naming the
-    missing capability under `data.requiredCapabilities`, which the 2026-07-28
-    revision requires of that error. `ToolsSupport.callTool` rethrows an
-    `RpcException`, so a tool which elicits reaches the client as that error
-    rather than as a `CallToolResult` whose text is a Dart stack trace. A
-    server catching the `StateError` needs to catch `RpcException` instead,
-    which comes from `package:json_rpc_2`.
-  - `ElicitationRequestSupport.elicit` now checks which mode a request names. A
-    server that guarded on `supportsElicitation` should read
-    `supportsFormElicitation` or `supportsUrlElicitation`. A request naming an
-    unknown mode is answered with `-32602` (invalid params) instead of going out
-    with that mode still on it.
+    when the client did not declare the capability the request needs, naming
+    the missing capability under `data.requiredCapabilities`, which the
+    2026-07-28 revision requires of that error.
+    `ToolsSupport.callTool` rethrows an `RpcException`, so a tool which elicits
+    reaches the client as that error rather than as a `CallToolResult` whose
+    text is a Dart stack trace. A server catching the `StateError` needs to
+    catch `RpcException` instead, which comes from `package:json_rpc_2`.
+  - `ElicitationRequestSupport.elicit` also checks which mode a request names
+    on those same revisions. A server that guarded on `supportsElicitation`
+    should read `supportsFormElicitation` or `supportsUrlElicitation`. A
+    request naming an unknown mode is answered with `-32602` (invalid params)
+    instead of going out with that mode still on it.
   - `ServerConnection` now answers an elicitation mode the client did not
     declare with `-32602` (invalid params), where it used to answer a `decline`,
     as if the user had sent it. An unrecognized one used to throw out of the
@@ -67,18 +68,30 @@
     Dart stack trace attached. A server which overrides `readResource` and
     catches the `ArgumentError` its dartdoc used to promise needs to catch
     `RpcException` from `package:json_rpc_2` instead.
-  - `MCPServer.listRoots` and `MCPServer.createMessage` now throw an
-    `RpcException` with `McpErrorCodes.missingRequiredClientCapability` when
-    the client did not declare `roots` or `sampling`, naming the missing
-    capability under `data.requiredCapabilities`, the same way
-    `ElicitationRequestSupport.elicit` already did. The 2026-07-28 revision
-    requires a server not to send a request which relies on a capability the
-    client left out. Both used to send the request anyway, so what came back
+  - On revisions before 2026-07-28, `MCPServer.listRoots` and
+    `MCPServer.createMessage` now throw an `RpcException` with
+    `McpErrorCodes.missingRequiredClientCapability` when the client did not
+    declare `roots` or `sampling`, naming the missing capability under
+    `data.requiredCapabilities`, the same way `ElicitationRequestSupport.elicit`
+    already did. Both used to send the request anyway, so what came back
     depended on the peer: a client with no handler answered `-32601`, and a
     request-scoped transport answered `-32603` because it cannot carry a
     server to client request at all. A server which expects either of those
-    codes for an undeclared capability should read
-    `MCPServer.supportsRoots` or `MCPServer.supportsSampling` first.
+    codes for an undeclared capability should read `MCPServer.supportsRoots`
+    or `MCPServer.supportsSampling` first.
+  - `MCPServer.listRoots`, `MCPServer.createMessage`, and
+    `ElicitationRequestSupport.elicit` now throw an `RpcException` with
+    `-32603` when the negotiated protocol version does not have the method,
+    before they read any client capability.
+    `ProtocolVersion.v2026_07_28.removedMethods` now lists `roots/list`,
+    `sampling/createMessage`, and `elicitation/create`, which that revision
+    dropped along with the rest of the `ServerRequest` union, so
+    `ProtocolVersion.methodIsValid` answers for all three. A server on it asks
+    the client for input with an `InputRequiredResult` on `tools/call`,
+    `prompts/get`, or `resources/read` instead, see
+    https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr.
+    `elicit` also throws on 2024-11-05 and 2025-03-26, the two revisions before
+    2025-06-18 added `elicitation/create`.
   - `ResourceLink.icons` is now `List<Icon>?` instead of `List<String>?`, and
     its factory takes the icons, the way the other five types carrying `icons`
     already do. The field has been an array of icons since 2025-11-25 added it,
@@ -98,6 +111,14 @@
     `maximum` and `default` are `number` too. A peer sending
     `{"type": "integer", "minimum": 0.5}` sent something the getter threw on.
     `multipleOf` next to them already read `num`.
+  - `ServerConnection.protocolVersion` is nullable, and is `null` until
+    something settles a version. It used to be a `late` field, which threw
+    when read before then. Set `serverInfo` alongside it. Sampling hands that
+    to the handler.
+  - `ServerConnection.serverInfo` stays `null` when version negotiation fails,
+    the way its dartdoc already described, instead of holding the rejected
+    server's implementation. `initialize` still returns that result and
+    `serverCapabilities` still holds what the server sent.
 - Add `supportsFormElicitation` and `supportsUrlElicitation` for a server to
   ask before it sends. An empty `elicitation` object still means form, the way
   `elicitation` read before the split.
@@ -115,6 +136,12 @@
   carry the `ttlMs` and `cacheScope` hints, which the handler may set itself.
   A server answering an earlier revision gets none of them. Does **not** add
   any transport.
+- On protocol 2026-07-28, `handleRequestScopedMessage` now validates
+  input-required results before forwarding them, see
+  https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr.
+  Asking for a client capability that was never declared answers
+  `McpErrorCodes.missingRequiredClientCapability`, a malformed shape an
+  internal error.
 - Support a per-request log level on 2026-07-28, see
   https://modelcontextprotocol.io/specification/2026-07-28/server/utilities/logging.
   The level goes in the `io.modelcontextprotocol/logLevel` metadata key, which
@@ -159,7 +186,16 @@
 - Add `InputRequiredResult` and `InputRequest`, the result a server answers with
   when it needs input first, see
   https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr.
-  Nothing sends or answers one yet.
+  A server built with this package does not send one yet.
+- On a 2026-07-28 connection, `ServerConnection.callTool`, `.getPrompt` and
+  `.readResource` answer an `input_required` result from the client's
+  elicitation, sampling and roots handlers, then send the original request
+  again, through the new `ServerConnection.sendRequestWithInputs`. The spec
+  bounds the rounds nowhere, so `ServerConnection.maxInputRequiredRounds`
+  stops them, at ten unless a caller moves it or clears it with `null`.
+- Add `MCPBase.sendRequestKeepingProgress` and `MCPBase.closeProgress`.
+  `sendRequest` closes a progress stream once its request is done, and this
+  pair splits that apart so a retry loop can hold one token across rounds.
 - Add `WithInputResponses`, the type a client's retry carries.
   `CallToolRequest`, `GetPromptRequest` and `ReadResourceRequest` take an
   `inputResponses` and a `requestState`, matching the three requests the schema
@@ -219,6 +255,9 @@
   resource updates reach `onNotification` alone, since this revision carries
   those on a `subscriptions/listen` stream. Does not treat a closed stream as
   cancellation, which the specification requires.
+- Add `sseMessageStream`, decoding the `message` events of an SSE response
+  into JSON objects. Undecodable data becomes an error event without ending
+  the stream, though `await for` stops on the first one.
 - Serve `server/discover` from `MCPServer.discover`, which answers with the
   request-scoped protocol versions this package implements, the capabilities
   `MCPServer.initialize` registered, and the instructions the server was given.
@@ -270,10 +309,28 @@
   Streamable HTTP handler already requires; the server map travels with
   `ServerCapabilities`, which is held by the legacy `initialize` result and
   by `DiscoverResult`.
+- Support `x-mcp-header` in `handleStreamableHttpRequest`. A `tools/call`
+  argument annotated with it is checked against its `Mcp-Param-{Name}` header.
+  - Nested `properties` paths and `=?base64?...?=` values are supported, and
+    integers are compared numerically.
+  - A missing, extra, malformed, or mismatched header answers `400 Bad Request`
+    with `McpErrorCodes.headerMismatch` and drops any notification the server
+    emitted before dispatch.
+  - A `tools/call` whose `arguments` is not an object answers `400 Bad Request`
+    with invalid params.
+  - `handleRequestScopedMessage` gained `beforeDispatch`, and
+    `ToolsSupport.registeredTools` exposes the registered tools by name.
 - Point the documentation at `modelcontextprotocol.io` and at protocol
   revision 2025-11-25. The old host stopped serving HTTPS, and the old
   revision number 2025-11-05 was never a published revision.
 - Add missing license headers.
+- Add `MetaWithRequestEnvelope`, a `_meta` type for the reserved keys a request
+  on the 2026-07-28 revision carries.
+- Add `ServerConnection.discover`, the client side of `server/discover`.
+  - The request carries `protocolVersion` and `capabilities` under the two
+    reserved keys the schema makes required, plus `clientInfo`, `logLevel` and
+    `progressToken` when they are given, see
+    https://modelcontextprotocol.io/specification/2026-07-28/server/discover.
 
 ## 0.5.2
 
