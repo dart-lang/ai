@@ -146,7 +146,15 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
       );
     }
     final directory = args![ParameterNames.directory] as String;
-    if (p.isAbsolute(directory)) {
+    if (directory.isEmpty) {
+      errors.add(
+        ValidationError(
+          ValidationErrorType.custom,
+          path: [ParameterNames.directory],
+          details: 'Directory must not be empty.',
+        ),
+      );
+    } else if (p.isAbsolute(directory)) {
       errors.add(
         ValidationError(
           ValidationErrorType.custom,
@@ -314,8 +322,8 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
               ParameterNames.root: rootSchema,
               ParameterNames.directory: Schema.string(
                 description:
-                    'The subdirectory in which to create the project, must '
-                    'be a relative path.',
+                    'The directory in which to create the project, relative '
+                    'to the root. Use `.` for the root itself.',
               ),
               ParameterNames.projectType: Schema.string(
                 description: "The type of project: 'dart' or 'flutter'.",

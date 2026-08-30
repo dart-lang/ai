@@ -1,5 +1,6 @@
 ## 1.1.2-dev
 
+- Let the `create` tool target the project root, and reject an empty directory.
 - Track `AGENT_PLUGIN` environment variable in analytics events.
 - Add missing license headers.
 

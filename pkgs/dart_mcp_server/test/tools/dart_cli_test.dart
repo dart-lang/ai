@@ -445,6 +445,26 @@ dependencies:
         ]);
       });
 
+      test('fails if directory is empty', () async {
+        testHarness.mcpClient.addRoot(dartCliAppRoot);
+        final request = CallToolRequest(
+          name: createProjectTool.name,
+          arguments: {
+            ParameterNames.root: dartCliAppRoot.uri,
+            ParameterNames.directory: '',
+            ParameterNames.projectType: 'dart',
+          },
+        );
+        final result = await testHarness.callTool(request, expectError: true);
+
+        expect(result.isError, isTrue);
+        expect(
+          (result.content.first as TextContent).text,
+          contains('must not be empty'),
+        );
+        expect(testProcessManager.commandsRan, isEmpty);
+      });
+
       test('fails if directory (project name) is an absolute path', () async {
         testHarness.mcpClient.addRoot(dartCliAppRoot);
         final request = CallToolRequest(
