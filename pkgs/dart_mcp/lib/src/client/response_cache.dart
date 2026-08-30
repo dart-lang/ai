@@ -33,7 +33,7 @@ final class _CacheEntry {
   final Duration expiresAt;
 }
 
-/// The `_meta` fields which change the answer to a cacheable request.
+/// The `_meta` fields that change the answer to a cacheable request.
 ///
 /// A request carrying any other field is sent to the server, since this
 /// package cannot tell whether that field changes the answer.
@@ -47,7 +47,7 @@ const _contextKeys = {
 /// The cache behind [ServerConnection.sendRequest].
 ///
 /// Holds the results of the six operations the 2026-07-28 caching rules name,
-/// keyed by the request method, the parameters which change the answer, and
+/// keyed by the request method, the parameters that change the answer, and
 /// the per-request context the caller sent. A result is stored only while it
 /// is complete, carries a positive `ttlMs` and carries a scope the schema
 /// allows, and the answers to an [InputRequiredResult] stay out entirely. A
@@ -147,7 +147,7 @@ final class _ClientResponseCache {
       if (!_entries.containsKey(key) && _entries.length >= _maxEntries) {
         _entries.remove(_entries.keys.first);
       }
-      // An answer which arrives after one of its own contents changed is
+      // An answer that arrives after one of its own contents changed is
       // already out of date, and a read only learns which contents it carries
       // once it gets here.
       final updated = _updatedWhilePending[token];
@@ -176,8 +176,8 @@ final class _ClientResponseCache {
   }
 
   void invalidateResource(String uri) {
-    // The notification can name a sub-resource of the one which was read, so a
-    // result which carried that URI in its contents is stale as well.
+    // The notification can name a sub-resource of the one that was read, so a
+    // result carrying that URI in its contents is stale as well.
     bool matches(_CacheKey key, _CacheEntry? entry) {
       if (key.methodName != ReadResourceRequest.methodName) return false;
       if (key.parameter == uri) return true;
@@ -224,7 +224,7 @@ final class _ClientResponseCache {
 
   /// The key [request] is cached under, or `null` when it is not cacheable.
   ///
-  /// Each cacheable method names the parameters which change its answer, and
+  /// Each cacheable method names the parameters that change its answer, and
   /// a request carrying anything else gets no key. That is what keeps the
   /// retry of an [InputRequiredResult] out: the schema says a request carrying
   /// `inputResponses` or `requestState` must not be cached, since it depends
