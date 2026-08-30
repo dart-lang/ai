@@ -418,6 +418,33 @@ dependencies:
         expect(testProcessManager.commandsRan, isEmpty);
       });
 
+      test('creates a project in the root itself', () async {
+        testHarness.mcpClient.addRoot(dartCliAppRoot);
+        final request = CallToolRequest(
+          name: createProjectTool.name,
+          arguments: {
+            ParameterNames.root: dartCliAppRoot.uri,
+            ParameterNames.directory: '.',
+            ParameterNames.projectType: 'dart',
+            ParameterNames.template: 'cli',
+          },
+        );
+        await testHarness.callToolWithRetry(request);
+
+        expect(testProcessManager.commandsRan, [
+          equalsCommand((
+            command: [
+              endsWith(dartExecutableName),
+              'create',
+              '--template',
+              'cli',
+              '.',
+            ],
+            workingDirectory: dartCliAppRoot.path,
+          )),
+        ]);
+      });
+
       test('fails if directory (project name) is an absolute path', () async {
         testHarness.mcpClient.addRoot(dartCliAppRoot);
         final request = CallToolRequest(
