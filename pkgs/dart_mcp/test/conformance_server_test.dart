@@ -165,7 +165,9 @@ void main() {
         'state-ok: requestState verified and confirmation received',
       ),
     );
-  });
+    // `Platform.resolvedExecutable` is this test's own binary once it is
+    // compiled, so it cannot start the server the way it does on the VM.
+  }, testOn: '!exe');
 }
 
 Future<Map<String, Object?>> _post(
