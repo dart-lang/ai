@@ -646,6 +646,33 @@ void main() {
       });
     });
 
+    test('reports a failed notification POST on the channel', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      wireServer.listen((request) async {
+        await utf8.decodeStream(request);
+        request.response
+          ..statusCode = HttpStatus.internalServerError
+          ..headers.contentType = ContentType.text
+          ..write('no');
+        await request.response.close();
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final failure = channel.stream.first;
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.method: progressNotification,
+      });
+
+      await expectLater(failure, throwsA(isA<UnsupportedError>()));
+    });
+
     test('names an invalid outgoing message in its request error', () async {
       final channel = streamableHttpClientChannel(
         uri,

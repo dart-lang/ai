@@ -260,8 +260,9 @@
 - Add `streamableHttpClientChannel`, posting each client message as a
   Streamable HTTP request and emitting JSON or SSE responses on the channel.
   JSON replies are decoded with `jsonDecode` and SSE replies with
-  `sseMessageStream`. A failed POST is an error for that request id, and a
-  `202` on a notification is not an inbound message. A `tools/call` whose
+  `sseMessageStream`. A failed POST is an error for that request id, or an
+  error on the channel when it carried a notification. A `202` on a
+  notification is not an inbound message. A `tools/call` whose
   params or arguments are not a string-keyed map is a request error. Valid
   `x-mcp-header` annotations from `tools/list` are mirrored on later
   `tools/call` requests; invalid tool definitions are dropped. The helper

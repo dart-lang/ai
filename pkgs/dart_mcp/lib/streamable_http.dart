@@ -90,6 +90,8 @@ Stream<Map<String, Object?>> _sendStreamableHttpMessage(
   Implementation? clientInfo,
   _StreamableHttpClientState state,
 ) async* {
+  // Shape errors happen before this turns true, transport errors after.
+  var posting = false;
   try {
     final object = JsonRpc2Object.fromMap(message);
     final method = object.method;
@@ -136,6 +138,7 @@ Stream<Map<String, Object?>> _sendStreamableHttpMessage(
         object.kind == JsonRpc2Kind.request
             ? state.headersFor(message)
             : const <String, String>{};
+    posting = true;
     final request = await httpClient.postUrl(uri);
     request.headers
       ..contentType = ContentType.json
@@ -186,8 +189,14 @@ Stream<Map<String, Object?>> _sendStreamableHttpMessage(
       '$_eventStreamMimeType. Got HTTP ${response.statusCode} '
       '"$responseType" with body "$responseBody".',
     );
-  } catch (error) {
-    if (!message.containsKey(Keys.id)) return;
+  } catch (error, stackTrace) {
+    if (!message.containsKey(Keys.id)) {
+      // A notification has no id to attach a JSON-RPC error to. A message this
+      // client never sent is the caller's to fix, but a POST that failed on
+      // the wire has nothing else to report it.
+      if (posting) Error.throwWithStackTrace(error, stackTrace);
+      return;
+    }
     yield state.recordIncoming({
       Keys.jsonrpc: '2.0',
       Keys.id: message[Keys.id],
