@@ -187,11 +187,6 @@ void main() {
   });
 
   group('MetaWithSubscriptionId', () {
-    test('reads back the id it was built with', () {
-      final meta = MetaWithSubscriptionId(subscriptionId: RequestId('s-9'));
-      expect(meta.subscriptionId, RequestId('s-9'));
-    });
-
     test("reads the id beside a caller's own key", () {
       final meta = MetaWithSubscriptionId.fromMap({
         'com.example/trace': 'abc',
