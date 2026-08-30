@@ -310,7 +310,7 @@ final class _StreamableHttpClientState {
     final tools = result[Keys.tools];
     if (tools is! List) return message;
     // A page carrying no cursor is a fresh snapshot, so anything it leaves out
-    // is gone rather than waiting on a later page.
+    // is gone, not waiting on a later page.
     if (firstPage) _toolHeaders.clear();
     final validTools = <Object?>[];
     for (final tool in tools) {
