@@ -154,7 +154,7 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
           details: 'Directory must be a relative path.',
         ),
       );
-    } else if (p.normalize(directory) != '.' && !p.isWithin('.', directory)) {
+    } else if (!p.equals('.', directory) && !p.isWithin('.', directory)) {
       errors.add(
         ValidationError(
           ValidationErrorType.custom,
