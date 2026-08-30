@@ -177,8 +177,9 @@
   A response is only reused for a request whose `_meta` names 2026-07-28, under
   a key covering the parameters and that metadata. Entries are bounded per
   connection and are dropped by change notifications, stale cursors, and
-  `shutdown`. An `InputRequiredResult` and the retry it asks for are never
-  cached.
+  `shutdown`. A `resources/updated` also drops a read whose contents named
+  that URI, since the notification can name a sub-resource. An
+  `InputRequiredResult` and the retry it asks for are never cached.
 - Add `McpErrorCodes.headerMismatch` (`-32020`),
   `.missingRequiredClientCapability` (`-32021`), and
   `.unsupportedProtocolVersion` (`-32022`), the error codes the 2026-07-28

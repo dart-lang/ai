@@ -163,11 +163,18 @@ final class _ClientResponseCache {
   }
 
   void invalidateResource(String uri) {
-    bool matches(_CacheKey key) =>
-        key.methodName == ReadResourceRequest.methodName &&
-        key.parameter == uri;
-    _entries.removeWhere((key, _) => matches(key));
-    _pending.removeWhere((key, _) => matches(key));
+    // The notification can name a sub-resource of the one which was read, so a
+    // result which carried that URI in its contents is stale as well.
+    bool matches(_CacheKey key, _CacheEntry? entry) {
+      if (key.methodName != ReadResourceRequest.methodName) return false;
+      if (key.parameter == uri) return true;
+      final contents = entry?.result[Keys.contents];
+      return contents is List &&
+          contents.any((content) => content is Map && content[Keys.uri] == uri);
+    }
+
+    _entries.removeWhere(matches);
+    _pending.removeWhere((key, _) => matches(key, null));
   }
 
   void clear() {

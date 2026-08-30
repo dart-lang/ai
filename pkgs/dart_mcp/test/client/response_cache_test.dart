@@ -421,6 +421,37 @@ void main() {
       expect(server.readCalls, {'file:///first': 2, 'file:///second': 1});
     });
 
+    test(
+      'invalidates a read whose contents name the updated resource',
+      () async {
+        const parent = 'file:///dir';
+        const child = 'file:///dir/child';
+        // The schema says the updated URI might be a sub-resource of the
+        // one subscribed to, and a read can answer with several contents.
+        server.readResult =
+            (_, count) => ReadResourceResult.fromMap({
+              Keys.resultType: ResultTypes.complete,
+              Keys.contents: [
+                TextResourceContents(uri: child, text: 'read-$count'),
+              ],
+              Keys.ttlMs: 60000,
+              Keys.cacheScope: CacheScope.private.name,
+            });
+        await readResource(parent);
+        await readResource(parent);
+        expect(server.readCalls[parent], 1);
+
+        server.sendNotification(
+          ResourceUpdatedNotification.methodName,
+          ResourceUpdatedNotification(uri: child),
+        );
+        await pumpEventQueue();
+
+        await readResource(parent);
+        expect(server.readCalls[parent], 2);
+      },
+    );
+
     test('does not store responses invalidated while in flight', () async {
       final toolsResult = Completer<ListToolsResult>();
       server.listToolsResult = (_, _) => toolsResult.future;
