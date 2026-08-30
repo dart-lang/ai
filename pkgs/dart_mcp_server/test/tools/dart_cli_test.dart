@@ -458,6 +458,27 @@ dependencies:
         expect(testProcessManager.commandsRan, isEmpty);
       });
 
+      test('fails if template contains whitespace', () async {
+        testHarness.mcpClient.addRoot(dartCliAppRoot);
+        final request = CallToolRequest(
+          name: createProjectTool.name,
+          arguments: {
+            ParameterNames.root: dartCliAppRoot.uri,
+            ParameterNames.directory: 'new_app',
+            ParameterNames.projectType: 'dart',
+            ParameterNames.template: 'console\nfull',
+          },
+        );
+        final result = await testHarness.callTool(request, expectError: true);
+
+        expect(result.isError, isTrue);
+        expect(
+          (result.content.first as TextContent).text,
+          contains('contain whitespace'),
+        );
+        expect(testProcessManager.commandsRan, isEmpty);
+      });
+
       test('requires a root to be passed', () async {
         testHarness.mcpClient.addRoot(dartCliAppRoot);
         final request = CallToolRequest(
