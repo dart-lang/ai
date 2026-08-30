@@ -121,9 +121,9 @@
   - `ToolsSupport.callTool`, `PromptsSupport.getPrompt` and
     `ResourcesSupport.readResource` return `CallToolResponse`,
     `GetPromptResponse` and `ReadResourceResponse`, which both the completed
-    result and `InputRequiredResult` implement, so a handler can ask for input
-    before it answers. The `registerTool`, `registerPrompt`, `addResource` and
-    `addResourceTemplate` parameters taking those handlers widen with them.
+    result and `InputRequiredResult` implement. A handler can ask for input
+    before it answers. The `registerTool`, `addPrompt`, `addResource` and
+    `updateResource` parameters taking those handlers widen with them.
     `Result.isInputRequired` tells them apart.
 - Add `supportsFormElicitation` and `supportsUrlElicitation` for a server to
   ask before it sends. An empty `elicitation` object still means form, the way
