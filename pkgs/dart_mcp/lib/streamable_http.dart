@@ -170,16 +170,35 @@ Stream<Map<String, Object?>> _sendStreamableHttpMessage(
     }
 
     final responseType = response.headers.contentType?.mimeType;
+    final wantsResponse = message.containsKey(Keys.id);
     if (responseType == ContentType.json.mimeType) {
       final decoded =
           (jsonDecode(await utf8.decodeStream(response)) as Map)
               .cast<String, Object?>();
+      if (!wantsResponse) {
+        throw StateError(
+          'A notification must be answered with ${HttpStatus.accepted}. Got '
+          'HTTP ${response.statusCode} with a ${ContentType.json.mimeType} '
+          'body instead.',
+        );
+      }
       yield state.recordIncoming(decoded);
       return;
     }
     if (responseType == _eventStreamMimeType) {
+      var answered = false;
       await for (final event in sseMessageStream(response)) {
+        if (event[Keys.id] == message[Keys.id] &&
+            (event.containsKey(Keys.result) || event.containsKey(Keys.error))) {
+          answered = true;
+        }
         yield state.recordIncoming(event);
+      }
+      if (wantsResponse && !answered) {
+        throw StateError(
+          'The response stream for request ${message[Keys.id]} ended without '
+          'a response.',
+        );
       }
       return;
     }
@@ -210,12 +229,15 @@ Stream<Map<String, Object?>> _sendStreamableHttpMessage(
 
 /// Request state shared by the POSTs on one client channel.
 final class _StreamableHttpClientState {
-  final _listToolsRequestIds = <Object?>{};
+  final _listToolsRequestIds = <Object?, bool>{};
   final _toolHeaders = <String, List<_McpHeaderDeclaration>>{};
 
   void recordOutgoing(Map<String, Object?> message, String method) {
     if (method == ListToolsRequest.methodName && message.containsKey(Keys.id)) {
-      _listToolsRequestIds.add(message[Keys.id]);
+      final params = message[Keys.params];
+      final cursor =
+          params is Map<String, Object?> ? params[Keys.cursor] : null;
+      _listToolsRequestIds[message[Keys.id]] = cursor == null;
     }
   }
 
@@ -250,19 +272,28 @@ final class _StreamableHttpClientState {
         (final String type, final String value)
             when type == JsonType.string.typeName =>
           _encodeSentinel(value),
-        (final String type, final int value)
+        (final String type, final num value)
             when type == JsonType.int.typeName &&
+                value.isFinite &&
+                value == value.roundToDouble() &&
                 value >= _minimumSafeInteger &&
                 value <= _maximumSafeInteger =>
-          '$value',
+          '${value.toInt()}',
         (final String type, final bool value)
             when type == JsonType.bool.typeName =>
           '$value',
         _ => null,
       };
-      if (encoded != null) {
-        headers['$_mcpParamHeaderPrefix${declaration.header}'] = encoded;
+      if (encoded == null) {
+        if (value == null) continue;
+        throw ArgumentError.value(
+          value,
+          declaration.path.join('.'),
+          'cannot be mirrored onto ${declaration.header}. The tool declares '
+          'it as ${declaration.type}.',
+        );
       }
+      headers['$_mcpParamHeaderPrefix${declaration.header}'] = encoded;
     }
     return headers;
   }
@@ -272,11 +303,15 @@ final class _StreamableHttpClientState {
       _toolHeaders.clear();
       return message;
     }
-    if (!_listToolsRequestIds.remove(message[Keys.id])) return message;
+    final firstPage = _listToolsRequestIds.remove(message[Keys.id]);
+    if (firstPage == null) return message;
     final result = message[Keys.result];
     if (result is! Map<String, Object?>) return message;
     final tools = result[Keys.tools];
     if (tools is! List) return message;
+    // A page carrying no cursor is a fresh snapshot, so anything it leaves out
+    // is gone rather than waiting on a later page.
+    if (firstPage) _toolHeaders.clear();
     final validTools = <Object?>[];
     for (final tool in tools) {
       if (tool is! Map<String, Object?>) continue;
@@ -369,6 +404,9 @@ const _subschemaKeywords = {
   Keys.allOf,
   Keys.not,
   'contains',
+  'contentSchema',
+  'dependencies',
+  'additionalItems',
   'dependentSchemas',
   'if',
   'then',
@@ -379,6 +417,7 @@ const _subschemaKeywords = {
 
 const _mapValuedSubschemaKeywords = {
   Keys.patternProperties,
+  'dependencies',
   'dependentSchemas',
   r'$defs',
   'definitions',
