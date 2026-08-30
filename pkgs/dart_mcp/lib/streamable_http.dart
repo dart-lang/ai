@@ -100,9 +100,9 @@ export 'src/utils/sse.dart' show sseMessageStream;
 /// result follows it as the last event. A request answered without one gets a
 /// JSON body instead. Long-lived change notifications go only to a successful
 /// `subscriptions/listen` response whose acknowledged filter selects them.
-/// A listen response sends SSE comments while it is quiet. Closing that
-/// response shuts down its request server and ends the subscription without a
-/// final result.
+/// A listen response writes SSE comments on a timer to keep an idle stream
+/// open. Closing that response shuts down its request server and ends the
+/// subscription without a final result.
 /// [onNotification] sees every notification either way, held back or not.
 /// When [subscriptionNotifications] is provided, each listen request reads
 /// matching changes from that stream. An embedder can pass the same broadcast
