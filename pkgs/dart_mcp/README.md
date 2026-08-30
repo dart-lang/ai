@@ -127,7 +127,7 @@ can be used, but some are directly supported out of the box.
 | Transport | Support | Notes |
 | --- | --- | --- |
 | [Stdio](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports#stdio) | :heavy_check_mark: |  |
-| [Streamable HTTP](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http) | :construction: | `handleStreamableHttpRequest` serves requests, answering with an SSE stream when a handler emits related notifications and with a JSON body otherwise. `streamableHttpClientChannel` posts each client message, reads JSON and SSE responses, isolates POST failures by request id, and mirrors `x-mcp-header` tool parameters. It speaks only 2026-07-28 and does not fall back to an earlier transport. |
+| [Streamable HTTP](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http) | :construction: | `handleStreamableHttpRequest` serves requests, answering with an SSE stream when a handler emits related notifications and with a JSON body otherwise. `streamableHttpClientChannel` posts each client message, reads JSON and SSE responses, reports a failure on its request id or on the channel when there is none, and mirrors `x-mcp-header` tool parameters. It speaks only 2026-07-28 and does not fall back to an earlier transport. |
 
 ## Batching Requests
 
