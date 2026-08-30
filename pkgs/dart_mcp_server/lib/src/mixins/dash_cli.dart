@@ -170,6 +170,17 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
           details: 'Directory must be a relative path within the project root.',
         ),
       );
+    } else if (projectType == 'dart' && p.equals('.', directory)) {
+      errors.add(
+        ValidationError(
+          ValidationErrorType.custom,
+          path: [ParameterNames.directory],
+          details:
+              '`dart create` refuses a directory it finds already there, and '
+              'this tool does not pass `--force`, so a Dart project needs a '
+              'subdirectory. `flutter create` takes `.`.',
+        ),
+      );
     }
     final platforms =
         ((args[ParameterNames.platform] as List?)?.cast<String>() ?? [])

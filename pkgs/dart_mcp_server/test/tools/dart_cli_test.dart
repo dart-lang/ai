@@ -418,15 +418,14 @@ dependencies:
         expect(testProcessManager.commandsRan, isEmpty);
       });
 
-      test('creates a project in the root itself', () async {
-        testHarness.mcpClient.addRoot(dartCliAppRoot);
+      test('creates a Flutter project in the root itself', () async {
+        testHarness.mcpClient.addRoot(exampleFlutterAppRoot);
         final request = CallToolRequest(
           name: createProjectTool.name,
           arguments: {
-            ParameterNames.root: dartCliAppRoot.uri,
+            ParameterNames.root: exampleFlutterAppRoot.uri,
             ParameterNames.directory: '.',
-            ParameterNames.projectType: 'dart',
-            ParameterNames.template: 'cli',
+            ParameterNames.projectType: 'flutter',
           },
         );
         await testHarness.callToolWithRetry(request);
@@ -434,15 +433,34 @@ dependencies:
         expect(testProcessManager.commandsRan, [
           equalsCommand((
             command: [
-              endsWith(dartExecutableName),
+              endsWith(flutterExecutableName),
               'create',
-              '--template',
-              'cli',
+              '--empty',
               '.',
             ],
-            workingDirectory: dartCliAppRoot.path,
+            workingDirectory: exampleFlutterAppRoot.path,
           )),
         ]);
+      });
+
+      test('refuses the root itself for a Dart project', () async {
+        testHarness.mcpClient.addRoot(dartCliAppRoot);
+        final request = CallToolRequest(
+          name: createProjectTool.name,
+          arguments: {
+            ParameterNames.root: dartCliAppRoot.uri,
+            ParameterNames.directory: '.',
+            ParameterNames.projectType: 'dart',
+          },
+        );
+        final result = await testHarness.callTool(request, expectError: true);
+
+        expect(result.isError, isTrue);
+        expect(
+          (result.content.first as TextContent).text,
+          contains('needs a subdirectory'),
+        );
+        expect(testProcessManager.commandsRan, isEmpty);
       });
 
       test('fails if directory is empty', () async {
