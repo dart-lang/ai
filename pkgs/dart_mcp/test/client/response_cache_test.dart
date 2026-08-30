@@ -452,6 +452,54 @@ void main() {
       },
     );
 
+    test(
+      'does not store a read whose contents changed while in flight',
+      () async {
+        const parent = 'file:///dir';
+        const child = 'file:///dir/child';
+        final pending = Completer<ReadResourceResult>();
+        server.readResult = (_, _) => pending.future;
+        final inFlight = readResource(parent);
+        await pumpEventQueue();
+        expect(server.readCalls[parent], 1);
+
+        server.sendNotification(
+          ResourceUpdatedNotification.methodName,
+          ResourceUpdatedNotification(uri: child),
+        );
+        await pumpEventQueue();
+        pending.complete(
+          ReadResourceResult.fromMap({
+            Keys.resultType: ResultTypes.complete,
+            Keys.contents: [TextResourceContents(uri: child, text: 'read-1')],
+            Keys.ttlMs: 60000,
+            Keys.cacheScope: CacheScope.private.name,
+          }),
+        );
+        await inFlight;
+
+        server.readResult = null;
+        await readResource(parent);
+        expect(server.readCalls[parent], 2);
+      },
+    );
+
+    test('drops cached reads when an update leaves out its uri', () async {
+      const kept = 'file:///kept-through-update';
+      await readResource(kept);
+      await readResource(kept);
+      expect(server.readCalls[kept], 1);
+
+      server.sendNotification(
+        ResourceUpdatedNotification.methodName,
+        ResourceUpdatedNotification.fromMap(<String, Object?>{}),
+      );
+      await pumpEventQueue();
+
+      await readResource(kept);
+      expect(server.readCalls[kept], 2);
+    });
+
     test('does not store responses invalidated while in flight', () async {
       final toolsResult = Completer<ListToolsResult>();
       server.listToolsResult = (_, _) => toolsResult.future;

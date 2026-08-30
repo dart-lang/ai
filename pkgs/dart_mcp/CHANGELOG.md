@@ -178,8 +178,12 @@
   a key covering the parameters and that metadata. Entries are bounded per
   connection and are dropped by change notifications, stale cursors, and
   `shutdown`. A `resources/updated` also drops a read whose contents named
-  that URI, since the notification can name a sub-resource. An
-  `InputRequiredResult` and the retry it asks for are never cached.
+  that URI, since the notification can name a sub-resource. A read still in
+  flight when one of its contents changes is not stored, and an update leaving
+  out its URI drops every cached read. A cache belongs to one
+  `ServerConnection`, so a `private` result stays inside the authorization
+  context it was fetched under. An `InputRequiredResult` and the retry it asks
+  for are never cached.
 - Add `McpErrorCodes.headerMismatch` (`-32020`),
   `.missingRequiredClientCapability` (`-32021`), and
   `.unsupportedProtocolVersion` (`-32022`), the error codes the 2026-07-28

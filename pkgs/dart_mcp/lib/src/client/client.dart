@@ -338,7 +338,11 @@ base class ServerConnection extends MCPBase {
       (notification) {
         // A notification which leaves `uri` out still reaches subscribers.
         final uri = (notification as Map<String, Object?>)[Keys.uri];
-        if (uri is String) _responseCache.invalidateResource(uri);
+        if (uri is String) {
+          _responseCache.invalidateResource(uri);
+        } else {
+          _responseCache.invalidateAllResources();
+        }
         _resourceUpdatedController.sink.add(notification);
       },
     );

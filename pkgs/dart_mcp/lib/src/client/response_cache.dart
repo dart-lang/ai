@@ -62,6 +62,10 @@ final class _ClientResponseCache {
 
   final _entries = <_CacheKey, _CacheEntry>{};
   final _pending = <_CacheKey, Object>{};
+
+  /// The resource URIs updated while a `resources/read` was in flight, under
+  /// the token of that read.
+  final _updatedWhilePending = <Object, Set<String>>{};
   final _clock = Stopwatch()..start();
   Duration _elapsedOffset = Duration.zero;
 
@@ -109,6 +113,9 @@ final class _ClientResponseCache {
 
     final token = Object();
     _pending[key] = token;
+    if (key.methodName == ReadResourceRequest.methodName) {
+      _updatedWhilePending[token] = <String>{};
+    }
     try {
       final result = await send();
       final receivedAt = _elapsed;
@@ -140,10 +147,16 @@ final class _ClientResponseCache {
       if (!_entries.containsKey(key) && _entries.length >= _maxEntries) {
         _entries.remove(_entries.keys.first);
       }
+      // An answer which arrives after one of its own contents changed is
+      // already out of date, and a read only learns which contents it carries
+      // once it gets here.
+      final updated = _updatedWhilePending[token];
+      if (updated != null && _carriesAny(resultMap, updated)) return result;
       _entries[key] = _CacheEntry(_copyMap(resultMap), receivedAt + ttl);
       return result;
     } finally {
       if (_pending[key] == token) _pending.remove(key);
+      _updatedWhilePending.remove(token);
     }
   }
 
@@ -175,6 +188,33 @@ final class _ClientResponseCache {
 
     _entries.removeWhere(matches);
     _pending.removeWhere((key, _) => matches(key, null));
+    for (final MapEntry(key: pending, :value) in _pending.entries) {
+      if (pending.methodName == ReadResourceRequest.methodName) {
+        _updatedWhilePending[value]?.add(uri);
+      }
+    }
+  }
+
+  /// Whether [result] carries content for any URI in [uris].
+  static bool _carriesAny(Map<String, Object?> result, Set<String> uris) {
+    if (uris.isEmpty) return false;
+    final contents = result[Keys.contents];
+    return contents is List &&
+        contents.any(
+          (content) => content is Map && uris.contains(content[Keys.uri]),
+        );
+  }
+
+  /// Drops every cached and in-flight `resources/read`.
+  ///
+  /// A notification leaving its `uri` out cannot name what changed, so nothing
+  /// read before it can be trusted.
+  void invalidateAllResources() {
+    bool isRead(_CacheKey key) =>
+        key.methodName == ReadResourceRequest.methodName;
+    _entries.removeWhere((key, _) => isRead(key));
+    _pending.removeWhere((key, _) => isRead(key));
+    _updatedWhilePending.clear();
   }
 
   void clear() {
