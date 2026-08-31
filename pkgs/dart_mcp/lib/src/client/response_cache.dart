@@ -56,9 +56,10 @@ const _contextKeys = {
 /// the per-request context the caller sent. A result is stored only while it
 /// is complete, carries a positive `ttlMs` and carries a scope the schema
 /// allows, and the answers to an [InputRequiredResult] stay out entirely. A
-/// `ttlMs` past a day is clamped to a day. Without that a server could pin an
-/// answer for the life of the process, and a value large enough to overflow a
-/// [Duration] would write an entry that is already stale.
+/// `ttlMs` past the configured maximum is clamped to that limit. Without a
+/// bound a server could pin an answer for the life of the process, and a value
+/// large enough to overflow a [Duration] would write an entry that is already
+/// stale.
 ///
 /// https://modelcontextprotocol.io/specification/2026-07-28/server/utilities/caching
 final class _ClientResponseCache {
