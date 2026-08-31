@@ -330,6 +330,7 @@
     reserved keys the schema makes required, plus `clientInfo`, `logLevel` and
     `progressToken` when they are given, see
     https://modelcontextprotocol.io/specification/2026-07-28/server/discover.
+- Add a local MCP conformance probe under `tool/`.
 
 ## 0.5.2
 
