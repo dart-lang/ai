@@ -313,6 +313,13 @@ extension type Result._(Map<String, Object?> _value) {
   /// value is reported here as "complete".
   String get resultType =>
       _value[Keys.resultType] as String? ?? ResultTypes.complete;
+
+  /// Whether the server asked for more input before it can answer, which makes
+  /// this an [InputRequiredResult].
+  ///
+  /// An `is` check cannot tell that apart, because these are just extension
+  /// types and they share the runtime type `Map<String, Object?>`.
+  bool get isInputRequired => resultType == ResultTypes.inputRequired;
 }
 
 /// A response that indicates success but carries no data.
