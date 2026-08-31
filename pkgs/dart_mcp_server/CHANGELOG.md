@@ -1,8 +1,7 @@
 ## 1.1.2-dev
 
-- Let the `create` tool target the project root for a Flutter project, and
-  reject an empty `directory`. A Dart project still needs a subdirectory, since
-  `dart create` refuses one it finds already there.
+- Let the `create` tool pass the project root to the underlying CLI, and reject
+  an empty `directory`.
 - Track `AGENT_PLUGIN` environment variable in analytics events.
 - Add missing license headers.
 

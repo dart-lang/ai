@@ -446,7 +446,7 @@ dependencies:
         }
       });
 
-      test('refuses the root itself for a Dart project', () async {
+      test('passes the root itself to dart create', () async {
         testHarness.mcpClient.addRoot(dartCliAppRoot);
         final request = CallToolRequest(
           name: createProjectTool.name,
@@ -456,14 +456,14 @@ dependencies:
             ParameterNames.projectType: 'dart',
           },
         );
-        final result = await testHarness.callTool(request, expectError: true);
+        await testHarness.callToolWithRetry(request);
 
-        expect(result.isError, isTrue);
-        expect(
-          (result.content.first as TextContent).text,
-          contains('needs a subdirectory'),
-        );
-        expect(testProcessManager.commandsRan, isEmpty);
+        expect(testProcessManager.commandsRan, [
+          equalsCommand((
+            command: [endsWith(dartExecutableName), 'create', './'],
+            workingDirectory: dartCliAppRoot.path,
+          )),
+        ]);
       });
 
       test('fails if directory is empty', () async {
