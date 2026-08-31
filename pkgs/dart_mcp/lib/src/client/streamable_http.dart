@@ -223,7 +223,11 @@ Stream<Map<String, Object?>> _sendStreamableHttpMessage(
   }
 }
 
-/// Request state shared by the POSTs on one client channel.
+/// Tracks request state shared by the POSTs on one client channel.
+///
+/// `x-mcp-header` annotations in `tools/list` results declare headers for
+/// later `tools/call` requests. Request ids retain each page's role so a
+/// first page replaces the cache and continuation pages extend it.
 final class _StreamableHttpClientState {
   final _listToolsRequestIds = <Object?, bool>{};
   final _toolHeaders = <String, List<_McpHeaderDeclaration>>{};
@@ -237,8 +241,13 @@ final class _StreamableHttpClientState {
     }
   }
 
+  /// Builds the `Mcp-Param-*` headers declared for a `tools/call`.
+  ///
+  /// Declarations come from valid `tools/list` results. An absent value emits
+  /// no header, while a present value must match the declared primitive type.
   Map<String, String> headersFor(Map<String, Object?> message) {
     if (message[Keys.method] != CallToolRequest.methodName) return const {};
+    // Validate the call shape before reading its cached declarations.
     final params = message[Keys.params];
     if (params is! Map<String, Object?>) {
       throw ArgumentError.value(
@@ -262,6 +271,7 @@ final class _StreamableHttpClientState {
     final declarations = _toolHeaders[name];
     if (declarations == null) return const {};
     final headers = <String, String>{};
+    // Read each annotated argument path and encode its declared primitive type.
     for (final declaration in declarations) {
       final value = _valueAtPath(arguments, declaration.path);
       final encoded = switch ((declaration.type, value)) {
@@ -294,6 +304,10 @@ final class _StreamableHttpClientState {
     return headers;
   }
 
+  /// Applies an incoming message to the cached tool-header snapshot.
+  ///
+  /// A list-change notification clears it. Tool-list pages update its
+  /// declarations and remove invalid tool definitions from the returned result.
   Map<String, Object?> recordIncoming(Map<String, Object?> message) {
     if (message[Keys.method] == ToolListChangedNotification.methodName) {
       _toolHeaders.clear();
@@ -387,6 +401,16 @@ Object? _valueAtPath(Map<String, Object?> arguments, List<String> path) {
   return node;
 }
 
+/// Keywords that introduce subschemas outside a `properties` path.
+///
+/// MCP limits annotated properties to `properties` paths:
+/// https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http#schema-extension
+/// JSON Schema defines current subschema applicators:
+/// https://json-schema.org/draft/2020-12/json-schema-core#section-10
+/// `contentSchema` is defined separately:
+/// https://json-schema.org/draft/2020-12/json-schema-validation#section-8.5
+/// Legacy names remain for schemas using older drafts. Sources checked as of
+/// 2026-08-31.
 const _subschemaKeywords = {
   Keys.items,
   Keys.prefixItems,
@@ -425,6 +449,9 @@ const _minimumSafeInteger = -9007199254740991;
 const _maximumSafeInteger = 9007199254740991;
 
 /// Encodes [value] when it is not a safe plain ASCII header value.
+///
+/// See the Streamable HTTP value-encoding conditions:
+/// https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http#value-encoding
 String _encodeSentinel(String value) {
   final matchesSentinel = value.startsWith('=?base64?') && value.endsWith('?=');
   final needsEncoding =
