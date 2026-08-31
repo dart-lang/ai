@@ -188,9 +188,7 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
 
     final template = args[ParameterNames.template] as String?;
     if (template != null &&
-        (template.startsWith('-') ||
-            template.contains(' ') ||
-            template.contains('\\n'))) {
+        (template.startsWith('-') || RegExp(r'\s').hasMatch(template))) {
       errors.add(
         ValidationError(
           ValidationErrorType.custom,
