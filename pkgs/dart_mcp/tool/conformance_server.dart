@@ -866,6 +866,10 @@ base class _ConformanceServer extends MCPServer
   CallToolResult _completeTool(String text) =>
       CallToolResult(content: [TextContent(text: text)]);
 
+  // A handler's return type does not admit an `InputRequiredResult` yet, so
+  // the tool goes through the map the two extension types share. The wire
+  // shape is the one the spec asks for either way, and these two lines are
+  // where a widened signature would let the tool return the result directly.
   CallToolResult _toolInputRequired(InputRequiredResult result) =>
       CallToolResult.fromMap(result as Map<String, Object?>);
 
