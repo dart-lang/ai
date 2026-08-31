@@ -53,7 +53,13 @@ extension type ListToolsResult.fromMap(Map<String, Object?> _value)
 /// This type is not intended to be constructed directly and thus has no public
 /// constructor.
 extension type CallToolResponse._fromMap(Map<String, Object?> _value)
-    implements Result {}
+    implements Result {
+  /// A complete result with no input required.
+  static const callToolResult = CallToolResult.new;
+
+  /// A result that requires further input from the client.
+  static const inputRequiredResult = InputRequiredResult.new;
+}
 
 /// The server's completed response to a tool call.
 ///
