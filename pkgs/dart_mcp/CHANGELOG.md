@@ -1,5 +1,7 @@
 ## 0.6.0-wip
 
+- Split the Streamable HTTP implementation into client and server libraries
+  without changing its public API.
 - **BREAKING**:
   - `MCPBase` (including the `MCPServer.fromStreamChannel` and
     `ServerConnection.fromStreamChannel` constructors),
