@@ -389,7 +389,13 @@ base class ServerConnection extends MCPBase {
     final meta = (request as Map<String, Object?>?)?[Keys.meta];
     final version =
         meta is Map<String, Object?> ? meta[Keys.protocolVersionMeta] : null;
-    if (version != ProtocolVersion.v2026_07_28.versionString) {
+    // Only `discover` names the revision in its own metadata. Every other
+    // request leaves it out and the negotiated version is what says whether
+    // the answer can be reused.
+    final onRevision =
+        version == ProtocolVersion.v2026_07_28.versionString ||
+        (version == null && protocolVersion == ProtocolVersion.v2026_07_28);
+    if (!onRevision) {
       return super.sendRequestKeepingProgress<T>(methodName, request);
     }
     return _responseCache.sendRequest<T>(

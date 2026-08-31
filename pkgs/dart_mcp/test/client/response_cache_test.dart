@@ -380,6 +380,16 @@ void main() {
       expect(server.calls[ListToolsRequest.methodName], 2);
     });
 
+    test('reuses a result when the handshake settled the revision', () async {
+      // Only `discover` names the revision in its own metadata, so a plain
+      // call has to lean on the version the handshake settled.
+      connection.protocolVersion = ProtocolVersion.v2026_07_28;
+      await connection.listTools(ListToolsRequest(meta: null));
+      await connection.listTools(ListToolsRequest(meta: null));
+
+      expect(server.calls[ListToolsRequest.methodName], 1);
+    });
+
     test('invalidates entries when change notifications arrive', () async {
       await listTools();
       await listPrompts();
