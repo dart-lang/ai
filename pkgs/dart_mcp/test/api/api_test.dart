@@ -84,6 +84,22 @@ void main() {
     expect(ProtocolVersion.v2026_07_28 > ProtocolVersion.latestSupported, true);
   });
 
+  test('protocol versions declare Streamable HTTP support', () {
+    expect(
+      {
+        for (final version in ProtocolVersion.values)
+          version.versionString: version.supportsStreamableHttp,
+      },
+      {
+        '2024-11-05': false,
+        '2025-03-26': false,
+        '2025-06-18': false,
+        '2025-11-25': false,
+        '2026-07-28': true,
+      },
+    );
+  });
+
   test('a method holds from the revision which added it', () {
     expect(ProtocolVersion.v2024_11_05.methodIsValid('tools/call'), true);
     expect(ProtocolVersion.v2026_07_28.methodIsValid('tools/call'), true);

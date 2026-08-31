@@ -30,6 +30,7 @@ part 'tools.dart';
 enum ProtocolVersion {
   v2024_11_05(
     '2024-11-05',
+    supportsStreamableHttp: false,
     addedMethods: {
       CompleteRequest.methodName,
       InitializeRequest.methodName,
@@ -57,10 +58,15 @@ enum ProtocolVersion {
       ListToolsRequest.methodName,
     },
   ),
-  v2025_03_26('2025-03-26'),
-  v2025_06_18('2025-06-18', addedMethods: {ElicitRequest.methodName}),
+  v2025_03_26('2025-03-26', supportsStreamableHttp: false),
+  v2025_06_18(
+    '2025-06-18',
+    supportsStreamableHttp: false,
+    addedMethods: {ElicitRequest.methodName},
+  ),
   v2025_11_25(
     '2025-11-25',
+    supportsStreamableHttp: false,
     addedMethods: {
       ElicitationCompleteNotification.methodName,
       'notifications/tasks/status',
@@ -72,6 +78,7 @@ enum ProtocolVersion {
   ),
   v2026_07_28(
     '2026-07-28',
+    supportsStreamableHttp: true,
     addedMethods: {
       SubscriptionsAcknowledgedNotification.methodName,
       DiscoverRequest.methodName,
@@ -99,9 +106,13 @@ enum ProtocolVersion {
 
   const ProtocolVersion(
     this.versionString, {
+    required this.supportsStreamableHttp,
     this.addedMethods = const {},
     this.removedMethods = const {},
   });
+
+  /// Whether this package's Streamable HTTP transport supports this revision.
+  final bool supportsStreamableHttp;
 
   /// The methods this revision introduced.
   final Set<String> addedMethods;
