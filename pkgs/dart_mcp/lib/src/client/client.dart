@@ -376,11 +376,13 @@ base class ServerConnection extends MCPBase {
   /// response cache where the 2026-07-28 caching rules allow it.
   ///
   /// [sendRequest] and [sendRequestWithInputs] both go through here, so a
-  /// `resources/read` that later retries still consults the cache. Only a
-  /// request whose `_meta` names 2026-07-28 is cached. Cached answers drop
-  /// when the matching list-changed or resource-updated notification arrives,
-  /// when a paginated request reports its cursor is no longer valid, and on
-  /// [shutdown].
+  /// `resources/read` that later retries still consults the cache. A request
+  /// is cached when its `_meta` names 2026-07-28, or when it leaves the
+  /// version out and this connection settled on that revision. Cached answers
+  /// drop when the matching list-changed or resource-updated notification
+  /// arrives, when a paginated request reports its cursor is no longer valid,
+  /// and on [shutdown].
+  @protected
   @override
   Future<T> sendRequestKeepingProgress<T extends Result?>(
     String methodName, [
