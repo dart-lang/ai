@@ -571,6 +571,90 @@ void main() {
       await observedHeader.future;
     });
 
+    test('encodes a mirrored value that needs base64', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      final headers = <String?>[];
+      wireServer.listen((request) async {
+        final sent =
+            jsonDecode(await utf8.decodeStream(request))
+                as Map<String, Object?>;
+        if (sent[Keys.method] == listTools) {
+          request.response
+            ..headers.contentType = ContentType.json
+            ..write(
+              jsonEncode({
+                Keys.jsonrpc: '2.0',
+                Keys.id: sent[Keys.id],
+                Keys.result: {
+                  Keys.tools: [
+                    {
+                      Keys.name: 'texted',
+                      Keys.inputSchema: {
+                        Keys.type: 'object',
+                        Keys.properties: {
+                          'text': {
+                            Keys.type: 'string',
+                            Keys.xMcpHeader: 'Text',
+                          },
+                        },
+                      },
+                    },
+                  ],
+                },
+              }),
+            );
+        } else {
+          headers.add(request.headers.value('Mcp-Param-Text'));
+          request.response
+            ..headers.contentType = ContentType.json
+            ..write(
+              jsonEncode({
+                Keys.jsonrpc: '2.0',
+                Keys.id: sent[Keys.id],
+                Keys.result: <String, Object?>{},
+              }),
+            );
+        }
+        await request.response.close();
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final iterator = StreamIterator(channel.stream);
+      addTearDown(iterator.cancel);
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 32,
+        Keys.method: listTools,
+      });
+      expect(await iterator.moveNext(), isTrue);
+
+      // Both values are plain ASCII. The encoded forms below are the
+      // specification's own worked examples.
+      for (final (id, text) in [(33, ' padded '), (34, '=?base64?literal?=')]) {
+        channel.sink.add({
+          Keys.jsonrpc: '2.0',
+          Keys.id: id,
+          Keys.method: callTool,
+          Keys.params: {
+            Keys.name: 'texted',
+            Keys.arguments: {'text': text},
+          },
+        });
+        expect(await iterator.moveNext(), isTrue, reason: text);
+      }
+
+      expect(headers, [
+        '=?base64?IHBhZGRlZCA=?=',
+        '=?base64?PT9iYXNlNjQ/bGl0ZXJhbD89?=',
+      ]);
+    });
+
     test(
       'keeps a failed notification from producing an inbound message',
       () async {
@@ -736,6 +820,29 @@ void main() {
         expect(error[Keys.message], contains('(${Keys.arguments})'));
       },
     );
+
+    test('posts a tools/call without arguments', () async {
+      final channel = streamableHttpClientChannel(
+        uri,
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final response = channel.stream.first;
+      // `arguments` is optional, and a zero-argument tool is the common case.
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 48,
+        Keys.method: callTool,
+        Keys.params: {Keys.name: 'test/version'},
+      });
+
+      final message = await response;
+      expect(message[Keys.error], isNull);
+      final result = message[Keys.result] as Map<String, Object?>;
+      final content = result[Keys.content] as List;
+      expect((content.single as Map<String, Object?>)[Keys.text], '1.2.3');
+    });
 
     test(
       'rejects a tools/call with the wrong shape before opening the POST',
@@ -1042,6 +1149,49 @@ void main() {
       expect(headers, isEmpty);
     });
 
+    test('refuses an integer parameter it cannot convert', () async {
+      final headers = <String?>[];
+      final wireServer = await _integerHeaderServer(headers);
+      addTearDown(() => wireServer.close(force: true));
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final iterator = StreamIterator(channel.stream);
+      addTearDown(iterator.cancel);
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 74,
+        Keys.method: listTools,
+      });
+      expect(await iterator.moveNext(), isTrue);
+
+      // One below the safe range, and one that is not an integer at all.
+      for (final (id, count) in [(75, -9007199254740992), (76, 1.5)]) {
+        channel.sink.add({
+          Keys.jsonrpc: '2.0',
+          Keys.id: id,
+          Keys.method: callTool,
+          Keys.params: {
+            Keys.name: 'counted',
+            Keys.arguments: {'count': count},
+          },
+        });
+        expect(await iterator.moveNext(), isTrue, reason: '$count');
+        expect(iterator.current, {
+          Keys.jsonrpc: '2.0',
+          Keys.id: id,
+          Keys.error: {
+            Keys.code: error_code.SERVER_ERROR,
+            Keys.message: contains('cannot be mirrored onto'),
+          },
+        }, reason: '$count');
+      }
+      expect(headers, isEmpty);
+    });
+
     test('forgets the headers of a tool a later snapshot leaves out', () async {
       final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       addTearDown(() => wireServer.close(force: true));
@@ -1188,6 +1338,76 @@ void main() {
 
       final result = (await answer)[Keys.result] as Map<String, Object?>;
       expect(result[Keys.tools], isEmpty);
+    });
+
+    test('drops a tool with an invalid header annotation', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      late Map<String, Object?> inputSchema;
+      wireServer.listen((request) async {
+        final sent =
+            jsonDecode(await utf8.decodeStream(request))
+                as Map<String, Object?>;
+        request.response
+          ..headers.contentType = ContentType.json
+          ..write(
+            jsonEncode({
+              Keys.jsonrpc: '2.0',
+              Keys.id: sent[Keys.id],
+              Keys.result: {
+                Keys.tools: [
+                  {Keys.name: 'annotated', Keys.inputSchema: inputSchema},
+                ],
+              },
+            }),
+          );
+        await request.response.close();
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final iterator = StreamIterator(channel.stream);
+      addTearDown(iterator.cancel);
+
+      Map<String, Object?> mirrored(String header) => {
+        Keys.type: 'string',
+        Keys.xMcpHeader: header,
+      };
+      Map<String, Object?> object(Map<String, Object?> properties) => {
+        Keys.type: 'object',
+        Keys.properties: properties,
+      };
+      final schemas = <(String, Map<String, Object?>)>[
+        ('an empty name', object({'region': mirrored('')})),
+        ('a name holding a space', object({'region': mirrored('Bad Region')})),
+        (
+          'a name ending in a carriage return',
+          object({'region': mirrored('Region\r')}),
+        ),
+        (
+          'two names differing only in case',
+          object({'region': mirrored('Region'), 'area': mirrored('region')}),
+        ),
+        // An annotation on the root has no property path to read a value
+        // from, so the tool could never be called.
+        ('an annotation on the schema root', mirrored('Region')),
+      ];
+      var id = 91;
+      for (final (reason, schema) in schemas) {
+        inputSchema = schema;
+        channel.sink.add({
+          Keys.jsonrpc: '2.0',
+          Keys.id: id++,
+          Keys.method: listTools,
+        });
+        expect(await iterator.moveNext(), isTrue, reason: reason);
+        final result = iterator.current[Keys.result] as Map<String, Object?>;
+        expect(result[Keys.tools], isEmpty, reason: reason);
+      }
     });
 
     test('rejects a protocol version outside its set', () {
