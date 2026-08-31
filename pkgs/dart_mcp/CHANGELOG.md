@@ -305,6 +305,9 @@
   revision of the protocol introduced and took out, and
   `ProtocolVersion.methodIsValid`, which walks back from a revision to answer
   whether it has a method.
+- Add `ProtocolVersion.supportsStreamableHttp` and require every enum value to
+  set it. `streamableHttpClientChannel` reads the field when validating a
+  version and listing the versions it accepts.
 - Reject the methods the 2026-07-28 revision removed with `404` and
   `-32601` in `handleStreamableHttpRequest`. Until now
   `ping` answered `200` on every server, and `logging/setLevel`,

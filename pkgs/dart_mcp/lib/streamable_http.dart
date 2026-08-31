@@ -34,15 +34,15 @@ export 'src/utils/sse.dart' show sseMessageStream;
 
 /// Creates a [StreamChannel] which POSTs each JSON-RPC message to [uri].
 ///
-/// [protocolVersion] must be 2026-07-28 and is written to `_meta` and
-/// `MCP-Protocol-Version`. [clientCapabilities] and [clientInfo] merge into
-/// `_meta`. JSON replies use `jsonDecode` and SSE replies use
-/// [sseMessageStream]. A failed POST is a JSON-RPC error for that request
-/// id, or an error on the channel itself when it carried a notification,
-/// which has no id to carry one. A response stream that ends without
-/// answering the request fails it the same way. A `202` on a notification
-/// is not an inbound message. Valid `x-mcp-header` annotations from
-/// `tools/list` are mirrored on later `tools/call` requests; invalid tool
+/// [protocolVersion] must have [ProtocolVersion.supportsStreamableHttp] and is
+/// written to `_meta` and `MCP-Protocol-Version`. [clientCapabilities] and
+/// [clientInfo] merge into `_meta`. JSON replies use `jsonDecode` and SSE
+/// replies use [sseMessageStream]. A failed POST is a JSON-RPC error for that
+/// request id, or an error on the channel itself when it carried a
+/// notification, which has no id to carry one. A response stream that ends
+/// without answering the request fails it the same way. A `202` on a
+/// notification is not an inbound message. Valid `x-mcp-header` annotations
+/// from `tools/list` are mirrored on later `tools/call` requests; invalid tool
 /// definitions are dropped. Does not send `initialize`.
 StreamChannel<Map<String, Object?>> streamableHttpClientChannel(
   Uri uri, {
@@ -50,12 +50,16 @@ StreamChannel<Map<String, Object?>> streamableHttpClientChannel(
   required ClientCapabilities clientCapabilities,
   Implementation? clientInfo,
 }) {
-  if (protocolVersion != ProtocolVersion.v2026_07_28) {
+  if (!protocolVersion.supportsStreamableHttp) {
+    final supportedVersions = ProtocolVersion.values
+        .where((version) => version.supportsStreamableHttp)
+        .map((version) => version.versionString)
+        .join(', ');
     throw ArgumentError.value(
       protocolVersion.versionString,
       Keys.protocolVersion,
       'The Streamable HTTP client channel only allows one of: '
-      '${ProtocolVersion.v2026_07_28.versionString}',
+      '$supportedVersions',
     );
   }
 
