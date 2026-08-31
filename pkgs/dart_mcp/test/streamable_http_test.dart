@@ -250,6 +250,65 @@ void main() {
       });
     });
 
+    test('matches concurrent requests answered out of order', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      final requests = <Object?, (HttpRequest, String)>{};
+      wireServer.listen((request) async {
+        final sent =
+            jsonDecode(await utf8.decodeStream(request))
+                as Map<String, Object?>;
+        requests[sent[Keys.id]] = (request, sent[Keys.method] as String);
+        if (requests.length != 3) return;
+        for (final id in [2, 3, 1]) {
+          final (pending, method) = requests[id]!;
+          pending.response
+            ..headers.contentType = ContentType.json
+            ..write(
+              jsonEncode({
+                Keys.jsonrpc: '2.0',
+                Keys.id: id,
+                Keys.result: {'method': method},
+              }),
+            );
+          await pending.response.close();
+        }
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final responses = channel.stream
+          .take(3)
+          .toList()
+          .timeout(const Duration(seconds: 3));
+      channel.sink
+        ..add({Keys.jsonrpc: '2.0', Keys.id: 1, Keys.method: 'test/first'})
+        ..add({Keys.jsonrpc: '2.0', Keys.id: 2, Keys.method: 'test/second'})
+        ..add({Keys.jsonrpc: '2.0', Keys.id: 3, Keys.method: 'test/third'});
+
+      expect(await responses, [
+        {
+          Keys.jsonrpc: '2.0',
+          Keys.id: 2,
+          Keys.result: {'method': 'test/second'},
+        },
+        {
+          Keys.jsonrpc: '2.0',
+          Keys.id: 3,
+          Keys.result: {'method': 'test/third'},
+        },
+        {
+          Keys.jsonrpc: '2.0',
+          Keys.id: 1,
+          Keys.result: {'method': 'test/first'},
+        },
+      ]);
+    });
+
     test('encodes only the names a header cannot carry', () async {
       final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       addTearDown(() => wireServer.close(force: true));
