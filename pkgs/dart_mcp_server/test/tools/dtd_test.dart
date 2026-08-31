@@ -57,6 +57,9 @@ void main() {
                 ParameterNames.summaryOnly: true,
               },
             ),
+            retryUntil: (result) => result.content.any(
+              (c) => c is TextContent && c.text.contains('MyHomePage'),
+            ),
           );
 
           expect(getWidgetTreeResult.isError, isNot(true));
@@ -107,6 +110,18 @@ void main() {
             TextContent(text: 'Hot restart succeeded.'),
           ]);
         });
+      });
+
+      test('disallows connecting to non-loopback address', () async {
+        final result = await testHarness.connectToDtd(
+          dtdUri: 'ws://example.com/dtd',
+          expectError: true,
+        );
+        expect(result.isError, isTrue);
+        expect(
+          (result.content.first as TextContent).text,
+          contains('Refusing to connect to invalid DTD URI'),
+        );
       });
 
       test('Can list running DTD URIs', () async {
@@ -701,6 +716,9 @@ void main() {
                 ParameterNames.command: WidgetInspectorCommand.getWidgetTree,
                 ParameterNames.summaryOnly: true,
               },
+            ),
+            retryUntil: (result) => result.content.any(
+              (c) => c is TextContent && c.text.contains('MyHomePage'),
             ),
           );
 
@@ -1524,7 +1542,7 @@ void main() {
       expect(failResult.isError, isTrue);
       expect(
         (failResult.content.first as TextContent).text,
-        contains('No active debug session'),
+        contains('No active app connection'),
       );
 
       debugSession.appProcess.stdin.writeln('q');
@@ -1575,7 +1593,7 @@ void main() {
           // If it got disconnected mid-call
           contains('Service connection disposed'),
           // If it was disposed prior to the call
-          contains('No active debug session'),
+          contains('No active app connection'),
         ),
       );
     });

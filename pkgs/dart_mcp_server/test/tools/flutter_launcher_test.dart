@@ -25,6 +25,7 @@ void main() {
   group('Flutter App Tools', () {
     late MemoryFileSystem fileSystem;
     const projectRoot = '/project';
+    late Root projectRootObject;
     final dtdUri = 'ws://127.0.0.1:12345/abcdefg=';
     final vmServiceUri = 'ws://127.0.0.1:54321/';
     final processPid = 54321;
@@ -110,6 +111,45 @@ void main() {
       );
       server = testHarness.serverConnectionPair.server!;
       client = testHarness.serverConnectionPair.serverConnection;
+      projectRootObject = testHarness.rootForPath(projectRoot);
+      testHarness.mcpClient.addRoot(projectRootObject);
+    });
+
+    test('launch_app rejects unapproved root', () async {
+      final result = await client.callTool(
+        CallToolRequest(
+          name: 'launch_app',
+          arguments: {
+            'root': 'file:///unapproved_root/project',
+            'device': 'test-device',
+          },
+        ),
+      );
+      expect(result.isError, isTrue);
+      final content = (result.content.first as TextContent).text;
+      expect(
+        content,
+        contains('must be under one of the registered project roots'),
+      );
+    });
+
+    test('launch_app rejects disallowed args', () async {
+      final result = await client.callTool(
+        CallToolRequest(
+          name: 'launch_app',
+          arguments: {
+            'root': projectRootObject.uri,
+            'device': 'test-device',
+            'args': ['--local-engine', 'src'],
+          },
+        ),
+      );
+      expect(result.isError, isTrue);
+      final content = (result.content.first as TextContent).text;
+      expect(
+        content,
+        contains('contains disallowed flutter run options: `--local-engine`'),
+      );
     });
 
     test('launch_app tool returns DTD URI and PID on success', () async {
@@ -117,7 +157,7 @@ void main() {
       final result = await client.callTool(
         CallToolRequest(
           name: 'launch_app',
-          arguments: {'root': projectRoot, 'device': 'test-device'},
+          arguments: {'root': projectRootObject.uri, 'device': 'test-device'},
         ),
       );
       expect(result.content, <Content>[
@@ -139,18 +179,13 @@ void main() {
     });
 
     test('launch_app forwards additional args to flutter run', () async {
-      const extraArgs = [
-        '--flavor',
-        'dev',
-        '--dart-define-from-file',
-        'env.json',
-      ];
+      const extraArgs = ['--flavor', 'dev', '--dart-define=FOO=bar'];
       mockFlutterRun(args: extraArgs);
       final result = await client.callTool(
         CallToolRequest(
           name: 'launch_app',
           arguments: {
-            'root': projectRoot,
+            'root': projectRootObject.uri,
             'device': 'test-device',
             'args': extraArgs,
           },
@@ -183,7 +218,7 @@ void main() {
         CallToolRequest(
           name: 'launch_app',
           arguments: {
-            'root': projectRoot,
+            'root': projectRootObject.uri,
             'device': 'test-device',
             'args': const <String>[],
           },
@@ -216,7 +251,7 @@ void main() {
         CallToolRequest(
           name: 'launch_app',
           arguments: {
-            'root': projectRoot,
+            'root': projectRootObject.uri,
             'device': 'test-device',
             'args': flavorArgs,
           },
@@ -248,7 +283,7 @@ void main() {
         CallToolRequest(
           name: 'launch_app',
           arguments: {
-            'root': projectRoot,
+            'root': projectRootObject.uri,
             'device': 'test-device',
             'args': ['--device-id', 'other-device'],
           },
@@ -267,7 +302,7 @@ void main() {
       expect(
         textOutput.first.text,
         allOf(
-          contains('managed flutter run options'),
+          contains('disallowed flutter run options'),
           contains('`--device-id`'),
         ),
       );
@@ -278,7 +313,7 @@ void main() {
         CallToolRequest(
           name: 'launch_app',
           arguments: {
-            'root': projectRoot,
+            'root': projectRootObject.uri,
             'device': 'test-device',
             'args': ['--target=lib/alt_main.dart'],
           },
@@ -304,7 +339,7 @@ void main() {
         final result = await client.callTool(
           CallToolRequest(
             name: 'launch_app',
-            arguments: {'root': projectRoot, 'device': 'test-device'},
+            arguments: {'root': projectRootObject.uri, 'device': 'test-device'},
           ),
         );
 
@@ -331,7 +366,7 @@ void main() {
       final result = await client.callTool(
         CallToolRequest(
           name: 'launch_app',
-          arguments: {'root': projectRoot, 'device': 'test-device'},
+          arguments: {'root': projectRootObject.uri, 'device': 'test-device'},
         ),
       );
 
@@ -357,7 +392,7 @@ void main() {
       final result = await client.callTool(
         CallToolRequest(
           name: 'launch_app',
-          arguments: {'root': projectRoot, 'device': 'test-device'},
+          arguments: {'root': projectRootObject.uri, 'device': 'test-device'},
         ),
       );
 
@@ -380,7 +415,7 @@ void main() {
         CallToolRequest(
           name: 'launch_app',
           arguments: {
-            'root': projectRoot,
+            'root': projectRootObject.uri,
             'device': 'test-device',
             'timeout': 1,
           },
@@ -424,7 +459,7 @@ void main() {
       await client.callTool(
         CallToolRequest(
           name: 'launch_app',
-          arguments: {'root': projectRoot, 'device': 'test-device'},
+          arguments: {'root': projectRootObject.uri, 'device': 'test-device'},
         ),
       );
 
@@ -454,7 +489,7 @@ void main() {
       await client.callTool(
         CallToolRequest(
           name: 'launch_app',
-          arguments: {'root': projectRoot, 'device': 'test-device'},
+          arguments: {'root': projectRootObject.uri, 'device': 'test-device'},
         ),
       );
 

@@ -98,6 +98,15 @@ class GlobalConfig {
     );
   }
 
+  /// Returns a copy with [repos] removed.
+  GlobalConfig withoutGitRepos(Iterable<GitRepo> repos) {
+    final urlsSet = repos.map((r) => r.cloneUrl).toSet();
+    return GlobalConfig(
+      gitRepos: gitRepos.where((r) => !urlsSet.contains(r.cloneUrl)).toList(),
+      neverPromptForSuggestedSkills: neverPromptForSuggestedSkills,
+    );
+  }
+
   /// Returns a copy with [neverPrompt] set.
   GlobalConfig withNeverPromptForSuggestedSkills(bool neverPrompt) {
     return GlobalConfig(

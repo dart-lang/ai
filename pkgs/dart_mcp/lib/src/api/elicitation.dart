@@ -49,9 +49,17 @@ extension type ElicitRequest._fromMap(Map<String, Object?> _value)
     });
   }
 
+  /// The mode of this elicitation as it came in, before [mode] resolves it.
+  ///
+  /// Null when the sender named no mode, which [mode] reads as
+  /// [ElicitationMode.form]. A caller that has to tell a missing mode apart
+  /// from an unknown one reads this instead, since [mode] throws on the
+  /// second.
+  Object? get rawMode => _value[Keys.mode];
+
   /// The mode of this elicitation.
   ElicitationMode get mode {
-    final mode = _value[Keys.mode] as String?;
+    final mode = rawMode;
     // Default to form for backward compatibility unless specified.
     if (mode == null) return ElicitationMode.form;
     return ElicitationMode.values.firstWhere((value) => value.name == mode);
@@ -132,7 +140,10 @@ extension type ElicitResult.fromMap(Map<String, Object?> _value)
   factory ElicitResult({
     required ElicitationAction action,
     Map<String, Object?>? content,
-  }) => ElicitResult.fromMap({Keys.action: action.name, Keys.content: content});
+  }) => ElicitResult.fromMap({
+    Keys.action: action.name,
+    if (content != null) Keys.content: content,
+  });
 
   /// The action taken by the user in response to an elicitation request.
   ///

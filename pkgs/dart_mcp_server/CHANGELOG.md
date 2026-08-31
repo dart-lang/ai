@@ -1,4 +1,14 @@
-## 1.1.0-wip
+## 1.1.2-dev
+
+- Track `AGENT_PLUGIN` environment variable in analytics events.
+- Add missing license headers.
+
+## 1.1.1
+
+- Improve server instructions and error messages to encourage agents to
+  proactively connect to running applications and hot reload after changes.
+
+## 1.1.0
 
 - Build against the published `dart_mcp` package instead of a local path
   override.
@@ -7,6 +17,11 @@
 - Add additional failure reasons to tool call analytics.
 - Move `SdkSupport` to `implements` instead of `on` in
   `DartToolingDaemonSupport`.
+- Harden various tools against compromised agents.
+- Use new analysis request that blocks until analysis is complete, instead of
+  waiting for notifications, which may never come.
+- Use shared logic from unified_analytics to parse the Dart version.
+- Log error types for uncaught errors.
 
 ## 1.0.2
 

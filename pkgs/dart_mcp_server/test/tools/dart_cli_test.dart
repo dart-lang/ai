@@ -438,6 +438,26 @@ dependencies:
         expect(testProcessManager.commandsRan, isEmpty);
       });
 
+      test('fails if directory escapes root', () async {
+        testHarness.mcpClient.addRoot(dartCliAppRoot);
+        final request = CallToolRequest(
+          name: createProjectTool.name,
+          arguments: {
+            ParameterNames.root: dartCliAppRoot.uri,
+            ParameterNames.directory: '../outside',
+            ParameterNames.projectType: 'dart',
+          },
+        );
+        final result = await testHarness.callTool(request, expectError: true);
+
+        expect(result.isError, isTrue);
+        expect(
+          (result.content.first as TextContent).text,
+          contains('within the project root'),
+        );
+        expect(testProcessManager.commandsRan, isEmpty);
+      });
+
       test('requires a root to be passed', () async {
         testHarness.mcpClient.addRoot(dartCliAppRoot);
         final request = CallToolRequest(

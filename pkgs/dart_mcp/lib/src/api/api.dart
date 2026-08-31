@@ -9,7 +9,6 @@ library;
 import 'dart:collection';
 
 import 'package:collection/collection.dart';
-import 'package:json_rpc_2/json_rpc_2.dart';
 
 import '../utils/constants.dart';
 
@@ -18,21 +17,116 @@ part 'elicitation.dart';
 part 'error_codes.dart';
 part 'icons.dart';
 part 'initialization.dart';
+part 'input_required.dart';
 part 'logging.dart';
 part 'prompts.dart';
 part 'resources.dart';
 part 'roots.dart';
 part 'sampling.dart';
+part 'subscriptions.dart';
 part 'tools.dart';
 
 /// Enum of the known protocol versions.
 enum ProtocolVersion {
-  v2024_11_05('2024-11-05'),
+  v2024_11_05(
+    '2024-11-05',
+    addedMethods: {
+      CompleteRequest.methodName,
+      InitializeRequest.methodName,
+      SetLevelRequest.methodName,
+      CancelledNotification.methodName,
+      InitializedNotification.methodName,
+      LoggingMessageNotification.methodName,
+      ProgressNotification.methodName,
+      PromptListChangedNotification.methodName,
+      ResourceListChangedNotification.methodName,
+      ResourceUpdatedNotification.methodName,
+      RootsListChangedNotification.methodName,
+      ToolListChangedNotification.methodName,
+      PingRequest.methodName,
+      GetPromptRequest.methodName,
+      ListPromptsRequest.methodName,
+      ListResourcesRequest.methodName,
+      ReadResourceRequest.methodName,
+      SubscribeRequest.methodName,
+      ListResourceTemplatesRequest.methodName,
+      UnsubscribeRequest.methodName,
+      ListRootsRequest.methodName,
+      CreateMessageRequest.methodName,
+      CallToolRequest.methodName,
+      ListToolsRequest.methodName,
+    },
+  ),
   v2025_03_26('2025-03-26'),
-  v2025_06_18('2025-06-18'),
-  v2025_11_25('2025-11-25');
+  v2025_06_18('2025-06-18', addedMethods: {ElicitRequest.methodName}),
+  v2025_11_25(
+    '2025-11-25',
+    addedMethods: {
+      ElicitationCompleteNotification.methodName,
+      'notifications/tasks/status',
+      'tasks/cancel',
+      'tasks/get',
+      'tasks/list',
+      'tasks/result',
+    },
+  ),
+  v2026_07_28(
+    '2026-07-28',
+    addedMethods: {
+      SubscriptionsAcknowledgedNotification.methodName,
+      DiscoverRequest.methodName,
+      SubscriptionsListenRequest.methodName,
+    },
+    removedMethods: {
+      ElicitRequest.methodName,
+      InitializeRequest.methodName,
+      SetLevelRequest.methodName,
+      ElicitationCompleteNotification.methodName,
+      InitializedNotification.methodName,
+      RootsListChangedNotification.methodName,
+      'notifications/tasks/status',
+      PingRequest.methodName,
+      SubscribeRequest.methodName,
+      UnsubscribeRequest.methodName,
+      ListRootsRequest.methodName,
+      CreateMessageRequest.methodName,
+      'tasks/cancel',
+      'tasks/get',
+      'tasks/list',
+      'tasks/result',
+    },
+  );
 
-  const ProtocolVersion(this.versionString);
+  const ProtocolVersion(
+    this.versionString, {
+    this.addedMethods = const {},
+    this.removedMethods = const {},
+  });
+
+  /// The methods this revision introduced.
+  final Set<String> addedMethods;
+
+  /// The methods this revision stopped accepting.
+  ///
+  /// A method belongs here even when the revision kept its type, as long as it
+  /// took away the way to send it. 2026-07-28 keeps [ElicitRequest],
+  /// [ListRootsRequest] and [CreateMessageRequest] for the [InputRequest] an
+  /// [InputRequiredResult] carries, and none of the three can be sent on its
+  /// own there.
+  final Set<String> removedMethods;
+
+  /// Whether [method] is one this revision accepts.
+  ///
+  /// Walks back from this revision to the first one, so a method holds until
+  /// some later revision lists it in [removedMethods]. A method no revision
+  /// ever added is not part of any of them.
+  bool methodIsValid(String method) {
+    for (var version = this; ; version = values[version.index - 1]) {
+      if (version.removedMethods.contains(method)) return false;
+      if (version.addedMethods.contains(method)) return true;
+      if (version.index == 0) return false;
+    }
+  }
 
   /// Returns the [ProtocolVersion] based on the [version] string, or `null` if
   /// it was not recognized.
@@ -43,6 +137,11 @@ enum ProtocolVersion {
   static const oldestSupported = ProtocolVersion.v2024_11_05;
 
   /// The most recent version supported by the current API.
+  ///
+  /// This is the newest version the legacy `initialize` handshake negotiates.
+  /// A transport for a request-scoped protocol revision, such as
+  /// `handleStreamableHttpRequest` in `package:dart_mcp/streamable_http.dart`,
+  /// carries its own set of supported versions.
   static const latestSupported = ProtocolVersion.v2025_11_25;
 
   /// The version string used over the wire to identify this version.
@@ -84,14 +183,23 @@ extension type Cursor(String _) {}
 /// - Prefix: If specified, MUST be a series of labels separated by dots
 ///   (`.`), followed by a slash (`/`). Labels MUST start with a letter and
 ///   end with a letter or digit; interior characters can be letters, digits,
-///   or hyphens (`-`). Any prefix beginning with zero or more valid labels,
-///   followed by `modelcontextprotocol` or `mcp`, followed by any valid
-///   label, is reserved for MCP use. For example: `modelcontextprotocol.io/`,
-///   `mcp.dev/`, `api.modelcontextprotocol.org/`, and `tools.mcp.com/` are
-///   all reserved.
+///   or hyphens (`-`). From the 2025-11-25 revision, implementations SHOULD
+///   use reverse DNS notation (e.g., `com.example/` rather than
+///   `example.com/`), and any prefix whose second label is
+///   `modelcontextprotocol` or `mcp` is reserved for MCP use. For example:
+///   `io.modelcontextprotocol/`, `dev.mcp/`, `org.modelcontextprotocol.api/`,
+///   and `com.mcp.tools/` are all reserved, while `com.example.mcp/` is not,
+///   because its second label is `example`. The 2025-06-18 revision reserved
+///   any prefix carrying `modelcontextprotocol` or `mcp` in a label other
+///   than the last.
 /// - Name: Unless empty, MUST begin and end with an alphanumeric character
 ///   (`[a-z0-9A-Z]`). MAY contain hyphens (`-`), underscores (`_`), dots
 ///   (`.`), and alphanumerics in between.
+///
+/// From the 2026-07-28 revision, `traceparent`, `tracestate`, and `baggage`
+/// are reserved for OpenTelemetry trace context, as an exception to the prefix
+/// rule. When present, their values MUST follow the W3C Trace Context and
+/// W3C Baggage formats respectively.
 extension type Meta.fromMap(Map<String, Object?> _value) {
   Object? operator [](String key) => _value[key];
 }
@@ -102,7 +210,10 @@ extension type Meta.fromMap(Map<String, Object?> _value) {
 /// different purpose.
 extension type BaseMetadata.fromMap(Map<String, Object?> _value) {
   factory BaseMetadata({required String name, String? title}) =>
-      BaseMetadata.fromMap({Keys.name: name, Keys.title: title});
+      BaseMetadata.fromMap({
+        Keys.name: name,
+        if (title != null) Keys.title: title,
+      });
 
   /// Intended for programmatic or logical use, but used as a display name in
   /// past specs for fallback (if title isn't present).
@@ -141,7 +252,9 @@ extension type WithProgressToken.fromMap(Map<String, Object?> _value) {
 extension type MetaWithProgressToken.fromMap(Map<String, Object?> _value)
     implements Meta, WithProgressToken {
   factory MetaWithProgressToken({ProgressToken? progressToken}) =>
-      MetaWithProgressToken.fromMap({Keys.progressToken: progressToken});
+      MetaWithProgressToken.fromMap({
+        if (progressToken != null) Keys.progressToken: progressToken,
+      });
 }
 
 /// Base interface for all types that can have arbitrary metadata attached.
@@ -180,6 +293,15 @@ extension type Notification(Map<String, Object?> _value) {
 /// Base interface for all responses to requests.
 extension type Result._(Map<String, Object?> _value) {
   Meta? get meta => _value[Keys.meta] as Meta?;
+
+  /// The type of this result, which determines how to parse it.
+  ///
+  /// Known types are "complete" and "input_required", but a server may send
+  /// any other string. Servers on protocol versions before 2026-07-28 omit
+  /// the field; the schema requires treating that as "complete", so an absent
+  /// value is reported here as "complete".
+  String get resultType =>
+      _value[Keys.resultType] as String? ?? ResultTypes.complete;
 }
 
 /// A response that indicates success but carries no data.
@@ -226,7 +348,7 @@ extension type CancelledNotification.fromMap(Map<String, Object?> _value)
 }
 
 /// An opaque request ID.
-extension type RequestId(/*String|int*/ Parameter _) {}
+extension type RequestId(/*String|int*/ Object _) {}
 
 /// A ping, issued by either the server or the client, to check that the other
 /// party is still alive.
@@ -305,6 +427,58 @@ extension type PaginatedRequest._fromMap(Map<String, Object?> _value)
 extension type PaginatedResult._fromMap(Map<String, Object?> _value)
     implements Result {
   Cursor? get nextCursor => _value[Keys.nextCursor] as Cursor?;
+}
+
+/// A "mixin"-like extension type for any result type that contains caching
+/// hints at the keys "ttlMs" and "cacheScope".
+///
+/// Should be "mixed in" by implementing this type from other extension types.
+///
+/// This type is not intended to be constructed directly and thus has no public
+/// constructor.
+extension type CacheableResult._fromMap(Map<String, Object?> _value)
+    implements Result {
+  /// A hint for how long, in milliseconds, the client may cache this response
+  /// before re-fetching, analogous to HTTP `Cache-Control` max-age.
+  ///
+  /// A value of 0 marks the response as immediately stale.
+  ///
+  /// Servers on protocol versions before 2026-07-28 omit the field; the spec
+  /// says clients should assume 0 in that case, and should treat a negative
+  /// value from a non-conforming server as 0, so both are reported here as 0.
+  int get ttlMs {
+    final value = _value[Keys.ttlMs] as int? ?? 0;
+    return value < 0 ? 0 : value;
+  }
+
+  /// The intended scope of the cached response, analogous to HTTP
+  /// `Cache-Control: public` vs `Cache-Control: private`.
+  ///
+  /// An absent or unrecognized value is reported here as `null` rather than
+  /// as a default. The schema comment says the field defaults to "public",
+  /// but the same SEP argues the field is required precisely "because there
+  /// is no safe default for older servers", and leaves a default to the
+  /// discretion of each SDK. Reporting `null` follows the second reading:
+  /// synthesizing "public" for a server that never declared a scope is the
+  /// one guess that can leak a private response into a shared cache. Servers
+  /// on protocol versions before 2026-07-28 omit the field, and their results
+  /// also carry no `ttlMs`, so they are already immediately stale.
+  CacheScope? get cacheScope {
+    final name = _value[Keys.cacheScope] as String?;
+    if (name == null) return null;
+    return CacheScope.values.firstWhereOrNull((scope) => scope.name == name);
+  }
+}
+
+/// The intended scope of a cached [CacheableResult] response.
+enum CacheScope {
+  /// The response contains no user-specific data; any client or intermediary
+  /// may cache it and serve it across authorization contexts.
+  public,
+
+  /// The response may be cached and reused only within the same authorization
+  /// context; caches must not be shared across authorization contexts.
+  private,
 }
 
 /// Could be either [TextContent], [ImageContent], [AudioContent] or
@@ -494,6 +668,7 @@ extension type ResourceLink.fromMap(Map<String, Object?> _value)
     String? description,
     required String uri,
     String? mimeType,
+    List<Icon>? icons,
     Annotations? annotations,
     Meta? meta,
   }) => ResourceLink.fromMap({
@@ -502,6 +677,7 @@ extension type ResourceLink.fromMap(Map<String, Object?> _value)
     if (description != null) Keys.description: description,
     Keys.uri: uri,
     if (mimeType != null) Keys.mimeType: mimeType,
+    if (icons != null) Keys.icons: icons,
     Keys.type: expectedType,
     if (annotations != null) Keys.annotations: annotations,
     if (meta != null) Keys.meta: meta,
@@ -531,8 +707,9 @@ extension type ResourceLink.fromMap(Map<String, Object?> _value)
   /// The size of the resource in bytes.
   int? get size => _value[Keys.size] as int?;
 
-  /// List of icons for display in user interfaces
-  List<String>? get icons => (_value[Keys.icons] as List?)?.cast<String>();
+  /// Optional set of sized icons that the client can display in a user
+  /// interface.
+  List<Icon>? get icons => (_value[Keys.icons] as List?)?.cast<Icon>();
 }
 
 /// Base type for objects that include optional annotations for the client.
@@ -592,5 +769,5 @@ extension type Annotations.fromMap(Map<String, Object?> _value) {
   /// that the data is entirely optional.
   ///
   /// Must be between 0 and 1.
-  double? get priority => _value[Keys.priority] as double?;
+  double? get priority => (_value[Keys.priority] as num?)?.toDouble();
 }

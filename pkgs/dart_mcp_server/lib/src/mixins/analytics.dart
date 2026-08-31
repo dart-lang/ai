@@ -20,10 +20,7 @@ base mixin AnalyticsEvents
   Future<InitializeResult> initialize(InitializeRequest request) async {
     final result = await super.initialize(request);
     analytics?.send(
-      Event.dartMCPEvent(
-        client: clientInfo.name,
-        clientVersion: clientInfo.version,
-        serverVersion: implementation.version,
+      _createDartMCPEvent(
         type: AnalyticsEvent.initialize.name,
         additionalData: InitializeMetrics(
           supportsElicitation: request.capabilities.elicitation != null,
@@ -38,12 +35,7 @@ base mixin AnalyticsEvents
   @override
   FutureOr<ListPromptsResult> listPrompts([ListPromptsRequest? request]) {
     trySendAnalyticsEvent(
-      Event.dartMCPEvent(
-        client: clientInfo.name,
-        clientVersion: clientInfo.version,
-        serverVersion: implementation.version,
-        type: AnalyticsEvent.listPrompts.name,
-      ),
+      _createDartMCPEvent(type: AnalyticsEvent.listPrompts.name),
     );
     return super.listPrompts(request);
   }
@@ -57,10 +49,7 @@ base mixin AnalyticsEvents
     } finally {
       watch.stop();
       trySendAnalyticsEvent(
-        Event.dartMCPEvent(
-          client: clientInfo.name,
-          clientVersion: clientInfo.version,
-          serverVersion: implementation.version,
+        _createDartMCPEvent(
           type: AnalyticsEvent.getPrompt.name,
           additionalData: GetPromptMetrics(
             name: request.name,
@@ -76,12 +65,7 @@ base mixin AnalyticsEvents
   @override
   FutureOr<ListResourcesResult> listResources([ListResourcesRequest? request]) {
     trySendAnalyticsEvent(
-      Event.dartMCPEvent(
-        client: clientInfo.name,
-        clientVersion: clientInfo.version,
-        serverVersion: implementation.version,
-        type: AnalyticsEvent.listResources.name,
-      ),
+      _createDartMCPEvent(type: AnalyticsEvent.listResources.name),
     );
     return super.listResources(request);
   }
@@ -91,12 +75,7 @@ base mixin AnalyticsEvents
     ListResourceTemplatesRequest? request,
   ]) {
     trySendAnalyticsEvent(
-      Event.dartMCPEvent(
-        client: clientInfo.name,
-        clientVersion: clientInfo.version,
-        serverVersion: implementation.version,
-        type: AnalyticsEvent.listResourceTemplates.name,
-      ),
+      _createDartMCPEvent(type: AnalyticsEvent.listResourceTemplates.name),
     );
     return super.listResourceTemplates(request);
   }
@@ -104,78 +83,87 @@ base mixin AnalyticsEvents
   @override
   Future<ListToolsResult> listTools([ListToolsRequest? request]) async {
     trySendAnalyticsEvent(
-      Event.dartMCPEvent(
-        client: clientInfo.name,
-        clientVersion: clientInfo.version,
-        serverVersion: implementation.version,
-        type: AnalyticsEvent.listTools.name,
-      ),
+      _createDartMCPEvent(type: AnalyticsEvent.listTools.name),
     );
     return super.listTools(request);
   }
 
   @override
-  /// We override this to do our own validation - this is mostly a copy of the
-  /// normal implementation except we also attach a failure reason for
-  /// analytics purposes.
+  /// We override this with our own validation and error handling for analytics
+  /// purposes.
   void registerTool(
     Tool tool,
     FutureOr<CallToolResult> Function(CallToolRequest) impl, {
     bool validateArguments = true,
   }) {
-    super.registerTool(
-      tool,
-      validateArguments
-          ? (request) {
-              final errors = tool.inputSchema.validate(
-                request.arguments ?? const <String, Object?>{},
-              );
-              if (errors.isNotEmpty) {
-                return CallToolResult(
-                  content: [
-                    for (final error in errors)
-                      Content.text(text: error.toErrorString()),
-                  ],
-                  isError: true,
-                )..failureReason = CallToolFailureReason.argumentError;
-              }
-              return impl(request);
-            }
-          : impl,
-      validateArguments: false,
-    );
+    super.registerTool(tool, (request) async {
+      final watch = Stopwatch()..start();
+      CallToolResult? result;
+      if (validateArguments) {
+        final errors = tool.inputSchema.validate(
+          request.arguments ?? const <String, Object?>{},
+        );
+        if (errors.isNotEmpty) {
+          result = CallToolResult(
+            content: [
+              Content.text(
+                text:
+                    'Invalid tool arguments, make sure to read the schema '
+                    'and try again:',
+              ),
+              for (final error in errors)
+                Content.text(text: error.toErrorString()),
+            ],
+            isError: true,
+          )..failureReason = CallToolFailureReason.argumentError;
+        }
+      }
+      String? errorType;
+      try {
+        // Only call the tool if we don't already have an error result.
+        return result ??= await impl(request);
+      } catch (e) {
+        errorType = e.runtimeType.toString();
+        rethrow;
+      } finally {
+        watch.stop();
+        var toolName = request.name;
+        if (request.arguments?[ParameterNames.command]
+            case final String command) {
+          toolName += '.$command';
+        }
+        trySendAnalyticsEvent(
+          _createDartMCPEvent(
+            type: AnalyticsEvent.callTool.name,
+            additionalData: CallToolMetrics(
+              tool: toolName,
+              success: result != null && result.isError != true,
+              elapsedMilliseconds: watch.elapsedMilliseconds,
+              failureReason:
+                  result?.failureReason ??
+                  (errorType != null
+                      ? CallToolFailureReason.unhandledError
+                      : null),
+              extraToolMetrics: result?.customMetrics,
+              errorType: errorType,
+            ),
+          ),
+        );
+      }
+    }, validateArguments: false);
   }
 
-  @override
-  Future<CallToolResult> callTool(CallToolRequest request) async {
-    final watch = Stopwatch()..start();
-    CallToolResult? result;
-    try {
-      return result = await super.callTool(request);
-    } finally {
-      watch.stop();
-      var toolName = request.name;
-      if (request.arguments?[ParameterNames.command]
-          case final String command) {
-        toolName += '.$command';
-      }
-      trySendAnalyticsEvent(
-        Event.dartMCPEvent(
-          client: clientInfo.name,
-          clientVersion: clientInfo.version,
-          serverVersion: implementation.version,
-          type: AnalyticsEvent.callTool.name,
-          additionalData: CallToolMetrics(
-            tool: toolName,
-            success: result != null && result.isError != true,
-            elapsedMilliseconds: watch.elapsedMilliseconds,
-            failureReason: result?.failureReason,
-            extraToolMetrics: result?.customMetrics,
-          ),
-        ),
-      );
-    }
-  }
+  Event _createDartMCPEvent({
+    required String type,
+    CustomMetrics? additionalData,
+  }) => Event.dartMCPEvent(
+    client: clientInfo.name,
+    clientVersion: clientInfo.version,
+    serverVersion: implementation.version,
+    type: type,
+    agentPlugin: agentPlugin,
+    additionalData: additionalData,
+  );
 
   void trySendAnalyticsEvent(Event event) {
     try {

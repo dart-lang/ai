@@ -1,11 +1,12 @@
 name: skills
 description: >
-  CLI that installs AI agent skills from your Dart and Flutter package
-  dependencies into your Agent, so Antigravity, Claude, Codex, Cursor, and other
-  assistants know how to use your stack.
-version: 0.4.0-dev
-repository: https://github.com/serverpod/skills
-issue_tracker: https://github.com/serverpod/skills/issues
+  Install AI skills from your Dart and Flutter package deps into your IDE,
+  so Antigravity, Claude, Codex, Cursor, and other agents
+  know how to use your stack.
+# Must be kept in sync with lib/src/core/version.dart
+version: 1.0.1-wip
+repository: https://github.com/dart-lang/ai/tree/main/pkgs/skills
+issue_tracker: https://github.com/dart-lang/ai/issues?q=is%3Aissue+is%3Aopen+label%3Apackage%3Askills
 
 executables:
   skills:
@@ -25,6 +26,7 @@ dependencies:
   meta: ^1.18.2
   package_config: ^3.0.0
   path: ^1.9.0
+  unified_analytics: ^8.0.16
   yaml: ^3.1.0
 
 dev_dependencies:

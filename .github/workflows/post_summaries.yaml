@@ -1,3 +1,7 @@
+# Copyright (c) 2026, the Dart project authors.  Please see the AUTHORS file
+# for details. All rights reserved. Use of this source code is governed by a
+# BSD-style license that can be found in the LICENSE file.
+
 # A CI configuration to write comments on PRs.
 
 name: Comment on the pull request
@@ -12,6 +16,6 @@ on:
 
 jobs:
   upload:
-    uses: dart-lang/ecosystem/.github/workflows/post_summaries.yaml@main
+    uses: dart-lang/ecosystem/.github/workflows/post_summaries.yaml@60fca9f1270a0819b3ee9caf74b08fb0a212e4cb
     permissions:
       pull-requests: write

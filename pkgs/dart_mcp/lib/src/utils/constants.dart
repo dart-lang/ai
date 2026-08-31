@@ -2,6 +2,20 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+/// Constants for the values the specification names for [Keys.resultType].
+///
+/// A server may send any other string, so these are not an enum.
+///
+/// See https://modelcontextprotocol.io/specification/latest/schema#resulttype.
+extension ResultTypes on Never {
+  /// A result which is not waiting on anything, and the value the
+  /// specification tells a client to assume when the field is absent.
+  static const complete = 'complete';
+
+  /// A result which is waiting on input before the request can finish.
+  static const inputRequired = 'input_required';
+}
+
 /// Constants for all keys used in the MCP API.
 extension Keys on Never {
   static const accept = 'accept';
@@ -14,9 +28,14 @@ extension Keys on Never {
   static const arguments = 'arguments';
   static const audience = 'audience';
   static const blob = 'blob';
+  static const cacheScope = 'cacheScope';
   static const cancel = 'cancel';
   static const capabilities = 'capabilities';
+  static const clientCapabilitiesMeta =
+      'io.modelcontextprotocol/clientCapabilities';
   static const clientInfo = 'clientInfo';
+  static const clientInfoMeta = 'io.modelcontextprotocol/clientInfo';
+  static const code = 'code';
   static const completion = 'completion';
   static const completions = 'completions';
   static const const_ = 'const';
@@ -39,23 +58,29 @@ extension Keys on Never {
   static const exclusiveMaximum = 'exclusiveMaximum';
   static const exclusiveMinimum = 'exclusiveMinimum';
   static const experimental = 'experimental';
+  static const extensions = 'extensions';
   static const form = 'form';
   static const format = 'format';
   static const hasMore = 'hasMore';
   static const hints = 'hints';
   static const icons = 'icons';
+  static const id = 'id';
   static const idempotentHint = 'idempotentHint';
   static const includeContext = 'includeContext';
+  static const inputRequests = 'inputRequests';
+  static const inputResponses = 'inputResponses';
   static const inputSchema = 'inputSchema';
   static const instructions = 'instructions';
   static const intelligencePriority = 'intelligencePriority';
   static const isError = 'isError';
   static const items = 'items';
+  static const jsonrpc = 'jsonrpc';
   static const lastModified = 'lastModified';
   static const level = 'level';
   static const listChanged = 'listChanged';
   static const logger = 'logger';
   static const logging = 'logging';
+  static const logLevelMeta = 'io.modelcontextprotocol/logLevel';
   static const maxItems = 'maxItems';
   static const maxLength = 'maxLength';
   static const maxProperties = 'maxProperties';
@@ -65,6 +90,7 @@ extension Keys on Never {
   static const messages = 'messages';
   static const meta = '_meta';
   static const metadata = 'metadata';
+  static const method = 'method';
   static const mimeType = 'mimeType';
   static const minItems = 'minItems';
   static const minLength = 'minLength';
@@ -77,9 +103,11 @@ extension Keys on Never {
   static const name = 'name';
   static const nextCursor = 'nextCursor';
   static const not = 'not';
+  static const notifications = 'notifications';
   static const oneOf = 'oneOf';
   static const openWorldHint = 'openWorldHint';
   static const outputSchema = 'outputSchema';
+  static const params = 'params';
   static const path = 'path';
   static const pattern = 'pattern';
   static const patternProperties = 'patternProperties';
@@ -88,22 +116,33 @@ extension Keys on Never {
   static const progress = 'progress';
   static const progressToken = 'progressToken';
   static const prompts = 'prompts';
+  static const promptsListChanged = 'promptsListChanged';
   static const properties = 'properties';
   static const propertyNames = 'propertyNames';
   static const protocolVersion = 'protocolVersion';
+  static const protocolVersionMeta = 'io.modelcontextprotocol/protocolVersion';
   static const readOnlyHint = 'readOnlyHint';
   static const reason = 'reason';
   static const ref = 'ref';
+  static const request = 'request';
   static const requestId = 'requestId';
+  static const requestState = 'requestState';
+  static const requested = 'requested';
   static const requestedSchema = 'requestedSchema';
   static const required = 'required';
+  static const requiredCapabilities = 'requiredCapabilities';
   static const resource = 'resource';
+  static const resourceSubscriptions = 'resourceSubscriptions';
   static const resourceTemplates = 'resourceTemplates';
   static const resources = 'resources';
+  static const resourcesListChanged = 'resourcesListChanged';
+  static const result = 'result';
+  static const resultType = 'resultType';
   static const role = 'role';
   static const roots = 'roots';
   static const sampling = 'sampling';
   static const serverInfo = 'serverInfo';
+  static const serverInfoMeta = 'io.modelcontextprotocol/serverInfo';
   static const size = 'size';
   static const sizes = 'sizes';
   static const speedPriority = 'speedPriority';
@@ -112,6 +151,9 @@ extension Keys on Never {
   static const stopSequences = 'stopSequences';
   static const structuredContent = 'structuredContent';
   static const subscribe = 'subscribe';
+  static const subscriptionIdMeta = 'io.modelcontextprotocol/subscriptionId';
+  static const supported = 'supported';
+  static const supportedVersions = 'supportedVersions';
   static const systemPrompt = 'systemPrompt';
   static const temperature = 'temperature';
   static const text = 'text';
@@ -119,7 +161,9 @@ extension Keys on Never {
   static const title = 'title';
   static const toolChoice = 'toolChoice';
   static const tools = 'tools';
+  static const toolsListChanged = 'toolsListChanged';
   static const total = 'total';
+  static const ttlMs = 'ttlMs';
   static const type = 'type';
   static const unevaluatedItems = 'unevaluatedItems';
   static const unevaluatedProperties = 'unevaluatedProperties';
@@ -131,4 +175,5 @@ extension Keys on Never {
   static const values = 'values';
   static const version = 'version';
   static const websiteUrl = 'websiteUrl';
+  static const xMcpHeader = 'x-mcp-header';
 }

@@ -5,7 +5,18 @@
 part of 'api.dart';
 
 /// The types of context in which should be included in a prompt.
-enum IncludeContext { none, thisService, allServers }
+///
+/// The schema deprecates [thisServer] and [allServers], asking a server to omit
+/// the field or send [none] unless the client declares the `sampling.context`
+/// capability.
+enum IncludeContext {
+  none,
+  thisServer,
+  allServers;
+
+  @Deprecated('Use `IncludeContext.thisServer` instead.')
+  static const thisService = thisServer;
+}
 
 /// A request from the server to sample an LLM via the client.
 ///
@@ -21,7 +32,7 @@ extension type CreateMessageRequest.fromMap(Map<String, Object?> _value)
     ModelPreferences? modelPreferences,
     String? systemPrompt,
     IncludeContext? includeContext,
-    int? temperature,
+    num? temperature,
     required int maxTokens,
     List<String>? stopSequences,
     ToolChoice? toolChoice,
@@ -65,15 +76,20 @@ extension type CreateMessageRequest.fromMap(Map<String, Object?> _value)
   ///
   /// The client MAY ignore this request.
   IncludeContext? get includeContext {
-    final includeContext = _value[Keys.includeContext] as String?;
+    var includeContext = _value[Keys.includeContext] as String?;
     if (includeContext == null) return null;
+    // This package wrote `thisService` for the schema's `thisServer` up to
+    // 0.5.2. Treat it as an alias in case a server is still on that version.
+    if (includeContext == 'thisService') {
+      includeContext = IncludeContext.thisServer.name;
+    }
     return IncludeContext.values.firstWhere(
       (value) => value.name == includeContext,
     );
   }
 
   /// The temperature to use for sampling.
-  double? get temperature => _value[Keys.temperature] as double?;
+  double? get temperature => (_value[Keys.temperature] as num?)?.toDouble();
 
   /// The maximum number of tokens to sample, as requested by the server.
   ///
@@ -191,13 +207,13 @@ extension type ModelPreferences.fromMap(Map<String, Object?> _value) {
   ///
   /// A value of 0 means cost is not important, while a value of 1 means cost
   /// is the most important factor.
-  double? get costPriority => _value[Keys.costPriority] as double?;
+  double? get costPriority => (_value[Keys.costPriority] as num?)?.toDouble();
 
   /// How much to prioritize sampling speed (latency) when selecting a model.
   ///
   /// A value of 0 means speed is not important, while a value of 1 means speed
   /// is the most important factor.
-  double? get speedPriority => _value[Keys.speedPriority] as double?;
+  double? get speedPriority => (_value[Keys.speedPriority] as num?)?.toDouble();
 
   /// How much to prioritize intelligence and capabilities when selecting a
   /// model.
@@ -205,7 +221,7 @@ extension type ModelPreferences.fromMap(Map<String, Object?> _value) {
   /// A value of 0 means intelligence is not important, while a value of 1
   /// means intelligence is the most important factor.
   double? get intelligencePriority =>
-      _value[Keys.intelligencePriority] as double?;
+      (_value[Keys.intelligencePriority] as num?)?.toDouble();
 }
 
 /// Hints to use for model selection.

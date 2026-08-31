@@ -19,32 +19,43 @@ extension type ListPromptsRequest.fromMap(Map<String, Object?> _value)
 
 /// The server's response to a prompts/list request from the client.
 extension type ListPromptsResult.fromMap(Map<String, Object?> _value)
-    implements PaginatedResult {
+    implements PaginatedResult, CacheableResult {
   factory ListPromptsResult({
     required List<Prompt> prompts,
     Cursor? nextCursor,
+    int? ttlMs,
+    CacheScope? cacheScope,
     Meta? meta,
-  }) => ListPromptsResult.fromMap({
-    Keys.prompts: prompts,
-    if (nextCursor != null) Keys.nextCursor: nextCursor,
-    if (meta != null) Keys.meta: meta,
-  });
+  }) {
+    assert(ttlMs == null || ttlMs >= 0);
+    return ListPromptsResult.fromMap({
+      Keys.prompts: prompts,
+      if (nextCursor != null) Keys.nextCursor: nextCursor,
+      if (ttlMs != null) Keys.ttlMs: ttlMs,
+      if (cacheScope != null) Keys.cacheScope: cacheScope.name,
+      if (meta != null) Keys.meta: meta,
+    });
+  }
 
   List<Prompt> get prompts => (_value[Keys.prompts] as List).cast<Prompt>();
 }
 
 /// Used by the client to get a prompt provided by the server.
 extension type GetPromptRequest.fromMap(Map<String, Object?> _value)
-    implements Request {
+    implements WithInputResponses {
   static const methodName = 'prompts/get';
 
   factory GetPromptRequest({
     required String name,
     Map<String, Object?>? arguments,
+    Map<String, Result>? inputResponses,
+    String? requestState,
     MetaWithProgressToken? meta,
   }) => GetPromptRequest.fromMap({
     Keys.name: name,
     if (arguments != null) Keys.arguments: arguments,
+    if (inputResponses != null) Keys.inputResponses: inputResponses,
+    if (requestState != null) Keys.requestState: requestState,
     if (meta != null) Keys.meta: meta,
   });
 

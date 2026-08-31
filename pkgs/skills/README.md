@@ -2,11 +2,7 @@
 
 A CLI that brings AI agent skills from your Dart and Flutter package dependencies directly into your agent.
 
-> Note: The Dart team is working on a [similar solution](https://docs.google.com/document/d/1k_X-Sp4GQyZP6k9lvZ1Itj0GvzQZuWl3iKzi5AIa69Q/edit?tab=t.0) based on Dart's MCP server. When that is released, we will provide scripts to convert your skills to Dart's new format. This package will then either adopt the Dart MCP standard for delivering skills or be deprecated (assuming the MCP solution is equally capable).
-
 Dart packages can ship a `skills/` directory containing [Agent Skills](https://agentskills.io/specification), structured instructions that teach AI coding assistants how to use the package effectively. The `skills` CLI finds those skills in your dependency tree and installs them into your agent so your AI assistant better understands your stack.
-
-> If you want to discuss or contribute to the `skills` package, please join the `#skills` channel on the [Serverpod Discord](https://serverpod.dev/discord) server.
 
 ## The problem
 
@@ -14,66 +10,88 @@ When you add a Dart package to your project, your AI coding assistant has no ide
 
 ## The solution
 
-Package authors ship skills alongside their code. You run one command, and your AI assistant knows how to work with every package in your project.
+Package authors ship skills alongside their code. As a user of a package, you can run one command, and your AI assistant will know how to work with every package declared as a dependency in your pubspec (provided it ships with skills).
 
 ```bash
-skills get
+dart run skills@ get
 ```
 
-That's it. Your AI assistant now has context-aware instructions for every dependency that provides skills.
-
-## Installation
-
-Activate the CLI globally:
-
-```bash
-dart pub global activate skills
-```
-
-Make sure `~/.pub-cache/bin` is on your PATH ([instructions](https://dart.dev/tools/pub/cmd/pub-global#running-a-script-from-your-path)).
+When prompted, select the skills you would like to install, or pass `--all` to install everything. Your AI assistant now has context-aware instructions for every dependency that provides skills.
 
 ## Quick start
 
 Navigate to the root of your Dart or Flutter project and run:
 
 ```bash
-# Install skills from all dependencies
-skills get
+# Install selected skills from all dependencies
+dart run skills@ get
+
+# Install skills from all dependencies without prompting
+dart run skills@ get --all
 
 # Install skills from a specific package
-skills get serverpod
+dart run skills@ get <package>
 
 # List installed skills
-skills list
+dart run skills@ list
 
 # Remove skills for packages no longer in your dependency tree
-skills prune
+dart run skills@ prune
 
-# Remove all managed skills
-skills remove
+# Remove the selected managed skills
+dart run skills@ remove
 
 # Remove skills from one package
-skills remove serverpod
+dart run skills@ remove serverpod
+
+# Install skills from a git repo
+dart run skills@ add <git-url>
+
+# Create a skill in this package for your users
+dart run skills@ create
 ```
 
 The CLI will automatically run `pub get` if needed, scan your dependency packages for `skills/` directories, and install them in the right location for your agent. If you are using a monorepo, `skills` will locate your different packages and get the skills for all of them.
 
-If **git** is installed, `skills get` also fetches skills from GitHub registries (see [GitHub registries](#github-registries) below). Skills that come from a Dart package in your dependency tree always take precedence over registry skills for that same package, allowing package maintainers to override the skills in the registry.
+### Installing skills from git
 
-### Pruning removed dependencies
+The `skills` package can also install skills from git repos, similar to how
+`npx skills` works. Given an `npx skills` command from https://skills.sh, you
+can substitute `npx skills` for `dart run skills@` to install them without the
+need for Node/NPX.
 
-When you remove a package from your `pubspec.yaml`, its skills stay in your agent directories until you clean them up. Run:
+Once a repo has been added, future calls to `dart run skills@ get` will also
+check those repos for updates to skills.
+
+- **`--git <repo>` option:** You can pass `--git <repo>` (e.g.,
+  `--git https://github.com/owner/repo.git` or `--git owner/repo`) to `add`,
+  `get`, or `remove` commands to restrict operations to specific git repos.
+- **Requirement:** Git must be installed and on your PATH. If git is not
+  found, a warning is printed and only Dart package skills are used.
+- **Directory Filtering:** When crawling a Git repository for skills,
+  directories named `third_party` or hidden directories (starting with `.`)
+  are ignored.
+
+### Pruning removed dependencies and unused sources
+
+When you remove a package from your `pubspec.yaml`, its skills stay in your
+agent directories until you clean them up. Run:
 
 ```bash
-skills prune
+dart run skills@ prune
 ```
 
-This removes only skills whose package is no longer in your dependency tree and updates the manifest. Use `--agent <agent>` to prune a single agent. If you have no managed skills, `skills prune` reports that and exits.
+This removes skills whose package is no longer in your dependency tree and
+updates the manifest. Use `--agent <agent>` to prune a single agent.
+
+The `prune` command also checks both local and global configurations for git
+repository sources that have no skills installed, and prompts whether to remove
+them. The pruning logic is automatically invoked after every `skills get`.
 
 ### Version control and .gitignore
 
-- If you version-control your agent config (e.g. `.cursor/`), add `.dart_skills/repos/` to your `.gitignore` so cloned registry repos are not committed.
-- If you ignore your agent directory (e.g. `.cursor/`), you can ignore the whole `.dart_skills/` directory.
+- If you **do not** version-control your agent config (`.agents`, etc), then you should include `.config/dart_skills` in your `.gitignore` as well
+- If you **do** version control your agent config, then you should ensure sure that `.config/dart_skills` is **not** ignored. You may need to add `!.config/dart_skills` if you are ignoring the `.config` dir elsewhere in your git ignore.
 
 ## Supported agents
 
@@ -94,18 +112,21 @@ Antigravity, Codex, and generic all install to the same `.agents/skills/` direct
 
 Each of these agents receives the full Agent Skills directory (SKILL.md plus `scripts/`, `references/`, `assets/`) in each tool’s documented location.
 
-## GitHub registries
-
-When you run `skills get`, the CLI can also install skills from **GitHub registries** — repositories that host a `skills/` directory with skills for packages that may not ship skills in their pub package. This is useful for community-maintained skills or packages that haven’t added a `skills/` directory yet.
-
-- **Requirement:** Git must be installed and on your PATH. If git is not found, a warning is printed and only Dart package skills are used.
-- **Registries:** The CLI currently uses two registries: [flutter/skills](https://github.com/flutter/skills) and [serverpod/skills-registry](https://github.com/serverpod/skills-registry). Each is cloned or updated under `.dart_skills/repos/`, you probably want to add this directory to your `.gitignore`.
-
 ## For package maintainers
 
 Ship AI skills with your package so every user's coding assistant understands your APIs, conventions, and best practices.
 
 ### Adding skills to your package
+
+The simplest way to add a new skill is with the CLI command:
+
+```bash
+dart run skills@ create
+```
+
+This command will prompt you for a name and description, and then create a new directory with a SKILL.md file, and create the top-level `skills/` directory if necessary.  Open the file and add more details.
+
+### Full instructions
 
 Create a `skills/` directory at the root of your package (next to `lib/`). Each skill is a subdirectory containing a `SKILL.md` file following the [Agent Skills specification](https://agentskills.io/specification):
 
@@ -124,7 +145,7 @@ my_package/
 
 ### Naming convention
 
-Every skill directory name **must** start with your package name followed by a hyphen. The CLI verifies this on installation and silently skips any skills that don't follow the convention.
+Every skill directory name **must** start with your package name (or your package name with underscores replaced by hyphens) followed by a hyphen. The CLI verifies this on installation and silently skips any skills that don't follow the convention.
 
 For a package named `serverpod`:
 
@@ -134,6 +155,8 @@ For a package named `serverpod`:
 | `serverpod-api-design` | Yes |
 | `code-generation` | No -- missing package prefix |
 | `other_pkg-code-generation` | No -- wrong prefix |
+
+For a package named `my_package`, both `my_package-code-generation` and `my-package-code-generation` are valid. Using hyphens (`my-package-code-generation`) is recommended to comply with the Agent Skills specification.
 
 This convention ensures skill names are globally unique and self-documenting. When a user sees `serverpod-code-generation` in their agent, they know exactly where it came from.
 
@@ -174,14 +197,15 @@ All agents receive the full skill directory (SKILL.md plus `scripts/`, `referenc
 - **Keep SKILL.md under 500 lines.** Move detailed reference material into `references/` files; all supported agents receive the full skill directory.
 - **Version your skills with your package.** When you change APIs, update the skills to match.
 
-### What happens when users run `skills get`
+### What happens when users run `dart run skills@ get`
 
 1. The CLI resolves your package's location on disk from `package_config.json`.
 2. It finds your `skills/` directory and each skill subdirectory with a `SKILL.md`.
 3. It validates that each skill name starts with your package name.
-4. Skills are installed into the user's agent-specific location.
-5. A `.dart_skills/skills_config.json` tracking file records which skills were installed from which package and agent.
+4. It compares the current skills to any previously installed skills, presenting the user with relevant dialogs to update, install, or delete skills.
+5. The selected skills are installed into the user's agent-specific location.
+6. A `.config/dart_skills/skills_config.json` tracking file records information about all the available skills and their last known states.
 
-Users can update skills by running `skills get` again. Existing skills from your package are replaced with the latest versions.
+Users can update skills by running `dart run skills@ get` again.
 
-The `.dart_skills/skills_config.json` file tracks managed skills so `skills remove` knows what to clean up without touching skills you created manually.
+Users can remove skills by running `dart run skills@ remove`, which will read the `.config/dart_skills/skills_config.json` file so that it doesn't touch manually curated skills.

@@ -20,6 +20,7 @@ void main() {
     required List<String> packageNames,
     required List<String> arguments,
     String? searchDir,
+    bool expectError = false,
   }) {
     final args = <String, Object?>{
       ParameterNames.root: counterAppRoot.uri,
@@ -34,6 +35,7 @@ void main() {
         name: GrepSupport.ripGrepPackagesTool.name,
         arguments: args,
       ),
+      expectError: expectError,
     );
   }
 
@@ -54,7 +56,7 @@ void main() {
     test('finds matches in project files', () async {
       final result = await grep(
         packageNames: ['counter_app'],
-        arguments: [r'void main\('],
+        arguments: ['-e', r'void main\('],
       );
       expect(result.isError, isNot(isTrue));
       final content = result.content.first as TextContent;
@@ -66,7 +68,7 @@ void main() {
     test('finds matches with glob pattern', () async {
       final result = await grep(
         packageNames: ['counter_app'],
-        arguments: ['-g', '*.dart', 'class MyApp'],
+        arguments: ['-g', '*.dart', '-e', 'class MyApp'],
       );
       expect(result.isError, isNot(isTrue));
       final content = result.content.first as TextContent;
@@ -78,7 +80,7 @@ void main() {
     test('finds matches in package dependencies', () async {
       final result = await grep(
         packageNames: ['flutter'],
-        arguments: ['class Widget'],
+        arguments: ['-e', 'class Widget'],
       );
 
       expect(result.isError, isNot(isTrue));
@@ -92,7 +94,7 @@ void main() {
     test('supports case insensitive search', () async {
       final result = await grep(
         packageNames: ['counter_app'],
-        arguments: ['-i', r'VOID MAIN\('],
+        arguments: ['-i', '-e', r'VOID MAIN\('],
       );
       expect(result.isError, isNot(isTrue));
       final content = result.content.first as TextContent;
@@ -103,7 +105,7 @@ void main() {
     test('returns a good message when package not found', () async {
       final result = await grep(
         packageNames: ['non_existent_package'],
-        arguments: ['class Widget'],
+        arguments: ['-e', 'class Widget'],
       );
       expect(result.isError, isNot(isTrue));
       final content = result.content.first as TextContent;
@@ -116,7 +118,7 @@ void main() {
     test('returns a good message when no matches found', () async {
       final result = await grep(
         packageNames: ['counter_app'],
-        arguments: ['non_existent_class'],
+        arguments: ['-e', 'non_existent_class'],
       );
       expect(result.isError, isNot(isTrue));
       final content = result.content.first as TextContent;
@@ -126,7 +128,7 @@ void main() {
     test('can search outside of lib/ when searchDir is empty string', () async {
       final result = await grep(
         packageNames: ['counter_app'],
-        arguments: ['name: counter_app'],
+        arguments: ['-e', 'name: counter_app'],
         searchDir: '',
       );
       expect(result.isError, isNot(isTrue));
@@ -149,7 +151,7 @@ void main() {
 
       final result = await grep(
         packageNames: ['counter_app'],
-        arguments: ['dummy test'],
+        arguments: ['-e', 'dummy test'],
         searchDir: 'grep_test', // search specifically in "grep_test"
       );
       expect(result.isError, isNot(isTrue));
@@ -162,8 +164,39 @@ void main() {
       );
       expect(content.text, contains('dummy test'));
     });
+
+    test('refuses to search outside package root', () async {
+      final result = await grep(
+        packageNames: ['counter_app'],
+        arguments: ['-e', 'dummy test'],
+        searchDir: '../', // try to escape the root
+      );
+      expect(result.isError, isNot(isTrue)); // we return content with the error
+      final content = result.content.first as TextContent;
+
+      expect(
+        content.text,
+        contains('attempted to escape the root of package `counter_app`'),
+      );
+    });
   });
 
+  test('rejects arbitrary ripgrep flags', () async {
+    final result = await grep(
+      packageNames: ['counter_app'],
+      arguments: ['--pre', 'echo', '-e', 'void main'],
+      expectError: true,
+    );
+    expect(result.isError, isTrue);
+    final content = result.content.first as TextContent;
+    expect(
+      content.text,
+      contains(
+        'Refusing to run ripgrep: the following arguments are not permitted: '
+        '--pre, echo',
+      ),
+    );
+  });
   test('Can install ripgrep', () async {
     final server = testHarness.serverConnectionPair.server!;
     final tmpDir = server.fileSystem.systemTempDirectory.createTempSync(

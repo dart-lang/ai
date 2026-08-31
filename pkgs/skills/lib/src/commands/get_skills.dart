@@ -13,6 +13,7 @@ import 'package:skills/src/commands/skills_command.dart';
 import 'package:skills/src/core/advisory_checker.dart';
 import 'package:skills/src/core/git_runner.dart';
 import 'package:skills/src/core/package_resolver.dart';
+import 'package:skills/src/core/pruner.dart';
 import 'package:skills/src/core/pub_runner.dart';
 import 'package:skills/src/core/git_scanner.dart';
 import 'package:skills/src/core/git_sync.dart';
@@ -98,9 +99,14 @@ Future<bool> getSkills({
   final globalConfigFile = io.File(globalConfigPath);
   var globalConfig = await GlobalConfig.loadOrEmpty(globalConfigFile);
 
+  late final Set<String> newlyAcceptedRepos;
   {
     var (originalGlobalConfig, originalManifest) = (globalConfig, manifest);
-    (:globalConfig, :manifest) = await _maybePromptToInstallDashSkills(
+    (
+      :globalConfig,
+      :manifest,
+      :newlyAcceptedRepos,
+    ) = await _maybePromptToInstallDashSkills(
       dialogSupport: dialogSupport,
       globalConfig: globalConfig,
       agents: agents,
@@ -142,7 +148,7 @@ Future<bool> getSkills({
 
   final skills = [...dartSkills, ...gitData.gitSkills];
 
-  Map<Agent, Set<String>>? selectedSkillNamesByIde;
+  Map<Agent, Set<String>>? selectedSkillNamesByAgent;
 
   // Log about any unrecognized skills
   if (skillNames.isNotEmpty) {
@@ -200,6 +206,7 @@ Future<bool> getSkills({
       skills: skills,
       dialogSupport: dialogSupport,
       logger: logger,
+      newlyAcceptedRepos: newlyAcceptedRepos,
     );
     if (!continueInstall) {
       return false;
@@ -209,9 +216,9 @@ Future<bool> getSkills({
   // Use `skillNames` or the `--all` flag as the selection if provided,
   // otherwise prompt for which skills to install or log the available skills.
   if (skillNames.isNotEmpty) {
-    selectedSkillNamesByIde = {};
+    selectedSkillNamesByAgent = {};
     for (final agent in agents) {
-      selectedSkillNamesByIde[agent] = skillNames;
+      selectedSkillNamesByAgent[agent] = skillNames;
     }
   } else if (!allFlag) {
     final promptResult = await _promptForSkillsToInstall(
@@ -227,16 +234,16 @@ Future<bool> getSkills({
     if (!promptResult.continueInstall) {
       return false;
     }
-    selectedSkillNamesByIde = promptResult.selectedSkillNamesByIde;
+    selectedSkillNamesByAgent = promptResult.selectedSkillNamesByAgent;
   }
 
   final installer = SkillInstaller(dialogSupport);
   for (final agent in agents) {
-    final result = await installer.installSkillsForIde(
+    final result = await installer.installSkillsForAgent(
       agent: agent,
       rootPath: rootPath,
       skills: skills,
-      selectedSkills: selectedSkillNamesByIde?[agent],
+      selectedSkills: selectedSkillNamesByAgent?[agent],
       previousManifest: manifest,
       globalConfig: globalConfig,
       sourceUris: sourceUris, // this still acts as source filter
@@ -251,12 +258,22 @@ Future<bool> getSkills({
       logger.info('  [${info.agentName}] Installed ${info.skillName}');
     }
     logger.info(
-      'Installed ${result.installed.length} skill(s) for ${agent.cliName}.',
+      'Installed ${result.installed.length} skill(s) for ${agent.cliName} '
+      'at ${agent.skillsRelativePath}.',
     );
   }
 
   await globalConfig.save(globalConfigFile);
   await manifest.save(manifestFile(rootPath));
+
+  await pruneSkills(
+    workspace: workspace,
+    logger: logger,
+    dialogSupport: dialogSupport,
+    targetAgents: agents,
+    quietIfNothingToPrune: true,
+    allFlag: allFlag,
+  );
 
   return true;
 }
@@ -264,6 +281,7 @@ Future<bool> getSkills({
 typedef DashSkillsPromptResult = ({
   GlobalConfig globalConfig,
   SkillManifest manifest,
+  Set<String> newlyAcceptedRepos,
 });
 
 /// Prompts the user to install dash skill repos if they have not already
@@ -284,7 +302,11 @@ Future<DashSkillsPromptResult> _maybePromptToInstallDashSkills({
       dialogSupport == null ||
       sourceUris.isNotEmpty ||
       skillNames.isNotEmpty) {
-    return (globalConfig: globalConfig, manifest: manifest);
+    return (
+      globalConfig: globalConfig,
+      manifest: manifest,
+      newlyAcceptedRepos: const <String>{},
+    );
   }
 
   const flutterSkillsRepo = 'https://github.com/flutter/agent-plugins.git';
@@ -305,6 +327,7 @@ Future<DashSkillsPromptResult> _maybePromptToInstallDashSkills({
     suggestedRepos.add(flutterSkillsRepo);
   }
 
+  final newlyAcceptedRepos = <String>{};
   if (suggestedRepos.isNotEmpty) {
     final options = [...suggestedRepos, 'Never ask again on this machine'];
     final selectedIndices = await dialogSupport.showMultiSelectDialog(
@@ -346,16 +369,22 @@ Future<DashSkillsPromptResult> _maybePromptToInstallDashSkills({
               );
             }
           }
+          newlyAcceptedRepos.addAll(selectedRepos);
         } else if (result == 1) {
           for (final repo in selectedRepos) {
             globalConfig = globalConfig.withGitRepo(GitRepo(cloneUrl: repo));
           }
+          newlyAcceptedRepos.addAll(selectedRepos);
         }
       }
     }
   }
 
-  return (globalConfig: globalConfig, manifest: manifest);
+  return (
+    globalConfig: globalConfig,
+    manifest: manifest,
+    newlyAcceptedRepos: newlyAcceptedRepos,
+  );
 }
 
 @visibleForTesting
@@ -588,33 +617,30 @@ Future<bool> _promptForSourcesWithDiffs({
   required List<ScannedSkill> skills,
   required DialogSupport dialogSupport,
   required Logger logger,
+  Set<String> newlyAcceptedRepos = const {},
 }) async {
-  final sourcesWithSkills = sourceIdsWithDiff.toList()..sort();
-  if (sourcesWithSkills.isNotEmpty) {
+  final candidateSources =
+      sourceIdsWithDiff.difference(newlyAcceptedRepos).toList()..sort();
+  if (candidateSources.isNotEmpty) {
     final initialSelected = Iterable<int>.generate(
-      sourcesWithSkills.length,
+      candidateSources.length,
     ).toSet();
     final selectedIndices = await dialogSupport.showMultiSelectDialog(
-      sourcesWithSkills,
-      title: 'Select sources to install skills from:',
+      candidateSources,
+      title: 'Select which sources to browse skills from:',
       initialSelected: initialSelected,
     );
     if (selectedIndices != null) {
       final selectedSources = selectedIndices
-          .map((i) => sourcesWithSkills[i])
+          .map((i) => candidateSources[i])
           .toSet();
-      skills.removeWhere(
-        (s) =>
-            sourceIdsWithDiff.contains(s.sourceUri) &&
-            !selectedSources.contains(s.sourceUri),
+      final unselectedSources = candidateSources.toSet().difference(
+        selectedSources,
       );
+      skills.removeWhere((s) => unselectedSources.contains(s.sourceUri));
 
       for (final list in skillsBySource.values) {
-        list.removeWhere(
-          (s) =>
-              sourceIdsWithDiff.contains(s.sourceUri) &&
-              !selectedSources.contains(s.sourceUri),
-        );
+        list.removeWhere((s) => unselectedSources.contains(s.sourceUri));
       }
       skillsBySource.removeWhere((k, v) => v.isEmpty);
       sortedSourceIds.removeWhere((id) => !skillsBySource.containsKey(id));
@@ -643,7 +669,7 @@ Future<_PromptResult> _promptForSkillsToInstall({
   required DialogSupport? dialogSupport,
   required Logger logger,
 }) async {
-  final selectedSkillNamesByIde = <Agent, Set<String>>{
+  final selectedSkillNamesByAgent = <Agent, Set<String>>{
     for (final agent in agents) agent: {},
   };
   var hasAnyChangesToPrint = false;
@@ -679,7 +705,11 @@ Future<_PromptResult> _promptForSkillsToInstall({
             ? ''
             : ' for ${adapters.map((a) => a.agent.cliName).join(', ')}';
 
-        final fullLabel = '${skill.skillName}$agentstr ($labelSuffix)';
+        final formattedSkillName = formatSkillName(
+          skill.skillName,
+          packageName: skill.packageName,
+        );
+        final fullLabel = '$formattedSkillName$agentstr ($labelSuffix)';
 
         dialogOptions.add((
           skill: skill,
@@ -723,19 +753,19 @@ Future<_PromptResult> _promptForSkillsToInstall({
         for (final index in selectedIndices) {
           final opt = dialogOptions[index];
           for (final adapter in opt.adapters) {
-            selectedSkillNamesByIde[adapter.agent]!.add(opt.skill.skillName);
+            selectedSkillNamesByAgent[adapter.agent]!.add(opt.skill.skillName);
           }
         }
       } else {
         logger.info('Installation aborted by user.');
-        return (continueInstall: false, selectedSkillNamesByIde: null);
+        return (continueInstall: false, selectedSkillNamesByAgent: null);
       }
     }
   }
 
   if (!hasAnyChangesToPrint) {
     logger.info('All skills are up to date.');
-    return (continueInstall: false, selectedSkillNamesByIde: null);
+    return (continueInstall: false, selectedSkillNamesByAgent: null);
   }
 
   if (dialogSupport == null) {
@@ -743,12 +773,12 @@ Future<_PromptResult> _promptForSkillsToInstall({
       'Rerun with `--skill <name>`, or `--all` to '
       'install, update, or remove the given skills.',
     );
-    return (continueInstall: false, selectedSkillNamesByIde: null);
+    return (continueInstall: false, selectedSkillNamesByAgent: null);
   }
 
   return (
     continueInstall: true,
-    selectedSkillNamesByIde: selectedSkillNamesByIde,
+    selectedSkillNamesByAgent: selectedSkillNamesByAgent,
   );
 }
 
@@ -807,7 +837,7 @@ typedef _SkillStatesResult = ({
 
 typedef _PromptResult = ({
   bool continueInstall,
-  Map<Agent, Set<String>>? selectedSkillNamesByIde,
+  Map<Agent, Set<String>>? selectedSkillNamesByAgent,
 });
 
 typedef _DialogOption = ({
@@ -840,6 +870,9 @@ class OrphanedSkill implements ScannedSkill {
   /// Not a real skill, has no path
   @override
   String? get skillPath => null;
+
+  @override
+  String? get path => null;
 
   @override
   String get sourceUri => gitUrl ?? 'package:${packageName!}';

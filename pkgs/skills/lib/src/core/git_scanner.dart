@@ -46,38 +46,53 @@ class GitScanner {
     bool isGlobal,
   ) async {
     final skills = <ScannedSkill>[];
-    await for (final entity in repoDir.list(
-      recursive: true,
-      followLinks: false,
-    )) {
-      if (entity is! File || p.basename(entity.path) != 'SKILL.md') continue;
-
-      SkillFrontmatter? frontmatter;
-      try {
-        frontmatter = SkillFrontmatter.fromSkillContent(
-          await entity.readAsString(),
-        );
-      } on FormatException catch (e) {
-        _logger.warning(
-          'Skipping skill at path ${entity.path} due to formatting '
-          'error: $e',
-        );
-        continue;
-      }
-      if (frontmatter.isInternal && !shouldInstallInternalSkills) continue;
-
-      final skillDir = entity.parent;
-      final skillName = p.basename(skillDir.path);
-
-      skills.add(
-        ScannedSkill(
-          gitUrl: gitUrl,
-          skillName: skillName,
-          skillPath: skillDir.path,
-          isGlobal: isGlobal,
-        ),
-      );
-    }
+    await _scanDirectory(repoDir, repoDir, gitUrl, isGlobal, skills);
     return skills;
+  }
+
+  Future<void> _scanDirectory(
+    Directory dir,
+    Directory repoDir,
+    String gitUrl,
+    bool isGlobal,
+    List<ScannedSkill> skills,
+  ) async {
+    await for (final entity in dir.list(followLinks: false)) {
+      if (entity is Directory) {
+        final name = p.basename(entity.path);
+        if (name == 'third_party' || name.startsWith('.')) continue;
+        await _scanDirectory(entity, repoDir, gitUrl, isGlobal, skills);
+      } else if (entity is File && p.basename(entity.path) == 'SKILL.md') {
+        SkillFrontmatter? frontmatter;
+        try {
+          frontmatter = SkillFrontmatter.fromSkillContent(
+            await entity.readAsString(),
+          );
+        } on FormatException catch (e) {
+          _logger.warning(
+            'Skipping skill at path ${entity.path} due to formatting '
+            'error: $e',
+          );
+          continue;
+        }
+        if (frontmatter.isInternal && !shouldInstallInternalSkills) continue;
+
+        final skillDir = entity.parent;
+        final skillName = p.basename(skillDir.path);
+        final pathInRepo = p
+            .split(p.relative(skillDir.path, from: repoDir.path))
+            .join('/');
+
+        skills.add(
+          ScannedSkill(
+            gitUrl: gitUrl,
+            skillName: skillName,
+            skillPath: skillDir.path,
+            isGlobal: isGlobal,
+            path: pathInRepo,
+          ),
+        );
+      }
+    }
   }
 }

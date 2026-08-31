@@ -60,9 +60,7 @@ base mixin ResourcesSupport on MCPServer {
   /// then the client will be notified of the changes based on their
   /// subscription preferences.
   @override
-  FutureOr<ServerCapabilities> initialize(
-    MCPServerInitialization initialization,
-  ) async {
+  FutureOr<void> initialize(MCPServerInitialization initialization) async {
     registerRequestHandler(ListResourcesRequest.methodName, listResources);
     registerRequestHandler(
       ListResourceTemplatesRequest.methodName,
@@ -74,7 +72,7 @@ base mixin ResourcesSupport on MCPServer {
     registerRequestHandler(SubscribeRequest.methodName, subscribeResource);
     registerRequestHandler(UnsubscribeRequest.methodName, unsubscribeResource);
 
-    final capabilities = await super.initialize(initialization);
+    await super.initialize(initialization);
     (capabilities.resources ??= Resources())
       ..listChanged = true
       ..subscribe = true;
@@ -86,7 +84,6 @@ base mixin ResourcesSupport on MCPServer {
             ResourceListChangedNotification(),
           ),
         );
-    return capabilities;
   }
 
   @override
@@ -205,8 +202,10 @@ base mixin ResourcesSupport on MCPServer {
 
   /// Reads the resource at `request.uri`.
   ///
-  /// Throws an [ArgumentError] if it does not exist (this gets translated into
-  /// a generic JSON RPC2 error response).
+  /// Throws an [RpcException] with the `-32602` code the 2026-07-28 revision
+  /// requires if no resource or template answers the URI, carrying that URI as
+  /// `data.uri`. Earlier revisions asked for `-32002` here, which this package
+  /// has never sent.
   @mustCallSuper
   FutureOr<ReadResourceResult> readResource(ReadResourceRequest request) async {
     final impl = _resourceImpls[request.uri];
@@ -220,7 +219,11 @@ base mixin ResourcesSupport on MCPServer {
 
     final response = await impl?.call(request);
     if (response == null) {
-      throw ArgumentError.value(request.uri, 'uri', 'Resource not found');
+      throw RpcException(
+        error_code.INVALID_PARAMS,
+        'Resource not found',
+        data: {Keys.uri: request.uri},
+      );
     }
     return response;
   }

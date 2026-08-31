@@ -6,6 +6,8 @@ import 'dart:async';
 
 import 'package:async/async.dart';
 import 'package:dart_mcp/server.dart';
+import 'package:json_rpc_2/error_code.dart' as error_code;
+import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:test/test.dart';
 
 import '../test_utils.dart';
@@ -230,6 +232,33 @@ void main() {
       );
     },
   );
+
+  test('reading an unknown resource reports invalid params', () async {
+    final environment = TestEnvironment(
+      TestMCPClient(),
+      TestMCPServerWithResources.new,
+    );
+    await environment.initializeServer();
+
+    await expectLater(
+      environment.serverConnection.readResource(
+        ReadResourceRequest(uri: 'file:///NoSuchResource.txt'),
+      ),
+      throwsA(
+        isA<RpcException>()
+            .having((e) => e.code, 'code', error_code.INVALID_PARAMS)
+            .having((e) => e.message, 'message', 'Resource not found')
+            // The key is spelled out rather than read back through
+            // `Keys.uri`, so renaming the constant cannot keep this passing
+            // while the wire key changes.
+            .having(
+              (e) => (e.data as Map)['uri'],
+              'data.uri',
+              'file:///NoSuchResource.txt',
+            ),
+      ),
+    );
+  });
 }
 
 final class TestMCPServerWithResources extends TestMCPServer
@@ -243,9 +272,7 @@ final class TestMCPServerWithResources extends TestMCPServer
   TestMCPServerWithResources(super.channel, {this.fileContents = const {}});
 
   @override
-  FutureOr<ServerCapabilities> initialize(
-    MCPServerInitialization initialization,
-  ) {
+  FutureOr<void> initialize(MCPServerInitialization initialization) {
     addResource(
       helloWorld,
       (_) => ReadResourceResult(

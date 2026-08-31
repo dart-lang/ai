@@ -1,5 +1,10 @@
+// Copyright (c) 2026, the Dart project authors. Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
 import 'dart:io';
 
+import 'package:io/ansi.dart';
 import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 import 'package:skills/src/commands/get_command.dart';
@@ -52,7 +57,6 @@ void main() {
 
         final projectRootDir = d.dir('project', [
           pubspec('project', dependencies: [.new('dep1'), .new('dep2')]),
-          d.dir('.cursor', [d.dir('skills')]),
         ]);
         await projectRootDir.create();
 
@@ -75,15 +79,17 @@ void main() {
         final runner = SkillsCommandRunner('skills', 'Test')
           ..addCommand(getCommand);
 
-        await runner.run([
-          'get',
-          '--directory',
-          projectPath,
-          '--agent',
-          Agent.generic.cliName,
-          '--package',
-          'dep1',
-        ]);
+        await overrideAnsiOutput(false, () async {
+          await runner.run([
+            'get',
+            '--directory',
+            projectPath,
+            '--agent',
+            Agent.generic.cliName,
+            '--package',
+            'dep1',
+          ]);
+        });
 
         expect(fakeDialogSupport.allMultiSelectOptions, hasLength(1));
         expect(
@@ -125,13 +131,15 @@ void main() {
           final runner = SkillsCommandRunner('skills', 'Test')
             ..addCommand(getCommand);
 
-          await runner.run([
-            'get',
-            '--directory',
-            projectPath,
-            '--agent',
-            Agent.generic.cliName,
-          ]);
+          await overrideAnsiOutput(false, () async {
+            await runner.run([
+              'get',
+              '--directory',
+              projectPath,
+              '--agent',
+              Agent.generic.cliName,
+            ]);
+          });
 
           expect(fakeDialogSupport.allMultiSelectOptions, hasLength(3));
           expect(
@@ -204,7 +212,6 @@ void main() {
 
         final projectRootDir = d.dir('project', [
           pubspec('project', dependencies: [.new('dep1'), .new('dep2')]),
-          d.dir('.cursor', [d.dir('skills')]),
         ]);
         await projectRootDir.create();
 
@@ -236,13 +243,15 @@ void main() {
         final runner = SkillsCommandRunner('skills', 'Test')
           ..addCommand(getCommand);
 
-        await runner.run([
-          'get',
-          '--directory',
-          projectPath,
-          '--agent',
-          Agent.generic.cliName,
-        ]);
+        await overrideAnsiOutput(false, () async {
+          await runner.run([
+            'get',
+            '--directory',
+            projectPath,
+            '--agent',
+            Agent.generic.cliName,
+          ]);
+        });
 
         expect(fakeDialogSupport.allMultiSelectOptions, hasLength(3));
         expect(

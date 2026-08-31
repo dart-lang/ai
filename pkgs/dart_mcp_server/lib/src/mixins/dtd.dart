@@ -4,6 +4,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show InternetAddress;
 
 import 'package:collection/collection.dart';
 import 'package:dart_mcp/server.dart';
@@ -166,6 +167,7 @@ base mixin DartToolingDaemonSupport
             clientVersion: clientInfo.version,
             serverVersion: implementation.version,
             type: AnalyticsEvent.readResource.name,
+            agentPlugin: agentPlugin,
             additionalData: ReadResourceMetrics(
               kind: ResourceKind.runtimeErrors,
               length: result.contents.length,
@@ -429,7 +431,42 @@ base mixin DartToolingDaemonSupport
       )..failureReason = CallToolFailureReason.mustSpecifyDtdUri;
     }
 
-    return _connectToDtdSingle(Uri.parse(uriString));
+    // The `uri` argument originates from the LLM and is therefore
+    // attacker-influenced (prompt injection). DTD instances always run on the
+    // local machine, so restrict connections to loopback hosts to prevent this
+    // tool from being used to open outbound WebSocket connections to arbitrary
+    // remote endpoints.
+    final uri = Uri.tryParse(uriString);
+    if (uri == null) {
+      return CallToolResult(
+        isError: true,
+        content: [Content.text(text: 'Failed to parse uri $uriString')],
+      )..failureReason = CallToolFailureReason.argumentError;
+    }
+    if (_checkIsAllowedDtdUri(uri) case final error?) {
+      return error;
+    }
+
+    return _connectToDtdSingle(uri);
+  }
+
+  /// Checks whether [uri] is an acceptable target for [_connect].
+  ///
+  /// Only `ws`/`wss` URIs targeting the local machine are allowed; the Dart
+  /// Tooling Daemon always listens on a loopback interface.
+  ///
+  /// If [uri] is invalid, returns an error result.
+  static CallToolResult? _checkIsAllowedDtdUri(Uri uri) {
+    if (uri.scheme != 'ws' && uri.scheme != 'wss') {
+      return _invalidDtdUri;
+    }
+    final host = uri.host;
+    if (host.isEmpty) return _invalidDtdUri;
+    if (host == 'localhost') return null;
+
+    final ip = InternetAddress.tryParse(host);
+    if (ip == null || !ip.isLoopback) return _invalidDtdUri;
+    return null;
   }
 
   /// Lists the available Dart Tooling Daemon instances.
@@ -516,7 +553,7 @@ base mixin DartToolingDaemonSupport
   }
 
   Future<CallToolResult> _listConnectedApps(CallToolRequest request) async {
-    if (activeVmServices.isEmpty) return _noActiveDebugSession;
+    if (activeVmServices.isEmpty) return _noActiveAppConnection;
     final textResult = <TextContent>[];
     // Connected app info by DTD uri.
     final structuredResult = <String, List<Map<String, Object?>>>{};
@@ -1028,7 +1065,7 @@ base mixin DartToolingDaemonSupport
       if (_dtds.isNotEmpty && !_dtds.any((dtd) => dtd.supportsConnectedApps)) {
         return _connectedAppsNotSupported;
       }
-      return _noActiveDebugSession;
+      return _noActiveAppConnection;
     }
 
     final String selectedAppUri;
@@ -1352,14 +1389,14 @@ base mixin DartToolingDaemonSupport
     ),
   )..categories = [FeatureCategory.dartToolingDaemon];
 
-  @visibleForTesting
   static final hotReloadTool = Tool(
     name: ToolNames.hotReload.name,
     description:
         'Performs a hot reload of the active Flutter application. '
-        'This will apply the latest code changes to the running application, '
-        'while maintaining application state.  Reload will not update const '
-        'definitions of global values. Requires an active DTD connection.',
+        'Requires an active DTD connection, use '
+        'the `${DartToolingDaemonSupport.dtdTool.name}` tool to discover and '
+        'connect to an app pro-actively (don\'t wait for the user to instruct '
+        'you, this is a safe operation with minimal bad consequences).',
     annotations: ToolAnnotations(title: 'Hot reload', destructiveHint: true),
     inputSchema: Schema.object(
       properties: {
@@ -1380,7 +1417,6 @@ base mixin DartToolingDaemonSupport
     ),
   )..categories = [FeatureCategory.flutter];
 
-  @visibleForTesting
   static final hotRestartTool = Tool(
     name: ToolNames.hotRestart.name,
     description:
@@ -1616,8 +1652,16 @@ base mixin DartToolingDaemonSupport
     ],
   )..failureReason = CallToolFailureReason.dtdAlreadyConnected;
 
-  static final _noActiveDebugSession = CallToolResult(
-    content: [TextContent(text: 'No active debug session.')],
+  static final _noActiveAppConnection = CallToolResult(
+    content: [
+      TextContent(
+        text:
+            'No active app connection. Use the `${dtdTool.name}` tool to '
+            'discover and connect to an app first. AGENT: Be pro-active and '
+            'connect to the app yourself unless explicitly instructed '
+            'otherwise. Read the dtd tool schema to use it correctly.',
+      ),
+    ],
     isError: true,
   )..failureReason = CallToolFailureReason.noActiveDebugSession;
 
@@ -1647,6 +1691,18 @@ base mixin DartToolingDaemonSupport
     ],
     isError: true,
   )..failureReason = CallToolFailureReason.givenVmServiceUri;
+
+  static final _invalidDtdUri = CallToolResult(
+    isError: true,
+    content: [
+      Content.text(
+        text:
+            'Refusing to connect to invalid DTD URI. URIs must use the '
+            'ws:// or wss:// scheme and a loopback host (127.0.0.1, ::1, '
+            'or localhost).',
+      ),
+    ],
+  )..failureReason = CallToolFailureReason.argumentError;
 
   static final runtimeErrorsScheme = 'runtime-errors';
 

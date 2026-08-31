@@ -1,3 +1,7 @@
+// Copyright (c) 2026, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
 import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 
@@ -98,7 +102,7 @@ class SkillInstaller {
   ///
   /// If [selectedSkills] is provided, only skills with these names will be
   /// modified. This includes deleting of existing skills.
-  Future<SkillInstallResult?> installSkillsForIde({
+  Future<SkillInstallResult?> installSkillsForAgent({
     required Agent agent,
     required String rootPath,
     required List<ScannedSkill> skills,
@@ -277,6 +281,7 @@ class SkillInstaller {
             installedAt: DateTime.now().toUtc(),
             contentHash: null,
             isInstalled: false,
+            path: skill.path,
           ),
         );
         continue;
@@ -290,6 +295,7 @@ class SkillInstaller {
           name: installedName,
           installedAt: DateTime.now().toUtc(),
           contentHash: installResult.contentHash,
+          path: skill.path,
         ),
       );
 
@@ -406,7 +412,7 @@ class SkillInstaller {
   ///
   /// If [sourceUris] is not empty, only those sources skills are removed.
   /// If [skillNames] is not empty, only those specific skills are removed.
-  Future<SkillRemoveResult> removeSkillsForIde({
+  Future<SkillRemoveResult> removeSkillsForAgent({
     required Agent agent,
     required String rootPath,
     required SkillManifest manifest,
@@ -477,7 +483,7 @@ class SkillInstaller {
     for (final agentName in manifest.allAgents.toList()) {
       final agent = Agent.fromCliName(agentName);
       if (agent == null) continue;
-      final result = await removeSkillsForIde(
+      final result = await removeSkillsForAgent(
         agent: agent,
         rootPath: rootPath,
         manifest: updated,

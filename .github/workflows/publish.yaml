@@ -1,3 +1,7 @@
+# Copyright (c) 2026, the Dart project authors.  Please see the AUTHORS file
+# for details. All rights reserved. Use of this source code is governed by a
+# BSD-style license that can be found in the LICENSE file.
+
 # A CI configuration to auto-publish pub packages.
 
 name: Publish
@@ -12,7 +16,7 @@ on:
 jobs:
   publish:
     if: ${{ github.repository_owner == 'dart-lang' }}
-    uses: dart-lang/ecosystem/.github/workflows/publish.yaml@main
+    uses: dart-lang/ecosystem/.github/workflows/publish.yaml@60fca9f1270a0819b3ee9caf74b08fb0a212e4cb
     with:
       write-comments: false
       sdk: dev

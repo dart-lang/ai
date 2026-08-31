@@ -16,7 +16,7 @@ Fix any format, analysis, or test failures before finishing.
 
 ## Project conventions
 
-- **Manifest path:** The skills manifest path is defined in one place: `.dart_tool/skills/skills_config.json` (see `SkillManifest` in `lib/src/models/skill_manifest.dart`). Use `SkillManifest.pathIn(rootPath)`, `SkillManifest.dirName`, and `SkillManifest.baseName` — never hardcode the path or path separators elsewhere.
+- **Manifest path:** The skills manifest path is defined in one place: `.config/dart_skills/skills_config.json` (see `SkillManifest` in `lib/src/models/skill_manifest.dart`). Use `SkillManifest.pathIn(rootPath)`, `SkillManifest.configDirPath`, `SkillManifest.configName` and `SkillManifest.cacheDirPath` — never hardcode the path or path separators elsewhere.
 - **Paths:** Use `package:path/path.dart` and `p.join()` for all path construction so behavior is correct on Windows.
 - **Empty manifest:** When all managed skills are removed, delete the `.dart_tool/skills` directory rather than leaving an empty manifest file (see `SkillManifest.cleanupDir` and `RemoveCommand`).
 - **Workspace resolution:** The CLI supports (1) a directory with a `pubspec.yaml` (pub workspace, melos, or single package) and (2) an implicit workspace: no root `pubspec.yaml`, but immediate subdirectories that have `pubspec.yaml` are treated as packages. Do not walk up the directory tree to find a project root; the user is expected to run from the project root.

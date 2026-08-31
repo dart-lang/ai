@@ -221,6 +221,32 @@ void main() {
       expect(multi.allSkills, hasLength(2));
     });
 
+    test(
+      'when iterating allSkills then ignores skills with isInstalled: false',
+      () {
+        final withUninstalled = base.withSourceUri(
+          'cursor',
+          'package:pkg_b',
+          SkillsEntry(
+            skills: [
+              InstalledSkillEntry(
+                name: 'pkg_b-uninstalled',
+                installedAt: DateTime.utc(2026),
+                isInstalled: false,
+              ),
+            ],
+          ),
+        );
+
+        expect(withUninstalled.allSkills, hasLength(1));
+        expect(withUninstalled.allSkills.first.name, equals('pkg_a-skill-1'));
+        expect(
+          withUninstalled.allSkillsForAgent('cursor').map((s) => s.name),
+          equals(['pkg_a-skill-1']),
+        );
+      },
+    );
+
     test('when checking isEmpty on empty manifest then returns true', () {
       expect(const SkillManifest().isEmpty, isTrue);
     });

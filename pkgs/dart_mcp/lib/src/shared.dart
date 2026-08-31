@@ -7,6 +7,7 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:async/async.dart' show StreamSinkTransformer;
 import 'package:json_rpc_2/json_rpc_2.dart';
@@ -46,10 +47,16 @@ base class MCPBase {
   /// Initializes an MCP connection on [channel].
   ///
   /// If [protocolLogSink] is provided, all incoming and outgoing messages will
-  /// added logged to it. It is the responsibility of the caller to close the
+  /// be logged to it. It is the responsibility of the caller to close the
   /// sink.
-  MCPBase(StreamChannel<String> channel, {Sink<String>? protocolLogSink}) {
-    _peer = Peer(_maybeForwardMessages(channel, protocolLogSink));
+  MCPBase(
+    StreamChannel<Map<String, Object?>> channel, {
+    Sink<String>? protocolLogSink,
+  }) {
+    // The channel type admits only JSON objects, so json_rpc_2 never
+    // receives a batch and never writes the `List` frames its batch support
+    // would answer one with.
+    _peer = Peer.withoutJson(_maybeForwardMessages(channel, protocolLogSink));
     registerNotificationHandler(
       ProgressNotification.methodName,
       _handleProgress,
@@ -116,16 +123,26 @@ base class MCPBase {
     Request? request,
   ]) async {
     try {
-      return ((await _peer.sendRequest(methodName, request)) as Map?)
-              ?.cast<String, Object?>()
-          as T;
+      return await sendRequestKeepingProgress<T>(methodName, request);
     } finally {
-      final token = request?.meta?.progressToken;
-      if (token != null) {
-        await _progressControllers.remove(token)?.close();
-      }
+      await closeProgress(request);
     }
   }
+
+  /// Sends [request] to the peer like [sendRequest] does, but leaves any
+  /// progress stream for it open.
+  ///
+  /// This is for a caller that sends several requests under one progress
+  /// token, such as an `input_required` retry. That caller owns the token and
+  /// hands it back with [closeProgress] once it stops sending.
+  @protected
+  Future<T> sendRequestKeepingProgress<T extends Result?>(
+    String methodName, [
+    Request? request,
+  ]) async =>
+      ((await _peer.sendRequest(methodName, request)) as Map?)
+              ?.cast<String, Object?>()
+          as T;
 
   /// The peer may ping us at any time, and we should respond with an empty
   /// response.
@@ -158,6 +175,16 @@ base class MCPBase {
         .stream;
   }
 
+  /// Closes the stream [onProgress] returned for [request], if it opened one.
+  ///
+  /// [sendRequest] calls this when a request is done. A caller using
+  /// [sendRequestKeepingProgress] calls it once it stops sending.
+  @protected
+  Future<void> closeProgress(Request? request) async {
+    final token = request?.meta?.progressToken;
+    if (token != null) await _progressControllers.remove(token)?.close();
+  }
+
   /// Pings the peer, and returns whether or not it responded within
   /// [timeout].
   ///
@@ -181,17 +208,26 @@ base class MCPBase {
   ///
   /// This is intended to be written to a file or emitted to a user to aid in
   /// debugging protocol messages between the client and server.
-  StreamChannel<String> _maybeForwardMessages(
-    StreamChannel<String> channel,
+  StreamChannel<Map<String, Object?>> _maybeForwardMessages(
+    StreamChannel<Map<String, Object?>> channel,
     Sink<String>? protocolLogSink,
   ) {
     if (protocolLogSink == null) return channel;
+    String encodeForLog(Map<String, Object?> data) {
+      try {
+        return jsonEncode(data);
+      } catch (_) {
+        // The log is diagnostic only, so a message which cannot be encoded
+        // must not fail the connection.
+        return '$data';
+      }
+    }
 
     return channel
         .transformStream(
           StreamTransformer.fromHandlers(
             handleData: (data, sink) {
-              protocolLogSink.add('<<< ($name) $data\n');
+              protocolLogSink.add('<<< ($name) ${encodeForLog(data)}\n');
               sink.add(data);
             },
           ),
@@ -199,7 +235,7 @@ base class MCPBase {
         .transformSink(
           StreamSinkTransformer.fromHandlers(
             handleData: (data, sink) {
-              protocolLogSink.add('>>> ($name) $data\n');
+              protocolLogSink.add('>>> ($name) ${encodeForLog(data)}\n');
               sink.add(data);
             },
           ),

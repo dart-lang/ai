@@ -31,10 +31,10 @@ description: Generates code.
 Instructions.
 '''),
           ]),
-          d.dir('my_package-api-design', [
+          d.dir('my-package-api-design', [
             d.file('SKILL.md', '''
 ---
-name: my_package-api-design
+name: my-package-api-design
 description: Designs APIs.
 ---
 
@@ -62,7 +62,7 @@ Instructions.
       expect(skills, hasLength(2));
       expect(
         skills.map((s) => s.skillName).toSet(),
-        equals({'my_package-code-gen', 'my_package-api-design'}),
+        equals({'my_package-code-gen', 'my-package-api-design'}),
       );
     });
 

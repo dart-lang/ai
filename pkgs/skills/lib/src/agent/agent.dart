@@ -1,3 +1,7 @@
+// Copyright (c) 2026, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -8,9 +12,9 @@ import 'package:path/path.dart' as p;
 /// separate CLI options that all map here; only "generic" is stored in
 /// skills_config.
 enum Agent {
-  cursor('cursor', '.cursor/skills'),
   generic('generic', '.agents/skills'),
   claude('claude', '.claude/skills'),
+  cursor('cursor', '.cursor/skills'),
   copilot('copilot', '.github/skills'),
   cline('cline', '.cline/skills'),
   opencode('opencode', '.opencode/skills');
@@ -27,6 +31,10 @@ enum Agent {
     Agent.generic => ['antigravity', 'codex'],
     _ => [],
   };
+
+  /// Formatted label including aliases (e.g. "generic (antigravity, codex)").
+  String get label =>
+      '$cliName${cliAliases.isEmpty ? '' : ' (${cliAliases.join(', ')})'}';
 
   /// Returns the absolute skills directory path for this agent within [projectPath].
   String skillsPath(String projectPath) =>

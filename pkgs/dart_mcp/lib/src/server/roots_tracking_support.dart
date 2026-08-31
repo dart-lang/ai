@@ -29,12 +29,6 @@ base mixin RootsTrackingSupport on LoggingSupport {
   /// [_RootsState.pending], otherwise `null`.
   Completer<List<Root>>? _rootsCompleter = Completer();
 
-  /// Whether or not the connected client supports [listRoots].
-  ///
-  /// Only safe to call after calling [initialize] on `super` since this
-  /// is based on the client capabilities.
-  bool get supportsRoots => clientCapabilities.roots != null;
-
   /// Whether or not the connected client supports reporting changes to the
   /// list of roots.
   ///
@@ -44,9 +38,7 @@ base mixin RootsTrackingSupport on LoggingSupport {
       clientCapabilities.roots?.listChanged == true;
 
   @override
-  FutureOr<ServerCapabilities> initialize(
-    MCPServerInitialization initialization,
-  ) {
+  FutureOr<void> initialize(MCPServerInitialization initialization) {
     initialized.then((_) async {
       if (!supportsRoots) {
         log(
@@ -94,6 +86,12 @@ base mixin RootsTrackingSupport on LoggingSupport {
     try {
       result = await listRoots(ListRootsRequest());
     } on RpcException catch (e) {
+      log(LoggingLevel.error, 'Error calling listRoots: $e');
+      // json_rpc_2 completes requests which are still pending when the
+      // connection closes with a `StateError`, for instance when a
+      // request-scoped exchange is torn down mid-request.
+      // ignore: avoid_catching_errors
+    } on StateError catch (e) {
       log(LoggingLevel.error, 'Error calling listRoots: $e');
     } finally {
       // Only complete the completer if it's still the one we created. Otherwise

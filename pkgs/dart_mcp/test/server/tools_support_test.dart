@@ -40,11 +40,11 @@ void main() {
       ProtocolVersion.oldestSupported,
     );
     expect(
-      environment.server.initializedWith?.clientInfo.name,
+      environment.server.initializedWith?.clientInfo?.name,
       environment.client.implementation.name,
     );
     expect(
-      environment.server.initializedWith?.clientInfo.version,
+      environment.server.initializedWith?.clientInfo?.version,
       environment.client.implementation.version,
     );
     expect(environment.server.ready, isFalse);
@@ -55,6 +55,34 @@ void main() {
     expect(
       (await environment.serverConnection.listTools()).tools,
       hasLength(2),
+    );
+  });
+
+  test('registeredTools tracks registration and is read only', () async {
+    final environment = TestEnvironment(
+      TestMCPClient(),
+      TestMCPServerWithTools.new,
+    );
+    await environment.initializeServer();
+
+    final server = environment.server;
+    expect(server.registeredTools.keys, {'hello_world', 'echo'});
+    expect(
+      server.registeredTools['echo'],
+      same(TestMCPServerWithTools.echo),
+      reason:
+          'the registered tool itself is what a transport reads a schema '
+          'from',
+    );
+
+    server.unregisterTool('echo');
+    expect(server.registeredTools.keys, {'hello_world'});
+
+    // A caller that gets hold of the map must not be able to register or
+    // drop a tool behind `registerTool`'s back.
+    expect(
+      () => server.registeredTools['echo'] = TestMCPServerWithTools.echo,
+      throwsUnsupportedError,
     );
   });
 
@@ -142,8 +170,8 @@ void main() {
       ),
     );
     expect(result.isError, isTrue);
-    expect(result.content.single, isA<TextContent>());
-    final textContent = result.content.single as TextContent;
+    expect(result.content.last, isA<TextContent>());
+    final textContent = result.content.last as TextContent;
     expect(
       textContent.text,
       contains('Required property "message" is missing at path #root'),
@@ -157,8 +185,8 @@ void main() {
       ),
     );
     expect(result.isError, isTrue);
-    expect(result.content.single, isA<TextContent>());
-    final textContent2 = result.content.single as TextContent;
+    expect(result.content.last, isA<TextContent>());
+    final textContent2 = result.content.last as TextContent;
     expect(
       textContent2.text,
       contains('Value `123` is not of type `String` at path #root["message"]'),
@@ -172,9 +200,7 @@ final class TestMCPServerWithTools extends TestMCPServer with ToolsSupport {
   MCPServerInitialization? initializedWith;
 
   @override
-  FutureOr<ServerCapabilities> initialize(
-    MCPServerInitialization initialization,
-  ) {
+  FutureOr<void> initialize(MCPServerInitialization initialization) {
     initializedWith = initialization;
     registerTool(
       helloWorld,

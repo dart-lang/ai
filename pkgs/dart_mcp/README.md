@@ -8,8 +8,10 @@ A Dart package for making MCP servers and clients.
 ## Implementing Servers
 
 To implement a server, import `package:dart_mcp/server.dart` and extend the
-`MCPServer` class. You must provide the server a communication channel to send
-and receive messages with.
+`MCPServer` class. You must provide the server a
+`StreamChannel<Map<String, Object?>>` of decoded JSON-RPC messages to send
+and receive messages with, such as the one returned by `stdioChannel` from
+`package:dart_mcp/stdio.dart`.
 
 For each specific MCP capability or utility your server supports, there is a
 corresponding mixin that you can use (`ToolsSupport`, `ResourcesSupport`, etc).
@@ -20,12 +22,13 @@ that you can call.
 
 Register server-specific tools, resources, prompts, and request handlers by
 overriding `MCPServer.initialize(MCPServerInitialization)`. Always call the
-super method and return its `ServerCapabilities`, including any capability
-changes made by your server. This hook can be used independently of the legacy
-MCP handshake; the context supplies the protocol version, client information,
-and client capabilities for either lifecycle. A request-scoped transport
-completes `MCPServer.initialized` by calling `handleInitialized()` after this
-hook and any transport-specific setup have finished.
+super method, and declare what your server supports by editing
+`MCPServer.capabilities`. This hook can be used independently of the legacy
+MCP handshake; the context supplies the protocol version, optional client
+information, and client capabilities for either lifecycle. A request-scoped
+transport completes `MCPServer.initialized` by calling `handleInitialized()`
+after this hook and any transport-specific setup have finished, or serves each
+decoded message on a fresh server instance with `handleRequestScopedMessage`.
 
 `MCPServer.initializeLegacy(InitializeRequest)` handles protocol negotiation
 and the legacy initialize response. Override it only when you need to customize
@@ -61,9 +64,11 @@ can call.
 
 ### Connecting to Servers
 
-You can connect this client with STDIO servers using the
-`MCPClient.connectStdioServer` method, or you can call `MCPClient.connectServer`
-with any other communication channel.
+You can connect this client to STDIO servers by passing the channel returned
+by `stdioChannel` to `MCPClient.connectServer`, or any other
+`StreamChannel<Map<String, Object?>>` of decoded JSON-RPC messages. The
+`jsonRpcChannel` helper in `package:dart_mcp/stdio.dart` adapts a
+`StreamChannel<String>` whose events each contain one complete JSON document.
 
 The returned `ServerConnection` should be used for all interactions with the
 server, starting with a call to `ServerConnection.initialize`, followed up with
@@ -84,14 +89,14 @@ Before attempting to call methods on the server however, you should first verify
 the capabilities of the server by reading them from the `InitializeResult` returned
 from `ServerConnection.initialize`.
 
-[initialization_lifecycle]: https://spec.modelcontextprotocol.io/specification/2024-11-05/basic/lifecycle/#initialization
+[initialization_lifecycle]: https://modelcontextprotocol.io/specification/2024-11-05/basic/lifecycle/#initialization
 
 ## Supported Protocol Versions
 
-[2024-11-05](https://spec.modelcontextprotocol.io/specification/2024-11-05/)
-[2025-03-26](https://spec.modelcontextprotocol.io/specification/2025-03-26/)
-[2025-06-18](https://spec.modelcontextprotocol.io/specification/2025-06-18/)
-[2025-11-05](https://spec.modelcontextprotocol.io/specification/2025-11-05/)
+[2024-11-05](https://modelcontextprotocol.io/specification/2024-11-05/)
+[2025-03-26](https://modelcontextprotocol.io/specification/2025-03-26/)
+[2025-06-18](https://modelcontextprotocol.io/specification/2025-06-18/)
+[2025-11-25](https://modelcontextprotocol.io/specification/2025-11-25/)
 
 If support for a given protocol version is dropped, that will be released as a
 breaking change in this package.
@@ -101,33 +106,34 @@ However, we will strive to maintain backwards compatibility where possible.
 ## Base Utilities
 
 This table describes the state of implementation for the base protocol
-[utilities](https://spec.modelcontextprotocol.io/specification/2025-11-05/basic/utilities).
+[utilities](https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities).
 
 Both the `MCPServer` and `MCPClient` support these.
 
 | Utility | Support | Notes |
 | --- | --- | --- |
-| [Ping](https://spec.modelcontextprotocol.io/specification/2025-11-05/basic/utilities/ping) | :heavy_check_mark: |  |
-| [Cancellation](https://spec.modelcontextprotocol.io/specification/2025-11-05/basic/utilities/cancellation/) | :x: | https://github.com/dart-lang/ai/issues/37 |
-| [Progress](https://spec.modelcontextprotocol.io/specification/2025-11-05/basic/utilities/progress/) | :heavy_check_mark: |  |
+| [Ping](https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/ping) | :heavy_check_mark: |  |
+| [Cancellation](https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/cancellation/) | :x: | https://github.com/dart-lang/ai/issues/37 |
+| [Progress](https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/) | :heavy_check_mark: |  |
 
 ## Transport Mechanisms
 
 This table describes the supported
-[transport mechanisms](https://modelcontextprotocol.io/specification/2025-11-05/basic/transports).
+[transport mechanisms](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports).
 
 At its core this package is just built on streams, so any transport mechanism
 can be used, but some are directly supported out of the box.
 
 | Transport | Support | Notes |
 | --- | --- | --- |
-| [Stdio](https://modelcontextprotocol.io/specification/2025-11-05/basic/transports#stdio) | :heavy_check_mark: |  |
-| [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-11-05/basic/transports#streamable-http) | :x: | Unsupported at this time, may come in the future. |
+| [Stdio](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports#stdio) | :heavy_check_mark: |  |
+| [Streamable HTTP](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http) | :construction: | Server side only, as `handleStreamableHttpRequest` in `package:dart_mcp/streamable_http.dart`. Answers a request whose handler emits related notifications on an SSE response stream, and every other request with a JSON body. The client side is not implemented yet. |
 
 ## Batching Requests
 
-Both the client and server support processing batch requests, but do not support
-creating batch requests at this time.
+Batch requests are not supported. Batching was removed from MCP in protocol
+version 2025-06-18, and a batch frame is answered with a single invalid
+request error response, including for clients which negotiated 2025-03-26.
 
 ## Authorization
 
@@ -137,32 +143,32 @@ at local MCP server usage for now.
 ## Server Capabilities
 
 This table describes the state of implementation for the
-[server capabilities](https://spec.modelcontextprotocol.io/specification/2025-11-05/server/).
+[server capabilities](https://modelcontextprotocol.io/specification/2025-11-25/server/).
 
 **Note:** Servers can also invoke all [client capabilities](#client-capabilities),
 see [Invoking Client Capabilities](#invoking-client-capabilities).
 
 | Capability | Support | Notes |
 | --- | --- | --- |
-| [Prompts](https://spec.modelcontextprotocol.io/specification/2025-11-05/server/prompts/) | :heavy_check_mark: |  |
-| [Resources](https://spec.modelcontextprotocol.io/specification/2025-11-05/server/resources/) | :heavy_check_mark: |  |
-| [Tools](https://spec.modelcontextprotocol.io/specification/2025-11-05/server/tools/) | :heavy_check_mark: |  |
+| [Prompts](https://modelcontextprotocol.io/specification/2025-11-25/server/prompts/) | :heavy_check_mark: |  |
+| [Resources](https://modelcontextprotocol.io/specification/2025-11-25/server/resources/) | :heavy_check_mark: |  |
+| [Tools](https://modelcontextprotocol.io/specification/2025-11-25/server/tools/) | :heavy_check_mark: |  |
 
 ## Server Utilities
 
 This table describes the state of implementation for the
-[server utilities](https://spec.modelcontextprotocol.io/specification/2025-11-05/server/utilities/).
+[server utilities](https://modelcontextprotocol.io/specification/2025-11-25/server/utilities/).
 
 | Utility | Support | Notes |
 | --- | --- | --- |
-| [Completion](https://spec.modelcontextprotocol.io/specification/2025-11-05/server/utilities/completion/) | :heavy_check_mark: |  |
-| [Logging](https://spec.modelcontextprotocol.io/specification/2025-11-05/server/utilities/logging/) | :heavy_check_mark: |  |
-| [Pagination](https://spec.modelcontextprotocol.io/specification/2025-11-05/server/utilities/pagination/) | :construction: | https://github.com/dart-lang/ai/issues/28 |
+| [Completion](https://modelcontextprotocol.io/specification/2025-11-25/server/utilities/completion/) | :heavy_check_mark: |  |
+| [Logging](https://modelcontextprotocol.io/specification/2025-11-25/server/utilities/logging/) | :heavy_check_mark: |  |
+| [Pagination](https://modelcontextprotocol.io/specification/2025-11-25/server/utilities/pagination/) | :construction: | https://github.com/dart-lang/ai/issues/28 |
 
 ## Client Capabilities
 
 This table describes the state of implementation for the client
-[capabilities](https://spec.modelcontextprotocol.io/specification/2025-11-05/client/).
+[capabilities](https://modelcontextprotocol.io/specification/2025-11-25/client/).
 
 **Note:** Clients can also invoke all [server capabilities](#server-capabilities)
 and [server utilities](#server-utilities),
@@ -170,5 +176,5 @@ see [Invoking Server Capabilities and Utilities](#invoking-server-capabilities-a
 
 | Capability | Support | Notes |
 | --- | --- | --- |
-| [Roots](https://spec.modelcontextprotocol.io/specification/2025-11-05/client/roots/)| :heavy_check_mark: | |
-| [Sampling](https://spec.modelcontextprotocol.io/specification/2025-11-05/client/sampling/)| :heavy_check_mark: | |
+| [Roots](https://modelcontextprotocol.io/specification/2025-11-25/client/roots/)| :heavy_check_mark: | |
+| [Sampling](https://modelcontextprotocol.io/specification/2025-11-25/client/sampling/)| :heavy_check_mark: | |

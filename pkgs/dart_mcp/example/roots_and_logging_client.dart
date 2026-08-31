@@ -79,7 +79,7 @@ final class MCPClientWithRoots extends MCPClient with RootsSupport {
   /// and any time they change.
   @override
   ServerConnection connectServer(
-    StreamChannel<String> channel, {
+    StreamChannel<Map<String, Object?>> channel, {
     Sink<String>? protocolLogSink,
   }) {
     final connection = super.connectServer(

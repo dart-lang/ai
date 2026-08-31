@@ -6,22 +6,35 @@ part of 'server.dart';
 
 /// A mixin for MCP servers which support the `logging` capability.
 ///
-/// See https://spec.modelcontextprotocol.io/specification/2025-11-05/server/utilities/logging/.
+/// See https://modelcontextprotocol.io/specification/2025-11-25/server/utilities/logging/.
 base mixin LoggingSupport on MCPServer {
-  /// The current logging level, defaults to [LoggingLevel.warning].
-  LoggingLevel loggingLevel = LoggingLevel.warning;
+  /// The level at or above which [log] sends messages, or `null` to send none.
+  ///
+  /// On 2026-07-28 `initialize` sets this to
+  /// [MCPServerInitialization.logLevel], overwriting any default the server
+  /// chose for itself. Earlier revisions keep that default, start at
+  /// [LoggingLevel.warning] when there is none, and serve `logging/setLevel`
+  /// to move it.
+  LoggingLevel? loggingLevel;
 
   @override
-  FutureOr<ServerCapabilities> initialize(
-    MCPServerInitialization initialization,
-  ) async {
-    registerRequestHandler(SetLevelRequest.methodName, handleSetLevel);
+  FutureOr<void> initialize(MCPServerInitialization initialization) async {
+    if (initialization.protocolVersion < ProtocolVersion.v2026_07_28) {
+      loggingLevel ??= LoggingLevel.warning;
+      registerRequestHandler(SetLevelRequest.methodName, handleSetLevel);
+    } else {
+      // Assign instead of `??=`. 2026-07-28 took `logging/setLevel` out, so a
+      // default the server picked for itself would otherwise survive here and
+      // log on a request that asked for no level.
+      loggingLevel = initialization.logLevel;
+    }
 
-    return (await super.initialize(initialization))..logging ??= Logging();
+    await super.initialize(initialization);
+    capabilities.logging ??= Logging();
   }
 
-  /// Sends a [LoggingMessageNotification] to the client, if the [loggingLevel]
-  /// is <= [level].
+  /// Sends a [LoggingMessageNotification] to the client, if [loggingLevel] is
+  /// set and is <= [level].
   ///
   /// The [data] must either be some json serializable object, or a function
   /// which takes no arguments and returns some json serializable object.
@@ -33,7 +46,8 @@ base mixin LoggingSupport on MCPServer {
   /// If [data] is any other type of function, an [ArgumentError] will be
   /// thrown.
   void log(LoggingLevel level, Object data, {String? logger, Meta? meta}) {
-    if (loggingLevel > level) return;
+    final threshold = loggingLevel;
+    if (threshold == null || threshold > level) return;
 
     if (data is Function) {
       if (data is Object Function()) {
@@ -61,6 +75,11 @@ base mixin LoggingSupport on MCPServer {
   }
 
   /// Handle a client request to change the logging level.
+  ///
+  /// Registered for `logging/setLevel` on the revisions that still have the
+  /// method, and not on 2026-07-28. `handleStreamableHttpRequest` answers it
+  /// with `404` on that revision anyway, so this is what a transport calling
+  /// `handleRequestScopedMessage` on its own gets instead.
   FutureOr<EmptyResult> handleSetLevel(SetLevelRequest request) {
     loggingLevel = request.level;
     return EmptyResult();

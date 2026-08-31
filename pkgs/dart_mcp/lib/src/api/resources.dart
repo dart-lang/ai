@@ -18,16 +18,23 @@ extension type ListResourcesRequest.fromMap(Map<String, Object?> _value)
 
 /// The server's response to a resources/list request from the client.
 extension type ListResourcesResult.fromMap(Map<String, Object?> _value)
-    implements PaginatedResult {
+    implements PaginatedResult, CacheableResult {
   factory ListResourcesResult({
     required List<Resource> resources,
     Cursor? nextCursor,
+    int? ttlMs,
+    CacheScope? cacheScope,
     Meta? meta,
-  }) => ListResourcesResult.fromMap({
-    Keys.resources: resources,
-    if (nextCursor != null) Keys.nextCursor: nextCursor,
-    if (meta != null) Keys.meta: meta,
-  });
+  }) {
+    assert(ttlMs == null || ttlMs >= 0);
+    return ListResourcesResult.fromMap({
+      Keys.resources: resources,
+      if (nextCursor != null) Keys.nextCursor: nextCursor,
+      if (ttlMs != null) Keys.ttlMs: ttlMs,
+      if (cacheScope != null) Keys.cacheScope: cacheScope.name,
+      if (meta != null) Keys.meta: meta,
+    });
+  }
 
   List<Resource> get resources =>
       (_value[Keys.resources] as List).cast<Resource>();
@@ -50,16 +57,23 @@ extension type ListResourceTemplatesRequest.fromMap(Map<String, Object?> _value)
 
 /// The server's response to a resources/templates/list request from the client.
 extension type ListResourceTemplatesResult.fromMap(Map<String, Object?> _value)
-    implements PaginatedResult {
+    implements PaginatedResult, CacheableResult {
   factory ListResourceTemplatesResult({
     required List<ResourceTemplate> resourceTemplates,
     Cursor? nextCursor,
+    int? ttlMs,
+    CacheScope? cacheScope,
     Meta? meta,
-  }) => ListResourceTemplatesResult.fromMap({
-    Keys.resourceTemplates: resourceTemplates,
-    if (nextCursor != null) Keys.nextCursor: nextCursor,
-    if (meta != null) Keys.meta: meta,
-  });
+  }) {
+    assert(ttlMs == null || ttlMs >= 0);
+    return ListResourceTemplatesResult.fromMap({
+      Keys.resourceTemplates: resourceTemplates,
+      if (nextCursor != null) Keys.nextCursor: nextCursor,
+      if (ttlMs != null) Keys.ttlMs: ttlMs,
+      if (cacheScope != null) Keys.cacheScope: cacheScope.name,
+      if (meta != null) Keys.meta: meta,
+    });
+  }
 
   List<ResourceTemplate> get resourceTemplates =>
       (_value[Keys.resourceTemplates] as List).cast<ResourceTemplate>();
@@ -67,14 +81,18 @@ extension type ListResourceTemplatesResult.fromMap(Map<String, Object?> _value)
 
 /// Sent from the client to the server, to read a specific resource URI.
 extension type ReadResourceRequest.fromMap(Map<String, Object?> _value)
-    implements Request {
+    implements WithInputResponses {
   static const methodName = 'resources/read';
 
   factory ReadResourceRequest({
     required String uri,
+    Map<String, Result>? inputResponses,
+    String? requestState,
     MetaWithProgressToken? meta,
   }) => ReadResourceRequest.fromMap({
     Keys.uri: uri,
+    if (inputResponses != null) Keys.inputResponses: inputResponses,
+    if (requestState != null) Keys.requestState: requestState,
     if (meta != null) Keys.meta: meta,
   });
 
@@ -91,14 +109,21 @@ extension type ReadResourceRequest.fromMap(Map<String, Object?> _value)
 
 /// The server's response to a resources/read request from the client.
 extension type ReadResourceResult.fromMap(Map<String, Object?> _value)
-    implements Result {
+    implements CacheableResult {
   factory ReadResourceResult({
     required List<ResourceContents> contents,
+    int? ttlMs,
+    CacheScope? cacheScope,
     Meta? meta,
-  }) => ReadResourceResult.fromMap({
-    Keys.contents: contents,
-    if (meta != null) Keys.meta: meta,
-  });
+  }) {
+    assert(ttlMs == null || ttlMs >= 0);
+    return ReadResourceResult.fromMap({
+      Keys.contents: contents,
+      if (ttlMs != null) Keys.ttlMs: ttlMs,
+      if (cacheScope != null) Keys.cacheScope: cacheScope.name,
+      if (meta != null) Keys.meta: meta,
+    });
+  }
 
   List<ResourceContents> get contents =>
       (_value[Keys.contents] as List).cast<ResourceContents>();
@@ -233,7 +258,7 @@ extension type Resource.fromMap(Map<String, Object?> _value)
   ///
   /// This can be used by Hosts to display file sizes and estimate context
   /// window usage.
-  int? get size => _value[Keys.size] as int;
+  int? get size => _value[Keys.size] as int?;
 
   /// Optional set of sized icons that the client can display in a user
   /// interface.

@@ -15,6 +15,15 @@ base mixin ToolsSupport on MCPServer {
   /// The registered tools by name.
   final Map<String, Tool> _registeredTools = {};
 
+  /// The tools registered on this server, by name.
+  ///
+  /// [registerTool] and [unregisterTool] are what change this; the view
+  /// itself is read only. Reading it does not run [listTools], so a transport
+  /// can look a tool up without invoking an override.
+  late final Map<String, Tool> registeredTools = UnmodifiableMapView(
+    _registeredTools,
+  );
+
   /// The registered tool implementations by name.
   final Map<String, FutureOr<CallToolResult> Function(CallToolRequest)>
   _registeredToolImpls = {};
@@ -27,15 +36,12 @@ base mixin ToolsSupport on MCPServer {
   /// If tools are registered after [initialized] completes, then the server
   /// will notify the client
   @override
-  FutureOr<ServerCapabilities> initialize(
-    MCPServerInitialization initialization,
-  ) async {
+  FutureOr<void> initialize(MCPServerInitialization initialization) async {
     registerRequestHandler(ListToolsRequest.methodName, listTools);
     registerRequestHandler(CallToolRequest.methodName, callTool);
 
-    final capabilities = await super.initialize(initialization);
+    await super.initialize(initialization);
     (capabilities.tools ??= Tools()).listChanged = true;
-    return capabilities;
   }
 
   /// Register [tool] to call [impl] when invoked.
@@ -68,6 +74,11 @@ base mixin ToolsSupport on MCPServer {
               if (errors.isNotEmpty) {
                 return CallToolResult(
                   content: [
+                    Content.text(
+                      text:
+                          'Invalid tool arguments, make sure to read the '
+                          'schema and try again:',
+                    ),
                     for (final error in errors)
                       Content.text(text: error.toErrorString()),
                   ],

@@ -170,7 +170,7 @@ Do you want to accept (a), decline (d), or cancel (c) the elicitation?
   /// The server we connect to will log the elicitation responses it receives.
   @override
   ServerConnection connectServer(
-    StreamChannel<String> channel, {
+    StreamChannel<Map<String, Object?>> channel, {
     Sink<String>? protocolLogSink,
   }) {
     final connection = super.connectServer(
