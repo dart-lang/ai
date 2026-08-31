@@ -420,27 +420,30 @@ dependencies:
 
       test('creates a Flutter project in the root itself', () async {
         testHarness.mcpClient.addRoot(exampleFlutterAppRoot);
-        final request = CallToolRequest(
-          name: createProjectTool.name,
-          arguments: {
-            ParameterNames.root: exampleFlutterAppRoot.uri,
-            ParameterNames.directory: '.',
-            ParameterNames.projectType: 'flutter',
-          },
-        );
-        await testHarness.callToolWithRetry(request);
+        for (final directory in ['.', './']) {
+          testProcessManager.commandsRan.clear();
+          final request = CallToolRequest(
+            name: createProjectTool.name,
+            arguments: {
+              ParameterNames.root: exampleFlutterAppRoot.uri,
+              ParameterNames.directory: directory,
+              ParameterNames.projectType: 'flutter',
+            },
+          );
+          await testHarness.callToolWithRetry(request);
 
-        expect(testProcessManager.commandsRan, [
-          equalsCommand((
-            command: [
-              endsWith(flutterExecutableName),
-              'create',
-              '--empty',
-              '.',
-            ],
-            workingDirectory: exampleFlutterAppRoot.path,
-          )),
-        ]);
+          expect(testProcessManager.commandsRan, [
+            equalsCommand((
+              command: [
+                endsWith(flutterExecutableName),
+                'create',
+                '--empty',
+                directory,
+              ],
+              workingDirectory: exampleFlutterAppRoot.path,
+            )),
+          ]);
+        }
       });
 
       test('refuses the root itself for a Dart project', () async {
@@ -449,7 +452,7 @@ dependencies:
           name: createProjectTool.name,
           arguments: {
             ParameterNames.root: dartCliAppRoot.uri,
-            ParameterNames.directory: '.',
+            ParameterNames.directory: './',
             ParameterNames.projectType: 'dart',
           },
         );
