@@ -680,6 +680,36 @@ void main() {
       expect(server.calls[ListToolsRequest.methodName], 1);
     });
 
+    test('saturates an expiry which overflows a duration', () async {
+      connection
+        ..maxCachedResponseTtl = const Duration(
+          microseconds: 9223372036854775807,
+        )
+        ..pauseCachedResponseClock();
+      server.ttlMs = 9223372036854775807;
+
+      await listTools();
+      await listTools();
+
+      expect(server.calls[ListToolsRequest.methodName], 1);
+    });
+
+    test('defaults the maximum ttl to a day', () async {
+      connection.pauseCachedResponseClock();
+      server.ttlMs = const Duration(hours: 36).inMilliseconds;
+
+      await listTools();
+      connection.elapseCachedResponses(
+        const Duration(hours: 24) - const Duration(seconds: 1),
+      );
+      await listTools();
+      expect(server.calls[ListToolsRequest.methodName], 1);
+
+      connection.elapseCachedResponses(const Duration(seconds: 2));
+      await listTools();
+      expect(server.calls[ListToolsRequest.methodName], 2);
+    });
+
     test('uses the configured maximum ttl', () async {
       connection
         ..maxCachedResponseTtl = const Duration(hours: 1)

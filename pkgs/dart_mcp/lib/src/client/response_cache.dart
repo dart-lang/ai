@@ -62,6 +62,8 @@ const _contextKeys = {
 ///
 /// https://modelcontextprotocol.io/specification/2026-07-28/server/utilities/caching
 final class _ClientResponseCache {
+  static const _maxDuration = Duration(microseconds: 9223372036854775807);
+
   int maxEntries = 512;
   Duration maxTtl = const Duration(hours: 24);
 
@@ -183,8 +185,10 @@ final class _ClientResponseCache {
     final updated = _updatedWhilePending[pending];
     if (updated != null && _carriesAny(resultMap, updated)) return result;
     // The TTL is added to the stopwatch reading captured when the response
-    // arrived.
-    _entries[key] = _CacheEntry(_copyMap(resultMap), receivedAt + ttl);
+    // arrived. Saturation keeps the monotonic deadline in range.
+    final expiresAt =
+        receivedAt > _maxDuration - ttl ? _maxDuration : receivedAt + ttl;
+    _entries[key] = _CacheEntry(_copyMap(resultMap), expiresAt);
     return result;
   }
 
