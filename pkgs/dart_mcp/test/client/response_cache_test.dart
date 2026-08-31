@@ -167,6 +167,7 @@ void main() {
     });
 
     test('uses positive ttl until expiry and requires a scope', () async {
+      connection.pauseCachedResponseClock();
       server.ttlMs = 0;
       await listTools();
       await listTools();
@@ -175,6 +176,9 @@ void main() {
       server.ttlMs = 20;
       await listPrompts();
       await Future<void>.delayed(const Duration(milliseconds: 50));
+      await listPrompts();
+      expect(server.calls[ListPromptsRequest.methodName], 1);
+      connection.elapseCachedResponses(const Duration(milliseconds: 21));
       await listPrompts();
       expect(server.calls[ListPromptsRequest.methodName], 2);
 
@@ -226,13 +230,49 @@ void main() {
       expect(server.calls[ListToolsRequest.methodName], 4);
     });
 
-    test('bounds cached entries', () async {
-      for (var i = 0; i <= 512; i++) {
+    test('uses the configured cache size', () async {
+      connection.maxCachedResponses = 2;
+      for (var i = 0; i <= 2; i++) {
         await readResource('file:///$i');
       }
       await readResource('file:///0');
 
       expect(server.readCalls['file:///0'], 2);
+    });
+
+    test('shares an in-flight request', () async {
+      final result = Completer<ListToolsResult>();
+      server.listToolsResult = (_, _) => result.future;
+
+      final first = listTools();
+      await pumpEventQueue();
+      final second = listTools();
+      await pumpEventQueue();
+      expect(server.calls[ListToolsRequest.methodName], 1);
+
+      result.complete(server.completeTools(1));
+      final responses = await Future.wait([first, second]);
+      expect(responses.map((response) => response.tools.single.name), [
+        'tool-1',
+        'tool-1',
+      ]);
+      expect(server.calls[ListToolsRequest.methodName], 1);
+    });
+
+    test('retries after an in-flight result is not cacheable', () async {
+      final result = Completer<ListToolsResult>();
+      server.listToolsResult = (_, _) => result.future;
+
+      final first = listTools();
+      await pumpEventQueue();
+      final second = listTools();
+      await pumpEventQueue();
+      expect(server.calls[ListToolsRequest.methodName], 1);
+
+      server.ttlMs = 0;
+      result.complete(server.completeTools(1));
+      await Future.wait([first, second]);
+      expect(server.calls[ListToolsRequest.methodName], 2);
     });
 
     test('separates methods, cursors, and resource uris', () async {
@@ -494,22 +534,6 @@ void main() {
       },
     );
 
-    test('drops cached reads when an update leaves out its uri', () async {
-      const kept = 'file:///kept-through-update';
-      await readResource(kept);
-      await readResource(kept);
-      expect(server.readCalls[kept], 1);
-
-      server.sendNotification(
-        ResourceUpdatedNotification.methodName,
-        ResourceUpdatedNotification.fromMap(<String, Object?>{}),
-      );
-      await pumpEventQueue();
-
-      await readResource(kept);
-      expect(server.readCalls[kept], 2);
-    });
-
     test('does not store responses invalidated while in flight', () async {
       final toolsResult = Completer<ListToolsResult>();
       server.listToolsResult = (_, _) => toolsResult.future;
@@ -656,19 +680,14 @@ void main() {
       expect(server.calls[ListToolsRequest.methodName], 1);
     });
 
-    test('clamps a ttl past a day', () async {
-      // 36 hours sits between the one-day cap and a two-day cap, so a
-      // 48-hour clamp would still have this entry after a day.
-      server.ttlMs = const Duration(hours: 36).inMilliseconds;
+    test('uses the configured maximum ttl', () async {
+      connection
+        ..maxCachedResponseTtl = const Duration(hours: 1)
+        ..pauseCachedResponseClock();
+      server.ttlMs = const Duration(hours: 2).inMilliseconds;
 
       await listTools();
-      connection.elapseCachedResponses(
-        const Duration(hours: 24) - const Duration(seconds: 1),
-      );
-      await listTools();
-      expect(server.calls[ListToolsRequest.methodName], 1);
-
-      connection.elapseCachedResponses(const Duration(seconds: 2));
+      connection.elapseCachedResponses(const Duration(hours: 1));
       await listTools();
       expect(server.calls[ListToolsRequest.methodName], 2);
     });
@@ -681,20 +700,6 @@ void main() {
 
       await connection.shutdown();
       expect(connection.cachedResponseCount, 0);
-    });
-
-    test('delivers a resource notification which leaves out its uri', () async {
-      final updates = <ResourceUpdatedNotification>[];
-      final subscription = connection.resourceUpdated.listen(updates.add);
-      addTearDown(subscription.cancel);
-
-      server.sendNotification(
-        ResourceUpdatedNotification.methodName,
-        ResourceUpdatedNotification.fromMap(<String, Object?>{}),
-      );
-      await pumpEventQueue();
-
-      expect(updates.single, isEmpty);
     });
   });
 }

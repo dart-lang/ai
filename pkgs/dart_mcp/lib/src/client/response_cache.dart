@@ -30,6 +30,11 @@ final class _CacheEntry {
   const _CacheEntry(this.result, this.expiresAt);
 
   final Map<String, Object?> result;
+
+  /// Elapsed stopwatch time when this entry expires.
+  ///
+  /// A [Duration] keeps expiry monotonic and is compared with the cache
+  /// stopwatch, not the wall clock.
   final Duration expiresAt;
 }
 
@@ -57,18 +62,19 @@ const _contextKeys = {
 ///
 /// https://modelcontextprotocol.io/specification/2026-07-28/server/utilities/caching
 final class _ClientResponseCache {
-  static const _maxEntries = 512;
-  static const _maxTtl = Duration(hours: 24);
+  int maxEntries = 512;
+  Duration maxTtl = const Duration(hours: 24);
 
   final _entries = <_CacheKey, _CacheEntry>{};
-  final _pending = <_CacheKey, Object>{};
+  final _pending = <_CacheKey, Future<Result?>>{};
 
   /// The resource URIs updated while a `resources/read` was in flight, under
   /// the token of that read.
-  final _updatedWhilePending = <Object, Set<String>>{};
+  final _updatedWhilePending = <Future<Result?>, Set<String>>{};
   final _clock = Stopwatch()..start();
   Duration _elapsedOffset = Duration.zero;
 
+  /// Cache time is the live stopwatch reading plus this test-only offset.
   Duration get _elapsed => _clock.elapsed + _elapsedOffset;
 
   Future<T> sendRequest<T extends Result?>(
@@ -103,61 +109,81 @@ final class _ClientResponseCache {
     _CacheKey key,
     Future<T> Function() send,
   ) async {
-    final entry = _entries[key];
-    if (entry != null) {
-      if (entry.expiresAt.compareTo(_elapsed) > 0) {
-        return _copyMap(entry.result) as T;
+    final cached = _cachedEntry(key);
+    if (cached != null) return _copyMap(cached.result) as T;
+
+    final pending = _pending[key];
+    if (pending != null) {
+      try {
+        await pending;
+      } catch (_) {
+        // The caller that started the request receives its error. This caller
+        // still gets a chance to make a fresh request.
       }
-      _entries.remove(key);
+      final cached = _cachedEntry(key);
+      if (cached != null) return _copyMap(cached.result) as T;
     }
 
-    final token = Object();
-    _pending[key] = token;
-    if (key.methodName == ReadResourceRequest.methodName) {
-      _updatedWhilePending[token] = <String>{};
-    }
+    late final Future<T> current;
+    current = _requestAndStore<T>(key, send, () => current);
+    _pending[key] = current;
     try {
-      final result = await send();
-      final receivedAt = _elapsed;
-      if (result == null || _pending[key] != token) return result;
-
-      final resultMap = result as Map<String, Object?>;
-      final resultType = resultMap[Keys.resultType];
-      final ttlMs = resultMap[Keys.ttlMs];
-      final cacheScope = resultMap[Keys.cacheScope];
-      // A server on an earlier revision leaves `resultType` out, and the
-      // schema requires reading that as complete, which is what
-      // `Result.resultType` reports. An [InputRequiredResult] carries the
-      // fields the client retries with, so a result carrying them is interim
-      // whatever it labels itself. A hint outside what the schema allows is
-      // read as no hint at all, the way `CacheableResult` reads it.
-      if ((resultType != null && resultType != ResultTypes.complete) ||
-          resultMap.containsKey(Keys.inputRequests) ||
-          resultMap.containsKey(Keys.requestState) ||
-          ttlMs is! int ||
-          ttlMs <= 0 ||
-          !CacheScope.values.any((scope) => scope.name == cacheScope)) {
-        return result;
-      }
-
-      final ttl =
-          ttlMs > _maxTtl.inMilliseconds
-              ? _maxTtl
-              : Duration(milliseconds: ttlMs);
-      if (!_entries.containsKey(key) && _entries.length >= _maxEntries) {
-        _entries.remove(_entries.keys.first);
-      }
-      // An answer that arrives after one of its own contents changed is
-      // already out of date, and a read only learns which contents it carries
-      // once it gets here.
-      final updated = _updatedWhilePending[token];
-      if (updated != null && _carriesAny(resultMap, updated)) return result;
-      _entries[key] = _CacheEntry(_copyMap(resultMap), receivedAt + ttl);
-      return result;
+      return await current;
     } finally {
-      if (_pending[key] == token) _pending.remove(key);
-      _updatedWhilePending.remove(token);
+      if (identical(_pending[key], current)) unawaited(_pending.remove(key));
+      _updatedWhilePending.remove(current);
     }
+  }
+
+  _CacheEntry? _cachedEntry(_CacheKey key) {
+    final entry = _entries[key];
+    if (entry == null) return null;
+    if (entry.expiresAt.compareTo(_elapsed) > 0) return entry;
+    _entries.remove(key);
+    return null;
+  }
+
+  Future<T> _requestAndStore<T extends Result?>(
+    _CacheKey key,
+    Future<T> Function() send,
+    Future<T> Function() current,
+  ) async {
+    final result = await send();
+    final receivedAt = _elapsed;
+    final pending = current();
+    if (result == null || !identical(_pending[key], pending)) return result;
+
+    final resultMap = result as Map<String, Object?>;
+    final resultType = resultMap[Keys.resultType];
+    final ttlMs = resultMap[Keys.ttlMs];
+    final cacheScope = resultMap[Keys.cacheScope];
+    // A server on an earlier revision leaves `resultType` out, and the
+    // schema requires reading that as complete. `Result.resultType` reports
+    // the same value. An [InputRequiredResult] carries the
+    // fields the client retries with, so a result carrying them is interim
+    // whatever it labels itself. A hint outside what the schema allows is
+    // read as no hint at all, matching `CacheableResult`.
+    if ((resultType != null && resultType != ResultTypes.complete) ||
+        resultMap.containsKey(Keys.inputRequests) ||
+        resultMap.containsKey(Keys.requestState) ||
+        ttlMs is! int ||
+        ttlMs <= 0 ||
+        !CacheScope.values.any((scope) => scope.name == cacheScope)) {
+      return result;
+    }
+
+    final ttl =
+        ttlMs > maxTtl.inMilliseconds ? maxTtl : Duration(milliseconds: ttlMs);
+    if (ttl <= Duration.zero || maxEntries == 0) return result;
+    if (!_entries.containsKey(key) && _entries.length >= maxEntries) {
+      _entries.remove(_entries.keys.first);
+    }
+    // An answer that arrives after one of its own contents changed is already
+    // out of date, and a read only learns its contents once it gets here.
+    final updated = _updatedWhilePending[pending];
+    if (updated != null && _carriesAny(resultMap, updated)) return result;
+    _entries[key] = _CacheEntry(_copyMap(resultMap), receivedAt + ttl);
+    return result;
   }
 
   /// The values from [meta] which change the answer to a cacheable request.
@@ -190,7 +216,7 @@ final class _ClientResponseCache {
     _pending.removeWhere((key, _) => matches(key, null));
     for (final MapEntry(key: pending, :value) in _pending.entries) {
       if (pending.methodName == ReadResourceRequest.methodName) {
-        _updatedWhilePending[value]?.add(uri);
+        (_updatedWhilePending[value] ??= <String>{}).add(uri);
       }
     }
   }
@@ -205,21 +231,10 @@ final class _ClientResponseCache {
         );
   }
 
-  /// Drops every cached and in-flight `resources/read`.
-  ///
-  /// A notification leaving its `uri` out cannot name what changed, so nothing
-  /// read before it can be trusted.
-  void invalidateAllResources() {
-    bool isRead(_CacheKey key) =>
-        key.methodName == ReadResourceRequest.methodName;
-    _entries.removeWhere((key, _) => isRead(key));
-    _pending.removeWhere((key, _) => isRead(key));
-    _updatedWhilePending.clear();
-  }
-
   void clear() {
     _entries.clear();
     _pending.clear();
+    _updatedWhilePending.clear();
   }
 
   /// The key [request] is cached under, or `null` when it is not cacheable.

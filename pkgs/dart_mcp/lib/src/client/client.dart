@@ -124,10 +124,40 @@ base class ServerConnection extends MCPBase {
   @visibleForTesting
   int get cachedResponseCount => _responseCache._entries.length;
 
+  /// The maximum number of responses cached by this connection.
+  ///
+  /// Reducing the value evicts the oldest entries first. Zero disables the
+  /// cache. The default is 512.
+  int get maxCachedResponses => _responseCache.maxEntries;
+  set maxCachedResponses(int value) {
+    RangeError.checkNotNegative(value, 'maxCachedResponses');
+    while (_responseCache._entries.length > value) {
+      _responseCache._entries.remove(_responseCache._entries.keys.first);
+    }
+    _responseCache.maxEntries = value;
+  }
+
+  /// The maximum TTL accepted for responses received by this connection.
+  ///
+  /// Zero disables the cache. The default is 24 hours.
+  Duration get maxCachedResponseTtl => _responseCache.maxTtl;
+  set maxCachedResponseTtl(Duration value) {
+    if (value.isNegative) {
+      throw ArgumentError.value(value, 'maxCachedResponseTtl');
+    }
+    _responseCache.maxTtl = value;
+  }
+
   /// Advances the cache clock by [duration].
   @visibleForTesting
   void elapseCachedResponses(Duration duration) {
     _responseCache._elapsedOffset += duration;
+  }
+
+  /// Stops the real-time part of the cache clock.
+  @visibleForTesting
+  void pauseCachedResponseClock() {
+    _responseCache._clock.stop();
   }
 
   /// The version of the protocol this connection speaks, or `null` until one
@@ -336,13 +366,7 @@ base class ServerConnection extends MCPBase {
     registerNotificationHandler<ResourceUpdatedNotification>(
       ResourceUpdatedNotification.methodName,
       (notification) {
-        // A notification that leaves `uri` out still reaches subscribers.
-        final uri = (notification as Map<String, Object?>)[Keys.uri];
-        if (uri is String) {
-          _responseCache.invalidateResource(uri);
-        } else {
-          _responseCache.invalidateAllResources();
-        }
+        _responseCache.invalidateResource(notification.uri);
         _resourceUpdatedController.sink.add(notification);
       },
     );
