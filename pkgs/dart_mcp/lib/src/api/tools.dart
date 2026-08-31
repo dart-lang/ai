@@ -1140,7 +1140,7 @@ extension type const StringSchema.fromMap(Map<String, Object?> _value)
     if (pattern != null) Keys.pattern: pattern,
     if (defaultValue != null) Keys.default_: defaultValue,
     if (format != null) Keys.format: format.name,
-    if (enumValues != null) Keys.enum_: enumValues,
+    if (enumValues != null) Keys.enum_: enumValues.toList(growable: false),
   });
 
   /// The minimum allowed length of this String.
@@ -1312,7 +1312,7 @@ extension type UntitledSingleSelectEnumSchema.fromMap(
     if (title != null) Keys.title: title,
     if (description != null) Keys.description: description,
     if (defaultValue != null) Keys.default_: defaultValue,
-    Keys.enum_: values,
+    Keys.enum_: values.toList(growable: false),
   });
 
   /// The allowed enum values.
@@ -1342,7 +1342,7 @@ extension type TitledSingleSelectEnumSchema.fromMap(Map<String, Object?> _value)
     if (title != null) Keys.title: title,
     if (description != null) Keys.description: description,
     if (defaultValue != null) Keys.default_: defaultValue,
-    Keys.oneOf: values,
+    Keys.oneOf: values.toList(growable: false),
   });
 
   Iterable<EnumValueWithTitle> get values {
@@ -1388,10 +1388,14 @@ extension type UntitledMultiSelectEnumSchema.fromMap(
     Keys.type: JsonType.list.typeName,
     if (title != null) Keys.title: title,
     if (description != null) Keys.description: description,
-    if (defaultValue != null) Keys.default_: defaultValue,
+    if (defaultValue != null)
+      Keys.default_: defaultValue.toList(growable: false),
     if (minItems != null) Keys.minItems: minItems,
     if (maxItems != null) Keys.maxItems: maxItems,
-    Keys.items: {Keys.enum_: values, Keys.type: JsonType.string.typeName},
+    Keys.items: {
+      Keys.enum_: values.toList(growable: false),
+      Keys.type: JsonType.string.typeName,
+    },
   });
 
   /// The allowed enum values.
@@ -1424,10 +1428,11 @@ extension type TitledMultiSelectEnumSchema.fromMap(Map<String, Object?> _value)
     Keys.type: JsonType.list.typeName,
     if (title != null) Keys.title: title,
     if (description != null) Keys.description: description,
-    if (defaultValue != null) Keys.default_: defaultValue,
+    if (defaultValue != null)
+      Keys.default_: defaultValue.toList(growable: false),
     if (minItems != null) Keys.minItems: minItems,
     if (maxItems != null) Keys.maxItems: maxItems,
-    Keys.items: {Keys.anyOf: values},
+    Keys.items: {Keys.anyOf: values.toList(growable: false)},
   });
 
   /// The allowed enum values.
