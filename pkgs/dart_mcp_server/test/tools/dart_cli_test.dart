@@ -458,6 +458,33 @@ dependencies:
         expect(testProcessManager.commandsRan, isEmpty);
       });
 
+      test('accepts a template with a literal backslash', () async {
+        testHarness.mcpClient.addRoot(dartCliAppRoot);
+        final request = CallToolRequest(
+          name: createProjectTool.name,
+          arguments: {
+            ParameterNames.root: dartCliAppRoot.uri,
+            ParameterNames.directory: 'new_app',
+            ParameterNames.projectType: 'dart',
+            ParameterNames.template: r'console\nfull',
+          },
+        );
+        await testHarness.callToolWithRetry(request);
+
+        expect(testProcessManager.commandsRan, [
+          equalsCommand((
+            command: [
+              endsWith(dartExecutableName),
+              'create',
+              '--template',
+              r'console\nfull',
+              'new_app',
+            ],
+            workingDirectory: dartCliAppRoot.path,
+          )),
+        ]);
+      });
+
       test('fails if template contains whitespace', () async {
         testHarness.mcpClient.addRoot(dartCliAppRoot);
         for (final template in [
