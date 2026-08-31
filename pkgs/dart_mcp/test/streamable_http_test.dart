@@ -778,6 +778,42 @@ void main() {
       expect(server.isActive, isFalse);
     });
 
+    test('keeps the stream alive with an SSE comment', () async {
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(uri);
+      headers(
+        SubscriptionsListenRequest.methodName,
+      ).forEach(request.headers.set);
+      request.write(
+        jsonEncode(
+          body(
+            SubscriptionsListenRequest.methodName,
+            params: {
+              Keys.notifications: {Keys.toolsListChanged: true},
+            },
+          ),
+        ),
+      );
+      final response = await request.close();
+      final keptAlive = Completer<void>();
+      final chunks = StringBuffer();
+      final subscription = response.transform(utf8.decoder).listen((chunk) {
+        chunks.write(chunk);
+        if (!keptAlive.isCompleted &&
+            chunks.toString().split('\n\n').any((f) => f.startsWith(':'))) {
+          keptAlive.complete();
+        }
+      });
+      addTearDown(subscription.cancel);
+
+      // A keep-alive has to arrive as a comment in a frame of its own. An SSE
+      // client skips a line which opens with a colon, and joins one which does
+      // not onto the message frame that follows it.
+      await keptAlive.future.timeout(const Duration(seconds: 5));
+      await servers.single.shutdown();
+    });
+
     test('does not register on earlier revisions', () async {
       final response = await handleRequestScopedMessage(
         body(
