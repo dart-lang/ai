@@ -15,6 +15,7 @@ const _protocolVersion = '2026-07-28';
 const _simpleTextTool = 'test_simple_text';
 const _inputElicitationTool = 'test_input_required_result_elicitation';
 const _inputStateTool = 'test_input_required_result_request_state';
+const _inputTamperedTool = 'test_input_required_result_tampered_state';
 const _templateUri = 'test://template/{id}/data';
 const _expandedTemplateUri = 'test://template/123/data';
 const _simplePrompt = 'test_simple_prompt';
@@ -187,6 +188,47 @@ void main() {
         ),
       );
     });
+
+    test('refuses a request state whose signature was changed', () async {
+      final issued = await _post(
+        endpoint,
+        'tools/call',
+        params: {'name': _inputTamperedTool, 'arguments': <String, Object?>{}},
+        capabilities: _formElicitationCapabilities,
+      );
+      final requestState =
+          (issued['result'] as Map<String, Object?>)['requestState'] as String;
+      final separator = requestState.lastIndexOf('.');
+      final signature = requestState.substring(separator + 1);
+      final tampered =
+          requestState.substring(0, separator + 1) +
+          (signature[0] == 'A' ? 'B' : 'A') +
+          signature.substring(1);
+
+      final refused = await _post(
+        endpoint,
+        'tools/call',
+        params: {
+          'name': _inputTamperedTool,
+          'arguments': <String, Object?>{},
+          'inputResponses': {
+            'confirm': {
+              'action': 'accept',
+              'content': {'ok': true},
+            },
+          },
+          'requestState': tampered,
+        },
+        capabilities: _formElicitationCapabilities,
+        expectedStatus: HttpStatus.badRequest,
+      );
+
+      expect(refused['result'], isNull);
+      expect(
+        (refused['error'] as Map<String, Object?>)['message'],
+        contains('failed integrity validation'),
+      );
+    });
     // `Platform.resolvedExecutable` is this test's own binary once it is
     // compiled, so it cannot start the server the way it does on the VM.
   }, testOn: '!exe');
@@ -197,6 +239,7 @@ Future<Map<String, Object?>> _post(
   String method, {
   Map<String, Object?> params = const {},
   Map<String, Object?> capabilities = const {},
+  int expectedStatus = HttpStatus.ok,
 }) async {
   final client = HttpClient();
   try {
@@ -227,7 +270,7 @@ Future<Map<String, Object?>> _post(
 
     final response = await request.close();
     final responseText = await utf8.decodeStream(response);
-    expect(response.statusCode, HttpStatus.ok, reason: responseText);
+    expect(response.statusCode, expectedStatus, reason: responseText);
     return jsonDecode(responseText) as Map<String, Object?>;
   } finally {
     client.close(force: true);
