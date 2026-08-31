@@ -22,16 +22,16 @@ import 'server.dart';
 ///
 /// Spec-defined failures are answered with their JSON-RPC error codes and
 /// HTTP statuses: 400 for a malformed message, a failed header or envelope
-/// validation, an `Accept` header which is absent or does not cover both
-/// response shapes, or a `Content-Type` which is not `application/json`, and
+/// validation, an absent `Accept` header, an `Accept` header that does not
+/// cover both response shapes, or a non-`application/json` `Content-Type`, and
 /// 404 for a method this transport does not serve. The specification requires
 /// `400 Bad Request` on every `HeaderMismatch` body and names no other status
 /// for content negotiation, so 406 and 415 are not used. Every one of
-/// those bodies also carries the message which produced it under
-/// `error.data.request`, as the rest of this package does: the decoded
+/// those bodies also carries its source message under `error.data.request`,
+/// as the rest of this package does: the decoded
 /// message when there is one, the raw body text when it was not valid JSON,
 /// and `null` when the body was never read into text. A non-POST request
-/// is answered with 405 and an `Allow` header but no body, which is all this
+/// is answered with 405 and an `Allow` header but no body. This is all the
 /// revision defines for `GET` and `DELETE`.
 ///
 /// The `MCP-Protocol-Version` header is checked against the versions this
@@ -42,17 +42,17 @@ import 'server.dart';
 ///
 /// Notifications are acknowledged with `202 Accepted` and not dispatched,
 /// since this protocol revision defines no client-to-server notifications
-/// over HTTP. This handler reads the whole request body into memory, and it
-/// does not read the `Origin` header, which the specification requires a
-/// server to validate and answer with 403: that check needs deployment
+/// over HTTP. This handler reads the whole request body into memory. It does
+/// not read the `Origin` header. The specification requires a server to
+/// validate that header and answer with 403: the check needs deployment
 /// knowledge this handler does not have, so it belongs to the embedding
 /// HTTP server, along with authentication and request size limits.
 ///
 /// Responses produced by the dispatched server are written unchanged, so an
 /// error a request handler throws reaches the client with whatever payload
 /// `package:json_rpc_2` attached to it, including a Dart stack trace for
-/// errors which are not an [RpcException]. Handlers which must not disclose
-/// server internals to a remote client throw [RpcException]s instead. Until
+/// errors other than [RpcException]s. Handlers that must not disclose server
+/// internals to a remote client throw [RpcException]s instead. Until
 /// something has been written the status such a body gets follows its error
 /// code: an internal or server error is a 500, so a failing handler is visible
 /// to intermediaries that never read the body, and a code the specification
@@ -104,8 +104,8 @@ Future<void> handleStreamableHttpRequest(
 
   // A body cannot be parsed before its media type is known, so this precedes
   // even the notification acknowledgement. dart:io parses the header lazily
-  // and throws right here on a value it cannot parse, which is as much of a
-  // mismatch as a wrong one.
+  // and throws here on a value it cannot parse. An unparseable value is as
+  // much of a mismatch as a wrong one.
   ContentType? contentType;
   try {
     contentType = request.headers.contentType;
@@ -116,7 +116,7 @@ Future<void> handleStreamableHttpRequest(
     try {
       await request.drain<void>();
     } on IOException {
-      // The client disconnected before its body arrived; there is no
+      // The client disconnected before its body arrived. There is no
       // response left to write.
       return;
     }
@@ -144,7 +144,7 @@ Future<void> handleStreamableHttpRequest(
       body,
     );
   } on IOException {
-    // The client disconnected before its body arrived; there is no response
+    // The client disconnected before its body arrived. There is no response
     // left to write.
     return;
   }
@@ -201,7 +201,7 @@ Future<void> handleStreamableHttpRequest(
 
   if (object.kind == JsonRpc2Kind.notification) {
     // This protocol revision defines no client-to-server notifications over
-    // HTTP, so there is no server to deliver them to; acknowledge and drop.
+    // HTTP, so there is no server to deliver them to. Acknowledge and drop.
     // This acknowledgement deliberately precedes the header checks below:
     // per the specification, "header requirements for notification POSTs are
     // not defined by this revision".
@@ -419,11 +419,10 @@ Future<void> handleStreamableHttpRequest(
     // A method an earlier revision defined and this one took out is unknown
     // here, not a dispatcher error. A mixin or a capability registers handlers
     // for several of them, so a request would reach one without this check. A
-    // method no revision defines goes to the dispatcher, which is what lets a
-    // server answer its own.
-    // A legacy client never gets here: it fails the version or header checks
-    // above, which is the `400 Bad Request` the compatibility matrix
-    // prescribes for a legacy client talking to a modern HTTP server.
+    // method no revision defines goes to the dispatcher. This lets a server
+    // answer its own.
+    // A legacy client never gets here. It fails the version or header checks
+    // above with the `400 Bad Request` prescribed by the compatibility matrix.
     return _reject(
       response,
       HttpStatus.notFound,
@@ -515,8 +514,8 @@ Future<void> handleStreamableHttpRequest(
 /// The HTTP status for a dispatched JSON-RPC [response] map.
 ///
 /// Unmapped codes keep 200 rather than falling back to an error status: the
-/// specification reserves `-32020` to `-32099` for itself, and a revision
-/// which allocates a code from there names the status it wants with it.
+/// specification reserves `-32020` to `-32099` for itself. A revision that
+/// allocates a code from there names the status it wants with it.
 int _statusFor(Map<String, Object?> response) {
   final error = response[Keys.error];
   if (error is! Map<String, Object?>) return HttpStatus.ok;
@@ -625,13 +624,13 @@ String? _singleHeader(HttpRequest request, String name) {
   return values == null || values.length != 1 ? null : values.single;
 }
 
-/// Returns the single value of [name] when it is a token which cannot contain
-/// a comma, and `null` if it is missing or was sent more than once.
+/// Returns the single value of [name] when it is a token and cannot contain a
+/// comma, and `null` if it is missing or was sent more than once.
 ///
 /// A sender may combine repeated field lines into one comma separated value
-/// (RFC 9110 section 5.3), which `dart:io`'s own client does, so for these
-/// headers a comma is one way a repeat arrives. Separate field lines are the
-/// other, which `dart:io`'s server keeps separate and [_singleHeader] counts.
+/// (RFC 9110 section 5.3), as `dart:io`'s own client does. For these headers a
+/// comma is one way a repeat arrives. `dart:io`'s server keeps separate field
+/// lines apart, and [_singleHeader] counts them.
 String? _singleTokenHeader(HttpRequest request, String name) {
   final value = _singleHeader(request, name);
   return value == null || value.contains(',') ? null : value;
@@ -640,8 +639,8 @@ String? _singleTokenHeader(HttpRequest request, String name) {
 /// Whether the `Accept` header of [request] covers [mimeType], either by
 /// listing it or through the `type/*` or `*/*` wildcards.
 ///
-/// Quality values are not weighed; a media range which appears at all counts
-/// as accepted. A request without an `Accept` header accepts nothing here,
+/// Quality values are not weighed. Any listed media range counts as accepted.
+/// A request without an `Accept` header accepts nothing here,
 /// because the spec requires clients to send one.
 bool _accepts(HttpRequest request, String mimeType) {
   final values = request.headers[HttpHeaders.acceptHeader];
@@ -662,7 +661,7 @@ bool _accepts(HttpRequest request, String mimeType) {
 ///
 /// Throws a [FormatException] if the sentinel payload is not valid base64.
 String _decodeSentinel(String value) =>
-    // The `=?base64?` prefix is 9 characters and the `?=` suffix is 2; under
+    // The `=?base64?` prefix is 9 characters and the `?=` suffix is 2. Under
     // 11 characters they overlap, so guard the length before slicing.
     value.length >= 11 && value.startsWith('=?base64?') && value.endsWith('?=')
         ? utf8.decode(base64.decode(value.substring(9, value.length - 2)))
@@ -670,8 +669,8 @@ String _decodeSentinel(String value) =>
 
 /// The protocol versions this handler implements.
 ///
-/// The legacy handshake negotiates [ProtocolVersion.latestSupported] instead;
-/// the request-scoped protocol this transport speaks was introduced later, so
+/// The legacy handshake negotiates [ProtocolVersion.latestSupported] instead.
+/// The request-scoped protocol this transport speaks was introduced later, so
 /// the two sets are deliberately separate.
 const _supportedVersions = {ProtocolVersion.v2026_07_28};
 

@@ -15,17 +15,17 @@ import '../utils/json_rpc_2_object.dart';
 import '../utils/sse.dart' show sseMessageStream;
 import '../utils/streamable_http.dart';
 
-/// Creates a [StreamChannel] which POSTs each JSON-RPC message to [uri].
+/// Creates a [StreamChannel] that POSTs each JSON-RPC message to [uri].
 ///
 /// [protocolVersion] must have [ProtocolVersion.supportsStreamableHttp] and is
 /// written to `_meta` and `MCP-Protocol-Version`. [clientCapabilities] and
 /// [clientInfo] merge into `_meta`. JSON replies use `jsonDecode` and SSE
 /// replies use [sseMessageStream]. A failed POST is a JSON-RPC error for that
 /// request id, or an error on the channel itself when it carried a
-/// notification, which has no id to carry one. A response stream that ends
-/// without answering the request fails it the same way. A `202` on a
-/// notification is not an inbound message. Valid `x-mcp-header` annotations
-/// from `tools/list` are mirrored on later `tools/call` requests; invalid tool
+/// notification. Notifications have no id to carry an error. A response
+/// stream that ends without answering the request fails it the same way. A
+/// `202` on a notification is not an inbound message. Valid `x-mcp-header`
+/// annotations from `tools/list` are mirrored on later `tools/call` requests. Invalid tool
 /// definitions are dropped. Does not send `initialize`.
 StreamChannel<Map<String, Object?>> streamableHttpClientChannel(
   Uri uri, {

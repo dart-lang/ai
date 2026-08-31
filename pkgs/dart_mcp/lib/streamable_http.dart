@@ -7,7 +7,7 @@
 /// https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http.
 ///
 /// Every POST carries a single JSON-RPC request or notification along with
-/// its own client context; there is no session state between requests. A
+/// its own client context. There is no session state between requests. A
 /// request is answered on an SSE response stream if its handler emits related
 /// notifications, and with a JSON body otherwise. The list and resource change
 /// notifications reach `onNotification` alone.

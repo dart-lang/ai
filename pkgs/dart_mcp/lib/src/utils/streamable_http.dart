@@ -16,8 +16,8 @@ const mcpNameHeader = 'Mcp-Name';
 /// server to answer with.
 const eventStreamMimeType = 'text/event-stream';
 
-/// The methods whose `name` or `uri` parameter is mirrored in the `Mcp-Name`
-/// header, mapping each method to the parameter that carries it.
+/// Maps each method to its `name` or `uri` parameter, mirrored in the
+/// `Mcp-Name` header.
 const mcpNameParams = {
   CallToolRequest.methodName: Keys.name,
   GetPromptRequest.methodName: Keys.name,
