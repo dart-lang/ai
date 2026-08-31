@@ -121,8 +121,35 @@ extension type ElicitRequest._fromMap(Map<String, Object?> _value)
         case JsonType
             .enumeration: // ignore: deprecated_member_use_from_same_package
           break;
-        case JsonType.object:
         case JsonType.list:
+          // A multi-select enum is the one array the spec lists. [EnumSchema]
+          // already names its two schemas, and what it leaves open is whether
+          // the values inside are the ones the spec asks for.
+          final enumeration = EnumSchema.fromMap(propertySchema._value);
+          final items = propertySchema._value[Keys.items];
+          if (items is! Map) return false;
+          if (enumeration.isUntitledMultiSelect) {
+            if (items[Keys.type] != JsonType.string.typeName) return false;
+            final untitled = items[Keys.enum_];
+            if (untitled is! Iterable) return false;
+            for (final value in untitled) {
+              if (value is! String) return false;
+            }
+          } else if (enumeration.isTitledMultiSelect) {
+            final titled = items[Keys.anyOf];
+            if (titled is! Iterable) return false;
+            for (final value in titled) {
+              if (value is! Map ||
+                  value[Keys.const_] is! String ||
+                  value[Keys.title] is! String) {
+                return false;
+              }
+            }
+          } else {
+            return false;
+          }
+          break;
+        case JsonType.object:
         case JsonType.nil:
         case null:
           // Disallowed, or no type specified.

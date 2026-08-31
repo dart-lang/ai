@@ -34,6 +34,110 @@ void main() {
       );
     });
 
+    test('a multi-select enum is a schema a client can be asked for', () {
+      // Both schemas the spec lists, see
+      // https://modelcontextprotocol.io/specification/2026-07-28/client/elicitation.
+      expect(
+        () => ElicitRequest.form(
+          message: 'Pick your colours',
+          requestedSchema: ObjectSchema(
+            properties: {
+              'bare': UntitledMultiSelectEnumSchema(
+                values: ['red', 'green'],
+                minItems: 1,
+              ),
+              'titled': TitledMultiSelectEnumSchema(
+                values: [
+                  EnumValueWithTitle(title: 'Red', constValue: '#FF0000'),
+                ],
+              ),
+            },
+          ),
+        ),
+        returnsNormally,
+      );
+    });
+
+    test('an array that is not a multi-select enum is refused', () {
+      for (final property in [
+        // Items the client would have to type into, not choose from.
+        Schema.list(items: Schema.string()),
+        // No items at all, so nothing names the values.
+        Schema.list(),
+        // Values named, but the spec asks for strings.
+        Schema.fromMap({
+          'type': 'array',
+          'items': {
+            'type': 'number',
+            'enum': [1, 2],
+          },
+        }),
+        // The item type says string. The values are numbers.
+        Schema.fromMap({
+          'type': 'array',
+          'items': {
+            'type': 'string',
+            'enum': [1, 2],
+          },
+        }),
+        // Objects standing in for the strings.
+        Schema.fromMap({
+          'type': 'array',
+          'items': {
+            'type': 'string',
+            'enum': [
+              {'a': 1},
+            ],
+          },
+        }),
+        // One value where the spec asks for a list of them.
+        Schema.fromMap({
+          'type': 'array',
+          'items': {'type': 'string', 'enum': 'red'},
+        }),
+        // A titled entry pairs a const with a title. This one has no const.
+        Schema.fromMap({
+          'type': 'array',
+          'items': {
+            'anyOf': [
+              {'title': 'Red'},
+            ],
+          },
+        }),
+        // And this one has no title.
+        Schema.fromMap({
+          'type': 'array',
+          'items': {
+            'anyOf': [
+              {'const': '#FF0000'},
+            ],
+          },
+        }),
+        // A bare value in `anyOf` is not a titled entry at all.
+        Schema.fromMap({
+          'type': 'array',
+          'items': {
+            'anyOf': ['red'],
+          },
+        }),
+        // One entry sitting in `anyOf` where a list belongs.
+        Schema.fromMap({
+          'type': 'array',
+          'items': {
+            'anyOf': {'const': '#FF0000', 'title': 'Red'},
+          },
+        }),
+      ]) {
+        expect(
+          () => ElicitRequest.form(
+            message: 'Pick your colours',
+            requestedSchema: ObjectSchema(properties: {'freeform': property}),
+          ),
+          throwsA(isA<AssertionError>()),
+        );
+      }
+    }, testOn: '!exe');
+
     test('server can elicit information from client', () async {
       final elicitationCompleter = Completer<ElicitResult>();
       final environment = TestEnvironment(
