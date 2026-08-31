@@ -232,6 +232,10 @@
     handler.
   - A server that mixes this in keeps the `subscribe` and `listChanged`
     bits on its discover advertisement.
+  - `ResourcesSupport.updateResource` now reaches a client for every URI an
+    acknowledged `resourceSubscriptions` filter names. Only
+    `resources/subscribe` opened those subscriptions before, and this
+    revision took that request out.
   - An embedder can pass a `subscriptionNotifications` stream so a change
     from one request reaches another request's listen stream.
 - Deprecate `IncludeContext.thisService` and replace it with `thisServer`, the

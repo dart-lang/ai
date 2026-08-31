@@ -235,8 +235,19 @@ base mixin ResourcesSupport on MCPServer {
       throw ArgumentError.value(request.uri, 'uri', 'Resource not found');
     }
 
+    _sendUpdatesFor(request.uri);
+
+    return EmptyResult();
+  }
+
+  /// Starts sending [ResourceUpdatedNotification]s for the resource at [uri].
+  ///
+  /// [subscribeResource] arms one on the revisions that still answer
+  /// `resources/subscribe`, and on 2026-07-28 an acknowledged
+  /// `resourceSubscriptions` filter arms one instead.
+  void _sendUpdatesFor(String uri) {
     _subscribedResources.putIfAbsent(
-      request.uri,
+      uri,
       () =>
           StreamController<ResourceUpdatedNotification>()
             ..stream
@@ -248,8 +259,6 @@ base mixin ResourcesSupport on MCPServer {
                   );
                 }),
     );
-
-    return EmptyResult();
   }
 
   /// Unsubscribes the client to the resource at `request.uri`.

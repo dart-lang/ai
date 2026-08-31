@@ -14,7 +14,8 @@ import '../test_utils.dart';
 
 /// A server on a connection which is not request scoped, the shape a stdio
 /// transport for this revision has.
-base class _SubscribingServer extends MCPServer with SubscriptionsSupport {
+base class _SubscribingServer extends MCPServer
+    with ResourcesSupport, SubscriptionsSupport {
   _SubscribingServer(super.channel)
     : super.fromStreamChannel(
         implementation: Implementation(name: 'test server', version: '0.1.0'),
@@ -45,13 +46,17 @@ void main() {
 
   /// Opens a subscription the way a transport serving this method does, by
   /// naming it before the request reaches the handler.
-  Future<SubscriptionsListenResult> listen({String? named}) {
+  Future<SubscriptionsListenResult> listen({
+    String? named,
+    SubscriptionFilter? notifications,
+  }) {
     environment.server.nextSubscriptionId =
         named == null ? null : RequestId(named);
     return environment.serverConnection.sendRequest(
       SubscriptionsListenRequest.methodName,
       SubscriptionsListenRequest(
-        notifications: SubscriptionFilter(toolsListChanged: true),
+        notifications:
+            notifications ?? SubscriptionFilter(toolsListChanged: true),
       ),
     );
   }
@@ -104,6 +109,41 @@ void main() {
     final listening = listen(named: 'a');
     await pumpEventQueue();
     expect(acknowledgements, hasLength(1));
+
+    await environment.server.shutdown();
+    expect((await listening).subscriptionId, 'a');
+  });
+
+  test('arms an acknowledged resource subscription', () async {
+    final watched = Resource(name: 'watched', uri: 'file:///a');
+    final ignored = Resource(name: 'ignored', uri: 'file:///b');
+    for (final resource in [watched, ignored]) {
+      environment.server.addResource(
+        resource,
+        (_) => ReadResourceResult(contents: const []),
+      );
+    }
+    final updated = <String>[];
+    final updates = environment.serverConnection.resourceUpdated.listen(
+      (notification) => updated.add(notification.uri),
+    );
+    addTearDown(updates.cancel);
+
+    final listening = listen(
+      named: 'a',
+      notifications: SubscriptionFilter(resourceSubscriptions: [watched.uri]),
+    );
+    await pumpEventQueue();
+    expect(acknowledgements.single.notifications?.resourceSubscriptions, [
+      watched.uri,
+    ]);
+
+    environment.server.updateResource(ignored);
+    environment.server.updateResource(watched);
+    await pumpEventQueue();
+    expect(updated, [
+      watched.uri,
+    ], reason: 'a resource the acknowledged filter leaves out sends nothing');
 
     await environment.server.shutdown();
     expect((await listening).subscriptionId, 'a');

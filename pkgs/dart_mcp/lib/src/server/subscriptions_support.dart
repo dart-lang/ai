@@ -75,7 +75,10 @@ base mixin SubscriptionsSupport on MCPServer {
   /// Acknowledges [request] and keeps it open until the server shuts down.
   ///
   /// The acknowledgement and the result both carry the subscription id under
-  /// `io.modelcontextprotocol/subscriptionId`.
+  /// `io.modelcontextprotocol/subscriptionId`. On a server with
+  /// [ResourcesSupport], every URI the acknowledged `resourceSubscriptions`
+  /// filter names starts sending [ResourceUpdatedNotification]s, so that
+  /// [ResourcesSupport.updateResource] reaches the client that asked for it.
   ///
   /// Throws an [RpcException] with `-32602` if the filter is not the shape
   /// the schema describes, and `-32600` if [nextSubscriptionId] is missing
@@ -159,6 +162,11 @@ base mixin SubscriptionsSupport on MCPServer {
     final subscriptionEnd = Completer<void>();
     _subscriptions[subscriptionId] = subscriptionEnd;
     try {
+      if (this case final ResourcesSupport resources) {
+        for (final uri in accepted.resourceSubscriptions ?? const <String>[]) {
+          resources._sendUpdatesFor(uri);
+        }
+      }
       sendNotification(
         SubscriptionsAcknowledgedNotification.methodName,
         SubscriptionsAcknowledgedNotification(
