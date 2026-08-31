@@ -124,8 +124,11 @@
     result and `InputRequiredResult` implement. A handler can ask for input
     before it answers. The `registerTool`, `addPrompt`, `addResource` and
     `updateResource` parameters taking those handlers widen with them.
-    `Result.isInputRequired` tells them apart. Nothing on the 2025-11-25 path
-    moves, since the completed results implement the new supertypes.
+    `Result.isInputRequired` tells them apart. Handlers passed to those
+    parameters still type check, since the completed results implement the new
+    supertypes. A subclass or mixin overriding one of those three methods
+    declares the wider return type, then checks `isInputRequired` and casts
+    before it reads the completed result.
 - Add `supportsFormElicitation` and `supportsUrlElicitation` for a server to
   ask before it sends. An empty `elicitation` object still means form, the way
   `elicitation` read before the split.
