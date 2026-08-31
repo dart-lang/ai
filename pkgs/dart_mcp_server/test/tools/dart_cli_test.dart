@@ -467,13 +467,13 @@ dependencies:
       });
 
       test('fails if directory is empty', () async {
-        testHarness.mcpClient.addRoot(dartCliAppRoot);
+        testHarness.mcpClient.addRoot(exampleFlutterAppRoot);
         final request = CallToolRequest(
           name: createProjectTool.name,
           arguments: {
-            ParameterNames.root: dartCliAppRoot.uri,
+            ParameterNames.root: exampleFlutterAppRoot.uri,
             ParameterNames.directory: '',
-            ParameterNames.projectType: 'dart',
+            ParameterNames.projectType: 'flutter',
           },
         );
         final result = await testHarness.callTool(request, expectError: true);
