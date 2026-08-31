@@ -1,6 +1,7 @@
 ## 1.1.2-dev
 
-- Reject a `create` template carrying a newline, a tab or a carriage return.
+- Reject a `create` template carrying whitespace, a non-breaking space
+  included.
 - Track `AGENT_PLUGIN` environment variable in analytics events.
 - Add missing license headers.
 
