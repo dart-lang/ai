@@ -182,6 +182,12 @@ Stream<Map<String, Object?>> _sendStreamableHttpMessage(
           'body instead.',
         );
       }
+      if (decoded[Keys.id] != message[Keys.id]) {
+        throw StateError(
+          'The JSON response for request ${message[Keys.id]} carried id '
+          '${decoded[Keys.id]} instead.',
+        );
+      }
       yield state.recordIncoming(decoded);
       return;
     }

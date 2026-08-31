@@ -877,6 +877,54 @@ void main() {
       });
     });
 
+    test(
+      'answers a request whose JSON reply carries a mismatched id',
+      () async {
+        final wireServer = await HttpServer.bind(
+          InternetAddress.loopbackIPv4,
+          0,
+        );
+        addTearDown(() => wireServer.close(force: true));
+        wireServer.listen((request) async {
+          await utf8.decodeStream(request);
+          request.response
+            ..headers.contentType = ContentType.json
+            ..write(
+              jsonEncode({
+                Keys.jsonrpc: '2.0',
+                Keys.id: 61,
+                Keys.result: {'value': 'for a different request'},
+              }),
+            );
+          await request.response.close();
+        });
+
+        final channel = streamableHttpClientChannel(
+          Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          clientCapabilities: ClientCapabilities(),
+        );
+        addTearDown(() => channel.sink.close());
+        final response = channel.stream.first.timeout(
+          const Duration(seconds: 5),
+        );
+        channel.sink.add({
+          Keys.jsonrpc: '2.0',
+          Keys.id: 60,
+          Keys.method: 'test/request',
+        });
+
+        expect(await response, {
+          Keys.jsonrpc: '2.0',
+          Keys.id: 60,
+          Keys.error: {
+            Keys.code: error_code.SERVER_ERROR,
+            Keys.message: allOf(contains('request 60'), contains('id 61')),
+          },
+        });
+      },
+    );
+
     test('reports a notification answered with a body', () async {
       final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       addTearDown(() => wireServer.close(force: true));
