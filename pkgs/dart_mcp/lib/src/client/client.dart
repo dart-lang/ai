@@ -139,13 +139,16 @@ base class ServerConnection extends MCPBase {
 
   /// The maximum TTL accepted for responses received by this connection.
   ///
-  /// Zero disables the cache. The default is 24 hours.
+  /// Changing the value discards stored responses. Zero disables the cache.
+  /// The default is 24 hours.
   Duration get maxCachedResponseTtl => _responseCache.maxTtl;
   set maxCachedResponseTtl(Duration value) {
     if (value.isNegative) {
       throw ArgumentError.value(value, 'maxCachedResponseTtl');
     }
+    if (_responseCache.maxTtl == value) return;
     _responseCache.maxTtl = value;
+    _responseCache._entries.clear();
   }
 
   /// Advances the cache clock by [duration].

@@ -722,6 +722,28 @@ void main() {
       expect(server.calls[ListToolsRequest.methodName], 2);
     });
 
+    test('changing the maximum ttl clears cached responses', () async {
+      await listTools();
+      expect(connection.cachedResponseCount, 1);
+
+      connection.maxCachedResponseTtl = const Duration(hours: 1);
+      expect(connection.cachedResponseCount, 0);
+      await listTools();
+
+      expect(server.calls[ListToolsRequest.methodName], 2);
+    });
+
+    test('a zero maximum ttl disables response caching', () async {
+      await listTools();
+      connection.maxCachedResponseTtl = Duration.zero;
+
+      await listTools();
+      await listTools();
+
+      expect(connection.cachedResponseCount, 0);
+      expect(server.calls[ListToolsRequest.methodName], 3);
+    });
+
     test('drops cached entries on shutdown', () async {
       await listTools();
       await listTools();
