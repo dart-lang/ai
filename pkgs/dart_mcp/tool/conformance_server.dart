@@ -12,6 +12,28 @@ import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp/streamable_http.dart';
 import 'package:json_rpc_2/json_rpc_2.dart';
 
+/// Runs the server fixture used by the MCP conformance suite.
+///
+/// This prints an endpoint to stdout. Run the suite against that endpoint with
+///
+/// ```sh
+/// npx @modelcontextprotocol/conformance@0.2.0-alpha.11 \
+///   server --url ENDPOINT --requirements 2026-07-28
+/// ```
+Future<void> main(List<String> arguments) async {
+  final port = arguments.isEmpty ? 0 : int.parse(arguments.single);
+  final httpServer = await HttpServer.bind(InternetAddress.loopbackIPv4, port);
+  final endpoint = Uri(
+    scheme: 'http',
+    host: httpServer.address.host,
+    port: httpServer.port,
+    path: _path,
+  );
+
+  stdout.writeln(endpoint);
+  httpServer.listen((request) => unawaited(_handleRequest(request)));
+}
+
 const _path = '/mcp';
 const _imageMimeType = 'image/png';
 const _audioMimeType = 'audio/wav';
@@ -127,28 +149,6 @@ final _jsonSchema = ObjectSchema.fromMap({
   },
   'additionalProperties': false,
 });
-
-/// Runs the server fixture used by the MCP conformance suite.
-///
-/// This prints an endpoint to stdout. Run the suite against that endpoint with
-///
-/// ```sh
-/// npx @modelcontextprotocol/conformance@0.2.0-alpha.11 \
-///   server --url ENDPOINT --requirements 2026-07-28
-/// ```
-Future<void> main(List<String> arguments) async {
-  final port = arguments.isEmpty ? 0 : int.parse(arguments.single);
-  final httpServer = await HttpServer.bind(InternetAddress.loopbackIPv4, port);
-  final endpoint = Uri(
-    scheme: 'http',
-    host: httpServer.address.host,
-    port: httpServer.port,
-    path: _path,
-  );
-
-  stdout.writeln(endpoint);
-  httpServer.listen((request) => unawaited(_handleRequest(request)));
-}
 
 Future<void> _handleRequest(HttpRequest request) async {
   try {
