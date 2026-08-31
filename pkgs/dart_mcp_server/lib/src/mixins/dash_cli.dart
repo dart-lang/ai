@@ -334,7 +334,8 @@ base mixin DashCliSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
               ParameterNames.directory: Schema.string(
                 description:
                     'The directory in which to create the project, relative '
-                    'to the root. Use `.` for the root itself.',
+                    'to the root. A Flutter project can use `.` for the root '
+                    'itself, a Dart project needs a subdirectory.',
               ),
               ParameterNames.projectType: Schema.string(
                 description: "The type of project: 'dart' or 'flutter'.",
