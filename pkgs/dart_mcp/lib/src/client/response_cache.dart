@@ -182,6 +182,8 @@ final class _ClientResponseCache {
     // out of date, and a read only learns its contents once it gets here.
     final updated = _updatedWhilePending[pending];
     if (updated != null && _carriesAny(resultMap, updated)) return result;
+    // The TTL is added to the stopwatch reading captured when the response
+    // arrived.
     _entries[key] = _CacheEntry(_copyMap(resultMap), receivedAt + ttl);
     return result;
   }
