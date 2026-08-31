@@ -567,6 +567,44 @@ void main() {
       expect(params[Keys.notifications], {'toolsListChanged': true});
     });
 
+    test(
+      'omits the tools filter when the server registered no tools',
+      () async {
+        final acknowledgements = <Map<String, Object?>>[];
+        final acknowledged = Completer<void>();
+        late _PromptOnlyServer server;
+        final responseFuture = handleRequestScopedMessage(
+          body(
+            SubscriptionsListenRequest.methodName,
+            params: {
+              Keys.notifications: {
+                Keys.toolsListChanged: true,
+                Keys.promptsListChanged: true,
+              },
+            },
+          ),
+          MCPServerInitialization(
+            protocolVersion: ProtocolVersion.v2026_07_28,
+            clientCapabilities: ClientCapabilities(),
+          ),
+          (channel) => server = _PromptOnlyServer(channel),
+          onNotification: (notification) {
+            acknowledgements.add(notification);
+            acknowledged.complete();
+          },
+        );
+
+        await acknowledged.future;
+        await server.shutdown();
+        final response = await responseFuture;
+
+        expect(response![Keys.error], isNull);
+        final params =
+            acknowledgements.single[Keys.params] as Map<String, Object?>;
+        expect(params[Keys.notifications], {'promptsListChanged': true});
+      },
+    );
+
     test('rejects malformed filters without opening a stream', () async {
       serverFactory = _EquippedServer.new;
       final malformed = [
@@ -2870,6 +2908,19 @@ base class _AckThenFailInitialize extends _HttpTestServer {
     await pumpEventQueue(times: 20);
     throw StateError('initialize failed after announcing');
   }
+}
+
+/// A server which registers prompts but no tools, so a listen request which
+/// asks for both only gets back the half this server can send.
+base class _PromptOnlyServer extends MCPServer
+    with PromptsSupport, SubscriptionsSupport {
+  _PromptOnlyServer(super.channel)
+    : super.fromStreamChannel(
+        implementation: Implementation(
+          name: 'prompt only test server',
+          version: '0.1.0',
+        ),
+      );
 }
 
 /// Sends `notifications/subscriptions/acknowledged` with no params, the
