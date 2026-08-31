@@ -191,7 +191,10 @@
   elicitation, sampling and roots handlers, then send the original request
   again, through the new `ServerConnection.sendRequestWithInputs`. The spec
   bounds the rounds nowhere, so `ServerConnection.maxInputRequiredRounds`
-  stops them, at ten unless a caller moves it or clears it with `null`.
+  stops them, at ten unless a caller moves it or clears it with `null`. A
+  retry that carries no input requests, including an empty map, waits
+  `ServerConnection.inputRequiredRetryDelay` first, 250 milliseconds unless
+  a caller moves it or clears it with `null`.
 - Add `MCPBase.sendRequestKeepingProgress` and `MCPBase.closeProgress`.
   `sendRequest` closes a progress stream once its request is done, and this
   pair splits that apart so a retry loop can hold one token across rounds.
