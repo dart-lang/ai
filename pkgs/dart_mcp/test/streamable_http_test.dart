@@ -250,6 +250,58 @@ void main() {
       });
     });
 
+    test('encodes only the names a header cannot carry', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      final sentNames = <String?>[];
+      wireServer.listen((request) async {
+        sentNames.add(request.headers.value('Mcp-Name'));
+        final sent =
+            jsonDecode(await utf8.decodeStream(request))
+                as Map<String, Object?>;
+        request.response
+          ..headers.contentType = ContentType.json
+          ..write(
+            jsonEncode({
+              Keys.jsonrpc: '2.0',
+              Keys.id: sent[Keys.id],
+              Keys.result: <String, Object?>{},
+            }),
+          );
+        await request.response.close();
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final iterator = StreamIterator(channel.stream);
+      addTearDown(iterator.cancel);
+
+      // One value per rule, chosen to fail that rule alone. The tab falls
+      // under the exemption in the last rule and stays plain.
+      var id = 0;
+      for (final (name, header) in [
+        ('a\tb', 'a\tb'),
+        ('', '=?base64??='),
+        (' west', '=?base64?IHdlc3Q=?='),
+        ('café', '=?base64?Y2Fmw6k=?='),
+        ('a\nb', '=?base64?YQpi?='),
+        ('=?base64?QUJD?=', '=?base64?PT9iYXNlNjQ/UVVKRD89?='),
+      ]) {
+        channel.sink.add({
+          Keys.jsonrpc: '2.0',
+          Keys.id: ++id,
+          Keys.method: callTool,
+          Keys.params: {Keys.name: name},
+        });
+        expect(await iterator.moveNext(), isTrue);
+        expect(sentNames.last, header, reason: jsonEncode(name));
+      }
+    });
+
     test('omits absent client information from request metadata', () async {
       final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       addTearDown(() => wireServer.close(force: true));
@@ -1408,6 +1460,109 @@ void main() {
         final result = iterator.current[Keys.result] as Map<String, Object?>;
         expect(result[Keys.tools], isEmpty, reason: reason);
       }
+    });
+
+    /// The tools left in a `tools/list` result carrying one tool named
+    /// `probe` with [schema].
+    Future<List<Object?>> listedTools(Map<String, Object?> schema) async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      wireServer.listen((request) async {
+        final sent =
+            jsonDecode(await utf8.decodeStream(request))
+                as Map<String, Object?>;
+        request.response
+          ..headers.contentType = ContentType.json
+          ..write(
+            jsonEncode({
+              Keys.jsonrpc: '2.0',
+              Keys.id: sent[Keys.id],
+              Keys.result: {
+                Keys.tools: [
+                  {Keys.name: 'probe', Keys.inputSchema: schema},
+                ],
+              },
+            }),
+          );
+        await request.response.close();
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final answer = channel.stream.first;
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 91,
+        Keys.method: listTools,
+      });
+      final result = (await answer)[Keys.result] as Map<String, Object?>;
+      return result[Keys.tools] as List<Object?>;
+    }
+
+    // One bad annotation costs the whole tool, so each schema here breaks a
+    // different constraint the specification puts on `x-mcp-header`.
+    final invalidSchemas = <({String constraint, Map<String, Object?> schema})>[
+      (
+        constraint: 'a non-token header name',
+        schema: {
+          Keys.type: 'object',
+          Keys.properties: {
+            'region': {Keys.type: 'string', Keys.xMcpHeader: 'Bad Header'},
+          },
+        },
+      ),
+      (
+        constraint: 'a repeated header name',
+        schema: {
+          Keys.type: 'object',
+          Keys.properties: {
+            'region': {Keys.type: 'string', Keys.xMcpHeader: 'Value'},
+            'zone': {Keys.type: 'string', Keys.xMcpHeader: 'value'},
+          },
+        },
+      ),
+      (
+        constraint: 'a root-level header',
+        schema: {Keys.type: 'string', Keys.xMcpHeader: 'Region'},
+      ),
+      (
+        constraint: r'a header under $defs',
+        schema: {
+          Keys.type: 'object',
+          r'$defs': {
+            'shared': {
+              Keys.type: 'object',
+              Keys.properties: {
+                'region': {Keys.type: 'string', Keys.xMcpHeader: 'Region'},
+              },
+            },
+          },
+        },
+      ),
+    ];
+    for (final invalid in invalidSchemas) {
+      test('drops a tool with ${invalid.constraint}', () async {
+        expect(await listedTools(invalid.schema), isEmpty);
+      });
+    }
+
+    test('keeps a tool that forbids extra properties', () async {
+      // A boolean subschema carries no annotation to read. Giving up on one
+      // would drop every tool that writes `additionalProperties: false`.
+      expect(
+        await listedTools({
+          Keys.type: 'object',
+          Keys.properties: {
+            'region': {Keys.type: 'string', Keys.xMcpHeader: 'Region'},
+          },
+          Keys.additionalProperties: false,
+        }),
+        hasLength(1),
+      );
     });
 
     test('rejects a protocol version outside its set', () {
