@@ -71,6 +71,7 @@ void main() {
           subscriptionNotifications.add(notification);
         },
         subscriptionNotifications: subscriptionNotifications.stream,
+        listenKeepAliveInterval: const Duration(milliseconds: 50),
       ),
     );
     addTearDown(() async {

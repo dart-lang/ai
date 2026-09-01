@@ -86,8 +86,9 @@ import 'server.dart';
 /// result follows it as the last event. A request answered without one gets a
 /// JSON body instead. Long-lived change notifications go only to a successful
 /// `subscriptions/listen` response whose acknowledged filter selects them.
-/// A listen response writes SSE comments on a timer to keep an idle stream
-/// open. Closing that response shuts down its request server and ends the
+/// A listen response writes an SSE comment every [listenKeepAliveInterval] to
+/// keep an idle stream open, which is also what notices a client that went
+/// away. Closing that response shuts down its request server and ends the
 /// subscription without a final result.
 /// [onNotification] sees every notification either way, held back or not.
 /// When [subscriptionNotifications] is provided, each listen request reads
@@ -100,6 +101,7 @@ Future<void> handleStreamableHttpRequest(
   MCPServerFactory serverFactory, {
   void Function(Map<String, Object?> notification)? onNotification,
   Stream<Map<String, Object?>>? subscriptionNotifications,
+  Duration listenKeepAliveInterval = const Duration(seconds: 15),
 }) async {
   final response = request.response;
   if (request.method != 'POST') {
@@ -444,7 +446,7 @@ Future<void> handleStreamableHttpRequest(
     response,
     keepAliveInterval:
         method == SubscriptionsListenRequest.methodName
-            ? const Duration(seconds: 15)
+            ? listenKeepAliveInterval
             : null,
   );
   var pendingNotifications =
@@ -680,7 +682,6 @@ class _Answer {
   final Duration? keepAliveInterval;
   bool _committed = false;
   bool _finished = false;
-  Timer? _firstKeepAlive;
   Timer? _keepAlive;
 
   /// Sends [notification] on the stream, committing to it if this is the first.
@@ -702,13 +703,10 @@ class _Answer {
       ..headers.set(HttpHeaders.cacheControlHeader, 'no-cache, no-transform')
       ..headers.set('x-accel-buffering', 'no');
     if (keepAliveInterval case final interval?) {
-      _firstKeepAlive = Timer(const Duration(seconds: 1), () {
-        _response.write(_sseKeepAlive);
-        _keepAlive = Timer.periodic(
-          interval,
-          (_) => _response.write(_sseKeepAlive),
-        );
-      });
+      _keepAlive = Timer.periodic(
+        interval,
+        (_) => _response.write(_sseKeepAlive),
+      );
     }
   }
 
@@ -729,7 +727,6 @@ class _Answer {
   }
 
   void cancel() {
-    _firstKeepAlive?.cancel();
     _keepAlive?.cancel();
   }
 }
