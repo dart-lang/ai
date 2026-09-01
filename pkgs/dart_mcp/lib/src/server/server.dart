@@ -23,6 +23,7 @@ part 'prompts_support.dart';
 part 'request_scoped.dart';
 part 'resources_support.dart';
 part 'roots_tracking_support.dart';
+part 'subscriptions_support.dart';
 part 'tools_support.dart';
 
 /// The client context used to initialize an [MCPServer].
@@ -208,32 +209,40 @@ abstract base class MCPServer extends MCPBase {
   /// On these revisions a client only hears a list change or a resource update
   /// over a `subscriptions/listen` stream it opened with the matching
   /// `promptsListChanged`, `toolsListChanged`, `resourcesListChanged` or
-  /// `resourceSubscriptions` filter, and this package does not serve that
-  /// request yet. So the four bits standing for those notifications come off
-  /// here: `listChanged` on each of the three, and `subscribe` on
-  /// [ServerCapabilities.resources]. Every other key the server registered is
-  /// passed through, and `initializeLegacy` keeps all of them, since the
-  /// revisions that handshake negotiates still serve `resources/subscribe` and
-  /// send the list changes without a filter.
-  ServerCapabilities get _advertisedCapabilities => ServerCapabilities.fromMap({
-    ...capabilities as Map<String, Object?>,
-    if (capabilities.prompts case final prompts?)
-      Keys.prompts: Prompts.fromMap(
-        Map<String, Object?>.from(prompts as Map<String, Object?>)
-          ..remove(Keys.listChanged),
-      ),
-    if (capabilities.resources case final resources?)
-      Keys.resources: Resources.fromMap(
-        Map<String, Object?>.from(resources as Map<String, Object?>)
-          ..remove(Keys.listChanged)
-          ..remove(Keys.subscribe),
-      ),
-    if (capabilities.tools case final tools?)
-      Keys.tools: Tools.fromMap(
-        Map<String, Object?>.from(tools as Map<String, Object?>)
-          ..remove(Keys.listChanged),
-      ),
-  });
+  /// `resourceSubscriptions` filter. [SubscriptionsSupport] acknowledges the
+  /// request, and the Streamable HTTP transport routes matching notifications
+  /// from that request's server. A server with [SubscriptionsSupport] therefore
+  /// advertises the capabilities it registered. Without that mixin the four
+  /// bits standing for those notifications come off here: `listChanged` on
+  /// each of the three, and `subscribe` on [ServerCapabilities.resources].
+  /// Every other key the server registered is passed through, and
+  /// `initializeLegacy` keeps all of them, since the revisions that handshake
+  /// negotiates still serve `resources/subscribe` and send the list changes
+  /// without a filter.
+  ServerCapabilities get _advertisedCapabilities =>
+      this is SubscriptionsSupport
+          ? ServerCapabilities.fromMap({
+            ...capabilities as Map<String, Object?>,
+          })
+          : ServerCapabilities.fromMap({
+            ...capabilities as Map<String, Object?>,
+            if (capabilities.prompts case final prompts?)
+              Keys.prompts: Prompts.fromMap(
+                Map<String, Object?>.from(prompts as Map<String, Object?>)
+                  ..remove(Keys.listChanged),
+              ),
+            if (capabilities.resources case final resources?)
+              Keys.resources: Resources.fromMap(
+                Map<String, Object?>.from(resources as Map<String, Object?>)
+                  ..remove(Keys.listChanged)
+                  ..remove(Keys.subscribe),
+              ),
+            if (capabilities.tools case final tools?)
+              Keys.tools: Tools.fromMap(
+                Map<String, Object?>.from(tools as Map<String, Object?>)
+                  ..remove(Keys.listChanged),
+              ),
+          });
 
   @mustCallSuper
   /// Handles the initialize request used by legacy MCP protocols.

@@ -236,8 +236,36 @@
   HTTP GET endpoint, `resources/subscribe`, and `resources/unsubscribe`.
   `SubscriptionFilter.resourceSubscriptions` carries the resource URIs the last
   two took. `SubscribeRequest` and `UnsubscribeRequest` stay for the revisions
-  which have them. Serving the request, and delivering notifications on the
-  stream it opens, land as separate changes.
+  which have them.
+- Serve `subscriptions/listen` from `SubscriptionsSupport`, which
+  acknowledges the filter the server can honor, stamps the subscription
+  id, and holds the request until shutdown, see
+  https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/subscriptions.
+  - A handler cannot read the JSON-RPC id of the request it answers, so a
+    transport names the subscription by setting
+    `SubscriptionsSupport.nextSubscriptionId` before delivering it.
+    `handleRequestScopedMessage` does. A request arriving without one is
+    answered with `-32600`.
+  - The Streamable HTTP handler keeps that response open as SSE and routes
+    matching list and resource notifications onto it. A client that closes
+    the response ends the subscription without a final result. An
+    acknowledgement whose params are not a JSON object is answered with an
+    error rather than dropped.
+  - The dispatcher still fills the request id into the acknowledgement and
+    the result under `io.modelcontextprotocol/subscriptionId` when a
+    handler leaves it out. The factories for those two types now take a
+    required `MetaWithSubscriptionId` through the new `WithSubscriptionId`
+    shape.
+  - Only a server whose negotiated version has the method registers the
+    handler.
+  - A server that mixes this in keeps the `subscribe` and `listChanged`
+    bits on its discover advertisement.
+  - `ResourcesSupport.updateResource` now reaches a client for every URI an
+    acknowledged `resourceSubscriptions` filter names. Only
+    `resources/subscribe` opened those subscriptions before, and this
+    revision took that request out.
+  - An embedder can pass a `subscriptionNotifications` stream so a change
+    from one request reaches another request's listen stream.
 - Deprecate `IncludeContext.thisService` and replace it with `thisServer`, the
   name the specification uses, see
   https://modelcontextprotocol.io/specification/2026-07-28/client/sampling.
@@ -279,7 +307,7 @@
   that cannot carry the hints.
 - Answer a request whose handler emits related notifications on an SSE
   response stream. A quiet handler keeps its JSON body. List changes and
-  resource updates reach `onNotification` alone, since this revision carries
+  resource updates skip that request's stream, since this revision carries
   those on a `subscriptions/listen` stream. Does not treat a closed stream as
   cancellation, which the specification requires.
 - Add `sseMessageStream`, decoding the `message` events of an SSE response
@@ -311,10 +339,9 @@
   - A server on an earlier revision that answered would be taken for a modern
     one, see
     https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/stdio#backward-compatibility.
-  - The advertisement removes `subscribe` and the three `listChanged` bits,
-    since a client only hears those notifications over a
-    `subscriptions/listen` stream, and this package does not serve that
-    request yet.
+  - The advertisement removes `subscribe` and the three `listChanged` bits
+    unless the server mixes in `SubscriptionsSupport`, since a client only
+    hears those notifications over a `subscriptions/listen` stream.
   - Every other key on those capabilities goes out as it is, and so does the
     rest of the field, since capabilities are an open set.
     `initializeLegacy` still sends all of them.

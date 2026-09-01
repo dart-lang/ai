@@ -2,6 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -83,14 +84,24 @@ import 'server.dart';
 /// Notifications the server produces while handling the request go out on an
 /// SSE response stream. The first one commits `text/event-stream`, and the
 /// result follows it as the last event. A request answered without one gets a
-/// JSON body instead. The long-lived change notifications this revision
-/// delivers on a `subscriptions/listen` stream are held back from the response
-/// stream, since a server emits several of them without choosing to.
+/// JSON body instead. Long-lived change notifications go only to a successful
+/// `subscriptions/listen` response whose acknowledged filter selects them.
+/// A listen response writes an SSE comment every [listenKeepAliveInterval] to
+/// keep an idle stream open, which is also what notices a client that went
+/// away. Closing that response shuts down its request server and ends the
+/// subscription without a final result.
 /// [onNotification] sees every notification either way, held back or not.
+/// When [subscriptionNotifications] is provided, each listen request reads
+/// matching changes from that stream. An embedder can pass the same broadcast
+/// stream to every request and add [onNotification] values to it, allowing a
+/// change produced by one request's server to reach another request's listen
+/// stream.
 Future<void> handleStreamableHttpRequest(
   HttpRequest request,
   MCPServerFactory serverFactory, {
   void Function(Map<String, Object?> notification)? onNotification,
+  Stream<Map<String, Object?>>? subscriptionNotifications,
+  Duration listenKeepAliveInterval = const Duration(seconds: 15),
 }) async {
   final response = request.response;
   if (request.method != 'POST') {
@@ -431,9 +442,33 @@ Future<void> handleStreamableHttpRequest(
     );
   }
 
-  final answer = _Answer(response);
+  final answer = _Answer(
+    response,
+    keepAliveInterval:
+        method == SubscriptionsListenRequest.methodName
+            ? listenKeepAliveInterval
+            : null,
+  );
   var pendingNotifications =
       method == CallToolRequest.methodName ? <Map<String, Object?>>[] : null;
+  MCPServer? activeServer;
+  StreamSubscription<Map<String, Object?>>? notificationSubscription;
+  var responseClosed = false;
+  var listenFailed = false;
+  if (method == SubscriptionsListenRequest.methodName) {
+    unawaited(() async {
+      try {
+        await response.done;
+      } catch (_) {
+        // A disconnected client cannot receive another response.
+      }
+      responseClosed = true;
+      answer.cancel();
+      await notificationSubscription?.cancel();
+      final server = activeServer;
+      if (server != null && server.isActive) await server.shutdown();
+    }());
+  }
 
   /// Writes [notification] to the response stream, skipping the ones an
   /// embedder serves on a listen stream.
@@ -453,6 +488,39 @@ Future<void> handleStreamableHttpRequest(
     }
   }
 
+  SubscriptionFilter? accepted;
+  void deliverSubscriptionNotification(Map<String, Object?> notification) {
+    final notificationMethod = notification[Keys.method];
+    if (!_listenStreamNotifications.contains(notificationMethod)) return;
+    final selected = switch (notificationMethod) {
+      ToolListChangedNotification.methodName =>
+        accepted?.toolsListChanged == true,
+      PromptListChangedNotification.methodName =>
+        accepted?.promptsListChanged == true,
+      ResourceListChangedNotification.methodName =>
+        accepted?.resourcesListChanged == true,
+      ResourceUpdatedNotification.methodName =>
+        accepted?.resourceSubscriptions?.contains(
+              (notification[Keys.params] as Map?)?[Keys.uri],
+            ) ==
+            true,
+      _ => false,
+    };
+    if (!selected) return;
+    final params = notification[Keys.params] as Map<String, Object?>?;
+    final meta = params?[Keys.meta];
+    answer.notify({
+      ...notification,
+      Keys.params: {
+        ...?params,
+        Keys.meta: MetaWithSubscriptionId.fromMap({
+          if (meta is Map<String, Object?>) ...meta,
+          Keys.subscriptionIdMeta: object.id,
+        }),
+      },
+    });
+  }
+
   final Map<String, Object?>? result;
   try {
     result = await handleRequestScopedMessage(
@@ -464,13 +532,54 @@ Future<void> handleStreamableHttpRequest(
             clientInfo == null ? null : Implementation.fromMap(clientInfo),
         logLevel: logLevel,
       ),
-      serverFactory,
+      (channel) {
+        final server = serverFactory(channel);
+        activeServer = server;
+        if (responseClosed && server.isActive) unawaited(server.shutdown());
+        return server;
+      },
       onNotification: (notification) {
-        final pending = pendingNotifications;
-        if (pending == null) {
-          writeNotification(notification);
+        final notificationMethod = notification[Keys.method];
+        if (method == SubscriptionsListenRequest.methodName) {
+          if (notificationMethod ==
+              SubscriptionsAcknowledgedNotification.methodName) {
+            final params = notification[Keys.params];
+            if (params is! Map<String, Object?>) {
+              listenFailed = true;
+              unawaited(() async {
+                await notificationSubscription?.cancel();
+                await answer.finish(
+                  RpcException(
+                    error_code.INTERNAL_ERROR,
+                    'The `${SubscriptionsAcknowledgedNotification.methodName}` '
+                    'params got `$params`, but must be a JSON object.',
+                  ).serialize(decoded),
+                );
+                final server = activeServer;
+                if (server != null && server.isActive) await server.shutdown();
+              }());
+            } else {
+              accepted =
+                  SubscriptionsAcknowledgedNotification.fromMap(
+                    params,
+                  ).notifications;
+              answer.notify(notification);
+              notificationSubscription ??= subscriptionNotifications?.listen(
+                deliverSubscriptionNotification,
+              );
+            }
+          } else if (_listenStreamNotifications.contains(notificationMethod)) {
+            if (subscriptionNotifications == null) {
+              deliverSubscriptionNotification(notification);
+            }
+          }
         } else {
-          pending.add(notification);
+          final pending = pendingNotifications;
+          if (pending == null) {
+            writeNotification(notification);
+          } else {
+            pending.add(notification);
+          }
         }
         onNotification?.call(notification);
       },
@@ -497,6 +606,7 @@ Future<void> handleStreamableHttpRequest(
     // starting a fresh response, so a `tools/call` releases the notifications
     // it was holding back before answering.
     releasePendingNotifications();
+    await notificationSubscription?.cancel();
     await answer.finish(
       RpcException(
         error_code.INTERNAL_ERROR,
@@ -508,6 +618,8 @@ Future<void> handleStreamableHttpRequest(
 
   // Notifications returned above, so a dispatched request always has a
   // response.
+  if (responseClosed || listenFailed) return;
+  await notificationSubscription?.cancel();
   await answer.finish(result!);
 }
 
@@ -533,13 +645,12 @@ int _statusFor(Map<String, Object?> response) {
   };
 }
 
-/// The notifications this revision delivers on the stream of a
-/// `subscriptions/listen` request, so a response stream never carries them.
+/// The notifications this revision delivers on the stream of a successful
+/// `subscriptions/listen` request.
 ///
 /// The four are the notifications `SubscriptionFilter` names.
 ///
-/// [handleStreamableHttpRequest] passes them to its `onNotification` instead,
-/// where an embedder serving a listen stream picks them up. See
+/// [handleStreamableHttpRequest] keeps them off other response streams. See
 /// https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http.
 const _listenStreamNotifications = {
   ToolListChangedNotification.methodName,
@@ -547,6 +658,8 @@ const _listenStreamNotifications = {
   ResourceListChangedNotification.methodName,
   ResourceUpdatedNotification.methodName,
 };
+
+const _sseKeepAlive = ': keep-alive\n\n';
 
 /// Frames [message] as one SSE `event: message` block.
 String _sseEvent(Map<String, Object?> message) =>
@@ -563,10 +676,13 @@ String _sseEvent(Map<String, Object?> message) =>
 /// no longer applies to it, including the `400` this revision requires of a
 /// missing client capability.
 class _Answer {
-  _Answer(this._response);
+  _Answer(this._response, {this.keepAliveInterval});
 
   final HttpResponse _response;
+  final Duration? keepAliveInterval;
   bool _committed = false;
+  bool _finished = false;
+  Timer? _keepAlive;
 
   /// Sends [notification] on the stream, committing to it if this is the first.
   void notify(Map<String, Object?> notification) {
@@ -586,10 +702,19 @@ class _Answer {
       )
       ..headers.set(HttpHeaders.cacheControlHeader, 'no-cache, no-transform')
       ..headers.set('x-accel-buffering', 'no');
+    if (keepAliveInterval case final interval?) {
+      _keepAlive = Timer.periodic(
+        interval,
+        (_) => _response.write(_sseKeepAlive),
+      );
+    }
   }
 
-  /// Sends [result] and closes.
+  /// Sends [result] and closes. A second call is ignored.
   Future<void> finish(Map<String, Object?> result) async {
+    if (_finished) return;
+    _finished = true;
+    cancel();
     if (_committed) {
       _response.write(_sseEvent(result));
     } else {
@@ -599,6 +724,10 @@ class _Answer {
         ..write(jsonEncode(result));
     }
     await _response.close();
+  }
+
+  void cancel() {
+    _keepAlive?.cancel();
   }
 }
 
