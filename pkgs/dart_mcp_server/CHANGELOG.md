@@ -2,6 +2,8 @@
 
 - Let the `create` tool pass the project root to the underlying CLI, and reject
   an empty `directory`.
+- Reject a `create` template carrying whitespace, a non-breaking space
+  included.
 - Track `AGENT_PLUGIN` environment variable in analytics events.
 - Add missing license headers.
 

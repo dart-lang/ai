@@ -25,7 +25,7 @@ base mixin ToolsSupport on MCPServer {
   );
 
   /// The registered tool implementations by name.
-  final Map<String, FutureOr<CallToolResult> Function(CallToolRequest)>
+  final Map<String, FutureOr<CallToolResponse> Function(CallToolRequest)>
   _registeredToolImpls = {};
 
   /// Invoked during server feature registration.
@@ -56,7 +56,7 @@ base mixin ToolsSupport on MCPServer {
   /// validated against the [tool]s input schema.
   void registerTool(
     Tool tool,
-    FutureOr<CallToolResult> Function(CallToolRequest) impl, {
+    FutureOr<CallToolResponse> Function(CallToolRequest) impl, {
     bool validateArguments = true,
   }) {
     if (_registeredTools.containsKey(tool.name)) {
@@ -115,7 +115,7 @@ base mixin ToolsSupport on MCPServer {
 
   /// Invoked when one of the registered tools is called.
   @mustCallSuper
-  Future<CallToolResult> callTool(CallToolRequest request) async {
+  Future<CallToolResponse> callTool(CallToolRequest request) async {
     final impl = _registeredToolImpls[request.name];
     if (impl == null) {
       return CallToolResult(

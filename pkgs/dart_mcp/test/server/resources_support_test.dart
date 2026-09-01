@@ -259,6 +259,28 @@ void main() {
       ),
     );
   });
+
+  test('a resource handler can answer with an input-required result', () async {
+    final environment = TestEnvironment(
+      TestMCPClient(),
+      TestMCPServerWithResources.new,
+    );
+    await environment.initializeServer();
+
+    final server = environment.server;
+    server.addResource(
+      Resource(name: 'needs input', uri: 'needs://input'),
+      (_) => InputRequiredResult(requestState: 'waiting'),
+    );
+
+    final result = await server.readResource(
+      ReadResourceRequest(uri: 'needs://input'),
+    );
+    expect(result.isInputRequired, true);
+    expect((result as InputRequiredResult).requestState, 'waiting');
+
+    await environment.shutdown();
+  });
 }
 
 final class TestMCPServerWithResources extends TestMCPServer

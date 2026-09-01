@@ -93,7 +93,7 @@ extension type InputRequest._(Map<String, Object?> _value) {
 ///
 /// From the 2026-07-28 revision.
 extension type InputRequiredResult.fromMap(Map<String, Object?> _value)
-    implements Result {
+    implements CallToolResponse, GetPromptResponse, ReadResourceResponse {
   factory InputRequiredResult({
     Map<String, InputRequest>? inputRequests,
     String? requestState,
