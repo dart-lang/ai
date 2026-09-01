@@ -187,6 +187,17 @@
   `ReadResourceResult` now implement `CacheableResult`, so the hints are
   readable on responses from servers that send them, and their factories take
   an optional `ttlMs` and `cacheScope`, which are left out when not passed.
+- Cache client responses for the six operations that carry caching hints, see
+  https://modelcontextprotocol.io/specification/2026-07-28/server/utilities/caching.
+  A response is reused when the request names 2026-07-28 in its `_meta` or the
+  connection settled on that revision, under a key covering the parameters and
+  that metadata. Entries are bounded per connection and are dropped by change
+  notifications, stale cursors, and `shutdown`. A `resources/updated` drops a
+  read whose contents named that URI, and one leaving its URI out drops every
+  cached read. A read still in flight when one of its contents changes is not
+  stored. A cache belongs to one `ServerConnection`, and a `private` result
+  never leaves it. An `InputRequiredResult` and the retry it asks for are never
+  cached.
 - Add `McpErrorCodes.headerMismatch` (`-32020`),
   `.missingRequiredClientCapability` (`-32021`), and
   `.unsupportedProtocolVersion` (`-32022`), the error codes the 2026-07-28

@@ -6,6 +6,8 @@ import 'dart:async';
 import 'dart:collection';
 
 import 'package:async/async.dart' show StreamExtensions;
+import 'package:collection/collection.dart';
+import 'package:json_rpc_2/error_code.dart' as error_code;
 import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_channel/stream_channel.dart';
@@ -16,6 +18,7 @@ import '../shared.dart';
 import '../utils/constants.dart';
 
 part 'elicitation_support.dart';
+part 'response_cache.dart';
 part 'roots_support.dart';
 part 'sampling_support.dart';
 
@@ -115,6 +118,51 @@ base class MCPClient {
 
 /// An active server connection.
 base class ServerConnection extends MCPBase {
+  final _responseCache = _ClientResponseCache();
+
+  /// The number of stored responses on this connection.
+  @visibleForTesting
+  int get cachedResponseCount => _responseCache._entries.length;
+
+  /// The maximum number of responses cached by this connection.
+  ///
+  /// Reducing the value evicts the oldest entries first. Zero disables the
+  /// cache. The default is 512.
+  int get maxCachedResponses => _responseCache.maxEntries;
+  set maxCachedResponses(int value) {
+    RangeError.checkNotNegative(value, 'maxCachedResponses');
+    while (_responseCache._entries.length > value) {
+      _responseCache._entries.remove(_responseCache._entries.keys.first);
+    }
+    _responseCache.maxEntries = value;
+  }
+
+  /// The maximum TTL accepted for responses received by this connection.
+  ///
+  /// Changing the value discards stored responses. Zero disables the cache.
+  /// The default is 24 hours.
+  Duration get maxCachedResponseTtl => _responseCache.maxTtl;
+  set maxCachedResponseTtl(Duration value) {
+    if (value.isNegative) {
+      throw ArgumentError.value(value, 'maxCachedResponseTtl');
+    }
+    if (_responseCache.maxTtl == value) return;
+    _responseCache.maxTtl = value;
+    _responseCache._entries.clear();
+  }
+
+  /// Advances the cache clock by [duration].
+  @visibleForTesting
+  void elapseCachedResponses(Duration duration) {
+    _responseCache._elapsedOffset += duration;
+  }
+
+  /// Stops the real-time part of the cache clock.
+  @visibleForTesting
+  void pauseCachedResponseClock() {
+    _responseCache._clock.stop();
+  }
+
   /// The version of the protocol this connection speaks, or `null` until one
   /// is settled.
   ///
@@ -298,24 +346,38 @@ base class ServerConnection extends MCPBase {
       });
     }
 
-    registerNotificationHandler(
+    registerNotificationHandler<PromptListChangedNotification?>(
       PromptListChangedNotification.methodName,
-      _promptListChangedController.sink.add,
+      (notification) {
+        _responseCache.invalidateMethod(ListPromptsRequest.methodName);
+        _promptListChangedController.sink.add(notification);
+      },
     );
 
-    registerNotificationHandler(
+    registerNotificationHandler<ToolListChangedNotification?>(
       ToolListChangedNotification.methodName,
-      _toolListChangedController.sink.add,
+      (notification) {
+        _responseCache.invalidateMethod(ListToolsRequest.methodName);
+        _toolListChangedController.sink.add(notification);
+      },
     );
 
-    registerNotificationHandler(
+    registerNotificationHandler<ResourceListChangedNotification?>(
       ResourceListChangedNotification.methodName,
-      _resourceListChangedController.sink.add,
+      (notification) {
+        _responseCache
+          ..invalidateMethod(ListResourcesRequest.methodName)
+          ..invalidateMethod(ListResourceTemplatesRequest.methodName);
+        _resourceListChangedController.sink.add(notification);
+      },
     );
 
-    registerNotificationHandler(
+    registerNotificationHandler<ResourceUpdatedNotification>(
       ResourceUpdatedNotification.methodName,
-      _resourceUpdatedController.sink.add,
+      (notification) {
+        _responseCache.invalidateResource(notification.uri);
+        _resourceUpdatedController.sink.add(notification);
+      },
     );
 
     registerNotificationHandler(
@@ -332,6 +394,7 @@ base class ServerConnection extends MCPBase {
   /// Close all connections and streams so the process can cleanly exit.
   @override
   Future<void> shutdown() async {
+    _responseCache.clear();
     await Future.wait([
       super.shutdown(),
       _promptListChangedController.close(),
@@ -340,6 +403,41 @@ base class ServerConnection extends MCPBase {
       _resourceUpdatedController.close(),
       _logController.close(),
     ]);
+  }
+
+  /// Sends a request to the server, and answers it from this connection's
+  /// response cache where the 2026-07-28 caching rules allow it.
+  ///
+  /// [sendRequest] and [sendRequestWithInputs] both go through here, so a
+  /// `resources/read` that later retries still consults the cache. A request
+  /// is cached when its `_meta` names 2026-07-28, or when it leaves the
+  /// version out and this connection settled on that revision. Cached answers
+  /// drop when the matching list-changed or resource-updated notification
+  /// arrives, when a paginated request reports its cursor is no longer valid,
+  /// and on [shutdown].
+  @protected
+  @override
+  Future<T> sendRequestKeepingProgress<T extends Result?>(
+    String methodName, [
+    Request? request,
+  ]) {
+    final meta = (request as Map<String, Object?>?)?[Keys.meta];
+    final version =
+        meta is Map<String, Object?> ? meta[Keys.protocolVersionMeta] : null;
+    // Only `discover` names the revision in its own metadata. Every other
+    // request leaves it out and the negotiated version is what says whether
+    // the answer can be reused.
+    final onRevision =
+        version == ProtocolVersion.v2026_07_28.versionString ||
+        (version == null && protocolVersion == ProtocolVersion.v2026_07_28);
+    if (!onRevision) {
+      return super.sendRequestKeepingProgress<T>(methodName, request);
+    }
+    return _responseCache.sendRequest<T>(
+      methodName,
+      request,
+      () => super.sendRequestKeepingProgress<T>(methodName, request),
+    );
   }
 
   /// Called after a successful call to [initialize].
