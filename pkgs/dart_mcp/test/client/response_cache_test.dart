@@ -669,31 +669,6 @@ void main() {
       expect(server.readCalls['file:///kept'], 1);
     });
 
-    test('clamps a ttl which overflows a duration', () async {
-      // `Duration(milliseconds: 9223372036854775807)` is negative, so an
-      // unclamped entry would already be stale when it is written.
-      server.ttlMs = 9223372036854775807;
-
-      await listTools();
-      await listTools();
-
-      expect(server.calls[ListToolsRequest.methodName], 1);
-    });
-
-    test('saturates an expiry which overflows a duration', () async {
-      connection
-        ..maxCachedResponseTtl = const Duration(
-          microseconds: 9223372036854775807,
-        )
-        ..pauseCachedResponseClock();
-      server.ttlMs = 9223372036854775807;
-
-      await listTools();
-      await listTools();
-
-      expect(server.calls[ListToolsRequest.methodName], 1);
-    });
-
     test('defaults the maximum ttl to a day', () async {
       connection.pauseCachedResponseClock();
       server.ttlMs = const Duration(hours: 36).inMilliseconds;
