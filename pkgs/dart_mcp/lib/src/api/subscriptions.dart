@@ -84,17 +84,22 @@ extension type SubscriptionsListenRequest.fromMap(Map<String, Object?> _value)
 /// This type is not intended to be constructed directly and thus has no public
 /// constructor.
 extension type WithSubscriptionId._fromMap(Map<String, Object?> _value) {
+  /// The metadata this message carries, including the [subscriptionId].
+  MetaWithSubscriptionId get meta {
+    final meta = _value[Keys.meta];
+    if (meta == null) {
+      throw ArgumentError('Missing ${Keys.meta} field in $WithSubscriptionId.');
+    }
+    return MetaWithSubscriptionId.fromMap(meta as Map<String, Object?>);
+  }
+
   /// The JSON-RPC id of the [SubscriptionsListenRequest] which opened the
   /// stream this message belongs to.
   ///
   /// Every message on the stream carries it under the
-  /// `io.modelcontextprotocol/subscriptionId` metadata key, which is how a
-  /// client tells its streams apart. This reads it off the message's
-  /// [MetaWithSubscriptionId].
-  RequestId get subscriptionId =>
-      MetaWithSubscriptionId.fromMap(
-        (_value[Keys.meta] as Map<String, Object?>?) ?? const {},
-      ).subscriptionId;
+  /// `io.modelcontextprotocol/subscriptionId` metadata key, so a client can
+  /// tell its streams apart.
+  RequestId get subscriptionId => meta.subscriptionId;
 }
 
 /// A [Meta] object carrying the [subscriptionId] every message on a
@@ -133,8 +138,10 @@ extension type SubscriptionsListenResult.fromMap(Map<String, Object?> _value)
       SubscriptionsListenResult.fromMap({Keys.meta: meta});
 
   /// The metadata this message carries, including the [subscriptionId].
-  MetaWithSubscriptionId? get meta =>
-      _value[Keys.meta] as MetaWithSubscriptionId?;
+  ///
+  /// [Result] and [Notification] both declare a nullable `meta`, so each type
+  /// mixing in [WithSubscriptionId] narrows it here rather than inheriting it.
+  MetaWithSubscriptionId get meta => WithSubscriptionId._fromMap(_value).meta;
 }
 
 /// Sent by the server to acknowledge a [SubscriptionsListenRequest] and report
@@ -159,8 +166,10 @@ extension type SubscriptionsAcknowledgedNotification.fromMap(
   });
 
   /// The metadata this message carries, including the [subscriptionId].
-  MetaWithSubscriptionId? get meta =>
-      _value[Keys.meta] as MetaWithSubscriptionId?;
+  ///
+  /// [Result] and [Notification] both declare a nullable `meta`, so each type
+  /// mixing in [WithSubscriptionId] narrows it here rather than inheriting it.
+  MetaWithSubscriptionId get meta => WithSubscriptionId._fromMap(_value).meta;
 
   /// The notification types the server agreed to send on this stream.
   SubscriptionFilter get notifications {

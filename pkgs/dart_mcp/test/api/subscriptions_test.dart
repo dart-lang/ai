@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'package:dart_mcp/client.dart';
+import 'package:dart_mcp/src/utils/constants.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -198,23 +199,32 @@ void main() {
 
     test('hands the metadata back typed on both messages', () {
       final meta = MetaWithSubscriptionId(subscriptionId: RequestId(7));
-      expect(SubscriptionsListenResult(meta: meta).meta?.subscriptionId, 7);
+      expect(SubscriptionsListenResult(meta: meta).meta.subscriptionId, 7);
       expect(
         SubscriptionsAcknowledgedNotification(
           notifications: SubscriptionFilter(),
           meta: meta,
-        ).meta?.subscriptionId,
+        ).meta.subscriptionId,
         7,
       );
     });
 
-    test('has no metadata when the message carries none', () {
-      expect(SubscriptionsListenResult.fromMap({}).meta, isNull);
+    test('throws when the message carries no metadata', () {
+      final namesTheField = isA<ArgumentError>().having(
+        (error) => error.message,
+        'message',
+        contains(Keys.meta),
+      );
       expect(
-        SubscriptionsAcknowledgedNotification.fromMap({
-          'notifications': SubscriptionFilter(),
-        }).meta,
-        isNull,
+        () => SubscriptionsListenResult.fromMap({}).meta,
+        throwsA(namesTheField),
+      );
+      expect(
+        () =>
+            SubscriptionsAcknowledgedNotification.fromMap({
+              'notifications': SubscriptionFilter(),
+            }).meta,
+        throwsA(namesTheField),
       );
     });
 

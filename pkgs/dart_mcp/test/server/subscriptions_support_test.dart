@@ -71,7 +71,7 @@ void main() {
 
       expect(acknowledgements, hasLength(1));
       expect(
-        acknowledgements.single.meta?[Keys.subscriptionIdMeta],
+        acknowledgements.single.meta[Keys.subscriptionIdMeta],
         'a',
         reason: 'the mixin stamps the id, it does not wait for HTTP to do it',
       );
