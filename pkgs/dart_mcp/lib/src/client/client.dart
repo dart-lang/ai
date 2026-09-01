@@ -157,6 +157,12 @@ base class ServerConnection extends MCPBase {
   /// server that never stops asking.
   int? maxInputRequiredRounds = 10;
 
+  /// How long [sendRequestWithInputs] waits before a retry that carries no
+  /// input requests, including an empty map, or `null` for no wait.
+  ///
+  /// The spec allows an immediate retry. This one only avoids a tight loop.
+  Duration? inputRequiredRetryDelay = const Duration(milliseconds: 250);
+
   @override
   String get name => serverInfo?.name ?? super.name;
 
@@ -517,9 +523,7 @@ base class ServerConnection extends MCPBase {
           '`${Keys.inputRequests}` or `${Keys.requestState}`.',
         );
       }
-      // TODO: Delay a retry that carries no input requests.
-      // https://github.com/dart-lang/ai/issues/162
-      if (inputRequests != null) {
+      if (inputRequests != null && inputRequests.isNotEmpty) {
         // Resolve every handler before running any, so a request this client
         // cannot serve stops the round before a partial dispatch.
         final handlers = [
@@ -528,6 +532,11 @@ base class ServerConnection extends MCPBase {
         ];
         for (final handler in handlers) {
           responses[handler.key] = await handler.value();
+        }
+      } else {
+        final delay = inputRequiredRetryDelay;
+        if (delay != null) {
+          await Future<void>.delayed(delay);
         }
       }
       final retryRequest =

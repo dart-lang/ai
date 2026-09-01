@@ -107,9 +107,25 @@ extension type ReadResourceRequest.fromMap(Map<String, Object?> _value)
   }
 }
 
-/// The server's response to a resources/read request from the client.
+/// A response to a `resources/read` request, which is either a
+/// [ReadResourceResult] or an [InputRequiredResult].
+///
+/// Check [isInputRequired] and then cast to one of those.
+///
+/// This type is not intended to be constructed directly and thus has no public
+/// constructor.
+extension type ReadResourceResponse._fromMap(Map<String, Object?> _value)
+    implements Result {
+  /// A complete result with no input required.
+  static const readResourceResult = ReadResourceResult.new;
+
+  /// A result that requires further input from the client.
+  static const inputRequiredResult = InputRequiredResult.new;
+}
+
+/// The server's completed response to a resources/read request from the client.
 extension type ReadResourceResult.fromMap(Map<String, Object?> _value)
-    implements CacheableResult {
+    implements CacheableResult, ReadResourceResponse {
   factory ReadResourceResult({
     required List<ResourceContents> contents,
     int? ttlMs,

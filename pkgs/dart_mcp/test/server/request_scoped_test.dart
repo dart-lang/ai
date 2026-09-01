@@ -1510,11 +1510,7 @@ final class _DispatcherTestServer extends TestMCPServer
     );
     registerTool(
       Tool(name: 'interim', inputSchema: ObjectSchema()),
-      (_) => CallToolResult.fromMap({
-        Keys.content: [TextContent(text: 'waiting')],
-        Keys.resultType: ResultTypes.inputRequired,
-        Keys.requestState: 'waiting',
-      }),
+      (_) => InputRequiredResult(requestState: 'waiting'),
     );
     for (final entry
         in {
@@ -1559,13 +1555,9 @@ final class _DispatcherTestServer extends TestMCPServer
     // Registered directly, not by mixing in `PromptsSupport`: the guard
     // dispatches on the method, and the mixin would also change what this
     // server advertises. Other tests here assert on those capabilities.
-    registerRequestHandler<GetPromptRequest, GetPromptResult>(
+    registerRequestHandler<GetPromptRequest, GetPromptResponse>(
       GetPromptRequest.methodName,
-      (_) => GetPromptResult.fromMap({
-        Keys.messages: <Object?>[],
-        Keys.resultType: ResultTypes.inputRequired,
-        Keys.requestState: 'waiting',
-      }),
+      (_) => InputRequiredResult(requestState: 'waiting'),
     );
     registerTool(
       Tool(name: 'bad_meta', inputSchema: ObjectSchema()),

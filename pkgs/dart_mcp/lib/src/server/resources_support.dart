@@ -5,7 +5,7 @@
 part of 'server.dart';
 
 typedef ReadResourceHandler =
-    FutureOr<ReadResourceResult?> Function(ReadResourceRequest);
+    FutureOr<ReadResourceResponse?> Function(ReadResourceRequest);
 
 /// A mixin for MCP servers which support the `resources` capability.
 ///
@@ -104,7 +104,7 @@ base mixin ResourcesSupport on MCPServer {
   /// same name.
   void addResource(
     Resource resource,
-    FutureOr<ReadResourceResult> Function(ReadResourceRequest) impl,
+    FutureOr<ReadResourceResponse> Function(ReadResourceRequest) impl,
   ) {
     if (_resources.containsKey(resource.uri)) {
       throw StateError(
@@ -168,7 +168,7 @@ base mixin ResourcesSupport on MCPServer {
   /// Throws a [StateError] if [resource] does not exist.
   void updateResource(
     Resource resource, {
-    FutureOr<ReadResourceResult> Function(ReadResourceRequest)? impl,
+    FutureOr<ReadResourceResponse> Function(ReadResourceRequest)? impl,
   }) {
     if (!_resources.containsKey(resource.uri)) {
       throw StateError(
@@ -207,7 +207,9 @@ base mixin ResourcesSupport on MCPServer {
   /// `data.uri`. Earlier revisions asked for `-32002` here, which this package
   /// has never sent.
   @mustCallSuper
-  FutureOr<ReadResourceResult> readResource(ReadResourceRequest request) async {
+  FutureOr<ReadResourceResponse> readResource(
+    ReadResourceRequest request,
+  ) async {
     final impl = _resourceImpls[request.uri];
     if (impl == null) {
       // Check if it matches any resource template.
