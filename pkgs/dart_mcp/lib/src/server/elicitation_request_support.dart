@@ -22,20 +22,15 @@ base mixin ElicitationRequestSupport on LoggingSupport {
   /// An empty `elicitation` object counts as form support, the backwards
   /// compatibility rule the 2025-11-25 revision added alongside the mode
   /// split. A client which named some other mode does not.
-  bool get supportsFormElicitation {
-    final elicitation = clientCapabilities.elicitation;
-    if (elicitation == null) return false;
-    return elicitation.form != null ||
-        (elicitation as Map<String, Object?>).isEmpty;
-  }
+  bool get supportsFormElicitation =>
+      clientCapabilities.supportsFormElicitation;
 
   /// Whether or not the connected client supports [ElicitationMode.url]
   /// requests.
   ///
   /// Only safe to call after calling [initialize] on `super` since this
   /// is based on the client capabilities.
-  bool get supportsUrlElicitation =>
-      clientCapabilities.elicitation?.url != null;
+  bool get supportsUrlElicitation => clientCapabilities.supportsUrlElicitation;
 
   @override
   FutureOr<void> initialize(MCPServerInitialization initialization) {
@@ -53,19 +48,21 @@ base mixin ElicitationRequestSupport on LoggingSupport {
 
   /// Sends an `elicitation/create` request to the client.
   ///
-  /// This method will only succeed if the client has advertised the mode the
-  /// request asks for, as [supportsFormElicitation] and
-  /// [supportsUrlElicitation] read it.
+  /// Throws an [RpcException] when [protocolVersion] does not have
+  /// `elicitation/create`. 2026-07-28 took it out, and carries an
+  /// [ElicitRequest] in an [InputRequiredResult] instead. 2025-06-18 added it.
   ///
-  /// Throws an [RpcException] with
+  /// Otherwise this only succeeds if the client has advertised the mode the
+  /// request asks for, as [supportsFormElicitation] and
+  /// [supportsUrlElicitation] read it, and throws an [RpcException] with
   /// [McpErrorCodes.missingRequiredClientCapability] when the client has not,
-  /// naming the capability it is missing under `data.requiredCapabilities`,
-  /// which the 2026-07-28 revision requires of that error.
+  /// naming the capability it is missing under `data.requiredCapabilities`.
   ///
   /// [ToolsSupport.callTool] rethrows an [RpcException] instead of folding it
   /// into a [CallToolResult], so a tool which elicits reaches the client as
   /// that error rather than as a result whose text is a Dart stack trace.
   Future<ElicitResult> elicit(ElicitRequest request) async {
+    _rejectRemovedMethod(ElicitRequest.methodName, protocolVersion);
     final raw = request.rawMode;
     if (raw != null && !ElicitationMode.values.any((m) => m.name == raw)) {
       throw RpcException.invalidParams(
@@ -76,17 +73,11 @@ base mixin ElicitationRequestSupport on LoggingSupport {
     switch (request.mode) {
       case ElicitationMode.url:
         if (!supportsUrlElicitation) {
-          throw _missingClientCapability(
-            'elicitation.url',
-            ClientCapabilities(elicitation: ElicitationCapability(url: {})),
-          );
+          throw _missingUrlElicitation;
         }
       case ElicitationMode.form:
         if (!supportsFormElicitation) {
-          throw _missingClientCapability(
-            'elicitation.form',
-            ClientCapabilities(elicitation: ElicitationCapability(form: {})),
-          );
+          throw _missingFormElicitation;
         }
     }
     return sendRequest(ElicitRequest.methodName, request);

@@ -418,6 +418,74 @@ dependencies:
         expect(testProcessManager.commandsRan, isEmpty);
       });
 
+      test('creates a Flutter project in the root itself', () async {
+        testHarness.mcpClient.addRoot(exampleFlutterAppRoot);
+        for (final directory in ['.', './']) {
+          testProcessManager.commandsRan.clear();
+          final request = CallToolRequest(
+            name: createProjectTool.name,
+            arguments: {
+              ParameterNames.root: exampleFlutterAppRoot.uri,
+              ParameterNames.directory: directory,
+              ParameterNames.projectType: 'flutter',
+            },
+          );
+          await testHarness.callToolWithRetry(request);
+
+          expect(testProcessManager.commandsRan, [
+            equalsCommand((
+              command: [
+                endsWith(flutterExecutableName),
+                'create',
+                '--empty',
+                directory,
+              ],
+              workingDirectory: exampleFlutterAppRoot.path,
+            )),
+          ]);
+        }
+      });
+
+      test('passes the root itself to dart create', () async {
+        testHarness.mcpClient.addRoot(dartCliAppRoot);
+        final request = CallToolRequest(
+          name: createProjectTool.name,
+          arguments: {
+            ParameterNames.root: dartCliAppRoot.uri,
+            ParameterNames.directory: './',
+            ParameterNames.projectType: 'dart',
+          },
+        );
+        await testHarness.callToolWithRetry(request);
+
+        expect(testProcessManager.commandsRan, [
+          equalsCommand((
+            command: [endsWith(dartExecutableName), 'create', './'],
+            workingDirectory: dartCliAppRoot.path,
+          )),
+        ]);
+      });
+
+      test('fails if directory is empty', () async {
+        testHarness.mcpClient.addRoot(exampleFlutterAppRoot);
+        final request = CallToolRequest(
+          name: createProjectTool.name,
+          arguments: {
+            ParameterNames.root: exampleFlutterAppRoot.uri,
+            ParameterNames.directory: '',
+            ParameterNames.projectType: 'flutter',
+          },
+        );
+        final result = await testHarness.callTool(request, expectError: true);
+
+        expect(result.isError, isTrue);
+        expect(
+          (result.content.first as TextContent).text,
+          contains('must not be empty'),
+        );
+        expect(testProcessManager.commandsRan, isEmpty);
+      });
+
       test('fails if directory (project name) is an absolute path', () async {
         testHarness.mcpClient.addRoot(dartCliAppRoot);
         final request = CallToolRequest(
@@ -456,6 +524,81 @@ dependencies:
           contains('within the project root'),
         );
         expect(testProcessManager.commandsRan, isEmpty);
+      });
+
+      test('accepts a template with a literal backslash', () async {
+        testHarness.mcpClient.addRoot(dartCliAppRoot);
+        final request = CallToolRequest(
+          name: createProjectTool.name,
+          arguments: {
+            ParameterNames.root: dartCliAppRoot.uri,
+            ParameterNames.directory: 'new_app',
+            ParameterNames.projectType: 'dart',
+            ParameterNames.template: r'console\nfull',
+          },
+        );
+        await testHarness.callToolWithRetry(request);
+
+        expect(testProcessManager.commandsRan, [
+          equalsCommand((
+            command: [
+              endsWith(dartExecutableName),
+              'create',
+              '--template',
+              r'console\nfull',
+              'new_app',
+            ],
+            workingDirectory: dartCliAppRoot.path,
+          )),
+        ]);
+      });
+
+      test('fails if template starts with a dash', () async {
+        testHarness.mcpClient.addRoot(dartCliAppRoot);
+        final request = CallToolRequest(
+          name: createProjectTool.name,
+          arguments: {
+            ParameterNames.root: dartCliAppRoot.uri,
+            ParameterNames.directory: 'new_app',
+            ParameterNames.projectType: 'dart',
+            ParameterNames.template: '--force',
+          },
+        );
+        final result = await testHarness.callTool(request, expectError: true);
+
+        expect(result.isError, isTrue);
+        expect(
+          (result.content.first as TextContent).text,
+          contains('must not start with'),
+        );
+        expect(testProcessManager.commandsRan, isEmpty);
+      });
+
+      test('fails if template contains whitespace', () async {
+        testHarness.mcpClient.addRoot(dartCliAppRoot);
+        for (final template in [
+          'console\nfull',
+          'console\tfull',
+          'console\rfull',
+        ]) {
+          final request = CallToolRequest(
+            name: createProjectTool.name,
+            arguments: {
+              ParameterNames.root: dartCliAppRoot.uri,
+              ParameterNames.directory: 'new_app',
+              ParameterNames.projectType: 'dart',
+              ParameterNames.template: template,
+            },
+          );
+          final result = await testHarness.callTool(request, expectError: true);
+
+          expect(result.isError, isTrue);
+          expect(
+            (result.content.first as TextContent).text,
+            contains('contain whitespace'),
+          );
+          expect(testProcessManager.commandsRan, isEmpty);
+        }
       });
 
       test('requires a root to be passed', () async {

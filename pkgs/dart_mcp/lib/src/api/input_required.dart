@@ -14,6 +14,13 @@ part of 'api.dart';
 ///
 /// From the 2026-07-28 revision.
 extension type InputRequest._(Map<String, Object?> _value) {
+  /// The methods a request here may be made under.
+  static const methodNames = {
+    ElicitRequest.methodName,
+    CreateMessageRequest.methodName,
+    ListRootsRequest.methodName,
+  };
+
   factory InputRequest.fromMap(Map<String, Object?> value) {
     assert(value.containsKey(Keys.method));
     return InputRequest._(value);
@@ -43,7 +50,20 @@ extension type InputRequest._(Map<String, Object?> _value) {
   ///
   /// The schema requires this next to `elicitation/create` and
   /// `sampling/createMessage`. For `roots/list` it only requires the method.
-  Request? get params => _value[Keys.params] as Request?;
+  ///
+  /// Throws an [ArgumentError] when a server sent something other than an
+  /// object here.
+  Request? get params {
+    final params = _value[Keys.params];
+    if (params == null) return null;
+    if (params is! Map) {
+      throw ArgumentError(
+        'The input request params for "$method" were ${params.runtimeType}, '
+        'expected an object.',
+      );
+    }
+    return params.cast<String, Object?>() as Request;
+  }
 
   /// Whether this carries an [ElicitRequest].
   bool get isElicit => _value[Keys.method] == ElicitRequest.methodName;
@@ -73,7 +93,7 @@ extension type InputRequest._(Map<String, Object?> _value) {
 ///
 /// From the 2026-07-28 revision.
 extension type InputRequiredResult.fromMap(Map<String, Object?> _value)
-    implements Result {
+    implements CallToolResponse, GetPromptResponse, ReadResourceResponse {
   factory InputRequiredResult({
     Map<String, InputRequest>? inputRequests,
     String? requestState,

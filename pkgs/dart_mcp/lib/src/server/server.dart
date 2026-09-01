@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:json_rpc_2/error_code.dart' as error_code;
 import 'package:json_rpc_2/json_rpc_2.dart';
@@ -282,55 +283,76 @@ abstract base class MCPServer extends MCPBase {
   ///
   /// Only safe to call after calling [initialize] on `super` since this
   /// is based on the client capabilities.
-  bool get supportsRoots => clientCapabilities.roots != null;
+  bool get supportsRoots => clientCapabilities.supportsRoots;
 
   /// Whether or not the connected client supports [createMessage].
   ///
   /// Only safe to call after calling [initialize] on `super` since this
   /// is based on the client capabilities.
-  bool get supportsSampling => clientCapabilities.sampling != null;
+  bool get supportsSampling => clientCapabilities.supportsSampling;
 
   /// Lists all the root URIs from the client.
   ///
-  /// This method will only succeed if the client has advertised the `roots`
-  /// capability.
+  /// Throws an [RpcException] when [protocolVersion] does not have
+  /// `roots/list`. 2026-07-28 took it out, and carries a [ListRootsRequest]
+  /// in an [InputRequiredResult] instead.
   ///
-  /// Throws an [RpcException] with
+  /// Otherwise this only succeeds if the client has advertised the `roots`
+  /// capability, and throws an [RpcException] with
   /// [McpErrorCodes.missingRequiredClientCapability] when it has not, naming
-  /// the capability the client is missing under `data.requiredCapabilities`,
-  /// which the 2026-07-28 revision requires of that error.
+  /// the capability the client is missing under `data.requiredCapabilities`.
   Future<ListRootsResult> listRoots([ListRootsRequest? request]) async {
+    _rejectRemovedMethod(ListRootsRequest.methodName, protocolVersion);
     if (!supportsRoots) {
-      throw _missingClientCapability(
-        'roots',
-        ClientCapabilities(roots: RootsCapabilities()),
-      );
+      throw _missingRoots;
     }
     return sendRequest(ListRootsRequest.methodName, request);
   }
 
   /// A request to prompt the LLM owned by the client with a message.
   ///
-  /// See https://modelcontextprotocol.io/specification/2025-11-25/client/sampling/.
+  /// See https://modelcontextprotocol.io/specification/2026-07-28/client/sampling/.
   ///
-  /// This method will only succeed if the client has advertised the `sampling`
-  /// capability.
+  /// Throws an [RpcException] when [protocolVersion] does not have
+  /// `sampling/createMessage`. 2026-07-28 took it out, and carries a
+  /// [CreateMessageRequest] in an [InputRequiredResult] instead.
   ///
-  /// Throws an [RpcException] with
+  /// Otherwise this only succeeds if the client has advertised the `sampling`
+  /// capability, and throws an [RpcException] with
   /// [McpErrorCodes.missingRequiredClientCapability] when it has not, naming
-  /// the capability the client is missing under `data.requiredCapabilities`,
-  /// which the 2026-07-28 revision requires of that error.
+  /// the capability the client is missing under `data.requiredCapabilities`.
   Future<CreateMessageResult> createMessage(
     CreateMessageRequest request,
   ) async {
+    _rejectRemovedMethod(CreateMessageRequest.methodName, protocolVersion);
     if (!supportsSampling) {
-      throw _missingClientCapability(
-        'sampling',
-        ClientCapabilities(sampling: {}),
-      );
+      throw _missingSampling;
     }
     return sendRequest(CreateMessageRequest.methodName, request);
   }
+}
+
+/// Refuses to send [method] when [ProtocolVersion.methodIsValid] says
+/// [protocolVersion] does not have it.
+///
+/// Each sender calls this first, so a method the revision does not have fails
+/// for that reason instead of for a missing client capability.
+void _rejectRemovedMethod(String method, ProtocolVersion protocolVersion) {
+  if (protocolVersion.methodIsValid(method)) return;
+  // Only a revision with an `InputRequiredResult` can be pointed at it, and
+  // `elicit` also lands here on the revisions before 2025-06-18 added
+  // `elicitation/create`.
+  final replacement =
+      protocolVersion >= ProtocolVersion.v2026_07_28
+          ? ' Ask the client for input with an InputRequiredResult on '
+              '${CallToolRequest.methodName}, ${GetPromptRequest.methodName}, '
+              'or ${ReadResourceRequest.methodName} instead.'
+          : '';
+  throw RpcException(
+    error_code.INTERNAL_ERROR,
+    'Protocol version ${protocolVersion.versionString} does not have '
+    '$method.$replacement',
+  );
 }
 
 /// The error a server must return when handling a request needs [capability],
@@ -344,3 +366,56 @@ RpcException _missingClientCapability(
   'The client did not declare the $capability capability',
   data: {Keys.requiredCapabilities: required},
 );
+
+/// The refusal for a client that did not declare `roots`.
+RpcException get _missingRoots => _missingClientCapability(
+  'roots',
+  ClientCapabilities(roots: RootsCapabilities()),
+);
+
+/// The refusal for a client that did not declare `sampling`.
+RpcException get _missingSampling =>
+    _missingClientCapability('sampling', ClientCapabilities(sampling: {}));
+
+/// The refusal for a client whose `sampling` left out `tools`.
+RpcException get _missingSamplingTools => _missingClientCapability(
+  'sampling.tools',
+  ClientCapabilities(sampling: {Keys.tools: <String, Object?>{}}),
+);
+
+/// The refusal for a client that did not declare `elicitation.form`.
+RpcException get _missingFormElicitation => _missingClientCapability(
+  'elicitation.form',
+  ClientCapabilities(elicitation: ElicitationCapability(form: {})),
+);
+
+/// The refusal for a client that did not declare `elicitation.url`.
+RpcException get _missingUrlElicitation => _missingClientCapability(
+  'elicitation.url',
+  ClientCapabilities(elicitation: ElicitationCapability(url: {})),
+);
+
+/// The client capability reads a server makes, on the capabilities themselves
+/// so that [handleRequestScopedMessage] can make them without a server.
+///
+/// [MCPServer] and [ElicitationRequestSupport] expose and document all of
+/// these but [supportsSamplingTools], which only the input request guard
+/// needs.
+extension on ClientCapabilities {
+  bool get supportsRoots => roots != null;
+
+  bool get supportsSampling => sampling != null;
+
+  /// Whether or not the client can answer a sampling request carrying `tools`
+  /// or `toolChoice`.
+  bool get supportsSamplingTools => sampling?[Keys.tools] != null;
+
+  bool get supportsFormElicitation {
+    final elicitation = this.elicitation;
+    if (elicitation == null) return false;
+    return elicitation.form != null ||
+        (elicitation as Map<String, Object?>).isEmpty;
+  }
+
+  bool get supportsUrlElicitation => elicitation?.url != null;
+}

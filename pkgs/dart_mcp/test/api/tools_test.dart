@@ -243,6 +243,31 @@ void main() {
     });
 
     group('EnumSchema', () {
+      test('schema iterables cross the JSON boundary', () {
+        Iterable<EnumValueWithTitle> titledValues() => ['a', 'b'].map(
+          (value) =>
+              EnumValueWithTitle(constValue: value, title: value.toUpperCase()),
+        );
+
+        final schemas = <Schema>[
+          StringSchema(enumValues: {'a', 'b'}),
+          UntitledSingleSelectEnumSchema(values: {'a', 'b'}),
+          TitledSingleSelectEnumSchema(values: titledValues()),
+          UntitledMultiSelectEnumSchema(
+            defaultValue: {'a'},
+            values: {'a', 'b'},
+          ),
+          TitledMultiSelectEnumSchema(
+            defaultValue: {'a'},
+            values: titledValues(),
+          ),
+        ];
+
+        for (final schema in schemas) {
+          expect(jsonDecode(jsonEncode(schema)), schema);
+        }
+      });
+
       test('UntitledSingleSelect', () {
         final schema = EnumSchema.untitledSingleSelect(
           title: 'Foo',

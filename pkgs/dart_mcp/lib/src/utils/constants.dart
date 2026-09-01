@@ -175,4 +175,5 @@ extension Keys on Never {
   static const values = 'values';
   static const version = 'version';
   static const websiteUrl = 'websiteUrl';
+  static const xMcpHeader = 'x-mcp-header';
 }

@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp/src/utils/constants.dart';
@@ -29,6 +30,76 @@ void main() {
         'ready: true',
         reason: 'initialized must complete before the message is handled',
       );
+    });
+
+    test('returns a rejection before calling a registered tool', () async {
+      final harness = _DispatcherHarness();
+      MCPServer? callbackServer;
+      Tool? callbackTool;
+      bool? callbackReady;
+      final response = await harness.dispatch(
+        _callTool('retained'),
+        _initialization(),
+        beforeDispatch: (server) {
+          callbackServer = server;
+          // The tools the server registers while initializing are already
+          // there, so a transport can read one's schema here.
+          callbackTool = (server as ToolsSupport).registeredTools['retained'];
+          callbackReady = server.ready;
+          return RpcException.invalidParams('blocked before dispatch');
+        },
+      );
+
+      final server = harness.servers.single;
+      expect(callbackServer, same(server));
+      expect(callbackTool?.name, 'retained');
+      expect(callbackReady, isTrue);
+      expect(
+        (response![Keys.error] as Map)[Keys.code],
+        error_code.INVALID_PARAMS,
+      );
+      expect(server.retainedResult, isNull);
+      await server.done;
+      expect(server.isActive, isFalse);
+    });
+
+    test('drops a rejection for a notification', () async {
+      final harness = _DispatcherHarness();
+      final notification = _callTool('retained')..remove(Keys.id);
+      final response = await harness.dispatch(
+        notification,
+        _initialization(),
+        beforeDispatch: (server) {
+          expect(
+            (server as ToolsSupport).registeredTools['retained'],
+            isNotNull,
+          );
+          return RpcException.invalidParams('blocked before dispatch');
+        },
+      );
+
+      final server = harness.servers.single;
+      expect(response, isNull);
+      expect(server.retainedResult, isNull);
+      await server.done;
+      expect(server.isActive, isFalse);
+    });
+
+    test('closes the server when beforeDispatch throws', () async {
+      final harness = _DispatcherHarness();
+      await expectLater(
+        harness.dispatch(
+          _callTool('retained'),
+          _initialization(),
+          beforeDispatch: (_) => throw StateError('callback failed'),
+        ),
+        throwsStateError,
+      );
+
+      final server = harness.servers.single;
+      expect(server.retainedResult, isNull);
+      await server.done;
+      expect(server.isActive, isFalse);
     });
 
     test('records server info on the response', () async {
@@ -214,9 +285,12 @@ void main() {
     test('records caching hints despite a result type the schema does not '
         'give the request', () async {
       // `tools/list` has no interim arm, so a non-complete type there does not
-      // make the result one the caching rules exempt.
+      // make the result one the caching rules exempt. The schema types
+      // `resultType` as a bare string, and a server may send one this package
+      // has no name for. `input_required` is not among the ones it may send
+      // here, and the dispatcher refuses that separately.
       final response = await _dispatchShapedList(
-        (result) => {...result, Keys.resultType: ResultTypes.inputRequired},
+        (result) => {...result, Keys.resultType: 'io.example/other'},
       );
 
       expect(_result(response), containsPair(Keys.ttlMs, 0));
@@ -227,7 +301,11 @@ void main() {
       // The schema gives `resources/read` an interim arm; `tools/list` has
       // none, so a list result is never the one waiting on input.
       final response = await _dispatchShapedRead(
-        (result) => {...result, Keys.resultType: ResultTypes.inputRequired},
+        (result) => {
+          ...result,
+          Keys.resultType: ResultTypes.inputRequired,
+          Keys.requestState: 'waiting',
+        },
       );
 
       expect(_result(response), isNot(contains(Keys.ttlMs)));
@@ -437,20 +515,528 @@ void main() {
       expect(legacy![Keys.result], isNotNull);
     });
 
-    test('fails server to client requests instead of hanging', () async {
+    test('rejects a 2025-11-25 roots request instead of hanging', () async {
       final harness = _DispatcherHarness();
-      // The client declares roots, so `listRoots` reaches the transport rather
-      // than being refused for the missing capability.
       final response = await harness.dispatch(
         _callTool('roots'),
         _initialization(
           capabilities: ClientCapabilities(roots: RootsCapabilities()),
+          protocolVersion: ProtocolVersion.v2025_11_25,
         ),
       );
 
       final error = response![Keys.error] as Map<String, Object?>;
       expect(error[Keys.code], error_code.INTERNAL_ERROR);
       expect(error[Keys.message], contains('request-scoped transport'));
+    });
+
+    test('refuses input_required on a request it is not allowed on', () async {
+      final harness = _DispatcherHarness();
+      final escaped = <Object>[];
+      Map<String, Object?>? response;
+      await runZonedGuarded(() async {
+        response = await harness.dispatch(
+          _complete('input_required'),
+          _initialization(),
+        );
+      }, (error, _) => escaped.add(error));
+
+      expect(escaped, everyElement(isA<AssertionError>()));
+      final wire = jsonDecode(jsonEncode(response)) as Map<String, Object?>;
+      final error = wire['error'] as Map<String, Object?>;
+      expect(error['code'], -32603);
+      expect(error['message'], contains(CompleteRequest.methodName));
+      expect(error['message'], contains(CallToolRequest.methodName));
+    });
+
+    test(
+      'reports a refused input_required result as a bug in the server',
+      () async {
+        // The refusal above answers the client, and this is the other half: the
+        // server that sent it still hears about it. A compiled executable has
+        // asserts stripped, so there is nothing to catch there.
+        final (_, escaped) = await _dispatchRefusedRead(
+          (result) => {...result, Keys.resultType: ResultTypes.inputRequired},
+        );
+
+        expect(escaped.single, isA<AssertionError>());
+        expect(escaped.single.toString(), contains(ResultTypes.inputRequired));
+      },
+      testOn: '!exe',
+    );
+
+    test('serves input_required on allowed requests', () async {
+      final harness = _DispatcherHarness();
+      for (final (method, response) in [
+        (
+          CallToolRequest.methodName,
+          await harness.dispatch(_callTool('interim'), _initialization()),
+        ),
+        (
+          GetPromptRequest.methodName,
+          await harness.dispatch(_getPrompt('interim'), _initialization()),
+        ),
+        (
+          ReadResourceRequest.methodName,
+          await _dispatchShapedRead(
+            (result) => {
+              ...result,
+              Keys.resultType: ResultTypes.inputRequired,
+              Keys.requestState: 'waiting',
+            },
+          ),
+        ),
+      ]) {
+        final wire = jsonDecode(jsonEncode(response)) as Map<String, Object?>;
+        expect(wire['error'], isNull, reason: method);
+        expect(
+          (wire['result'] as Map<String, Object?>)['resultType'],
+          'input_required',
+          reason: method,
+        );
+      }
+    });
+
+    test('refuses an input request the client cannot answer', () async {
+      final harness = _DispatcherHarness();
+      for (final (tool, capability, required) in [
+        (
+          'asks_to_elicit',
+          'elicitation.form',
+          {
+            'elicitation': {'form': <String, Object?>{}},
+          },
+        ),
+        ('asks_to_sample', 'sampling', {'sampling': <String, Object?>{}}),
+        ('asks_for_roots', 'roots', {'roots': <String, Object?>{}}),
+      ]) {
+        final response = await harness.dispatch(
+          _callTool(tool),
+          _initialization(),
+        );
+
+        final wire = jsonDecode(jsonEncode(response)) as Map<String, Object?>;
+        final error = wire['error'] as Map<String, Object?>;
+        expect(error['code'], -32021, reason: tool);
+        expect(error['message'], contains(capability), reason: tool);
+        final data = error['data'] as Map<String, Object?>;
+        expect(data['requiredCapabilities'], required, reason: tool);
+      }
+    });
+
+    test('requires sampling.tools for tools and toolChoice', () async {
+      for (final field in [Keys.tools, Keys.toolChoice]) {
+        Map<String, Object?> shape(Map<String, Object?> result) => {
+          ...result,
+          Keys.resultType: ResultTypes.inputRequired,
+          Keys.inputRequests: {
+            CreateMessageRequest.methodName: InputRequest.sample(
+              CreateMessageRequest.fromMap({
+                Keys.messages: <Object?>[],
+                Keys.maxTokens: 1,
+                field:
+                    field == Keys.tools
+                        ? <Object?>[]
+                        : ToolChoice(mode: ToolChoiceMode.auto),
+              }),
+            ),
+          },
+        };
+
+        final refused = await _dispatchShapedRead(
+          shape,
+          capabilities: ClientCapabilities(sampling: {}),
+        );
+        final wire = jsonDecode(jsonEncode(refused)) as Map<String, Object?>;
+        final rawError = wire['error'];
+        expect(rawError, isA<Map<String, Object?>>(), reason: field);
+        final error = rawError as Map<String, Object?>;
+        expect(error['code'], -32021, reason: field);
+        expect(error['message'], contains('sampling.tools'), reason: field);
+        final data = error['data'] as Map<String, Object?>;
+        expect(data['requiredCapabilities'], {
+          'sampling': {'tools': <String, Object?>{}},
+        }, reason: field);
+
+        final served = await _dispatchShapedRead(
+          shape,
+          capabilities: ClientCapabilities(
+            sampling: {Keys.tools: <String, Object?>{}},
+          ),
+        );
+        final servedWire =
+            jsonDecode(jsonEncode(served)) as Map<String, Object?>;
+        expect(servedWire['error'], isNull, reason: field);
+      }
+    });
+
+    test('checks every input request, not just the first', () async {
+      final response = await _dispatchShapedRead(
+        (result) => {
+          ...result,
+          Keys.resultType: ResultTypes.inputRequired,
+          Keys.inputRequests: {
+            ElicitRequest.methodName: InputRequest.elicit(
+              ElicitRequest.form(
+                message: 'Fill this in',
+                requestedSchema: ObjectSchema(),
+              ),
+            ),
+            ListRootsRequest.methodName: InputRequest.listRoots(
+              ListRootsRequest(),
+            ),
+          },
+        },
+        capabilities: ClientCapabilities(
+          elicitation: ElicitationCapability(form: {}),
+        ),
+      );
+
+      final wire = jsonDecode(jsonEncode(response)) as Map<String, Object?>;
+      final error = wire['error'] as Map<String, Object?>;
+      expect(error['code'], -32021);
+      expect(error['message'], contains('roots'));
+      final data = error['data'] as Map<String, Object?>;
+      expect(data['requiredCapabilities'], {'roots': <String, Object?>{}});
+    });
+
+    test('serves an input request the client declared', () async {
+      final harness = _DispatcherHarness();
+      final response = await harness.dispatch(
+        _callTool('asks_to_elicit'),
+        _initialization(
+          capabilities: ClientCapabilities(
+            elicitation: ElicitationCapability(form: {}),
+          ),
+        ),
+      );
+
+      expect(response![Keys.error], isNull);
+      expect(_result(response)[Keys.inputRequests], isNotEmpty);
+    });
+
+    test('reads the elicitation mode the way the request does', () async {
+      // A client that declared only url elicitation cannot answer a form
+      // request. `ElicitationRequestSupport.elicit` turns down that one too.
+      final harness = _DispatcherHarness();
+      final urlOnly = _initialization(
+        capabilities: ClientCapabilities(
+          elicitation: ElicitationCapability(url: {}),
+        ),
+      );
+      final refused = await harness.dispatch(
+        _callTool('asks_to_elicit'),
+        urlOnly,
+      );
+
+      final refusedWire =
+          jsonDecode(jsonEncode(refused)) as Map<String, Object?>;
+      final error = refusedWire['error'] as Map<String, Object?>;
+      expect(error['code'], -32021);
+      expect(error['message'], contains('elicitation.form'));
+      expect((error['data'] as Map)['requiredCapabilities'], {
+        'elicitation': {'form': <String, Object?>{}},
+      });
+
+      // And the other way around: a client with only form support cannot
+      // answer a url request.
+      final formOnly = _initialization(
+        capabilities: ClientCapabilities(
+          elicitation: ElicitationCapability(form: {}),
+        ),
+      );
+      final urlRefused = await harness.dispatch(
+        _callTool('asks_to_elicit_by_url'),
+        formOnly,
+      );
+
+      final urlWire =
+          jsonDecode(jsonEncode(urlRefused)) as Map<String, Object?>;
+      final urlError = urlWire['error'] as Map<String, Object?>;
+      expect(urlError['code'], -32021);
+      expect(urlError['message'], contains('elicitation.url'));
+      expect((urlError['data'] as Map)['requiredCapabilities'], {
+        'elicitation': {'url': <String, Object?>{}},
+      });
+
+      final urlServed = await harness.dispatch(
+        _callTool('asks_to_elicit_by_url'),
+        urlOnly,
+      );
+      expect(urlServed![Keys.error], isNull);
+
+      // An empty `elicitation` object still counts as form support, the
+      // backwards compatibility rule the mode split came with.
+      final bare = await harness.dispatch(
+        _callTool('asks_to_elicit'),
+        _initialization(
+          capabilities: ClientCapabilities(
+            elicitation: ElicitationCapability.fromMap({}),
+          ),
+        ),
+      );
+      expect(bare![Keys.error], isNull);
+    });
+
+    test('treats a missing elicitation mode as form', () async {
+      final params = <String, Object?>{
+        Keys.message: 'Fill this in',
+        Keys.requestedSchema: {
+          Keys.type: JsonType.object.typeName,
+          Keys.properties: <String, Object?>{},
+        },
+      };
+      Map<String, Object?> shape(Map<String, Object?> result) => {
+        ...result,
+        Keys.resultType: ResultTypes.inputRequired,
+        Keys.inputRequests: {
+          ElicitRequest.methodName: InputRequest.fromMap({
+            Keys.method: ElicitRequest.methodName,
+            Keys.params: params,
+          }),
+        },
+      };
+
+      final refused = await _dispatchShapedRead(
+        shape,
+        capabilities: ClientCapabilities(
+          elicitation: ElicitationCapability(url: {}),
+        ),
+      );
+      final wire = jsonDecode(jsonEncode(refused)) as Map<String, Object?>;
+      final error = wire['error'] as Map<String, Object?>;
+      expect(error['code'], -32021);
+      expect(error['message'], contains('elicitation.form'));
+
+      final served = await _dispatchShapedRead(
+        shape,
+        capabilities: ClientCapabilities(
+          elicitation: ElicitationCapability(form: {}),
+        ),
+      );
+      final servedWire = jsonDecode(jsonEncode(served)) as Map<String, Object?>;
+      expect(servedWire['error'], isNull);
+    });
+
+    test('rejects unknown elicitation modes', () async {
+      for (final mode in ['voice', 1]) {
+        Map<String, Object?> shape(Map<String, Object?> result) => {
+          ...result,
+          Keys.resultType: ResultTypes.inputRequired,
+          Keys.inputRequests: {
+            ElicitRequest.methodName: InputRequest.fromMap({
+              Keys.method: ElicitRequest.methodName,
+              Keys.params: {
+                Keys.mode: mode,
+                Keys.message: 'Fill this in',
+                Keys.requestedSchema: {
+                  Keys.type: JsonType.object.typeName,
+                  Keys.properties: <String, Object?>{},
+                },
+              },
+            }),
+          },
+        };
+
+        final (response, escaped) = await _dispatchRefusedRead(shape);
+        expect(escaped, everyElement(isA<AssertionError>()), reason: '$mode');
+        final wire = jsonDecode(jsonEncode(response)) as Map<String, Object?>;
+        final rawError = wire['error'];
+        expect(rawError, isA<Map<String, Object?>>(), reason: '$mode');
+        final error = rawError as Map<String, Object?>;
+        expect(error['code'], -32603, reason: '$mode');
+        expect(error['message'], contains('form'), reason: '$mode');
+        expect(error['message'], contains('url'), reason: '$mode');
+      }
+    });
+
+    test('rejects malformed inputRequests', () async {
+      for (final requests in [
+        'not a map',
+        {'answer': 'not a map either'},
+        <int, Object?>{1: InputRequest.listRoots(ListRootsRequest())},
+      ]) {
+        final (response, escaped) = await _dispatchRefusedRead(
+          (result) => {
+            ...result,
+            Keys.resultType: ResultTypes.inputRequired,
+            Keys.inputRequests: requests,
+          },
+        );
+
+        expect(
+          escaped,
+          everyElement(isA<AssertionError>()),
+          reason: '$requests',
+        );
+        final rawError = response![Keys.error];
+        expect(rawError, isA<Map<String, Object?>>(), reason: '$requests');
+        final error = rawError as Map<String, Object?>;
+        expect(
+          error[Keys.code],
+          error_code.INTERNAL_ERROR,
+          reason: '$requests',
+        );
+      }
+    });
+
+    test('rejects an input request the revision has no arm for', () async {
+      // A request with no method at all lands here too.
+      for (final request in [
+        <String, Object?>{Keys.params: <String, Object?>{}},
+        <String, Object?>{Keys.method: 'io.example/ask'},
+      ]) {
+        final (response, escaped) = await _dispatchRefusedRead(
+          (result) => {
+            ...result,
+            Keys.resultType: ResultTypes.inputRequired,
+            Keys.inputRequests: {'answer': request},
+          },
+        );
+
+        expect(
+          escaped,
+          everyElement(isA<AssertionError>()),
+          reason: '$request',
+        );
+        final rawError = response![Keys.error];
+        expect(rawError, isA<Map<String, Object?>>(), reason: '$request');
+        final error = rawError as Map<String, Object?>;
+        expect(error[Keys.code], error_code.INTERNAL_ERROR, reason: '$request');
+        for (final method in [
+          ElicitRequest.methodName,
+          CreateMessageRequest.methodName,
+          ListRootsRequest.methodName,
+        ]) {
+          expect(error[Keys.message], contains(method), reason: '$request');
+        }
+      }
+    });
+
+    test('rejects malformed input request params', () async {
+      for (final (method, params) in [
+        (ElicitRequest.methodName, null),
+        (ElicitRequest.methodName, <Object?>[]),
+        (CreateMessageRequest.methodName, null),
+        (CreateMessageRequest.methodName, <Object?>[]),
+        (ListRootsRequest.methodName, 'not a map'),
+        (
+          ElicitRequest.methodName,
+          {Keys.message: 'Fill this in', Keys.requestedSchema: 'not a schema'},
+        ),
+        (ElicitRequest.methodName, {Keys.mode: 'url', Keys.message: 'Sign in'}),
+        (CreateMessageRequest.methodName, {Keys.maxTokens: 1}),
+        (
+          CreateMessageRequest.methodName,
+          {Keys.messages: <Object?>[], Keys.maxTokens: 'lots'},
+        ),
+        (
+          ElicitRequest.methodName,
+          {
+            Keys.message: 7,
+            Keys.requestedSchema: {
+              Keys.type: 'object',
+              Keys.properties: <String, Object?>{},
+            },
+          },
+        ),
+        (
+          ElicitRequest.methodName,
+          {
+            Keys.message: 'Fill this in',
+            Keys.requestedSchema: {
+              Keys.type: 'string',
+              Keys.properties: <String, Object?>{},
+            },
+          },
+        ),
+        (
+          ElicitRequest.methodName,
+          {
+            Keys.message: 'Fill this in',
+            Keys.requestedSchema: {Keys.type: 'object', Keys.properties: 'no'},
+          },
+        ),
+      ]) {
+        final (response, escaped) = await _dispatchRefusedRead(
+          (result) => {
+            ...result,
+            Keys.resultType: ResultTypes.inputRequired,
+            Keys.inputRequests: {
+              'answer': {
+                Keys.method: method,
+                if (params != null) Keys.params: params,
+              },
+            },
+          },
+        );
+
+        expect(
+          escaped,
+          everyElement(isA<AssertionError>()),
+          reason: '$method: $params',
+        );
+        final wire = jsonDecode(jsonEncode(response)) as Map<String, Object?>;
+        final rawError = wire['error'];
+        expect(
+          rawError,
+          isA<Map<String, Object?>>(),
+          reason: '$method: $params',
+        );
+        final error = rawError as Map<String, Object?>;
+        expect(error['code'], -32603, reason: '$method: $params');
+      }
+    });
+
+    test('rejects an input_required result with no work or state', () async {
+      for (final shape in [
+        <String, Object?>{},
+        <String, Object?>{Keys.requestState: 7},
+      ]) {
+        final (response, escaped) = await _dispatchRefusedRead(
+          (result) => {
+            ...result,
+            Keys.resultType: ResultTypes.inputRequired,
+            ...shape,
+          },
+        );
+
+        expect(escaped, everyElement(isA<AssertionError>()), reason: '$shape');
+        final wire = jsonDecode(jsonEncode(response)) as Map<String, Object?>;
+        final rawError = wire['error'];
+        expect(rawError, isA<Map<String, Object?>>(), reason: '$shape');
+        final error = rawError as Map<String, Object?>;
+        expect(error['code'], -32603, reason: '$shape');
+      }
+    });
+
+    test('serves empty inputRequests and string requestState', () async {
+      for (final shape in [
+        <String, Object?>{Keys.inputRequests: <String, Object?>{}},
+        <String, Object?>{Keys.requestState: 'waiting'},
+      ]) {
+        final response = await _dispatchShapedRead(
+          (result) => {
+            ...result,
+            Keys.resultType: ResultTypes.inputRequired,
+            ...shape,
+          },
+        );
+
+        final wire = jsonDecode(jsonEncode(response)) as Map<String, Object?>;
+        expect(wire['error'], isNull, reason: '$shape');
+      }
+    });
+
+    test('leaves input_required alone on an earlier revision', () async {
+      final harness = _DispatcherHarness();
+      final response = await harness.dispatch(
+        _callTool('asks_to_elicit'),
+        _initialization(protocolVersion: ProtocolVersion.v2025_11_25),
+      );
+
+      expect(response![Keys.error], isNull);
+      expect(_result(response)[Keys.inputRequests], isNotEmpty);
     });
 
     test('shuts the server down after a dispatch', () async {
@@ -667,6 +1253,7 @@ void main() {
           },
           _initialization(
             capabilities: ClientCapabilities(roots: RootsCapabilities()),
+            protocolVersion: ProtocolVersion.v2025_11_25,
           ),
           _RootsTrackingDispatcherServer.new,
         );
@@ -855,12 +1442,19 @@ final class _DispatcherHarness {
     Map<String, Object?> message,
     MCPServerInitialization initialization, {
     void Function(Map<String, Object?> notification)? onNotification,
-  }) => handleRequestScopedMessage(message, initialization, (channel) {
-    final server = _DispatcherTestServer(channel);
-    if (pickedLogLevel != null) server.loggingLevel = pickedLogLevel;
-    servers.add(server);
-    return server;
-  }, onNotification: onNotification);
+    FutureOr<RpcException?> Function(MCPServer server)? beforeDispatch,
+  }) => handleRequestScopedMessage(
+    message,
+    initialization,
+    (channel) {
+      final server = _DispatcherTestServer(channel);
+      if (pickedLogLevel != null) server.loggingLevel = pickedLogLevel;
+      servers.add(server);
+      return server;
+    },
+    onNotification: onNotification,
+    beforeDispatch: beforeDispatch,
+  );
 }
 
 /// A server with tools which observe the request-scoped lifecycle.
@@ -872,7 +1466,12 @@ final class _DispatcherTestServer extends TestMCPServer
 
   @override
   CompleteResult handleComplete(CompleteRequest request) =>
-      CompleteResult(completion: Completion(values: const []));
+      request.argument.name == 'input_required'
+          ? CompleteResult.fromMap({
+            Keys.completion: Completion(values: const []),
+            Keys.resultType: ResultTypes.inputRequired,
+          })
+          : CompleteResult(completion: Completion(values: const []));
 
   /// How many [testNotification] notifications this server received.
   int testNotifications = 0;
@@ -911,10 +1510,54 @@ final class _DispatcherTestServer extends TestMCPServer
     );
     registerTool(
       Tool(name: 'interim', inputSchema: ObjectSchema()),
+      (_) => InputRequiredResult(requestState: 'waiting'),
+    );
+    for (final entry
+        in {
+          'asks_to_elicit': InputRequest.elicit(
+            ElicitRequest.form(
+              message: 'What is your name?',
+              requestedSchema: ObjectSchema(
+                properties: {'name': StringSchema()},
+              ),
+            ),
+          ),
+          'asks_to_sample': InputRequest.sample(
+            CreateMessageRequest(messages: [], maxTokens: 1),
+          ),
+          'asks_for_roots': InputRequest.listRoots(ListRootsRequest()),
+        }.entries) {
+      registerTool(
+        Tool(name: entry.key, inputSchema: ObjectSchema()),
+        (_) => CallToolResult.fromMap({
+          Keys.content: [TextContent(text: 'waiting')],
+          Keys.resultType: ResultTypes.inputRequired,
+          Keys.inputRequests: {'answer': entry.value},
+        }),
+      );
+    }
+    registerTool(
+      Tool(name: 'asks_to_elicit_by_url', inputSchema: ObjectSchema()),
       (_) => CallToolResult.fromMap({
         Keys.content: [TextContent(text: 'waiting')],
         Keys.resultType: ResultTypes.inputRequired,
+        Keys.inputRequests: {
+          'answer': InputRequest.elicit(
+            ElicitRequest.url(
+              message: 'Sign in',
+              url: 'https://example.com/sign-in',
+              elicitationId: 'e1',
+            ),
+          ),
+        },
       }),
+    );
+    // Registered directly, not by mixing in `PromptsSupport`: the guard
+    // dispatches on the method, and the mixin would also change what this
+    // server advertises. Other tests here assert on those capabilities.
+    registerRequestHandler<GetPromptRequest, GetPromptResponse>(
+      GetPromptRequest.methodName,
+      (_) => InputRequiredResult(requestState: 'waiting'),
     );
     registerTool(
       Tool(name: 'bad_meta', inputSchema: ObjectSchema()),
@@ -1033,6 +1676,23 @@ final class _ShapedListServer extends TestMCPServer with ToolsSupport {
       );
 }
 
+Map<String, Object?> _complete(String argumentName) => {
+  Keys.jsonrpc: '2.0',
+  Keys.id: 1,
+  Keys.method: CompleteRequest.methodName,
+  Keys.params: CompleteRequest(
+    ref: ResourceTemplateReference(uri: 'file:///{name}'),
+    argument: CompletionArgument(name: argumentName, value: ''),
+  ),
+};
+
+Map<String, Object?> _getPrompt(String name) => {
+  Keys.jsonrpc: '2.0',
+  Keys.id: 1,
+  Keys.method: GetPromptRequest.methodName,
+  Keys.params: {Keys.name: name},
+};
+
 Map<String, Object?> _callTool(
   String name, {
   Map<String, Object?> arguments = const {},
@@ -1093,12 +1753,31 @@ Map<String, Object?> _result(Map<String, Object?>? response) =>
 /// Dispatches a `resources/read` to a server whose result is passed through
 /// [shape] first, so a test can say what the handler itself already set.
 Future<Map<String, Object?>?> _dispatchShapedRead(
-  Map<String, Object?> Function(Map<String, Object?> result) shape,
-) => handleRequestScopedMessage(
+  Map<String, Object?> Function(Map<String, Object?> result) shape, {
+  ClientCapabilities? capabilities,
+}) => handleRequestScopedMessage(
   _readResource(),
-  _initialization(),
+  _initialization(capabilities: capabilities),
   (channel) => _ShapedReadServer(channel, shape),
 );
+
+/// Dispatches [shape] the way [_dispatchShapedRead] does, and returns the
+/// answer next to whatever the dispatcher let reach the zone.
+///
+/// A malformed `input_required` asserts on its way out. Collecting that
+/// assertion lets a test read the answer without it failing the test. A build
+/// with asserts disabled collects nothing.
+Future<(Map<String, Object?>?, List<Object>)> _dispatchRefusedRead(
+  Map<String, Object?> Function(Map<String, Object?> result) shape, {
+  ClientCapabilities? capabilities,
+}) async {
+  final escaped = <Object>[];
+  Map<String, Object?>? response;
+  await runZonedGuarded(() async {
+    response = await _dispatchShapedRead(shape, capabilities: capabilities);
+  }, (error, _) => escaped.add(error));
+  return (response, escaped);
+}
 
 /// Dispatches a `tools/list` to a server whose result is passed through
 /// [shape] first, so a test can say what the handler itself already set.

@@ -4,6 +4,7 @@
 
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp/src/utils/constants.dart';
+import 'package:json_rpc_2/error_code.dart' as error_code;
 import 'package:test/test.dart';
 
 final class _RequestingServer extends MCPServer
@@ -27,10 +28,14 @@ final class _RequestingServer extends MCPServer
   }
 }
 
+/// Calls [name] on [protocolVersion]. It defaults to a revision with the
+/// requests these tools send, so a capability test reaches the capability
+/// check.
 Future<Map<String, Object?>?> _callTool(
   String name,
-  ClientCapabilities capabilities,
-) => handleRequestScopedMessage(
+  ClientCapabilities capabilities, {
+  ProtocolVersion protocolVersion = ProtocolVersion.v2025_11_25,
+}) => handleRequestScopedMessage(
   {
     Keys.jsonrpc: '2.0',
     Keys.id: 1,
@@ -38,7 +43,7 @@ Future<Map<String, Object?>?> _callTool(
     Keys.params: {Keys.name: name},
   },
   MCPServerInitialization(
-    protocolVersion: ProtocolVersion.v2026_07_28,
+    protocolVersion: protocolVersion,
     clientCapabilities: capabilities,
   ),
   _RequestingServer.new,
@@ -73,20 +78,46 @@ void main() {
     },
   );
 
-  test('a declared capability reaches the transport instead', () async {
-    // The request-scoped transport cannot carry a server to client request, so
-    // it answers with its own error. Reaching that error is what shows the
-    // guard let the request through.
-    final result = await _callTool(
-      'test/sample',
+  test('2026-07-28 rejects sampling before capability checks', () async {
+    for (final capabilities in [
+      ClientCapabilities(),
       ClientCapabilities(sampling: {}),
-    );
+    ]) {
+      final result = await _callTool(
+        'test/sample',
+        capabilities,
+        protocolVersion: ProtocolVersion.v2026_07_28,
+      );
 
-    final error = result![Keys.error] as Map<String, Object?>;
-    expect(
-      error[Keys.code],
-      isNot(McpErrorCodes.missingRequiredClientCapability),
-    );
-    expect(error[Keys.message], contains('request-scoped transport'));
+      final error = result![Keys.error] as Map<String, Object?>;
+      expect(error[Keys.code], error_code.INTERNAL_ERROR);
+      expect(
+        error[Keys.message],
+        contains(
+          '2026-07-28 does not have '
+          '${CreateMessageRequest.methodName}',
+        ),
+      );
+    }
+  });
+
+  test('2026-07-28 rejects roots before capability checks', () async {
+    for (final capabilities in [
+      ClientCapabilities(),
+      ClientCapabilities(roots: RootsCapabilities()),
+    ]) {
+      final result = await _callTool(
+        'test/roots',
+        capabilities,
+        protocolVersion: ProtocolVersion.v2026_07_28,
+      );
+
+      final error = result![Keys.error] as Map<String, Object?>;
+      expect(error[Keys.code], error_code.INTERNAL_ERROR);
+      expect(
+        error[Keys.message],
+        contains('2026-07-28 does not have ${ListRootsRequest.methodName}'),
+      );
+    }
   });
 }

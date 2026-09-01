@@ -30,6 +30,7 @@ part 'tools.dart';
 enum ProtocolVersion {
   v2024_11_05(
     '2024-11-05',
+    supportsStreamableHttp: false,
     addedMethods: {
       CompleteRequest.methodName,
       InitializeRequest.methodName,
@@ -57,10 +58,15 @@ enum ProtocolVersion {
       ListToolsRequest.methodName,
     },
   ),
-  v2025_03_26('2025-03-26'),
-  v2025_06_18('2025-06-18', addedMethods: {ElicitRequest.methodName}),
+  v2025_03_26('2025-03-26', supportsStreamableHttp: false),
+  v2025_06_18(
+    '2025-06-18',
+    supportsStreamableHttp: false,
+    addedMethods: {ElicitRequest.methodName},
+  ),
   v2025_11_25(
     '2025-11-25',
+    supportsStreamableHttp: false,
     addedMethods: {
       ElicitationCompleteNotification.methodName,
       'notifications/tasks/status',
@@ -72,12 +78,14 @@ enum ProtocolVersion {
   ),
   v2026_07_28(
     '2026-07-28',
+    supportsStreamableHttp: true,
     addedMethods: {
       SubscriptionsAcknowledgedNotification.methodName,
       DiscoverRequest.methodName,
       SubscriptionsListenRequest.methodName,
     },
     removedMethods: {
+      ElicitRequest.methodName,
       InitializeRequest.methodName,
       SetLevelRequest.methodName,
       ElicitationCompleteNotification.methodName,
@@ -87,6 +95,8 @@ enum ProtocolVersion {
       PingRequest.methodName,
       SubscribeRequest.methodName,
       UnsubscribeRequest.methodName,
+      ListRootsRequest.methodName,
+      CreateMessageRequest.methodName,
       'tasks/cancel',
       'tasks/get',
       'tasks/list',
@@ -96,21 +106,31 @@ enum ProtocolVersion {
 
   const ProtocolVersion(
     this.versionString, {
+    required this.supportsStreamableHttp,
     this.addedMethods = const {},
     this.removedMethods = const {},
   });
 
+  /// Whether this package's Streamable HTTP transport supports this revision.
+  final bool supportsStreamableHttp;
+
   /// The methods this revision introduced.
   final Set<String> addedMethods;
 
-  /// The methods this revision took out.
+  /// The methods this revision stopped accepting.
+  ///
+  /// A method belongs here even when the revision kept its type, as long as it
+  /// took away the way to send it. 2026-07-28 keeps [ElicitRequest],
+  /// [ListRootsRequest] and [CreateMessageRequest] for the [InputRequest] an
+  /// [InputRequiredResult] carries, and none of the three can be sent on its
+  /// own there.
   final Set<String> removedMethods;
 
-  /// Whether [method] is part of this revision.
+  /// Whether [method] is one this revision accepts.
   ///
   /// Walks back from this revision to the first one, so a method holds until
-  /// some later revision removes it. A method no revision ever added is not
-  /// part of any of them.
+  /// some later revision lists it in [removedMethods]. A method no revision
+  /// ever added is not part of any of them.
   bool methodIsValid(String method) {
     for (var version = this; ; version = values[version.index - 1]) {
       if (version.removedMethods.contains(method)) return false;
@@ -293,6 +313,13 @@ extension type Result._(Map<String, Object?> _value) {
   /// value is reported here as "complete".
   String get resultType =>
       _value[Keys.resultType] as String? ?? ResultTypes.complete;
+
+  /// Whether the server asked for more input before it can answer, which makes
+  /// this an [InputRequiredResult].
+  ///
+  /// An `is` check cannot tell that apart, because these are just extension
+  /// types and they share the runtime type `Map<String, Object?>`.
+  bool get isInputRequired => resultType == ResultTypes.inputRequired;
 }
 
 /// A response that indicates success but carries no data.
