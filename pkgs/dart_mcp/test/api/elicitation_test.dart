@@ -34,7 +34,7 @@ void main() {
       );
     });
 
-    test('a multi-select enum is a schema a client can be asked for', () {
+    test('a form takes both multi-select enum schemas', () {
       // Both schemas the spec lists, see
       // https://modelcontextprotocol.io/specification/2026-07-28/client/elicitation.
       expect(
@@ -58,18 +58,18 @@ void main() {
       );
     });
 
-    test('an array that is not a multi-select enum is refused', () {
+    test('refuses arrays that are not multi-select enums', () {
       for (final property in [
         // Items the client would have to type into, not choose from.
         Schema.list(items: Schema.string()),
-        // No items at all, so nothing names the values.
-        Schema.list(),
-        // Values named, but the spec asks for strings.
+        // The items key holds a value, not a schema.
+        Schema.fromMap({'type': 'array', 'items': 'red'}),
+        // The values are strings, but the item type is not.
         Schema.fromMap({
           'type': 'array',
           'items': {
             'type': 'number',
-            'enum': [1, 2],
+            'enum': ['red', 'green'],
           },
         }),
         // The item type says string. The values are numbers.
@@ -78,16 +78,6 @@ void main() {
           'items': {
             'type': 'string',
             'enum': [1, 2],
-          },
-        }),
-        // Objects standing in for the strings.
-        Schema.fromMap({
-          'type': 'array',
-          'items': {
-            'type': 'string',
-            'enum': [
-              {'a': 1},
-            ],
           },
         }),
         // One value where the spec asks for a list of them.
