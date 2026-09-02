@@ -4,6 +4,8 @@
   schemas built from sets or lazy iterables can be JSON encoded.
 - Split the Streamable HTTP implementation into client and server libraries
   without changing its public API.
+- Stop sending `notifications/roots/list_changed` to a server that speaks
+  2026-07-28. An unsettled connection still gets it.
 - **BREAKING**:
   - `MCPBase` (including the `MCPServer.fromStreamChannel` and
     `ServerConnection.fromStreamChannel` constructors),

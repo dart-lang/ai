@@ -65,6 +65,87 @@ void main() {
     // complete.
     await environment.shutdown();
   });
+
+  test('skips a 2026-07-28 server', () async {
+    final environment = TestEnvironment(
+      TestMCPClientWithRoots(),
+      TestMCPServer.new,
+    );
+    await environment.initializeServer();
+
+    final events = <RootsListChangedNotification?>[];
+    final subscription = environment.server.rootsListChanged!.listen(
+      events.add,
+    );
+    addTearDown(subscription.cancel);
+
+    // The version is assignable because a transport can settle it outside the
+    // handshake.
+    environment.serverConnection.protocolVersion = ProtocolVersion.v2026_07_28;
+    expect(
+      environment.client.addRoot(Root(uri: 'test://a', name: 'a')),
+      isTrue,
+    );
+    await pumpEventQueue();
+    expect(events, isEmpty, reason: 'the revision dropped this notification');
+
+    environment.serverConnection.protocolVersion = ProtocolVersion.v2025_11_25;
+    expect(
+      environment.client.addRoot(Root(uri: 'test://b', name: 'b')),
+      isTrue,
+    );
+    await pumpEventQueue();
+    expect(events, hasLength(1));
+  });
+
+  test('tells a server with no settled version', () async {
+    final environment = TestEnvironment(
+      TestMCPClientWithRoots(),
+      TestMCPServer.new,
+    );
+    await environment.initializeServer();
+
+    final events = <RootsListChangedNotification?>[];
+    final subscription = environment.server.rootsListChanged!.listen(
+      events.add,
+    );
+    addTearDown(subscription.cancel);
+
+    environment.serverConnection.protocolVersion = null;
+    expect(
+      environment.client.addRoot(Root(uri: 'test://a', name: 'a')),
+      isTrue,
+    );
+    await pumpEventQueue();
+
+    expect(events, hasLength(1));
+  });
+
+  test('carries on past a server it skips', () async {
+    final client = TestMCPClientWithRoots();
+    final one = TestEnvironment(client, TestMCPServer.new);
+    await one.initializeServer();
+    final two = TestEnvironment(client, TestMCPServer.new);
+    await two.initializeServer();
+
+    // Skip the first connection the loop walks. A send that stops on a
+    // skipped one never reaches the second.
+    final (left, told) =
+        client.connections.first == one.serverConnection
+            ? (one, two)
+            : (two, one);
+
+    final events = <RootsListChangedNotification?>[];
+    final subscription = told.server.rootsListChanged!.listen(events.add);
+    addTearDown(subscription.cancel);
+
+    left.serverConnection.protocolVersion = ProtocolVersion.v2026_07_28;
+    expect(told.serverConnection.protocolVersion, ProtocolVersion.v2025_11_25);
+    expect(client.addRoot(Root(uri: 'test://a', name: 'a')), isTrue);
+    await pumpEventQueue();
+
+    expect(events, hasLength(1));
+  });
 }
 
 final class TestMCPClientWithRoots extends TestMCPClient with RootsSupport {}
