@@ -9,8 +9,10 @@
 /// Every POST carries a single JSON-RPC request or notification along with
 /// its own client context. There is no session state between requests. A
 /// request is answered on an SSE response stream if its handler emits related
-/// notifications, and with a JSON body otherwise. The list and resource change
-/// notifications reach `onNotification` alone.
+/// notifications, and with a JSON body otherwise. List and resource change
+/// notifications reach `onNotification`, and a successful
+/// `subscriptions/listen` request also keeps its SSE response open for the
+/// changes it accepted.
 ///
 /// A client posts with `streamableHttpClientChannel`. JSON replies use
 /// `jsonDecode` and SSE replies use `sseMessageStream`.
