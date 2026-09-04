@@ -1663,6 +1663,23 @@ void main() {
       );
     });
 
+    test('rejects cast client capabilities before opening a channel', () {
+      final capabilities =
+          <String, Object?>{
+                'extensions': <String, Object?>{'tasks': <String, Object?>{}},
+              }
+              as ClientCapabilities;
+
+      expect(
+        () => streamableHttpClientChannel(
+          uri,
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          clientCapabilities: capabilities,
+        ),
+        throwsArgumentError,
+      );
+    });
+
     test('closes an in-flight HTTP request with the channel', () async {
       final wireServer = await ServerSocket.bind(
         InternetAddress.loopbackIPv4,
@@ -3709,6 +3726,36 @@ void main() {
       expect(status, 400);
       expect(errorCode(text), error_code.INVALID_PARAMS);
       expect(servers, isEmpty);
+    });
+
+    test('rejects a malformed extension identifier', () async {
+      final (status, _, text) = await post(
+        headers: headers(listTools),
+        json: body(
+          listTools,
+          capabilities: <String, Object?>{
+            'extensions': <String, Object?>{'tasks': <String, Object?>{}},
+          },
+        ),
+      );
+      expect(status, 400);
+      expect(errorCode(text), error_code.INVALID_PARAMS);
+      expect(servers, isEmpty);
+    });
+
+    test('rejects a non-map extensions value', () async {
+      for (final extensions in <Object?>[<Object?>[], null]) {
+        final (status, _, text) = await post(
+          headers: headers(listTools),
+          json: body(
+            listTools,
+            capabilities: <String, Object?>{'extensions': extensions},
+          ),
+        );
+        expect(status, 400);
+        expect(errorCode(text), error_code.INVALID_PARAMS);
+        expect(servers, isEmpty);
+      }
     });
 
     test('rejects a request without an envelope', () async {

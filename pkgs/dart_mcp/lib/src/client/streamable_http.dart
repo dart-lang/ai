@@ -45,6 +45,9 @@ StreamChannel<Map<String, Object?>> streamableHttpClientChannel(
       '$supportedVersions',
     );
   }
+  final validatedClientCapabilities = ClientCapabilities.fromMap(
+    clientCapabilities as Map<String, Object?>,
+  );
 
   final controller = StreamChannelController<Map<String, Object?>>();
   final httpClient = HttpClient();
@@ -57,7 +60,7 @@ StreamChannel<Map<String, Object?>> streamableHttpClientChannel(
           uri,
           message,
           protocolVersion,
-          clientCapabilities,
+          validatedClientCapabilities,
           clientInfo,
           state,
         ),

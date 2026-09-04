@@ -4,6 +4,56 @@
 
 part of 'api.dart';
 
+final _extensionIdentifierPattern = RegExp(
+  r'^[A-Za-z](?:[A-Za-z0-9-]*[A-Za-z0-9])?'
+  r'(?:\.[A-Za-z](?:[A-Za-z0-9-]*[A-Za-z0-9])?)*'
+  r'/(?:[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?)?$',
+);
+
+Map<String, Object?> _validatedExtensions(Object? extensions) {
+  if (extensions is! Map) {
+    throw ArgumentError.value(
+      extensions,
+      'extensions',
+      'Must be a map keyed by extension identifiers',
+    );
+  }
+  final validated = <String, Object?>{};
+  for (final entry in extensions.entries) {
+    final identifier = entry.key;
+    if (identifier is! String ||
+        !_extensionIdentifierPattern.hasMatch(identifier)) {
+      throw ArgumentError.value(
+        identifier,
+        'extensions',
+        'Must use the vendor-prefix/extension-name format',
+      );
+    }
+    validated[identifier] = entry.value;
+  }
+  return Map.unmodifiable(validated);
+}
+
+Map<String, Object?> _validatedCapabilityMap(
+  Map<String, Object?> capabilities,
+) {
+  final validated = Map<String, Object?>.of(capabilities);
+  if (capabilities.containsKey(Keys.extensions)) {
+    validated[Keys.extensions] = _validatedExtensions(
+      capabilities[Keys.extensions],
+    );
+  }
+  return validated;
+}
+
+ClientCapabilities _validatedClientCapabilities(
+  ClientCapabilities capabilities,
+) => ClientCapabilities.fromMap(capabilities._value);
+
+ServerCapabilities _validatedServerCapabilities(
+  ServerCapabilities capabilities,
+) => ServerCapabilities.fromMap(capabilities._value);
+
 /// This request is sent from the client to the server when it first connects,
 /// asking it to begin initialization.
 extension type InitializeRequest._fromMap(Map<String, Object?> _value)
@@ -17,7 +67,7 @@ extension type InitializeRequest._fromMap(Map<String, Object?> _value)
     MetaWithProgressToken? meta,
   }) => InitializeRequest._fromMap({
     Keys.protocolVersion: protocolVersion.versionString,
-    Keys.capabilities: capabilities,
+    Keys.capabilities: _validatedClientCapabilities(capabilities),
     Keys.clientInfo: clientInfo,
     if (meta != null) Keys.meta: meta,
   });
@@ -31,11 +81,11 @@ extension type InitializeRequest._fromMap(Map<String, Object?> _value)
       ProtocolVersion.tryParse(_value[Keys.protocolVersion] as String? ?? '');
 
   ClientCapabilities get capabilities {
-    final capabilities = _value[Keys.capabilities] as ClientCapabilities?;
+    final capabilities = _value[Keys.capabilities] as Map<String, Object?>?;
     if (capabilities == null) {
       throw ArgumentError('Missing capabilities field in $InitializeRequest.');
     }
-    return capabilities;
+    return ClientCapabilities.fromMap(capabilities);
   }
 
   Implementation get clientInfo {
@@ -58,7 +108,7 @@ extension type InitializeResult.fromMap(Map<String, Object?> _value)
     String? instructions,
   }) => InitializeResult.fromMap({
     Keys.protocolVersion: protocolVersion.versionString,
-    Keys.capabilities: serverCapabilities,
+    Keys.capabilities: _validatedServerCapabilities(serverCapabilities),
     Keys.serverInfo: serverInfo,
     if (instructions != null) Keys.instructions: instructions,
   });
@@ -81,8 +131,9 @@ extension type InitializeResult.fromMap(Map<String, Object?> _value)
     _value[Keys.protocolVersion] = value!.versionString;
   }
 
-  ServerCapabilities get capabilities =>
-      _value[Keys.capabilities] as ServerCapabilities;
+  ServerCapabilities get capabilities => ServerCapabilities.fromMap(
+    _value[Keys.capabilities] as Map<String, Object?>,
+  );
 
   Implementation get serverInfo => _value[Keys.serverInfo] as Implementation;
 
@@ -118,7 +169,7 @@ extension type MetaWithRequestEnvelope.fromMap(Map<String, Object?> _value)
     ProgressToken? progressToken,
   }) => MetaWithRequestEnvelope.fromMap({
     Keys.protocolVersionMeta: protocolVersion.versionString,
-    Keys.clientCapabilitiesMeta: capabilities,
+    Keys.clientCapabilitiesMeta: _validatedClientCapabilities(capabilities),
     if (clientInfo != null) Keys.clientInfoMeta: clientInfo,
     if (logLevel != null) Keys.logLevelMeta: logLevel.name,
     if (progressToken != null) Keys.progressToken: progressToken,
@@ -157,7 +208,7 @@ extension type DiscoverResult.fromMap(Map<String, Object?> _value)
     assert(ttlMs == null || ttlMs >= 0);
     return DiscoverResult.fromMap({
       Keys.supportedVersions: supportedVersions,
-      Keys.capabilities: capabilities,
+      Keys.capabilities: _validatedServerCapabilities(capabilities),
       if (instructions != null) Keys.instructions: instructions,
       if (ttlMs != null) Keys.ttlMs: ttlMs,
       if (cacheScope != null) Keys.cacheScope: cacheScope.name,
@@ -186,11 +237,11 @@ extension type DiscoverResult.fromMap(Map<String, Object?> _value)
 
   /// The capabilities of the server.
   ServerCapabilities get capabilities {
-    final capabilities = _value[Keys.capabilities] as ServerCapabilities?;
+    final capabilities = _value[Keys.capabilities] as Map<String, Object?>?;
     if (capabilities == null) {
       throw ArgumentError('Missing capabilities field in $DiscoverResult.');
     }
-    return capabilities;
+    return ServerCapabilities.fromMap(capabilities);
   }
 
   /// Natural-language guidance describing the server and its features.
@@ -207,7 +258,10 @@ extension type DiscoverResult.fromMap(Map<String, Object?> _value)
 ///
 /// Known capabilities are defined here, in this schema, but this is not a
 /// closed set: any client can define its own, additional capabilities.
-extension type ClientCapabilities.fromMap(Map<String, Object?> _value) {
+extension type ClientCapabilities._fromMap(Map<String, Object?> _value) {
+  factory ClientCapabilities.fromMap(Map<String, Object?> value) =>
+      ClientCapabilities._fromMap(_validatedCapabilityMap(value));
+
   factory ClientCapabilities({
     Map<String, Object?>? experimental,
     RootsCapabilities? roots,
@@ -267,13 +321,19 @@ extension type ClientCapabilities.fromMap(Map<String, Object?> _value) {
   /// format, such as `io.modelcontextprotocol/oauth-client-credentials`, and
   /// values are per-extension settings objects. An empty object indicates
   /// support with no settings.
-  Map<String, Object?>? get extensions =>
-      (_value[Keys.extensions] as Map?)?.cast<String, Object?>();
+  Map<String, Object?>? get extensions {
+    if (!_value.containsKey(Keys.extensions)) return null;
+    return _validatedExtensions(_value[Keys.extensions]);
+  }
 
   /// Sets [extensions], asserting it is null first.
   set extensions(Map<String, Object?>? value) {
     assert(extensions == null);
-    _value[Keys.extensions] = value;
+    if (value == null) {
+      _value.remove(Keys.extensions);
+    } else {
+      _value[Keys.extensions] = _validatedExtensions(value);
+    }
   }
 }
 
@@ -326,7 +386,10 @@ extension type ElicitationCapability.fromMap(Map<String, Object?> _value) {
 ///
 /// Known capabilities are defined here, in this schema, but this is not a
 /// closed set: any server can define its own, additional capabilities.
-extension type ServerCapabilities.fromMap(Map<String, Object?> _value) {
+extension type ServerCapabilities._fromMap(Map<String, Object?> _value) {
+  factory ServerCapabilities.fromMap(Map<String, Object?> value) =>
+      ServerCapabilities._fromMap(_validatedCapabilityMap(value));
+
   factory ServerCapabilities({
     Map<String, Object?>? experimental,
     Completions? completions,
@@ -421,13 +484,19 @@ extension type ServerCapabilities.fromMap(Map<String, Object?> _value) {
   /// format, such as `io.modelcontextprotocol/tasks`, and values are
   /// per-extension settings objects. An empty object indicates support with
   /// no settings.
-  Map<String, Object?>? get extensions =>
-      (_value[Keys.extensions] as Map?)?.cast<String, Object?>();
+  Map<String, Object?>? get extensions {
+    if (!_value.containsKey(Keys.extensions)) return null;
+    return _validatedExtensions(_value[Keys.extensions]);
+  }
 
   /// Sets [extensions] if it is null, otherwise throws.
   set extensions(Map<String, Object?>? value) {
     assert(extensions == null);
-    _value[Keys.extensions] = value;
+    if (value == null) {
+      _value.remove(Keys.extensions);
+    } else {
+      _value[Keys.extensions] = _validatedExtensions(value);
+    }
   }
 }
 

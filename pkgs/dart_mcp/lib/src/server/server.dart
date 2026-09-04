@@ -260,11 +260,21 @@ abstract base class MCPServer extends MCPBase {
             ? ProtocolVersion.latestSupported
             : clientProtocolVersion;
 
+    late final ClientCapabilities clientCapabilities;
+    try {
+      clientCapabilities = request.capabilities;
+      // ignore: avoid_catching_errors
+    } on ArgumentError {
+      throw RpcException.invalidParams(
+        'The initialize request has invalid capabilities',
+      );
+    }
+
     assert(!_initialized.isCompleted);
     await initialize(
       MCPServerInitialization(
         protocolVersion: negotiatedProtocolVersion,
-        clientCapabilities: request.capabilities,
+        clientCapabilities: clientCapabilities,
         clientInfo: request.clientInfo,
       ),
     );

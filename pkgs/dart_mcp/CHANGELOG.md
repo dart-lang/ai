@@ -6,6 +6,9 @@
   without changing its public API.
 - Stop sending `notifications/roots/list_changed` to a server that speaks
   2026-07-28. An unsettled connection still gets it.
+- Validate capability extension identifiers wherever they are written, read or
+  forwarded. An identifier without a vendor prefix is rejected, and the
+  settings under it are left alone.
 - **BREAKING**:
   - `MCPBase` (including the `MCPServer.fromStreamChannel` and
     `ServerConnection.fromStreamChannel` constructors),
