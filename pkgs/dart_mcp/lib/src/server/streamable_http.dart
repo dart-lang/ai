@@ -103,9 +103,7 @@ import 'server.dart';
 /// over the cap is answered with `413 Request Entity Too Large` and not parsed.
 /// It is still read, up to another [maxRequestBodyBytes], so that a body a
 /// little over the cap finishes and is answered on a connection that stays
-/// open. Past that the handler answers and stops reading, in that order:
-/// `dart:io` closes a connection as soon as a body it is still receiving is
-/// cancelled, and a response written after that never reaches the client. A
+/// open. Past that the handler answers and stops reading, in that order. A
 /// client still sending when the connection closes may not get to read the 413.
 /// A body rejected by its media type is read the same way. A negative cap
 /// throws a [RangeError].
@@ -148,20 +146,21 @@ Future<void> handleStreamableHttpRequest(
       ),
       null,
     );
+    final bool fits;
     try {
       // A body that ends within the read is answered on a connection that
       // stays open for the next request.
-      if (await _readBody(
+      fits = await _readBody(
         request,
         maxRequestBodyBytes,
         reject: rejectMediaType,
-      )) {
-        await rejectMediaType();
-      }
+      );
     } on IOException {
       // The client disconnected before its body arrived. There is no
       // response left to write.
+      return;
     }
+    if (fits) await rejectMediaType();
     return;
   }
 

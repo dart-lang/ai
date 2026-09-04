@@ -3831,6 +3831,23 @@ void main() {
       expect(errorCode(text), error_code.INVALID_REQUEST);
     });
 
+    test('answers a late body of the wrong media type', () async {
+      // The media type branch reads through the same helper, so it meets the
+      // same read boundary. Pinning it here keeps the ordering from being lost
+      // if that branch ever stops sharing the helper.
+      final (status, text) = await sendRaw([
+        utf8.encode(
+          rawHead(
+            contentLength: overTheLimit.length,
+            contentType: 'text/plain',
+          ),
+        ),
+        overTheLimit,
+      ], between: (_) => headersSeen.future);
+      expect(status, 415);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+    });
+
     test('reads a smaller overflow to its end', () async {
       const limit = 1024 * 1024;
       customLimit = limit;
