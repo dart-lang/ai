@@ -597,16 +597,21 @@ void main() {
     });
 
     test('answers a callback error on the server request id', () async {
-      final response = await handleRequestScopedMessage(
-        _callTool('roots'),
-        _legacyInitialization(),
-        _LegacyRequestServer.new,
-        onRequest: (_) => throw StateError('callback failed'),
-      ).timeout(const Duration(seconds: 1));
+      final callbackErrors = <Object>[];
+      Map<String, Object?>? response;
+      await runZonedGuarded(() async {
+        response = await handleRequestScopedMessage(
+          _callTool('roots'),
+          _legacyInitialization(),
+          _LegacyRequestServer.new,
+          onRequest: (_) => throw StateError('callback failed'),
+        ).timeout(const Duration(seconds: 1));
+      }, (error, _) => callbackErrors.add(error));
 
       final error = response![Keys.error] as Map<String, Object?>;
       expect(error[Keys.code], error_code.INTERNAL_ERROR);
       expect(error[Keys.message], 'The client request handler failed');
+      expect(callbackErrors, contains(isA<StateError>()));
     });
 
     test('answers a malformed callback response on the request id', () async {
@@ -1423,9 +1428,11 @@ void main() {
       final harness = _DispatcherHarness();
       final response = await harness.dispatch(_discover(), _initialization());
 
-      expect(DiscoverResult.fromMap(_result(response)).supportedVersions, [
-        ProtocolVersion.v2026_07_28.versionString,
-      ], reason: 'earlier revisions negotiate with the initialize handshake');
+      expect(
+        DiscoverResult.fromMap(_result(response)).supportedVersions,
+        [ProtocolVersion.v2026_07_28.versionString],
+        reason: 'earlier revisions negotiate with the initialize handshake',
+      );
     });
 
     test('advertises the capabilities initialization registered', () async {

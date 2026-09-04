@@ -289,7 +289,8 @@ Future<Map<String, Object?>> _answerServerRequest(
       id,
       'The client request handler returned an invalid response',
     );
-  } catch (_) {
+  } catch (error, stackTrace) {
+    Zone.current.handleUncaughtError(error, stackTrace);
     return _errorResponse(id, 'The client request handler failed');
   }
 }
