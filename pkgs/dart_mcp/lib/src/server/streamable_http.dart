@@ -5,6 +5,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:collection/collection.dart';
 import 'package:json_rpc_2/error_code.dart' as error_code;
@@ -44,11 +45,11 @@ import 'server.dart';
 ///
 /// Notifications are acknowledged with `202 Accepted` and not dispatched,
 /// since this protocol revision defines no client-to-server notifications
-/// over HTTP. This handler reads the whole request body into memory. It does
-/// not read the `Origin` header. The specification requires a server to
-/// validate that header and answer with 403: the check needs deployment
-/// knowledge this handler does not have, so it belongs to the embedding
-/// HTTP server, along with authentication and request size limits.
+/// over HTTP. This handler reads a request body into memory, and caps it at
+/// [maxRequestBodyBytes]. It does not read the `Origin` header. The
+/// specification requires a server to validate that header and answer with
+/// 403. The check needs deployment knowledge this handler does not have, so it
+/// belongs to the embedding HTTP server, along with authentication.
 ///
 /// Responses produced by the dispatched server are written unchanged, so an
 /// error a request handler throws reaches the client with whatever payload
@@ -97,13 +98,21 @@ import 'server.dart';
 /// stream to every request and add [onNotification] values to it, allowing a
 /// change produced by one request's server to reach another request's listen
 /// stream.
+///
+/// A single request body is capped at [maxRequestBodyBytes]. A larger body is
+/// answered with `413 Request Entity Too Large` and never parsed. It is still
+/// read to its end first, so the cap bounds what the handler holds and not
+/// what crosses the wire. The default is the 4 MiB the TypeScript and Go SDKs
+/// also default to. A negative cap throws a [RangeError].
 Future<void> handleStreamableHttpRequest(
   HttpRequest request,
   MCPServerFactory serverFactory, {
   void Function(Map<String, Object?> notification)? onNotification,
   Stream<Map<String, Object?>>? subscriptionNotifications,
   Duration listenKeepAliveInterval = const Duration(seconds: 15),
+  int maxRequestBodyBytes = 4 * 1024 * 1024,
 }) async {
+  RangeError.checkNotNegative(maxRequestBodyBytes, 'maxRequestBodyBytes');
   final response = request.response;
   if (request.method != 'POST') {
     response
@@ -146,7 +155,23 @@ Future<void> handleStreamableHttpRequest(
   final Object? decoded;
   String? body;
   try {
-    body = await utf8.decodeStream(request);
+    // The counter bounds what actually arrives. A chunked body carries no
+    // length, so nothing can bound it before the read.
+    final bytes = BytesBuilder(copy: false);
+    var tooLarge = false;
+    await for (final chunk in request) {
+      if (tooLarge) continue;
+      if (bytes.length + chunk.length > maxRequestBodyBytes) {
+        // The rest of the body is still read and dropped as it arrives.
+        // Answering while the client is still sending reaches a connection it
+        // sees reset instead, so the 413 never lands.
+        tooLarge = true;
+        continue;
+      }
+      bytes.add(chunk);
+    }
+    if (tooLarge) return await _rejectTooLarge(response, maxRequestBodyBytes);
+    body = utf8.decode(bytes.takeBytes());
     decoded = jsonDecode(body);
   } on FormatException catch (e) {
     return _reject(
@@ -746,6 +771,24 @@ Future<void> _reject(
     ..write(jsonEncode(exception.serialize(origin)));
   await response.close();
 }
+
+/// Refuses a body over [maxRequestBodyBytes] with `413`.
+///
+/// The specification names no status for an oversized body and allocates no
+/// error code for one. 413 is what the TypeScript and Go SDKs answer with.
+/// The code is the one this transport already refuses a batch with.
+/// TypeScript pairs its 413 with `-32000` instead, which here is
+/// `SERVER_ERROR`, a code [_statusFor] maps to 500.
+Future<void> _rejectTooLarge(HttpResponse response, int maxRequestBodyBytes) =>
+    _reject(
+      response,
+      HttpStatus.requestEntityTooLarge,
+      RpcException(
+        error_code.INVALID_REQUEST,
+        'The request body must not exceed $maxRequestBodyBytes bytes',
+      ),
+      null,
+    );
 
 /// Returns the single value of [name], or `null` if it is missing or was sent
 /// more than once as separate values.

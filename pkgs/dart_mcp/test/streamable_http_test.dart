@@ -3543,6 +3543,223 @@ void main() {
     });
   });
 
+  group('request body limit', () {
+    const defaultLimit = 4 * 1024 * 1024;
+
+    /// A well-formed `tools/list` body, and one padded past it.
+    ///
+    /// The cap is set to [atTheLimit]'s own length below. That puts the first
+    /// test on the boundary itself, and keeps the others just past it instead
+    /// of a megabyte past.
+    final atTheLimit = utf8.encode(jsonEncode(body(listTools)));
+    final overTheLimit = utf8.encode(
+      jsonEncode(body(listTools, params: {'pad': 'x' * 64})),
+    );
+
+    List<int> bodyNearDefault(int difference) => utf8.encode(
+      jsonEncode(
+        body(listTools, params: {'pad': 'x' * (defaultLimit + difference)}),
+      ),
+    );
+
+    late HttpServer capped;
+    late Uri cappedUri;
+    late HttpClient client;
+    late int? customLimit;
+
+    /// The `Content-Length` of each request the capped server received, or
+    /// -1 for a chunked one.
+    ///
+    /// The cap has to hold over both framings, so the tests below cover
+    /// both. Each checks the framing it actually got, without assuming
+    /// [HttpClient] picked the intended one.
+    late List<int> declaredLengths;
+
+    setUp(() async {
+      declaredLengths = [];
+      customLimit = atTheLimit.length;
+      capped = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => capped.close(force: true));
+
+      /// Records how [request] was framed before the handler consumes it.
+      Future<void> serve(HttpRequest request) {
+        declaredLengths.add(request.contentLength);
+        final limit = customLimit;
+        if (limit == null) {
+          return handleStreamableHttpRequest(request, _HttpTestServer.new);
+        }
+        return handleStreamableHttpRequest(
+          request,
+          _HttpTestServer.new,
+          maxRequestBodyBytes: limit,
+        );
+      }
+
+      capped.listen(serve);
+      cappedUri = Uri.http('${capped.address.host}:${capped.port}', '/mcp');
+      client = HttpClient();
+      addTearDown(client.close);
+    });
+
+    /// Posts [payload] to the capped server under a declared
+    /// `Content-Length`.
+    Future<(int, String)> postDeclared(List<int> payload) async {
+      final request = await client.postUrl(cappedUri);
+      headers(listTools).forEach(request.headers.set);
+      request.contentLength = payload.length;
+      request.add(payload);
+      final response = await request.close();
+      return (response.statusCode, await utf8.decodeStream(response));
+    }
+
+    /// Posts [chunks] as one chunked body, flushing between them so that
+    /// each one reaches the handler on its own.
+    ///
+    /// Chunked is the framing an embedder cannot bound ahead of the handler,
+    /// and it carries no length however many chunks it is sent in.
+    Future<(int, String)> postChunks(List<List<int>> chunks) async {
+      final request = await client.postUrl(cappedUri);
+      headers(listTools).forEach(request.headers.set);
+      for (final chunk in chunks) {
+        request.add(chunk);
+        await request.flush();
+      }
+      final response = await request.close();
+      return (response.statusCode, await utf8.decodeStream(response));
+    }
+
+    test('serves a body at the limit', () async {
+      final (status, text) = await postDeclared(atTheLimit);
+      expect(declaredLengths.single, atTheLimit.length);
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('uses the default 4 MiB limit', () async {
+      customLimit = null;
+      final belowDefault = bodyNearDefault(-1024);
+      final aboveDefault = bodyNearDefault(1024);
+
+      expect(belowDefault.length, lessThan(defaultLimit));
+      final (acceptedStatus, acceptedText) = await postDeclared(belowDefault);
+      expect(acceptedStatus, 200);
+      expect(errorCode(acceptedText), isNull);
+
+      expect(aboveDefault.length, greaterThan(defaultLimit));
+      final (rejectedStatus, rejectedText) = await postDeclared(aboveDefault);
+      expect(rejectedStatus, 413);
+      expect(errorCode(rejectedText), error_code.INVALID_REQUEST);
+    });
+
+    test('applies a smaller custom limit', () async {
+      customLimit = atTheLimit.length;
+      final (status, text) = await postDeclared(overTheLimit);
+      expect(status, 413);
+      expect(errorCode(text), error_code.INVALID_REQUEST);
+    });
+
+    test('applies a larger custom limit', () async {
+      final aboveDefault = bodyNearDefault(1024);
+      customLimit = aboveDefault.length;
+      final (status, text) = await postDeclared(aboveDefault);
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('rejects a declared body over the limit with 413', () async {
+      final (status, text) = await postDeclared(overTheLimit);
+      expect(declaredLengths.single, greaterThan(atTheLimit.length));
+      expect(status, 413);
+      expect(errorCode(text), error_code.INVALID_REQUEST);
+      expect(
+        errorMessage(text),
+        contains('must not exceed ${atTheLimit.length} bytes'),
+      );
+      final error = decode(text)[Keys.error] as Map<String, Object?>;
+      expect((error[Keys.data] as Map<String, Object?>)[Keys.request], isNull);
+    });
+
+    test('rejects a chunked body over the limit with 413', () async {
+      final (status, text) = await postChunks([overTheLimit]);
+      expect(declaredLengths.single, -1);
+      expect(status, 413);
+      expect(errorCode(text), error_code.INVALID_REQUEST);
+    });
+
+    test('serves a body split across chunks', () async {
+      // Every chunk has to be kept, not just the one the body ends on.
+      final half = atTheLimit.length ~/ 2;
+      final (status, text) = await postChunks([
+        atTheLimit.sublist(0, half),
+        atTheLimit.sublist(half),
+      ]);
+      expect(declaredLengths.single, -1);
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('rejects chunks that only exceed the limit together', () async {
+      // Neither of these is over the cap on its own, so the counter has to
+      // measure the body and not the chunk it is reading.
+      final (status, text) = await postChunks([atTheLimit, atTheLimit]);
+      expect(declaredLengths.single, -1);
+      expect(status, 413);
+      expect(errorCode(text), error_code.INVALID_REQUEST);
+    });
+
+    test('rejects a chunked body larger than the socket buffers', () async {
+      // The bodies above fit in the socket buffers. This one does not. The
+      // client is still sending when the handler answers, and the rest of
+      // the body has to be read for the answer to arrive at all. 512 KiB
+      // still fit on the machine this was measured on, and 8 MiB did not.
+      final request = await client.postUrl(cappedUri);
+      headers(listTools).forEach(request.headers.set);
+      final chunk = utf8.encode('x' * (64 * 1024));
+      for (var sent = 0; sent < 8 * 1024 * 1024; sent += chunk.length) {
+        request.add(chunk);
+        await request.flush();
+      }
+      final response = await request.close();
+      expect(declaredLengths.single, -1);
+      expect(response.statusCode, 413);
+      expect(
+        errorCode(await utf8.decodeStream(response)),
+        error_code.INVALID_REQUEST,
+      );
+    });
+
+    test('throws on a negative cap', () async {
+      // A negative cap is not an off switch. Without the check, a handler
+      // given one answers 413 to every body that carries a byte.
+      final thrown = Completer<Object>();
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close(force: true));
+      server.listen(
+        (request) => handleStreamableHttpRequest(
+          request,
+          _HttpTestServer.new,
+          maxRequestBodyBytes: -1,
+        ).onError<Object>((error, _) => thrown.complete(error)),
+      );
+
+      // A handler that threw writes nothing, so the response never arrives.
+      // Racing the two lets a handler that answered 413 fail this fast.
+      final unanswered = HttpClient();
+      addTearDown(() => unanswered.close(force: true));
+      final uri = Uri.http('${server.address.host}:${server.port}', '/mcp');
+      final request = await unanswered.postUrl(uri);
+      headers(listTools).forEach(request.headers.set);
+      request.add(atTheLimit);
+      final outcome = await Future.any<Object>([
+        thrown.future,
+        request.close().then((response) => response.statusCode),
+      ]);
+
+      expect(outcome, isRangeError);
+      expect((outcome as RangeError).name, 'maxRequestBodyBytes');
+    });
+  });
+
   group('rejection bodies', () {
     Map<String, Object?> errorData(String text) =>
         (decode(text)[Keys.error] as Map<String, Object?>)[Keys.data]
