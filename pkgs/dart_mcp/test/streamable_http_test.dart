@@ -3162,6 +3162,20 @@ void main() {
       expect(errorCode(text), McpErrorCodes.headerMismatch);
     });
 
+    test('rejects a mismatched header after an earlier one matches', () async {
+      final (status, _, text) = await post(
+        headers: callWithHeaderParamHeaders({
+          'Mcp-Param-Region': 'us-west1',
+          'Mcp-Param-Count': '7',
+        }),
+        json: callWithHeaderParam({'region': 'us-west1', 'count': 42}),
+      );
+      expect(status, 400);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+      expect(errorMessage(text), contains('Mcp-Param-Count'));
+      expect(errorMessage(text), contains('42'));
+    });
+
     test('compares a boolean property', () async {
       final (status, _, text) = await post(
         headers: callWithHeaderParamHeaders({'Mcp-Param-Flag': 'true'}),
