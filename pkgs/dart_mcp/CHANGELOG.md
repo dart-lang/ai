@@ -137,8 +137,8 @@
     before it reads the completed result.
 - Cap the request body in `handleStreamableHttpRequest` at
   `maxRequestBodyBytes`, 4 MiB by default, matching the TypeScript and Go SDKs.
-  Larger bodies get `413` and an invalid request error. Negative caps throw a
-  `RangeError`.
+  Larger bodies get `413` and an invalid request error. The same cap is the
+  discard budget, measured in stream chunks. Negative caps throw a `RangeError`.
 - Add `supportsFormElicitation` and `supportsUrlElicitation` for a server to
   ask before it sends. An empty `elicitation` object still means form, the way
   `elicitation` read before the split.

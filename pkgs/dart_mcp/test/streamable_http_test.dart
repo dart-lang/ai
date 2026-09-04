@@ -8,6 +8,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp/src/utils/constants.dart';
@@ -3566,6 +3567,8 @@ void main() {
     late Uri cappedUri;
     late HttpClient client;
     late int? customLimit;
+    late List<Future<void>> handledRequests;
+    late List<_CountingHttpRequest> receivedRequests;
 
     /// The `Content-Length` of each request the capped server received, or
     /// -1 for a chunked one.
@@ -3577,6 +3580,8 @@ void main() {
 
     setUp(() async {
       declaredLengths = [];
+      handledRequests = [];
+      receivedRequests = [];
       customLimit = atTheLimit.length;
       capped = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       addTearDown(() => capped.close(force: true));
@@ -3584,15 +3589,24 @@ void main() {
       /// Records how [request] was framed before the handler consumes it.
       Future<void> serve(HttpRequest request) {
         declaredLengths.add(request.contentLength);
+        final countedRequest = _CountingHttpRequest(request);
+        receivedRequests.add(countedRequest);
         final limit = customLimit;
         if (limit == null) {
-          return handleStreamableHttpRequest(request, _HttpTestServer.new);
+          final handled = handleStreamableHttpRequest(
+            countedRequest,
+            _HttpTestServer.new,
+          );
+          handledRequests.add(handled);
+          return handled;
         }
-        return handleStreamableHttpRequest(
-          request,
+        final handled = handleStreamableHttpRequest(
+          countedRequest,
           _HttpTestServer.new,
           maxRequestBodyBytes: limit,
         );
+        handledRequests.add(handled);
+        return handled;
       }
 
       capped.listen(serve);
@@ -3707,25 +3721,58 @@ void main() {
       expect(errorCode(text), error_code.INVALID_REQUEST);
     });
 
-    test('rejects a chunked body larger than the socket buffers', () async {
-      // The bodies above fit in the socket buffers. This one does not. The
-      // client is still sending when the handler answers, and the rest of
-      // the body has to be read for the answer to arrive at all. 512 KiB
-      // still fit on the machine this was measured on, and 8 MiB did not.
-      final request = await client.postUrl(cappedUri);
-      headers(listTools).forEach(request.headers.set);
+    test('bounds the drain and preserves 413 for a smaller overflow', () async {
+      const limit = 1024 * 1024;
       final chunk = utf8.encode('x' * (64 * 1024));
-      for (var sent = 0; sent < 8 * 1024 * 1024; sent += chunk.length) {
-        request.add(chunk);
-        await request.flush();
+      customLimit = limit;
+
+      Future<Object> postBytes(
+        int length, {
+        String contentType = 'application/json',
+      }) async {
+        final request = await client.postUrl(cappedUri);
+        final requestHeaders = headers(listTools);
+        requestHeaders['Content-Type'] = contentType;
+        requestHeaders.forEach(request.headers.set);
+        try {
+          for (var sent = 0; sent < length; sent += chunk.length) {
+            request.add(chunk);
+            await request.flush();
+          }
+          final response = await request.close();
+          await response.drain<void>();
+          return response.statusCode;
+        } on IOException catch (error) {
+          return error;
+        }
       }
-      final response = await request.close();
-      expect(declaredLengths.single, -1);
-      expect(response.statusCode, 413);
+
+      final nearbyOutcome = await postBytes(limit + limit ~/ 2);
+      await handledRequests[0];
+      expect(nearbyOutcome, 413);
+      expect(receivedRequests[0].bytesRead, limit + limit ~/ 2);
+
+      final distantOutcome = await postBytes(3 * limit);
+      await handledRequests[1];
+      expect(distantOutcome, anyOf(413, isA<IOException>()));
       expect(
-        errorCode(await utf8.decodeStream(response)),
-        error_code.INVALID_REQUEST,
+        receivedRequests[1].bytesRead,
+        inInclusiveRange(2 * limit, 2 * limit + chunk.length),
       );
+      expect(receivedRequests[1].bytesRead, lessThan(3 * limit));
+
+      final mediaTypeOutcome = await postBytes(
+        3 * limit,
+        contentType: 'text/plain',
+      );
+      await handledRequests[2];
+      expect(mediaTypeOutcome, anyOf(400, isA<IOException>()));
+      expect(
+        receivedRequests[2].bytesRead,
+        inInclusiveRange(limit, limit + chunk.length),
+      );
+      expect(receivedRequests[2].bytesRead, lessThan(3 * limit));
+      expect(declaredLengths, everyElement(-1));
     });
 
     test('throws on a negative cap', () async {
@@ -4393,6 +4440,43 @@ void main() {
       expect(swallowed, isNotEmpty);
     });
   });
+}
+
+final class _CountingHttpRequest extends Stream<Uint8List>
+    implements HttpRequest {
+  _CountingHttpRequest(this._inner);
+
+  final HttpRequest _inner;
+  int bytesRead = 0;
+
+  @override
+  HttpHeaders get headers => _inner.headers;
+
+  @override
+  String get method => _inner.method;
+
+  @override
+  HttpResponse get response => _inner.response;
+
+  @override
+  StreamSubscription<Uint8List> listen(
+    void Function(Uint8List)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) => _inner.listen(
+    (chunk) {
+      bytesRead += chunk.length;
+      onData?.call(chunk);
+    },
+    onError: onError,
+    onDone: onDone,
+    cancelOnError: cancelOnError,
+  );
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnsupportedError('${invocation.memberName}');
 }
 
 /// Held by `test/notify-then-wait` until a test releases it.

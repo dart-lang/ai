@@ -100,10 +100,12 @@ import 'server.dart';
 /// stream.
 ///
 /// A single request body is capped at [maxRequestBodyBytes]. A larger body is
-/// answered with `413 Request Entity Too Large` and never parsed. It is still
-/// read to its end first, so the cap bounds what the handler holds and not
-/// what crosses the wire. The default is the 4 MiB the TypeScript and Go SDKs
-/// also default to. A negative cap throws a [RangeError].
+/// answered with `413 Request Entity Too Large` and never parsed. To let a body
+/// just over the limit finish sending and receive the response, the handler
+/// discards chunks until their total reaches another [maxRequestBodyBytes],
+/// then stops reading. The default is the 4 MiB the TypeScript and Go SDKs also
+/// default to. A body rejected by its media type is also read only to this cap.
+/// A negative cap throws a [RangeError].
 Future<void> handleStreamableHttpRequest(
   HttpRequest request,
   MCPServerFactory serverFactory, {
@@ -135,7 +137,13 @@ Future<void> handleStreamableHttpRequest(
   }
   if (contentType?.mimeType != ContentType.json.mimeType) {
     try {
-      await request.drain<void>();
+      if (maxRequestBodyBytes > 0) {
+        var discardedBytes = 0;
+        await for (final chunk in request) {
+          discardedBytes += chunk.length;
+          if (discardedBytes >= maxRequestBodyBytes) break;
+        }
+      }
     } on IOException {
       // The client disconnected before its body arrived. There is no
       // response left to write.
@@ -159,13 +167,19 @@ Future<void> handleStreamableHttpRequest(
     // length, so nothing can bound it before the read.
     final bytes = BytesBuilder(copy: false);
     var tooLarge = false;
+    var discardedBytes = 0;
     await for (final chunk in request) {
-      if (tooLarge) continue;
+      if (tooLarge) {
+        discardedBytes += chunk.length;
+        if (discardedBytes >= maxRequestBodyBytes) break;
+        continue;
+      }
       if (bytes.length + chunk.length > maxRequestBodyBytes) {
-        // The rest of the body is still read and dropped as it arrives.
-        // Answering while the client is still sending reaches a connection it
-        // sees reset instead, so the 413 never lands.
+        // This drain lets a body just over the limit finish before the 413 is
+        // written. The configured limit also sets when draining stops.
         tooLarge = true;
+        discardedBytes = chunk.length;
+        if (discardedBytes >= maxRequestBodyBytes) break;
         continue;
       }
       bytes.add(chunk);
