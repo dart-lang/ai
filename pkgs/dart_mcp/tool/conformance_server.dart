@@ -34,6 +34,16 @@ Future<void> main(List<String> arguments) async {
   httpServer.listen((request) => unawaited(_handleRequest(request)));
 }
 
+/// Carries the changes one request's server makes to the listen streams open
+/// on other requests.
+///
+/// A request-scoped server lives for one message. A `tools/call` that
+/// mutates a list and a `subscriptions/listen` holding a stream open are two
+/// different servers. Every notification goes in here, and each listen request
+/// reads back the ones its acknowledged filter selects.
+final _subscriptionNotifications =
+    StreamController<Map<String, Object?>>.broadcast();
+
 const _path = '/mcp';
 const _imageMimeType = 'image/png';
 const _audioMimeType = 'audio/wav';
@@ -57,6 +67,10 @@ const _progressTool = 'test_tool_with_progress';
 const _missingCapabilityTool = 'test_missing_capability';
 const _headerTool = 'test_x_mcp_header';
 const _jsonSchemaTool = 'json_schema_2020_12_tool';
+const _toolChangeTool = 'test_trigger_tool_change';
+const _promptChangeTool = 'test_trigger_prompt_change';
+const _addedTool = 'test_added_tool';
+const _addedPrompt = 'test_added_prompt';
 const _inputElicitationTool = 'test_input_required_result_elicitation';
 const _inputSamplingTool = 'test_input_required_result_sampling';
 const _inputRootsTool = 'test_input_required_result_list_roots';
@@ -168,7 +182,12 @@ Future<void> _handleRequest(HttpRequest request) async {
       return;
     }
 
-    await handleStreamableHttpRequest(request, _ConformanceServer.new);
+    await handleStreamableHttpRequest(
+      request,
+      _ConformanceServer.new,
+      onNotification: _subscriptionNotifications.add,
+      subscriptionNotifications: _subscriptionNotifications.stream,
+    );
   } catch (error) {
     stderr.writeln(error);
   }
@@ -196,7 +215,12 @@ bool _isLocalUri(Uri? uri) =>
         uri.host == InternetAddress.loopbackIPv6.address);
 
 base class _ConformanceServer extends MCPServer
-    with ToolsSupport, ResourcesSupport, PromptsSupport, CompletionsSupport {
+    with
+        ToolsSupport,
+        ResourcesSupport,
+        PromptsSupport,
+        CompletionsSupport,
+        SubscriptionsSupport {
   _ConformanceServer(super.channel)
     : super.fromStreamChannel(
         implementation: Implementation(
@@ -394,6 +418,47 @@ base class _ConformanceServer extends MCPServer
       ),
       (_) => CallToolResult(content: [TextContent(text: _jsonSchemaTool)]),
       validateArguments: false,
+    );
+    // server-stateless calls these two on a second request to change a list
+    // while it holds a subscriptions/listen stream open on the first.
+    registerTool(
+      Tool(
+        name: _toolChangeTool,
+        description: _toolChangeTool,
+        inputSchema: ObjectSchema(),
+      ),
+      (_) {
+        registerTool(
+          Tool(
+            name: _addedTool,
+            description: _addedTool,
+            inputSchema: ObjectSchema(),
+          ),
+          (_) => CallToolResult(content: [TextContent(text: _addedTool)]),
+        );
+        return CallToolResult(content: [TextContent(text: _addedTool)]);
+      },
+    );
+    registerTool(
+      Tool(
+        name: _promptChangeTool,
+        description: _promptChangeTool,
+        inputSchema: ObjectSchema(),
+      ),
+      (_) {
+        addPrompt(
+          Prompt(name: _addedPrompt, description: _addedPrompt),
+          (_) => GetPromptResult(
+            messages: [
+              PromptMessage(
+                role: Role.user,
+                content: TextContent(text: _addedPrompt),
+              ),
+            ],
+          ),
+        );
+        return CallToolResult(content: [TextContent(text: _addedPrompt)]);
+      },
     );
   }
 
