@@ -71,7 +71,7 @@ void main() {
           subscriptionNotifications.add(notification);
         },
         subscriptionNotifications: subscriptionNotifications.stream,
-        listenKeepAliveInterval: const Duration(milliseconds: 50),
+        keepAliveInterval: const Duration(milliseconds: 50),
       ),
     );
     addTearDown(() async {
@@ -3502,6 +3502,101 @@ void main() {
       expect(status, 200);
       expect(errorCode(text), isNull);
     });
+
+    test('cancels a request when its SSE response closes', () async {
+      releaseDisconnectHandler = Completer<void>();
+      addTearDown(() {
+        if (!releaseDisconnectHandler.isCompleted) {
+          releaseDisconnectHandler.complete();
+        }
+      });
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(uri);
+      headers(callTool).forEach(request.headers.set);
+      request.headers.set('Mcp-Name', 'test/disconnect');
+      request.write(
+        jsonEncode(body(callTool, params: {Keys.name: 'test/disconnect'})),
+      );
+      final response = await request.close();
+      final firstFrame = Completer<void>();
+      final chunks = StringBuffer();
+      final subscription = response.transform(utf8.decoder).listen((chunk) {
+        chunks.write(chunk);
+        if (!firstFrame.isCompleted && chunks.toString().contains('\n\n')) {
+          firstFrame.complete();
+        }
+      }, onError: (Object _) {});
+      addTearDown(subscription.cancel);
+
+      await firstFrame.future.timeout(const Duration(seconds: 5));
+      expect(events(chunks.toString()), hasLength(1));
+      final server = servers.single;
+      client.close(force: true);
+
+      await server.done.timeout(const Duration(seconds: 5));
+      expect(server.isActive, isFalse);
+      releaseDisconnectHandler.complete();
+      await pumpEventQueue(times: 20);
+      expect(events(chunks.toString()), hasLength(1));
+    });
+
+    test('does not cancel before an SSE response starts', () async {
+      _noStreamHandlerEntered = Completer<void>();
+      _releaseNoStreamHandler = Completer<void>();
+      addTearDown(() {
+        if (!_releaseNoStreamHandler.isCompleted) {
+          _releaseNoStreamHandler.complete();
+        }
+      });
+      final quiet = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => quiet.close(force: true));
+      final handled = Completer<void>();
+      quiet.listen((request) {
+        () async {
+          Timer? keepAlive;
+          try {
+            final handling = handleStreamableHttpRequest(request, (channel) {
+              final server = _NoStreamServer(channel);
+              servers.add(server);
+              return server;
+            });
+            await _noStreamHandlerEntered.future;
+            request.response.bufferOutput = false;
+            keepAlive = Timer.periodic(
+              const Duration(milliseconds: 10),
+              (_) => request.response.write('ready'),
+            );
+            request.response.write('ready');
+            await request.response.flush();
+            await handling;
+          } finally {
+            keepAlive?.cancel();
+            handled.complete();
+          }
+        }().ignore();
+      });
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(
+        Uri.http('${quiet.address.host}:${quiet.port}', '/mcp'),
+      );
+      headers('test/no-stream').forEach(request.headers.set);
+      request.write(jsonEncode(body('test/no-stream')));
+      final response = await request.close();
+      final subscription = response.listen((_) {}, onError: (Object _) {});
+      addTearDown(subscription.cancel);
+      await _noStreamHandlerEntered.future.timeout(const Duration(seconds: 5));
+      final server = servers.single;
+
+      client.close(force: true);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(server.isActive, isTrue);
+
+      _releaseNoStreamHandler.complete();
+      await server.done.timeout(const Duration(seconds: 5));
+      await handled.future.timeout(const Duration(seconds: 5));
+    });
   });
 
   group('malformed bodies', () {
@@ -4181,6 +4276,28 @@ void main() {
 /// Held by `test/notify-then-wait` until a test releases it.
 Completer<void> releaseNotifyThenWait = Completer<void>();
 
+/// Held by `test/disconnect` until its response stream has closed.
+Completer<void> releaseDisconnectHandler = Completer<void>();
+
+Completer<void> _noStreamHandlerEntered = Completer<void>();
+Completer<void> _releaseNoStreamHandler = Completer<void>();
+
+base class _NoStreamServer extends MCPServer {
+  _NoStreamServer(super.channel)
+    : super.fromStreamChannel(
+        implementation: Implementation(
+          name: 'no stream test server',
+          version: '0.1.0',
+        ),
+      ) {
+    registerRequestHandler<Request?, Result?>('test/no-stream', (_) async {
+      _noStreamHandlerEntered.complete();
+      await _releaseNoStreamHandler.future;
+      return EmptyResult();
+    });
+  }
+}
+
 base class _HttpTestServer extends MCPServer
     with LoggingSupport, ToolsSupport, SubscriptionsSupport {
   bool get _declaredSampling => clientCapabilities.sampling != null;
@@ -4365,6 +4482,26 @@ base class _HttpTestServer extends MCPServer
         return CallToolResult(content: [TextContent(text: 'released')]);
       },
     );
+    registerTool(Tool(name: 'test/disconnect', inputSchema: ObjectSchema()), (
+      _,
+    ) async {
+      sendNotification(
+        LoggingMessageNotification.methodName,
+        LoggingMessageNotification(
+          level: LoggingLevel.error,
+          data: 'before disconnect',
+        ),
+      );
+      await releaseDisconnectHandler.future;
+      sendNotification(
+        LoggingMessageNotification.methodName,
+        LoggingMessageNotification(
+          level: LoggingLevel.error,
+          data: 'after disconnect',
+        ),
+      );
+      return CallToolResult(content: [TextContent(text: 'late result')]);
+    });
     registerTool(
       Tool(name: 'test/notify-then-throw', inputSchema: ObjectSchema()),
       (_) {

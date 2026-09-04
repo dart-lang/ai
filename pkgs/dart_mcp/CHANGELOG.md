@@ -310,8 +310,8 @@
 - Answer a request whose handler emits related notifications on an SSE
   response stream. A quiet handler keeps its JSON body. List changes and
   resource updates skip that request's stream, since this revision carries
-  those on a `subscriptions/listen` stream. Does not treat a closed stream as
-  cancellation, which the specification requires.
+  those on a `subscriptions/listen` stream. Closing that stream cancels the
+  request, shutting its server down without a final result.
 - Add `sseMessageStream`, decoding the `message` events of an SSE response
   into JSON objects. Undecodable data becomes an error event without ending
   the stream, though `await for` stops on the first one.
