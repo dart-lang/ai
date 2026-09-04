@@ -45,6 +45,10 @@ final _subscriptionNotifications =
     StreamController<Map<String, Object?>>.broadcast();
 final _fixtureState = _FixtureState();
 
+/// Carries fixture mutations between request-scoped servers.
+///
+/// Mutation handlers write the flags. Later servers read them so capabilities
+/// added by one request remain visible to subsequent requests.
 final class _FixtureState {
   bool toolAdded = false;
   bool promptAdded = false;
