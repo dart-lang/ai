@@ -75,15 +75,12 @@ typedef MCPServerFactory =
 /// [onNotification] are reported as uncaught errors and do not fail the
 /// exchange.
 ///
-/// Requests from the server back to the client, such as `roots/list`, cannot
-/// be answered within a single-message exchange: they fail with an
-/// [RpcException] inside their handler, or with a [StateError] if the exchange
-/// has already been torn down. When the negotiated revision does not have one,
-/// [MCPServer.listRoots], [MCPServer.createMessage], and
-/// [ElicitationRequestSupport.elicit] refuse it before it gets this far.
-/// 2026-07-28 has none of the three. It dropped `ping` as well, and
-/// [MCPBase.ping] does not read the revision, so a ping still fails inside its
-/// handler.
+/// On revisions before 2026-07-28, requests from the server back to the client
+/// are passed to [onRequest]. Its response must be a JSON-RPC response carrying
+/// the request id. A callback error or an invalid response fails the server's
+/// request with an internal error. A response completed after the exchange has
+/// closed is discarded. Without [onRequest], server requests fail immediately.
+/// The callback is not used on 2026-07-28.
 ///
 /// If [beforeDispatch] is given, it receives the initialized server and runs
 /// before [message] is delivered. A non-`null` result stops dispatch: requests
@@ -96,13 +93,13 @@ typedef MCPServerFactory =
 /// request-scoped is the transport's job. Errors thrown by [serverFactory] or
 /// by [MCPServer.initialize] propagate to the caller; a server that was
 /// created is shut down first.
-// TODO: Route server-to-client requests on revisions before 2026-07-28.
-// https://github.com/dart-lang/ai/issues/162
 Future<Map<String, Object?>?> handleRequestScopedMessage(
   Map<String, Object?> message,
   MCPServerInitialization initialization,
   MCPServerFactory serverFactory, {
   void Function(Map<String, Object?> notification)? onNotification,
+  FutureOr<Map<String, Object?>> Function(Map<String, Object?> request)?
+  onRequest,
   FutureOr<RpcException?> Function(MCPServer server)? beforeDispatch,
 }) async {
   final object = JsonRpc2Object.fromMap(message);
@@ -137,6 +134,14 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
     );
   }
 
+  final routeServerRequests = switch (initialization.protocolVersion) {
+    ProtocolVersion.v2024_11_05 => true,
+    ProtocolVersion.v2025_03_26 => true,
+    ProtocolVersion.v2025_06_18 => true,
+    ProtocolVersion.v2025_11_25 => true,
+    ProtocolVersion.v2026_07_28 => false,
+  };
+
   // The message is delivered over an in-memory channel so the exchange runs
   // through the same Peer validation and dispatch path as a wire connection.
   final inbound = StreamController<Map<String, Object?>>();
@@ -152,12 +157,13 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
       try {
         switch (JsonRpc2Object.fromMap(data).kind) {
           case JsonRpc2Kind.request:
-            // A request from the server to the client. Nothing can answer it
-            // in a single-message exchange, so fail it back to the server
-            // instead of leaving its handler waiting forever. Late requests
-            // from work which outlives the exchange find the connection
-            // already closed.
-            if (!inbound.isClosed) {
+            if (routeServerRequests && onRequest != null) {
+              unawaited(
+                _answerServerRequest(data, onRequest).then((answer) {
+                  if (!inbound.isClosed) inbound.add(answer);
+                }),
+              );
+            } else if (!inbound.isClosed) {
               inbound.add(
                 _errorResponse(
                   JsonRpc2Request.fromMap(data).id,
@@ -266,6 +272,41 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
     await server.done;
     await subscription.cancel();
   }
+}
+
+/// Returns the answer for a server [request], or an internal error carrying
+/// its id when [onRequest] fails or returns an invalid response.
+Future<Map<String, Object?>> _answerServerRequest(
+  Map<String, Object?> request,
+  FutureOr<Map<String, Object?>> Function(Map<String, Object?> request)
+  onRequest,
+) async {
+  final id = JsonRpc2Request.fromMap(request).id;
+  try {
+    final response = await onRequest(request);
+    if (_isResponseFor(response, id)) return response;
+    return _errorResponse(
+      id,
+      'The client request handler returned an invalid response',
+    );
+  } catch (error, stackTrace) {
+    Zone.current.handleUncaughtError(error, stackTrace);
+    return _errorResponse(id, 'The client request handler failed');
+  }
+}
+
+/// Whether [response] is a JSON-RPC response for [id].
+bool _isResponseFor(Map<String, Object?> response, Object? id) {
+  if (response[Keys.jsonrpc] != '2.0' || response[Keys.id] != id) return false;
+  if (response.containsKey(Keys.method)) return false;
+  final hasResult = response.containsKey(Keys.result);
+  final hasError = response.containsKey(Keys.error);
+  if (hasResult == hasError) return false;
+  if (!hasError) return true;
+  final error = response[Keys.error];
+  return error is Map<String, Object?> &&
+      error[Keys.code] is int &&
+      error[Keys.message] is String;
 }
 
 /// A JSON-RPC error response to the request with the given [id], carrying the
