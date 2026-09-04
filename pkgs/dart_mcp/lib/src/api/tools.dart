@@ -1289,6 +1289,33 @@ extension type EnumSchema.fromMap(Map<String, Object?> _value)
   bool get isTitledMultiSelect =>
       type == JsonType.list &&
       (_value[Keys.items] as Map?)?[Keys.anyOf] != null;
+
+  /// Whether or not this schema is a multi-select enum matching what
+  /// [UntitledMultiSelectEnumSchema.new] and [TitledMultiSelectEnumSchema.new]
+  /// write.
+  ///
+  /// [isUntitledMultiSelect] and [isTitledMultiSelect] stop at the key `items`
+  /// carries, and still hold where reading `values` would throw.
+  bool get isWellFormedMultiSelect {
+    final items = _value[Keys.items];
+    if (items is! Map) return false;
+    if (isUntitledMultiSelect) {
+      if (items[Keys.type] != JsonType.string.typeName) return false;
+      final values = items[Keys.enum_];
+      return values is List && values.every((value) => value is String);
+    }
+    if (isTitledMultiSelect) {
+      final values = items[Keys.anyOf];
+      return values is List &&
+          values.every(
+            (value) =>
+                value is Map &&
+                value[Keys.const_] is String &&
+                value[Keys.title] is String,
+          );
+    }
+    return false;
+  }
 }
 
 /// Common properties for single-select enum schemas.

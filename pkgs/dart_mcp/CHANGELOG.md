@@ -405,6 +405,10 @@
     `progressToken` when they are given, see
     https://modelcontextprotocol.io/specification/2026-07-28/server/discover.
 - Add a local MCP conformance probe under `tool/`.
+- Accept a multi-select enum as an elicitation property.
+  `UntitledMultiSelectEnumSchema` and `TitledMultiSelectEnumSchema` build the
+  two schemas the spec lists, and an array with `items` matching neither is
+  refused.
 - Add list-change subscriptions to the local conformance probe.
 
 ## 0.5.2
