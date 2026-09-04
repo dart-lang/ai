@@ -135,6 +135,9 @@
     supertypes. A subclass or mixin overriding one of those three methods
     declares the wider return type, then checks `isInputRequired` and casts
     before it reads the completed result.
+- Deprecate `MCPServer.listRoots`, `MCPServer.createMessage`, and
+  `ElicitationRequestSupport.elicit` in favor of `InputRequiredResult`. Nothing
+  is removed.
 - Add `supportsFormElicitation` and `supportsUrlElicitation` for a server to
   ask before it sends. An empty `elicitation` object still means form, the way
   `elicitation` read before the split.
