@@ -331,6 +331,21 @@ Future<void> handleStreamableHttpRequest(
       decoded,
     );
   }
+  late final ClientCapabilities clientCapabilities;
+  try {
+    clientCapabilities = ClientCapabilities.fromMap(capabilities);
+    // ignore: avoid_catching_errors
+  } on ArgumentError {
+    return _reject(
+      response,
+      HttpStatus.badRequest,
+      RpcException.invalidParams(
+        'The envelope ${Keys.clientCapabilitiesMeta} contains an invalid '
+        'extension identifier',
+      ),
+      decoded,
+    );
+  }
   final clientInfo = meta[Keys.clientInfoMeta];
   if (clientInfo is! Map<String, Object?>?) {
     return _reject(
@@ -528,7 +543,7 @@ Future<void> handleStreamableHttpRequest(
       decoded,
       MCPServerInitialization(
         protocolVersion: protocolVersion,
-        clientCapabilities: ClientCapabilities.fromMap(capabilities),
+        clientCapabilities: clientCapabilities,
         clientInfo:
             clientInfo == null ? null : Implementation.fromMap(clientInfo),
         logLevel: logLevel,

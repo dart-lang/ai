@@ -353,6 +353,53 @@ void main() {
   });
 
   group('error handling', () {
+    test('server rejects malformed extensions during initialization', () async {
+      final incoming = StreamController<Map<String, Object?>>();
+      final outgoing = StreamController<Map<String, Object?>>();
+      final server = TestMCPServer(
+        StreamChannel<Map<String, Object?>>.withGuarantees(
+          incoming.stream,
+          outgoing.sink,
+        ),
+      );
+      addTearDown(server.shutdown);
+      final responses = StreamQueue(outgoing.stream);
+      addTearDown(responses.cancel);
+
+      final invalidExtensions = <Object?>[
+        <String, Object?>{'tasks': <String, Object?>{}},
+        <Object?>[],
+        null,
+      ];
+      for (var id = 0; id < invalidExtensions.length; id++) {
+        incoming.add({
+          Keys.jsonrpc: '2.0',
+          Keys.id: id,
+          Keys.method: InitializeRequest.methodName,
+          Keys.params: {
+            Keys.protocolVersion: ProtocolVersion.latestSupported.versionString,
+            Keys.capabilities: <String, Object?>{
+              'extensions': invalidExtensions[id],
+            },
+            Keys.clientInfo: {'name': 'test client', 'version': '0.1.0'},
+          },
+        });
+
+        final response = await responses.next;
+        final error = response[Keys.error] as Map<String, Object?>;
+        expect(error[Keys.code], INVALID_PARAMS);
+      }
+    });
+
+    test('client rejects malformed extensions in an initialize result', () {
+      final environment = TestEnvironment(
+        TestMCPClient(),
+        _MalformedCapabilitiesServer.new,
+      );
+
+      expect(environment.initializeServer(), throwsArgumentError);
+    });
+
     test('server survives a map which is not a valid message', () async {
       final environment = TestEnvironment(TestMCPClient(), TestMCPServer.new);
       environment.clientChannel.sink.add({'foo': 1});
@@ -401,6 +448,19 @@ void main() {
       });
     });
   });
+}
+
+final class _MalformedCapabilitiesServer extends TestMCPServer {
+  _MalformedCapabilitiesServer(super.channel);
+
+  @override
+  Future<InitializeResult> initializeLegacy(InitializeRequest request) async {
+    final result = await super.initializeLegacy(request);
+    (result as Map<String, Object?>)[Keys.capabilities] = <String, Object?>{
+      'extensions': <String, Object?>{'tasks': <String, Object?>{}},
+    };
+    return result;
+  }
 }
 
 final class InitializeProgressTestMCPServer extends TestMCPServer
