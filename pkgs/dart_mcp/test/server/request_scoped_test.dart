@@ -515,19 +515,160 @@ void main() {
       expect(legacy![Keys.result], isNotNull);
     });
 
-    test('rejects a 2025-11-25 roots request instead of hanging', () async {
+    test('routes the four legacy client request methods', () async {
+      final cases =
+          <({String tool, String method, Map<String, Object?> result})>[
+            (
+              tool: 'roots',
+              method: ListRootsRequest.methodName,
+              result: <String, Object?>{
+                Keys.roots: [Root(uri: 'file:///workspace')],
+              },
+            ),
+            (
+              tool: 'sample',
+              method: CreateMessageRequest.methodName,
+              result: <String, Object?>{
+                Keys.role: Role.assistant.name,
+                Keys.content: Content.text(text: 'sampled'),
+                Keys.model: 'test-model',
+              },
+            ),
+            (
+              tool: 'elicit',
+              method: ElicitRequest.methodName,
+              result: <String, Object?>{
+                Keys.action: ElicitationAction.accept.name,
+              },
+            ),
+            (
+              tool: 'ping',
+              method: PingRequest.methodName,
+              result: <String, Object?>{},
+            ),
+          ];
+      final methods = <String>[];
+
+      for (final requestCase in cases) {
+        final response = await handleRequestScopedMessage(
+          _callTool(requestCase.tool),
+          _legacyInitialization(),
+          _LegacyRequestServer.new,
+          onRequest: (request) {
+            methods.add(request[Keys.method] as String);
+            return _responseFor(request, requestCase.result);
+          },
+        ).timeout(const Duration(seconds: 1));
+
+        final result = CallToolResult.fromMap(_result(response));
+        expect((result.content.single as TextContent).text, 'ok');
+      }
+      expect(methods, [for (final requestCase in cases) requestCase.method]);
+    });
+
+    test('fails fast when the legacy request callback is absent', () async {
       final harness = _DispatcherHarness();
-      final response = await harness.dispatch(
-        _callTool('roots'),
-        _initialization(
-          capabilities: ClientCapabilities(roots: RootsCapabilities()),
-          protocolVersion: ProtocolVersion.v2025_11_25,
-        ),
-      );
+      final response = await harness
+          .dispatch(_callTool('roots'), _legacyInitialization())
+          .timeout(const Duration(seconds: 1));
 
       final error = response![Keys.error] as Map<String, Object?>;
       expect(error[Keys.code], error_code.INTERNAL_ERROR);
       expect(error[Keys.message], contains('request-scoped transport'));
+    });
+
+    test('does not route a request on 2026-07-28', () async {
+      var calls = 0;
+      final response = await handleRequestScopedMessage(
+        _callTool('ping'),
+        _initialization(),
+        _LegacyRequestServer.new,
+        onRequest: (request) {
+          calls++;
+          return _responseFor(request, <String, Object?>{});
+        },
+      ).timeout(const Duration(seconds: 1));
+
+      expect(calls, 0);
+      expect(
+        (response![Keys.error] as Map<String, Object?>)[Keys.code],
+        error_code.INTERNAL_ERROR,
+      );
+    });
+
+    test('answers a callback error on the server request id', () async {
+      final response = await handleRequestScopedMessage(
+        _callTool('roots'),
+        _legacyInitialization(),
+        _LegacyRequestServer.new,
+        onRequest: (_) => throw StateError('callback failed'),
+      ).timeout(const Duration(seconds: 1));
+
+      final error = response![Keys.error] as Map<String, Object?>;
+      expect(error[Keys.code], error_code.INTERNAL_ERROR);
+      expect(error[Keys.message], 'The client request handler failed');
+    });
+
+    test('answers a malformed callback response on the request id', () async {
+      final response = await handleRequestScopedMessage(
+        _callTool('roots'),
+        _legacyInitialization(),
+        _LegacyRequestServer.new,
+        onRequest:
+            (request) => {Keys.jsonrpc: '2.0', Keys.id: request[Keys.id]},
+      ).timeout(const Duration(seconds: 1));
+
+      final error = response![Keys.error] as Map<String, Object?>;
+      expect(error[Keys.code], error_code.INTERNAL_ERROR);
+      expect(
+        error[Keys.message],
+        'The client request handler returned an invalid response',
+      );
+    });
+
+    test('answers a mismatched callback response on the request id', () async {
+      final response = await handleRequestScopedMessage(
+        _callTool('roots'),
+        _legacyInitialization(),
+        _LegacyRequestServer.new,
+        onRequest:
+            (request) => {
+              Keys.jsonrpc: '2.0',
+              Keys.id: '${request[Keys.id]}-other',
+              Keys.result: <String, Object?>{Keys.roots: <Object>[]},
+            },
+      ).timeout(const Duration(seconds: 1));
+
+      final error = response![Keys.error] as Map<String, Object?>;
+      expect(error[Keys.code], error_code.INTERNAL_ERROR);
+      expect(
+        error[Keys.message],
+        'The client request handler returned an invalid response',
+      );
+    });
+
+    test('discards a callback response after the exchange closes', () async {
+      final started = Completer<Map<String, Object?>>();
+      final pending = Completer<Map<String, Object?>>();
+      final dispatch = handleRequestScopedMessage(
+        {
+          Keys.jsonrpc: '2.0',
+          Keys.method: _DispatcherTestServer.testNotification,
+        },
+        _legacyInitialization(),
+        _RootsTrackingDispatcherServer.new,
+        onRequest: (request) {
+          started.complete(request);
+          return pending.future;
+        },
+      );
+
+      final request = await started.future.timeout(const Duration(seconds: 1));
+      expect(await dispatch.timeout(const Duration(seconds: 1)), isNull);
+      pending.complete(
+        _responseFor(request, <String, Object?>{Keys.roots: <Object>[]}),
+      );
+      await Future<void>.delayed(Duration.zero);
     });
 
     test('refuses input_required on a request it is not allowed on', () async {
@@ -1442,6 +1583,8 @@ final class _DispatcherHarness {
     Map<String, Object?> message,
     MCPServerInitialization initialization, {
     void Function(Map<String, Object?> notification)? onNotification,
+    FutureOr<Map<String, Object?>> Function(Map<String, Object?> request)?
+    onRequest,
     FutureOr<RpcException?> Function(MCPServer server)? beforeDispatch,
   }) => handleRequestScopedMessage(
     message,
@@ -1453,6 +1596,7 @@ final class _DispatcherHarness {
       return server;
     },
     onNotification: onNotification,
+    onRequest: onRequest,
     beforeDispatch: beforeDispatch,
   );
 }
@@ -1615,6 +1759,35 @@ final class _RootsTrackingDispatcherServer extends TestMCPServer
   _RootsTrackingDispatcherServer(super.channel);
 }
 
+/// A server exercising every client request retained by legacy revisions.
+final class _LegacyRequestServer extends TestMCPServer
+    with LoggingSupport, ToolsSupport, ElicitationRequestSupport {
+  _LegacyRequestServer(super.channel);
+
+  @override
+  FutureOr<void> initialize(MCPServerInitialization initialization) {
+    registerTool(Tool(name: 'roots', inputSchema: ObjectSchema()), (_) async {
+      await listRoots();
+      return _okToolResult;
+    });
+    registerTool(Tool(name: 'sample', inputSchema: ObjectSchema()), (_) async {
+      await createMessage(CreateMessageRequest(messages: [], maxTokens: 1));
+      return _okToolResult;
+    });
+    registerTool(Tool(name: 'elicit', inputSchema: ObjectSchema()), (_) async {
+      await elicit(
+        ElicitRequest.form(message: 'Choose', requestedSchema: ObjectSchema()),
+      );
+      return _okToolResult;
+    });
+    registerTool(Tool(name: 'ping', inputSchema: ObjectSchema()), (_) async {
+      if (!await ping()) throw StateError('ping failed');
+      return _okToolResult;
+    });
+    return super.initialize(initialization);
+  }
+}
+
 /// A server carrying a `resources` capability field this package does not
 /// know, standing in for one a later revision adds.
 final class _ExtraResourceFieldServer extends TestMCPServer
@@ -1746,6 +1919,22 @@ MCPServerInitialization _initialization({
   clientCapabilities: capabilities ?? ClientCapabilities(),
   logLevel: logLevel,
 );
+
+MCPServerInitialization _legacyInitialization() => _initialization(
+  capabilities: ClientCapabilities(
+    roots: RootsCapabilities(),
+    sampling: {},
+    elicitation: ElicitationCapability(form: {}),
+  ),
+  protocolVersion: ProtocolVersion.v2025_11_25,
+);
+
+final _okToolResult = CallToolResult(content: [TextContent(text: 'ok')]);
+
+Map<String, Object?> _responseFor(
+  Map<String, Object?> request,
+  Map<String, Object?> result,
+) => {Keys.jsonrpc: '2.0', Keys.id: request[Keys.id], Keys.result: result};
 
 Map<String, Object?> _result(Map<String, Object?>? response) =>
     response![Keys.result] as Map<String, Object?>;
