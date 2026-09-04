@@ -1302,11 +1302,11 @@ extension type EnumSchema.fromMap(Map<String, Object?> _value)
     if (isUntitledMultiSelect) {
       if (items[Keys.type] != JsonType.string.typeName) return false;
       final values = items[Keys.enum_];
-      return values is Iterable && values.every((value) => value is String);
+      return values is List && values.every((value) => value is String);
     }
     if (isTitledMultiSelect) {
       final values = items[Keys.anyOf];
-      return values is Iterable &&
+      return values is List &&
           values.every(
             (value) =>
                 value is Map &&

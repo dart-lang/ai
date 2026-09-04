@@ -10,6 +10,26 @@ import 'package:test/test.dart';
 
 import '../test_utils.dart';
 
+// Fixture from the 2026-07-28 PrimitiveSchemaDefinition union.
+// https://raw.githubusercontent.com/modelcontextprotocol/modelcontextprotocol/main/schema/2026-07-28/schema.json
+const _validMultiSelectSchemas = <Map<String, Object?>>[
+  <String, Object?>{
+    'type': 'array',
+    'items': <String, Object?>{
+      'type': 'string',
+      'enum': <Object?>['red', 'green'],
+    },
+  },
+  <String, Object?>{
+    'type': 'array',
+    'items': <String, Object?>{
+      'anyOf': <Object?>[
+        <String, Object?>{'const': '#FF0000', 'title': 'Red'},
+      ],
+    },
+  },
+];
+
 void main() {
   group('elicitation', () {
     test('a result without form data carries no content key', () {
@@ -35,27 +55,17 @@ void main() {
     });
 
     test('a form takes both multi-select enum schemas', () {
-      // Both schemas the spec lists, see
-      // https://modelcontextprotocol.io/specification/2026-07-28/client/elicitation.
-      expect(
-        () => ElicitRequest.form(
-          message: 'Pick your colours',
-          requestedSchema: ObjectSchema(
-            properties: {
-              'bare': UntitledMultiSelectEnumSchema(
-                values: ['red', 'green'],
-                minItems: 1,
-              ),
-              'titled': TitledMultiSelectEnumSchema(
-                values: [
-                  EnumValueWithTitle(title: 'Red', constValue: '#FF0000'),
-                ],
-              ),
-            },
+      for (final schema in _validMultiSelectSchemas) {
+        expect(
+          () => ElicitRequest.form(
+            message: 'Pick your colours',
+            requestedSchema: ObjectSchema(
+              properties: {'selection': Schema.fromMap(schema)},
+            ),
           ),
-        ),
-        returnsNormally,
-      );
+          returnsNormally,
+        );
+      }
     });
 
     test('refuses arrays that are not multi-select enums', () {
@@ -84,6 +94,14 @@ void main() {
         Schema.fromMap({
           'type': 'array',
           'items': {'type': 'string', 'enum': 'red'},
+        }),
+        // A Set is iterable but is not a JSON array.
+        Schema.fromMap({
+          'type': 'array',
+          'items': {
+            'type': 'string',
+            'enum': {'red', 'green'},
+          },
         }),
         // A titled entry pairs a const with a title. This one has no const.
         Schema.fromMap({
@@ -117,6 +135,15 @@ void main() {
             'anyOf': {'const': '#FF0000', 'title': 'Red'},
           },
         }),
+        // A Set of titled values is not a JSON array.
+        Schema.fromMap({
+          'type': 'array',
+          'items': {
+            'anyOf': {
+              {'const': '#FF0000', 'title': 'Red'},
+            },
+          },
+        }),
       ]) {
         expect(
           () => ElicitRequest.form(
@@ -126,6 +153,21 @@ void main() {
           throwsA(isA<AssertionError>()),
         );
       }
+    }, testOn: '!exe');
+
+    test('refuses a later invalid property', () {
+      expect(
+        () => ElicitRequest.form(
+          message: 'Pick your colours',
+          requestedSchema: ObjectSchema(
+            properties: {
+              'selection': Schema.fromMap(_validMultiSelectSchemas.first),
+              'nested': ObjectSchema(),
+            },
+          ),
+        ),
+        throwsA(isA<AssertionError>()),
+      );
     }, testOn: '!exe');
 
     test('server can elicit information from client', () async {
