@@ -101,12 +101,14 @@ import 'server.dart';
 ///
 /// A request body is capped at [maxRequestBodyBytes], 4 MiB by default like the
 /// TypeScript and Go SDKs. A body over the cap is answered with `413 Request
-/// Entity Too Large` and not parsed. The handler stops reading at the chunk
-/// that crosses the cap and never holds more than one chunk past it. It writes
-/// the 413 before it stops, since a response written after the read is
-/// cancelled never reaches the client. A client still sending when the
-/// connection closes may not get to read the 413. A body rejected by its media
-/// type is read only to this cap. A negative cap throws a [RangeError].
+/// Entity Too Large` and not parsed. It is still read, up to another
+/// [maxRequestBodyBytes], so that a body a little over the cap finishes and is
+/// answered on a connection that stays open. Past that the handler answers and
+/// stops reading, in that order: `dart:io` closes a connection as soon as a
+/// body it is still receiving is cancelled, and a response written after that
+/// never reaches the client. A client still sending when the connection closes
+/// may not get to read the 413. A body rejected by its media type is read the
+/// same way. A negative cap throws a [RangeError].
 Future<void> handleStreamableHttpRequest(
   HttpRequest request,
   MCPServerFactory serverFactory, {
@@ -147,8 +149,8 @@ Future<void> handleStreamableHttpRequest(
       null,
     );
     try {
-      // A body within the cap is read to its end. That keeps the connection
-      // open for the next request.
+      // A body that ends within the read is answered on a connection that
+      // stays open for the next request.
       if (await _readBody(
         request,
         maxRequestBodyBytes,
@@ -796,12 +798,14 @@ Future<void> _rejectTooLarge(HttpResponse response, int maxRequestBodyBytes) =>
 /// Reads the body of [request] while it fits in [cap] bytes, handing each
 /// chunk to [keep], and returns whether all of it did.
 ///
-/// A chunked body carries no length, so the count runs as chunks arrive. On
-/// the chunk that would cross the cap the read stops, after [reject] has
-/// written the response. That order matters. Leaving the loop cancels the
-/// subscription, `dart:io` closes a connection as soon as a body it is still
-/// receiving is cancelled, and a response written after that never reaches
-/// the socket.
+/// A chunked body carries no length, so the count runs as chunks arrive. A body
+/// over the cap is still read, up to another [cap] bytes, so that one a little
+/// over finishes and is answered on a connection that stays open. Past that the
+/// read stops, after [reject] has written the response. That order matters.
+/// Leaving the loop cancels the subscription, `dart:io` closes a connection as
+/// soon as a body it is still receiving is cancelled, and a response written
+/// after that never reaches the socket. [reject] is called once for a body over
+/// the cap, whichever way the read ends.
 Future<bool> _readBody(
   HttpRequest request,
   int cap, {
@@ -809,15 +813,24 @@ Future<bool> _readBody(
   required Future<void> Function() reject,
 }) async {
   var read = 0;
+  var discarded = 0;
+  var tooLarge = false;
   await for (final chunk in request) {
-    if (read + chunk.length > cap) {
+    if (!tooLarge && read + chunk.length <= cap) {
+      read += chunk.length;
+      keep?.call(chunk);
+      continue;
+    }
+    tooLarge = true;
+    discarded += chunk.length;
+    if (discarded >= cap) {
       await reject();
       return false;
     }
-    read += chunk.length;
-    keep?.call(chunk);
   }
-  return true;
+  if (!tooLarge) return true;
+  await reject();
+  return false;
 }
 
 /// Returns the single value of [name], or `null` if it is missing or was sent
