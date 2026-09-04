@@ -2,6 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:convert';
+
 import 'package:dart_mcp/client.dart';
 import 'package:test/test.dart';
 
@@ -194,6 +196,17 @@ void main() {
         'inputResponses': {'github_login': elicited, 'capital': sampled},
         'requestState': 'an opaque blob',
       });
+    });
+
+    test('keeps untrusted requestState unchanged across JSON', () {
+      final wire =
+          jsonDecode('{"uri":"file:///a","requestState":"  client.state/+  "}')
+              as Map<String, Object?>;
+
+      expect(
+        ReadResourceRequest.fromMap(wire).requestState,
+        '  client.state/+  ',
+      );
     });
 
     test('a first attempt writes neither field', () {
