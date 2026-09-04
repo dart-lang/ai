@@ -16,6 +16,7 @@ const _protocolVersion = '2026-07-28';
 const _simpleTextTool = 'test_simple_text';
 const _inputElicitationTool = 'test_input_required_result_elicitation';
 const _inputStateTool = 'test_input_required_result_request_state';
+const _inputMultiRoundTool = 'test_input_required_result_multi_round';
 const _inputTamperedTool = 'test_input_required_result_tampered_state';
 const _templateUri = 'test://template/{id}/data';
 const _expandedTemplateUri = 'test://template/123/data';
@@ -234,6 +235,31 @@ void main() {
         (refused['error'] as Map<String, Object?>)['message'],
         contains('failed integrity validation'),
       );
+    });
+
+    test('starts another round when a retry omits input', () async {
+      Future<Map<String, Object?>> call(Map<String, Object?> params) => _post(
+        endpoint,
+        'tools/call',
+        params: params,
+        capabilities: _formElicitationCapabilities,
+      );
+      final issuedResult =
+          (await call({'name': _inputMultiRoundTool}))['result']
+              as Map<String, Object?>;
+      final requestState = issuedResult['requestState'] as String;
+      final retriedResult =
+          (await call({
+                'name': _inputMultiRoundTool,
+                'requestState': requestState,
+              }))['result']
+              as Map<String, Object?>;
+
+      expect(retriedResult['resultType'], 'input_required');
+      expect(retriedResult['requestState'], requestState);
+      expect((retriedResult['inputRequests'] as Map<String, Object?>).keys, [
+        'step1',
+      ]);
     });
 
     test('delivers a list change from another request on a listen '

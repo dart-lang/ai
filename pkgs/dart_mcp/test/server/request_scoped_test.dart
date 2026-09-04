@@ -597,6 +597,13 @@ void main() {
       }
     });
 
+    test('closes after input_required without a retry', () async {
+      final harness = _DispatcherHarness();
+      await harness.dispatch(_callTool('interim'), _initialization());
+
+      expect(harness.servers.single.isActive, isFalse);
+    });
+
     test('refuses an input request the client cannot answer', () async {
       final harness = _DispatcherHarness();
       for (final (tool, capability, required) in [
