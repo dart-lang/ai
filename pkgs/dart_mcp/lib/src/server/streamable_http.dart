@@ -99,14 +99,14 @@ import 'server.dart';
 /// change produced by one request's server to reach another request's listen
 /// stream.
 ///
-/// A request body is capped at [maxRequestBodyBytes], 4 MiB by default like
-/// the TypeScript and Go SDKs. A body over the cap is answered with
-/// `413 Request Entity Too Large` and not parsed. The handler stops reading at
-/// the chunk that crosses the cap and never holds more than one chunk past it.
-/// It writes the 413 before it stops, since a response written after the read
-/// is cancelled never reaches the client. A client still sending when the
-/// connection closes may not get to read the 413. A body rejected by its media type is read only to this
-/// cap. A negative cap throws a [RangeError].
+/// A request body is capped at [maxRequestBodyBytes], 4 MiB by default like the
+/// TypeScript and Go SDKs. A body over the cap is answered with `413 Request
+/// Entity Too Large` and not parsed. The handler stops reading at the chunk
+/// that crosses the cap and never holds more than one chunk past it. It writes
+/// the 413 before it stops, since a response written after the read is
+/// cancelled never reaches the client. A client still sending when the
+/// connection closes may not get to read the 413. A body rejected by its media
+/// type is read only to this cap. A negative cap throws a [RangeError].
 Future<void> handleStreamableHttpRequest(
   HttpRequest request,
   MCPServerFactory serverFactory, {
