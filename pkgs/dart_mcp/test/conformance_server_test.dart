@@ -9,6 +9,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:async/async.dart';
 import 'package:test/test.dart';
 
 const _protocolVersion = '2026-07-28';
@@ -19,6 +20,11 @@ const _inputTamperedTool = 'test_input_required_result_tampered_state';
 const _templateUri = 'test://template/{id}/data';
 const _expandedTemplateUri = 'test://template/123/data';
 const _simplePrompt = 'test_simple_prompt';
+const _toolChangeTool = 'test_trigger_tool_change';
+const _promptChangeTool = 'test_trigger_prompt_change';
+const _addedTool = 'test_added_tool';
+const _addedPrompt = 'test_added_prompt';
+const _subscriptionIdMeta = 'io.modelcontextprotocol/subscriptionId';
 const _formElicitationCapabilities = <String, Object?>{
   'elicitation': <String, Object?>{'form': <String, Object?>{}},
 };
@@ -229,10 +235,109 @@ void main() {
         contains('failed integrity validation'),
       );
     });
+
+    test('delivers a list change from another request on a listen '
+        'stream', () async {
+      final client = HttpClient();
+      addTearDown(() => client.close(force: true));
+      final request = await client.postUrl(endpoint);
+      request.headers
+        ..set(HttpHeaders.contentTypeHeader, 'application/json')
+        ..set(HttpHeaders.acceptHeader, 'application/json, text/event-stream')
+        ..set('Mcp-Protocol-Version', _protocolVersion)
+        ..set('Mcp-Method', 'subscriptions/listen');
+      request.write(
+        jsonEncode({
+          'jsonrpc': '2.0',
+          'id': 7,
+          'method': 'subscriptions/listen',
+          'params': {
+            'notifications': {
+              'toolsListChanged': true,
+              'promptsListChanged': true,
+            },
+            '_meta': {
+              'io.modelcontextprotocol/protocolVersion': _protocolVersion,
+              'io.modelcontextprotocol/clientCapabilities': <String, Object?>{},
+            },
+          },
+        }),
+      );
+      final response = await request.close();
+      expect(response.statusCode, HttpStatus.ok);
+      expect(response.headers.contentType?.mimeType, 'text/event-stream');
+      final events = StreamQueue(
+        response
+            .transform(utf8.decoder)
+            .transform(const LineSplitter())
+            .where((line) => line.startsWith('data: '))
+            .map(
+              (line) =>
+                  jsonDecode(line.substring('data: '.length))
+                      as Map<String, Object?>,
+            ),
+      );
+      // Cancel immediately. A plain cancel waits for the pending request.
+      addTearDown(() => events.cancel(immediate: true));
+
+      final acknowledgement = await _next(events);
+      expect(
+        acknowledgement['method'],
+        'notifications/subscriptions/acknowledged',
+      );
+      // The subscription is named by the id of the request opening it.
+      expect(_meta(acknowledgement), containsPair(_subscriptionIdMeta, 7));
+
+      // Two more requests, each answered by its own server. Neither one holds
+      // the stream open. The changes reach it through the transport.
+      for (final trigger in [_toolChangeTool, _promptChangeTool]) {
+        final triggered = await _post(
+          endpoint,
+          'tools/call',
+          params: {'name': trigger, 'arguments': <String, Object?>{}},
+        );
+        expect(
+          (triggered['result'] as Map<String, Object?>)['isError'],
+          isNot(true),
+        );
+      }
+
+      final changes = [await _next(events), await _next(events)];
+      expect(changes.map((change) => change['method']), [
+        'notifications/tools/list_changed',
+        'notifications/prompts/list_changed',
+      ]);
+      for (final change in changes) {
+        expect(_meta(change), containsPair(_subscriptionIdMeta, 7));
+      }
+
+      final tools = await _post(endpoint, 'tools/list');
+      final toolList = (tools['result'] as Map<String, Object?>)['tools'];
+      expect(toolList, contains(containsPair('name', _addedTool)));
+
+      final prompts = await _post(endpoint, 'prompts/list');
+      final promptList = (prompts['result'] as Map<String, Object?>)['prompts'];
+      expect(promptList, contains(containsPair('name', _addedPrompt)));
+    });
     // `Platform.resolvedExecutable` is this test's own binary once it is
     // compiled, so it cannot start the server the way it does on the VM.
   }, testOn: '!exe');
 }
+
+/// The `_meta` envelope of [notification]'s params.
+Map<String, Object?> _meta(Map<String, Object?> notification) =>
+    (notification['params'] as Map<String, Object?>)['_meta']
+        as Map<String, Object?>;
+
+/// The next event on [events]. Fails the test when the server never sends
+/// one.
+///
+/// Fails with a message before the runner's 30 second default.
+Future<Map<String, Object?>> _next(StreamQueue<Map<String, Object?>> events) =>
+    events.next.timeout(
+      const Duration(seconds: 20),
+      onTimeout: () => fail('The listen stream sent no further event'),
+    );
 
 Future<Map<String, Object?>> _post(
   Uri endpoint,

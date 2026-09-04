@@ -4,6 +4,8 @@
   schemas built from sets or lazy iterables can be JSON encoded.
 - Split the Streamable HTTP implementation into client and server libraries
   without changing its public API.
+- Stop sending `notifications/roots/list_changed` to a server that speaks
+  2026-07-28. An unsettled connection still gets it.
 - Let `handleRequestScopedMessage` route server-to-client requests through an
   `onRequest` callback on revisions before 2026-07-28. Missing callbacks and
   invalid callback responses fail the server request without leaving it open.
@@ -406,6 +408,7 @@
     `progressToken` when they are given, see
     https://modelcontextprotocol.io/specification/2026-07-28/server/discover.
 - Add a local MCP conformance probe under `tool/`.
+- Add list-change subscriptions to the local conformance probe.
 
 ## 0.5.2
 
