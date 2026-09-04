@@ -22,6 +22,8 @@ const _expandedTemplateUri = 'test://template/123/data';
 const _simplePrompt = 'test_simple_prompt';
 const _toolChangeTool = 'test_trigger_tool_change';
 const _promptChangeTool = 'test_trigger_prompt_change';
+const _addedTool = 'test_added_tool';
+const _addedPrompt = 'test_added_prompt';
 const _subscriptionIdMeta = 'io.modelcontextprotocol/subscriptionId';
 const _formElicitationCapabilities = <String, Object?>{
   'elicitation': <String, Object?>{'form': <String, Object?>{}},
@@ -308,6 +310,14 @@ void main() {
       for (final change in changes) {
         expect(_meta(change), containsPair(_subscriptionIdMeta, 7));
       }
+
+      final tools = await _post(endpoint, 'tools/list');
+      final toolList = (tools['result'] as Map<String, Object?>)['tools'];
+      expect(toolList, contains(containsPair('name', _addedTool)));
+
+      final prompts = await _post(endpoint, 'prompts/list');
+      final promptList = (prompts['result'] as Map<String, Object?>)['prompts'];
+      expect(promptList, contains(containsPair('name', _addedPrompt)));
     });
     // `Platform.resolvedExecutable` is this test's own binary once it is
     // compiled, so it cannot start the server the way it does on the VM.

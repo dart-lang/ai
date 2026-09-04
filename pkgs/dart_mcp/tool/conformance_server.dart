@@ -43,6 +43,12 @@ Future<void> main(List<String> arguments) async {
 /// reads back the ones its acknowledged filter selects.
 final _subscriptionNotifications =
     StreamController<Map<String, Object?>>.broadcast();
+final _fixtureState = _FixtureState();
+
+final class _FixtureState {
+  bool toolAdded = false;
+  bool promptAdded = false;
+}
 
 const _path = '/mcp';
 const _imageMimeType = 'image/png';
@@ -231,6 +237,8 @@ base class _ConformanceServer extends MCPServer
     _registerTools();
     _registerResources();
     _registerPrompts();
+    if (_fixtureState.toolAdded) _registerAddedTool();
+    if (_fixtureState.promptAdded) _registerAddedPrompt();
   }
 
   // Tools named by the tools-call-* and input-required-result-* scenarios.
@@ -428,14 +436,15 @@ base class _ConformanceServer extends MCPServer
         inputSchema: ObjectSchema(),
       ),
       (_) {
-        registerTool(
-          Tool(
-            name: _addedTool,
-            description: _addedTool,
-            inputSchema: ObjectSchema(),
-          ),
-          (_) => CallToolResult(content: [TextContent(text: _addedTool)]),
-        );
+        if (!_fixtureState.toolAdded) {
+          _registerAddedTool();
+          _fixtureState.toolAdded = true;
+        } else {
+          sendNotification(
+            ToolListChangedNotification.methodName,
+            ToolListChangedNotification(),
+          );
+        }
         return CallToolResult(content: [TextContent(text: _addedTool)]);
       },
     );
@@ -446,19 +455,42 @@ base class _ConformanceServer extends MCPServer
         inputSchema: ObjectSchema(),
       ),
       (_) {
-        addPrompt(
-          Prompt(name: _addedPrompt, description: _addedPrompt),
-          (_) => GetPromptResult(
-            messages: [
-              PromptMessage(
-                role: Role.user,
-                content: TextContent(text: _addedPrompt),
-              ),
-            ],
-          ),
-        );
+        if (!_fixtureState.promptAdded) {
+          _registerAddedPrompt();
+          _fixtureState.promptAdded = true;
+        } else {
+          sendNotification(
+            PromptListChangedNotification.methodName,
+            PromptListChangedNotification(),
+          );
+        }
         return CallToolResult(content: [TextContent(text: _addedPrompt)]);
       },
+    );
+  }
+
+  void _registerAddedTool() {
+    registerTool(
+      Tool(
+        name: _addedTool,
+        description: _addedTool,
+        inputSchema: ObjectSchema(),
+      ),
+      (_) => CallToolResult(content: [TextContent(text: _addedTool)]),
+    );
+  }
+
+  void _registerAddedPrompt() {
+    addPrompt(
+      Prompt(name: _addedPrompt, description: _addedPrompt),
+      (_) => GetPromptResult(
+        messages: [
+          PromptMessage(
+            role: Role.user,
+            content: TextContent(text: _addedPrompt),
+          ),
+        ],
+      ),
     );
   }
 
