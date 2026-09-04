@@ -310,7 +310,10 @@ abstract base class MCPServer extends MCPBase {
   /// capability, and throws an [RpcException] with
   /// [McpErrorCodes.missingRequiredClientCapability] when it has not, naming
   /// the capability the client is missing under `data.requiredCapabilities`.
-  @Deprecated('Use an `InputRequiredResult` instead.')
+  @Deprecated(
+    'Use `InputRequiredResult` for 2026-07-28. '
+    'Older supported revisions keep this method.',
+  )
   Future<ListRootsResult> listRoots([ListRootsRequest? request]) async {
     _rejectRemovedMethod(ListRootsRequest.methodName, protocolVersion);
     if (!supportsRoots) {
@@ -331,7 +334,10 @@ abstract base class MCPServer extends MCPBase {
   /// capability, and throws an [RpcException] with
   /// [McpErrorCodes.missingRequiredClientCapability] when it has not, naming
   /// the capability the client is missing under `data.requiredCapabilities`.
-  @Deprecated('Use an `InputRequiredResult` instead.')
+  @Deprecated(
+    'Use `InputRequiredResult` for 2026-07-28. '
+    'Older supported revisions keep this method.',
+  )
   Future<CreateMessageResult> createMessage(
     CreateMessageRequest request,
   ) async {

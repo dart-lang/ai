@@ -61,7 +61,10 @@ base mixin ElicitationRequestSupport on LoggingSupport {
   /// [ToolsSupport.callTool] rethrows an [RpcException] instead of folding it
   /// into a [CallToolResult], so a tool which elicits reaches the client as
   /// that error rather than as a result whose text is a Dart stack trace.
-  @Deprecated('Use an `InputRequiredResult` instead.')
+  @Deprecated(
+    'Use `InputRequiredResult` for 2026-07-28. '
+    'Older supported revisions keep this method.',
+  )
   Future<ElicitResult> elicit(ElicitRequest request) async {
     _rejectRemovedMethod(ElicitRequest.methodName, protocolVersion);
     final raw = request.rawMode;
