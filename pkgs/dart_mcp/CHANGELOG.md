@@ -136,7 +136,7 @@
     declares the wider return type, then checks `isInputRequired` and casts
     before it reads the completed result.
 - Cap the request body in `handleStreamableHttpRequest` at
-  `maxRequestBodyBytes`, 4 MiB by default, matching the TypeScript and Go SDKs.
+  `maxRequestBodyBytes`, 4 MiB by default.
   Larger bodies get `413` and an invalid request error. The same cap is the
   discard budget, measured in stream chunks. Negative caps throw a `RangeError`.
 - Add `supportsFormElicitation` and `supportsUrlElicitation` for a server to

@@ -99,16 +99,16 @@ import 'server.dart';
 /// change produced by one request's server to reach another request's listen
 /// stream.
 ///
-/// A request body is capped at [maxRequestBodyBytes], 4 MiB by default like the
-/// TypeScript and Go SDKs. A body over the cap is answered with `413 Request
-/// Entity Too Large` and not parsed. It is still read, up to another
-/// [maxRequestBodyBytes], so that a body a little over the cap finishes and is
-/// answered on a connection that stays open. Past that the handler answers and
-/// stops reading, in that order: `dart:io` closes a connection as soon as a
-/// body it is still receiving is cancelled, and a response written after that
-/// never reaches the client. A client still sending when the connection closes
-/// may not get to read the 413. A body rejected by its media type is read the
-/// same way. A negative cap throws a [RangeError].
+/// A request body is capped at [maxRequestBodyBytes], 4 MiB by default. A body
+/// over the cap is answered with `413 Request Entity Too Large` and not parsed.
+/// It is still read, up to another [maxRequestBodyBytes], so that a body a
+/// little over the cap finishes and is answered on a connection that stays
+/// open. Past that the handler answers and stops reading, in that order:
+/// `dart:io` closes a connection as soon as a body it is still receiving is
+/// cancelled, and a response written after that never reaches the client. A
+/// client still sending when the connection closes may not get to read the 413.
+/// A body rejected by its media type is read the same way. A negative cap
+/// throws a [RangeError].
 Future<void> handleStreamableHttpRequest(
   HttpRequest request,
   MCPServerFactory serverFactory, {
@@ -780,10 +780,8 @@ Future<void> _reject(
 /// Refuses a body over [maxRequestBodyBytes] with `413`.
 ///
 /// The specification names no status for an oversized body and allocates no
-/// error code for one. 413 is what the TypeScript and Go SDKs answer with.
-/// The code is the one this transport already refuses a batch with.
-/// TypeScript pairs its 413 with `-32000` instead, which here is
-/// `SERVER_ERROR`, a code [_statusFor] maps to 500.
+/// error code for one. The code is the one this transport already refuses a
+/// batch with.
 Future<void> _rejectTooLarge(HttpResponse response, int maxRequestBodyBytes) =>
     _reject(
       response,
