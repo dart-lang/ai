@@ -2533,7 +2533,7 @@ void main() {
         },
         json: body(listTools),
       );
-      expect(status, 400);
+      expect(status, 415);
       // Written out so the check does not read back the constant the
       // response was built from.
       expect(errorCode(text), -32020);
@@ -2545,7 +2545,7 @@ void main() {
         headers: {...headers(listTools), 'Content-Type': 'text/plain'},
         json: body(listTools),
       );
-      expect(status, 400);
+      expect(status, 415);
       expect(responseHeaders.contentType?.mimeType, 'application/json');
       expect(errorCode(text), McpErrorCodes.headerMismatch);
     });
@@ -2618,7 +2618,7 @@ void main() {
 
     test('rejects a Content-Type dart:io cannot parse', () async {
       // dart:io parses the header lazily and throws when it is first read,
-      // and that throw must land as a 400, not escape the handler and leave
+      // and that throw must land as a 415, not escape the handler and leave
       // the request unanswered.
       final requestBody = jsonEncode(body(listTools));
       final response = await rawRequest(
@@ -2631,7 +2631,7 @@ void main() {
         '\r\n'
         '$requestBody',
       );
-      expect(response, startsWith('HTTP/1.1 400'));
+      expect(response, startsWith('HTTP/1.1 415'));
       expect(errorCode(jsonBody(response)), McpErrorCodes.headerMismatch);
       expect(servers, isEmpty);
     });

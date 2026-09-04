@@ -21,13 +21,14 @@ import 'server.dart';
 /// created by [serverFactory] via [handleRequestScopedMessage], and writing
 /// the HTTP response.
 ///
-/// Spec-defined failures are answered with their JSON-RPC error codes and
+/// Rejected requests are answered with their JSON-RPC error codes and
 /// HTTP statuses: 400 for a malformed message, a failed header or envelope
 /// validation, an absent `Accept` header, an `Accept` header that does not
-/// cover both response shapes, or a non-`application/json` `Content-Type`, and
-/// 404 for a method this transport does not serve. The specification requires
-/// `400 Bad Request` on every `HeaderMismatch` body and names no other status
-/// for content negotiation, so 406 and 415 are not used. Every one of
+/// cover both response shapes, 404 for a method this transport does not serve,
+/// and 415 for a non-`application/json` `Content-Type`. The specification
+/// requires `400 Bad Request` for its defined `HeaderMismatch` failures but
+/// names no status for rejecting a request media type, so 406 is not used.
+/// Every one of
 /// those bodies also carries its source message under `error.data.request`,
 /// as the rest of this package does: the decoded
 /// message when there is one, the raw body text when it was not valid JSON,
@@ -133,7 +134,7 @@ Future<void> handleStreamableHttpRequest(
     }
     return _reject(
       response,
-      HttpStatus.badRequest,
+      HttpStatus.unsupportedMediaType,
       RpcException(
         McpErrorCodes.headerMismatch,
         'The request body must be sent as ${ContentType.json.mimeType}',
