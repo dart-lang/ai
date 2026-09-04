@@ -4,6 +4,8 @@
   schemas built from sets or lazy iterables can be JSON encoded.
 - Split the Streamable HTTP implementation into client and server libraries
   without changing its public API.
+- Stop sending `notifications/roots/list_changed` to a server that speaks
+  2026-07-28. An unsettled connection still gets it.
 - **BREAKING**:
   - `MCPBase` (including the `MCPServer.fromStreamChannel` and
     `ServerConnection.fromStreamChannel` constructors),
@@ -407,6 +409,7 @@
   `UntitledMultiSelectEnumSchema` and `TitledMultiSelectEnumSchema` build the
   two schemas the spec lists, and an array with `items` matching neither is
   refused.
+- Add list-change subscriptions to the local conformance probe.
 
 ## 0.5.2
 
