@@ -135,6 +135,11 @@
     supertypes. A subclass or mixin overriding one of those three methods
     declares the wider return type, then checks `isInputRequired` and casts
     before it reads the completed result.
+- Cap the request body in `handleStreamableHttpRequest` at
+  `maxRequestBodyBytes`, 4 MiB by default.
+  Larger bodies get `413` and an invalid request error. The same cap is the
+  discard budget. A client that has not finished sending may not read the
+  response. Negative caps throw a `RangeError`.
 - Add `supportsFormElicitation` and `supportsUrlElicitation` for a server to
   ask before it sends. An empty `elicitation` object still means form, the way
   `elicitation` read before the split.

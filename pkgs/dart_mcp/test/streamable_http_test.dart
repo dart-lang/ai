@@ -8,6 +8,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp/src/utils/constants.dart';
@@ -3543,6 +3544,379 @@ void main() {
     });
   });
 
+  group('request body limit', () {
+    const defaultLimit = 4 * 1024 * 1024;
+
+    /// A well-formed `tools/list` body, and one padded past it.
+    ///
+    /// The cap is set to [atTheLimit]'s own length below. That puts the first
+    /// test on the boundary itself, and keeps the others just past it instead
+    /// of a megabyte past.
+    final atTheLimit = utf8.encode(jsonEncode(body(listTools)));
+    final overTheLimit = utf8.encode(
+      jsonEncode(body(listTools, params: {'pad': 'x' * 64})),
+    );
+
+    List<int> bodyNearDefault(int difference) => utf8.encode(
+      jsonEncode(
+        body(listTools, params: {'pad': 'x' * (defaultLimit + difference)}),
+      ),
+    );
+
+    late HttpServer capped;
+    late Uri cappedUri;
+    late HttpClient client;
+    late int? customLimit;
+    late List<Future<void>> handledRequests;
+    late List<_CountingHttpRequest> receivedRequests;
+
+    /// Completes once the capped server has parsed a request's headers, which
+    /// is before any of its body is read.
+    late Completer<void> headersSeen;
+
+    /// The `Content-Length` of each request the capped server received, or
+    /// -1 for a chunked one.
+    ///
+    /// The cap has to hold over both framings, so the tests below cover
+    /// both. Each checks the framing it actually got.
+    late List<int> declaredLengths;
+
+    setUp(() async {
+      declaredLengths = [];
+      handledRequests = [];
+      receivedRequests = [];
+      headersSeen = Completer<void>();
+      customLimit = atTheLimit.length;
+      capped = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => capped.close(force: true));
+
+      /// Records how [request] was framed before the handler consumes it.
+      Future<void> serve(HttpRequest request) {
+        declaredLengths.add(request.contentLength);
+        if (!headersSeen.isCompleted) headersSeen.complete();
+        final countedRequest = _CountingHttpRequest(request);
+        receivedRequests.add(countedRequest);
+        final limit = customLimit;
+        final handled =
+            limit == null
+                ? handleStreamableHttpRequest(
+                  countedRequest,
+                  _HttpTestServer.new,
+                )
+                : handleStreamableHttpRequest(
+                  countedRequest,
+                  _HttpTestServer.new,
+                  maxRequestBodyBytes: limit,
+                );
+        handledRequests.add(handled);
+        return handled;
+      }
+
+      capped.listen(serve);
+      cappedUri = Uri.http('${capped.address.host}:${capped.port}', '/mcp');
+      client = HttpClient();
+      addTearDown(client.close);
+    });
+
+    /// Posts [payload] to the capped server under a declared
+    /// `Content-Length`.
+    Future<(int, String)> postDeclared(List<int> payload) async {
+      final request = await client.postUrl(cappedUri);
+      headers(listTools).forEach(request.headers.set);
+      request.contentLength = payload.length;
+      request.add(payload);
+      final response = await request.close();
+      return (response.statusCode, await utf8.decodeStream(response));
+    }
+
+    /// Posts [chunks] as one chunked body, flushing between them so that
+    /// each one reaches the handler on its own.
+    Future<(int, String)> postChunks(List<List<int>> chunks) async {
+      final request = await client.postUrl(cappedUri);
+      headers(listTools).forEach(request.headers.set);
+      for (final chunk in chunks) {
+        request.add(chunk);
+        await request.flush();
+      }
+      final response = await request.close();
+      return (response.statusCode, await utf8.decodeStream(response));
+    }
+
+    /// The request line and headers of a raw POST to the capped server. It
+    /// asks for `Connection: close`. The response then ends with the
+    /// connection, and [sendRaw] reads to the end of it.
+    String rawHead({
+      int? contentLength,
+      String contentType = 'application/json',
+    }) {
+      final head = StringBuffer(
+        'POST /mcp HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n',
+      );
+      final requestHeaders = headers(listTools);
+      requestHeaders['Content-Type'] = contentType;
+      requestHeaders.forEach((name, value) => head.write('$name: $value\r\n'));
+      head.write(
+        contentLength == null
+            ? 'Transfer-Encoding: chunked\r\n'
+            : 'Content-Length: $contentLength\r\n',
+      );
+      return '$head\r\n';
+    }
+
+    /// [data] framed as one chunk of a chunked body.
+    List<int> chunk(List<int> data) => [
+      ...utf8.encode('${data.length.toRadixString(16)}\r\n'),
+      ...data,
+      ...utf8.encode('\r\n'),
+    ];
+    final lastChunk = utf8.encode('0\r\n\r\n');
+
+    /// Writes [segments] to the capped server one write at a time, awaiting
+    /// [between] after each but the last with the number of segments written
+    /// so far, and returns the status code and JSON body of the response.
+    ///
+    /// A socket puts the split between writes where the test wants it.
+    /// [HttpClient] decides that on its own, and not the same way on every
+    /// platform.
+    Future<(int, String)> sendRaw(
+      List<List<int>> segments, {
+      Future<void> Function(int written)? between,
+    }) async {
+      final socket = await Socket.connect(capped.address, capped.port);
+      final received = socket.fold(
+        <int>[],
+        (bytes, piece) => bytes..addAll(piece),
+      );
+      for (var i = 0; i < segments.length; i++) {
+        socket.add(segments[i]);
+        await socket.flush();
+        if (between != null && i < segments.length - 1) await between(i + 1);
+      }
+      final response = utf8.decode(await received);
+      socket.destroy();
+      if (!response.startsWith('HTTP/1.1 ')) {
+        fail(
+          'The connection closed without a response: ${jsonEncode(response)}',
+        );
+      }
+      return (int.parse(response.split(' ')[1]), jsonBody(response));
+    }
+
+    /// Sends [total] bytes of body under a declared [declared], in writes of
+    /// [piece] bytes. Each write is held back until the handler has read the
+    /// one before it, so every write reaches the handler as a chunk of its
+    /// own and the body crosses the cap [piece] bytes at a time.
+    Future<(int, String)> sendPaced(
+      int declared, {
+      required int total,
+      int piece = 256 * 1024,
+      String contentType = 'application/json',
+    }) {
+      final bytes = Uint8List(piece)..fillRange(0, piece, 0x78);
+      return sendRaw(
+        [
+          utf8.encode(
+            rawHead(contentLength: declared, contentType: contentType),
+          ),
+          for (var sent = 0; sent < total; sent += piece) bytes,
+        ],
+        between: (written) async {
+          await headersSeen.future;
+          await receivedRequests.single.whenRead((written - 1) * piece);
+        },
+      );
+    }
+
+    test('serves a body at the limit', () async {
+      final (status, text) = await postDeclared(atTheLimit);
+      expect(declaredLengths.single, atTheLimit.length);
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('uses the default 4 MiB limit', () async {
+      customLimit = null;
+      final belowDefault = bodyNearDefault(-1024);
+      expect(belowDefault.length, lessThan(defaultLimit));
+      final (acceptedStatus, acceptedText) = await postDeclared(belowDefault);
+      expect(acceptedStatus, 200);
+      expect(errorCode(acceptedText), isNull);
+
+      final aboveDefault = bodyNearDefault(1024);
+      expect(aboveDefault.length, greaterThan(defaultLimit));
+      final (rejectedStatus, rejectedText) = await postDeclared(aboveDefault);
+      expect(rejectedStatus, 413);
+      expect(errorCode(rejectedText), error_code.INVALID_REQUEST);
+      // A body this little over the cap is read to its end, which is what
+      // lets the client see the 413.
+      expect(receivedRequests[1].bytesRead, aboveDefault.length);
+    });
+
+    test('applies a larger custom limit', () async {
+      final aboveDefault = bodyNearDefault(1024);
+      customLimit = aboveDefault.length;
+      final (status, text) = await postDeclared(aboveDefault);
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('rejects a declared body over the limit with 413', () async {
+      final (status, text) = await sendRaw([
+        [
+          ...utf8.encode(rawHead(contentLength: overTheLimit.length)),
+          ...overTheLimit,
+        ],
+      ]);
+      expect(declaredLengths.single, overTheLimit.length);
+      expect(status, 413);
+      expect(errorCode(text), error_code.INVALID_REQUEST);
+      expect(
+        errorMessage(text),
+        contains('must not exceed ${atTheLimit.length} bytes'),
+      );
+      final error = decode(text)[Keys.error] as Map<String, Object?>;
+      expect((error[Keys.data] as Map<String, Object?>)[Keys.request], isNull);
+    });
+
+    test('rejects a chunked body over the limit with 413', () async {
+      final (status, text) = await sendRaw([
+        [...utf8.encode(rawHead()), ...chunk(overTheLimit), ...lastChunk],
+      ]);
+      expect(declaredLengths.single, -1);
+      expect(status, 413);
+      expect(errorCode(text), error_code.INVALID_REQUEST);
+    });
+
+    test('serves a body split across chunks', () async {
+      // Every chunk has to be kept, not just the one the body ends on.
+      final half = atTheLimit.length ~/ 2;
+      final (status, text) = await postChunks([
+        atTheLimit.sublist(0, half),
+        atTheLimit.sublist(half),
+      ]);
+      expect(declaredLengths.single, -1);
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('rejects chunks that only exceed the limit together', () async {
+      // Neither of these is over the cap on its own, so the counter has to
+      // measure the body and not the chunk it is reading.
+      final (status, text) = await sendRaw([
+        [
+          ...utf8.encode(rawHead()),
+          ...chunk(atTheLimit),
+          ...chunk(atTheLimit),
+          ...lastChunk,
+        ],
+      ]);
+      expect(declaredLengths.single, -1);
+      expect(status, 413);
+      expect(errorCode(text), error_code.INVALID_REQUEST);
+    });
+
+    test('answers a body that arrives after its headers', () async {
+      // When the headers came in an earlier read, dart:io runs the handler's
+      // loop body inside the read that delivers the chunk, before it has seen
+      // the end of the body. Cancelling the body there closes the connection
+      // at once and drops a response written afterwards, so the 413 has to be
+      // written before the loop is left. A single write of the whole request
+      // never takes that path. The cap here is small enough that this one
+      // chunk also uses up the discard budget.
+      final (status, text) = await sendRaw([
+        utf8.encode(rawHead(contentLength: overTheLimit.length)),
+        overTheLimit,
+      ], between: (_) => headersSeen.future);
+      expect(status, 413);
+      expect(errorCode(text), error_code.INVALID_REQUEST);
+    });
+
+    test('answers a late body of the wrong media type', () async {
+      // The media type branch reads through the same helper, so it meets the
+      // same read boundary. Pinning it here keeps the ordering from being lost
+      // if that branch ever stops sharing the helper.
+      final (status, text) = await sendRaw([
+        utf8.encode(
+          rawHead(
+            contentLength: overTheLimit.length,
+            contentType: 'text/plain',
+          ),
+        ),
+        overTheLimit,
+      ], between: (_) => headersSeen.future);
+      expect(status, 415);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+    });
+
+    test('reads a smaller overflow to its end', () async {
+      const limit = 1024 * 1024;
+      customLimit = limit;
+      final (status, text) = await sendPaced(
+        limit + limit ~/ 2,
+        total: limit + limit ~/ 2,
+      );
+      expect(status, 413);
+      expect(errorCode(text), error_code.INVALID_REQUEST);
+      expect(receivedRequests.single.bytesRead, limit + limit ~/ 2);
+    });
+
+    test('stops discarding at another limit', () async {
+      const limit = 1024 * 1024;
+      customLimit = limit;
+      // The client sends twice the cap of a body it declared three times the
+      // cap long, then waits. The handler has to answer on the write that
+      // fills the discard budget, or the response never comes.
+      final (status, text) = await sendPaced(3 * limit, total: 2 * limit);
+      expect(status, 413);
+      expect(errorCode(text), error_code.INVALID_REQUEST);
+      expect(receivedRequests.single.bytesRead, 2 * limit);
+    });
+
+    test('discards a body of the wrong media type the same way', () async {
+      const limit = 1024 * 1024;
+      customLimit = limit;
+      final (status, text) = await sendPaced(
+        3 * limit,
+        total: 2 * limit,
+        contentType: 'text/plain',
+      );
+      expect(status, 415);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+      expect(receivedRequests.single.bytesRead, 2 * limit);
+    });
+
+    test('throws on a negative cap', () async {
+      // A negative cap is not an off switch. Without the check, a handler
+      // given one answers 413 to every body that carries a byte.
+      final thrown = Completer<Object>();
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close(force: true));
+      server.listen(
+        (request) => handleStreamableHttpRequest(
+          request,
+          _HttpTestServer.new,
+          maxRequestBodyBytes: -1,
+        ).onError<Object>((error, _) => thrown.complete(error)),
+      );
+
+      // A handler that threw writes nothing, so the response never arrives.
+      // Racing the two lets a handler that answered 413 fail this fast.
+      final unanswered = HttpClient();
+      addTearDown(() => unanswered.close(force: true));
+      final uri = Uri.http('${server.address.host}:${server.port}', '/mcp');
+      final request = await unanswered.postUrl(uri);
+      headers(listTools).forEach(request.headers.set);
+      request.add(atTheLimit);
+      final outcome = await Future.any<Object>([
+        thrown.future,
+        request.close().then((response) => response.statusCode),
+      ]);
+
+      expect(outcome, isRangeError);
+      expect((outcome as RangeError).name, 'maxRequestBodyBytes');
+    });
+  });
+
   group('rejection bodies', () {
     Map<String, Object?> errorData(String text) =>
         (decode(text)[Keys.error] as Map<String, Object?>)[Keys.data]
@@ -4176,6 +4550,63 @@ void main() {
       expect(swallowed, isNotEmpty);
     });
   });
+}
+
+final class _CountingHttpRequest extends Stream<Uint8List>
+    implements HttpRequest {
+  _CountingHttpRequest(this._inner);
+
+  final HttpRequest _inner;
+
+  /// The length of each chunk the handler received, in order.
+  final chunkLengths = <int>[];
+
+  int get bytesRead => chunkLengths.fold(0, (sum, length) => sum + length);
+
+  final _readWaiters = <(int, Completer<void>)>[];
+
+  /// Completes once the handler has read at least [bytes] of the body.
+  Future<void> whenRead(int bytes) {
+    if (bytesRead >= bytes) return Future.value();
+    final waiter = Completer<void>();
+    _readWaiters.add((bytes, waiter));
+    return waiter.future;
+  }
+
+  @override
+  HttpHeaders get headers => _inner.headers;
+
+  @override
+  String get method => _inner.method;
+
+  @override
+  HttpResponse get response => _inner.response;
+
+  @override
+  StreamSubscription<Uint8List> listen(
+    void Function(Uint8List)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) => _inner.listen(
+    (chunk) {
+      chunkLengths.add(chunk.length);
+      final read = bytesRead;
+      for (final (bytes, waiter) in _readWaiters.toList()) {
+        if (read < bytes) continue;
+        _readWaiters.remove((bytes, waiter));
+        waiter.complete();
+      }
+      onData?.call(chunk);
+    },
+    onError: onError,
+    onDone: onDone,
+    cancelOnError: cancelOnError,
+  );
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnsupportedError('${invocation.memberName}');
 }
 
 /// Held by `test/notify-then-wait` until a test releases it.

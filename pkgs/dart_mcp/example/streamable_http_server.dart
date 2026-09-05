@@ -50,9 +50,9 @@ void main() async {
       return;
     }
 
-    // The handler leaves two more jobs to the host, and this example does
-    // neither: authenticating the caller, and bounding the size of the body it
-    // reads. A server reachable from anywhere but this machine needs both.
+    // The handler also leaves authentication to the host. This example does
+    // not authenticate the caller. A server reachable from anywhere but this
+    // machine needs it.
 
     // Every POST gets its own server: this protocol revision carries the client
     // context on the request instead of an `initialize` handshake, so there is
