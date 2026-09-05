@@ -87,10 +87,9 @@ import 'server.dart';
 /// result follows it as the last event. A request answered without one gets a
 /// JSON body instead. Long-lived change notifications go only to a successful
 /// `subscriptions/listen` response whose acknowledged filter selects them.
-/// A listen response writes an SSE comment every [listenKeepAliveInterval] to
-/// keep an idle stream open, which is also what notices a client that went
-/// away. Closing that response shuts down its request server and ends the
-/// subscription without a final result.
+/// An SSE response writes a comment every [keepAliveInterval] to keep an
+/// idle stream open, which is also what notices a client that went away.
+/// Closing that response shuts down its request server without a final result.
 /// [onNotification] sees every notification either way, held back or not.
 /// When [subscriptionNotifications] is provided, each listen request reads
 /// matching changes from that stream. An embedder can pass the same broadcast
@@ -102,7 +101,7 @@ Future<void> handleStreamableHttpRequest(
   MCPServerFactory serverFactory, {
   void Function(Map<String, Object?> notification)? onNotification,
   Stream<Map<String, Object?>>? subscriptionNotifications,
-  Duration listenKeepAliveInterval = const Duration(seconds: 15),
+  Duration keepAliveInterval = const Duration(seconds: 15),
 }) async {
   final response = request.response;
   if (request.method != 'POST') {
@@ -443,33 +442,26 @@ Future<void> handleStreamableHttpRequest(
     );
   }
 
-  final answer = _Answer(
-    response,
-    keepAliveInterval:
-        method == SubscriptionsListenRequest.methodName
-            ? listenKeepAliveInterval
-            : null,
-  );
+  final answer = _Answer(response, keepAliveInterval: keepAliveInterval);
   var pendingNotifications =
       method == CallToolRequest.methodName ? <Map<String, Object?>>[] : null;
   MCPServer? activeServer;
   StreamSubscription<Map<String, Object?>>? notificationSubscription;
   var responseClosed = false;
   var listenFailed = false;
-  if (method == SubscriptionsListenRequest.methodName) {
-    unawaited(() async {
-      try {
-        await response.done;
-      } catch (_) {
-        // A disconnected client cannot receive another response.
-      }
-      responseClosed = true;
-      answer.cancel();
-      await notificationSubscription?.cancel();
-      final server = activeServer;
-      if (server != null && server.isActive) await server.shutdown();
-    }());
-  }
+  unawaited(() async {
+    try {
+      await response.done;
+    } catch (_) {
+      // A disconnected client cannot receive another response.
+    }
+    if (!answer.isStreaming || answer.isFinished) return;
+    responseClosed = true;
+    answer.cancel();
+    await notificationSubscription?.cancel();
+    final server = activeServer;
+    if (server != null && server.isActive) await server.shutdown();
+  }());
 
   /// Writes [notification] to the response stream, skipping the ones an
   /// embedder serves on a listen stream.
@@ -677,13 +669,16 @@ String _sseEvent(Map<String, Object?> message) =>
 /// no longer applies to it, including the `400` this revision requires of a
 /// missing client capability.
 class _Answer {
-  _Answer(this._response, {this.keepAliveInterval});
+  _Answer(this._response, {required this.keepAliveInterval});
 
   final HttpResponse _response;
-  final Duration? keepAliveInterval;
+  final Duration keepAliveInterval;
   bool _committed = false;
   bool _finished = false;
   Timer? _keepAlive;
+
+  bool get isStreaming => _committed;
+  bool get isFinished => _finished;
 
   /// Sends [notification] on the stream, committing to it if this is the first.
   void notify(Map<String, Object?> notification) {
@@ -703,12 +698,10 @@ class _Answer {
       )
       ..headers.set(HttpHeaders.cacheControlHeader, 'no-cache, no-transform')
       ..headers.set('x-accel-buffering', 'no');
-    if (keepAliveInterval case final interval?) {
-      _keepAlive = Timer.periodic(
-        interval,
-        (_) => _response.write(_sseKeepAlive),
-      );
-    }
+    _keepAlive = Timer.periodic(
+      keepAliveInterval,
+      (_) => _response.write(_sseKeepAlive),
+    );
   }
 
   /// Sends [result] and closes. A second call is ignored.
