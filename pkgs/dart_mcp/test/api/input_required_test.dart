@@ -198,7 +198,7 @@ void main() {
       });
     });
 
-    test('keeps untrusted requestState unchanged across JSON', () {
+    test('keeps untrusted requestState unchanged after JSON decoding', () {
       final wire =
           jsonDecode('{"uri":"file:///a","requestState":"  client.state/+  "}')
               as Map<String, Object?>;
