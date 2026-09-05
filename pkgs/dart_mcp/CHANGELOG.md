@@ -307,11 +307,12 @@
   takes `ttlMs` and `cacheScope` on the same terms as the other five cacheable
   results, so the sixth operation the caching rules name is no longer the one
   that cannot carry the hints.
-- Answer a request whose handler emits related notifications on an SSE
-  response stream. A quiet handler keeps its JSON body. List changes and
-  resource updates skip that request's stream, since this revision carries
-  those on a `subscriptions/listen` stream. Closing that stream cancels the
-  request, shutting its server down without a final result.
+- Use an SSE response when a request handler emits related notifications. A
+  quiet handler keeps its JSON body. List changes and resource updates stay on
+  `subscriptions/listen`. Closing the response cancels the request and shuts
+  its server down without a final result. The `handleStreamableHttpRequest`
+  parameter `listenKeepAliveInterval` is now `keepAliveInterval` because it
+  covers every SSE response.
 - Add `sseMessageStream`, decoding the `message` events of an SSE response
   into JSON objects. Undecodable data becomes an error event without ending
   the stream, though `await for` stops on the first one.
