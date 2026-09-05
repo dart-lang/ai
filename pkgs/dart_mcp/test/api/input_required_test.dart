@@ -209,6 +209,20 @@ void main() {
       );
     });
 
+    test('keeps a padded requestState unchanged through encode and decode', () {
+      final request = ReadResourceRequest(
+        uri: 'file:///a',
+        requestState: '  client.state/+  ',
+      );
+
+      final wire = jsonDecode(jsonEncode(request)) as Map<String, Object?>;
+
+      expect(
+        ReadResourceRequest.fromMap(wire).requestState,
+        '  client.state/+  ',
+      );
+    });
+
     test('a first attempt writes neither field', () {
       expect(CallToolRequest(name: 'deploy') as Map<String, Object?>, {
         'name': 'deploy',
