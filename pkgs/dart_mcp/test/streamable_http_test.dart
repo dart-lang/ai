@@ -154,9 +154,13 @@ void main() {
   ];
 
   /// The JSON-RPC messages an SSE response [text] carries, in order.
+  ///
+  /// A keep-alive comment is a frame with no field lines at all, and no
+  /// message, so it is left out here.
   List<Map<String, Object?>> events(String text) => [
     for (final frame in frames(text))
-      jsonDecode(frame['data']!) as Map<String, Object?>,
+      if (frame['data'] case final data?)
+        jsonDecode(data) as Map<String, Object?>,
   ];
 
   Object? errorCode(String text) =>
@@ -3542,17 +3546,21 @@ void main() {
     });
 
     test('does not cancel before an SSE response starts', () async {
-      _noStreamHandlerEntered = Completer<void>();
-      _releaseNoStreamHandler = Completer<void>();
+      noStreamHandlerEntered = Completer<void>();
+      releaseNoStreamHandler = Completer<void>();
       addTearDown(() {
-        if (!_releaseNoStreamHandler.isCompleted) {
-          _releaseNoStreamHandler.complete();
+        if (!releaseNoStreamHandler.isCompleted) {
+          releaseNoStreamHandler.complete();
         }
       });
       final quiet = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       addTearDown(() => quiet.close(force: true));
       final handled = Completer<void>();
       quiet.listen((request) {
+        // A parked handler writes nothing, and a response nobody writes to
+        // never reports the disconnect this test is about, so the bytes below
+        // stand in for one. They cost the handler its own status line, which
+        // is why this probe keeps its errors to itself.
         () async {
           Timer? keepAlive;
           try {
@@ -3561,7 +3569,7 @@ void main() {
               servers.add(server);
               return server;
             });
-            await _noStreamHandlerEntered.future;
+            await noStreamHandlerEntered.future;
             request.response.bufferOutput = false;
             keepAlive = Timer.periodic(
               const Duration(milliseconds: 10),
@@ -3586,14 +3594,14 @@ void main() {
       final response = await request.close();
       final subscription = response.listen((_) {}, onError: (Object _) {});
       addTearDown(subscription.cancel);
-      await _noStreamHandlerEntered.future.timeout(const Duration(seconds: 5));
+      await noStreamHandlerEntered.future.timeout(const Duration(seconds: 5));
       final server = servers.single;
 
       client.close(force: true);
       await Future<void>.delayed(const Duration(milliseconds: 100));
       expect(server.isActive, isTrue);
 
-      _releaseNoStreamHandler.complete();
+      releaseNoStreamHandler.complete();
       await server.done.timeout(const Duration(seconds: 5));
       await handled.future.timeout(const Duration(seconds: 5));
     });
@@ -4065,6 +4073,53 @@ void main() {
       expect(events(chunks.toString()), hasLength(2));
     });
 
+    test('keeps a notifying stream alive with an SSE comment', () async {
+      releaseNotifyThenWait = Completer<void>();
+      addTearDown(() {
+        if (!releaseNotifyThenWait.isCompleted) {
+          releaseNotifyThenWait.complete();
+        }
+      });
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.openUrl('POST', uri);
+      headers(callTool).forEach(request.headers.set);
+      request.headers.set('Mcp-Name', 'test/notify-then-wait');
+      request.write(
+        jsonEncode(
+          body(callTool, params: {Keys.name: 'test/notify-then-wait'}),
+        ),
+      );
+      final response = await request.close();
+
+      // The handler stays parked past the keep-alive interval, so a comment
+      // lands between the notification and the result.
+      final chunks = StringBuffer();
+      final keptAlive = Completer<void>();
+      final subscription = response.transform(utf8.decoder).listen((chunk) {
+        chunks.write(chunk);
+        if (!keptAlive.isCompleted &&
+            chunks.toString().split('\n\n').any((f) => f.startsWith(':'))) {
+          keptAlive.complete();
+        }
+      });
+      addTearDown(subscription.cancel);
+
+      await keptAlive.future.timeout(const Duration(seconds: 5));
+      releaseNotifyThenWait.complete();
+      await subscription.asFuture<void>();
+
+      final text = chunks.toString();
+      expect(frames(text), hasLength(greaterThan(2)));
+      final messages = events(text);
+      expect(messages, hasLength(2));
+      expect(
+        messages.first[Keys.method],
+        LoggingMessageNotification.methodName,
+      );
+      expect(messages.last[Keys.id], 1);
+    });
+
     test('keeps the stream open for a second notification', () async {
       final (status, responseHeaders, text) = await post(
         headers: {...headers(callTool), 'Mcp-Name': 'test/notify-twice'},
@@ -4279,8 +4334,11 @@ Completer<void> releaseNotifyThenWait = Completer<void>();
 /// Held by `test/disconnect` until its response stream has closed.
 Completer<void> releaseDisconnectHandler = Completer<void>();
 
-Completer<void> _noStreamHandlerEntered = Completer<void>();
-Completer<void> _releaseNoStreamHandler = Completer<void>();
+/// Completed by `test/no-stream` once its handler is running.
+Completer<void> noStreamHandlerEntered = Completer<void>();
+
+/// Held by `test/no-stream` until a test releases it.
+Completer<void> releaseNoStreamHandler = Completer<void>();
 
 base class _NoStreamServer extends MCPServer {
   _NoStreamServer(super.channel)
@@ -4291,8 +4349,8 @@ base class _NoStreamServer extends MCPServer {
         ),
       ) {
     registerRequestHandler<Request?, Result?>('test/no-stream', (_) async {
-      _noStreamHandlerEntered.complete();
-      await _releaseNoStreamHandler.future;
+      noStreamHandlerEntered.complete();
+      await releaseNoStreamHandler.future;
       return EmptyResult();
     });
   }

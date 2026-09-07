@@ -309,10 +309,10 @@
   that cannot carry the hints.
 - Use an SSE response when a request handler emits related notifications. A
   quiet handler keeps its JSON body. List changes and resource updates stay on
-  `subscriptions/listen`. Closing the response cancels the request and shuts
-  its server down without a final result. The `handleStreamableHttpRequest`
-  parameter `listenKeepAliveInterval` is now `keepAliveInterval` because it
-  covers every SSE response.
+  `subscriptions/listen`. An open SSE response writes a keep-alive comment
+  every `keepAliveInterval`. Closing a started response cancels its request and
+  shuts the server down without a final result. A request that has not started
+  one keeps running.
 - Add `sseMessageStream`, decoding the `message` events of an SSE response
   into JSON objects. Undecodable data becomes an error event without ending
   the stream, though `await for` stops on the first one.

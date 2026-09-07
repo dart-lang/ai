@@ -89,7 +89,9 @@ import 'server.dart';
 /// `subscriptions/listen` response whose acknowledged filter selects them.
 /// An SSE response writes a comment every [keepAliveInterval] to keep an
 /// idle stream open, which is also what notices a client that went away.
-/// Closing that response shuts down its request server without a final result.
+/// Closing one shuts down its request server and ends any subscription it
+/// feeds, without a final result. A request that has not started an SSE
+/// response keeps running.
 /// [onNotification] sees every notification either way, held back or not.
 /// When [subscriptionNotifications] is provided, each listen request reads
 /// matching changes from that stream. An embedder can pass the same broadcast
@@ -455,7 +457,7 @@ Future<void> handleStreamableHttpRequest(
     } catch (_) {
       // A disconnected client cannot receive another response.
     }
-    if (!answer.isStreaming || answer.isFinished) return;
+    if (!answer._committed || answer._finished) return;
     responseClosed = true;
     answer.cancel();
     await notificationSubscription?.cancel();
@@ -676,9 +678,6 @@ class _Answer {
   bool _committed = false;
   bool _finished = false;
   Timer? _keepAlive;
-
-  bool get isStreaming => _committed;
-  bool get isFinished => _finished;
 
   /// Sends [notification] on the stream, committing to it if this is the first.
   void notify(Map<String, Object?> notification) {
