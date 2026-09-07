@@ -1680,6 +1680,46 @@ void main() {
       );
     });
 
+    test('forwards a capability set after the channel opens', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      final posted = Completer<Map<String, Object?>>();
+      wireServer.listen((request) async {
+        final sent =
+            jsonDecode(await utf8.decodeStream(request))
+                as Map<String, Object?>;
+        final params = sent[Keys.params] as Map<String, Object?>;
+        final meta = params[Keys.meta] as Map<String, Object?>;
+        posted.complete(
+          (meta[Keys.clientCapabilitiesMeta] as Map).cast<String, Object?>(),
+        );
+        request.response
+          ..headers.contentType = ContentType.json
+          ..write(
+            jsonEncode({
+              Keys.jsonrpc: '2.0',
+              Keys.id: sent[Keys.id],
+              Keys.result: <String, Object?>{},
+            }),
+          );
+        await request.response.close();
+      });
+
+      final capabilities = ClientCapabilities();
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: capabilities,
+      );
+      addTearDown(() => channel.sink.close());
+      capabilities.extensions = {'example/late': <String, Object?>{}};
+      channel.sink.add({Keys.jsonrpc: '2.0', Keys.id: 92, Keys.method: ping});
+
+      expect(await posted.future, {
+        'extensions': {'example/late': <String, Object?>{}},
+      });
+    });
+
     test('closes an in-flight HTTP request with the channel', () async {
       final wireServer = await ServerSocket.bind(
         InternetAddress.loopbackIPv4,

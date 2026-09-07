@@ -4,13 +4,29 @@
 
 part of 'api.dart';
 
+/// One extension identifier: a prefix of dot separated labels, a slash, and a
+/// name which may be empty.
+///
+/// A label starts with a letter and ends with a letter or digit, with letters,
+/// digits and hyphens in between. A name which is not empty starts and ends
+/// with an alphanumeric character, with alphanumerics, hyphens, underscores
+/// and dots in between. These are the `_meta` key naming rules, except that
+/// the prefix a `_meta` key may leave out is required here.
+///
+/// Read 2026-09-07 from
+/// https://modelcontextprotocol.io/specification/2026-07-28/schema#metaobject.
 final _extensionIdentifierPattern = RegExp(
   r'^[A-Za-z](?:[A-Za-z0-9-]*[A-Za-z0-9])?'
   r'(?:\.[A-Za-z](?:[A-Za-z0-9-]*[A-Za-z0-9])?)*'
   r'/(?:[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?)?$',
 );
 
-Map<String, Object?> _validatedExtensions(Object? extensions) {
+/// Throws an [ArgumentError] unless [extensions] is a map keyed by extension
+/// identifiers.
+///
+/// Reads [extensions] and leaves it alone, so a caller keeps the map it
+/// passed in and the settings under each identifier.
+void _validateExtensions(Object? extensions) {
   if (extensions is! Map) {
     throw ArgumentError.value(
       extensions,
@@ -18,9 +34,7 @@ Map<String, Object?> _validatedExtensions(Object? extensions) {
       'Must be a map keyed by extension identifiers',
     );
   }
-  final validated = <String, Object?>{};
-  for (final entry in extensions.entries) {
-    final identifier = entry.key;
+  for (final identifier in extensions.keys) {
     if (identifier is! String ||
         !_extensionIdentifierPattern.hasMatch(identifier)) {
       throw ArgumentError.value(
@@ -29,21 +43,15 @@ Map<String, Object?> _validatedExtensions(Object? extensions) {
         'Must use the vendor-prefix/extension-name format',
       );
     }
-    validated[identifier] = entry.value;
   }
-  return Map.unmodifiable(validated);
 }
 
-Map<String, Object?> _validatedCapabilityMap(
-  Map<String, Object?> capabilities,
-) {
-  final validated = Map<String, Object?>.of(capabilities);
+/// Throws an [ArgumentError] unless the extensions in [capabilities] are
+/// valid.
+void _validateCapabilityMap(Map<String, Object?> capabilities) {
   if (capabilities.containsKey(Keys.extensions)) {
-    validated[Keys.extensions] = _validatedExtensions(
-      capabilities[Keys.extensions],
-    );
+    _validateExtensions(capabilities[Keys.extensions]);
   }
-  return validated;
 }
 
 ClientCapabilities _validatedClientCapabilities(
@@ -259,8 +267,11 @@ extension type DiscoverResult.fromMap(Map<String, Object?> _value)
 /// Known capabilities are defined here, in this schema, but this is not a
 /// closed set: any client can define its own, additional capabilities.
 extension type ClientCapabilities._fromMap(Map<String, Object?> _value) {
-  factory ClientCapabilities.fromMap(Map<String, Object?> value) =>
-      ClientCapabilities._fromMap(_validatedCapabilityMap(value));
+  /// Wraps [value], which stays the map this reads and writes through.
+  factory ClientCapabilities.fromMap(Map<String, Object?> value) {
+    _validateCapabilityMap(value);
+    return ClientCapabilities._fromMap(value);
+  }
 
   factory ClientCapabilities({
     Map<String, Object?>? experimental,
@@ -323,7 +334,9 @@ extension type ClientCapabilities._fromMap(Map<String, Object?> _value) {
   /// support with no settings.
   Map<String, Object?>? get extensions {
     if (!_value.containsKey(Keys.extensions)) return null;
-    return _validatedExtensions(_value[Keys.extensions]);
+    final extensions = _value[Keys.extensions];
+    _validateExtensions(extensions);
+    return (extensions as Map).cast<String, Object?>();
   }
 
   /// Sets [extensions], asserting it is null first.
@@ -332,7 +345,8 @@ extension type ClientCapabilities._fromMap(Map<String, Object?> _value) {
     if (value == null) {
       _value.remove(Keys.extensions);
     } else {
-      _value[Keys.extensions] = _validatedExtensions(value);
+      _validateExtensions(value);
+      _value[Keys.extensions] = value;
     }
   }
 }
@@ -387,8 +401,11 @@ extension type ElicitationCapability.fromMap(Map<String, Object?> _value) {
 /// Known capabilities are defined here, in this schema, but this is not a
 /// closed set: any server can define its own, additional capabilities.
 extension type ServerCapabilities._fromMap(Map<String, Object?> _value) {
-  factory ServerCapabilities.fromMap(Map<String, Object?> value) =>
-      ServerCapabilities._fromMap(_validatedCapabilityMap(value));
+  /// Wraps [value], which stays the map this reads and writes through.
+  factory ServerCapabilities.fromMap(Map<String, Object?> value) {
+    _validateCapabilityMap(value);
+    return ServerCapabilities._fromMap(value);
+  }
 
   factory ServerCapabilities({
     Map<String, Object?>? experimental,
@@ -486,7 +503,9 @@ extension type ServerCapabilities._fromMap(Map<String, Object?> _value) {
   /// no settings.
   Map<String, Object?>? get extensions {
     if (!_value.containsKey(Keys.extensions)) return null;
-    return _validatedExtensions(_value[Keys.extensions]);
+    final extensions = _value[Keys.extensions];
+    _validateExtensions(extensions);
+    return (extensions as Map).cast<String, Object?>();
   }
 
   /// Sets [extensions] if it is null, otherwise throws.
@@ -495,7 +514,8 @@ extension type ServerCapabilities._fromMap(Map<String, Object?> _value) {
     if (value == null) {
       _value.remove(Keys.extensions);
     } else {
-      _value[Keys.extensions] = _validatedExtensions(value);
+      _validateExtensions(value);
+      _value[Keys.extensions] = value;
     }
   }
 }

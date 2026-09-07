@@ -6,9 +6,6 @@
   without changing its public API.
 - Stop sending `notifications/roots/list_changed` to a server that speaks
   2026-07-28. An unsettled connection still gets it.
-- Validate capability extension identifiers wherever they are written, read or
-  forwarded. An identifier without a vendor prefix is rejected, and the
-  settings under it are left alone.
 - **BREAKING**:
   - `MCPBase` (including the `MCPServer.fromStreamChannel` and
     `ServerConnection.fromStreamChannel` constructors),
@@ -138,6 +135,14 @@
     supertypes. A subclass or mixin overriding one of those three methods
     declares the wider return type, then checks `isInputRequired` and casts
     before it reads the completed result.
+  - Capability extension identifiers are validated wherever they are written,
+    read or forwarded. An `extensions` value which is not a map of identifiers
+    in the `{vendor-prefix}/{extension-name}` format throws an
+    `ArgumentError`, and an initialize request carrying one comes back as
+    invalid params. Validation reads without rewriting, so the settings under
+    each identifier stay the ones the caller passed, and an empty extension
+    name such as `example/` is still valid. Writing null `extensions` now
+    leaves the key out instead of writing a null.
 - Add `supportsFormElicitation` and `supportsUrlElicitation` for a server to
   ask before it sends. An empty `elicitation` object still means form, the way
   `elicitation` read before the split.

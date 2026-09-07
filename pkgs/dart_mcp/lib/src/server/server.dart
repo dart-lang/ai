@@ -263,6 +263,8 @@ abstract base class MCPServer extends MCPBase {
     late final ClientCapabilities clientCapabilities;
     try {
       clientCapabilities = request.capabilities;
+      // The getter validates what the client sent, so this error describes
+      // the request and not a bug on this side.
       // ignore: avoid_catching_errors
     } on ArgumentError {
       throw RpcException.invalidParams(

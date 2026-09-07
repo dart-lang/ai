@@ -211,26 +211,15 @@ void main() {
       });
     }
 
-    test('fromMap copies the capability map', () {
-      final map = <String, Object?>{
-        'extensions': <String, Object?>{'example/tasks': <String, Object?>{}},
-      };
+    test('fromMap wraps the map it is given', () {
+      final map = <String, Object?>{};
       final capabilities = ClientCapabilities.fromMap(map);
 
-      map['extensions'] = <String, Object?>{'tasks': <String, Object?>{}};
-      expect(capabilities.extensions, {'example/tasks': <String, Object?>{}});
-    });
+      capabilities.extensions = {'example/tasks': <String, Object?>{}};
+      expect(map['extensions'], {'example/tasks': <String, Object?>{}});
 
-    test('extension keys cannot change after validation', () {
-      final extensions = <String, Object?>{'example/tasks': {}};
-      final capabilities = ClientCapabilities(extensions: extensions);
-
-      extensions['tasks'] = {};
-      expect(capabilities.extensions, {'example/tasks': <String, Object?>{}});
-      expect(
-        () => capabilities.extensions!['tasks'] = {},
-        throwsUnsupportedError,
-      );
+      map['sampling'] = <String, Object?>{};
+      expect(capabilities.sampling, <String, Object?>{});
     });
 
     for (final writer

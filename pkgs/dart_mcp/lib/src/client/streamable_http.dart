@@ -45,9 +45,10 @@ StreamChannel<Map<String, Object?>> streamableHttpClientChannel(
       '$supportedVersions',
     );
   }
-  final validatedClientCapabilities = ClientCapabilities.fromMap(
-    clientCapabilities as Map<String, Object?>,
-  );
+  // Reject a bad identifier when the channel opens instead of on the first
+  // request. This checks and returns, so the caller keeps the object each
+  // message forwards and a capability set later still reaches the server.
+  ClientCapabilities.fromMap(clientCapabilities as Map<String, Object?>);
 
   final controller = StreamChannelController<Map<String, Object?>>();
   final httpClient = HttpClient();
@@ -60,7 +61,7 @@ StreamChannel<Map<String, Object?>> streamableHttpClientChannel(
           uri,
           message,
           protocolVersion,
-          validatedClientCapabilities,
+          clientCapabilities,
           clientInfo,
           state,
         ),

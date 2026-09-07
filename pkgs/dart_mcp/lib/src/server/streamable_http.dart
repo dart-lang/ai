@@ -334,6 +334,8 @@ Future<void> handleStreamableHttpRequest(
   late final ClientCapabilities clientCapabilities;
   try {
     clientCapabilities = ClientCapabilities.fromMap(capabilities);
+    // The envelope came off the wire, so this error describes the request
+    // and not a bug on this side.
     // ignore: avoid_catching_errors
   } on ArgumentError {
     return _reject(
