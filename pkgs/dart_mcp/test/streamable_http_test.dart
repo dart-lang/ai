@@ -3163,17 +3163,34 @@ void main() {
     });
 
     test('rejects a mismatched header after an earlier one matches', () async {
-      final (status, _, text) = await post(
-        headers: callWithHeaderParamHeaders({
-          'Mcp-Param-Region': 'us-west1',
-          'Mcp-Param-Count': '7',
-        }),
-        json: callWithHeaderParam({'region': 'us-west1', 'count': 42}),
-      );
-      expect(status, 400);
-      expect(errorCode(text), McpErrorCodes.headerMismatch);
-      expect(errorMessage(text), contains('Mcp-Param-Count'));
-      expect(errorMessage(text), contains('42'));
+      // Nothing fixes the order a server walks a schema's properties in, so a
+      // single case gets past a match only by luck. Whichever of the two
+      // properties the walk reads first, one case sends it matching.
+      for (final (mismatched, bodyValue, sent) in [
+        (
+          'Mcp-Param-Count',
+          '42',
+          {'Mcp-Param-Region': 'us-west1', 'Mcp-Param-Count': '7'},
+        ),
+        (
+          'Mcp-Param-Region',
+          'us-west1',
+          {'Mcp-Param-Region': 'eu-west1', 'Mcp-Param-Count': '42'},
+        ),
+      ]) {
+        final (status, _, text) = await post(
+          headers: callWithHeaderParamHeaders(sent),
+          json: callWithHeaderParam({'region': 'us-west1', 'count': 42}),
+        );
+        expect(status, 400, reason: mismatched);
+        expect(
+          errorCode(text),
+          McpErrorCodes.headerMismatch,
+          reason: mismatched,
+        );
+        expect(errorMessage(text), contains(mismatched), reason: mismatched);
+        expect(errorMessage(text), contains(bodyValue), reason: mismatched);
+      }
     });
 
     test('compares a boolean property', () async {
