@@ -202,6 +202,8 @@ Future<void> _runFixture(Uri endpoint, String scenario) async {
     workingDirectory: Directory.current.path,
     environment: {_scenarioVariable: scenario},
   );
+  // A failure before the wait below leaves the child running otherwise.
+  addTearDown(process.kill);
   final output = StringBuffer();
   final drained = Future.wait([
     process.stdout.transform(utf8.decoder).forEach(output.write),
