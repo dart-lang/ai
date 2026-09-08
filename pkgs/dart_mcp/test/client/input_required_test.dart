@@ -416,6 +416,14 @@ void main() {
       },
       expectedState: null,
     ),
+    (
+      name: 'a padded request state',
+      result: <String, Object?>{
+        'resultType': 'input_required',
+        'requestState': '  client.state/+  ',
+      },
+      expectedState: '  client.state/+  ',
+    ),
   ]) {
     test('retries with ${boundaryCase.name}', () async {
       final harness = _WireHarness(
