@@ -6,6 +6,9 @@
   without changing its public API.
 - Stop sending `notifications/roots/list_changed` to a server that speaks
   2026-07-28. An unsettled connection still gets it.
+- Let `handleRequestScopedMessage` route server-to-client requests through an
+  `onRequest` callback on revisions before 2026-07-28. Missing callbacks and
+  invalid callback responses fail the server request without leaving it open.
 - **BREAKING**:
   - `MCPBase` (including the `MCPServer.fromStreamChannel` and
     `ServerConnection.fromStreamChannel` constructors),
