@@ -69,6 +69,8 @@ const _echoStateTool = 'test_mrtr_echo_state';
 const _noStateTool = 'test_mrtr_no_state';
 const _unrelatedTool = 'test_mrtr_unrelated';
 const _noResultTypeTool = 'test_mrtr_no_result_type';
+const _jsonSchemaTool = 'json_schema_2020_12_tool';
+const _jsonSchemaEchoTool = 'json_schema_echo';
 
 /// Connects to [endpoint] and drives the traffic [scenario] scores.
 Future<void> _run(
@@ -114,6 +116,8 @@ Future<void> _run(
         }
       case 'sep-2322-client-request-state':
         await _driveMultiRound(connection);
+      case 'json-schema-2020-12-preservation':
+        await _echoJsonSchema(connection, tools);
     }
   } finally {
     await client.shutdown();
@@ -142,6 +146,27 @@ Future<void> _exerciseNamedMethods(
   final prompts = (await connection.listPrompts()).prompts;
   if (prompts.isNotEmpty) {
     await connection.getPrompt(GetPromptRequest(name: prompts.first.name));
+  }
+}
+
+/// Calls `json_schema_echo` with the focal tool's inputSchema.
+///
+/// The scenario scores whether the schema keywords the client decoded off
+/// the list response come back unchanged on this call, so the schema is
+/// forwarded as-is.
+Future<void> _echoJsonSchema(
+  ServerConnection connection,
+  ListToolsResult tools,
+) async {
+  for (final tool in tools.tools) {
+    if (tool.name != _jsonSchemaTool) continue;
+    await connection.callTool(
+      CallToolRequest(
+        name: _jsonSchemaEchoTool,
+        arguments: {'schema': tool.inputSchema},
+      ),
+    );
+    return;
   }
 }
 
