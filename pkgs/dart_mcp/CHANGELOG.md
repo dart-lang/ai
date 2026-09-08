@@ -1,11 +1,16 @@
 ## 0.6.0-wip
 
+- Add optional headers to `streamableHttpClientChannel`, with protocol headers
+  taking precedence on each POST.
 - Convert schema enum values and multi-select defaults to fixed-length lists so
   schemas built from sets or lazy iterables can be JSON encoded.
 - Split the Streamable HTTP implementation into client and server libraries
   without changing its public API.
 - Stop sending `notifications/roots/list_changed` to a server that speaks
   2026-07-28. An unsettled connection still gets it.
+- Let `handleRequestScopedMessage` route server-to-client requests through an
+  `onRequest` callback on revisions before 2026-07-28. Missing callbacks and
+  invalid callback responses fail the server request without leaving it open.
 - **BREAKING**:
   - `MCPBase` (including the `MCPServer.fromStreamChannel` and
     `ServerConnection.fromStreamChannel` constructors),
@@ -135,14 +140,19 @@
     supertypes. A subclass or mixin overriding one of those three methods
     declares the wider return type, then checks `isInputRequired` and casts
     before it reads the completed result.
-  - Capability extension identifiers are validated wherever they are written,
-    read or forwarded. An `extensions` value which is not a map of identifiers
-    in the `{vendor-prefix}/{extension-name}` format throws an
-    `ArgumentError`, and an initialize request carrying one comes back as
-    invalid params. Validation reads without rewriting, so the settings under
-    each identifier stay the ones the caller passed, and an empty extension
-    name such as `example/` is still valid. Writing null `extensions` now
-    leaves the key out instead of writing a null.
+- Cap the request body in `handleStreamableHttpRequest` at
+  `maxRequestBodyBytes`, 4 MiB by default.
+  Larger bodies get `413` and an invalid request error. The same cap is the
+  discard budget. A client that has not finished sending may not read the
+  response. Negative caps throw a `RangeError`.
+- Capability extension identifiers are validated wherever they are written,
+  read or forwarded. An `extensions` value which is not a map of identifiers
+  in the `{vendor-prefix}/{extension-name}` format throws an
+  `ArgumentError`, and an initialize request carrying one comes back as
+  invalid params. Validation reads without rewriting, so the settings under
+  each identifier stay the ones the caller passed, and an empty extension
+  name such as `example/` is still valid. Writing null `extensions` now
+  leaves the key out instead of writing a null.
 - Add `supportsFormElicitation` and `supportsUrlElicitation` for a server to
   ask before it sends. An empty `elicitation` object still means form, the way
   `elicitation` read before the split.
