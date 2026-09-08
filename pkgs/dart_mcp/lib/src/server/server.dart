@@ -18,6 +18,7 @@ import '../utils/json_rpc_2_object.dart';
 
 part 'completions_support.dart';
 part 'elicitation_request_support.dart';
+part 'legacy_input_required_shim.dart';
 part 'logging_support.dart';
 part 'prompts_support.dart';
 part 'request_scoped.dart';
@@ -97,6 +98,15 @@ abstract base class MCPServer extends MCPBase {
   ///
   /// Only assigned after [initialize] has been called.
   late ClientCapabilities clientCapabilities;
+
+  /// Whether this connection can answer requests sent by the server.
+  ///
+  /// Legacy connections always can. Request-scoped transports set this from
+  /// their optional server-request callback before dispatching a message.
+  bool _serverRequestsSupported = true;
+
+  late final _LegacyInputRequiredShim _legacyInputRequiredShim =
+      _LegacyInputRequiredShim(this);
 
   /// The client implementation information provided during initialization.
   ///
@@ -288,65 +298,17 @@ abstract base class MCPServer extends MCPBase {
     _initialized.complete(notification);
   }
 
-  /// Whether or not the connected client supports [listRoots].
+  /// Whether or not the connected client supports roots requests.
   ///
   /// Only safe to call after calling [initialize] on `super` since this
   /// is based on the client capabilities.
   bool get supportsRoots => clientCapabilities.supportsRoots;
 
-  /// Whether or not the connected client supports [createMessage].
+  /// Whether or not the connected client supports sampling requests.
   ///
   /// Only safe to call after calling [initialize] on `super` since this
   /// is based on the client capabilities.
   bool get supportsSampling => clientCapabilities.supportsSampling;
-
-  /// Lists all the root URIs from the client.
-  ///
-  /// Throws an [RpcException] when [protocolVersion] does not have
-  /// `roots/list`. 2026-07-28 took it out, and carries a [ListRootsRequest]
-  /// in an [InputRequiredResult] instead.
-  ///
-  /// Otherwise this only succeeds if the client has advertised the `roots`
-  /// capability, and throws an [RpcException] with
-  /// [McpErrorCodes.missingRequiredClientCapability] when it has not, naming
-  /// the capability the client is missing under `data.requiredCapabilities`.
-  @Deprecated(
-    'Use `InputRequiredResult` for 2026-07-28. '
-    'Older supported revisions keep this method.',
-  )
-  Future<ListRootsResult> listRoots([ListRootsRequest? request]) async {
-    _rejectRemovedMethod(ListRootsRequest.methodName, protocolVersion);
-    if (!supportsRoots) {
-      throw _missingRoots;
-    }
-    return sendRequest(ListRootsRequest.methodName, request);
-  }
-
-  /// A request to prompt the LLM owned by the client with a message.
-  ///
-  /// See https://modelcontextprotocol.io/specification/2026-07-28/client/sampling/.
-  ///
-  /// Throws an [RpcException] when [protocolVersion] does not have
-  /// `sampling/createMessage`. 2026-07-28 took it out, and carries a
-  /// [CreateMessageRequest] in an [InputRequiredResult] instead.
-  ///
-  /// Otherwise this only succeeds if the client has advertised the `sampling`
-  /// capability, and throws an [RpcException] with
-  /// [McpErrorCodes.missingRequiredClientCapability] when it has not, naming
-  /// the capability the client is missing under `data.requiredCapabilities`.
-  @Deprecated(
-    'Use `InputRequiredResult` for 2026-07-28. '
-    'Older supported revisions keep this method.',
-  )
-  Future<CreateMessageResult> createMessage(
-    CreateMessageRequest request,
-  ) async {
-    _rejectRemovedMethod(CreateMessageRequest.methodName, protocolVersion);
-    if (!supportsSampling) {
-      throw _missingSampling;
-    }
-    return sendRequest(CreateMessageRequest.methodName, request);
-  }
 }
 
 /// Refuses to send [method] when [ProtocolVersion.methodIsValid] says

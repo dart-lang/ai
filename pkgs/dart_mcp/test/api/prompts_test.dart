@@ -87,6 +87,7 @@ void main() {
       Prompt(name: 'needs input'),
       (_) => InputRequiredResult(requestState: 'waiting'),
     );
+    server.protocolVersion = ProtocolVersion.v2026_07_28;
 
     final result = await server.getPrompt(
       GetPromptRequest(name: 'needs input'),

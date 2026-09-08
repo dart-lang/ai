@@ -29,8 +29,8 @@ base mixin RootsSupport on MCPClient {
   /// Returns `true` if [root] was added, and `false` if a [Root] with
   /// the same URI was already present.
   ///
-  /// Notifies all connected servers of the change to the list of roots, if the
-  /// [root] was added.
+  /// Notifies the connected servers, other than those on a revision that
+  /// dropped the notification, if the [root] was added.
   bool addRoot(Root root) {
     final changed = _roots.add(root);
     if (changed) _notifyRootsListChanged();
@@ -42,8 +42,8 @@ base mixin RootsSupport on MCPClient {
   /// Returns `true` if [root] was removed, and `false` if no [Root] with
   /// a matching URI was present.
   ///
-  /// Notifies all connected servers of the change to the list of roots, if
-  /// a root was in fact removed.
+  /// Notifies the connected servers, other than those on a revision that
+  /// dropped the notification, if a root was in fact removed.
   bool removeRoot(Root root) {
     final removed = _roots.remove(root);
     if (removed) _notifyRootsListChanged();
@@ -52,8 +52,18 @@ base mixin RootsSupport on MCPClient {
 
   /// Called whenever the list of roots changes, it is the job of the server to
   /// then ask for the list of roots.
+  ///
+  /// A server that settled on a revision without the notification hears
+  /// nothing. 2026-07-28 is one, and carries a [ListRootsRequest] in an
+  /// [InputRequiredResult] instead. A server that has not settled yet is
+  /// still told.
   void _notifyRootsListChanged() {
     for (var server in connections) {
+      final version = server.protocolVersion;
+      if (version != null &&
+          !version.methodIsValid(RootsListChangedNotification.methodName)) {
+        continue;
+      }
       server.sendNotification(
         RootsListChangedNotification.methodName,
         RootsListChangedNotification(),

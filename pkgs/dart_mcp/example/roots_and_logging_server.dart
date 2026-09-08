@@ -62,8 +62,8 @@ base class MCPServerWithRootsTrackingSupport extends MCPServer
 
   /// Logs the current list of roots.
   void _logRoots() async {
-    final initialRoots = await listRoots(ListRootsRequest());
-    final rootsLines = initialRoots.roots
+    final currentRoots = await roots;
+    final rootsLines = currentRoots
         .map((r) => '  - ${r.name}: ${r.uri}')
         .join('\n');
     log(

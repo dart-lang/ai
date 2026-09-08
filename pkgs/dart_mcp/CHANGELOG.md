@@ -1,9 +1,16 @@
 ## 0.6.0-wip
 
+- Add optional headers to `streamableHttpClientChannel`, with protocol headers
+  taking precedence on each POST.
 - Convert schema enum values and multi-select defaults to fixed-length lists so
   schemas built from sets or lazy iterables can be JSON encoded.
 - Split the Streamable HTTP implementation into client and server libraries
   without changing its public API.
+- Stop sending `notifications/roots/list_changed` to a server that speaks
+  2026-07-28. An unsettled connection still gets it.
+- Let `handleRequestScopedMessage` route server-to-client requests through an
+  `onRequest` callback on revisions before 2026-07-28. Missing callbacks and
+  invalid callback responses fail the server request without leaving it open.
 - **BREAKING**:
   - `MCPBase` (including the `MCPServer.fromStreamChannel` and
     `ServerConnection.fromStreamChannel` constructors),
@@ -133,9 +140,15 @@
     supertypes. A subclass or mixin overriding one of those three methods
     declares the wider return type, then checks `isInputRequired` and casts
     before it reads the completed result.
-- Deprecate `MCPServer.listRoots`, `MCPServer.createMessage`, and
-  `ElicitationRequestSupport.elicit` in favor of `InputRequiredResult`. Nothing
-  is removed.
+  - Remove `MCPServer.elicit`, `MCPServer.listRoots`, and
+    `MCPServer.createMessage`. Update handlers to return `InputRequiredResult`
+    instead. An automatic compatibility shim sends requests to older clients
+    and reruns handlers with their responses.
+- Cap the request body in `handleStreamableHttpRequest` at
+  `maxRequestBodyBytes`, 4 MiB by default.
+  Larger bodies get `413` and an invalid request error. The same cap is the
+  discard budget. A client that has not finished sending may not read the
+  response. Negative caps throw a `RangeError`.
 - Add `supportsFormElicitation` and `supportsUrlElicitation` for a server to
   ask before it sends. An empty `elicitation` object still means form, the way
   `elicitation` read before the split.
@@ -406,6 +419,11 @@
     `progressToken` when they are given, see
     https://modelcontextprotocol.io/specification/2026-07-28/server/discover.
 - Add a local MCP conformance probe under `tool/`.
+- Accept a multi-select enum as an elicitation property.
+  `UntitledMultiSelectEnumSchema` and `TitledMultiSelectEnumSchema` build the
+  two schemas the spec lists, and an array with `items` matching neither is
+  refused.
+- Add list-change subscriptions to the local conformance probe.
 
 ## 0.5.2
 

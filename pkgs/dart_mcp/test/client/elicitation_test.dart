@@ -32,7 +32,8 @@ void main() {
       final server = environment.server;
       await environment.initializeServer();
 
-      final result = await server.elicit(
+      final result = await server.sendRequest<ElicitResult>(
+        ElicitRequest.methodName,
         ElicitRequest.form(
           message: 'What is your name?',
           requestedSchema: ObjectSchema(

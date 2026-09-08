@@ -210,24 +210,32 @@ base mixin ResourcesSupport on MCPServer {
   FutureOr<ReadResourceResponse> readResource(
     ReadResourceRequest request,
   ) async {
-    final impl = _resourceImpls[request.uri];
-    if (impl == null) {
-      // Check if it matches any resource template.
-      for (var descriptor in _resourceTemplates) {
-        final response = await descriptor.handler(request);
-        if (response != null) return response;
+    Future<ReadResourceResponse> invoke(ReadResourceRequest request) async {
+      final impl = _resourceImpls[request.uri];
+      if (impl == null) {
+        // Check if it matches any resource template.
+        for (var descriptor in _resourceTemplates) {
+          final response = await descriptor.handler(request);
+          if (response != null) return response;
+        }
       }
+
+      final response = await impl?.call(request);
+      if (response == null) {
+        throw RpcException(
+          error_code.INVALID_PARAMS,
+          'Resource not found',
+          data: {Keys.uri: request.uri},
+        );
+      }
+      return response;
     }
 
-    final response = await impl?.call(request);
-    if (response == null) {
-      throw RpcException(
-        error_code.INVALID_PARAMS,
-        'Resource not found',
-        data: {Keys.uri: request.uri},
-      );
-    }
-    return response;
+    return _legacyInputRequiredShim.fulfill(
+      ReadResourceRequest.methodName,
+      request,
+      (retryRequest) => invoke(retryRequest as ReadResourceRequest),
+    );
   }
 
   /// Subscribes the client to the resource at `request.uri`.

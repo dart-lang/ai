@@ -50,7 +50,7 @@ base class MCPServerWithElicitation extends MCPServer
     return super.initialize(initialization);
   }
 
-  Future<CallToolResult> _handleNeedsPermissionTool(
+  Future<CallToolResponse> _handleNeedsPermissionTool(
     CallToolRequest request,
   ) async {
     if (!approved) {
@@ -106,60 +106,60 @@ base class MCPServerWithElicitation extends MCPServer
       );
     }
 
-    await _startElicitationFlow();
-    return CallToolResult(content: [Content.text(text: 'Success!')]);
-  }
-
-  Future<void> _startElicitationFlow() async {
-    // You must wait for initialization to complete before you can make an
-    // elicitation request.
-    await initialized;
-    ({String name, int age, String gender})? userInfo;
-    while (userInfo == null) {
-      userInfo = await _elicitInfo();
+    final userInfo = request.inputResponses?['userInfo'];
+    if (userInfo is ElicitResult) {
+      switch (userInfo.action) {
+        case ElicitationAction.accept:
+          final {'age': int age, 'name': String name, 'gender': String gender} =
+              userInfo.content! as Map<String, dynamic>;
+          log(
+            LoggingLevel.warning,
+            'Hello $name! I see that you are $age years '
+            'old and identify as $gender',
+          );
+          final urlRequest = await _startUrlElicitation('12345');
+          return InputRequiredResult(inputRequests: {'apiKey': urlRequest});
+        case ElicitationAction.decline:
+          log(LoggingLevel.warning, 'Request for name was declined');
+        case ElicitationAction.cancel:
+          log(LoggingLevel.warning, 'Request for name was cancelled');
+      }
     }
-    await _elicitUrl(userInfo, '12345');
-  }
 
-  /// Elicits a name from the user, and logs a message based on the response.
-  Future<({String name, int age, String gender})?> _elicitInfo() async {
-    final response = await elicit(
-      ElicitRequest.form(
-        message: 'I would like to ask you some personal information.',
-        requestedSchema: Schema.object(
-          properties: {
-            'name': Schema.string(),
-            'age': Schema.int(),
-            'gender': Schema.string(enumValues: ['male', 'female', 'other']),
-          },
+    final apiKey = request.inputResponses?['apiKey'];
+    if (apiKey is ElicitResult) {
+      switch (apiKey.action) {
+        case ElicitationAction.accept:
+          log(LoggingLevel.warning, 'Request to navigate to URI was accepted');
+        case ElicitationAction.decline:
+          log(LoggingLevel.warning, 'Request to navigate to URI was declined');
+        case ElicitationAction.cancel:
+          log(LoggingLevel.warning, 'Request to navigate to URI was cancelled');
+      }
+      return CallToolResult(content: [Content.text(text: 'Success!')]);
+    }
+
+    return InputRequiredResult(
+      inputRequests: {
+        'userInfo': InputRequest.elicit(
+          ElicitRequest.form(
+            message: 'I would like to ask you some personal information.',
+            requestedSchema: Schema.object(
+              properties: {
+                'name': Schema.string(),
+                'age': Schema.int(),
+                'gender': Schema.string(
+                  enumValues: ['male', 'female', 'other'],
+                ),
+              },
+            ),
+          ),
         ),
-      ),
+      },
     );
-    switch (response.action) {
-      case ElicitationAction.accept:
-        final {'age': int age, 'name': String name, 'gender': String gender} =
-            (response.content as Map<String, dynamic>);
-        log(
-          LoggingLevel.warning,
-          'Hello $name! I see that you are $age years '
-          'old and identify as $gender',
-        );
-        return (name: name, age: age, gender: gender);
-      case ElicitationAction.decline:
-        log(LoggingLevel.warning, 'Request for name was declined');
-      case ElicitationAction.cancel:
-        log(LoggingLevel.warning, 'Request for name was cancelled');
-    }
-    return null;
   }
 
-  /// Elicits a URL from the user, asking them to navigate to a URL, and
-  /// then logging when we get the request.
-  Future<void> _elicitUrl(
-    ({String name, int age, String gender}) userInfo,
-    String elicitationId,
-  ) async {
-    // Start a simple web server on a random port.
+  Future<InputRequest> _startUrlElicitation(String elicitationId) async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     try {
       server.listen((HttpRequest request) async {
@@ -194,24 +194,17 @@ base class MCPServerWithElicitation extends MCPServer
         await request.response.close();
       });
 
-      final response = await elicit(
+      return InputRequest.elicit(
         ElicitRequest.url(
           message: 'Please navigate to a URL',
           url: 'http://${server.address.address}:${server.port}',
           elicitationId: elicitationId,
         ),
       );
-      switch (response.action) {
-        case ElicitationAction.accept:
-          log(LoggingLevel.warning, 'Request to navigate to URI was accepted');
-        case ElicitationAction.decline:
-          log(LoggingLevel.warning, 'Request to navigate to URI was declined');
-        case ElicitationAction.cancel:
-          log(LoggingLevel.warning, 'Request to navigate to URI was cancelled');
-      }
     } catch (e) {
       log(LoggingLevel.warning, 'Error during URL elicitation: $e');
       await server.close();
+      rethrow;
     }
   }
 }

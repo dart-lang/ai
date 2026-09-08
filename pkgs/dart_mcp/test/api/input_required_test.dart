@@ -2,7 +2,10 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:convert';
+
 import 'package:dart_mcp/client.dart';
+import 'package:dart_mcp/src/utils/constants.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -104,6 +107,13 @@ void main() {
       );
     });
 
+    test('writes a padded request state unchanged', () {
+      const padded = '  client.state/+  ';
+      final result = InputRequiredResult(requestState: padded);
+
+      expect((result as Map<String, Object?>)[Keys.requestState], padded);
+    });
+
     test('reads back the requests a server sent', () {
       final result = InputRequiredResult.fromMap({
         'resultType': 'input_required',
@@ -194,6 +204,29 @@ void main() {
         'inputResponses': {'github_login': elicited, 'capital': sampled},
         'requestState': 'an opaque blob',
       });
+    });
+
+    test('keeps untrusted requestState unchanged after JSON decoding', () {
+      final wire =
+          jsonDecode('{"uri":"file:///a","requestState":"  client.state/+  "}')
+              as Map<String, Object?>;
+
+      expect(
+        ReadResourceRequest.fromMap(wire).requestState,
+        '  client.state/+  ',
+      );
+    });
+
+    test('keeps padded requestState unchanged in the JSON it writes', () {
+      const padded = '  client.state/+  ';
+      for (var request in <WithInputResponses>[
+        CallToolRequest(name: 'deploy', requestState: padded),
+        GetPromptRequest(name: 'review', requestState: padded),
+        ReadResourceRequest(uri: 'file:///a', requestState: padded),
+      ]) {
+        final wire = jsonDecode(jsonEncode(request)) as Map<String, Object?>;
+        expect(wire[Keys.requestState], padded);
+      }
     });
 
     test('a first attempt writes neither field', () {

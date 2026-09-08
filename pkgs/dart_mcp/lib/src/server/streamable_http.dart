@@ -5,6 +5,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:collection/collection.dart';
 import 'package:json_rpc_2/error_code.dart' as error_code;
@@ -21,13 +22,14 @@ import 'server.dart';
 /// created by [serverFactory] via [handleRequestScopedMessage], and writing
 /// the HTTP response.
 ///
-/// Spec-defined failures are answered with their JSON-RPC error codes and
+/// Rejected requests are answered with their JSON-RPC error codes and
 /// HTTP statuses: 400 for a malformed message, a failed header or envelope
 /// validation, an absent `Accept` header, an `Accept` header that does not
-/// cover both response shapes, or a non-`application/json` `Content-Type`, and
-/// 404 for a method this transport does not serve. The specification requires
-/// `400 Bad Request` on every `HeaderMismatch` body and names no other status
-/// for content negotiation, so 406 and 415 are not used. Every one of
+/// cover both response shapes, 404 for a method this transport does not serve,
+/// and 415 for a non-`application/json` `Content-Type`. The specification
+/// requires `400 Bad Request` for its defined `HeaderMismatch` failures but
+/// names no status for rejecting a request media type, so 406 is not used.
+/// Every one of
 /// those bodies also carries its source message under `error.data.request`,
 /// as the rest of this package does: the decoded
 /// message when there is one, the raw body text when it was not valid JSON,
@@ -43,11 +45,11 @@ import 'server.dart';
 ///
 /// Notifications are acknowledged with `202 Accepted` and not dispatched,
 /// since this protocol revision defines no client-to-server notifications
-/// over HTTP. This handler reads the whole request body into memory. It does
-/// not read the `Origin` header. The specification requires a server to
-/// validate that header and answer with 403: the check needs deployment
-/// knowledge this handler does not have, so it belongs to the embedding
-/// HTTP server, along with authentication and request size limits.
+/// over HTTP. This handler reads a request body into memory, and caps it at
+/// [maxRequestBodyBytes]. It does not read the `Origin` header. The
+/// specification requires a server to validate that header and answer with
+/// 403. The check needs deployment knowledge this handler does not have, so it
+/// belongs to the embedding HTTP server, along with authentication.
 ///
 /// Responses produced by the dispatched server are written unchanged, so an
 /// error a request handler throws reaches the client with whatever payload
@@ -96,13 +98,24 @@ import 'server.dart';
 /// stream to every request and add [onNotification] values to it, allowing a
 /// change produced by one request's server to reach another request's listen
 /// stream.
+///
+/// A request body is capped at [maxRequestBodyBytes], 4 MiB by default. A body
+/// over the cap is answered with `413 Request Entity Too Large` and not parsed.
+/// It is still read, up to another [maxRequestBodyBytes], so that a body a
+/// little over the cap finishes and is answered on a connection that stays
+/// open. Past that the handler answers and stops reading, in that order. A
+/// client still sending when the connection closes may not get to read the 413.
+/// A body rejected by its media type is read the same way. A negative cap
+/// throws a [RangeError].
 Future<void> handleStreamableHttpRequest(
   HttpRequest request,
   MCPServerFactory serverFactory, {
   void Function(Map<String, Object?> notification)? onNotification,
   Stream<Map<String, Object?>>? subscriptionNotifications,
   Duration listenKeepAliveInterval = const Duration(seconds: 15),
+  int maxRequestBodyBytes = 4 * 1024 * 1024,
 }) async {
+  RangeError.checkNotNegative(maxRequestBodyBytes, 'maxRequestBodyBytes');
   final response = request.response;
   if (request.method != 'POST') {
     response
@@ -124,28 +137,45 @@ Future<void> handleStreamableHttpRequest(
     contentType = null;
   }
   if (contentType?.mimeType != ContentType.json.mimeType) {
-    try {
-      await request.drain<void>();
-    } on IOException {
-      // The client disconnected before its body arrived. There is no
-      // response left to write.
-      return;
-    }
-    return _reject(
+    Future<void> rejectMediaType() => _reject(
       response,
-      HttpStatus.badRequest,
+      HttpStatus.unsupportedMediaType,
       RpcException(
         McpErrorCodes.headerMismatch,
         'The request body must be sent as ${ContentType.json.mimeType}',
       ),
       null,
     );
+    final bool fits;
+    try {
+      // A body that ends within the read is answered on a connection that
+      // stays open for the next request.
+      fits = await _readBody(
+        request,
+        maxRequestBodyBytes,
+        reject: rejectMediaType,
+      );
+    } on IOException {
+      // The client disconnected before its body arrived. There is no
+      // response left to write.
+      return;
+    }
+    if (fits) await rejectMediaType();
+    return;
   }
 
   final Object? decoded;
   String? body;
   try {
-    body = await utf8.decodeStream(request);
+    final bytes = BytesBuilder(copy: false);
+    final fits = await _readBody(
+      request,
+      maxRequestBodyBytes,
+      keep: bytes.add,
+      reject: () => _rejectTooLarge(response, maxRequestBodyBytes),
+    );
+    if (!fits) return;
+    body = utf8.decode(bytes.takeBytes());
     decoded = jsonDecode(body);
   } on FormatException catch (e) {
     return _reject(
@@ -744,6 +774,60 @@ Future<void> _reject(
     ..headers.contentType = ContentType.json
     ..write(jsonEncode(exception.serialize(origin)));
   await response.close();
+}
+
+/// Refuses a body over [maxRequestBodyBytes] with `413`.
+///
+/// The specification names no status for an oversized body and allocates no
+/// error code for one. The code is the one this transport already refuses a
+/// batch with.
+Future<void> _rejectTooLarge(HttpResponse response, int maxRequestBodyBytes) =>
+    _reject(
+      response,
+      HttpStatus.requestEntityTooLarge,
+      RpcException(
+        error_code.INVALID_REQUEST,
+        'The request body must not exceed $maxRequestBodyBytes bytes',
+      ),
+      null,
+    );
+
+/// Reads the body of [request] while it fits in [cap] bytes, handing each
+/// chunk to [keep], and returns whether all of it did.
+///
+/// A chunked body carries no length, so the count runs as chunks arrive. A body
+/// over the cap is still read, up to another [cap] bytes, so that one a little
+/// over finishes and is answered on a connection that stays open. Past that the
+/// read stops, after [reject] has written the response. That order matters.
+/// Leaving the loop cancels the subscription, `dart:io` closes a connection as
+/// soon as a body it is still receiving is cancelled, and a response written
+/// after that never reaches the socket. [reject] is called once for a body over
+/// the cap, whichever way the read ends.
+Future<bool> _readBody(
+  HttpRequest request,
+  int cap, {
+  void Function(Uint8List chunk)? keep,
+  required Future<void> Function() reject,
+}) async {
+  var read = 0;
+  var discarded = 0;
+  var tooLarge = false;
+  await for (final chunk in request) {
+    if (!tooLarge && read + chunk.length <= cap) {
+      read += chunk.length;
+      keep?.call(chunk);
+      continue;
+    }
+    tooLarge = true;
+    discarded += chunk.length;
+    if (discarded >= cap) {
+      await reject();
+      return false;
+    }
+  }
+  if (!tooLarge) return true;
+  await reject();
+  return false;
 }
 
 /// Returns the single value of [name], or `null` if it is missing or was sent
