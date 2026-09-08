@@ -47,10 +47,10 @@ import 'server.dart';
 /// since this protocol revision defines no client-to-server notifications
 /// over HTTP. This handler reads a request body into memory, and caps it at
 /// [maxRequestBodyBytes]. The specification requires a server to validate the
-/// `Origin` header and answer with 403. Pass [allowedOrigins] to have that
-/// check run here. Without it the check needs deployment knowledge this
-/// handler does not have, so it belongs to the embedding HTTP server, along
-/// with authentication.
+/// `Origin` header and answer with 403. That check needs the deployment's own
+/// list of origins, so [allowedOrigins] carries it. Without the list the header
+/// goes unread and the check stays with the embedding HTTP server, along with
+/// authentication.
 ///
 /// Responses produced by the dispatched server are written unchanged, so an
 /// error a request handler throws reaches the client with whatever payload
