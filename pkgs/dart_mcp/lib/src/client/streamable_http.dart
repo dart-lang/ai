@@ -25,13 +25,16 @@ import '../utils/streamable_http.dart';
 /// notification. Notifications have no id to carry an error. A response
 /// stream that ends without answering the request fails it the same way. A
 /// `202` on a notification is not an inbound message. Valid `x-mcp-header`
-/// annotations from `tools/list` are mirrored on later `tools/call` requests. Invalid tool
-/// definitions are dropped. Does not send `initialize`.
+/// annotations from `tools/list` are mirrored on later `tools/call` requests.
+/// Invalid tool definitions are dropped. The [headers] map is written to each
+/// POST, and the protocol's own headers override it. Does not send
+/// `initialize`.
 StreamChannel<Map<String, Object?>> streamableHttpClientChannel(
   Uri uri, {
   required ProtocolVersion protocolVersion,
   required ClientCapabilities clientCapabilities,
   Implementation? clientInfo,
+  Map<String, String>? headers,
 }) {
   if (!protocolVersion.supportsStreamableHttp) {
     final supportedVersions = ProtocolVersion.values
@@ -59,6 +62,7 @@ StreamChannel<Map<String, Object?>> streamableHttpClientChannel(
           protocolVersion,
           clientCapabilities,
           clientInfo,
+          headers,
           state,
         ),
       )
@@ -78,6 +82,7 @@ Stream<Map<String, Object?>> _sendStreamableHttpMessage(
   ProtocolVersion protocolVersion,
   ClientCapabilities clientCapabilities,
   Implementation? clientInfo,
+  Map<String, String>? headers,
   _StreamableHttpClientState state,
 ) async* {
   // Shape errors happen before this turns true, transport errors after.
@@ -130,6 +135,7 @@ Stream<Map<String, Object?>> _sendStreamableHttpMessage(
             : const <String, String>{};
     posting = true;
     final request = await httpClient.postUrl(uri);
+    headers?.forEach(request.headers.set);
     request.headers
       ..contentType = ContentType.json
       ..set(

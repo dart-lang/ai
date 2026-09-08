@@ -5,6 +5,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:collection/collection.dart';
 import 'package:json_rpc_2/error_code.dart' as error_code;
@@ -44,11 +45,11 @@ import 'server.dart';
 ///
 /// Notifications are acknowledged with `202 Accepted` and not dispatched,
 /// since this protocol revision defines no client-to-server notifications
-/// over HTTP. This handler reads the whole request body into memory. It does
-/// not read the `Origin` header. The specification requires a server to
-/// validate that header and answer with 403: the check needs deployment
-/// knowledge this handler does not have, so it belongs to the embedding
-/// HTTP server, along with authentication and request size limits.
+/// over HTTP. This handler reads a request body into memory, and caps it at
+/// [maxRequestBodyBytes]. It does not read the `Origin` header. The
+/// specification requires a server to validate that header and answer with
+/// 403. The check needs deployment knowledge this handler does not have, so it
+/// belongs to the embedding HTTP server, along with authentication.
 ///
 /// Responses produced by the dispatched server are written unchanged, so an
 /// error a request handler throws reaches the client with whatever payload
@@ -89,22 +90,31 @@ import 'server.dart';
 /// `subscriptions/listen` response whose acknowledged filter selects them.
 /// An SSE response writes a comment every [keepAliveInterval] to keep an
 /// idle stream open, which is also what notices a client that went away.
-/// Closing one shuts down its request server and ends any subscription it
-/// feeds, without a final result. A request that has not started an SSE
-/// response keeps running.
+/// Closing that response shuts down its request server without a final result.
 /// [onNotification] sees every notification either way, held back or not.
 /// When [subscriptionNotifications] is provided, each listen request reads
 /// matching changes from that stream. An embedder can pass the same broadcast
 /// stream to every request and add [onNotification] values to it, allowing a
 /// change produced by one request's server to reach another request's listen
 /// stream.
+///
+/// A request body is capped at [maxRequestBodyBytes], 4 MiB by default. A body
+/// over the cap is answered with `413 Request Entity Too Large` and not parsed.
+/// It is still read, up to another [maxRequestBodyBytes], so that a body a
+/// little over the cap finishes and is answered on a connection that stays
+/// open. Past that the handler answers and stops reading, in that order. A
+/// client still sending when the connection closes may not get to read the 413.
+/// A body rejected by its media type is read the same way. A negative cap
+/// throws a [RangeError].
 Future<void> handleStreamableHttpRequest(
   HttpRequest request,
   MCPServerFactory serverFactory, {
   void Function(Map<String, Object?> notification)? onNotification,
   Stream<Map<String, Object?>>? subscriptionNotifications,
   Duration keepAliveInterval = const Duration(seconds: 15),
+  int maxRequestBodyBytes = 4 * 1024 * 1024,
 }) async {
+  RangeError.checkNotNegative(maxRequestBodyBytes, 'maxRequestBodyBytes');
   final response = request.response;
   if (request.method != 'POST') {
     response
@@ -126,14 +136,7 @@ Future<void> handleStreamableHttpRequest(
     contentType = null;
   }
   if (contentType?.mimeType != ContentType.json.mimeType) {
-    try {
-      await request.drain<void>();
-    } on IOException {
-      // The client disconnected before its body arrived. There is no
-      // response left to write.
-      return;
-    }
-    return _reject(
+    Future<void> rejectMediaType() => _reject(
       response,
       HttpStatus.unsupportedMediaType,
       RpcException(
@@ -142,12 +145,36 @@ Future<void> handleStreamableHttpRequest(
       ),
       null,
     );
+    final bool fits;
+    try {
+      // A body that ends within the read is answered on a connection that
+      // stays open for the next request.
+      fits = await _readBody(
+        request,
+        maxRequestBodyBytes,
+        reject: rejectMediaType,
+      );
+    } on IOException {
+      // The client disconnected before its body arrived. There is no
+      // response left to write.
+      return;
+    }
+    if (fits) await rejectMediaType();
+    return;
   }
 
   final Object? decoded;
   String? body;
   try {
-    body = await utf8.decodeStream(request);
+    final bytes = BytesBuilder(copy: false);
+    final fits = await _readBody(
+      request,
+      maxRequestBodyBytes,
+      keep: bytes.add,
+      reject: () => _rejectTooLarge(response, maxRequestBodyBytes),
+    );
+    if (!fits) return;
+    body = utf8.decode(bytes.takeBytes());
     decoded = jsonDecode(body);
   } on FormatException catch (e) {
     return _reject(
@@ -457,7 +484,7 @@ Future<void> handleStreamableHttpRequest(
     } catch (_) {
       // A disconnected client cannot receive another response.
     }
-    if (!answer._committed || answer._finished) return;
+    if (!answer.isStreaming || answer.isFinished) return;
     responseClosed = true;
     answer.cancel();
     await notificationSubscription?.cancel();
@@ -679,6 +706,9 @@ class _Answer {
   bool _finished = false;
   Timer? _keepAlive;
 
+  bool get isStreaming => _committed;
+  bool get isFinished => _finished;
+
   /// Sends [notification] on the stream, committing to it if this is the first.
   void notify(Map<String, Object?> notification) {
     if (!_committed) _commit();
@@ -737,6 +767,60 @@ Future<void> _reject(
     ..headers.contentType = ContentType.json
     ..write(jsonEncode(exception.serialize(origin)));
   await response.close();
+}
+
+/// Refuses a body over [maxRequestBodyBytes] with `413`.
+///
+/// The specification names no status for an oversized body and allocates no
+/// error code for one. The code is the one this transport already refuses a
+/// batch with.
+Future<void> _rejectTooLarge(HttpResponse response, int maxRequestBodyBytes) =>
+    _reject(
+      response,
+      HttpStatus.requestEntityTooLarge,
+      RpcException(
+        error_code.INVALID_REQUEST,
+        'The request body must not exceed $maxRequestBodyBytes bytes',
+      ),
+      null,
+    );
+
+/// Reads the body of [request] while it fits in [cap] bytes, handing each
+/// chunk to [keep], and returns whether all of it did.
+///
+/// A chunked body carries no length, so the count runs as chunks arrive. A body
+/// over the cap is still read, up to another [cap] bytes, so that one a little
+/// over finishes and is answered on a connection that stays open. Past that the
+/// read stops, after [reject] has written the response. That order matters.
+/// Leaving the loop cancels the subscription, `dart:io` closes a connection as
+/// soon as a body it is still receiving is cancelled, and a response written
+/// after that never reaches the socket. [reject] is called once for a body over
+/// the cap, whichever way the read ends.
+Future<bool> _readBody(
+  HttpRequest request,
+  int cap, {
+  void Function(Uint8List chunk)? keep,
+  required Future<void> Function() reject,
+}) async {
+  var read = 0;
+  var discarded = 0;
+  var tooLarge = false;
+  await for (final chunk in request) {
+    if (!tooLarge && read + chunk.length <= cap) {
+      read += chunk.length;
+      keep?.call(chunk);
+      continue;
+    }
+    tooLarge = true;
+    discarded += chunk.length;
+    if (discarded >= cap) {
+      await reject();
+      return false;
+    }
+  }
+  if (!tooLarge) return true;
+  await reject();
+  return false;
 }
 
 /// Returns the single value of [name], or `null` if it is missing or was sent
