@@ -11,6 +11,7 @@ import 'dart:io';
 
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp/src/utils/constants.dart';
+import 'package:dart_mcp/src/utils/streamable_http.dart';
 import 'package:dart_mcp/streamable_http.dart';
 import 'package:json_rpc_2/error_code.dart' as error_code;
 import 'package:json_rpc_2/json_rpc_2.dart';
@@ -191,6 +192,132 @@ void main() {
       response.substring(response.indexOf('{'), response.lastIndexOf('}') + 1);
 
   group('client channel', () {
+    test('omits custom headers by default', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      final observed = Completer<void>();
+      wireServer.listen((request) async {
+        try {
+          expect(
+            request.headers.value(HttpHeaders.authorizationHeader),
+            isNull,
+          );
+          expect(request.headers.value(protocolVersionHeader), version);
+          observed.complete();
+        } catch (error, stackTrace) {
+          observed.completeError(error, stackTrace);
+        } finally {
+          request.response
+            ..headers.contentType = ContentType.json
+            ..write(
+              jsonEncode({
+                Keys.jsonrpc: '2.0',
+                Keys.id: 1,
+                Keys.result: <String, Object?>{},
+              }),
+            );
+          await request.response.close();
+        }
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 1,
+        Keys.method: 'test/request',
+      });
+
+      await Future.wait([channel.stream.first, observed.future]);
+    });
+
+    test('sends caller authorization headers', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      final observed = Completer<void>();
+      wireServer.listen((request) async {
+        try {
+          expect(
+            request.headers.value(HttpHeaders.authorizationHeader),
+            'Bearer t',
+          );
+          observed.complete();
+        } catch (error, stackTrace) {
+          observed.completeError(error, stackTrace);
+        } finally {
+          request.response
+            ..headers.contentType = ContentType.json
+            ..write(
+              jsonEncode({
+                Keys.jsonrpc: '2.0',
+                Keys.id: 1,
+                Keys.result: <String, Object?>{},
+              }),
+            );
+          await request.response.close();
+        }
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+        headers: {'Authorization': 'Bearer t'},
+      );
+      addTearDown(() => channel.sink.close());
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 1,
+        Keys.method: 'test/request',
+      });
+
+      await Future.wait([channel.stream.first, observed.future]);
+    });
+
+    test('keeps protocol version over caller headers', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      final observed = Completer<void>();
+      wireServer.listen((request) async {
+        try {
+          expect(request.headers.value(protocolVersionHeader), version);
+          observed.complete();
+        } catch (error, stackTrace) {
+          observed.completeError(error, stackTrace);
+        } finally {
+          request.response
+            ..headers.contentType = ContentType.json
+            ..write(
+              jsonEncode({
+                Keys.jsonrpc: '2.0',
+                Keys.id: 1,
+                Keys.result: <String, Object?>{},
+              }),
+            );
+          await request.response.close();
+        }
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+        headers: {protocolVersionHeader: 'caller-version'},
+      );
+      addTearDown(() => channel.sink.close());
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 1,
+        Keys.method: 'test/request',
+      });
+
+      await Future.wait([channel.stream.first, observed.future]);
+    });
+
     test('posts request metadata and emits the JSON response', () async {
       final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       addTearDown(() => wireServer.close(force: true));
