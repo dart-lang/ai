@@ -141,6 +141,14 @@
     supertypes. A subclass or mixin overriding one of those three methods
     declares the wider return type, then checks `isInputRequired` and casts
     before it reads the completed result.
+  - Capability extension identifiers are validated wherever they are written,
+    read or forwarded. An `extensions` value which is not a map of identifiers
+    in the `{vendor-prefix}/{extension-name}` format throws an
+    `ArgumentError`, and an initialize request carrying one comes back as
+    invalid params. Validation reads without rewriting, so the settings under
+    each identifier stay the ones the caller passed, and an empty extension
+    name such as `example/` is still valid. Writing null `extensions` now
+    leaves the key out instead of writing a null.
 - Cap the request body in `handleStreamableHttpRequest` at
   `maxRequestBodyBytes`, 4 MiB by default.
   Larger bodies get `413` and an invalid request error. The same cap is the
