@@ -749,6 +749,9 @@ class _Answer {
     _response.write(_sseEvent(notification));
   }
 
+  /// Turns the response into an SSE stream with the headers that keep proxies
+  /// from buffering it, and starts the keep-alive timer. Runs once, before the
+  /// first event.
   void _commit() {
     _committed = true;
     _response
