@@ -36,6 +36,7 @@ extension type CreateMessageRequest.fromMap(Map<String, Object?> _value)
     required int maxTokens,
     List<String>? stopSequences,
     ToolChoice? toolChoice,
+    List<Tool>? tools,
     Map<String, Object?>? metadata,
     MetaWithProgressToken? meta,
   }) => CreateMessageRequest.fromMap({
@@ -47,6 +48,7 @@ extension type CreateMessageRequest.fromMap(Map<String, Object?> _value)
     Keys.maxTokens: maxTokens,
     if (stopSequences != null) Keys.stopSequences: stopSequences,
     if (toolChoice != null) Keys.toolChoice: toolChoice,
+    if (tools != null) Keys.tools: tools,
     if (metadata != null) Keys.metadata: metadata,
     if (meta != null) Keys.meta: meta,
   });
@@ -110,6 +112,9 @@ extension type CreateMessageRequest.fromMap(Map<String, Object?> _value)
 
   /// Controls how the model uses tools (if available).
   ToolChoice? get toolChoice => _value[Keys.toolChoice] as ToolChoice?;
+
+  /// Tools the model may call during this request.
+  List<Tool>? get tools => (_value[Keys.tools] as List?)?.cast<Tool>();
 
   /// Optional metadata to pass through to the LLM provider.
   ///

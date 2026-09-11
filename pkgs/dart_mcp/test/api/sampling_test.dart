@@ -11,6 +11,28 @@ import 'package:test/test.dart';
 import '../test_utils.dart';
 
 void main() {
+  group('CreateMessageRequest tools', () {
+    test('writes and reads tools', () {
+      final request = CreateMessageRequest(
+        messages: [],
+        maxTokens: 1,
+        tools: [Tool(name: 'x', inputSchema: ObjectSchema())],
+      );
+      final wire = request as Map<String, Object?>;
+
+      expect(request.tools!.single.name, 'x');
+      expect(wire['tools'], hasLength(1));
+    });
+
+    test('omits tools when not provided', () {
+      final wire =
+          CreateMessageRequest(messages: [], maxTokens: 1)
+              as Map<String, Object?>;
+
+      expect(wire.containsKey('tools'), isFalse);
+    });
+  });
+
   test('includeContext round trips the values the schema names', () {
     for (final (value, wire) in const [
       (IncludeContext.none, 'none'),
