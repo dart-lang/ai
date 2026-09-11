@@ -166,6 +166,91 @@ extension type SamplingMessage.fromMap(Map<String, Object?> _value) {
   Content get content => _value[Keys.content] as Content;
 }
 
+/// A request from the assistant to call a tool.
+extension type ToolUseContent.fromMap(Map<String, Object?> _value)
+    implements Content, WithMetadata {
+  static const expectedType = 'tool_use';
+
+  factory ToolUseContent({
+    required String id,
+    required String name,
+    required Map<String, Object?> input,
+    Meta? meta,
+  }) => ToolUseContent.fromMap({
+    Keys.id: id,
+    Keys.input: input,
+    Keys.name: name,
+    Keys.type: expectedType,
+    if (meta != null) Keys.meta: meta,
+  });
+
+  /// The content type, always [expectedType].
+  String get type {
+    final type = _value[Keys.type] as String;
+    assert(type == expectedType);
+    return type;
+  }
+
+  /// The unique identifier for this tool use.
+  String get id => _value[Keys.id] as String;
+
+  /// The name of the tool to call.
+  String get name => _value[Keys.name] as String;
+
+  /// The arguments to pass to the tool.
+  Map<String, Object?> get input =>
+      (_value[Keys.input] as Map).cast<String, Object?>();
+}
+
+/// The result of a tool use, provided by the user back to the assistant.
+extension type ToolResultContent.fromMap(Map<String, Object?> _value)
+    implements Content, WithMetadata {
+  static const expectedType = 'tool_result';
+
+  factory ToolResultContent({
+    required List<Content> content,
+    required String toolUseId,
+    Map<String, Object?>? structuredContent,
+    bool? isError,
+    Meta? meta,
+  }) => ToolResultContent.fromMap({
+    Keys.content: content,
+    Keys.toolUseId: toolUseId,
+    Keys.type: expectedType,
+    if (structuredContent != null) Keys.structuredContent: structuredContent,
+    if (isError != null) Keys.isError: isError,
+    if (meta != null) Keys.meta: meta,
+  });
+
+  /// The content type, always [expectedType].
+  String get type {
+    final type = _value[Keys.type] as String;
+    assert(type == expectedType);
+    return type;
+  }
+
+  /// The content returned by the tool.
+  List<Content> get content {
+    final content = (_value[Keys.content] as List?)?.cast<Content>();
+    if (content == null) {
+      throw ArgumentError(
+        'Missing ${Keys.content} field in $ToolResultContent',
+      );
+    }
+    return content;
+  }
+
+  /// The structured result returned by the tool.
+  Map<String, Object?>? get structuredContent =>
+      _value[Keys.structuredContent] as Map<String, Object?>?;
+
+  /// Whether the tool use resulted in an error.
+  bool? get isError => _value[Keys.isError] as bool?;
+
+  /// The identifier of the tool use this result corresponds to.
+  String get toolUseId => _value[Keys.toolUseId] as String;
+}
+
 /// The server's preferences for model selection, requested of the client
 /// during sampling.
 ///

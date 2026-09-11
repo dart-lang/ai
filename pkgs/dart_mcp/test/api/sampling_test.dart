@@ -111,6 +111,132 @@ void main() {
     );
   });
 
+  group('ToolUseContent', () {
+    test('round trips through a map', () {
+      final content = ToolUseContent(
+        id: 'call-1',
+        name: 'lookup',
+        input: {'query': 'weather'},
+      );
+      final wire = content as Map<String, Object?>;
+
+      expect(wire, {
+        'type': 'tool_use',
+        'id': 'call-1',
+        'name': 'lookup',
+        'input': {'query': 'weather'},
+      });
+
+      final decoded = ToolUseContent.fromMap(wire);
+      expect(decoded.type, wire['type']);
+      expect(decoded.id, 'call-1');
+      expect(decoded.name, 'lookup');
+      expect(decoded.input, {'query': 'weather'});
+
+      final asContent = Content.fromMap(wire);
+      expect(asContent.isToolUse, isTrue);
+      expect(asContent.isText, isFalse);
+    });
+
+    test('writes metadata when provided', () {
+      final meta = Meta.fromMap({'source': 'tool'});
+      final content = ToolUseContent(
+        id: 'call-1',
+        name: 'lookup',
+        input: {},
+        meta: meta,
+      );
+
+      expect(content as Map<String, Object?>, {
+        'type': 'tool_use',
+        'id': 'call-1',
+        'name': 'lookup',
+        'input': <String, Object?>{},
+        '_meta': {'source': 'tool'},
+      });
+      expect(
+        ToolUseContent.fromMap(content as Map<String, Object?>).meta,
+        meta,
+      );
+    });
+  });
+
+  group('ToolResultContent', () {
+    test('round trips through a map', () {
+      final text = TextContent(text: 'done');
+      final result = ToolResultContent(toolUseId: 'call-1', content: [text]);
+      final wire = result as Map<String, Object?>;
+
+      expect(wire, {
+        'type': 'tool_result',
+        'toolUseId': 'call-1',
+        'content': [text],
+      });
+
+      final decoded = ToolResultContent.fromMap(wire);
+      expect(decoded.type, wire['type']);
+      expect(decoded.toolUseId, 'call-1');
+      expect(decoded.content, hasLength(1));
+      final decodedContent = decoded.content.single;
+      expect(decodedContent.isText, isTrue);
+      expect((decodedContent as TextContent).text, 'done');
+      expect(decoded.structuredContent, isNull);
+      expect(decoded.isError, isNull);
+
+      final asContent = Content.fromMap(wire);
+      expect(asContent.isToolResult, isTrue);
+      expect(asContent.isText, isFalse);
+    });
+
+    test('omits absent optional fields', () {
+      final result = ToolResultContent(
+        toolUseId: 'call-1',
+        content: [TextContent(text: 'done')],
+      );
+
+      final wire = result as Map<String, Object?>;
+      expect(wire.keys.toSet(), {'type', 'toolUseId', 'content'});
+      expect(result.structuredContent, isNull);
+      expect(result.isError, isNull);
+      expect(result.meta, isNull);
+    });
+
+    test('reads optional fields when provided', () {
+      final structuredContent = {'answer': '42'};
+      final meta = Meta.fromMap({'source': 'tool'});
+      final result = ToolResultContent(
+        toolUseId: 'call-1',
+        content: [TextContent(text: 'done')],
+        structuredContent: structuredContent,
+        isError: true,
+        meta: meta,
+      );
+
+      expect(result as Map<String, Object?>, {
+        'type': 'tool_result',
+        'toolUseId': 'call-1',
+        'content': [TextContent(text: 'done')],
+        'structuredContent': structuredContent,
+        'isError': true,
+        '_meta': {'source': 'tool'},
+      });
+      expect(result.structuredContent, structuredContent);
+      expect(result.isError, isTrue);
+      expect(result.meta, meta);
+    });
+
+    test('throws when content is missing', () {
+      expect(
+        () =>
+            ToolResultContent.fromMap({
+              'type': 'tool_result',
+              'toolUseId': 'call-1',
+            }).content,
+        throwsArgumentError,
+      );
+    });
+  });
+
   test('server can request LLM messages from the client', () async {
     final environment = TestEnvironment(
       SamplingTestMCPClient(),

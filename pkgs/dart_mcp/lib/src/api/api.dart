@@ -538,11 +538,18 @@ extension type Content._(Map<String, Object?> _value) {
   bool get isEmbeddedResource =>
       _value[Keys.type] == EmbeddedResource.expectedType;
 
+  /// Whether this is a [ToolUseContent].
+  bool get isToolUse => _value[Keys.type] == ToolUseContent.expectedType;
+
+  /// Whether this is a [ToolResultContent].
+  bool get isToolResult => _value[Keys.type] == ToolResultContent.expectedType;
+
   /// The type of content.
   ///
   /// You can use this in a switch to handle the various types (see the static
-  /// `expectedType` getters), or you can use [isText], [isImage], [isAudio] and
-  /// [isEmbeddedResource] to determine the type and then do the cast.
+  /// `expectedType` getters), or you can use [isText], [isImage], [isAudio],
+  /// [isEmbeddedResource], [isToolUse] and [isToolResult] to determine the type
+  /// and then do the cast.
   String get type => _value[Keys.type] as String;
 }
 

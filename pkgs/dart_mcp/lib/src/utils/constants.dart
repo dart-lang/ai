@@ -67,6 +67,7 @@ extension Keys on Never {
   static const id = 'id';
   static const idempotentHint = 'idempotentHint';
   static const includeContext = 'includeContext';
+  static const input = 'input';
   static const inputRequests = 'inputRequests';
   static const inputResponses = 'inputResponses';
   static const inputSchema = 'inputSchema';
@@ -160,6 +161,7 @@ extension Keys on Never {
   static const theme = 'theme';
   static const title = 'title';
   static const toolChoice = 'toolChoice';
+  static const toolUseId = 'toolUseId';
   static const tools = 'tools';
   static const toolsListChanged = 'toolsListChanged';
   static const total = 'total';
