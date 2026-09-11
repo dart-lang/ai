@@ -15,7 +15,11 @@ part of 'client.dart';
 final class Subscription {
   /// Opens the handle for the request [ServerConnection.listen] just sent
   /// under [id], whose response is [result].
-  Subscription._(this._connection, this.id, Future<Result?> result) {
+  Subscription._(
+    this._connection,
+    this.id,
+    Future<SubscriptionsListenResult> result,
+  ) {
     // The filter names four notification types and the connection already
     // routes each to a stream of its own, so this reads them from there
     // rather than registering handlers json_rpc_2 refuses as duplicates.
@@ -27,10 +31,7 @@ final class Subscription {
     ]) {
       _forwarding.add(stream.listen(_forward));
     }
-    _done = result.then((result) async {
-      final ended = SubscriptionsListenResult.fromMap(
-        (result as Map<String, Object?>?) ?? const {},
-      );
+    _done = result.then((ended) async {
       await _close();
       return ended;
     }, onError: _closeWithError);
@@ -74,6 +75,12 @@ final class Subscription {
   /// This is a broadcast stream: events are not buffered, so subscribe in the
   /// same synchronous run as the [ServerConnection.listen] call. Closes when
   /// the subscription ends.
+  ///
+  /// These notifications also reach the connection's own
+  /// [ServerConnection.toolListChanged], [ServerConnection.promptListChanged],
+  /// [ServerConnection.resourceListChanged] and
+  /// [ServerConnection.resourceUpdated] streams, so a caller listening to both
+  /// sees each one twice.
   Stream<Notification> get notifications => _notifications.stream;
 
   /// Completes when the server ends this subscription gracefully, with the
@@ -94,7 +101,8 @@ final class Subscription {
     final fields = notification as Map<String, Object?>?;
     final meta = fields?[Keys.meta];
     if (meta is! Map<String, Object?>) return;
-    if (meta[Keys.subscriptionIdMeta] != id) return;
+    final sentId = meta[Keys.subscriptionIdMeta];
+    if (sentId == null || RequestId(sentId) != id) return;
     if (!_notifications.isClosed) _notifications.add(Notification(fields!));
   }
 

@@ -739,6 +739,11 @@ base class ServerConnection extends MCPBase {
   /// [Subscription.acknowledged] reports the filter the server agreed to, and
   /// [Subscription.done] completes when the server ends the subscription.
   ///
+  /// Every notification delivered on [Subscription.notifications] also reaches
+  /// this connection's own [toolListChanged], [promptListChanged],
+  /// [resourceListChanged] and [resourceUpdated] streams, so a caller
+  /// listening to both sees each one twice.
+  ///
   /// You should check the [protocolVersion] before using this API, it must be
   /// >= [ProtocolVersion.v2026_07_28].
   ///
