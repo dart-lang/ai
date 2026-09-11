@@ -36,7 +36,9 @@ final class _LegacyInputRequiredShim {
     FutureOr<Result> Function(WithInputResponses) handler,
   ) async {
     var result = await handler(request);
-    if (_server.protocolVersion >= ProtocolVersion.v2026_07_28) {
+    final protocolVersion = _server._inputRequiredProtocolVersion;
+    if (protocolVersion == null ||
+        protocolVersion >= ProtocolVersion.v2026_07_28) {
       return result;
     }
 

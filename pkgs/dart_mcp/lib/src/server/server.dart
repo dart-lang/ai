@@ -100,6 +100,12 @@ abstract base class MCPServer extends MCPBase {
   /// Only assigned after [initialize] has been called.
   late ProtocolVersion protocolVersion;
 
+  /// [protocolVersion] once [initialize] has assigned it, else `null`.
+  ///
+  /// The legacy input-required wrap can run for a handler registered before
+  /// [initialize], so the shim reads this instead of the late field.
+  ProtocolVersion? _inputRequiredProtocolVersion;
+
   /// The capabilities of the client.
   ///
   /// Only assigned after [initialize] has been called.
@@ -198,6 +204,7 @@ abstract base class MCPServer extends MCPBase {
   /// request, is handled separately.
   FutureOr<void> initialize(MCPServerInitialization initialization) {
     protocolVersion = initialization.protocolVersion;
+    _inputRequiredProtocolVersion = protocolVersion;
     clientCapabilities = initialization.clientCapabilities;
     clientInfo = initialization.clientInfo;
     if (clientCapabilities.roots?.listChanged == true) {
