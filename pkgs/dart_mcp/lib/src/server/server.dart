@@ -89,6 +89,12 @@ abstract base class MCPServer extends MCPBase {
   /// These may be used in system prompts.
   final String? instructions;
 
+  /// How many times a handler may be rerun for an `input_required` result.
+  ///
+  /// Used only on revisions before 2026-07-28. Exceeding it is an `-32603`
+  /// error. Values below 1 throw a [RangeError].
+  final int maxInputRequiredRounds;
+
   /// The negotiated protocol version.
   ///
   /// Only assigned after [initialize] has been called.
@@ -138,7 +144,16 @@ abstract base class MCPServer extends MCPBase {
     required this.implementation,
     this.instructions,
     super.protocolLogSink,
+    this.maxInputRequiredRounds = 8,
   }) {
+    if (maxInputRequiredRounds < 1) {
+      throw RangeError.range(
+        maxInputRequiredRounds,
+        1,
+        null,
+        'maxInputRequiredRounds',
+      );
+    }
     registerRequestHandler(InitializeRequest.methodName, initializeLegacy);
 
     registerNotificationHandler(

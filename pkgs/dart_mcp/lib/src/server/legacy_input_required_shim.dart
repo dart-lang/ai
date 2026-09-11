@@ -4,10 +4,6 @@
 
 part of 'server.dart';
 
-/// How many rounds a handler may answer `input_required` before the shim gives
-/// up. This guards against a handler that never settles, so it is not a knob.
-const _legacyInputRequiredMaxRounds = 8;
-
 /// Replays an input-required handler through the request style of older
 /// protocol revisions.
 final class _LegacyInputRequiredShim {
@@ -31,7 +27,7 @@ final class _LegacyInputRequiredShim {
     }
 
     for (var round = 0; result.isInputRequired; round++) {
-      if (round >= _legacyInputRequiredMaxRounds) {
+      if (round >= _server.maxInputRequiredRounds) {
         throw RpcException(
           error_code.INTERNAL_ERROR,
           'The server returned input_required after '
