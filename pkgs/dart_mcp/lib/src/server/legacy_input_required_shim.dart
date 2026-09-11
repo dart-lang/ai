@@ -20,14 +20,14 @@ final class _LegacyInputRequiredShim {
   /// client, and a count is both.
   var _elicitations = 0;
 
-  Future<T> fulfill<T extends Result>(
+  Future<Result> fulfill(
     String methodName,
     WithInputResponses request,
-    FutureOr<T> Function(WithInputResponses) handler,
+    FutureOr<Result> Function(WithInputResponses) handler,
   ) async {
-    var result = await handler(request) as Result;
+    var result = await handler(request);
     if (_server.protocolVersion >= ProtocolVersion.v2026_07_28) {
-      return result as T;
+      return result;
     }
 
     for (var round = 0; result.isInputRequired; round++) {
@@ -42,19 +42,27 @@ final class _LegacyInputRequiredShim {
       final inputRequired = result as InputRequiredResult;
       final inputRequests = inputRequired.inputRequests;
       final requestState = inputRequired.requestState;
-      if ((inputRequests == null || inputRequests.isEmpty) &&
-          requestState == null) {
-        throw ArgumentError(
-          'The server returned input_required without '
-          'inputRequests or requestState.',
+      if (inputRequests != null) {
+        for (final inputRequest in inputRequests.values) {
+          _rejectRemovedMethod(inputRequest.method, _server.protocolVersion);
+        }
+      }
+      final refusal = _inputRequiredResultRefusal(
+        inputRequired as Map<String, Object?>,
+        methodName,
+        _server.clientCapabilities,
+      );
+      if (refusal != null) throw refusal;
+      if (!_server._serverRequestsSupported) {
+        throw RpcException(
+          error_code.INTERNAL_ERROR,
+          'This request-scoped transport cannot send requests from the server '
+          'to the client.',
         );
       }
 
       final responses = <String, Result>{};
       if (inputRequests != null && inputRequests.isNotEmpty) {
-        for (final inputRequest in inputRequests.values) {
-          _validateInputRequest(inputRequest);
-        }
         final fulfilled = await Future.wait<MapEntry<String, Result>>(
           inputRequests.entries.map(
             (entry) async => MapEntry<String, Result>(
@@ -76,75 +84,9 @@ final class _LegacyInputRequiredShim {
                 if (requestState != null) Keys.requestState: requestState,
               }
               as WithInputResponses;
-      result = await handler(retryRequest) as Result;
+      result = await handler(retryRequest);
     }
-    return result as T;
-  }
-
-  void _validateInputRequest(InputRequest inputRequest) {
-    switch (inputRequest.method) {
-      case ElicitRequest.methodName:
-        final request = inputRequest.params as ElicitRequest?;
-        if (request == null) {
-          throw ArgumentError(
-            'The elicitation/create input request requires params.',
-          );
-        }
-        _validateElicitation(request);
-      case CreateMessageRequest.methodName:
-        final request = inputRequest.params as CreateMessageRequest?;
-        if (request == null) {
-          throw ArgumentError(
-            'The sampling/createMessage input request requires params.',
-          );
-        }
-        _rejectRemovedMethod(
-          CreateMessageRequest.methodName,
-          _server.protocolVersion,
-        );
-        if (!_server.supportsSampling) throw _missingSampling;
-      case ListRootsRequest.methodName:
-        _rejectRemovedMethod(
-          ListRootsRequest.methodName,
-          _server.protocolVersion,
-        );
-        if (!_server.supportsRoots) throw _missingRoots;
-        inputRequest.params as ListRootsRequest?;
-      default:
-        throw ArgumentError(
-          'The input request method was "${inputRequest.method}", which is '
-          'not one of: ${InputRequest.methodNames.join(', ')}.',
-        );
-    }
-    if (!_server._serverRequestsSupported) {
-      throw RpcException(
-        error_code.INTERNAL_ERROR,
-        'This request-scoped transport cannot send requests from the server '
-        'to the client.',
-      );
-    }
-  }
-
-  void _validateElicitation(ElicitRequest request) {
-    _rejectRemovedMethod(ElicitRequest.methodName, _server.protocolVersion);
-    final rawMode = request.rawMode;
-    if (rawMode != null &&
-        !ElicitationMode.values.any((mode) => mode.name == rawMode)) {
-      throw RpcException.invalidParams(
-        'The elicitation mode was "$rawMode", which is not one of: '
-        '${ElicitationMode.values.map((mode) => mode.name).join(', ')}',
-      );
-    }
-    switch (request.mode) {
-      case ElicitationMode.url:
-        if (!_server.clientCapabilities.supportsUrlElicitation) {
-          throw _missingUrlElicitation;
-        }
-      case ElicitationMode.form:
-        if (!_server.clientCapabilities.supportsFormElicitation) {
-          throw _missingFormElicitation;
-        }
-    }
+    return result;
   }
 
   Future<Result> _sendInputRequest(InputRequest inputRequest) async {

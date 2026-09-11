@@ -352,6 +352,22 @@ RpcException? _inputRequiredRefusal(
   if (result is! Map<String, Object?>) return null;
   if (result[Keys.resultType] != ResultTypes.inputRequired) return null;
 
+  return _inputRequiredResultRefusal(
+    result,
+    method,
+    initialization.clientCapabilities,
+  );
+}
+
+/// Shape and capability checks for an `input_required` [result] on [method].
+///
+/// Returns null when the result may go out. [_inputRequiredRefusal] still
+/// unpacks the JSON-RPC response and applies the 2026-07-28 version gate.
+RpcException? _inputRequiredResultRefusal(
+  Map<String, Object?> result,
+  String method,
+  ClientCapabilities capabilities,
+) {
   if (!_inputRequiredMethods.contains(method)) {
     return _malformedInputRequired(
       'on $method, which this revision allows only on '
@@ -379,7 +395,6 @@ RpcException? _inputRequiredRefusal(
       'whose `${Keys.inputRequests}` was not a string-keyed map.',
     );
   }
-  final capabilities = initialization.clientCapabilities;
   for (final request in requests.values) {
     if (request is! Map) {
       return _malformedInputRequired(

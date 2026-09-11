@@ -148,6 +148,26 @@ abstract base class MCPServer extends MCPBase {
   }
 
   @override
+  void registerRequestHandler<T extends Request?, R extends Result?>(
+    String name,
+    FutureOr<R> Function(T) impl,
+  ) {
+    if (!_inputRequiredMethods.contains(name)) {
+      return super.registerRequestHandler(name, impl);
+    }
+    super.registerRequestHandler<T, R>(
+      name,
+      (request) async =>
+          await _legacyInputRequiredShim.fulfill(
+                name,
+                request as WithInputResponses,
+                (retry) async => (await impl(retry as T)) as Result,
+              )
+              as R,
+    );
+  }
+
+  @override
   Future<void> shutdown() async {
     await super.shutdown();
     await _rootsListChangedController?.close();

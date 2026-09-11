@@ -272,7 +272,6 @@ void main() {
       Resource(name: 'needs input', uri: 'needs://input'),
       (_) => InputRequiredResult(requestState: 'waiting'),
     );
-    server.protocolVersion = ProtocolVersion.v2026_07_28;
 
     final result = await server.readResource(
       ReadResourceRequest(uri: 'needs://input'),

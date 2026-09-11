@@ -127,11 +127,7 @@ base mixin ToolsSupport on MCPServer {
     }
 
     try {
-      return await _legacyInputRequiredShim.fulfill(
-        CallToolRequest.methodName,
-        request,
-        (retryRequest) => impl(retryRequest as CallToolRequest),
-      );
+      return await impl(request);
     } catch (e, s) {
       if (e is RpcException) {
         // These exceptions should bubble up as proper RPC errors and not be

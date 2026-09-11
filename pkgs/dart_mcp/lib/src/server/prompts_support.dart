@@ -43,11 +43,7 @@ base mixin PromptsSupport on MCPServer {
     if (impl == null) {
       throw ArgumentError.value(request.name, 'name', 'Prompt not found');
     }
-    return _legacyInputRequiredShim.fulfill(
-      GetPromptRequest.methodName,
-      request,
-      (retryRequest) => impl(retryRequest as GetPromptRequest),
-    );
+    return impl(request);
   }
 
   /// Adds a prompt and notifies clients that the list has changed.

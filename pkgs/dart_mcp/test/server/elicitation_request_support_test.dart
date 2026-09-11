@@ -285,7 +285,7 @@ void main() {
     });
   });
 
-  test('an unrecognized mode answers with invalid params', () async {
+  test('an unrecognized mode answers with an internal error', () async {
     for (final capabilities in [
       ElicitationCapability(url: {}),
       ElicitationCapability(form: {}),
@@ -295,14 +295,14 @@ void main() {
         ClientCapabilities(elicitation: capabilities),
       );
 
-      expect(_errorCode(result!), error_code.INVALID_PARAMS);
+      expect(_errorCode(result!), error_code.INTERNAL_ERROR);
       expect(
         (result[Keys.error] as Map<String, Object?>)[Keys.message],
         allOf([
-          contains('"voice"'),
-          for (final mode in ElicitationMode.values) contains(mode.name),
+          contains(ResultTypes.inputRequired),
+          contains(ElicitationMode.form.name),
+          contains(ElicitationMode.url.name),
         ]),
-        reason: 'the rejection names the value and every mode it could be',
       );
     }
   });
