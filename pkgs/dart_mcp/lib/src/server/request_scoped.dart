@@ -363,11 +363,15 @@ RpcException? _inputRequiredRefusal(
 ///
 /// Returns null when the result may go out. [_inputRequiredRefusal] still
 /// unpacks the JSON-RPC response and applies the 2026-07-28 version gate.
+/// When [legacyVersion] is set, a method that revision does not have is
+/// refused with [_removedMethod] after the method is known and before the
+/// capability check.
 RpcException? _inputRequiredResultRefusal(
   Map<String, Object?> result,
   String method,
-  ClientCapabilities capabilities,
-) {
+  ClientCapabilities capabilities, [
+  ProtocolVersion? legacyVersion,
+]) {
   if (!_inputRequiredMethods.contains(method)) {
     return _malformedInputRequired(
       'on $method, which this revision allows only on '
@@ -409,6 +413,9 @@ RpcException? _inputRequiredResultRefusal(
         'containing an input request whose method was not one of '
         '${InputRequest.methodNames.map((m) => '`$m`').join(', ')}.',
       );
+    }
+    if (legacyVersion != null && !legacyVersion.methodIsValid(inputMethod)) {
+      return _removedMethod(inputMethod, legacyVersion);
     }
     switch (inputMethod) {
       case ListRootsRequest.methodName:

@@ -367,6 +367,26 @@ abstract base class MCPServer extends MCPBase {
   bool get supportsSampling => clientCapabilities.supportsSampling;
 }
 
+/// The error [_rejectRemovedMethod] throws when [protocolVersion] does not
+/// have [method].
+///
+/// Only a revision with an `InputRequiredResult` can be pointed at it, and
+/// `elicit` also lands here on the revisions before 2025-06-18 added
+/// `elicitation/create`.
+RpcException _removedMethod(String method, ProtocolVersion protocolVersion) {
+  final replacement =
+      protocolVersion >= ProtocolVersion.v2026_07_28
+          ? ' Ask the client for input with an InputRequiredResult on '
+              '${CallToolRequest.methodName}, ${GetPromptRequest.methodName}, '
+              'or ${ReadResourceRequest.methodName} instead.'
+          : '';
+  return RpcException(
+    error_code.INTERNAL_ERROR,
+    'Protocol version ${protocolVersion.versionString} does not have '
+    '$method.$replacement',
+  );
+}
+
 /// Refuses to send [method] when [ProtocolVersion.methodIsValid] says
 /// [protocolVersion] does not have it.
 ///
@@ -374,20 +394,7 @@ abstract base class MCPServer extends MCPBase {
 /// for that reason instead of for a missing client capability.
 void _rejectRemovedMethod(String method, ProtocolVersion protocolVersion) {
   if (protocolVersion.methodIsValid(method)) return;
-  // Only a revision with an `InputRequiredResult` can be pointed at it, and
-  // `elicit` also lands here on the revisions before 2025-06-18 added
-  // `elicitation/create`.
-  final replacement =
-      protocolVersion >= ProtocolVersion.v2026_07_28
-          ? ' Ask the client for input with an InputRequiredResult on '
-              '${CallToolRequest.methodName}, ${GetPromptRequest.methodName}, '
-              'or ${ReadResourceRequest.methodName} instead.'
-          : '';
-  throw RpcException(
-    error_code.INTERNAL_ERROR,
-    'Protocol version ${protocolVersion.versionString} does not have '
-    '$method.$replacement',
-  );
+  throw _removedMethod(method, protocolVersion);
 }
 
 /// The error a server must return when handling a request needs [capability],

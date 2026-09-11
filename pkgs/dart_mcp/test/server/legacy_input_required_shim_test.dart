@@ -62,6 +62,23 @@ void main() {
       ),
     );
   });
+
+  test('a malformed inputRequests value is an internal error', () async {
+    final environment = TestEnvironment(
+      TestMCPClient(),
+      _MalformedInputRequestsServer.new,
+    );
+    await environment.initializeServer();
+
+    await expectLater(
+      environment.serverConnection.callTool(CallToolRequest(name: 'ask')),
+      throwsA(
+        isA<RpcException>()
+            .having((e) => e.code, 'code', error_code.INTERNAL_ERROR)
+            .having((e) => e.message, 'message', contains('inputRequests')),
+      ),
+    );
+  });
 }
 
 final class _FormClient extends TestMCPClient with ElicitationFormSupport {
@@ -104,6 +121,22 @@ final class _CappedRoundsServer extends MCPServer with ToolsSupport {
           ),
         },
       );
+    });
+    return super.initialize(initialization);
+  }
+}
+
+final class _MalformedInputRequestsServer extends MCPServer with ToolsSupport {
+  _MalformedInputRequestsServer(super.channel)
+    : super.fromStreamChannel(
+        implementation: Implementation(name: 'test server', version: '0.1.0'),
+      );
+
+  @override
+  FutureOr<void> initialize(MCPServerInitialization initialization) {
+    registerTool(Tool(name: 'ask', inputSchema: ObjectSchema()), (_) {
+      return {'resultType': 'input_required', 'inputRequests': 'not a map'}
+          as CallToolResponse;
     });
     return super.initialize(initialization);
   }

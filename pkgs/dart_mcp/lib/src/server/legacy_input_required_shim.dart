@@ -52,19 +52,12 @@ final class _LegacyInputRequiredShim {
         );
       }
 
-      // (1) Read what the handler asked for.
-      final inputRequired = result as InputRequiredResult;
-      final inputRequests = inputRequired.inputRequests;
-      final requestState = inputRequired.requestState;
-      if (inputRequests != null) {
-        for (final inputRequest in inputRequests.values) {
-          _rejectRemovedMethod(inputRequest.method, _server.protocolVersion);
-        }
-      }
+      // Shape first: typed getters throw TypeError on a malformed result.
       final refusal = _inputRequiredResultRefusal(
-        inputRequired as Map<String, Object?>,
+        result as Map<String, Object?>,
         methodName,
         _server.clientCapabilities,
+        protocolVersion,
       );
       if (refusal != null) throw refusal;
       if (!_server._serverRequestsSupported) {
@@ -74,6 +67,11 @@ final class _LegacyInputRequiredShim {
           'to the client.',
         );
       }
+
+      // (1) Read what the handler asked for.
+      final inputRequired = result as InputRequiredResult;
+      final inputRequests = inputRequired.inputRequests;
+      final requestState = inputRequired.requestState;
 
       // (2) Send each request on the legacy path.
       final responses = <String, Result>{};
