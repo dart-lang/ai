@@ -1,0 +1,42 @@
+name: package:dart_mcp conformance
+permissions: read-all
+
+# The MCP conformance suite is an npm package that is still in alpha, so this
+# runs on a schedule and by hand rather than on every pull request.
+on:
+  schedule:
+    - cron: '0 0 * * 0' # weekly
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: pkgs/dart_mcp
+
+jobs:
+  conformance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d
+        with:
+          sdk: stable
+      - run: dart pub get
+      - name: Server
+        run: |
+          dart run tool/conformance_server.dart > server.log &
+          for i in $(seq 1 30); do
+            grep -q '^http' server.log && break
+            sleep 1
+          done
+          URL="$(grep -m1 '^http' server.log)"
+          test -n "$URL"
+          npx @modelcontextprotocol/conformance@0.2.0-alpha.11 server \
+            --url "$URL" --requirements 2026-07-28
+      - name: Client
+        run: |
+          npx @modelcontextprotocol/conformance@0.2.0-alpha.11 client \
+            --command "dart run tool/conformance_client.dart" \
+            --requirements 2026-07-28 \
+            --expected-failures tool/conformance_expected_failures.yaml
