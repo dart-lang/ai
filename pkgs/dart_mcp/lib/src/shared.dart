@@ -65,20 +65,28 @@ base class MCPBase {
 
   final _cancellations = StreamController<CancelledNotification>.broadcast();
 
-  /// The peer's cancellations of requests that were still in flight, in
-  /// arrival order.
+  /// Every `notifications/cancelled` the peer sends whose `requestId` is a
+  /// JSON-RPC id, in arrival order.
   ///
   /// [MCPBase] registers the connection's only `notifications/cancelled`
   /// handler, so a subclass that wants to log a cancellation reason, which the
   /// specification asks both parties to do, reads it here rather than
-  /// registering a handler of its own. A notification naming an id this side
-  /// is not currently answering never appears: the specification lets the
-  /// receiver ignore an unknown id, an already answered request and a
-  /// malformed notification, and this ignores all three.
+  /// registering a handler of its own.
   ///
-  /// The request itself keeps running. What the cancellation changes is the
-  /// wire: the response and any progress notification for that id stay off
-  /// it, which is what the specification requires of the receiver.
+  /// A notification naming a request this side is not answering appears here
+  /// too, because the id may belong to a request this side sent: a server
+  /// cancels the `subscriptions/listen` request it tears down, and that
+  /// cancellation is the only notice the client gets of the teardown. The
+  /// specification's "ignore" for an unknown id, an already answered request
+  /// and a malformed notification means no error response and no change to
+  /// what goes on the wire, not that the notification is hidden from this
+  /// side; the one thing dropped here is a `requestId` that is not a
+  /// JSON-RPC id at all.
+  ///
+  /// The request itself keeps running. What a cancellation for a request this
+  /// side is answering changes is the wire: the response and any progress
+  /// notification for that id stay off it, which is what the specification
+  /// requires of the receiver.
   ///
   /// This is a "broadcast" stream, so events are not buffered and previous
   /// events will not be re-played when you subscribe.
@@ -209,19 +217,24 @@ base class MCPBase {
   /// response.
   EmptyResult _handlePing([PingRequest? _]) => EmptyResult();
 
-  /// Records the peer's cancellation of a request this side is still
-  /// answering.
+  /// Reports the peer's cancellation on [cancellations], and remembers it if
+  /// it names a request this side is still answering.
   ///
-  /// A notification whose `requestId` is absent, or names a request that is
-  /// not in flight, is ignored. That one condition covers the unknown id, the
-  /// request whose response has already gone out and the malformed
-  /// notification, all three of which the specification says to ignore
-  /// without an error, and it keeps this side from remembering an id
-  /// forever.
+  /// A `requestId` which is not a JSON-RPC id, an absent one included, is
+  /// dropped: it can match no request in either direction. Every other
+  /// cancellation is reported, including one for an id this side never saw or
+  /// has already answered, because the id may name a request this side sent.
+  /// Only an id that is in flight here is remembered, which is what keeps the
+  /// suppression set bounded by the live requests and answers the
+  /// specification's "ignore" for the rest: no error response and no change
+  /// to what goes on the wire.
   void _handleCancelled(CancelledNotification notification) {
+    // A JSON-RPC id is a `String` or a number, so anything else cannot name a
+    // request. `RequestId` is an extension type on `Object`, so the value has
+    // to be tested rather than cast.
     final Object? id = notification.requestId;
-    if (id == null || !_inFlightRequests.containsKey(id)) return;
-    _cancelledRequests.add(id);
+    if (id == null || (id is! String && id is! num)) return;
+    if (_inFlightRequests.containsKey(id)) _cancelledRequests.add(id);
     _cancellations.add(notification);
   }
 

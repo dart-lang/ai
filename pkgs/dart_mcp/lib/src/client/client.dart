@@ -35,7 +35,23 @@ base class MCPClient {
   /// A description of the client sent to servers during initialization.
   final Implementation implementation;
 
-  MCPClient(this.implementation) {
+  /// How many cancelled requests' progress tokens every connection this
+  /// client opens remembers, handed to [MCPBase], which documents what it
+  /// bounds.
+  ///
+  /// `maxRetainedCancellations` is a client-wide setting rather than a
+  /// parameter on [connectServer], where a new parameter would break each
+  /// subclass that overrides that method to decorate the connection. A caller
+  /// that wants a different bound per connection builds the
+  /// [ServerConnection] itself.
+  final int _maxRetainedCancellations;
+
+  MCPClient(
+    this.implementation, {
+    // Repeated from `MCPBase`'s constructor, whose default a default value
+    // here cannot name.
+    int maxRetainedCancellations = 1024,
+  }) : _maxRetainedCancellations = maxRetainedCancellations {
     initialize();
   }
 
@@ -85,6 +101,9 @@ base class MCPClient {
   /// and `>>>` preceding outgoing messages. It is the responsibility of the
   /// caller to close this sink.
   ///
+  /// The connection remembers as many cancelled requests' progress tokens as
+  /// the `maxRetainedCancellations` this client was built with.
+  ///
   /// To perform cleanup when this connection is closed, use the
   /// [ServerConnection.done] future.
   ServerConnection connectServer(
@@ -96,6 +115,7 @@ base class MCPClient {
     final connection = ServerConnection.fromStreamChannel(
       channel,
       protocolLogSink: protocolLogSink,
+      maxRetainedCancellations: _maxRetainedCancellations,
       rootsSupport: self is RootsSupport ? self : null,
       samplingSupport: self is SamplingSupport ? self : null,
       elicitationFormSupport: self is ElicitationFormSupport ? self : null,
@@ -296,6 +316,7 @@ base class ServerConnection extends MCPBase {
   ServerConnection.fromStreamChannel(
     super.channel, {
     super.protocolLogSink,
+    super.maxRetainedCancellations,
     RootsSupport? rootsSupport,
     SamplingSupport? samplingSupport,
     @Deprecated('Use elicitationFormSupport instead')

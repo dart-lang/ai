@@ -128,6 +128,7 @@ abstract base class MCPServer extends MCPBase {
     required this.implementation,
     this.instructions,
     super.protocolLogSink,
+    super.maxRetainedCancellations,
   }) {
     registerRequestHandler(InitializeRequest.methodName, initializeLegacy);
 
