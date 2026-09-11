@@ -168,7 +168,7 @@ abstract base class MCPServer extends MCPBase {
     FutureOr<R> Function(T) impl,
   ) {
     if (!_inputRequiredMethods.contains(name)) {
-      return super.registerRequestHandler(name, impl);
+      return super.registerRequestHandler<T, R>(name, impl);
     }
     super.registerRequestHandler<T, R>(
       name,
