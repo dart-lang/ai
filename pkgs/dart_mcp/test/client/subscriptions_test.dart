@@ -22,6 +22,67 @@ base class _SubscribingServer extends MCPServer
       );
 }
 
+/// A server whose acknowledgements are missing a field the client reads them
+/// by, the shapes the schema leaves room for.
+///
+/// `notifications` is the only required param on the acknowledgement and
+/// `_meta` is not required at all, so a client cannot assume either is there.
+/// The subscription is held open until [shutdown] the way
+/// [SubscriptionsSupport] holds a well-formed one.
+base class _MalformedAckServer extends MCPServer with SubscriptionsSupport {
+  _MalformedAckServer(super.channel)
+    : super.fromStreamChannel(
+        implementation: Implementation(
+          name: 'malformed ack server',
+          version: '0.1.0',
+        ),
+      );
+
+  /// Ends the subscription this server holds open.
+  final _subscriptionEnd = Completer<void>();
+
+  /// Acknowledges the subscription twice, each time leaving out one of the two
+  /// fields the client needs, then holds the request open.
+  @override
+  Future<SubscriptionsListenResult> handleSubscriptionsListen(
+    SubscriptionsListenRequest request,
+  ) async {
+    final subscriptionId = nextSubscriptionId!;
+    nextSubscriptionId = null;
+    // Carries the filter, but nothing saying which subscription it is for.
+    sendNotification(
+      SubscriptionsAcknowledgedNotification.methodName,
+      SubscriptionsAcknowledgedNotification.fromMap({
+        Keys.notifications: SubscriptionFilter(toolsListChanged: true),
+      }),
+    );
+    // Names the subscription, but reports no filter for it.
+    sendNotification(
+      SubscriptionsAcknowledgedNotification.methodName,
+      SubscriptionsAcknowledgedNotification.fromMap({
+        Keys.meta: MetaWithSubscriptionId(subscriptionId: subscriptionId),
+      }),
+    );
+    await _subscriptionEnd.future;
+    return SubscriptionsListenResult(
+      meta: MetaWithSubscriptionId(subscriptionId: subscriptionId),
+    );
+  }
+
+  /// Ends the held subscription before closing the connection, so its request
+  /// still gets the response a server tearing a subscription down sends.
+  @override
+  Future<void> shutdown() async {
+    if (!_subscriptionEnd.isCompleted) {
+      _subscriptionEnd.complete();
+      // `package:json_rpc_2` writes the response in a microtask once the
+      // handler returns, and drops it once the connection is closed.
+      await Future<void>.delayed(Duration.zero);
+    }
+    await super.shutdown();
+  }
+}
+
 /// Collects the protocol log lines a [TestEnvironment] writes.
 class _LogSink implements Sink<String> {
   final lines = <String>[];
@@ -208,6 +269,37 @@ void main() {
       expect(closed, isTrue, reason: 'the stream closes with the subscription');
     },
   );
+
+  test('leaves a subscription unacknowledged on a malformed ack', () async {
+    final malformed = TestEnvironment(TestMCPClient(), _MalformedAckServer.new);
+    await malformed.server.initialize(
+      MCPServerInitialization(
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: malformed.client.capabilities,
+      ),
+    );
+    malformed.server.handleInitialized();
+
+    final subscription = malformed.serverConnection.listen(
+      SubscriptionFilter(toolsListChanged: true),
+    );
+    malformed.server.nextSubscriptionId = subscription.id;
+    await pumpEventQueue();
+
+    await expectLater(
+      subscription.acknowledged.timeout(Duration.zero),
+      throwsA(isA<TimeoutException>()),
+      reason: 'an acknowledgement missing a field reports no filter',
+    );
+
+    unawaited(malformed.server.shutdown());
+    final ended = await subscription.done.timeout(const Duration(seconds: 5));
+    expect(
+      ended.subscriptionId,
+      subscription.id,
+      reason: 'the subscription still ends on the result the server sends',
+    );
+  });
 
   test('reports a refused subscription on both of its ends', () async {
     // A transport which does not name the subscription gets the request
