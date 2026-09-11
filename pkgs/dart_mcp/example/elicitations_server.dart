@@ -106,8 +106,8 @@ base class MCPServerWithElicitation extends MCPServer
       );
     }
 
-    final userInfo = request.inputResponses?['userInfo'];
-    if (userInfo is ElicitResult) {
+    final userInfo = request.elicitResponse('userInfo');
+    if (userInfo != null) {
       switch (userInfo.action) {
         case ElicitationAction.accept:
           final {'age': int age, 'name': String name, 'gender': String gender} =
@@ -126,8 +126,8 @@ base class MCPServerWithElicitation extends MCPServer
       }
     }
 
-    final apiKey = request.inputResponses?['apiKey'];
-    if (apiKey is ElicitResult) {
+    final apiKey = request.elicitResponse('apiKey');
+    if (apiKey != null) {
       switch (apiKey.action) {
         case ElicitationAction.accept:
           log(LoggingLevel.warning, 'Request to navigate to URI was accepted');
