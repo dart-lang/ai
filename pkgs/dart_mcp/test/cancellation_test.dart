@@ -285,27 +285,14 @@ void main() {
   );
 
   test('a client sees the cancellation a server sends it', () async {
-    final toClient = StreamController<Map<String, Object?>>();
-    final fromClient = StreamController<Map<String, Object?>>();
-    addTearDown(fromClient.stream.drain<void>);
-    final client = MCPClient(
-      Implementation(name: 'test client', version: '1'),
-      maxRetainedCancellations: 2,
-    );
-    final connection = client.connectServer(
-      StreamChannel<Map<String, Object?>>.withCloseGuarantee(
-        toClient.stream,
-        fromClient.sink,
-      ),
-    );
-    addTearDown(connection.shutdown);
+    final harness = _ClientHarness(maxRetainedCancellations: 1);
     final cancellations = <CancelledNotification>[];
-    connection.cancellations.listen(cancellations.add);
+    harness.connection.cancellations.listen(cancellations.add);
 
     // The 2026-07-28 revision has the server cancel the `subscriptions/listen`
     // request whose stream it tears down, and that notification names a
     // request the client sent, not one it is answering.
-    toClient.add({
+    harness.send({
       'jsonrpc': '2.0',
       'method': CancelledNotification.methodName,
       'params':
@@ -320,6 +307,26 @@ void main() {
     expect(cancellations, hasLength(1));
     expect(cancellations.single.requestId, 7);
     expect(cancellations.single.reason, 'subscription torn down');
+  });
+
+  test('a client honours the bound its constructor was given', () async {
+    // One retained token on the client side, reached through
+    // `MCPClient.connectServer`, so the second cancellation evicts the first.
+    final harness = _ClientHarness(maxRetainedCancellations: 1);
+
+    await harness.cancelListRoots(1, 't1');
+    await harness.cancelListRoots(2, 't2');
+
+    harness.connection.notifyProgress(
+      ProgressNotification(progressToken: ProgressToken('t1'), progress: 1),
+    );
+    harness.connection.notifyProgress(
+      ProgressNotification(progressToken: ProgressToken('t2'), progress: 2),
+    );
+    await pumpEventQueue();
+
+    expect(harness.progressFrames, hasLength(1));
+    expect(_progressTokenOf(harness.progressFrames.single), 't1');
   });
 
   test('progress for a cancelled request stays off the wire', () async {
@@ -429,11 +436,7 @@ void main() {
     // The bound is what the connection forgets, so the evicted token is no
     // longer suppressed and the retained one still is.
     expect(harness.progressFrames, hasLength(1));
-    expect(
-      (harness.progressFrames.single['params'] as Map<String, Object?>?)
-          ?.cast<String, Object?>()['progressToken'],
-      't1',
-    );
+    expect(_progressTokenOf(harness.progressFrames.single), 't1');
   });
 
   test('a cancellation re-touches a retained token', () async {
@@ -457,12 +460,111 @@ void main() {
     // `t1` was cancelled again after `t2`, so `t2` is the oldest and the one
     // the fourth cancellation evicts.
     expect(harness.progressFrames, hasLength(1));
-    expect(
-      (harness.progressFrames.single['params'] as Map<String, Object?>?)
-          ?.cast<String, Object?>()['progressToken'],
-      't2',
-    );
+    expect(_progressTokenOf(harness.progressFrames.single), 't2');
   });
+}
+
+/// The progress token [frame] carries, for a progress notification frame.
+Object? _progressTokenOf(Map<String, Object?> frame) =>
+    (frame['params'] as Map<String, Object?>?)?['progressToken'];
+
+/// A client on a raw JSON-RPC channel, built the way an embedder builds one,
+/// so a test can assert on the frames that do and do not reach the server.
+class _ClientHarness {
+  final _toClient = StreamController<Map<String, Object?>>();
+  final _fromClient = StreamController<Map<String, Object?>>();
+
+  /// Every frame the client has written.
+  final frames = <Map<String, Object?>>[];
+
+  late final _CancellationTestClient client;
+
+  /// The connection [client] opened, which is what the server talks to.
+  late final ServerConnection connection;
+
+  _ClientHarness({required int maxRetainedCancellations}) {
+    _fromClient.stream.listen(frames.add);
+    client = _CancellationTestClient(
+      maxRetainedCancellations: maxRetainedCancellations,
+    );
+    connection = client.connectServer(
+      StreamChannel<Map<String, Object?>>.withCloseGuarantee(
+        _toClient.stream,
+        _fromClient.sink,
+      ),
+    );
+    addTearDown(() async {
+      if (!client.finishListRoots.isCompleted) {
+        client.finishListRoots.complete();
+      }
+      await client.shutdown();
+    });
+  }
+
+  /// Writes [frame] to the client as a server would.
+  void send(Map<String, Object?> frame) => _toClient.add(frame);
+
+  /// The response frames the client wrote for the request [id].
+  Iterable<Map<String, Object?>> framesWithId(Object id) =>
+      frames.where((frame) => frame['id'] == id);
+
+  /// The progress notifications the client wrote.
+  Iterable<Map<String, Object?>> get progressFrames => frames.where(
+    (frame) => frame['method'] == ProgressNotification.methodName,
+  );
+
+  /// Sends the client a `roots/list` request as [id] under [token], cancels it
+  /// while its handler is running, and releases the handler.
+  ///
+  /// A client answering a server's request is the role that reaches
+  /// [MCPClient.connectServer], so this fills the retention bound that call
+  /// passed on.
+  Future<void> cancelListRoots(Object id, String token) async {
+    client.listRootsCalled = Completer<void>();
+    final release = client.finishListRoots = Completer<void>();
+    send({
+      'jsonrpc': '2.0',
+      'id': id,
+      'method': ListRootsRequest.methodName,
+      'params': <String, Object?>{
+        '_meta': <String, Object?>{'progressToken': token},
+      },
+    });
+    await client.listRootsCalled.future;
+    send({
+      'jsonrpc': '2.0',
+      'method': CancelledNotification.methodName,
+      'params':
+          CancelledNotification(requestId: RequestId(id))
+              as Map<String, Object?>,
+    });
+    await pumpEventQueue();
+    release.complete();
+    await pumpEventQueue();
+    expect(framesWithId(id), isEmpty);
+  }
+}
+
+/// A client whose `roots/list` handler the test releases by hand.
+final class _CancellationTestClient extends MCPClient with RootsSupport {
+  _CancellationTestClient({required super.maxRetainedCancellations})
+    : super(Implementation(name: 'cancellation test client', version: '1.0.0'));
+
+  /// Completes when the roots handler has started.
+  ///
+  /// Replaced by [_ClientHarness.cancelListRoots] before each request it
+  /// drives.
+  Completer<void> listRootsCalled = Completer<void>();
+
+  /// Completed by the test to let the roots handler return.
+  Completer<void> finishListRoots = Completer<void>();
+
+  @override
+  Future<ListRootsResult> handleListRoots([ListRootsRequest? request]) async {
+    if (!listRootsCalled.isCompleted) listRootsCalled.complete();
+    await finishListRoots.future;
+    return super.handleListRoots(request);
+  }
 }
 
 /// A server on a raw JSON-RPC channel, so a test can assert on the frames
