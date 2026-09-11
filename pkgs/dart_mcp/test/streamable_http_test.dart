@@ -18,6 +18,8 @@ import 'package:json_rpc_2/error_code.dart' as error_code;
 import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:test/test.dart';
 
+import 'test_utils.dart';
+
 /// The protocol version this transport speaks.
 const version = '2026-07-28';
 
@@ -2640,6 +2642,91 @@ void main() {
         reason: 'a second finish must not throw after the response is closed',
       );
     });
+
+    test(
+      'tells two client subscriptions apart by the id on the wire',
+      () async {
+        // Each listen request reads only its own server's changes, which is
+        // what gives one connection two streams to tell apart. A host passing
+        // one shared `subscriptionNotifications` stream to every request sends
+        // every change to every stream instead.
+        final host = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        addTearDown(() => host.close(force: true));
+        final hosted = <MCPServer>[];
+        host.listen(
+          (request) => handleStreamableHttpRequest(request, (channel) {
+            final server = _EquippedServer(channel);
+            hosted.add(server);
+            return server;
+          }),
+        );
+        final client = TestMCPClient();
+        addTearDown(client.shutdown);
+        final connection = client.connectServer(
+          streamableHttpClientChannel(
+            Uri.http('${host.address.host}:${host.port}', '/mcp'),
+            protocolVersion: ProtocolVersion.v2026_07_28,
+            clientCapabilities: client.capabilities,
+          ),
+        );
+
+        final first = connection.listen(
+          SubscriptionFilter(toolsListChanged: true),
+        );
+        final firstChanges = <Notification>[];
+        final firstListener = first.notifications.listen(firstChanges.add);
+        addTearDown(firstListener.cancel);
+        final accepted = await first.acknowledged.timeout(
+          const Duration(seconds: 5),
+        );
+        expect(accepted.toolsListChanged, isTrue);
+
+        final second = connection.listen(
+          SubscriptionFilter(toolsListChanged: true),
+        );
+        final secondChanges = <Notification>[];
+        final arrived = Completer<void>();
+        final secondListener = second.notifications.listen((notification) {
+          secondChanges.add(notification);
+          if (!arrived.isCompleted) arrived.complete();
+        });
+        addTearDown(secondListener.cancel);
+        await second.acknowledged.timeout(const Duration(seconds: 5));
+        expect(
+          second.id,
+          isNot(first.id),
+          reason: 'two listen requests on one connection get two ids',
+        );
+        expect(hosted, hasLength(2));
+
+        hosted[1].sendNotification(
+          ToolListChangedNotification.methodName,
+          ToolListChangedNotification(),
+        );
+        await arrived.future.timeout(const Duration(seconds: 5));
+        await pumpEventQueue(times: 20);
+
+        expect(secondChanges, hasLength(1));
+        final meta =
+            (secondChanges.single as Map<String, Object?>)[Keys.meta]
+                as Map<String, Object?>;
+        expect(
+          meta[Keys.subscriptionIdMeta],
+          second.id,
+          reason: 'the transport named the subscription by the request id',
+        );
+        expect(
+          firstChanges,
+          isEmpty,
+          reason: 'a change named by the other subscription is not ours',
+        );
+
+        await hosted[1].shutdown();
+        final ended = await second.done.timeout(const Duration(seconds: 5));
+        expect(ended.subscriptionId, second.id);
+        await hosted[0].shutdown();
+      },
+    );
   });
 
   group('notifications and responses', () {
