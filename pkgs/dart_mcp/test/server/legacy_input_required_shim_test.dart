@@ -79,6 +79,28 @@ void main() {
       ),
     );
   });
+
+  test(
+    'reruns with the answers under the same keys and the echoed requestState',
+    () async {
+      final environment = TestEnvironment(
+        _FormClient(
+          elicitationHandler: (request, connection) {
+            return ElicitResult(action: ElicitationAction.accept);
+          },
+        ),
+        _RerunContractServer.new,
+      );
+      await environment.initializeServer();
+
+      final result = await environment.serverConnection.callTool(
+        CallToolRequest(name: 'ask'),
+      );
+      expect(result.isError, isNot(true));
+      expect((result.content.single as TextContent).text, 'done');
+      expect(environment.server.handlerCalls, 3);
+    },
+  );
 }
 
 final class _FormClient extends TestMCPClient with ElicitationFormSupport {
@@ -137,6 +159,52 @@ final class _MalformedInputRequestsServer extends MCPServer with ToolsSupport {
     registerTool(Tool(name: 'ask', inputSchema: ObjectSchema()), (_) {
       return {'resultType': 'input_required', 'inputRequests': 'not a map'}
           as CallToolResponse;
+    });
+    return super.initialize(initialization);
+  }
+}
+
+final class _RerunContractServer extends MCPServer with ToolsSupport {
+  _RerunContractServer(super.channel)
+    : super.fromStreamChannel(
+        implementation: Implementation(name: 'test server', version: '0.1.0'),
+      );
+
+  int handlerCalls = 0;
+
+  @override
+  FutureOr<void> initialize(MCPServerInitialization initialization) {
+    registerTool(Tool(name: 'ask', inputSchema: ObjectSchema()), (request) {
+      handlerCalls++;
+      if (request.elicitResponse('a') != null && request.requestState == 's1') {
+        return InputRequiredResult(
+          inputRequests: {
+            'b': InputRequest.elicit(
+              ElicitRequest.form(
+                message: 'need b',
+                requestedSchema: ObjectSchema(),
+              ),
+            ),
+          },
+          requestState: 's2',
+        );
+      }
+      if (request.elicitResponse('a') == null &&
+          request.elicitResponse('b') != null &&
+          request.requestState == 's2') {
+        return CallToolResult(content: [TextContent(text: 'done')]);
+      }
+      return InputRequiredResult(
+        inputRequests: {
+          'a': InputRequest.elicit(
+            ElicitRequest.form(
+              message: 'need a',
+              requestedSchema: ObjectSchema(),
+            ),
+          ),
+        },
+        requestState: 's1',
+      );
     });
     return super.initialize(initialization);
   }

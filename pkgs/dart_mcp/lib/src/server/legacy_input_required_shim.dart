@@ -90,14 +90,15 @@ final class _LegacyInputRequiredShim {
       // (3) Rerun with the answers and the echoed requestState.
       final retryRequest =
           <String, Object?>{
+                if (responses.isNotEmpty) Keys.inputResponses: responses,
+                if (requestState != null) Keys.requestState: requestState,
                 for (final entry in (request as Map<String, Object?>).entries)
                   if (entry.key != Keys.inputResponses &&
                       entry.key != Keys.requestState)
                     entry.key: entry.value,
-                if (responses.isNotEmpty) Keys.inputResponses: responses,
-                if (requestState != null) Keys.requestState: requestState,
               }
               as WithInputResponses;
+      request = retryRequest;
       result = await handler(retryRequest);
     }
   }
