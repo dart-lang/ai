@@ -16,12 +16,22 @@
   `onRequest` callback on revisions before 2026-07-28. Missing callbacks and
   invalid callback responses fail the server request without leaving it open.
 - Honour `notifications/cancelled`. A cancelled request gets no response and
-  no further progress notification, which is what the specification requires
-  of the receiver on a single-channel transport such as stdio. The handler
-  itself keeps running: reaching it needs a request id a handler can see,
-  which `MCPBase` does not have yet. A notification naming a request that is
-  not in flight is ignored, and `MCPBase.cancellations` reports the ones that
-  are, so a server can log the reason.
+  no further `notifications/progress` under its token, the two kinds of
+  message this package sends for a request. The handler keeps running, so
+  anything else it sends still goes out: stopping it needs a request id a
+  handler can see, which `MCPBase` does not have yet.
+  `MCPBase.cancellations` reports every cancellation the peer sends, so a
+  subclass can log the reason. One naming a request this side is not
+  answering is reported too, since the id may name a request this side sent,
+  such as the `subscriptions/listen` request a server cancels when it tears
+  that stream down; what an unknown id does not do is produce an error
+  response or change what goes on the wire. A cancelled request's progress
+  token keeps progress off the wire after its response was dropped; the new
+  `maxRetainedCancellations` parameter on `MCPBase`,
+  `MCPServer.fromStreamChannel`, `ServerConnection.fromStreamChannel` and the
+  `MCPClient` constructor bounds how many such tokens one connection
+  remembers, and a connection cancelled more times than that may send
+  progress carrying the oldest of them.
 - **BREAKING**:
   - `MCPBase` (including the `MCPServer.fromStreamChannel` and
     `ServerConnection.fromStreamChannel` constructors),
@@ -43,6 +53,11 @@
       which cannot be encoded.
     - On in-memory channels, `RpcException.data` is no longer normalized by a
       JSON round trip, so it can be an untyped map.
+  - `MCPBase` now registers the handler for `notifications/cancelled`, so a
+    subclass that registered its own handler for that method must read
+    `MCPBase.cancellations` instead. A second registration for one method name
+    throws an `ArgumentError` out of `package:json_rpc_2`, before any message
+    flows.
   - Separate server feature registration from the legacy protocol handshake.
     `MCPServer.initialize` now accepts an `MCPServerInitialization` containing
     the protocol version, client information, and client capabilities, and
