@@ -112,6 +112,128 @@ void main() {
     expect(harness.framesWithId(404), hasLength(1));
   });
 
+  test('a request whose `_meta` is not an object is still answered', () async {
+    final harness = _Harness();
+    await harness.initialize();
+
+    harness.send({
+      'jsonrpc': '2.0',
+      'id': 1,
+      'method': PingRequest.methodName,
+      'params': <String, Object?>{'_meta': 'oops'},
+    });
+    await pumpEventQueue();
+
+    expect(harness.framesWithId(1), hasLength(1));
+
+    // A frame the tracker could not read must not take the connection with
+    // it: the next request is answered too.
+    harness.send({
+      'jsonrpc': '2.0',
+      'id': 2,
+      'method': ListToolsRequest.methodName,
+      'params': ListToolsRequest() as Map<String, Object?>,
+    });
+    await pumpEventQueue();
+
+    expect(harness.framesWithId(2), hasLength(1));
+  });
+
+  test('progress after a dropped response stays off the wire', () async {
+    final harness = _Harness();
+    await harness.initialize();
+
+    harness.send({
+      'jsonrpc': '2.0',
+      'id': 1,
+      'method': CallToolRequest.methodName,
+      'params':
+          CallToolRequest(
+                name: _Harness.slowToolName,
+                meta: MetaWithProgressToken(progressToken: ProgressToken('t')),
+              )
+              as Map<String, Object?>,
+    });
+    await harness.server.slowToolCalled.future;
+
+    harness.send({
+      'jsonrpc': '2.0',
+      'method': CancelledNotification.methodName,
+      'params':
+          CancelledNotification(requestId: RequestId(1))
+              as Map<String, Object?>,
+    });
+    await pumpEventQueue();
+
+    // Releasing the handler drops the response; the specification forbids any
+    // further message for the request, so the token stays suppressed after
+    // that.
+    harness.server.finishSlowTool.complete();
+    await pumpEventQueue();
+    expect(harness.framesWithId(1), isEmpty);
+
+    harness.server.notifyProgress(
+      ProgressNotification(progressToken: ProgressToken('t'), progress: 9),
+    );
+    await pumpEventQueue();
+
+    expect(harness.progressFrames, isEmpty);
+  });
+
+  test('a reused token goes out again for a live request', () async {
+    final harness = _Harness();
+    await harness.initialize();
+
+    harness.send({
+      'jsonrpc': '2.0',
+      'id': 1,
+      'method': CallToolRequest.methodName,
+      'params':
+          CallToolRequest(
+                name: _Harness.slowToolName,
+                meta: MetaWithProgressToken(progressToken: ProgressToken('t')),
+              )
+              as Map<String, Object?>,
+    });
+    await harness.server.slowToolCalled.future;
+    harness.send({
+      'jsonrpc': '2.0',
+      'method': CancelledNotification.methodName,
+      'params':
+          CancelledNotification(requestId: RequestId(1))
+              as Map<String, Object?>,
+    });
+    await pumpEventQueue();
+    harness.server.finishSlowTool.complete();
+    await pumpEventQueue();
+
+    // The peer asks again under the same token, and that request is in
+    // flight. Suppressing the token for the cancelled request must not
+    // silence the new one.
+    harness.send({
+      'jsonrpc': '2.0',
+      'id': 2,
+      'method': CallToolRequest.methodName,
+      'params':
+          CallToolRequest(
+                name: _Harness.otherSlowToolName,
+                meta: MetaWithProgressToken(progressToken: ProgressToken('t')),
+              )
+              as Map<String, Object?>,
+    });
+    await harness.server.otherSlowToolCalled.future;
+    harness.server.notifyProgress(
+      ProgressNotification(progressToken: ProgressToken('t'), progress: 1),
+    );
+    await pumpEventQueue();
+
+    expect(harness.progressFrames, hasLength(1));
+
+    harness.server.finishOtherSlowTool.complete();
+    await pumpEventQueue();
+    expect(harness.framesWithId(2), hasLength(1));
+  });
+
   test('a cancellation that arrives after the response is ignored', () async {
     final harness = _Harness();
     await harness.initialize();
@@ -232,6 +354,7 @@ void main() {
 /// that do and do not reach the peer.
 class _Harness {
   static const slowToolName = 'slow';
+  static const otherSlowToolName = 'other slow';
 
   final _toServer = StreamController<Map<String, Object?>>();
   final _fromServer = StreamController<Map<String, Object?>>();
@@ -251,6 +374,9 @@ class _Harness {
     );
     addTearDown(() async {
       if (!server.finishSlowTool.isCompleted) server.finishSlowTool.complete();
+      if (!server.finishOtherSlowTool.isCompleted) {
+        server.finishOtherSlowTool.complete();
+      }
       await server.shutdown();
     });
   }
@@ -307,6 +433,15 @@ final class _CancellationTestServer extends MCPServer with ToolsSupport {
   /// Completed by the test to let the slow tool's handler return.
   final finishSlowTool = Completer<void>();
 
+  /// Completes when the second slow tool's handler has started.
+  ///
+  /// A second tool with its own releaser lets a test hold one request while
+  /// another one has already been answered.
+  final otherSlowToolCalled = Completer<void>();
+
+  /// Completed by the test to let the second slow tool's handler return.
+  final finishOtherSlowTool = Completer<void>();
+
   @override
   FutureOr<void> initialize(MCPServerInitialization initialization) {
     registerTool(
@@ -314,6 +449,14 @@ final class _CancellationTestServer extends MCPServer with ToolsSupport {
       (_) async {
         if (!slowToolCalled.isCompleted) slowToolCalled.complete();
         await finishSlowTool.future;
+        return CallToolResult(content: []);
+      },
+    );
+    registerTool(
+      Tool(name: _Harness.otherSlowToolName, inputSchema: ObjectSchema()),
+      (_) async {
+        if (!otherSlowToolCalled.isCompleted) otherSlowToolCalled.complete();
+        await finishOtherSlowTool.future;
         return CallToolResult(content: []);
       },
     );

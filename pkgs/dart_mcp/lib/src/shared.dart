@@ -50,6 +50,19 @@ base class MCPBase {
   /// The ids in [_inFlightRequests] the peer has cancelled.
   final _cancelledRequests = <Object>{};
 
+  /// The progress tokens of cancelled requests whose response has already been
+  /// dropped, most recently added last.
+  ///
+  /// The specification forbids any further message for a cancelled request,
+  /// and progress may still be sent for one after its response was suppressed,
+  /// so the token outlives the [_inFlightRequests] entry. Only the last
+  /// [_maxRetainedCancellations] are kept; a token the peer reuses for a live
+  /// request is not suppressed while that request runs.
+  final _suppressedTokens = <ProgressToken>{};
+
+  /// How many entries [_suppressedTokens] keeps.
+  final int _maxRetainedCancellations;
+
   final _cancellations = StreamController<CancelledNotification>.broadcast();
 
   /// The peer's cancellations of requests that were still in flight, in
@@ -83,10 +96,17 @@ base class MCPBase {
   /// If [protocolLogSink] is provided, all incoming and outgoing messages will
   /// be logged to it. It is the responsibility of the caller to close the
   /// sink.
+  ///
+  /// [maxRetainedCancellations] bounds the progress tokens remembered for
+  /// requests the peer cancelled after their response was dropped. Keeping a
+  /// token is what stops a later progress notification for a cancelled
+  /// request; a connection that is cancelled more than this many times may
+  /// send progress carrying the oldest of those tokens.
   MCPBase(
     StreamChannel<Map<String, Object?>> channel, {
     Sink<String>? protocolLogSink,
-  }) {
+    int maxRetainedCancellations = 1024,
+  }) : _maxRetainedCancellations = maxRetainedCancellations {
     // The channel type admits only JSON objects, so json_rpc_2 never
     // receives a batch and never writes the `List` frames its batch support
     // would answer one with.
@@ -215,9 +235,12 @@ base class MCPBase {
   /// [Peer] answers a request whose handler returned whether or not anything
   /// cancelled it.
   ///
-  /// Progress is only dropped when every in-flight request holding that token
-  /// is cancelled. A peer may reuse one token across requests, and a live
-  /// request still gets the progress it asked for.
+  /// Progress is only dropped when no live request holds that token. A peer
+  /// may reuse one token across requests, and a live request still gets the
+  /// progress it asked for. A cancelled request's token keeps suppressing
+  /// progress after its response was dropped, because the specification
+  /// forbids any further message for it; at most
+  /// `maxRetainedCancellations` tokens are held for that.
   StreamChannel<Map<String, Object?>> _trackCancellations(
     StreamChannel<Map<String, Object?>> channel,
   ) => channel
@@ -228,9 +251,15 @@ base class MCPBase {
             final id = object.id;
             if (object.kind == JsonRpc2Kind.request && id != null) {
               final params = message[Keys.params];
+              // Each lookup is guarded rather than cast: a frame whose
+              // `params` or `_meta` is not a JSON object is still a request
+              // the peer expects an answer to, and throwing here would take
+              // the whole connection down instead.
+              final meta =
+                  params is Map<String, Object?> ? params[Keys.meta] : null;
               _inFlightRequests[id] =
-                  params is Map<String, Object?>
-                      ? (params as Request).meta?.progressToken
+                  meta is Map<String, Object?>
+                      ? MetaWithProgressToken.fromMap(meta).progressToken
                       : null;
             }
             sink.add(message);
@@ -244,8 +273,11 @@ base class MCPBase {
             switch (object.kind) {
               case JsonRpc2Kind.response:
                 final id = object.id;
-                _inFlightRequests.remove(id);
-                if (_cancelledRequests.remove(id)) return;
+                final token = _inFlightRequests.remove(id);
+                if (_cancelledRequests.remove(id)) {
+                  if (token != null) _suppressToken(token);
+                  return;
+                }
               case JsonRpc2Kind.notification:
                 if (object.method != ProgressNotification.methodName) break;
                 final params = message[Keys.params];
@@ -260,10 +292,21 @@ base class MCPBase {
         ),
       );
 
-  /// Whether [token] belongs to at least one in-flight request and every
-  /// in-flight request holding it has been cancelled.
+  /// Remembers [token] as belonging to a cancelled request whose response was
+  /// dropped, evicting the oldest once [_maxRetainedCancellations] is reached.
+  void _suppressToken(ProgressToken token) {
+    _suppressedTokens.remove(token);
+    _suppressedTokens.add(token);
+    while (_suppressedTokens.length > _maxRetainedCancellations) {
+      _suppressedTokens.remove(_suppressedTokens.first);
+    }
+  }
+
+  /// Whether [token] belongs to at least one cancelled request, counting the
+  /// ones already answered, and to no request that is in flight and not
+  /// cancelled.
   bool _progressIsCancelled(ProgressToken token) {
-    var anyCancelled = false;
+    var anyCancelled = _suppressedTokens.contains(token);
     for (final MapEntry(key: id, value: requestToken)
         in _inFlightRequests.entries) {
       if (requestToken != token) continue;
