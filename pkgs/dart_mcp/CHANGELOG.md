@@ -15,6 +15,13 @@
 - Let `handleRequestScopedMessage` route server-to-client requests through an
   `onRequest` callback on revisions before 2026-07-28. Missing callbacks and
   invalid callback responses fail the server request without leaving it open.
+- Honour `notifications/cancelled`. A cancelled request gets no response and
+  no further progress notification, which is what the specification requires
+  of the receiver on a single-channel transport such as stdio. The handler
+  itself keeps running: reaching it needs a request id a handler can see,
+  which `MCPBase` does not have yet. A notification naming a request that is
+  not in flight is ignored, and `MCPBase.cancellations` reports the ones that
+  are, so a server can log the reason.
 - **BREAKING**:
   - `MCPBase` (including the `MCPServer.fromStreamChannel` and
     `ServerConnection.fromStreamChannel` constructors),
