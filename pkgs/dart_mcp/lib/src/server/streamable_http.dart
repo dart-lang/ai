@@ -46,10 +46,11 @@ import 'server.dart';
 /// Notifications are acknowledged with `202 Accepted` and not dispatched,
 /// since this protocol revision defines no client-to-server notifications
 /// over HTTP. This handler reads a request body into memory, and caps it at
-/// [maxRequestBodyBytes]. It does not read the `Origin` header. The
-/// specification requires a server to validate that header and answer with
-/// 403. The check needs deployment knowledge this handler does not have, so it
-/// belongs to the embedding HTTP server, along with authentication.
+/// [maxRequestBodyBytes]. The specification requires a server to validate the
+/// `Origin` header and answer with 403. That check needs the deployment's own
+/// list of origins, so [allowedOrigins] carries it. Without the list the header
+/// goes unread and the check stays with the embedding HTTP server, along with
+/// authentication.
 ///
 /// Responses produced by the dispatched server are written unchanged, so an
 /// error a request handler throws reaches the client with whatever payload
@@ -113,6 +114,7 @@ Future<void> handleStreamableHttpRequest(
   Stream<Map<String, Object?>>? subscriptionNotifications,
   Duration keepAliveInterval = const Duration(seconds: 15),
   int maxRequestBodyBytes = 4 * 1024 * 1024,
+  Set<String>? allowedOrigins,
 }) async {
   RangeError.checkNotNegative(maxRequestBodyBytes, 'maxRequestBodyBytes');
   final response = request.response;
@@ -123,6 +125,21 @@ Future<void> handleStreamableHttpRequest(
       ..contentLength = 0;
     await response.close();
     return;
+  }
+
+  if (allowedOrigins != null) {
+    // Read the header as a list, the way the checks below read theirs. A
+    // request that repeats it carries no one origin to check, so it is turned
+    // down with the ones this server does not allow.
+    final origins = request.headers['origin'];
+    if (origins != null &&
+        (origins.length != 1 || !allowedOrigins.contains(origins.single))) {
+      response
+        ..statusCode = HttpStatus.forbidden
+        ..contentLength = 0;
+      await response.close();
+      return;
+    }
   }
 
   // A body cannot be parsed before its media type is known, so this precedes
@@ -359,6 +376,23 @@ Future<void> handleStreamableHttpRequest(
       decoded,
     );
   }
+  late final ClientCapabilities clientCapabilities;
+  try {
+    clientCapabilities = ClientCapabilities.fromMap(capabilities);
+    // The envelope came off the wire, so this error describes the request
+    // and not a bug on this side.
+    // ignore: avoid_catching_errors
+  } on ArgumentError {
+    return _reject(
+      response,
+      HttpStatus.badRequest,
+      RpcException.invalidParams(
+        'The envelope ${Keys.clientCapabilitiesMeta} contains an invalid '
+        'extension identifier',
+      ),
+      decoded,
+    );
+  }
   final clientInfo = meta[Keys.clientInfoMeta];
   if (clientInfo is! Map<String, Object?>?) {
     return _reject(
@@ -549,7 +583,7 @@ Future<void> handleStreamableHttpRequest(
       decoded,
       MCPServerInitialization(
         protocolVersion: protocolVersion,
-        clientCapabilities: ClientCapabilities.fromMap(capabilities),
+        clientCapabilities: clientCapabilities,
         clientInfo:
             clientInfo == null ? null : Implementation.fromMap(clientInfo),
         logLevel: logLevel,

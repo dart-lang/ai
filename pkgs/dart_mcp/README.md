@@ -97,6 +97,10 @@ from `ServerConnection.initialize`.
 [2025-03-26](https://modelcontextprotocol.io/specification/2025-03-26/)
 [2025-06-18](https://modelcontextprotocol.io/specification/2025-06-18/)
 [2025-11-25](https://modelcontextprotocol.io/specification/2025-11-25/)
+[2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/)
+
+2026-07-28 is served over Streamable HTTP, which has no initialize handshake.
+The stdio handshake still negotiates up to 2025-11-25.
 
 If support for a given protocol version is dropped, that will be released as a
 breaking change in this package.
@@ -178,3 +182,4 @@ see [Invoking Server Capabilities and Utilities](#invoking-server-capabilities-a
 | --- | --- | --- |
 | [Roots](https://modelcontextprotocol.io/specification/2025-11-25/client/roots/)| :heavy_check_mark: | |
 | [Sampling](https://modelcontextprotocol.io/specification/2025-11-25/client/sampling/)| :heavy_check_mark: | |
+| [Elicitation](https://modelcontextprotocol.io/specification/2025-11-25/client/elicitation/)| :heavy_check_mark: | `ElicitationFormSupport`, `ElicitationUrlSupport` ([elicitations_client.dart](example/elicitations_client.dart)) |

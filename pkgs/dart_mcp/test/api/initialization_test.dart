@@ -41,7 +41,7 @@ void main() {
       prompts: Prompts(),
       resources: Resources(),
       tools: Tools(),
-      extensions: {'y': 2},
+      extensions: {'example/y': 2},
     );
 
     final map = capabilities as Map<String, Object?>;
@@ -149,17 +149,187 @@ void main() {
   });
 
   group('capability extensions', () {
+    final malformedCapabilities = <String, Object?>{
+      'extensions': <String, Object?>{'tasks': <String, Object?>{}},
+    };
+    final extensionWriters =
+        <String, void Function(Map<String, Object?> extensions)>{
+          'client factory': (extensions) {
+            ClientCapabilities(extensions: extensions);
+          },
+          'client fromMap': (extensions) {
+            ClientCapabilities.fromMap({'extensions': extensions});
+          },
+          'client setter': (extensions) {
+            ClientCapabilities().extensions = extensions;
+          },
+          'server factory': (extensions) {
+            ServerCapabilities(extensions: extensions);
+          },
+          'server fromMap': (extensions) {
+            ServerCapabilities.fromMap({'extensions': extensions});
+          },
+          'server setter': (extensions) {
+            ServerCapabilities().extensions = extensions;
+          },
+        };
+
+    for (final extensionWriter in extensionWriters.entries) {
+      test('${extensionWriter.key} rejects malformed identifiers', () {
+        for (final identifier in [
+          'tasks',
+          '9example/tasks',
+          'example-/tasks',
+          'example/-tasks',
+          'example/tasks-',
+        ]) {
+          expect(
+            () => extensionWriter.value({identifier: {}}),
+            throwsArgumentError,
+            reason: identifier,
+          );
+        }
+      });
+    }
+
+    for (final decoder
+        in {
+          'client fromMap': ClientCapabilities.fromMap,
+          'server fromMap': ServerCapabilities.fromMap,
+        }.entries) {
+      test('${decoder.key} rejects a non-map extensions value', () {
+        for (final extensions in <Object?>[
+          <Object?>[],
+          <Object?, Object?>{1: <String, Object?>{}},
+          null,
+        ]) {
+          expect(
+            () => decoder.value(<String, Object?>{'extensions': extensions}),
+            throwsArgumentError,
+          );
+        }
+      });
+    }
+
+    test('fromMap wraps the map it is given', () {
+      final map = <String, Object?>{};
+      final capabilities = ClientCapabilities.fromMap(map);
+
+      capabilities.extensions = {'example/tasks': <String, Object?>{}};
+      expect(map['extensions'], {'example/tasks': <String, Object?>{}});
+
+      map['sampling'] = <String, Object?>{};
+      expect(capabilities.sampling, <String, Object?>{});
+    });
+
+    for (final writer
+        in <String, Map<String, Object?> Function()>{
+          'client setter': () {
+            final capabilities = ClientCapabilities()..extensions = null;
+            return capabilities as Map<String, Object?>;
+          },
+          'server setter': () {
+            final capabilities = ServerCapabilities()..extensions = null;
+            return capabilities as Map<String, Object?>;
+          },
+        }.entries) {
+      test('${writer.key} omits null extensions', () {
+        expect(writer.value().containsKey('extensions'), isFalse);
+      });
+    }
+
+    for (final reader
+        in {
+          'client getter':
+              () => (malformedCapabilities as ClientCapabilities).extensions,
+          'server getter':
+              () => (malformedCapabilities as ServerCapabilities).extensions,
+        }.entries) {
+      test('${reader.key} validates a cast capability map', () {
+        expect(reader.value, throwsArgumentError);
+      });
+    }
+
+    final implementation = Implementation(name: 'test', version: '1');
+    final malformedClient = malformedCapabilities as ClientCapabilities;
+    final malformedServer = malformedCapabilities as ServerCapabilities;
+    for (final writer
+        in <String, void Function()>{
+          'initialize request': () {
+            InitializeRequest(
+              protocolVersion: ProtocolVersion.latestSupported,
+              capabilities: malformedClient,
+              clientInfo: implementation,
+            );
+          },
+          'request envelope': () {
+            MetaWithRequestEnvelope(
+              protocolVersion: ProtocolVersion.latestSupported,
+              capabilities: malformedClient,
+            );
+          },
+          'initialize result': () {
+            InitializeResult(
+              protocolVersion: ProtocolVersion.latestSupported,
+              serverCapabilities: malformedServer,
+              serverInfo: implementation,
+            );
+          },
+          'discover result': () {
+            DiscoverResult(
+              supportedVersions: const [],
+              capabilities: malformedServer,
+            );
+          },
+        }.entries) {
+      test('${writer.key} validates capabilities before writing', () {
+        expect(writer.value, throwsArgumentError);
+      });
+    }
+
+    test('initialize request validates decoded client extensions', () {
+      final request =
+          <String, Object?>{'capabilities': malformedCapabilities}
+              as InitializeRequest;
+
+      expect(() => request.capabilities, throwsArgumentError);
+    });
+
+    test('initialize result validates decoded server extensions', () {
+      final result = InitializeResult.fromMap({
+        'capabilities': malformedCapabilities,
+      });
+
+      expect(() => result.capabilities, throwsArgumentError);
+    });
+
+    test('discover result validates decoded server extensions', () {
+      final result = DiscoverResult.fromMap({
+        'capabilities': malformedCapabilities,
+      });
+
+      expect(() => result.capabilities, throwsArgumentError);
+    });
+
     test('client capabilities round trip an extensions map', () {
       final capabilities = ClientCapabilities(
-        extensions: {'io.modelcontextprotocol/oauth-client-credentials': {}},
+        extensions: {
+          'io.modelcontextprotocol/oauth-client-credentials': {},
+          'com.example-tools.v2/n.a-b_c': {},
+          'example/': {},
+        },
       );
 
       final map = capabilities as Map<String, Object?>;
       expect(map['extensions'], {
         'io.modelcontextprotocol/oauth-client-credentials': <String, Object?>{},
+        'com.example-tools.v2/n.a-b_c': <String, Object?>{},
+        'example/': <String, Object?>{},
       });
       expect(capabilities.extensions, {
         'io.modelcontextprotocol/oauth-client-credentials': <String, Object?>{},
+        'com.example-tools.v2/n.a-b_c': <String, Object?>{},
+        'example/': <String, Object?>{},
       });
     });
 
