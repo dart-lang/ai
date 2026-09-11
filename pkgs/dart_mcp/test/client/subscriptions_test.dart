@@ -1,0 +1,228 @@
+// Copyright (c) 2026, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+import 'dart:async';
+
+import 'package:dart_mcp/client.dart';
+import 'package:dart_mcp/server.dart';
+import 'package:dart_mcp/src/utils/constants.dart';
+import 'package:json_rpc_2/json_rpc_2.dart';
+import 'package:test/test.dart';
+
+import '../test_utils.dart';
+
+/// A server on a connection which is not request scoped, the shape a stdio
+/// transport for this revision has.
+base class _SubscribingServer extends MCPServer
+    with ToolsSupport, SubscriptionsSupport {
+  _SubscribingServer(super.channel)
+    : super.fromStreamChannel(
+        implementation: Implementation(name: 'test server', version: '0.1.0'),
+      );
+}
+
+/// Collects the protocol log lines a [TestEnvironment] writes.
+class _LogSink implements Sink<String> {
+  final lines = <String>[];
+
+  @override
+  void add(String data) => lines.add(data);
+
+  @override
+  void close() {}
+}
+
+void main() {
+  late TestEnvironment<TestMCPClient, _SubscribingServer> environment;
+  late _LogSink protocolLog;
+
+  setUp(() async {
+    protocolLog = _LogSink();
+    environment = TestEnvironment(
+      TestMCPClient(),
+      _SubscribingServer.new,
+      protocolLogSink: protocolLog,
+    );
+    // The 2026-07-28 revision took the `initialize` handshake out, so a
+    // transport for it hands the server its context directly.
+    await environment.server.initialize(
+      MCPServerInitialization(
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: environment.client.capabilities,
+      ),
+    );
+    environment.server.handleInitialized();
+  });
+
+  /// Opens a subscription for [notifications] and names it on the server the
+  /// way a transport serving this method does.
+  ///
+  /// `listen` returns before the request reaches the server, so the id it went
+  /// out under is there to name the subscription by.
+  Subscription listen([SubscriptionFilter? notifications]) {
+    final subscription = environment.serverConnection.listen(
+      notifications ?? SubscriptionFilter(toolsListChanged: true),
+    );
+    environment.server.nextSubscriptionId = subscription.id;
+    return subscription;
+  }
+
+  /// Sends a tools-list change from the server under [subscriptionId], the way
+  /// a server stamps every message it sends on a subscription.
+  void notifyToolsListChanged(RequestId subscriptionId) =>
+      environment.server.sendNotification(
+        ToolListChangedNotification.methodName,
+        ToolListChangedNotification(
+          meta: MetaWithSubscriptionId(subscriptionId: subscriptionId),
+        ),
+      );
+
+  /// The subscription id on [notification], read off its raw metadata.
+  Object? subscriptionIdOf(Notification notification) {
+    final meta = (notification as Map<String, Object?>)[Keys.meta];
+    return (meta as Map<String, Object?>)[Keys.subscriptionIdMeta];
+  }
+
+  test(
+    'the id names the JSON-RPC request the subscription went out on',
+    () async {
+      final subscription = listen();
+      await subscription.acknowledged.timeout(const Duration(seconds: 5));
+
+      final sent = protocolLog.lines.singleWhere(
+        (line) =>
+            line.startsWith('>>>') &&
+            line.contains(SubscriptionsListenRequest.methodName),
+      );
+      expect(
+        sent,
+        contains('"id":${subscription.id}'),
+        reason: 'the handle reports the id the request was written with',
+      );
+    },
+  );
+
+  test('reports the filter the server acknowledged', () async {
+    final subscription = listen();
+    final acknowledged = await subscription.acknowledged.timeout(
+      const Duration(seconds: 5),
+    );
+    expect(acknowledged.toolsListChanged, isTrue);
+    expect(
+      acknowledged.resourcesListChanged,
+      isNull,
+      reason: 'a type the server does not support is left out, not sent false',
+    );
+  });
+
+  test(
+    'delivers only the notifications carrying this subscription id',
+    () async {
+      final first = listen();
+      final firstEvents = <Notification>[];
+      final firstListener = first.notifications.listen(firstEvents.add);
+      addTearDown(firstListener.cancel);
+      await first.acknowledged.timeout(const Duration(seconds: 5));
+
+      final second = listen();
+      final secondEvents = <Notification>[];
+      final secondListener = second.notifications.listen(secondEvents.add);
+      addTearDown(secondListener.cancel);
+      await second.acknowledged.timeout(const Duration(seconds: 5));
+
+      expect(
+        second.id,
+        isNot(first.id),
+        reason: 'two subscriptions on one connection get two request ids',
+      );
+
+      notifyToolsListChanged(second.id);
+      await pumpEventQueue();
+
+      expect(
+        firstEvents,
+        isEmpty,
+        reason: 'a notification named by another subscription is not ours',
+      );
+      expect(secondEvents, hasLength(1));
+      expect(subscriptionIdOf(secondEvents.single), second.id);
+
+      notifyToolsListChanged(first.id);
+      await pumpEventQueue();
+
+      expect(firstEvents, hasLength(1));
+      expect(subscriptionIdOf(firstEvents.single), first.id);
+      expect(
+        secondEvents,
+        hasLength(1),
+        reason: 'the second subscription got nothing more',
+      );
+    },
+  );
+
+  test('drops a notification which carries no subscription id', () async {
+    final subscription = listen();
+    final events = <Notification>[];
+    final listener = subscription.notifications.listen(events.add);
+    addTearDown(listener.cancel);
+    await subscription.acknowledged.timeout(const Duration(seconds: 5));
+
+    environment.server.sendNotification(
+      ToolListChangedNotification.methodName,
+      ToolListChangedNotification(),
+    );
+    await pumpEventQueue();
+
+    expect(
+      events,
+      isEmpty,
+      reason: 'an unnamed notification belongs to no subscription',
+    );
+  });
+
+  test(
+    'completes with the result the server ends the subscription with',
+    () async {
+      final subscription = listen();
+      var closed = false;
+      final listener = subscription.notifications.listen(
+        (_) {},
+        onDone: () => closed = true,
+      );
+      addTearDown(listener.cancel);
+      await subscription.acknowledged.timeout(const Duration(seconds: 5));
+
+      var completed = false;
+      unawaited(subscription.done.then((_) => completed = true));
+      await pumpEventQueue();
+      expect(
+        completed,
+        isFalse,
+        reason: 'the subscription stays open until the server ends it',
+      );
+
+      unawaited(environment.server.shutdown());
+      final ended = await subscription.done.timeout(const Duration(seconds: 5));
+      expect(ended.subscriptionId, subscription.id);
+      expect(closed, isTrue, reason: 'the stream closes with the subscription');
+    },
+  );
+
+  test('reports a refused subscription on both of its ends', () async {
+    // A transport which does not name the subscription gets the request
+    // refused, and neither end of the handle may hang on that.
+    final subscription = environment.serverConnection.listen(
+      SubscriptionFilter(toolsListChanged: true),
+    );
+    await expectLater(
+      subscription.done.timeout(const Duration(seconds: 5)),
+      throwsA(isA<RpcException>()),
+    );
+    await expectLater(
+      subscription.acknowledged.timeout(const Duration(seconds: 5)),
+      throwsA(isA<RpcException>()),
+    );
+    expect(subscription.notifications, emitsDone);
+  });
+}

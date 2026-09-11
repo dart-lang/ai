@@ -21,6 +21,7 @@ part 'elicitation_support.dart';
 part 'response_cache.dart';
 part 'roots_support.dart';
 part 'sampling_support.dart';
+part 'subscriptions.dart';
 
 /// The base class for MCP clients.
 ///
@@ -716,6 +717,67 @@ base class ServerConnection extends MCPBase {
   /// Updates will come on the [resourceUpdated] stream.
   Future<void> unsubscribeResource(UnsubscribeRequest request) =>
       sendRequest(UnsubscribeRequest.methodName, request);
+
+  /// The subscriptions this connection has open, each under the JSON-RPC id
+  /// of the `subscriptions/listen` request which opened it.
+  final _subscriptions = <RequestId, Subscription>{};
+
+  /// Whether [listen] has registered the handler for the server's
+  /// acknowledgements.
+  ///
+  /// `package:json_rpc_2` refuses a second handler for a method, and
+  /// [_subscriptions] empties out again as subscriptions end, so the first
+  /// [listen] call is tracked separately from them.
+  bool _acknowledgementsRegistered = false;
+
+  /// Opens a `subscriptions/listen` stream for the notification types
+  /// [notifications] names, and returns the handle to it.
+  ///
+  /// Returns before the server has seen the request, so a caller can subscribe
+  /// to [Subscription.notifications] in the same synchronous run: the stream
+  /// is a broadcast stream and drops what arrives before it has a listener.
+  /// [Subscription.acknowledged] reports the filter the server agreed to, and
+  /// [Subscription.done] completes when the server ends the subscription.
+  ///
+  /// You should check the [protocolVersion] before using this API, it must be
+  /// >= [ProtocolVersion.v2026_07_28].
+  ///
+  /// Throws an [ArgumentError] if this connection already registered its own
+  /// handler for `notifications/subscriptions/acknowledged`.
+  Subscription listen(SubscriptionFilter notifications) {
+    if (!_acknowledgementsRegistered) {
+      registerNotificationHandler<SubscriptionsAcknowledgedNotification>(
+        SubscriptionsAcknowledgedNotification.methodName,
+        _handleSubscriptionsAcknowledged,
+      );
+      _acknowledgementsRegistered = true;
+    }
+    final sent = sendRequestWithId<SubscriptionsListenResult>(
+      SubscriptionsListenRequest.methodName,
+      SubscriptionsListenRequest(notifications: notifications),
+    );
+    return _subscriptions[sent.id] = Subscription._(this, sent.id, sent.result);
+  }
+
+  /// Reports the acknowledged filter to the subscription [notification] names.
+  ///
+  /// The fields are read off the raw map, not through the extension type which
+  /// throws on a message that left one out: a notification gets no error
+  /// response, so a malformed one leaves its subscription unacknowledged
+  /// rather than failing anything.
+  void _handleSubscriptionsAcknowledged(
+    SubscriptionsAcknowledgedNotification notification,
+  ) {
+    final fields = notification as Map<String, Object?>;
+    final meta = fields[Keys.meta];
+    final id =
+        meta is Map<String, Object?> ? meta[Keys.subscriptionIdMeta] : null;
+    final accepted = fields[Keys.notifications];
+    if (id == null || accepted is! Map<String, Object?>) return;
+    _subscriptions[RequestId(id)]?._acknowledge(
+      SubscriptionFilter.fromMap(accepted),
+    );
+  }
 
   /// Sends a request to change the current logging level.
   ///

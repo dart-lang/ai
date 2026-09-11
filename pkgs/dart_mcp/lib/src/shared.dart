@@ -14,6 +14,7 @@ import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'api/api.dart';
+import 'utils/constants.dart';
 
 /// Base class for MCP server-related implementations.
 ///
@@ -37,6 +38,12 @@ base class MCPBase {
   final _progressControllers =
       <ProgressToken, StreamController<ProgressNotification>>{};
 
+  /// The JSON-RPC id on the last request this side wrote to the channel, or
+  /// `null` once [sendRequestWithId] has taken it. Only that method reads it,
+  /// and only in the same synchronous run as the send which set it, so one
+  /// slot holds for every request.
+  Object? _lastSentRequestId;
+
   /// Whether the connection with the peer is active.
   bool get isActive => !_peer.isClosed;
 
@@ -56,7 +63,9 @@ base class MCPBase {
     // The channel type admits only JSON objects, so json_rpc_2 never
     // receives a batch and never writes the `List` frames its batch support
     // would answer one with.
-    _peer = Peer.withoutJson(_maybeForwardMessages(channel, protocolLogSink));
+    _peer = Peer.withoutJson(
+      _recordSentRequestIds(_maybeForwardMessages(channel, protocolLogSink)),
+    );
     registerNotificationHandler(
       ProgressNotification.methodName,
       _handleProgress,
@@ -127,6 +136,41 @@ base class MCPBase {
     } finally {
       await closeProgress(request);
     }
+  }
+
+  /// Sends [request] to the peer and reports the JSON-RPC id it went out
+  /// under, alongside the future for its response.
+  ///
+  /// A `subscriptions/listen` subscription is named by the id of the request
+  /// which opens it, and `package:json_rpc_2` generates that id and reports it
+  /// nowhere, so [_recordSentRequestIds] reads it off the wire. This goes
+  /// straight to the peer: it is for a long-lived request, which no response
+  /// cache may answer and which opens no progress stream. Throws a
+  /// [StateError] if the request reached the peer without its id reaching the
+  /// sink, which leaves nothing to name a subscription by.
+  @protected
+  ({RequestId id, Future<T> result}) sendRequestWithId<T extends Result?>(
+    String methodName, [
+    Request? request,
+  ]) {
+    _lastSentRequestId = null;
+    // `Peer.sendRequest` writes the encoded request, id and all, to the sink
+    // before it returns, so the recorded id belongs to this request.
+    final result = _peer.sendRequest(methodName, request);
+    final id = _lastSentRequestId;
+    _lastSentRequestId = null;
+    if (id == null) {
+      throw StateError(
+        'Sending "$methodName" recorded no JSON-RPC id, so a request named by '
+        'its id cannot be opened.',
+      );
+    }
+    return (
+      id: RequestId(id),
+      result: result.then(
+        (value) => (value as Map?)?.cast<String, Object?>() as T,
+      ),
+    );
   }
 
   /// Sends [request] to the peer like [sendRequest] does, but leaves any
@@ -202,6 +246,26 @@ base class MCPBase {
     PingRequest.methodName,
     request,
   ).then((_) => true).timeout(timeout, onTimeout: () => false);
+
+  /// Records the JSON-RPC id of each request written to [channel] in
+  /// [_lastSentRequestId].
+  ///
+  /// An outgoing message carrying both a `method` and an `id` is a request
+  /// this side sent; a notification has no `id` and a response no `method`,
+  /// and neither disturbs the recorded value.
+  StreamChannel<Map<String, Object?>> _recordSentRequestIds(
+    StreamChannel<Map<String, Object?>> channel,
+  ) => channel.transformSink(
+    StreamSinkTransformer.fromHandlers(
+      handleData: (data, sink) {
+        final id = data[Keys.id];
+        if (id != null && data.containsKey(Keys.method)) {
+          _lastSentRequestId = id;
+        }
+        sink.add(data);
+      },
+    ),
+  );
 
   /// If [protocolLogSink] is non-null, emits messages to it for all messages
   /// sent over [channel].

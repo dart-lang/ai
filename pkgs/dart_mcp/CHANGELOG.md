@@ -9,6 +9,10 @@
 - Stop sending `notifications/roots/list_changed` to a server that speaks
   2026-07-28. An unsettled connection still gets it.
 - Add a client fixture for the MCP conformance suite under `tool/`.
+- Add `ServerConnection.listen`, which opens a `subscriptions/listen`
+  stream and returns a `Subscription` reporting the JSON-RPC id it was
+  named by, the filter the server acknowledged, the notifications carrying
+  that id, and the result the server ends the subscription with.
 - Let `handleRequestScopedMessage` route server-to-client requests through an
   `onRequest` callback on revisions before 2026-07-28. Missing callbacks and
   invalid callback responses fail the server request without leaving it open.
