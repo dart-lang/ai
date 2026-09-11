@@ -14,49 +14,76 @@ final class _ElicitingServer extends MCPServer
         implementation: Implementation(name: 'test', version: '0.1.0'),
       ) {
     registerTool(Tool(name: 'test/ask', inputSchema: ObjectSchema()), (
-      _,
-    ) async {
-      await elicit(
-        ElicitRequest(message: 'need input', requestedSchema: ObjectSchema()),
+      request,
+    ) {
+      if (request.inputResponses?.containsKey('answer') ?? false) {
+        return CallToolResult(content: [TextContent(text: 'asked')]);
+      }
+      return InputRequiredResult(
+        inputRequests: {
+          'answer': InputRequest.elicit(
+            ElicitRequest(
+              message: 'need input',
+              requestedSchema: ObjectSchema(),
+            ),
+          ),
+        },
       );
-      return CallToolResult(content: [TextContent(text: 'asked')]);
     });
     registerTool(Tool(name: 'test/no-mode', inputSchema: ObjectSchema()), (
-      _,
-    ) async {
+      request,
+    ) {
       // The 2025-11-25 revision lets a server leave `mode` out of a form
       // request, and no constructor here builds one without it.
-      await elicit(
-        <String, Object?>{
-              Keys.message: 'need input',
-              Keys.requestedSchema: ObjectSchema(),
-            }
-            as ElicitRequest,
+      if (request.inputResponses?.containsKey('answer') ?? false) {
+        return CallToolResult(content: [TextContent(text: 'asked')]);
+      }
+      return InputRequiredResult(
+        inputRequests: {
+          'answer': InputRequest.elicit(
+            <String, Object?>{
+                  Keys.message: 'need input',
+                  Keys.requestedSchema: ObjectSchema(),
+                }
+                as ElicitRequest,
+          ),
+        },
       );
-      return CallToolResult(content: [TextContent(text: 'asked')]);
     });
     registerTool(Tool(name: 'test/unknown', inputSchema: ObjectSchema()), (
-      _,
-    ) async {
+      request,
+    ) {
       // Cast the way `ServerConnection` does when it reads a request off the
       // wire, since no constructor here can name an unknown mode.
-      await elicit(
-        <String, Object?>{Keys.mode: 'voice', Keys.message: 'speak up'}
-            as ElicitRequest,
+      if (request.inputResponses?.containsKey('answer') ?? false) {
+        return CallToolResult(content: [TextContent(text: 'asked')]);
+      }
+      return InputRequiredResult(
+        inputRequests: {
+          'answer': InputRequest.elicit(
+            <String, Object?>{Keys.mode: 'voice', Keys.message: 'speak up'}
+                as ElicitRequest,
+          ),
+        },
       );
-      return CallToolResult(content: [TextContent(text: 'asked')]);
     });
     registerTool(Tool(name: 'test/send', inputSchema: ObjectSchema()), (
-      _,
-    ) async {
-      await elicit(
-        ElicitRequest.url(
-          message: 'sign in',
-          url: 'https://e.test',
-          elicitationId: 'e1',
-        ),
+      request,
+    ) {
+      if (request.inputResponses?.containsKey('answer') ?? false) {
+        return CallToolResult(content: [TextContent(text: 'sent')]);
+      }
+      return InputRequiredResult(
+        inputRequests: {
+          'answer': InputRequest.elicit(
+            ElicitRequest.url(
+              message: 'sign in',
+              url: 'https://e.test',
+              elicitationId: 'e1',
+            ),
+          ),
+        },
       );
-      return CallToolResult(content: [TextContent(text: 'sent')]);
     });
   }
 }
@@ -124,20 +151,20 @@ void main() {
     );
   });
 
-  test('2026-07-28 rejects both modes before capability checks', () async {
+  test('2026-07-28 returns declared input requests', () async {
     for (final (tool, capabilities) in [
-      ('test/ask', ClientCapabilities()),
-      (
-        'test/ask',
-        ClientCapabilities(elicitation: ElicitationCapability(form: {})),
-      ),
-      ('test/send', ClientCapabilities()),
       (
         'test/send',
         ClientCapabilities(elicitation: ElicitationCapability(url: {})),
       ),
-      ('test/no-mode', ClientCapabilities()),
-      ('test/unknown', ClientCapabilities()),
+      (
+        'test/ask',
+        ClientCapabilities(elicitation: ElicitationCapability(form: {})),
+      ),
+      (
+        'test/no-mode',
+        ClientCapabilities(elicitation: ElicitationCapability(form: {})),
+      ),
     ]) {
       final result = await _call(
         tool,
@@ -145,16 +172,10 @@ void main() {
         protocolVersion: ProtocolVersion.v2026_07_28,
       );
 
-      expect(_errorCode(result!), error_code.INTERNAL_ERROR);
+      expect(result![Keys.error], isNull);
       expect(
-        (result[Keys.error] as Map<String, Object?>)[Keys.message],
-        allOf(
-          contains(
-            '2026-07-28 does not have '
-            '${ElicitRequest.methodName}',
-          ),
-          contains('InputRequiredResult'),
-        ),
+        (result[Keys.result] as Map<String, Object?>)[Keys.resultType],
+        ResultTypes.inputRequired,
       );
     }
   });
@@ -264,7 +285,7 @@ void main() {
     });
   });
 
-  test('an unrecognized mode answers with invalid params', () async {
+  test('an unrecognized mode answers with an internal error', () async {
     for (final capabilities in [
       ElicitationCapability(url: {}),
       ElicitationCapability(form: {}),
@@ -274,14 +295,14 @@ void main() {
         ClientCapabilities(elicitation: capabilities),
       );
 
-      expect(_errorCode(result!), error_code.INVALID_PARAMS);
+      expect(_errorCode(result!), error_code.INTERNAL_ERROR);
       expect(
         (result[Keys.error] as Map<String, Object?>)[Keys.message],
         allOf([
-          contains('"voice"'),
-          for (final mode in ElicitationMode.values) contains(mode.name),
+          contains(ResultTypes.inputRequired),
+          contains(ElicitationMode.form.name),
+          contains(ElicitationMode.url.name),
         ]),
-        reason: 'the rejection names the value and every mode it could be',
       );
     }
   });

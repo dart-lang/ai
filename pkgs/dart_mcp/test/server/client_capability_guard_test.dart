@@ -4,7 +4,6 @@
 
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp/src/utils/constants.dart';
-import 'package:json_rpc_2/error_code.dart' as error_code;
 import 'package:test/test.dart';
 
 final class _RequestingServer extends MCPServer
@@ -14,16 +13,28 @@ final class _RequestingServer extends MCPServer
         implementation: Implementation(name: 'test', version: '0.1.0'),
       ) {
     registerTool(Tool(name: 'test/sample', inputSchema: ObjectSchema()), (
-      _,
-    ) async {
-      await createMessage(CreateMessageRequest(messages: [], maxTokens: 1));
-      return CallToolResult(content: [TextContent(text: 'sampled')]);
+      request,
+    ) {
+      if (request.inputResponses?.containsKey('answer') ?? false) {
+        return CallToolResult(content: [TextContent(text: 'sampled')]);
+      }
+      return InputRequiredResult(
+        inputRequests: {
+          'answer': InputRequest.sample(
+            CreateMessageRequest(messages: [], maxTokens: 1),
+          ),
+        },
+      );
     });
     registerTool(Tool(name: 'test/roots', inputSchema: ObjectSchema()), (
-      _,
-    ) async {
-      await listRoots(ListRootsRequest());
-      return CallToolResult(content: [TextContent(text: 'listed')]);
+      request,
+    ) {
+      if (request.inputResponses?.containsKey('answer') ?? false) {
+        return CallToolResult(content: [TextContent(text: 'listed')]);
+      }
+      return InputRequiredResult(
+        inputRequests: {'answer': InputRequest.listRoots(ListRootsRequest())},
+      );
     });
   }
 }
@@ -78,46 +89,51 @@ void main() {
     },
   );
 
-  test('2026-07-28 rejects sampling before capability checks', () async {
-    for (final capabilities in [
+  test('2026-07-28 checks sampling input capability', () async {
+    final refused = await _callTool(
+      'test/sample',
       ClientCapabilities(),
-      ClientCapabilities(sampling: {}),
-    ]) {
-      final result = await _callTool(
-        'test/sample',
-        capabilities,
-        protocolVersion: ProtocolVersion.v2026_07_28,
-      );
+      protocolVersion: ProtocolVersion.v2026_07_28,
+    );
+    final samplingError = refused![Keys.error] as Map<String, Object?>;
+    expect(
+      samplingError[Keys.code],
+      McpErrorCodes.missingRequiredClientCapability,
+    );
 
-      final error = result![Keys.error] as Map<String, Object?>;
-      expect(error[Keys.code], error_code.INTERNAL_ERROR);
-      expect(
-        error[Keys.message],
-        contains(
-          '2026-07-28 does not have '
-          '${CreateMessageRequest.methodName}',
-        ),
-      );
-    }
+    final served = await _callTool(
+      'test/sample',
+      ClientCapabilities(sampling: {}),
+      protocolVersion: ProtocolVersion.v2026_07_28,
+    );
+    expect(served![Keys.error], isNull);
+    expect(
+      (served[Keys.result] as Map<String, Object?>)[Keys.resultType],
+      ResultTypes.inputRequired,
+    );
   });
 
-  test('2026-07-28 rejects roots before capability checks', () async {
-    for (final capabilities in [
+  test('2026-07-28 checks roots input capability', () async {
+    final refused = await _callTool(
+      'test/roots',
       ClientCapabilities(),
-      ClientCapabilities(roots: RootsCapabilities()),
-    ]) {
-      final result = await _callTool(
-        'test/roots',
-        capabilities,
-        protocolVersion: ProtocolVersion.v2026_07_28,
-      );
+      protocolVersion: ProtocolVersion.v2026_07_28,
+    );
+    final rootsError = refused![Keys.error] as Map<String, Object?>;
+    expect(
+      rootsError[Keys.code],
+      McpErrorCodes.missingRequiredClientCapability,
+    );
 
-      final error = result![Keys.error] as Map<String, Object?>;
-      expect(error[Keys.code], error_code.INTERNAL_ERROR);
-      expect(
-        error[Keys.message],
-        contains('2026-07-28 does not have ${ListRootsRequest.methodName}'),
-      );
-    }
+    final served = await _callTool(
+      'test/roots',
+      ClientCapabilities(roots: RootsCapabilities()),
+      protocolVersion: ProtocolVersion.v2026_07_28,
+    );
+    expect(served![Keys.error], isNull);
+    expect(
+      (served[Keys.result] as Map<String, Object?>)[Keys.resultType],
+      ResultTypes.inputRequired,
+    );
   });
 }

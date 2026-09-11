@@ -146,10 +146,65 @@ extension type WithInputResponses._fromMap(Map<String, Object?> _value)
   /// [InputRequiredResult.inputRequests], under the keys the server gave them.
   ///
   /// These carry no method field the way an [InputRequest] does, so a server
-  /// reads each back as the type it asked for under that key. A key it did not
-  /// ask for is one to ignore.
+  /// reads each back as the type it asked for under that key, through
+  /// [elicitResult], [createMessageResult] or [listRootsResult]. A key it did
+  /// not ask for is one to ignore.
   Map<String, Result>? get inputResponses =>
       (_value[Keys.inputResponses] as Map?)?.cast<String, Result>();
+
+  /// The elicitation arm of the schema `InputResponse` union under [key].
+  ///
+  /// Missing [key] is null. A value without `action` throws [ArgumentError].
+  ElicitResult? elicitResult(String key) {
+    final value = _typedInputResponse(key, const [Keys.action]);
+    return value == null ? null : value as ElicitResult;
+  }
+
+  /// The sampling arm of the schema `InputResponse` union under [key].
+  ///
+  /// Missing [key] is null. A value without `content`, `model` and `role`
+  /// throws [ArgumentError].
+  CreateMessageResult? createMessageResult(String key) {
+    final value = _typedInputResponse(key, const [
+      Keys.content,
+      Keys.model,
+      Keys.role,
+    ]);
+    return value == null ? null : value as CreateMessageResult;
+  }
+
+  /// The roots arm of the schema `InputResponse` union under [key].
+  ///
+  /// Missing [key] is null. A value without `roots` throws [ArgumentError].
+  ListRootsResult? listRootsResult(String key) {
+    final value = _typedInputResponse(key, const [Keys.roots]);
+    return value == null ? null : value as ListRootsResult;
+  }
+
+  Map<String, Object?>? _typedInputResponse(
+    String key,
+    List<String> requiredKeys,
+  ) {
+    final responses = _value[Keys.inputResponses] as Map<String, Object?>?;
+    if (responses == null || !responses.containsKey(key)) return null;
+    final value = responses[key];
+    if (value is! Map<String, Object?>) {
+      throw ArgumentError(
+        'The input response "$key" was ${value.runtimeType}, expected an '
+        'object.',
+      );
+    }
+    // The schema requires these keys on this arm of the union. Without them
+    // the cast in the caller would hand back the wrong type without a word.
+    for (final required in requiredKeys) {
+      if (!value.containsKey(required)) {
+        throw ArgumentError(
+          'The input response "$key" was missing required "$required".',
+        );
+      }
+    }
+    return value;
+  }
 
   /// The [InputRequiredResult.requestState] the server sent, echoed back
   /// unread.

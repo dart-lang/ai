@@ -39,17 +39,14 @@ void main() {
     );
 
     expect(
-      environment.server.createMessage(
+      environment.server.sendRequest<CreateMessageResult>(
+        CreateMessageRequest.methodName,
         CreateMessageRequest(messages: [], maxTokens: 1),
       ),
       throwsA(
-        isA<RpcException>().having(
-          (e) => e.code,
-          'code',
-          McpErrorCodes.missingRequiredClientCapability,
-        ),
+        isA<RpcException>().having((e) => e.code, 'code', METHOD_NOT_FOUND),
       ),
-      reason: 'The server calling unsupported methods should throw',
+      reason: 'The server calling an unsupported method should throw',
     );
   });
 
@@ -274,7 +271,10 @@ void main() {
     // Ensure the subscription is set up before calling the tool.
     await pumpEventQueue();
 
-    final onDone = server.listRoots(request);
+    final onDone = server.sendRequest<ListRootsResult>(
+      ListRootsRequest.methodName,
+      request,
+    );
     final expectedNotification = ProgressNotification(
       progressToken: request.meta!.progressToken!,
       progress: 50,

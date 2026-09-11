@@ -25,7 +25,13 @@ void main() {
     final server = environment.server;
     final events = StreamQueue(server.rootsListChanged!);
 
-    expect((await server.listRoots()).roots, isEmpty);
+    expect(
+      (await server.sendRequest<ListRootsResult>(
+        ListRootsRequest.methodName,
+        ListRootsRequest(),
+      )).roots,
+      isEmpty,
+    );
 
     final a = Root(uri: 'test://a', name: 'a');
     final a2 = Root(uri: 'test://a', name: 'a2');
@@ -47,7 +53,10 @@ void main() {
     expect(await events.next, isNull);
 
     expect(
-      (await server.listRoots(ListRootsRequest())).roots,
+      (await server.sendRequest<ListRootsResult>(
+        ListRootsRequest.methodName,
+        ListRootsRequest(),
+      )).roots,
       unorderedEquals([a, b]),
     );
 
@@ -57,7 +66,13 @@ void main() {
 
     expect(await events.take(2), hasLength(2));
 
-    expect((await server.listRoots(ListRootsRequest())).roots, isEmpty);
+    expect(
+      (await server.sendRequest<ListRootsResult>(
+        ListRootsRequest.methodName,
+        ListRootsRequest(),
+      )).roots,
+      isEmpty,
+    );
 
     expect(events.hasNext, completion(false));
 

@@ -18,6 +18,7 @@ import '../utils/json_rpc_2_object.dart';
 
 part 'completions_support.dart';
 part 'elicitation_request_support.dart';
+part 'legacy_input_required_shim.dart';
 part 'logging_support.dart';
 part 'prompts_support.dart';
 part 'request_scoped.dart';
@@ -88,15 +89,36 @@ abstract base class MCPServer extends MCPBase {
   /// These may be used in system prompts.
   final String? instructions;
 
+  /// How many times a handler may be rerun for an `input_required` result.
+  ///
+  /// Used only on revisions before 2026-07-28. Exceeding it is an `-32603`
+  /// error. Values below 1 throw a [RangeError].
+  final int maxInputRequiredRounds;
+
   /// The negotiated protocol version.
   ///
   /// Only assigned after [initialize] has been called.
   late ProtocolVersion protocolVersion;
 
+  /// [protocolVersion] once [initialize] has assigned it, else `null`.
+  ///
+  /// The legacy input-required wrap can run for a handler registered before
+  /// [initialize], so the shim reads this instead of the late field.
+  ProtocolVersion? _inputRequiredProtocolVersion;
+
   /// The capabilities of the client.
   ///
   /// Only assigned after [initialize] has been called.
   late ClientCapabilities clientCapabilities;
+
+  /// Whether this connection can answer requests sent by the server.
+  ///
+  /// Legacy connections always can. Request-scoped transports set this from
+  /// their optional server-request callback before dispatching a message.
+  bool _serverRequestsSupported = true;
+
+  late final _LegacyInputRequiredShim _legacyInputRequiredShim =
+      _LegacyInputRequiredShim(this);
 
   /// The client implementation information provided during initialization.
   ///
@@ -128,12 +150,43 @@ abstract base class MCPServer extends MCPBase {
     required this.implementation,
     this.instructions,
     super.protocolLogSink,
+    this.maxInputRequiredRounds = 8,
   }) {
+    if (maxInputRequiredRounds < 1) {
+      throw RangeError.range(
+        maxInputRequiredRounds,
+        1,
+        null,
+        'maxInputRequiredRounds',
+      );
+    }
     registerRequestHandler(InitializeRequest.methodName, initializeLegacy);
 
     registerNotificationHandler(
       InitializedNotification.methodName,
       handleInitialized,
+    );
+  }
+
+  /// Registers [impl] for [name], and on revisions before 2026-07-28 wraps
+  /// the handlers that may answer `input_required` in the legacy shim.
+  @override
+  void registerRequestHandler<T extends Request?, R extends Result?>(
+    String name,
+    FutureOr<R> Function(T) impl,
+  ) {
+    if (!_inputRequiredMethods.contains(name)) {
+      return super.registerRequestHandler<T, R>(name, impl);
+    }
+    super.registerRequestHandler<T, R>(
+      name,
+      (request) async =>
+          await _legacyInputRequiredShim.fulfill(
+                name,
+                request as WithInputResponses,
+                (retry) async => (await impl(retry as T)) as Result,
+              )
+              as R,
     );
   }
 
@@ -153,6 +206,7 @@ abstract base class MCPServer extends MCPBase {
   /// request, is handled separately.
   FutureOr<void> initialize(MCPServerInitialization initialization) {
     protocolVersion = initialization.protocolVersion;
+    _inputRequiredProtocolVersion = protocolVersion;
     clientCapabilities = initialization.clientCapabilities;
     clientInfo = initialization.clientInfo;
     if (clientCapabilities.roots?.listChanged == true) {
@@ -300,57 +354,37 @@ abstract base class MCPServer extends MCPBase {
     _initialized.complete(notification);
   }
 
-  /// Whether or not the connected client supports [listRoots].
+  /// Whether or not the connected client supports roots requests.
   ///
   /// Only safe to call after calling [initialize] on `super` since this
   /// is based on the client capabilities.
   bool get supportsRoots => clientCapabilities.supportsRoots;
 
-  /// Whether or not the connected client supports [createMessage].
+  /// Whether or not the connected client supports sampling requests.
   ///
   /// Only safe to call after calling [initialize] on `super` since this
   /// is based on the client capabilities.
   bool get supportsSampling => clientCapabilities.supportsSampling;
+}
 
-  /// Lists all the root URIs from the client.
-  ///
-  /// Throws an [RpcException] when [protocolVersion] does not have
-  /// `roots/list`. 2026-07-28 took it out, and carries a [ListRootsRequest]
-  /// in an [InputRequiredResult] instead.
-  ///
-  /// Otherwise this only succeeds if the client has advertised the `roots`
-  /// capability, and throws an [RpcException] with
-  /// [McpErrorCodes.missingRequiredClientCapability] when it has not, naming
-  /// the capability the client is missing under `data.requiredCapabilities`.
-  Future<ListRootsResult> listRoots([ListRootsRequest? request]) async {
-    _rejectRemovedMethod(ListRootsRequest.methodName, protocolVersion);
-    if (!supportsRoots) {
-      throw _missingRoots;
-    }
-    return sendRequest(ListRootsRequest.methodName, request);
-  }
-
-  /// A request to prompt the LLM owned by the client with a message.
-  ///
-  /// See https://modelcontextprotocol.io/specification/2026-07-28/client/sampling/.
-  ///
-  /// Throws an [RpcException] when [protocolVersion] does not have
-  /// `sampling/createMessage`. 2026-07-28 took it out, and carries a
-  /// [CreateMessageRequest] in an [InputRequiredResult] instead.
-  ///
-  /// Otherwise this only succeeds if the client has advertised the `sampling`
-  /// capability, and throws an [RpcException] with
-  /// [McpErrorCodes.missingRequiredClientCapability] when it has not, naming
-  /// the capability the client is missing under `data.requiredCapabilities`.
-  Future<CreateMessageResult> createMessage(
-    CreateMessageRequest request,
-  ) async {
-    _rejectRemovedMethod(CreateMessageRequest.methodName, protocolVersion);
-    if (!supportsSampling) {
-      throw _missingSampling;
-    }
-    return sendRequest(CreateMessageRequest.methodName, request);
-  }
+/// The error [_rejectRemovedMethod] throws when [protocolVersion] does not
+/// have [method].
+///
+/// Only a revision with an `InputRequiredResult` can be pointed at it, and
+/// `elicit` also lands here on the revisions before 2025-06-18 added
+/// `elicitation/create`.
+RpcException _removedMethod(String method, ProtocolVersion protocolVersion) {
+  final replacement =
+      protocolVersion >= ProtocolVersion.v2026_07_28
+          ? ' Ask the client for input with an InputRequiredResult on '
+              '${CallToolRequest.methodName}, ${GetPromptRequest.methodName}, '
+              'or ${ReadResourceRequest.methodName} instead.'
+          : '';
+  return RpcException(
+    error_code.INTERNAL_ERROR,
+    'Protocol version ${protocolVersion.versionString} does not have '
+    '$method.$replacement',
+  );
 }
 
 /// Refuses to send [method] when [ProtocolVersion.methodIsValid] says
@@ -360,20 +394,7 @@ abstract base class MCPServer extends MCPBase {
 /// for that reason instead of for a missing client capability.
 void _rejectRemovedMethod(String method, ProtocolVersion protocolVersion) {
   if (protocolVersion.methodIsValid(method)) return;
-  // Only a revision with an `InputRequiredResult` can be pointed at it, and
-  // `elicit` also lands here on the revisions before 2025-06-18 added
-  // `elicitation/create`.
-  final replacement =
-      protocolVersion >= ProtocolVersion.v2026_07_28
-          ? ' Ask the client for input with an InputRequiredResult on '
-              '${CallToolRequest.methodName}, ${GetPromptRequest.methodName}, '
-              'or ${ReadResourceRequest.methodName} instead.'
-          : '';
-  throw RpcException(
-    error_code.INTERNAL_ERROR,
-    'Protocol version ${protocolVersion.versionString} does not have '
-    '$method.$replacement',
-  );
+  throw _removedMethod(method, protocolVersion);
 }
 
 /// The error a server must return when handling a request needs [capability],
