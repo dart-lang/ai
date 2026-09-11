@@ -4,18 +4,32 @@
 
 part of 'server.dart';
 
-/// Replays an input-required handler through the request style of older
+/// Replays an `input_required` handler through the request style of older
 /// protocol revisions.
+///
+/// Runs when [MCPServer.protocolVersion] is before 2026-07-28. Each
+/// [InputRequest] is sent as that revision's own request by
+/// [_sendLegacyInputRequest]. The handler is then rerun with the answers
+/// under the same keys in `inputResponses` and the echoed `requestState`.
+/// Reruns stop at [MCPServer.maxInputRequiredRounds] and fail as an
+/// [RpcException]. On 2026-07-28 the dispatcher performs the same checks.
 final class _LegacyInputRequiredShim {
   _LegacyInputRequiredShim(this._server);
 
   final MCPServer _server;
 
-  /// Counts the URL elicitations this server has named. The revision that takes
+  /// Counts the URL elicitations this server has made. The revision that takes
   /// them asks for an `elicitationId` unique to the server and opaque to the
   /// client, and a count is both.
   var _elicitations = 0;
 
+  /// Reruns [handler] until it answers or the round limit is exceeded.
+  ///
+  /// On revisions before 2026-07-28 each [InputRequest] is sent as that
+  /// revision's own request. The handler is rerun with the answers under the
+  /// same keys and the echoed `requestState`. On 2026-07-28 this returns the
+  /// handler result unchanged. Exceeding [MCPServer.maxInputRequiredRounds]
+  /// is an [RpcException].
   Future<Result> fulfill(
     String methodName,
     WithInputResponses request,
@@ -26,15 +40,17 @@ final class _LegacyInputRequiredShim {
       return result;
     }
 
-    for (var round = 0; result.isInputRequired; round++) {
+    for (var round = 0; ; round++) {
+      if (!result.isInputRequired) return result;
       if (round >= _server.maxInputRequiredRounds) {
         throw RpcException(
           error_code.INTERNAL_ERROR,
           'The server returned input_required after '
-          '$round retries for $methodName.',
+          '$round retries for $methodName, which has exceeded the maximum.',
         );
       }
 
+      // (1) Read what the handler asked for.
       final inputRequired = result as InputRequiredResult;
       final inputRequests = inputRequired.inputRequests;
       final requestState = inputRequired.requestState;
@@ -57,19 +73,21 @@ final class _LegacyInputRequiredShim {
         );
       }
 
+      // (2) Send each request on the legacy path.
       final responses = <String, Result>{};
       if (inputRequests != null && inputRequests.isNotEmpty) {
         final fulfilled = await Future.wait<MapEntry<String, Result>>(
           inputRequests.entries.map(
             (entry) async => MapEntry<String, Result>(
               entry.key,
-              await _sendInputRequest(entry.value),
+              await _sendLegacyInputRequest(entry.value),
             ),
           ),
         );
         responses.addEntries(fulfilled);
       }
 
+      // (3) Rerun with the answers and the echoed requestState.
       final retryRequest =
           <String, Object?>{
                 for (final entry in (request as Map<String, Object?>).entries)
@@ -82,10 +100,14 @@ final class _LegacyInputRequiredShim {
               as WithInputResponses;
       result = await handler(retryRequest);
     }
-    return result;
   }
 
-  Future<Result> _sendInputRequest(InputRequest inputRequest) async {
+  /// Translates [inputRequest] into that revision's own request.
+  ///
+  /// Form and URL elicitation go as `elicitation/create`, sampling as
+  /// `sampling/createMessage`, and roots as `roots/list`. A URL elicitation
+  /// missing `elicitationId` gets one, which 2025-11-25 requires.
+  Future<Result> _sendLegacyInputRequest(InputRequest inputRequest) async {
     switch (inputRequest.method) {
       case ElicitRequest.methodName:
         var request = inputRequest.params as ElicitRequest;
