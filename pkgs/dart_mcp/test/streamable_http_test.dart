@@ -50,13 +50,12 @@ void main() {
   late Uri uri;
   late MCPServerFactory serverFactory;
   late StreamController<Map<String, Object?>> subscriptionNotifications;
+  Set<String>? allowedOrigins;
   final servers = <MCPServer>[];
   final notifications = <Map<String, Object?>>[];
 
   setUp(() async {
     serverFactory = _HttpTestServer.new;
-    servers.clear();
-    notifications.clear();
     subscriptionNotifications = StreamController.broadcast(sync: true);
     httpServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     uri = Uri.http('${httpServer.address.host}:${httpServer.port}', '/mcp');
@@ -74,12 +73,19 @@ void main() {
         },
         subscriptionNotifications: subscriptionNotifications.stream,
         listenKeepAliveInterval: const Duration(milliseconds: 50),
+        allowedOrigins: allowedOrigins,
       ),
     );
     addTearDown(() async {
       await httpServer.close(force: true);
       await subscriptionNotifications.close();
     });
+  });
+
+  tearDown(() {
+    servers.clear();
+    allowedOrigins = null;
+    notifications.clear();
   });
 
   /// A request body for [method] carrying the standard envelope.
@@ -1944,6 +1950,101 @@ void main() {
       final result = decode(text)[Keys.result] as Map<String, Object?>;
       final content = result[Keys.content] as List;
       expect((content.single as Map<String, Object?>)[Keys.text], '1.2.3');
+    });
+  });
+
+  group('origin validation', () {
+    test('serves a request carrying an origin with no allowlist', () async {
+      final (status, _, text) = await post(
+        headers: {...headers(listTools), 'Origin': 'https://client.example'},
+        json: body(listTools),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('accepts an origin in the allowlist', () async {
+      allowedOrigins = {'https://client.example'};
+      final (status, _, text) = await post(
+        headers: {...headers(listTools), 'Origin': 'https://client.example'},
+        json: body(listTools),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('rejects an origin outside the allowlist', () async {
+      allowedOrigins = {'https://client.example'};
+      final (status, _, text) = await post(
+        headers: {...headers(listTools), 'Origin': 'https://other.example'},
+        json: body(listTools),
+      );
+      expect(status, HttpStatus.forbidden);
+      expect(text, isEmpty);
+      expect(servers, isEmpty);
+    });
+
+    test('rejects an origin sent as two separate field lines', () async {
+      allowedOrigins = {'https://client.example'};
+      final requestBody = jsonEncode(body(listTools));
+      final response = await rawRequest(
+        'POST /mcp HTTP/1.1\r\n'
+        'Host: localhost\r\n'
+        'Content-Type: application/json\r\n'
+        'Accept: application/json, text/event-stream\r\n'
+        'Mcp-Protocol-Version: $version\r\n'
+        'Mcp-Method: $listTools\r\n'
+        'Origin: https://client.example\r\n'
+        'Origin: https://other.example\r\n'
+        'Content-Length: ${requestBody.length}\r\n'
+        'Connection: close\r\n'
+        '\r\n'
+        '$requestBody',
+      );
+      // The first line is in the allowlist, so only the line count can be
+      // what this rejection is about.
+      expect(response, startsWith('HTTP/1.1 403'));
+      expect(servers, isEmpty);
+    });
+
+    test('serves two origin field lines with no allowlist', () async {
+      final requestBody = jsonEncode(body(listTools));
+      final response = await rawRequest(
+        'POST /mcp HTTP/1.1\r\n'
+        'Host: localhost\r\n'
+        'Content-Type: application/json\r\n'
+        'Accept: application/json, text/event-stream\r\n'
+        'Mcp-Protocol-Version: $version\r\n'
+        'Mcp-Method: $listTools\r\n'
+        'Origin: https://client.example\r\n'
+        'Origin: https://other.example\r\n'
+        'Content-Length: ${requestBody.length}\r\n'
+        'Connection: close\r\n'
+        '\r\n'
+        '$requestBody',
+      );
+      expect(response, startsWith('HTTP/1.1 200'));
+      expect(errorCode(jsonBody(response)), isNull);
+    });
+    test('accepts a request without origin', () async {
+      allowedOrigins = {'https://client.example'};
+      final (status, _, text) = await post(
+        headers: headers(listTools),
+        json: body(listTools),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('rejects any origin when the allowlist is empty', () async {
+      allowedOrigins = {};
+      final (status, _, text) = await post(
+        headers: {...headers(listTools), 'Origin': 'https://client.example'},
+        json: body(listTools),
+      );
+      expect(status, HttpStatus.forbidden);
+      expect(text, isEmpty);
+      expect(servers, isEmpty);
     });
   });
 
