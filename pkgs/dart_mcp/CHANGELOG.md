@@ -12,6 +12,8 @@
 - Let `handleRequestScopedMessage` route server-to-client requests through an
   `onRequest` callback on revisions before 2026-07-28. Missing callbacks and
   invalid callback responses fail the server request without leaving it open.
+- Add `ToolUseContent` and `ToolResultContent` for sampling messages, and a
+  `tools` list on `CreateMessageRequest`.
 - **BREAKING**:
   - `MCPBase` (including the `MCPServer.fromStreamChannel` and
     `ServerConnection.fromStreamChannel` constructors),
