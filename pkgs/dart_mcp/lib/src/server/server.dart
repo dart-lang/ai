@@ -168,6 +168,8 @@ abstract base class MCPServer extends MCPBase {
     );
   }
 
+  /// Registers [impl] for [name], and on revisions before 2026-07-28 wraps
+  /// the handlers that may answer `input_required` in the legacy shim.
   @override
   void registerRequestHandler<T extends Request?, R extends Result?>(
     String name,
