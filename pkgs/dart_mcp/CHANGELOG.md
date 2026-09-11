@@ -229,8 +229,8 @@
   `CallToolRequest`, `GetPromptRequest` and `ReadResourceRequest` take an
   `inputResponses` and a `requestState`, matching the three requests the schema
   answers with an `InputRequiredResult`.
-- Add `WithInputResponses.elicitResponse`, `.sampleResponse` and
-  `.listRootsResponse`. A missing key is null. A present value missing a
+- Add `WithInputResponses.elicitResult`, `.createMessageResult` and
+  `.listRootsResult`. A missing key is null. A present value missing a
   required field throws an `ArgumentError`.
 - Add `SubscriptionFilter`, `SubscriptionsListenRequest`,
   `SubscriptionsListenResult`, and `SubscriptionsAcknowledgedNotification`,

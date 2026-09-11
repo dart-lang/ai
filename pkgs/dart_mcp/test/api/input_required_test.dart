@@ -257,37 +257,37 @@ void main() {
       );
     });
 
-    test('elicitResponse returns null when the key is absent', () {
+    test('elicitResult returns null when the key is absent', () {
       final request = GetPromptRequest.fromMap({
         'name': 'review',
         'inputResponses': {'github_login': elicited},
       });
 
       expect(
-        request.elicitResponse('github_login')!.action,
+        request.elicitResult('github_login')!.action,
         ElicitationAction.accept,
       );
-      expect(request.elicitResponse('missing'), isNull);
+      expect(request.elicitResult('missing'), isNull);
       expect(
-        GetPromptRequest(name: 'review').elicitResponse('github_login'),
+        GetPromptRequest(name: 'review').elicitResult('github_login'),
         isNull,
       );
     });
 
-    test('sampleResponse and listRootsResponse read the matching arm', () {
+    test('createMessageResult and listRootsResult read the matching arm', () {
       final roots = ListRootsResult(roots: [Root(uri: 'file:///a')]);
       final request = GetPromptRequest.fromMap({
         'name': 'review',
         'inputResponses': {'capital': sampled, 'workspace': roots},
       });
 
-      expect(request.sampleResponse('capital')!.model, 'a-model');
+      expect(request.createMessageResult('capital')!.model, 'a-model');
       expect(
-        request.listRootsResponse('workspace')!.roots.single.uri,
+        request.listRootsResult('workspace')!.roots.single.uri,
         'file:///a',
       );
-      expect(request.sampleResponse('missing'), isNull);
-      expect(request.listRootsResponse('missing'), isNull);
+      expect(request.createMessageResult('missing'), isNull);
+      expect(request.listRootsResult('missing'), isNull);
     });
 
     test('a present response missing a required key is an ArgumentError', () {
@@ -300,9 +300,9 @@ void main() {
         },
       });
 
-      expect(() => request.elicitResponse('github_login'), throwsArgumentError);
-      expect(() => request.sampleResponse('capital'), throwsArgumentError);
-      expect(() => request.listRootsResponse('workspace'), throwsArgumentError);
+      expect(() => request.elicitResult('github_login'), throwsArgumentError);
+      expect(() => request.createMessageResult('capital'), throwsArgumentError);
+      expect(() => request.listRootsResult('workspace'), throwsArgumentError);
     });
 
     test('writes an empty inputResponses next to a request state', () {

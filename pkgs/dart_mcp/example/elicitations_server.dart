@@ -105,7 +105,7 @@ base class MCPServerWithElicitation extends MCPServer
       );
     }
 
-    final userInfo = request.elicitResponse('userInfo');
+    final userInfo = request.elicitResult('userInfo');
     if (userInfo != null) {
       switch (userInfo.action) {
         case ElicitationAction.accept:
@@ -125,7 +125,7 @@ base class MCPServerWithElicitation extends MCPServer
       }
     }
 
-    final apiKey = request.elicitResponse('apiKey');
+    final apiKey = request.elicitResult('apiKey');
     if (apiKey != null) {
       switch (apiKey.action) {
         case ElicitationAction.accept:

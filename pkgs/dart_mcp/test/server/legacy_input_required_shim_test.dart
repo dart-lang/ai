@@ -176,7 +176,7 @@ final class _RerunContractServer extends MCPServer with ToolsSupport {
   FutureOr<void> initialize(MCPServerInitialization initialization) {
     registerTool(Tool(name: 'ask', inputSchema: ObjectSchema()), (request) {
       handlerCalls++;
-      if (request.elicitResponse('a') != null && request.requestState == 's1') {
+      if (request.elicitResult('a') != null && request.requestState == 's1') {
         return InputRequiredResult(
           inputRequests: {
             'b': InputRequest.elicit(
@@ -189,8 +189,8 @@ final class _RerunContractServer extends MCPServer with ToolsSupport {
           requestState: 's2',
         );
       }
-      if (request.elicitResponse('a') == null &&
-          request.elicitResponse('b') != null &&
+      if (request.elicitResult('a') == null &&
+          request.elicitResult('b') != null &&
           request.requestState == 's2') {
         return CallToolResult(content: [TextContent(text: 'done')]);
       }
