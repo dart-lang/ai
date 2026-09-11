@@ -52,32 +52,26 @@
     - On the client, `MCPClient.capabilities` already worked this way.
   - Override `MCPServer.initializeLegacy` only to customize the legacy
     initialize response or version negotiation.
-  - Remove `MCPServer.elicit`, `MCPServer.listRoots`, and
-    `MCPServer.createMessage`. A handler asks for input with an
-    `InputRequiredResult` on `tools/call`, `prompts/get`, or
-    `resources/read` instead, see
+  - Remove `ElicitationRequestSupport.elicit`, `MCPServer.listRoots` and
+    `MCPServer.createMessage`. Ask with an `InputRequiredResult` on
+    `tools/call`, `prompts/get`, or `resources/read`, see
     https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr.
-    On revisions before 2026-07-28 a compatibility shim sends each
-    `InputRequest` as that revision's own request and reruns the handler
-    with the answers, up to `MCPServer.maxInputRequiredRounds` rounds, 8
-    by default. A value below 1 throws a `RangeError`. Exceeding the
-    rounds, or a malformed `input_required` result including an unknown
-    elicitation mode, is an `-32603` internal error. An undeclared client
-    capability is still `McpErrorCodes.missingRequiredClientCapability`,
-    naming it under `data.requiredCapabilities`.
-    `ToolsSupport.callTool` rethrows an `RpcException`, so a tool which
-    asks for input reaches the client as that error rather than as a
-    `CallToolResult` whose text is a Dart stack trace. A server catching
-    the `StateError` `elicit` used to throw needs to catch `RpcException`
-    instead, which comes from `package:json_rpc_2`. A server that guarded
-    on `supportsElicitation` should read `supportsFormElicitation` or
-    `supportsUrlElicitation`.
-    `ProtocolVersion.v2026_07_28.removedMethods` now lists `roots/list`,
-    `sampling/createMessage`, and `elicitation/create`, which that revision
-    dropped along with the rest of the `ServerRequest` union, so
-    `ProtocolVersion.methodIsValid` answers for all three. The shim
-    rejects `elicitation/create` on 2024-11-05 and 2025-03-26, the two
-    revisions before 2025-06-18 added it.
+    Before 2026-07-28 a shim sends each `InputRequest` as that revision's
+    request and reruns the handler, at most
+    `MCPServer.maxInputRequiredRounds` (8). Below 1 throws a `RangeError`.
+    Exceeding the rounds or a malformed `input_required` including an
+    unknown elicitation mode is `-32603`. Undeclared capabilities stay
+    `McpErrorCodes.missingRequiredClientCapability` under
+    `data.requiredCapabilities`. `ToolsSupport.callTool` rethrows an
+    `RpcException`, so a tool whose input request fails reaches the client
+    as that error, not a `CallToolResult` with a Dart stack trace. Catch
+    `RpcException` (`package:json_rpc_2`) instead of the `StateError`
+    `elicit` threw; read `supportsFormElicitation` or
+    `supportsUrlElicitation` instead of `supportsElicitation`.
+    `ProtocolVersion.v2026_07_28.removedMethods` lists `roots/list`,
+    `sampling/createMessage`, and `elicitation/create`, so
+    `methodIsValid` answers for all three. The shim rejects
+    `elicitation/create` before 2025-06-18.
   - `ServerConnection` now answers an elicitation mode the client did not
     declare with `-32602` (invalid params), where it used to answer a `decline`,
     as if the user had sent it. An unrecognized one used to throw out of the
@@ -235,6 +229,9 @@
   `CallToolRequest`, `GetPromptRequest` and `ReadResourceRequest` take an
   `inputResponses` and a `requestState`, matching the three requests the schema
   answers with an `InputRequiredResult`.
+- Add `WithInputResponses.elicitResponse`, `.sampleResponse` and
+  `.listRootsResponse`. A missing key is null. A present value missing a
+  required field throws an `ArgumentError`.
 - Add `SubscriptionFilter`, `SubscriptionsListenRequest`,
   `SubscriptionsListenResult`, and `SubscriptionsAcknowledgedNotification`,
   modeling the `subscriptions/listen` request the 2026-07-28 revision adds, see
