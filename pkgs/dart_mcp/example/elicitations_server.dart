@@ -2,8 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-/// A server that makes an elicitation request to the client using the
-/// [ElicitationRequestSupport] mixin.
+/// A server that asks the client for input with an [InputRequiredResult].
 library;
 
 import 'dart:async';
@@ -21,8 +20,8 @@ void main() {
   MCPServerWithElicitation(stdioChannel(input: io.stdin, output: io.stdout));
 }
 
-/// This server uses the [ElicitationRequestSupport] mixin to make elicitation
-/// requests to the client.
+/// This server asks for elicitation by returning an [InputRequiredResult]
+/// from its tool handler.
 base class MCPServerWithElicitation extends MCPServer
     with LoggingSupport, ElicitationRequestSupport, ToolsSupport {
   /// Whether or not we got approval to run the `needs_permission` tool..
