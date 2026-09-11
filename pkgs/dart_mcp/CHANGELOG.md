@@ -8,6 +8,7 @@
   without changing its public API.
 - Stop sending `notifications/roots/list_changed` to a server that speaks
   2026-07-28. An unsettled connection still gets it.
+- Add a client fixture for the MCP conformance suite under `tool/`.
 - Let `handleRequestScopedMessage` route server-to-client requests through an
   `onRequest` callback on revisions before 2026-07-28. Missing callbacks and
   invalid callback responses fail the server request without leaving it open.
@@ -140,6 +141,14 @@
     supertypes. A subclass or mixin overriding one of those three methods
     declares the wider return type, then checks `isInputRequired` and casts
     before it reads the completed result.
+  - Capability extension identifiers are validated wherever they are written,
+    read or forwarded. An `extensions` value which is not a map of identifiers
+    in the `{vendor-prefix}/{extension-name}` format throws an
+    `ArgumentError`, and an initialize request carrying one comes back as
+    invalid params. Validation reads without rewriting, so the settings under
+    each identifier stay the ones the caller passed, and an empty extension
+    name such as `example/` is still valid. Writing null `extensions` now
+    leaves the key out instead of writing a null.
   - Remove `MCPServer.elicit`, `MCPServer.listRoots`, and
     `MCPServer.createMessage`. Update handlers to return `InputRequiredResult`
     instead. An automatic compatibility shim sends requests to older clients
