@@ -56,9 +56,6 @@ void main() {
 
   setUp(() async {
     serverFactory = _HttpTestServer.new;
-    servers.clear();
-    allowedOrigins = null;
-    notifications.clear();
     subscriptionNotifications = StreamController.broadcast(sync: true);
     httpServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     uri = Uri.http('${httpServer.address.host}:${httpServer.port}', '/mcp');
@@ -83,6 +80,12 @@ void main() {
       await httpServer.close(force: true);
       await subscriptionNotifications.close();
     });
+  });
+
+  tearDown(() {
+    servers.clear();
+    allowedOrigins = null;
+    notifications.clear();
   });
 
   /// A request body for [method] carrying the standard envelope.
