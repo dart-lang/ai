@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp/src/client/client.dart';
@@ -11,6 +12,64 @@ import 'package:test/test.dart';
 import '../test_utils.dart';
 
 void main() {
+  group('tool content on the wire', () {
+    test('ToolUseContent survives a JSON round trip', () {
+      final content = ToolUseContent(
+        id: 'call-1',
+        name: 'lookup',
+        input: {'city': 'Ankara'},
+      );
+      final decoded = jsonDecode(jsonEncode(content)) as Map<String, Object?>;
+      final parsed = Content.fromMap(decoded);
+
+      expect(parsed.isToolUse, isTrue);
+      expect(parsed.isToolResult, isFalse);
+      expect((parsed as ToolUseContent).input, {'city': 'Ankara'});
+      expect(parsed.name, 'lookup');
+    });
+
+    test('ToolResultContent survives a JSON round trip', () {
+      final content = ToolResultContent(
+        content: [TextContent(text: 'sunny')],
+        toolUseId: 'call-1',
+        isError: false,
+      );
+      final decoded = jsonDecode(jsonEncode(content)) as Map<String, Object?>;
+      final parsed = Content.fromMap(decoded);
+
+      expect(parsed.isToolResult, isTrue);
+      expect(parsed.isToolUse, isFalse);
+      expect((parsed as ToolResultContent).toolUseId, 'call-1');
+      expect((parsed.content.single as TextContent).text, 'sunny');
+      expect(parsed.isError, isFalse);
+    });
+
+    test('a sampling message carries tool use content', () {
+      final message = SamplingMessage(
+        role: Role.assistant,
+        content: Content.toolUse(id: 'call-1', name: 'lookup', input: {}),
+      );
+      final decoded = jsonDecode(jsonEncode(message)) as Map<String, Object?>;
+      final parsed = SamplingMessage.fromMap(decoded);
+
+      expect(parsed.content.isToolUse, isTrue);
+      expect((parsed.content as ToolUseContent).id, 'call-1');
+    });
+
+    test('text content is neither tool use nor tool result', () {
+      final content = Content.text(text: 'hi');
+
+      expect(content.isToolUse, isFalse);
+      expect(content.isToolResult, isFalse);
+    });
+
+    test('tools reads as null when the key is absent', () {
+      final request = CreateMessageRequest(messages: [], maxTokens: 1);
+
+      expect(request.tools, isNull);
+    });
+  });
+
   group('CreateMessageRequest tools', () {
     test('writes and reads tools', () {
       final request = CreateMessageRequest(

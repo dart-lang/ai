@@ -150,8 +150,8 @@ extension type CreateMessageResult.fromMap(Map<String, Object?> _value)
 
   /// The reason why sampling stopped, if known.
   ///
-  /// Known reasons are "endTurn", "stopSequence", "maxTokens", or any other
-  /// reason.
+  /// Known reasons are "endTurn", "stopSequence", "maxTokens", "toolUse", or
+  /// any other reason.
   String? get stopReason => _value[Keys.stopReason] as String?;
 
   /// The JSON representation of this object.
@@ -172,6 +172,8 @@ extension type SamplingMessage.fromMap(Map<String, Object?> _value) {
 }
 
 /// A request from the assistant to call a tool.
+///
+/// From the 2025-11-25 revision.
 extension type ToolUseContent.fromMap(Map<String, Object?> _value)
     implements Content, WithMetadata {
   static const expectedType = 'tool_use';
@@ -208,6 +210,8 @@ extension type ToolUseContent.fromMap(Map<String, Object?> _value)
 }
 
 /// The result of a tool use, provided by the user back to the assistant.
+///
+/// From the 2025-11-25 revision.
 extension type ToolResultContent.fromMap(Map<String, Object?> _value)
     implements Content, WithMetadata {
   static const expectedType = 'tool_result';
@@ -234,7 +238,8 @@ extension type ToolResultContent.fromMap(Map<String, Object?> _value)
     return type;
   }
 
-  /// The content returned by the tool.
+  /// The content returned by the tool, either [TextContent], [ImageContent],
+  /// [AudioContent], [ResourceLink] or [EmbeddedResource].
   List<Content> get content {
     final content = (_value[Keys.content] as List?)?.cast<Content>();
     if (content == null) {
