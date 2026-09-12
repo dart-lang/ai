@@ -484,6 +484,16 @@ void main() {
 
     unawaited(malformed.server.shutdown());
     await subscription.done.timeout(const Duration(seconds: 5));
+    await expectLater(
+      subscription.acknowledged,
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          'Closed before acknowledgement.',
+        ),
+      ),
+    );
   });
 
   test('reports a refused subscription on both of its ends', () async {
