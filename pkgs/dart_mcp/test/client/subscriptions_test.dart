@@ -87,10 +87,16 @@ base class _MalformedAckServer extends MCPServer with SubscriptionsSupport {
 
 /// Collects the protocol log lines a [TestEnvironment] writes.
 class _LogSink implements Sink<String> {
+  _LogSink({this.onAdd});
+
+  void Function(String data)? onAdd;
   final lines = <String>[];
 
   @override
-  void add(String data) => lines.add(data);
+  void add(String data) {
+    lines.add(data);
+    onAdd?.call(data);
+  }
 
   @override
   void close() {}
@@ -218,6 +224,13 @@ void main() {
             Keys.params: ToolListChangedNotification(
               meta: MetaWithSubscriptionId(subscriptionId: requestId),
             ),
+          })
+          ..add({
+            Keys.jsonrpc: '2.0',
+            Keys.id: requestId,
+            Keys.result: SubscriptionsListenResult(
+              meta: MetaWithSubscriptionId(subscriptionId: requestId),
+            ),
           });
       });
 
@@ -235,16 +248,44 @@ void main() {
         (await notification).method,
         ToolListChangedNotification.methodName,
       );
-      controller.local.sink.add({
-        Keys.jsonrpc: '2.0',
-        Keys.id: requestId,
-        Keys.result: SubscriptionsListenResult(
-          meta: MetaWithSubscriptionId(subscriptionId: requestId),
-        ),
-      });
       await subscription.done;
     },
   );
+
+  test('keeps the listen ID when logging sends a nested request', () async {
+    var sentPing = false;
+    protocolLog.onAdd = (line) {
+      if (sentPing ||
+          !line.startsWith('>>>') ||
+          !line.contains(SubscriptionsListenRequest.methodName)) {
+        return;
+      }
+      sentPing = true;
+      unawaited(environment.serverConnection.ping());
+    };
+
+    final subscription = listen();
+    await subscription.acknowledged.timeout(const Duration(seconds: 5));
+    final requests =
+        protocolLog.lines
+            .where((line) => line.startsWith('>>>') && line.contains('"id"'))
+            .map(
+              (line) =>
+                  jsonDecode(line.substring(line.indexOf('{')))
+                      as Map<String, Object?>,
+            )
+            .toList();
+    final listenRequest = requests.singleWhere(
+      (request) =>
+          request[Keys.method] == SubscriptionsListenRequest.methodName,
+    );
+    final pingRequest = requests.singleWhere(
+      (request) => request[Keys.method] == PingRequest.methodName,
+    );
+
+    expect(subscription.id, listenRequest[Keys.id]);
+    expect(subscription.id, isNot(pingRequest[Keys.id]));
+  });
 
   test('closes over stdio with one cancellation notification', () async {
     final subscription = listen();

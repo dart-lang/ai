@@ -21,6 +21,7 @@ final class Subscription {
     this._connection,
     this.id,
     Future<SubscriptionsListenResult> result,
+    this._requestSent,
   ) {
     // The filter names four notification types and the connection already
     // routes each to a stream of its own, so this reads them from there
@@ -49,6 +50,8 @@ final class Subscription {
 
   /// The connection this subscription reads its notifications from.
   final ServerConnection _connection;
+
+  final Future<void> _requestSent;
 
   /// The JSON-RPC ID of the `subscriptions/listen` request that opened this
   /// subscription.
@@ -111,6 +114,7 @@ final class Subscription {
 
   Future<void> _close() async {
     try {
+      await _requestSent;
       await _connection._cancelSubscription(id);
     } finally {
       await _finish();
@@ -121,6 +125,8 @@ final class Subscription {
       _finishing ??= _finishOnce(error: error, stackTrace: stackTrace);
 
   Future<void> _finishOnce({Object? error, StackTrace? stackTrace}) async {
+    // Deliver connection events queued before the terminating response.
+    await Future<void>.value();
     _connection._subscriptions.remove(id);
     if (!_acknowledged.isCompleted) {
       _acknowledged.completeError(

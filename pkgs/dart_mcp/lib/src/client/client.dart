@@ -754,21 +754,19 @@ base class ServerConnection extends MCPBase {
       );
       _acknowledgementsRegistered = true;
     }
-    final result = Completer<SubscriptionsListenResult>();
-    late final Subscription subscription;
     final sent = sendRequestWithId<SubscriptionsListenResult>(
       SubscriptionsListenRequest.methodName,
       request: SubscriptionsListenRequest(
         notifications: notifications,
         meta: meta,
       ),
-      beforeSend: (id) {
-        subscription = Subscription._(this, id, result.future);
-        _subscriptions[id] = subscription;
-      },
     );
-    sent.result.then(result.complete, onError: result.completeError);
-    return subscription;
+    return _subscriptions[sent.id] = Subscription._(
+      this,
+      sent.id,
+      sent.result,
+      sent.sent,
+    );
   }
 
   Future<void> _cancelSubscription(RequestId id) async {

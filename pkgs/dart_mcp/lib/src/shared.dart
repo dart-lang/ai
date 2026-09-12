@@ -22,6 +22,11 @@ abstract interface class RequestCancellation {
   Future<void> cancelRequest(RequestId requestId);
 }
 
+final class _CapturedRequest {
+  RequestId? id;
+  void Function()? forward;
+}
+
 void completeRequestLocally(MCPBase target, RequestId requestId) {
   if (target._local.isClosed) return;
   target._local.add({
@@ -54,12 +59,8 @@ base class MCPBase {
   final _progressControllers =
       <ProgressToken, StreamController<ProgressNotification>>{};
 
-  /// The JSON-RPC ID of the last request this side wrote to the channel, or
-  /// `null` once [sendRequestWithId] has taken it.
-  Object? _lastSentRequestId;
-
-  /// Runs after a request ID is known and before that request reaches the peer.
-  void Function(RequestId)? _beforeRequestSent;
+  /// The request [sendRequestWithId] is currently encoding.
+  _CapturedRequest? _capturedRequest;
 
   /// Whether the connection with the peer is active.
   bool get isActive => !_peer.isClosed;
@@ -164,39 +165,34 @@ base class MCPBase {
     }
   }
 
-  /// Sends [request] to the peer and reports the JSON-RPC ID it went out
-  /// under, alongside the future for its response.
+  /// Returns [request]'s ID and response future before writing to the channel.
   ///
-  /// Throws a [StateError] if the request went out without a recorded ID.
+  /// Throws a [StateError] if encoding produced no request ID.
   @protected
-  ({RequestId id, Future<T> result}) sendRequestWithId<T extends Result?>(
-    String methodName, {
-    Request? request,
-    void Function(RequestId)? beforeSend,
-  }) {
-    _lastSentRequestId = null;
-    _beforeRequestSent = beforeSend;
-    // `Peer.sendRequest` writes the encoded request, ID and all, to the sink
-    // before it returns, so the recorded ID belongs to this request.
+  ({RequestId id, Future<T> result, Future<void> sent})
+  sendRequestWithId<T extends Result?>(String methodName, {Request? request}) {
+    final captured = _CapturedRequest();
+    _capturedRequest = captured;
     late final Future<Object?> result;
     try {
       result = _peer.sendRequest(methodName, request);
     } finally {
-      _beforeRequestSent = null;
+      _capturedRequest = null;
     }
-    final id = _lastSentRequestId;
-    _lastSentRequestId = null;
-    if (id == null) {
-      throw StateError(
-        'Sending "$methodName" recorded no JSON-RPC id, so a request named by '
-        'its id cannot be opened.',
-      );
+    final id = captured.id;
+    final forward = captured.forward;
+    if (id == null || forward == null) {
+      throw StateError('Encoding "$methodName" recorded no JSON-RPC ID.');
     }
+    final sent = Completer<void>();
+    sent.future.ignore();
+    scheduleMicrotask(() => sent.complete(Future.sync(forward)));
     return (
-      id: RequestId(id),
+      id: id,
       result: result.then(
         (value) => (value as Map?)?.cast<String, Object?>() as T,
       ),
+      sent: sent.future,
     );
   }
 
@@ -274,19 +270,19 @@ base class MCPBase {
     request,
   ).then((_) => true).timeout(timeout, onTimeout: () => false);
 
-  /// Records the JSON-RPC ID of each request written to [channel] in
-  /// [_lastSentRequestId].
-  ///
-  /// A message with both a `method` and an `id` is a request.
+  /// Captures one request before forwarding other messages to [channel].
   StreamChannel<Map<String, Object?>> _recordSentRequestIds(
     StreamChannel<Map<String, Object?>> channel,
   ) => channel.transformSink(
     StreamSinkTransformer.fromHandlers(
       handleData: (data, sink) {
         final id = data[Keys.id];
-        if (id != null && data.containsKey(Keys.method)) {
-          _lastSentRequestId = id;
-          _beforeRequestSent?.call(RequestId(id));
+        final captured = _capturedRequest;
+        if (id != null && data.containsKey(Keys.method) && captured != null) {
+          captured
+            ..id = RequestId(id)
+            ..forward = (() => sink.add(data));
+          return;
         }
         sink.add(data);
       },
