@@ -32,9 +32,9 @@ extension type JsonRpc2Object.fromMap(Map<String, Object?> _value) {
     return method;
   }
 
-  /// The id of this message, if it is a request or response.
+  /// The ID of this message, if it is a request or response.
   ///
-  /// A JSON-RPC id is a `String` or an `int`.
+  /// A JSON-RPC ID is a `String` or an `int`.
   Object? get id => _value[Keys.id];
 }
 

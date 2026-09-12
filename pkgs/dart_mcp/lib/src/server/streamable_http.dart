@@ -72,7 +72,7 @@ import 'server.dart';
 /// future completes normally without writing a response.
 ///
 /// `Mcp-Session-Id` and `Last-Event-ID` headers are ignored, and no session
-/// id is ever minted: sessions and resumable streams were removed in this
+/// ID is ever minted: sessions and resumable streams were removed in this
 /// revision.
 ///
 /// For `tools/call`, a string, integer, or boolean property annotated with
@@ -523,7 +523,7 @@ Future<void> handleStreamableHttpRequest(
     unawaited(() async {
       try {
         await response.done;
-      } catch (_) {
+      } on IOException {
         // A disconnected client cannot receive another response.
       }
       responseClosed = true;
