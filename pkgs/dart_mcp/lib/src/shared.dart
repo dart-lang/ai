@@ -58,6 +58,9 @@ base class MCPBase {
   /// `null` once [sendRequestWithId] has taken it.
   Object? _lastSentRequestId;
 
+  /// Runs after a request ID is known and before that request reaches the peer.
+  void Function(RequestId)? _beforeRequestSent;
+
   /// Whether the connection with the peer is active.
   bool get isActive => !_peer.isClosed;
 
@@ -167,13 +170,20 @@ base class MCPBase {
   /// Throws a [StateError] if the request went out without a recorded ID.
   @protected
   ({RequestId id, Future<T> result}) sendRequestWithId<T extends Result?>(
-    String methodName, [
+    String methodName, {
     Request? request,
-  ]) {
+    void Function(RequestId)? beforeSend,
+  }) {
     _lastSentRequestId = null;
+    _beforeRequestSent = beforeSend;
     // `Peer.sendRequest` writes the encoded request, ID and all, to the sink
     // before it returns, so the recorded ID belongs to this request.
-    final result = _peer.sendRequest(methodName, request);
+    late final Future<Object?> result;
+    try {
+      result = _peer.sendRequest(methodName, request);
+    } finally {
+      _beforeRequestSent = null;
+    }
     final id = _lastSentRequestId;
     _lastSentRequestId = null;
     if (id == null) {
@@ -276,6 +286,7 @@ base class MCPBase {
         final id = data[Keys.id];
         if (id != null && data.containsKey(Keys.method)) {
           _lastSentRequestId = id;
+          _beforeRequestSent?.call(RequestId(id));
         }
         sink.add(data);
       },

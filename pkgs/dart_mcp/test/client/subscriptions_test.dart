@@ -9,6 +9,7 @@ import 'package:dart_mcp/client.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp/src/utils/constants.dart';
 import 'package:json_rpc_2/json_rpc_2.dart';
+import 'package:stream_channel/stream_channel.dart';
 import 'package:test/test.dart';
 
 import '../test_utils.dart';
@@ -187,6 +188,63 @@ void main() {
       reason: 'a type the server does not support is left out, not sent false',
     );
   });
+
+  test(
+    'records the subscription before a synchronous ack and change',
+    () async {
+      final controller = StreamChannelController<Map<String, Object?>>(
+        sync: true,
+      );
+      final client = TestMCPClient();
+      final connection = client.connectServer(controller.foreign);
+      addTearDown(client.shutdown);
+      late RequestId requestId;
+      controller.local.stream.listen((message) {
+        if (message[Keys.method] != SubscriptionsListenRequest.methodName)
+          return;
+        requestId = RequestId(message[Keys.id]!);
+        controller.local.sink
+          ..add({
+            Keys.jsonrpc: '2.0',
+            Keys.method: SubscriptionsAcknowledgedNotification.methodName,
+            Keys.params: SubscriptionsAcknowledgedNotification(
+              notifications: SubscriptionFilter(toolsListChanged: true),
+              meta: MetaWithSubscriptionId(subscriptionId: requestId),
+            ),
+          })
+          ..add({
+            Keys.jsonrpc: '2.0',
+            Keys.method: ToolListChangedNotification.methodName,
+            Keys.params: ToolListChangedNotification(
+              meta: MetaWithSubscriptionId(subscriptionId: requestId),
+            ),
+          });
+      });
+
+      final subscription = connection.listen(
+        SubscriptionFilter(toolsListChanged: true),
+        meta: MetaWithRequestEnvelope(
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          capabilities: client.capabilities,
+        ),
+      );
+      final notification = subscription.notifications.first;
+
+      expect((await subscription.acknowledged).toolsListChanged, isTrue);
+      expect(
+        (await notification).method,
+        ToolListChangedNotification.methodName,
+      );
+      controller.local.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: requestId,
+        Keys.result: SubscriptionsListenResult(
+          meta: MetaWithSubscriptionId(subscriptionId: requestId),
+        ),
+      });
+      await subscription.done;
+    },
+  );
 
   test('closes over stdio with one cancellation notification', () async {
     final subscription = listen();
