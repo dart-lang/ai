@@ -170,7 +170,7 @@ void main() {
   }
 
   test(
-    'the id names the JSON-RPC request the subscription went out on',
+    'the ID names the JSON-RPC request the subscription went out on',
     () async {
       final subscription = listen();
       await subscription.acknowledged.timeout(const Duration(seconds: 5));
@@ -183,7 +183,7 @@ void main() {
       expect(
         sent,
         contains('"id":${subscription.id}'),
-        reason: 'the handle reports the id the request was written with',
+        reason: 'the handle reports the ID the request was written with',
       );
       final message =
           jsonDecode(sent.substring(sent.indexOf('{'))) as Map<String, Object?>;
@@ -400,7 +400,7 @@ void main() {
       expect(
         second.id,
         isNot(first.id),
-        reason: 'two subscriptions on one connection get two request ids',
+        reason: 'two subscriptions on one connection get two request IDs',
       );
 
       notifyToolsListChanged(second.id);

@@ -602,7 +602,7 @@ void main() {
       ]);
     });
 
-    test('keeps a failed POST local to its request ID', () async {
+    test('keeps a failed POST local to its request id', () async {
       final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       addTearDown(() => wireServer.close(force: true));
       wireServer.listen((request) async {
@@ -929,7 +929,7 @@ void main() {
         );
         addTearDown(() => channel.sink.close());
         final response = channel.stream.first;
-        // A non-String method throws before the POST. A notification has no ID
+        // A non-String method throws before the POST. A notification has no id
         // to attach a JSON-RPC error to.
         channel.sink.add({Keys.jsonrpc: '2.0', Keys.method: 42});
         channel.sink.add({
@@ -2746,7 +2746,7 @@ void main() {
     });
 
     test(
-      'tells two client subscriptions apart by the id on the wire',
+      'tells two client subscriptions apart by the ID on the wire',
       () async {
         // Each listen request reads only its own server's changes, which is
         // what gives one connection two streams to tell apart. A host passing
@@ -2805,7 +2805,7 @@ void main() {
         expect(
           second.id,
           isNot(first.id),
-          reason: 'two listen requests on one connection get two ids',
+          reason: 'two listen requests on one connection get two IDs',
         );
         expect(hosted, hasLength(2));
 
@@ -2823,7 +2823,7 @@ void main() {
         expect(
           meta[Keys.subscriptionIdMeta],
           second.id,
-          reason: 'the transport named the subscription by the request id',
+          reason: 'the transport named the subscription by the request ID',
         );
         expect(
           firstChanges,
@@ -2952,7 +2952,7 @@ void main() {
     });
 
     test('rejects a message without a method before acknowledging', () async {
-      // A body with neither an ID nor a method is a notification by shape,
+      // A body with neither an id nor a method is a notification by shape,
       // but the missing method is caught first, so it is a 400 not a 202.
       final (status, _, text) = await post(
         headers: transportHeaders,
@@ -3793,7 +3793,7 @@ void main() {
       // get their handlers from those. `ping` comes from `MCPBase`,
       // and the roots handler from `MCPServer`, so the roots test below uses
       // the default server. Before this gate each of them reached a handler
-      // when the body carried an ID.
+      // when the body carried an id.
       late HttpServer equipped;
       late HttpClient client;
 
@@ -3823,7 +3823,7 @@ void main() {
       }
 
       test('acknowledges $ping as a notification with 202', () async {
-        // Dropping the ID makes this a notification, which is acknowledged
+        // Dropping the id makes this a notification, which is acknowledged
         // before the gate runs.
         final (status, _, text) = await post(
           headers: headers(ping),
@@ -3835,7 +3835,7 @@ void main() {
 
       test('answers $rootsListChangedNotification with 404', () async {
         // The capability is what would have registered a handler for this
-        // method, which is what the gate has to get in front of. The ID
+        // method, which is what the gate has to get in front of. The id
         // makes this a request.
         final (status, _, text) = await post(
           headers: headers(rootsListChangedNotification),
@@ -4023,7 +4023,7 @@ void main() {
       expect(errorCode(text), error_code.PARSE_ERROR);
     });
 
-    test('rejects an explicit null request ID', () async {
+    test('rejects an explicit null request id', () async {
       final (status, _, text) = await post(
         headers: headers(listTools),
         json: {Keys.jsonrpc: '2.0', Keys.id: null, Keys.method: listTools},
@@ -4474,8 +4474,8 @@ void main() {
       expect(servers, isEmpty);
     });
 
-    test('maps an initialized notification carrying an ID to 404', () async {
-      // Without an ID this is a notification and gets a 202; with one it is a
+    test('maps an initialized notification carrying an id to 404', () async {
+      // Without an id this is a notification and gets a 202; with one it is a
       // request for a method the request-scoped lifecycle does not have.
       final (status, _, text) = await post(
         headers: headers(initializedNotification),

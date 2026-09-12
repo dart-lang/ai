@@ -78,8 +78,8 @@ final class Subscription {
 
   /// The notifications the server sent on this subscription.
   ///
-  /// This is a broadcast stream, events are not buffered and only future
-  /// events are given. Each also reaches the connection's
+  /// Broadcast events are not buffered, and only future events are given.
+  /// Each also reaches the connection's
   /// [ServerConnection.toolListChanged], [ServerConnection.promptListChanged],
   /// [ServerConnection.resourceListChanged] and
   /// [ServerConnection.resourceUpdated].
