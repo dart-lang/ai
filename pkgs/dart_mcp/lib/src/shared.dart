@@ -479,6 +479,7 @@ base class MCPBase {
   }
 }
 
+/// Mutable wire state for one incoming request.
 final class _IncomingRequest {
   final ProgressToken? progressToken;
   bool cancelled = false;
