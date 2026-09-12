@@ -7,6 +7,7 @@ import 'dart:convert';
 
 import 'package:dart_mcp/client.dart';
 import 'package:dart_mcp/server.dart';
+import 'package:dart_mcp/src/shared.dart';
 import 'package:dart_mcp/src/utils/constants.dart';
 import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:stream_channel/stream_channel.dart';
@@ -100,6 +101,17 @@ class _LogSink implements Sink<String> {
 
   @override
   void close() {}
+}
+
+final class _ControlledCancellationChannel
+    extends DelegatingStreamChannel<Map<String, Object?>>
+    implements RequestCancellation {
+  _ControlledCancellationChannel(super.channel, this.onCancel);
+
+  final void Function(RequestId id) onCancel;
+
+  @override
+  Future<void> cancelRequest(RequestId requestId) async => onCancel(requestId);
 }
 
 void main() {
@@ -293,10 +305,19 @@ void main() {
     listener.pause();
     addTearDown(listener.cancel);
     await subscription.acknowledged.timeout(const Duration(seconds: 5));
+    final other = listen();
+    final otherEvents = <SubscriptionNotification>[];
+    final otherListener = other.notifications.listen(otherEvents.add);
+    addTearDown(otherListener.cancel);
+    await other.acknowledged.timeout(const Duration(seconds: 5));
 
     await subscription.close().timeout(const Duration(seconds: 5));
     await subscription.done.timeout(const Duration(seconds: 5));
     await subscription.close().timeout(const Duration(seconds: 5));
+    notifyToolsListChanged(other.id);
+    await pumpEventQueue();
+    expect(otherEvents, hasLength(1));
+    await expectLater(environment.serverConnection.ping(), completes);
 
     final cancelled =
         protocolLog.lines
@@ -317,6 +338,48 @@ void main() {
       Keys.method: CancelledNotification.methodName,
       Keys.params: {Keys.requestId: subscription.id},
     });
+    await other.close().timeout(const Duration(seconds: 5));
+  });
+
+  test('local completion wins a cancellation transport error', () async {
+    final controller = StreamChannelController<Map<String, Object?>>(
+      sync: true,
+    );
+    late RequestId requestId;
+    controller.local.stream.listen((message) {
+      if (message[Keys.method] != SubscriptionsListenRequest.methodName) return;
+      requestId = RequestId(message[Keys.id]!);
+      controller.local.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.method: SubscriptionsAcknowledgedNotification.methodName,
+        Keys.params: SubscriptionsAcknowledgedNotification(
+          notifications: SubscriptionFilter(toolsListChanged: true),
+          meta: MetaWithSubscriptionId(subscriptionId: requestId),
+        ),
+      });
+    });
+    final channel = _ControlledCancellationChannel(
+      controller.foreign,
+      (id) => controller.local.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: id,
+        Keys.error: {Keys.code: -32000, Keys.message: 'cancelled transport'},
+      }),
+    );
+    final client = TestMCPClient();
+    final connection = client.connectServer(channel);
+    addTearDown(client.shutdown);
+    final subscription = connection.listen(
+      SubscriptionFilter(toolsListChanged: true),
+      meta: MetaWithRequestEnvelope(
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        capabilities: client.capabilities,
+      ),
+    );
+    await subscription.acknowledged;
+
+    await expectLater(subscription.close(), completes);
+    await expectLater(subscription.done, completes);
   });
 
   test(

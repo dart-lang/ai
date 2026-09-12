@@ -770,17 +770,15 @@ base class ServerConnection extends MCPBase {
   }
 
   Future<void> _cancelSubscription(RequestId id) async {
-    try {
-      final requestCancellation = _requestCancellation;
-      if (requestCancellation != null) {
-        await requestCancellation.cancelRequest(id);
-      } else {
-        sendNotification(
-          CancelledNotification.methodName,
-          CancelledNotification(requestId: id),
-        );
-      }
-    } finally {
+    final requestCancellation = _requestCancellation;
+    if (requestCancellation != null) {
+      completeRequestLocally(this, id);
+      await requestCancellation.cancelRequest(id);
+    } else {
+      sendNotification(
+        CancelledNotification.methodName,
+        CancelledNotification(requestId: id),
+      );
       completeRequestLocally(this, id);
     }
   }
