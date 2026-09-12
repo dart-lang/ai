@@ -430,6 +430,7 @@ void main() {
         (_) {},
         onDone: () => closed = true,
       );
+      listener.pause();
       addTearDown(listener.cancel);
       await subscription.acknowledged.timeout(const Duration(seconds: 5));
 
@@ -444,6 +445,13 @@ void main() {
 
       unawaited(environment.server.shutdown());
       await subscription.done.timeout(const Duration(seconds: 5));
+      expect(
+        closed,
+        isFalse,
+        reason: 'a paused listener does not hold the subscription result',
+      );
+      listener.resume();
+      await pumpEventQueue();
       expect(closed, isTrue, reason: 'the stream closes with the subscription');
       await subscription.close().timeout(const Duration(seconds: 5));
       expect(
@@ -506,6 +514,15 @@ void main() {
         capabilities: environment.client.capabilities,
       ),
     );
+    final streamError = Completer<Object>();
+    final streamDone = Completer<void>();
+    final listener = subscription.notifications.listen(
+      (_) {},
+      onError: (Object error) => streamError.complete(error),
+      onDone: streamDone.complete,
+    );
+    listener.pause();
+    addTearDown(listener.cancel);
     await expectLater(
       subscription.done.timeout(const Duration(seconds: 5)),
       throwsA(isA<RpcException>()),
@@ -514,6 +531,9 @@ void main() {
       subscription.acknowledged.timeout(const Duration(seconds: 5)),
       throwsA(isA<RpcException>()),
     );
-    expect(subscription.notifications, emitsDone);
+    expect(streamError.isCompleted, isFalse);
+    listener.resume();
+    expect(await streamError.future, isA<RpcException>());
+    await streamDone.future;
   });
 }
