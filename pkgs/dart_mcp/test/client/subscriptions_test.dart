@@ -274,6 +274,32 @@ void main() {
     },
   );
 
+  test('reports a deferred send failure on every observable end', () async {
+    final failure = StateError('listen write failed');
+    protocolLog.onAdd = (line) {
+      if (line.startsWith('>>>') &&
+          line.contains(SubscriptionsListenRequest.methodName)) {
+        throw failure;
+      }
+    };
+
+    final subscription = listen();
+    final notificationEnd = expectLater(
+      subscription.notifications,
+      emitsInOrder([emitsError(same(failure)), emitsDone]),
+    );
+
+    await expectLater(
+      subscription.acknowledged.timeout(const Duration(seconds: 5)),
+      throwsA(same(failure)),
+    );
+    await expectLater(
+      subscription.done.timeout(const Duration(seconds: 5)),
+      throwsA(same(failure)),
+    );
+    await notificationEnd;
+  });
+
   test('keeps the listen ID when logging sends a nested request', () async {
     var sentPing = false;
     protocolLog.onAdd = (line) {
