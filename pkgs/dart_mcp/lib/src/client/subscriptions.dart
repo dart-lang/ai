@@ -4,17 +4,16 @@
 
 part of 'client.dart';
 
-/// One open `subscriptions/listen` stream on a [ServerConnection].
+/// One open `subscriptions/listen` stream, opened by
+/// [ServerConnection.listen].
 ///
-/// [ServerConnection.listen] opens one. The server names it by the JSON-RPC
-/// id of that request and stamps that id on every message it sends on the
-/// stream, which is how a connection with several open subscriptions tells
-/// them apart. Over stdio they all share one channel.
+/// The server stamps the [id] of that request on every message it sends on
+/// the stream, so one connection can carry several subscriptions.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/subscriptions.
 final class Subscription {
   /// Opens the handle for the request [ServerConnection.listen] just sent
-  /// under [id], whose response is [result].
+  /// under [id]. [result] is its response.
   Subscription._(
     this._connection,
     this.id,
@@ -44,7 +43,7 @@ final class Subscription {
   /// The connection this subscription reads its notifications from.
   final ServerConnection _connection;
 
-  /// The JSON-RPC id of the `subscriptions/listen` request which opened this
+  /// The JSON-RPC id of the `subscriptions/listen` request that opened this
   /// subscription.
   ///
   /// Every message the server sends on the stream carries it under the
@@ -60,27 +59,20 @@ final class Subscription {
   /// Carries [notifications].
   final _notifications = StreamController<Notification>.broadcast();
 
-  /// The notification types the server agreed to send, as its
-  /// [SubscriptionsAcknowledgedNotification] reported them.
+  /// The notification types the server agreed to send.
   ///
-  /// A type the server does not support is left out of the filter rather than
-  /// sent back as `false`, so compare this against what was asked for.
-  /// Completes with an error if the subscription ends before the server
-  /// acknowledges it.
+  /// An unsupported type is left out rather than sent back as `false`, so
+  /// compare this against what was asked for. Errors if the subscription ends
+  /// first.
   Future<SubscriptionFilter> get acknowledged => _acknowledged.future;
 
-  /// The notifications the server sent on this subscription, each one carrying
-  /// [id].
+  /// The notifications the server sent on this subscription.
   ///
-  /// This is a broadcast stream: events are not buffered, so subscribe in the
-  /// same synchronous run as the [ServerConnection.listen] call. Closes when
-  /// the subscription ends.
-  ///
-  /// These notifications also reach the connection's own
+  /// This is a broadcast stream, events are not buffered and only future
+  /// events are given. Each also reaches the connection's
   /// [ServerConnection.toolListChanged], [ServerConnection.promptListChanged],
   /// [ServerConnection.resourceListChanged] and
-  /// [ServerConnection.resourceUpdated] streams, so a caller listening to both
-  /// sees each one twice.
+  /// [ServerConnection.resourceUpdated].
   Stream<Notification> get notifications => _notifications.stream;
 
   /// Completes when the server ends this subscription gracefully, with the

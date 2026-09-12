@@ -38,10 +38,8 @@ base class MCPBase {
   final _progressControllers =
       <ProgressToken, StreamController<ProgressNotification>>{};
 
-  /// The JSON-RPC id on the last request this side wrote to the channel, or
-  /// `null` once [sendRequestWithId] has taken it. Only that method reads it,
-  /// and only in the same synchronous run as the send which set it, so one
-  /// slot holds for every request.
+  /// The JSON-RPC id of the last request this side wrote to the channel, or
+  /// `null` once [sendRequestWithId] has taken it.
   Object? _lastSentRequestId;
 
   /// Whether the connection with the peer is active.
@@ -141,13 +139,7 @@ base class MCPBase {
   /// Sends [request] to the peer and reports the JSON-RPC id it went out
   /// under, alongside the future for its response.
   ///
-  /// A `subscriptions/listen` subscription is named by the id of the request
-  /// which opens it, and `package:json_rpc_2` generates that id and reports it
-  /// nowhere, so [_recordSentRequestIds] reads it off the wire. This goes
-  /// straight to the peer: it is for a long-lived request, which no response
-  /// cache may answer and which opens no progress stream. Throws a
-  /// [StateError] if the request reached the peer without its id reaching the
-  /// sink, which leaves nothing to name a subscription by.
+  /// Throws a [StateError] if the request went out without a recorded id.
   @protected
   ({RequestId id, Future<T> result}) sendRequestWithId<T extends Result?>(
     String methodName, [
@@ -250,9 +242,7 @@ base class MCPBase {
   /// Records the JSON-RPC id of each request written to [channel] in
   /// [_lastSentRequestId].
   ///
-  /// An outgoing message carrying both a `method` and an `id` is a request
-  /// this side sent; a notification has no `id` and a response no `method`,
-  /// and neither disturbs the recorded value.
+  /// A message with both a `method` and an `id` is a request.
   StreamChannel<Map<String, Object?>> _recordSentRequestIds(
     StreamChannel<Map<String, Object?>> channel,
   ) => channel.transformSink(

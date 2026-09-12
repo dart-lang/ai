@@ -719,36 +719,24 @@ base class ServerConnection extends MCPBase {
       sendRequest(UnsubscribeRequest.methodName, request);
 
   /// The subscriptions this connection has open, each under the JSON-RPC id
-  /// of the `subscriptions/listen` request which opened it.
+  /// of the `subscriptions/listen` request that opened it.
   final _subscriptions = <RequestId, Subscription>{};
 
   /// Whether [listen] has registered the handler for the server's
   /// acknowledgements.
   ///
-  /// `package:json_rpc_2` refuses a second handler for a method, and
-  /// [_subscriptions] empties out again as subscriptions end, so the first
-  /// [listen] call is tracked separately from them.
+  /// [_subscriptions] empties out again as subscriptions end, so it cannot
+  /// answer this.
   bool _acknowledgementsRegistered = false;
 
-  /// Opens a `subscriptions/listen` stream for the notification types
-  /// [notifications] names, and returns the handle to it.
+  /// Opens a `subscriptions/listen` stream for the types [notifications]
+  /// names.
   ///
-  /// Returns before the server has seen the request, so a caller can subscribe
-  /// to [Subscription.notifications] in the same synchronous run: the stream
-  /// is a broadcast stream and drops what arrives before it has a listener.
-  /// [Subscription.acknowledged] reports the filter the server agreed to, and
-  /// [Subscription.done] completes when the server ends the subscription.
-  ///
-  /// Every notification delivered on [Subscription.notifications] also reaches
-  /// this connection's own [toolListChanged], [promptListChanged],
-  /// [resourceListChanged] and [resourceUpdated] streams, so a caller
-  /// listening to both sees each one twice.
+  /// Returns before the server sees the request, so subscribe to
+  /// [Subscription.notifications] synchronously.
   ///
   /// You should check the [protocolVersion] before using this API, it must be
   /// >= [ProtocolVersion.v2026_07_28].
-  ///
-  /// Throws an [ArgumentError] if this connection already registered its own
-  /// handler for `notifications/subscriptions/acknowledged`.
   Subscription listen(SubscriptionFilter notifications) {
     if (!_acknowledgementsRegistered) {
       registerNotificationHandler<SubscriptionsAcknowledgedNotification>(
@@ -766,10 +754,8 @@ base class ServerConnection extends MCPBase {
 
   /// Reports the acknowledged filter to the subscription [notification] names.
   ///
-  /// The fields are read off the raw map, not through the extension type which
-  /// throws on a message that left one out: a notification gets no error
-  /// response, so a malformed one leaves its subscription unacknowledged
-  /// rather than failing anything.
+  /// The fields are read off the raw map, so a malformed one leaves its
+  /// subscription unacknowledged.
   void _handleSubscriptionsAcknowledged(
     SubscriptionsAcknowledgedNotification notification,
   ) {
