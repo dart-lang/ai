@@ -523,7 +523,7 @@ Future<void> handleStreamableHttpRequest(
     unawaited(() async {
       try {
         await response.done;
-      } catch (_) {
+      } on IOException {
         // A disconnected client cannot receive another response.
       }
       responseClosed = true;
