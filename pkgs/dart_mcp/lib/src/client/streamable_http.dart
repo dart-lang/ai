@@ -258,6 +258,7 @@ Stream<Map<String, Object?>> _sendStreamableHttpMessage(
   }
 }
 
+/// Adds per-request cancellation to a streamable HTTP channel.
 final class _StreamableHttpClientChannel
     extends DelegatingStreamChannel<Map<String, Object?>>
     implements RequestCancellation {

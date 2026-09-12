@@ -16,13 +16,15 @@ import 'package:stream_channel/stream_channel.dart';
 import 'api/api.dart';
 import 'utils/constants.dart';
 
+/// Cancels one request without closing its channel.
 abstract interface class RequestCancellation {
+  /// Cancels the request named by [requestId].
   Future<void> cancelRequest(RequestId requestId);
 }
 
 void completeRequestLocally(MCPBase target, RequestId requestId) {
-  if (target._localResponses.isClosed) return;
-  target._localResponses.add({
+  if (target._local.isClosed) return;
+  target._local.add({
     Keys.jsonrpc: '2.0',
     Keys.id: requestId,
     Keys.result: const <String, Object?>{},
@@ -39,7 +41,7 @@ void completeRequestLocally(MCPBase target, RequestId requestId) {
 /// - [ServerConnection] A class that represents an active server connection.
 base class MCPBase {
   late final Peer _peer;
-  final _localResponses = StreamController<Map<String, Object?>>(sync: true);
+  final _local = StreamController<Map<String, Object?>>(sync: true);
 
   /// The name of the associated server.
   ///
@@ -80,12 +82,10 @@ base class MCPBase {
     );
     final remote = instrumented.stream.transform(
       StreamTransformer.fromHandlers(
-        handleDone:
-            (sink) =>
-                unawaited(_localResponses.close().whenComplete(sink.close)),
+        handleDone: (s) => unawaited(_local.close().whenComplete(s.close)),
       ),
     );
-    final incoming = StreamGroup.merge([remote, _localResponses.stream]);
+    final incoming = StreamGroup.merge([remote, _local.stream]);
     _peer = Peer.withoutJson(
       StreamChannel.withCloseGuarantee(incoming, instrumented.sink),
     );
