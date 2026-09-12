@@ -269,6 +269,17 @@ final class _StreamableHttpClientChannel
   @override
   Future<void> cancelRequest(RequestId requestId) =>
       _state.cancelRequest(requestId);
+
+  @override
+  StreamChannel<Map<String, Object?>> changeStream(
+    Stream<Map<String, Object?>> Function(Stream<Map<String, Object?>>) change,
+  ) => _StreamableHttpClientChannel(super.changeStream(change), _state);
+
+  @override
+  StreamChannel<Map<String, Object?>> changeSink(
+    StreamSink<Map<String, Object?>> Function(StreamSink<Map<String, Object?>>)
+    change,
+  ) => _StreamableHttpClientChannel(super.changeSink(change), _state);
 }
 
 /// Tracks request state shared by the POSTs on one client channel.

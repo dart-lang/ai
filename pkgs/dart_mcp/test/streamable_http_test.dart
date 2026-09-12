@@ -2914,6 +2914,49 @@ void main() {
       await pumpEventQueue(times: 20);
       expect((await connection.listTools()).tools, isEmpty);
     });
+
+    test('client close survives supported channel wrappers', () async {
+      final host = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => host.close(force: true));
+      final hosted = <MCPServer>[];
+      final responsesDone = <Future<void>>[];
+      var requestCount = 0;
+      host.listen((request) {
+        requestCount++;
+        responsesDone.add(request.response.done);
+        handleStreamableHttpRequest(request, (channel) {
+          final server = _EquippedServer(channel);
+          hosted.add(server);
+          return server;
+        }, listenKeepAliveInterval: const Duration(milliseconds: 20));
+      });
+      final client = TestMCPClient();
+      addTearDown(client.shutdown);
+      final channel = streamableHttpClientChannel(
+        Uri.http('${host.address.host}:${host.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: client.capabilities,
+      ).changeStream((stream) => stream).changeSink((sink) => sink);
+      final connection = client.connectServer(channel);
+      final subscription = connection.listen(
+        SubscriptionFilter(toolsListChanged: true),
+        meta: MetaWithRequestEnvelope(
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          capabilities: client.capabilities,
+        ),
+      );
+      await subscription.acknowledged.timeout(const Duration(seconds: 5));
+
+      await subscription.close().timeout(const Duration(seconds: 5));
+      await subscription.done.timeout(const Duration(seconds: 5));
+      await responsesDone.single.timeout(const Duration(seconds: 5));
+      await hosted.single.done.timeout(const Duration(seconds: 5));
+      expect(requestCount, 1, reason: 'HTTP close sends no cancellation POST');
+      expect(hosted.single.isActive, isFalse);
+
+      expect((await connection.listTools()).tools, isEmpty);
+      expect(requestCount, 2, reason: 'the shared client channel remains open');
+    });
   });
 
   group('notifications and responses', () {
