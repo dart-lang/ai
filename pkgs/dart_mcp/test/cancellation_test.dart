@@ -4,7 +4,6 @@
 
 import 'dart:async';
 
-import 'package:dart_mcp/client.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'package:test/test.dart';
