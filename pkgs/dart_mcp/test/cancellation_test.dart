@@ -72,7 +72,7 @@ void main() {
     await pumpEventQueue();
   });
 
-  test('a cancellation for an unknown id changes nothing', () async {
+  test('a cancellation for an unknown ID changes nothing', () async {
     final harness = _Harness();
     await harness.initialize();
     final cancellations = <CancelledNotification>[];
@@ -98,8 +98,8 @@ void main() {
     await pumpEventQueue();
 
     // The specification's "ignore" is about the wire: no error response and
-    // no state change. The id may name a request this side sent, so the
-    // notification is still reported; the two that name no JSON-RPC id at all
+    // no state change. The ID may name a request this side sent, so the
+    // notification is still reported; the two that name no JSON-RPC ID at all
     // are dropped.
     expect(cancellations, hasLength(1));
     expect(cancellations.single.requestId, 404);
@@ -271,7 +271,7 @@ void main() {
       expect(harness.framesWithId(1), hasLength(1));
       expect(harness.frames.where((f) => f.containsKey('error')), isEmpty);
 
-      // A later request reusing that id is answered, so the cancellation left
+      // A later request reusing that ID is answered, so the cancellation left
       // nothing behind.
       harness.send({
         'jsonrpc': '2.0',

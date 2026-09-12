@@ -40,14 +40,14 @@ base class MCPBase {
       <ProgressToken, StreamController<ProgressNotification>>{};
 
   /// The progress token of every request the peer has sent that this side has
-  /// not answered yet, by JSON-RPC id.
+  /// not answered yet, by JSON-RPC ID.
   ///
   /// A request that asked for no progress maps to `null`. An entry goes in
   /// when the request arrives and comes out when its response leaves, so this
   /// holds exactly the requests a cancellation may still refer to.
   final _inFlightRequests = <Object, ProgressToken?>{};
 
-  /// The ids in [_inFlightRequests] the peer has cancelled.
+  /// The IDs in [_inFlightRequests] the peer has cancelled.
   final _cancelledRequests = <Object>{};
 
   /// The progress tokens of cancelled requests whose response has already been
@@ -66,7 +66,7 @@ base class MCPBase {
   final _cancellations = StreamController<CancelledNotification>.broadcast();
 
   /// Every `notifications/cancelled` the peer sends whose `requestId` is a
-  /// JSON-RPC id, in arrival order.
+  /// JSON-RPC ID, in arrival order.
   ///
   /// [MCPBase] registers the connection's only `notifications/cancelled`
   /// handler, so a subclass that wants to log a cancellation reason, which the
@@ -74,18 +74,18 @@ base class MCPBase {
   /// registering a handler of its own.
   ///
   /// A notification naming a request this side is not answering appears here
-  /// too, because the id may belong to a request this side sent: a server
+  /// too, because the ID may belong to a request this side sent: a server
   /// cancels the `subscriptions/listen` request it tears down, and that
   /// cancellation is the only notice the client gets of the teardown. The
-  /// specification's "ignore" for an unknown id, an already answered request
+  /// specification's "ignore" for an unknown ID, an already answered request
   /// and a malformed notification means no error response and no change to
   /// what goes on the wire, not that the notification is hidden from this
   /// side; the one thing dropped here is a `requestId` that is not a
-  /// JSON-RPC id at all.
+  /// JSON-RPC ID at all.
   ///
   /// The request itself keeps running. What a cancellation for a request this
   /// side is answering changes is the wire: the response and any progress
-  /// notification for that id stay off it, which is what the specification
+  /// notification for that ID stay off it, which is what the specification
   /// requires of the receiver.
   ///
   /// This is a "broadcast" stream, so events are not buffered and previous
@@ -220,16 +220,16 @@ base class MCPBase {
   /// Reports the peer's cancellation on [cancellations], and remembers it if
   /// it names a request this side is still answering.
   ///
-  /// A `requestId` which is not a JSON-RPC id, an absent one included, is
+  /// A `requestId` which is not a JSON-RPC ID, an absent one included, is
   /// dropped: it can match no request in either direction. Every other
-  /// cancellation is reported, including one for an id this side never saw or
-  /// has already answered, because the id may name a request this side sent.
-  /// Only an id that is in flight here is remembered, which is what keeps the
+  /// cancellation is reported, including one for an ID this side never saw or
+  /// has already answered, because the ID may name a request this side sent.
+  /// Only an ID that is in flight here is remembered, which is what keeps the
   /// suppression set bounded by the live requests and answers the
   /// specification's "ignore" for the rest: no error response and no change
   /// to what goes on the wire.
   void _handleCancelled(CancelledNotification notification) {
-    // A JSON-RPC id is a `String` or a number, so anything else cannot name a
+    // A JSON-RPC ID is a `String` or a number, so anything else cannot name a
     // request. `RequestId` is an extension type on `Object`, so the value has
     // to be tested rather than cast.
     final Object? id = notification.requestId;
