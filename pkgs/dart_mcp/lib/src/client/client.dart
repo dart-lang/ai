@@ -743,12 +743,11 @@ base class ServerConnection extends MCPBase {
 
   final RequestCancellation? _requestCancellation;
 
-  /// Whether [listen] has registered the handler for the server's
-  /// acknowledgements.
+  /// Whether [listen] has registered the server's subscription handlers.
   ///
   /// [_subscriptions] empties out again as subscriptions end, so it cannot
   /// answer this.
-  bool _acknowledgementsRegistered = false;
+  bool _subscriptionHandlersRegistered = false;
 
   /// Opens a `subscriptions/listen` stream for the types [notifications]
   /// names.
@@ -762,12 +761,16 @@ base class ServerConnection extends MCPBase {
     SubscriptionFilter notifications, {
     required MetaWithRequestEnvelope meta,
   }) {
-    if (!_acknowledgementsRegistered) {
+    if (!_subscriptionHandlersRegistered) {
       registerNotificationHandler<SubscriptionsAcknowledgedNotification>(
         SubscriptionsAcknowledgedNotification.methodName,
         _handleSubscriptionsAcknowledged,
       );
-      _acknowledgementsRegistered = true;
+      registerNotificationHandler<CancelledNotification>(
+        CancelledNotification.methodName,
+        _handleSubscriptionCancelled,
+      );
+      _subscriptionHandlersRegistered = true;
     }
     final sent = sendRequestWithId<SubscriptionsListenResult>(
       SubscriptionsListenRequest.methodName,
@@ -802,6 +805,14 @@ base class ServerConnection extends MCPBase {
     for (final subscription in _subscriptions.values.toList()) {
       subscription._forward(method, params);
     }
+  }
+
+  /// Ends the open subscription named by [notification], if there is one.
+  void _handleSubscriptionCancelled(CancelledNotification notification) {
+    final subscription = _subscriptions[notification.requestId];
+    if (subscription == null) return;
+    unawaited(subscription._finish());
+    completeRequestLocally(this, subscription.id);
   }
 
   /// Reports the acknowledged filter to the subscription [notification] names.

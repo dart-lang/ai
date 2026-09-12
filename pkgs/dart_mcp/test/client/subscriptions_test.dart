@@ -424,6 +424,335 @@ void main() {
     expect(subscription.id, isNot(pingRequest[Keys.id]));
   });
 
+  test('keeps both IDs when logging opens a nested listen', () async {
+    final controller = StreamChannelController<Map<String, Object?>>(
+      sync: true,
+    );
+    final requests = <Map<String, Object?>>[];
+    controller.local.stream.listen((message) {
+      if (message[Keys.method] != SubscriptionsListenRequest.methodName) return;
+      requests.add(message);
+      final id = RequestId(message[Keys.id]!);
+      controller.local.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.method: SubscriptionsAcknowledgedNotification.methodName,
+        Keys.params: SubscriptionsAcknowledgedNotification(
+          notifications: SubscriptionFilter(toolsListChanged: true),
+          meta: MetaWithSubscriptionId(subscriptionId: id),
+        ),
+      });
+    });
+    final log = _LogSink();
+    final client = TestMCPClient();
+    final connection = client.connectServer(
+      controller.foreign,
+      protocolLogSink: log,
+    );
+    addTearDown(client.shutdown);
+    late Subscription nested;
+    final nestedOpened = Completer<void>();
+    log.onAdd = (line) {
+      if (nestedOpened.isCompleted ||
+          !line.startsWith('>>>') ||
+          !line.contains(SubscriptionsListenRequest.methodName)) {
+        return;
+      }
+      nested = connection.listen(
+        SubscriptionFilter(toolsListChanged: true),
+        meta: MetaWithRequestEnvelope(
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          capabilities: client.capabilities,
+        ),
+      );
+      nestedOpened.complete();
+    };
+
+    final first = connection.listen(
+      SubscriptionFilter(toolsListChanged: true),
+      meta: MetaWithRequestEnvelope(
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        capabilities: client.capabilities,
+      ),
+    );
+    await nestedOpened.future;
+    await Future.wait([first.acknowledged, nested.acknowledged]);
+
+    expect(requests, hasLength(2));
+    expect(requests.map((request) => RequestId(request[Keys.id]!)), {
+      first.id,
+      nested.id,
+    });
+    expect(first.id, isNot(nested.id));
+
+    for (final subscription in [first, nested]) {
+      controller.local.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: subscription.id,
+        Keys.result: SubscriptionsListenResult(
+          meta: MetaWithSubscriptionId(subscriptionId: subscription.id),
+        ),
+      });
+      await subscription.done;
+    }
+  });
+
+  test(
+    'keeps a reverse request ID separate and drops a change before ack',
+    () async {
+      final controller = StreamChannelController<Map<String, Object?>>(
+        sync: true,
+      );
+      Map<String, Object?>? reverseResponse;
+      controller.local.stream.listen((message) {
+        if (message[Keys.method] != SubscriptionsListenRequest.methodName) {
+          if (!message.containsKey(Keys.method)) reverseResponse = message;
+          return;
+        }
+        final id = RequestId(message[Keys.id]!);
+        controller.local.sink
+          ..add({
+            Keys.jsonrpc: '2.0',
+            Keys.id: id,
+            Keys.method: PingRequest.methodName,
+          })
+          ..add({
+            Keys.jsonrpc: '2.0',
+            Keys.method: ToolListChangedNotification.methodName,
+            Keys.params: ToolListChangedNotification.fromMap({
+              Keys.meta: MetaWithSubscriptionId(subscriptionId: id),
+              'phase': 'before',
+            }),
+          })
+          ..add({
+            Keys.jsonrpc: '2.0',
+            Keys.method: SubscriptionsAcknowledgedNotification.methodName,
+            Keys.params: SubscriptionsAcknowledgedNotification(
+              notifications: SubscriptionFilter(toolsListChanged: true),
+              meta: MetaWithSubscriptionId(subscriptionId: id),
+            ),
+          })
+          ..add({
+            Keys.jsonrpc: '2.0',
+            Keys.method: ToolListChangedNotification.methodName,
+            Keys.params: ToolListChangedNotification.fromMap({
+              Keys.meta: MetaWithSubscriptionId(subscriptionId: id),
+              'phase': 'after',
+            }),
+          })
+          ..add({
+            Keys.jsonrpc: '2.0',
+            Keys.id: id,
+            Keys.result: SubscriptionsListenResult(
+              meta: MetaWithSubscriptionId(subscriptionId: id),
+            ),
+          });
+      });
+      final client = TestMCPClient();
+      final connection = client.connectServer(controller.foreign);
+      addTearDown(client.shutdown);
+
+      final subscription = connection.listen(
+        SubscriptionFilter(toolsListChanged: true),
+        meta: MetaWithRequestEnvelope(
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          capabilities: client.capabilities,
+        ),
+      );
+      final events = subscription.notifications.toList();
+
+      await subscription.done;
+      expect(reverseResponse, {
+        Keys.jsonrpc: '2.0',
+        Keys.id: subscription.id,
+        Keys.result: <String, Object?>{},
+      });
+      expect(
+        (await events).map(
+          (event) => (event.params as Map<String, Object?>)['phase'],
+        ),
+        ['after'],
+      );
+    },
+  );
+
+  test('server cancellation before ack ends and cleans the request', () async {
+    final controller = StreamChannelController<Map<String, Object?>>(
+      sync: true,
+    );
+    controller.local.stream.listen((message) {
+      final id = RequestId(message[Keys.id]!);
+      if (message[Keys.method] == PingRequest.methodName) {
+        controller.local.sink.add({
+          Keys.jsonrpc: '2.0',
+          Keys.id: id,
+          Keys.result: <String, Object?>{},
+        });
+        return;
+      }
+      if (message[Keys.method] != SubscriptionsListenRequest.methodName) return;
+      controller.local.sink
+        ..add({
+          Keys.jsonrpc: '2.0',
+          Keys.method: CancelledNotification.methodName,
+          Keys.params: CancelledNotification(requestId: id),
+        })
+        ..add({
+          Keys.jsonrpc: '2.0',
+          Keys.method: SubscriptionsAcknowledgedNotification.methodName,
+          Keys.params: SubscriptionsAcknowledgedNotification(
+            notifications: SubscriptionFilter(toolsListChanged: true),
+            meta: MetaWithSubscriptionId(subscriptionId: id),
+          ),
+        })
+        ..add({
+          Keys.jsonrpc: '2.0',
+          Keys.method: ToolListChangedNotification.methodName,
+          Keys.params: ToolListChangedNotification(
+            meta: MetaWithSubscriptionId(subscriptionId: id),
+          ),
+        })
+        ..add({
+          Keys.jsonrpc: '2.0',
+          Keys.id: id,
+          Keys.result: SubscriptionsListenResult(
+            meta: MetaWithSubscriptionId(subscriptionId: id),
+          ),
+        });
+    });
+    final connection = _InspectingServerConnection(controller.foreign);
+    addTearDown(connection.shutdown);
+
+    final subscription = connection.listen(
+      SubscriptionFilter(toolsListChanged: true),
+      meta: MetaWithRequestEnvelope(
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        capabilities: environment.client.capabilities,
+      ),
+    );
+    final events = subscription.notifications.toList();
+
+    await subscription.done.timeout(const Duration(seconds: 5));
+    await expectLater(
+      subscription.acknowledged,
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          'Closed before acknowledgement.',
+        ),
+      ),
+    );
+    expect(await events, isEmpty);
+    await expectLater(connection.pendingResults[subscription.id]!, completes);
+    expect(await connection.ping(), isTrue);
+  });
+
+  test('server cancellation ends only its acknowledged subscription', () async {
+    final controller = StreamChannelController<Map<String, Object?>>(
+      sync: true,
+    );
+    final pingRequest = Completer<Map<String, Object?>>();
+    controller.local.stream.listen((message) {
+      if (message[Keys.method] == PingRequest.methodName) {
+        pingRequest.complete(message);
+        return;
+      }
+      if (message[Keys.method] != SubscriptionsListenRequest.methodName) return;
+      final id = RequestId(message[Keys.id]!);
+      controller.local.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.method: SubscriptionsAcknowledgedNotification.methodName,
+        Keys.params: SubscriptionsAcknowledgedNotification(
+          notifications: SubscriptionFilter(toolsListChanged: true),
+          meta: MetaWithSubscriptionId(subscriptionId: id),
+        ),
+      });
+    });
+    final connection = _InspectingServerConnection(controller.foreign);
+    addTearDown(connection.shutdown);
+
+    Subscription open() => connection.listen(
+      SubscriptionFilter(toolsListChanged: true),
+      meta: MetaWithRequestEnvelope(
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        capabilities: environment.client.capabilities,
+      ),
+    );
+
+    final cancelled = open();
+    final remaining = open();
+    final cancelledEvents = cancelled.notifications.toList();
+    final remainingEvents = <SubscriptionNotification>[];
+    final remainingListener = remaining.notifications.listen(
+      remainingEvents.add,
+    );
+    addTearDown(remainingListener.cancel);
+    await Future.wait([cancelled.acknowledged, remaining.acknowledged]);
+
+    controller.local.sink.add({
+      Keys.jsonrpc: '2.0',
+      Keys.method: CancelledNotification.methodName,
+      Keys.params: CancelledNotification(requestId: cancelled.id),
+    });
+    await cancelled.done.timeout(const Duration(seconds: 5));
+    await expectLater(connection.pendingResults[cancelled.id]!, completes);
+
+    controller.local.sink
+      ..add({
+        Keys.jsonrpc: '2.0',
+        Keys.method: ToolListChangedNotification.methodName,
+        Keys.params: ToolListChangedNotification.fromMap({
+          Keys.meta: MetaWithSubscriptionId(subscriptionId: cancelled.id),
+          'late': true,
+        }),
+      })
+      ..add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: cancelled.id,
+        Keys.error: {Keys.code: -32000, Keys.message: 'late result'},
+      })
+      ..add({
+        Keys.jsonrpc: '2.0',
+        Keys.method: ToolListChangedNotification.methodName,
+        Keys.params: ToolListChangedNotification(
+          meta: MetaWithSubscriptionId(subscriptionId: remaining.id),
+        ),
+      });
+    await pumpEventQueue();
+    expect(await cancelledEvents, isEmpty);
+    expect(remainingEvents, hasLength(1));
+
+    var pingCompleted = false;
+    final ping = connection.ping().then((value) {
+      pingCompleted = true;
+      return value;
+    });
+    final pingMessage = await pingRequest.future;
+    final pingId = RequestId(pingMessage[Keys.id]!);
+    controller.local.sink.add({
+      Keys.jsonrpc: '2.0',
+      Keys.method: CancelledNotification.methodName,
+      Keys.params: CancelledNotification(requestId: pingId),
+    });
+    await pumpEventQueue();
+    expect(pingCompleted, isFalse);
+    controller.local.sink.add({
+      Keys.jsonrpc: '2.0',
+      Keys.id: pingId,
+      Keys.result: <String, Object?>{},
+    });
+    expect(await ping, isTrue);
+
+    controller.local.sink.add({
+      Keys.jsonrpc: '2.0',
+      Keys.id: remaining.id,
+      Keys.result: SubscriptionsListenResult(
+        meta: MetaWithSubscriptionId(subscriptionId: remaining.id),
+      ),
+    });
+    await remaining.done;
+  });
+
   test('closes over stdio with one cancellation notification', () async {
     final subscription = listen();
     final listener = subscription.notifications.listen((_) {});

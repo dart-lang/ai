@@ -80,13 +80,14 @@ final class Subscription {
     if (!_acknowledged.isCompleted) _acknowledged.complete(accepted);
   }
 
-  /// Adds [params] under [method] if it carries [id].
+  /// Adds [params] under [method] after acknowledgement if it carries [id].
   void _forward(String method, Object? params) {
     final fields = params as Map<String, Object?>?;
     final meta = fields?[Keys.meta];
     if (meta is! Map<String, Object?>) return;
     final sentId = meta[Keys.subscriptionIdMeta];
     if (sentId == null || RequestId(sentId) != id) return;
+    if (!_acknowledged.isCompleted) return;
     if (!_notifications.isClosed) {
       _notifications.add((method: method, params: Notification(fields!)));
     }
