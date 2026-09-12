@@ -1,5 +1,8 @@
 ## 0.6.0-wip
 
+- Validate the `Origin` header against `allowedOrigins` on
+  `handleStreamableHttpRequest`, answering 403 when a request carries one the
+  list leaves out. Leaving the argument off keeps the header unread.
 - Add optional headers to `streamableHttpClientChannel`, with protocol headers
   taking precedence on each POST.
 - Convert schema enum values and multi-select defaults to fixed-length lists so
