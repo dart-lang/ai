@@ -206,7 +206,7 @@ base class MCPBase {
   T runOutsideRequest<T>(T Function() callback) =>
       _connectionZone.run(callback);
 
-  /// Captures whether the current incoming request remains active.
+  /// Captures whether the current incoming request has not been cancelled.
   @protected
   bool Function() captureIncomingRequestActivity() {
     final request = Zone.current[_currentRequestKey];
