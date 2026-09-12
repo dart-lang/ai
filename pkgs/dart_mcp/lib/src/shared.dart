@@ -206,6 +206,14 @@ base class MCPBase {
   T runOutsideRequest<T>(T Function() callback) =>
       _connectionZone.run(callback);
 
+  /// Captures whether the current incoming request remains active.
+  @protected
+  bool Function() captureIncomingRequestActivity() {
+    final request = Zone.current[_currentRequestKey];
+    if (request is! _IncomingRequest) return () => true;
+    return () => !request.cancelled;
+  }
+
   /// Notifies the peer of progress towards completing some request.
   void notifyProgress(ProgressNotification notification) =>
       sendNotification(ProgressNotification.methodName, notification);
@@ -352,7 +360,7 @@ base class MCPBase {
     _inFlightRequests[id] = request;
     if (token != null) _requestsByProgressToken.putIfAbsent(token, () => id);
 
-    if (params is Map) {
+    if (params is Map<String, Object?>) {
       final copied = Map<String, Object?>.from(params);
       _requestsByParameters[copied] = request;
       return {...message, Keys.params: copied};

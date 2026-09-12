@@ -161,10 +161,11 @@ base mixin SubscriptionsSupport on MCPServer {
     }
     final subscriptionEnd = Completer<void>();
     _subscriptions[subscriptionId] = subscriptionEnd;
+    final resourceUris = {...?accepted.resourceSubscriptions};
     try {
       if (this case final ResourcesSupport resources) {
-        for (final uri in accepted.resourceSubscriptions ?? const <String>[]) {
-          resources._sendUpdatesFor(uri);
+        for (final uri in resourceUris) {
+          resources._sendUpdatesFor(uri, subscriptionId: subscriptionId);
         }
       }
       sendNotification(
@@ -180,6 +181,12 @@ base mixin SubscriptionsSupport on MCPServer {
       );
     } finally {
       _subscriptions.remove(subscriptionId);
+      if (this case final ResourcesSupport resources) {
+        await [
+          for (final uri in resourceUris)
+            resources._stopUpdatesFor(uri, subscriptionId: subscriptionId),
+        ].wait;
+      }
     }
   }
 }

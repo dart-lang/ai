@@ -5,6 +5,7 @@
 import 'dart:async';
 
 import 'package:dart_mcp/server.dart';
+import 'package:json_rpc_2/error_code.dart' as error_code;
 import 'package:stream_channel/stream_channel.dart';
 import 'package:test/test.dart';
 
@@ -39,6 +40,42 @@ void main() {
 
     expect(harness.framesWithId(1), isEmpty);
   });
+
+  test(
+    'an async handler with omitted params keeps cancellation context',
+    () async {
+      final harness = _Harness();
+      await harness.initialize();
+
+      harness.send({
+        'jsonrpc': '2.0',
+        'id': 1,
+        'method': _Harness.parameterlessMethod,
+      });
+      await harness.server.parameterlessCalled.future;
+      harness.cancel(1);
+      await pumpEventQueue();
+      harness.server.finishParameterless.complete();
+      await pumpEventQueue();
+
+      expect(harness.framesWithId(1), isEmpty);
+
+      harness.server.parameterlessCalled = Completer<void>();
+      harness.server.finishParameterless = Completer<void>();
+      harness.send({
+        'jsonrpc': '2.0',
+        'id': 2,
+        'method': _Harness.parameterlessMethod,
+      });
+      await harness.server.parameterlessCalled.future;
+      harness.server.finishParameterless.complete();
+      await pumpEventQueue();
+
+      expect(harness.framesWithId(2), hasLength(1));
+      expect(harness.framesWithId(2).single, contains('result'));
+      expect(harness.framesWithId(2).single, isNot(contains('error')));
+    },
+  );
 
   test('the cancellation reaches the server with its reason', () async {
     final harness = _Harness();
@@ -142,6 +179,36 @@ void main() {
     expect(harness.framesWithId(2), hasLength(1));
   });
 
+  test('non-string parameter keys do not close the connection', () async {
+    final harness = _Harness();
+    await harness.initialize();
+
+    harness.send({
+      'jsonrpc': '2.0',
+      'id': 1,
+      'method': CallToolRequest.methodName,
+      'params': <Object, Object?>{1: 'not a JSON object key'},
+    });
+    await pumpEventQueue();
+
+    expect(harness.server.isActive, isTrue);
+    expect(harness.framesWithId(1), hasLength(1));
+    expect(harness.framesWithId(1).single, contains('error'));
+    expect(harness.framesWithId(1).single, isNot(contains('result')));
+
+    harness.send({
+      'jsonrpc': '2.0',
+      'id': 2,
+      'method': PingRequest.methodName,
+      'params': PingRequest() as Map<String, Object?>,
+    });
+    await pumpEventQueue();
+
+    expect(harness.framesWithId(2), hasLength(1));
+    expect(harness.framesWithId(2).single, contains('result'));
+    expect(harness.framesWithId(2).single, isNot(contains('error')));
+  });
+
   test('invalid request IDs leave no progress owner', () async {
     final harness = _Harness();
     await harness.initialize();
@@ -173,11 +240,15 @@ void main() {
     }
     await pumpEventQueue();
 
+    final invalidIdErrors = harness.frames.where(
+      (frame) => frame['id'] == null && frame.containsKey('error'),
+    );
+    expect(invalidIdErrors, hasLength(2));
     expect(
-      harness.frames.where(
-        (frame) => frame['id'] == null && frame.containsKey('error'),
+      invalidIdErrors.map(
+        (frame) => (frame['error'] as Map<String, Object?>)['code'],
       ),
-      hasLength(2),
+      everyElement(error_code.INVALID_REQUEST),
     );
     expect(harness.progressFrames, isEmpty);
 
@@ -547,8 +618,8 @@ void main() {
     expect(harness.framesWithId(2), isEmpty);
   });
 
-  test('a later listen keeps persistent resource updates active', () async {
-    final harness = _SubscriptionHarness(maxRetainedCancellations: 2);
+  test('resource updates follow active listen owners exactly once', () async {
+    final harness = _SubscriptionHarness(maxRetainedCancellations: 4);
     await harness.initialize();
 
     harness.listen(
@@ -560,6 +631,13 @@ void main() {
     await pumpEventQueue();
     harness.cancel(1);
     await pumpEventQueue();
+    harness.updateResource();
+    await pumpEventQueue();
+    expect(
+      harness.resourceUpdates,
+      isEmpty,
+      reason: 'a cancelled listen is not an active update owner',
+    );
 
     harness.listen(
       2,
@@ -568,11 +646,38 @@ void main() {
       ),
     );
     await pumpEventQueue();
-    expect(harness.acknowledgements, hasLength(2));
+    harness.listen(
+      3,
+      notifications: SubscriptionFilter(
+        resourceSubscriptions: [_SubscriptionHarness.resource.uri],
+      ),
+    );
+    await pumpEventQueue();
+    expect(harness.acknowledgements, hasLength(3));
 
     harness.updateResource();
     await pumpEventQueue();
     expect(harness.resourceUpdates, hasLength(1));
+
+    harness.cancel(2);
+    await pumpEventQueue();
+    harness.updateResource();
+    await pumpEventQueue();
+    expect(
+      harness.resourceUpdates,
+      hasLength(2),
+      reason: 'the remaining active owner keeps exactly one wire update',
+    );
+
+    harness.cancel(3);
+    await pumpEventQueue();
+    harness.updateResource();
+    await pumpEventQueue();
+    expect(
+      harness.resourceUpdates,
+      hasLength(2),
+      reason: 'no update is sent after the last active owner is cancelled',
+    );
   });
 
   test('negative retained cancellation bounds fail construction', () async {
@@ -600,6 +705,7 @@ class _Harness {
   static const slowToolName = 'slow';
   static const otherSlowToolName = 'other slow';
   static const gatedToolName = 'gated';
+  static const parameterlessMethod = 'test/parameterless';
 
   final _toServer = StreamController<Map<String, Object?>>();
   final _fromServer = StreamController<Map<String, Object?>>();
@@ -629,6 +735,9 @@ class _Harness {
       }
       if (!server.finishGatedTool.isCompleted) {
         server.finishGatedTool.complete();
+      }
+      if (!server.finishParameterless.isCompleted) {
+        server.finishParameterless.complete();
       }
       if (!server.finishLateLogs.isCompleted) server.finishLateLogs.complete();
       await server.shutdown();
@@ -776,6 +885,12 @@ final class _CancellationTestServer extends MCPServer
   /// Completed by the test to let the gated tool's current call return.
   Completer<void> finishGatedTool = Completer<void>();
 
+  /// Completes when the handler for a request without `params` starts.
+  Completer<void> parameterlessCalled = Completer<void>();
+
+  /// Completed by the test to let the request without `params` return.
+  Completer<void> finishParameterless = Completer<void>();
+
   /// Whether the slow handlers log after their manually controlled wait.
   bool logAfterTool = false;
 
@@ -787,6 +902,14 @@ final class _CancellationTestServer extends MCPServer
 
   @override
   FutureOr<void> initialize(MCPServerInitialization initialization) {
+    registerRequestHandler<PingRequest?, EmptyResult>(
+      _Harness.parameterlessMethod,
+      ([PingRequest? _]) async {
+        if (!parameterlessCalled.isCompleted) parameterlessCalled.complete();
+        await finishParameterless.future;
+        return EmptyResult();
+      },
+    );
     registerTool(
       Tool(name: _Harness.slowToolName, inputSchema: ObjectSchema()),
       (_) async {
@@ -848,6 +971,9 @@ final class _CancellationSubscriptionServer extends MCPServer
            version: '1.0.0',
          ),
        );
+
+  @override
+  Duration get resourceUpdateThrottleDelay => Duration.zero;
 }
 
 /// A raw channel around [_CancellationSubscriptionServer].
