@@ -27,6 +27,13 @@ base mixin SubscriptionsSupport on MCPServer {
   /// this before delivering it. Leaving it `null` refuses the request.
   RequestId? nextSubscriptionId;
 
+  /// Advertises every registered capability, since this server serves the
+  /// `subscriptions/listen` requests a client opens to hear those
+  /// notifications on. The copy keeps the advertisement off server state.
+  @override
+  ServerCapabilities get advertisedCapabilities =>
+      ServerCapabilities.fromMap({...capabilities as Map<String, Object?>});
+
   @override
   FutureOr<void> initialize(MCPServerInitialization initialization) async {
     if (initialization.protocolVersion.methodIsValid(
