@@ -1,3 +1,7 @@
+# Copyright (c) 2026, the Dart project authors.  Please see the AUTHORS file
+# for details. All rights reserved. Use of this source code is governed by a
+# BSD-style license that can be found in the LICENSE file.
+
 # Scenarios the conformance suite runs for 2026-07-28 that this package does not
 # pass yet. The client has no OAuth support, so every auth scenario fails.
 client:
