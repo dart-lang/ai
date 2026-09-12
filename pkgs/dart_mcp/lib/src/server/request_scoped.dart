@@ -36,9 +36,9 @@ typedef MCPServerFactory =
 /// `resultType`, and, for the requests the caching rules name, carries `ttlMs`
 /// and `cacheScope` unless it is an interim `resources/read` result, which is
 /// not cacheable. The acknowledgement and result for `subscriptions/listen`
-/// carry the request id under `io.modelcontextprotocol/subscriptionId`.
+/// carry the request ID under `io.modelcontextprotocol/subscriptionId`.
 /// A listen request is named before delivery by setting
-/// [SubscriptionsSupport.nextSubscriptionId] to that id. A
+/// [SubscriptionsSupport.nextSubscriptionId] to that ID. A
 /// field the handler left out is filled in: a `resultType`
 /// left `null` becomes `complete`, a `ttlMs` which is `null` becomes `0`, and
 /// a `cacheScope` which is `null` becomes `private`. The dispatcher cannot
@@ -77,7 +77,7 @@ typedef MCPServerFactory =
 ///
 /// On revisions before 2026-07-28, requests from the server back to the client
 /// are passed to [onRequest]. Its response must be a JSON-RPC response carrying
-/// the request id. A callback error or an invalid response fails the server's
+/// the request ID. A callback error or an invalid response fails the server's
 /// request with an internal error. A response completed after the exchange has
 /// closed is discarded. Without [onRequest], server requests fail immediately.
 /// The callback is not used on 2026-07-28.
@@ -87,7 +87,7 @@ typedef MCPServerFactory =
 /// receive the serialized error and notifications receive no response.
 ///
 /// Throws an [ArgumentError] if [message] is not a JSON-RPC request or
-/// notification (no string `method`, a `null` id, or a `result` or `error`
+/// notification (no string `method`, a `null` ID, or a `result` or `error`
 /// member), or if its method is the legacy `initialize` request or
 /// `initialized` notification; classifying a message as legacy or
 /// request-scoped is the transport's job. Errors thrown by [serverFactory] or
@@ -275,7 +275,7 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
 }
 
 /// Returns the answer for a server [request], or an internal error carrying
-/// its id when [onRequest] fails or returns an invalid response.
+/// its ID when [onRequest] fails or returns an invalid response.
 Future<Map<String, Object?>> _answerServerRequest(
   Map<String, Object?> request,
   FutureOr<Map<String, Object?>> Function(Map<String, Object?> request)
