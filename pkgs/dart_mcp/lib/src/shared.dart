@@ -22,6 +22,7 @@ abstract interface class RequestCancellation {
   Future<void> cancelRequest(RequestId requestId);
 }
 
+/// Holds the ID and deferred channel write captured while one request encodes.
 final class _CapturedRequest {
   RequestId? id;
   void Function()? forward;
