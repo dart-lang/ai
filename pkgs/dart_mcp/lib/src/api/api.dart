@@ -499,11 +499,12 @@ enum CacheScope {
   private,
 }
 
-/// Could be either [TextContent], [ImageContent], [AudioContent] or
-/// [EmbeddedResource].
+/// Could be either [TextContent], [ImageContent], [AudioContent],
+/// [EmbeddedResource], [ToolUseContent] or [ToolResultContent].
 ///
-/// Use [isText], [isImage] and [isEmbeddedResource] before casting to the more
-/// specific types, or switch on the [type] and then cast.
+/// Use [isText], [isImage], [isAudio], [isEmbeddedResource], [isToolUse] and
+/// [isToolResult] before casting to the more specific types, or switch on the
+/// [type] and then cast.
 ///
 /// Doing `is` checks does not work because these are just extension types, they
 /// all have the same runtime type (`Map<String, Object?>`).
@@ -525,6 +526,12 @@ extension type Content._(Map<String, Object?> _value) {
   /// Alias for [EmbeddedResource.new].
   static const embeddedResource = EmbeddedResource.new;
 
+  /// Alias for [ToolUseContent.new].
+  static const toolUse = ToolUseContent.new;
+
+  /// Alias for [ToolResultContent.new].
+  static const toolResult = ToolResultContent.new;
+
   /// Whether or not this is a [TextContent].
   bool get isText => _value[Keys.type] == TextContent.expectedType;
 
@@ -538,11 +545,18 @@ extension type Content._(Map<String, Object?> _value) {
   bool get isEmbeddedResource =>
       _value[Keys.type] == EmbeddedResource.expectedType;
 
+  /// Whether or not this is a [ToolUseContent].
+  bool get isToolUse => _value[Keys.type] == ToolUseContent.expectedType;
+
+  /// Whether or not this is a [ToolResultContent].
+  bool get isToolResult => _value[Keys.type] == ToolResultContent.expectedType;
+
   /// The type of content.
   ///
   /// You can use this in a switch to handle the various types (see the static
-  /// `expectedType` getters), or you can use [isText], [isImage], [isAudio] and
-  /// [isEmbeddedResource] to determine the type and then do the cast.
+  /// `expectedType` getters), or you can use [isText], [isImage], [isAudio],
+  /// [isEmbeddedResource], [isToolUse] and [isToolResult] to determine the type
+  /// and then do the cast.
   String get type => _value[Keys.type] as String;
 }
 
