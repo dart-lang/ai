@@ -502,7 +502,7 @@ enum CacheScope {
 /// Could be either [TextContent], [ImageContent], [AudioContent],
 /// [EmbeddedResource], [ToolUseContent] or [ToolResultContent].
 ///
-/// Use [isText], [isImage], [isEmbeddedResource], [isToolUse] and
+/// Use [isText], [isImage], [isAudio], [isEmbeddedResource], [isToolUse] and
 /// [isToolResult] before casting to the more specific types, or switch on the
 /// [type] and then cast.
 ///
