@@ -143,6 +143,58 @@ void main() {
     expect(harness.framesWithId(2), hasLength(1));
   });
 
+  test('invalid request IDs leave no progress owner', () async {
+    final harness = _Harness();
+    await harness.initialize();
+
+    for (final (index, id)
+        in [
+          <String, Object?>{'bad': 1},
+          <Object?>['bad'],
+        ].indexed) {
+      final token = 'invalid-$index';
+      harness.send({
+        'jsonrpc': '2.0',
+        'id': id,
+        'method': CallToolRequest.methodName,
+        'params':
+            CallToolRequest(
+                  name: _Harness.slowToolName,
+                  meta: MetaWithProgressToken(
+                    progressToken: ProgressToken(token),
+                  ),
+                )
+                as Map<String, Object?>,
+      });
+      await pumpEventQueue();
+      harness.cancel(id);
+      harness.server.notifyProgress(
+        ProgressNotification(progressToken: ProgressToken(token), progress: 1),
+      );
+    }
+    await pumpEventQueue();
+
+    expect(
+      harness.frames.where(
+        (frame) => frame['id'] == null && frame.containsKey('error'),
+      ),
+      hasLength(2),
+    );
+    expect(harness.progressFrames, isEmpty);
+
+    harness.sendSlowRequest(1, 'valid');
+    await harness.server.slowToolCalled.future;
+    harness.server.notifyProgress(
+      ProgressNotification(progressToken: ProgressToken('valid'), progress: 1),
+    );
+    await pumpEventQueue();
+    expect(harness.progressFrames, hasLength(1));
+
+    harness.server.finishSlowTool.complete();
+    await pumpEventQueue();
+    expect(harness.framesWithId(1), hasLength(1));
+  });
+
   test('progress after a dropped response stays off the wire', () async {
     final harness = _Harness();
     await harness.initialize();
@@ -284,49 +336,26 @@ void main() {
     },
   );
 
-  test('a client sees the cancellation a server sends it', () async {
-    final harness = _ClientHarness(maxRetainedCancellations: 1);
-    final cancellations = <CancelledNotification>[];
-    harness.connection.cancellations.listen(cancellations.add);
+  test('a malformed method does not close the connection', () async {
+    final harness = _Harness();
+    await harness.initialize();
 
-    // The 2026-07-28 revision has the server cancel the `subscriptions/listen`
-    // request whose stream it tears down, and that notification names a
-    // request the client sent, not one it is answering.
     harness.send({
       'jsonrpc': '2.0',
-      'method': CancelledNotification.methodName,
-      'params':
-          CancelledNotification(
-                requestId: RequestId(7),
-                reason: 'subscription torn down',
-              )
-              as Map<String, Object?>,
+      'method': 42,
+      'params': <String, Object?>{},
     });
     await pumpEventQueue();
+    expect(harness.server.isActive, isTrue);
 
-    expect(cancellations, hasLength(1));
-    expect(cancellations.single.requestId, 7);
-    expect(cancellations.single.reason, 'subscription torn down');
-  });
-
-  test('a client honours the bound its constructor was given', () async {
-    // One retained token on the client side, reached through
-    // `MCPClient.connectServer`, so the second cancellation evicts the first.
-    final harness = _ClientHarness(maxRetainedCancellations: 1);
-
-    await harness.cancelListRoots(1, 't1');
-    await harness.cancelListRoots(2, 't2');
-
-    harness.connection.notifyProgress(
-      ProgressNotification(progressToken: ProgressToken('t1'), progress: 1),
-    );
-    harness.connection.notifyProgress(
-      ProgressNotification(progressToken: ProgressToken('t2'), progress: 2),
-    );
+    harness.send({
+      'jsonrpc': '2.0',
+      'id': 1,
+      'method': PingRequest.methodName,
+      'params': PingRequest() as Map<String, Object?>,
+    });
     await pumpEventQueue();
-
-    expect(harness.progressFrames, hasLength(1));
-    expect(_progressTokenOf(harness.progressFrames.single), 't1');
+    expect(harness.framesWithId(1), hasLength(1));
   });
 
   test('progress for a cancelled request stays off the wire', () async {
@@ -370,201 +399,200 @@ void main() {
     await pumpEventQueue();
   });
 
-  test(
-    'progress for a live request sharing the token still goes out',
-    () async {
-      final harness = _Harness();
-      await harness.initialize();
+  test('cancellation suppresses only its handler notifications', () async {
+    final harness = _Harness();
+    await harness.initialize();
+    harness.server.logAfterTool = true;
+    harness.server.requestAfterSlowTool = true;
 
-      for (final id in [1, 2]) {
-        harness.send({
-          'jsonrpc': '2.0',
-          'id': id,
-          'method': CallToolRequest.methodName,
-          'params':
-              CallToolRequest(
-                    name: _Harness.slowToolName,
-                    meta: MetaWithProgressToken(
-                      progressToken: ProgressToken('t'),
-                    ),
-                  )
-                  as Map<String, Object?>,
-        });
-      }
-      await harness.server.slowToolCalled.future;
+    harness.sendSlowRequest(1, 'cancelled');
+    harness.sendOtherSlowRequest(2, 'active');
+    await Future.wait([
+      harness.server.slowToolCalled.future,
+      harness.server.otherSlowToolCalled.future,
+    ]);
 
-      harness.send({
-        'jsonrpc': '2.0',
-        'method': CancelledNotification.methodName,
-        'params':
-            CancelledNotification(requestId: RequestId(1))
-                as Map<String, Object?>,
-      });
-      await pumpEventQueue();
-      harness.server.notifyProgress(
-        ProgressNotification(progressToken: ProgressToken('t'), progress: 1),
-      );
-      await pumpEventQueue();
+    harness.cancel(1);
+    await pumpEventQueue();
+    harness.server.finishSlowTool.complete();
+    harness.server.finishOtherSlowTool.complete();
+    await pumpEventQueue();
 
-      expect(harness.progressFrames, hasLength(1));
+    var logs = harness.frames.where(
+      (frame) => frame['method'] == LoggingMessageNotification.methodName,
+    );
+    expect(logs, hasLength(1));
+    expect(
+      logs.map((frame) => (frame['params'] as Map<String, Object?>)['data']),
+      ['other completed'],
+    );
+    expect(harness.framesWithId(1), isEmpty);
+    expect(harness.framesWithId(2), hasLength(1));
+    expect(
+      harness.frames.where(
+        (frame) => frame['method'] == PingRequest.methodName,
+      ),
+      isEmpty,
+    );
 
-      harness.server.finishSlowTool.complete();
-      await pumpEventQueue();
+    harness.server.finishLateLogs.complete();
+    await pumpEventQueue();
+    logs = harness.frames.where(
+      (frame) => frame['method'] == LoggingMessageNotification.methodName,
+    );
+    expect(logs, hasLength(2));
+    expect(
+      logs.map((frame) => (frame['params'] as Map<String, Object?>)['data']),
+      ['other completed', 'other completed after response'],
+    );
 
-      // Only the request that was not cancelled is answered.
-      expect(harness.framesWithId(1), isEmpty);
-      expect(harness.framesWithId(2), hasLength(1));
-    },
-  );
+    final ping = harness.server.sendRequest<EmptyResult>(
+      PingRequest.methodName,
+    );
+    await pumpEventQueue();
+    final sentPing = harness.frames.singleWhere(
+      (frame) => frame['method'] == PingRequest.methodName,
+    );
+    harness.send({
+      'jsonrpc': '2.0',
+      'id': sentPing['id'],
+      'result': EmptyResult() as Map<String, Object?>,
+    });
+    expect(await ping, isA<EmptyResult>());
+  });
 
-  test('an evicted token lets progress through again', () async {
-    // One retained token, so the second cancellation evicts the first one.
+  test('zero retained cancellations closes on the first live one', () async {
+    final harness = _Harness(maxRetainedCancellations: 0);
+    await harness.initialize();
+
+    harness.sendSlowRequest(1, 't1');
+    await harness.server.slowToolCalled.future;
+    harness.cancel(1);
+    await harness.server.done;
+
+    expect(harness.framesWithId(1), isEmpty);
+  });
+
+  test('one retained cancellation can be reused after its response', () async {
     final harness = _Harness(maxRetainedCancellations: 1);
     await harness.initialize();
 
     await harness.cancelGated(1, 't1');
     await harness.cancelGated(2, 't2');
+    expect(harness.server.isActive, isTrue);
+  });
 
+  test('a repeated cancellation does not consume another slot', () async {
+    final harness = _Harness(maxRetainedCancellations: 1);
+    await harness.initialize();
+
+    harness.sendSlowRequest(1, 't1');
+    await harness.server.slowToolCalled.future;
+    harness.cancel(1);
+    harness.cancel(1);
+    await pumpEventQueue();
+
+    expect(harness.server.isActive, isTrue);
+    harness.server.finishSlowTool.complete();
+    await pumpEventQueue();
+    expect(harness.framesWithId(1), isEmpty);
+  });
+
+  test('the bound closes instead of forgetting a live cancellation', () async {
+    final harness = _Harness(maxRetainedCancellations: 1);
+    await harness.initialize();
+
+    harness.sendSlowRequest(1, 't1');
+    harness.sendOtherSlowRequest(2, 't2');
+    await Future.wait([
+      harness.server.slowToolCalled.future,
+      harness.server.otherSlowToolCalled.future,
+    ]);
+    harness.cancel(1);
+    await pumpEventQueue();
+    expect(harness.server.isActive, isTrue);
+
+    harness.cancel(2);
+    await harness.server.done;
     harness.server.notifyProgress(
       ProgressNotification(progressToken: ProgressToken('t1'), progress: 1),
     );
     harness.server.notifyProgress(
-      ProgressNotification(progressToken: ProgressToken('t2'), progress: 2),
+      ProgressNotification(progressToken: ProgressToken('t2'), progress: 1),
     );
     await pumpEventQueue();
 
-    // The bound is what the connection forgets, so the evicted token is no
-    // longer suppressed and the retained one still is.
-    expect(harness.progressFrames, hasLength(1));
-    expect(_progressTokenOf(harness.progressFrames.single), 't1');
+    expect(harness.framesWithId(1), isEmpty);
+    expect(harness.framesWithId(2), isEmpty);
+    expect(harness.progressFrames, isEmpty);
   });
 
-  test('a cancellation re-touches a retained token', () async {
-    // Two retained tokens, and four cancellations over three tokens, so which
-    // token survives says where a repeat lands in the eviction order.
-    final harness = _Harness(maxRetainedCancellations: 2);
+  test('overflow suppresses subscription shutdown responses', () async {
+    final harness = _SubscriptionHarness(maxRetainedCancellations: 1);
     await harness.initialize();
 
-    await harness.cancelGated(1, 't1');
-    await harness.cancelGated(2, 't2');
-    await harness.cancelGated(3, 't1');
-    await harness.cancelGated(4, 't3');
+    harness.listen(1);
+    await pumpEventQueue();
+    harness.listen(2);
+    await pumpEventQueue();
+    expect(harness.acknowledgements, hasLength(2));
 
-    for (final token in ['t1', 't2', 't3']) {
-      harness.server.notifyProgress(
-        ProgressNotification(progressToken: ProgressToken(token), progress: 1),
-      );
-    }
+    harness.cancel(1);
+    await pumpEventQueue();
+    expect(harness.server.isActive, isTrue);
+    harness.cancel(2);
+    await harness.server.done;
     await pumpEventQueue();
 
-    // `t1` was cancelled again after `t2`, so `t2` is the oldest and the one
-    // the fourth cancellation evicts.
-    expect(harness.progressFrames, hasLength(1));
-    expect(_progressTokenOf(harness.progressFrames.single), 't2');
+    expect(harness.framesWithId(1), isEmpty);
+    expect(harness.framesWithId(2), isEmpty);
   });
-}
 
-/// The progress token [frame] carries, for a progress notification frame.
-Object? _progressTokenOf(Map<String, Object?> frame) =>
-    (frame['params'] as Map<String, Object?>?)?['progressToken'];
+  test('a later listen keeps persistent resource updates active', () async {
+    final harness = _SubscriptionHarness(maxRetainedCancellations: 2);
+    await harness.initialize();
 
-/// A client on a raw JSON-RPC channel, built the way an embedder builds one,
-/// so a test can assert on the frames that do and do not reach the server.
-class _ClientHarness {
-  final _toClient = StreamController<Map<String, Object?>>();
-  final _fromClient = StreamController<Map<String, Object?>>();
-
-  /// Every frame the client has written.
-  final frames = <Map<String, Object?>>[];
-
-  late final _CancellationTestClient client;
-
-  /// The connection [client] opened, which is what the server talks to.
-  late final ServerConnection connection;
-
-  _ClientHarness({required int maxRetainedCancellations}) {
-    _fromClient.stream.listen(frames.add);
-    client = _CancellationTestClient(
-      maxRetainedCancellations: maxRetainedCancellations,
-    );
-    connection = client.connectServer(
-      StreamChannel<Map<String, Object?>>.withCloseGuarantee(
-        _toClient.stream,
-        _fromClient.sink,
+    harness.listen(
+      1,
+      notifications: SubscriptionFilter(
+        resourceSubscriptions: [_SubscriptionHarness.resource.uri],
       ),
     );
+    await pumpEventQueue();
+    harness.cancel(1);
+    await pumpEventQueue();
+
+    harness.listen(
+      2,
+      notifications: SubscriptionFilter(
+        resourceSubscriptions: [_SubscriptionHarness.resource.uri],
+      ),
+    );
+    await pumpEventQueue();
+    expect(harness.acknowledgements, hasLength(2));
+
+    harness.updateResource();
+    await pumpEventQueue();
+    expect(harness.resourceUpdates, hasLength(1));
+  });
+
+  test('negative retained cancellation bounds fail construction', () async {
+    final toServer = StreamController<Map<String, Object?>>.broadcast();
+    final fromServer = StreamController<Map<String, Object?>>.broadcast();
     addTearDown(() async {
-      if (!client.finishListRoots.isCompleted) {
-        client.finishListRoots.complete();
-      }
-      await client.shutdown();
+      await toServer.close();
+      await fromServer.close();
     });
-  }
+    final channel = StreamChannel<Map<String, Object?>>.withCloseGuarantee(
+      toServer.stream,
+      fromServer.sink,
+    );
 
-  /// Writes [frame] to the client as a server would.
-  void send(Map<String, Object?> frame) => _toClient.add(frame);
-
-  /// The response frames the client wrote for the request [id].
-  Iterable<Map<String, Object?>> framesWithId(Object id) =>
-      frames.where((frame) => frame['id'] == id);
-
-  /// The progress notifications the client wrote.
-  Iterable<Map<String, Object?>> get progressFrames => frames.where(
-    (frame) => frame['method'] == ProgressNotification.methodName,
-  );
-
-  /// Sends the client a `roots/list` request as [id] under [token], cancels it
-  /// while its handler is running, and releases the handler.
-  ///
-  /// A client answering a server's request is the role that reaches
-  /// [MCPClient.connectServer], so this fills the retention bound that call
-  /// passed on.
-  Future<void> cancelListRoots(Object id, String token) async {
-    client.listRootsCalled = Completer<void>();
-    final release = client.finishListRoots = Completer<void>();
-    send({
-      'jsonrpc': '2.0',
-      'id': id,
-      'method': ListRootsRequest.methodName,
-      'params': <String, Object?>{
-        '_meta': <String, Object?>{'progressToken': token},
-      },
-    });
-    await client.listRootsCalled.future;
-    send({
-      'jsonrpc': '2.0',
-      'method': CancelledNotification.methodName,
-      'params':
-          CancelledNotification(requestId: RequestId(id))
-              as Map<String, Object?>,
-    });
-    await pumpEventQueue();
-    release.complete();
-    await pumpEventQueue();
-    expect(framesWithId(id), isEmpty);
-  }
-}
-
-/// A client whose `roots/list` handler the test releases by hand.
-final class _CancellationTestClient extends MCPClient with RootsSupport {
-  _CancellationTestClient({required super.maxRetainedCancellations})
-    : super(Implementation(name: 'cancellation test client', version: '1.0.0'));
-
-  /// Completes when the roots handler has started.
-  ///
-  /// Replaced by [_ClientHarness.cancelListRoots] before each request it
-  /// drives.
-  Completer<void> listRootsCalled = Completer<void>();
-
-  /// Completed by the test to let the roots handler return.
-  Completer<void> finishListRoots = Completer<void>();
-
-  @override
-  Future<ListRootsResult> handleListRoots([ListRootsRequest? request]) async {
-    if (!listRootsCalled.isCompleted) listRootsCalled.complete();
-    await finishListRoots.future;
-    return super.handleListRoots(request);
-  }
+    expect(
+      () => _CancellationTestServer(channel, maxRetainedCancellations: -1),
+      throwsRangeError,
+    );
+  });
 }
 
 /// A server on a raw JSON-RPC channel, so a test can assert on the frames
@@ -603,15 +631,51 @@ class _Harness {
       if (!server.finishGatedTool.isCompleted) {
         server.finishGatedTool.complete();
       }
+      if (!server.finishLateLogs.isCompleted) server.finishLateLogs.complete();
       await server.shutdown();
+    });
+  }
+
+  /// Sends a request to the slow tool under [token].
+  void sendSlowRequest(Object id, String token) =>
+      _sendToolRequest(id, slowToolName, token);
+
+  /// Sends a request to the other slow tool under [token].
+  void sendOtherSlowRequest(Object id, String token) =>
+      _sendToolRequest(id, otherSlowToolName, token);
+
+  /// Sends a tool request with [id], [name], and [token].
+  void _sendToolRequest(Object id, String name, String token) {
+    send({
+      'jsonrpc': '2.0',
+      'id': id,
+      'method': CallToolRequest.methodName,
+      'params':
+          CallToolRequest(
+                name: name,
+                meta: MetaWithProgressToken(
+                  progressToken: ProgressToken(token),
+                ),
+              )
+              as Map<String, Object?>,
+    });
+  }
+
+  /// Cancels request [id].
+  void cancel(Object id) {
+    send({
+      'jsonrpc': '2.0',
+      'method': CancelledNotification.methodName,
+      'params':
+          CancelledNotification(requestId: RequestId(id))
+              as Map<String, Object?>,
     });
   }
 
   /// Calls the gated tool as request [id] under [token], cancels it while its
   /// handler is running, and releases the handler.
   ///
-  /// The dropped response is what makes the connection retain [token], so
-  /// this is one step of filling the retention bound.
+  /// The response is observed before the next call, releasing the bound slot.
   Future<void> cancelGated(Object id, String token) async {
     server.gatedToolCalled = Completer<void>();
     final release = server.finishGatedTool = Completer<void>();
@@ -679,7 +743,8 @@ class _Harness {
 }
 
 /// A server with one tool whose handler the test releases by hand.
-final class _CancellationTestServer extends MCPServer with ToolsSupport {
+final class _CancellationTestServer extends MCPServer
+    with ToolsSupport, LoggingSupport {
   _CancellationTestServer(super.channel, {super.maxRetainedCancellations})
     : super.fromStreamChannel(
         implementation: Implementation(
@@ -712,6 +777,15 @@ final class _CancellationTestServer extends MCPServer with ToolsSupport {
   /// Completed by the test to let the gated tool's current call return.
   Completer<void> finishGatedTool = Completer<void>();
 
+  /// Whether the slow handlers log after their manually controlled wait.
+  bool logAfterTool = false;
+
+  /// Whether the slow handler starts an outgoing request after its wait.
+  bool requestAfterSlowTool = false;
+
+  /// Completed after the test has observed the handlers' responses.
+  final finishLateLogs = Completer<void>();
+
   @override
   FutureOr<void> initialize(MCPServerInitialization initialization) {
     registerTool(
@@ -719,6 +793,18 @@ final class _CancellationTestServer extends MCPServer with ToolsSupport {
       (_) async {
         if (!slowToolCalled.isCompleted) slowToolCalled.complete();
         await finishSlowTool.future;
+        if (logAfterTool) log(LoggingLevel.error, 'slow completed');
+        if (logAfterTool) {
+          unawaited(
+            (() async {
+              await finishLateLogs.future;
+              log(LoggingLevel.error, 'slow completed after response');
+            })(),
+          );
+        }
+        if (requestAfterSlowTool) {
+          await sendRequest<EmptyResult>(PingRequest.methodName);
+        }
         return CallToolResult(content: []);
       },
     );
@@ -727,6 +813,15 @@ final class _CancellationTestServer extends MCPServer with ToolsSupport {
       (_) async {
         if (!otherSlowToolCalled.isCompleted) otherSlowToolCalled.complete();
         await finishOtherSlowTool.future;
+        if (logAfterTool) log(LoggingLevel.error, 'other completed');
+        if (logAfterTool) {
+          unawaited(
+            (() async {
+              await finishLateLogs.future;
+              log(LoggingLevel.error, 'other completed after response');
+            })(),
+          );
+        }
         return CallToolResult(content: []);
       },
     );
@@ -740,4 +835,87 @@ final class _CancellationTestServer extends MCPServer with ToolsSupport {
     );
     return super.initialize(initialization);
   }
+}
+
+/// A server whose open listen requests expose shutdown response races.
+final class _CancellationSubscriptionServer extends MCPServer
+    with ResourcesSupport, SubscriptionsSupport {
+  _CancellationSubscriptionServer(
+    super.channel, {
+    required super.maxRetainedCancellations,
+  }) : super.fromStreamChannel(
+         implementation: Implementation(
+           name: 'cancellation subscription server',
+           version: '1.0.0',
+         ),
+       );
+}
+
+/// A raw channel around [_CancellationSubscriptionServer].
+final class _SubscriptionHarness {
+  static final resource = Resource(name: 'watched', uri: 'file:///watched');
+
+  final _toServer = StreamController<Map<String, Object?>>();
+  final _fromServer = StreamController<Map<String, Object?>>();
+  final frames = <Map<String, Object?>>[];
+  late final _CancellationSubscriptionServer server;
+
+  _SubscriptionHarness({required int maxRetainedCancellations}) {
+    _fromServer.stream.listen(frames.add);
+    server = _CancellationSubscriptionServer(
+      StreamChannel<Map<String, Object?>>.withCloseGuarantee(
+        _toServer.stream,
+        _fromServer.sink,
+      ),
+      maxRetainedCancellations: maxRetainedCancellations,
+    );
+    addTearDown(server.shutdown);
+  }
+
+  Iterable<Map<String, Object?>> get acknowledgements => frames.where(
+    (frame) =>
+        frame['method'] == SubscriptionsAcknowledgedNotification.methodName,
+  );
+
+  Iterable<Map<String, Object?>> framesWithId(Object id) =>
+      frames.where((frame) => frame['id'] == id);
+
+  Iterable<Map<String, Object?>> get resourceUpdates => frames.where(
+    (frame) => frame['method'] == ResourceUpdatedNotification.methodName,
+  );
+
+  Future<void> initialize() async {
+    server.addResource(resource, (_) => ReadResourceResult(contents: const []));
+    await server.initialize(
+      MCPServerInitialization(
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      ),
+    );
+    server.handleInitialized();
+  }
+
+  void listen(int id, {SubscriptionFilter? notifications}) {
+    server.nextSubscriptionId = RequestId(id);
+    _toServer.add({
+      'jsonrpc': '2.0',
+      'id': id,
+      'method': SubscriptionsListenRequest.methodName,
+      'params':
+          SubscriptionsListenRequest(
+                notifications:
+                    notifications ?? SubscriptionFilter(toolsListChanged: true),
+              )
+              as Map<String, Object?>,
+    });
+  }
+
+  void cancel(int id) => _toServer.add({
+    'jsonrpc': '2.0',
+    'method': CancelledNotification.methodName,
+    'params':
+        CancelledNotification(requestId: RequestId(id)) as Map<String, Object?>,
+  });
+
+  void updateResource() => server.updateResource(resource);
 }

@@ -76,14 +76,16 @@ base mixin ResourcesSupport on MCPServer {
     (capabilities.resources ??= Resources())
       ..listChanged = true
       ..subscribe = true;
-    _resourceListChangedController.stream
-        .throttle(resourceUpdateThrottleDelay, trailing: true)
-        .listen(
-          (_) => sendNotification(
-            ResourceListChangedNotification.methodName,
-            ResourceListChangedNotification(),
+    runOutsideRequest(
+      () => _resourceListChangedController.stream
+          .throttle(resourceUpdateThrottleDelay, trailing: true)
+          .listen(
+            (_) => sendNotification(
+              ResourceListChangedNotification.methodName,
+              ResourceListChangedNotification(),
+            ),
           ),
-        );
+    );
   }
 
   @override
@@ -250,16 +252,18 @@ base mixin ResourcesSupport on MCPServer {
   void _sendUpdatesFor(String uri) {
     _subscribedResources.putIfAbsent(
       uri,
-      () =>
-          StreamController<ResourceUpdatedNotification>()
-            ..stream
-                .throttle(resourceUpdateThrottleDelay, trailing: true)
-                .listen((notification) {
-                  sendNotification(
-                    ResourceUpdatedNotification.methodName,
-                    notification,
-                  );
-                }),
+      () => runOutsideRequest(() {
+        final controller = StreamController<ResourceUpdatedNotification>();
+        controller.stream
+            .throttle(resourceUpdateThrottleDelay, trailing: true)
+            .listen((notification) {
+              sendNotification(
+                ResourceUpdatedNotification.methodName,
+                notification,
+              );
+            });
+        return controller;
+      }),
     );
   }
 

@@ -15,23 +15,15 @@
 - Let `handleRequestScopedMessage` route server-to-client requests through an
   `onRequest` callback on revisions before 2026-07-28. Missing callbacks and
   invalid callback responses fail the server request without leaving it open.
-- Honour `notifications/cancelled`. A cancelled request gets no response and
-  no further `notifications/progress` under its token, the two kinds of
-  message this package sends for a request. The handler keeps running, so
-  anything else it sends still goes out: stopping it needs a request ID a
-  handler can see, which `MCPBase` does not have yet.
-  `MCPBase.cancellations` reports every cancellation the peer sends, so a
-  subclass can log the reason. One naming a request this side is not
-  answering is reported too, since the ID may name a request this side sent,
-  such as the `subscriptions/listen` request a server cancels when it tears
-  that stream down; what an unknown ID does not do is produce an error
-  response or change what goes on the wire. A cancelled request's progress
-  token keeps progress off the wire after its response was dropped; the new
-  `maxRetainedCancellations` parameter on `MCPBase`,
-  `MCPServer.fromStreamChannel`, `ServerConnection.fromStreamChannel` and the
-  `MCPClient` constructor bounds how many such tokens one connection
-  remembers, and a connection cancelled more times than that may send
-  progress carrying the oldest of them.
+- Honour `notifications/cancelled`. A cancelled request sends no further
+  messages. Progress sent before its request starts, after its response, or
+  after cancellation is dropped. The handler keeps running because it still
+  cannot see its request ID. `MCPBase.cancellations` reports valid
+  notifications so subclasses can log their reasons.
+  On servers, `maxRetainedCancellations` bounds cancelled requests whose
+  responses have not arrived. Exceeding the bound closes the connection
+  instead of forgetting a cancellation; zero closes on the first live
+  cancellation.
 - **BREAKING**:
   - `MCPBase` (including the `MCPServer.fromStreamChannel` and
     `ServerConnection.fromStreamChannel` constructors),
@@ -285,9 +277,9 @@
   which have them.
 - Serve `subscriptions/listen` from `SubscriptionsSupport`, which
   acknowledges the filter the server can honor, stamps the subscription
-  ID, and holds the request until shutdown, see
+  id, and holds the request until shutdown, see
   https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/subscriptions.
-  - A handler cannot read the JSON-RPC ID of the request it answers, so a
+  - A handler cannot read the JSON-RPC id of the request it answers, so a
     transport names the subscription by setting
     `SubscriptionsSupport.nextSubscriptionId` before delivering it.
     `handleRequestScopedMessage` does. A request arriving without one is
@@ -297,7 +289,7 @@
     the response ends the subscription without a final result. An
     acknowledgement whose params are not a JSON object is answered with an
     error rather than dropped.
-  - The dispatcher still fills the request ID into the acknowledgement and
+  - The dispatcher still fills the request id into the acknowledgement and
     the result under `io.modelcontextprotocol/subscriptionId` when a
     handler leaves it out. The factories for those two types now take a
     required `MetaWithSubscriptionId` through the new `WithSubscriptionId`
@@ -332,10 +324,10 @@
 - Stop `BaseMetadata`, `MetaWithProgressToken`, `CompletionContext`,
   `PromptReference` and `ElicitResult` from writing an explicit `null` for an
   optional field that was not given. The schema types all five as non-nullable.
-- Fix `RequestId` so it can hold a JSON-RPC ID. Its representation type was
+- Fix `RequestId` so it can hold a JSON-RPC id. Its representation type was
   `json_rpc_2`'s `Parameter` rather than `Object`, which its sibling
   `ProgressToken` uses, so `CancelledNotification.requestId` threw for every
-  ID a peer can send and no ID could be constructed to pass to the
+  id a peer can send and no id could be constructed to pass to the
   `CancelledNotification` factory.
 - Add `ProtocolVersion.v2026_07_28`. `ProtocolVersion.latestSupported` still
   points at 2025-11-25, the newest version the legacy `initialize` handshake
@@ -363,10 +355,10 @@
 - Add `streamableHttpClientChannel`, posting each client message as a
   Streamable HTTP request and emitting JSON or SSE responses on the channel.
   The helper speaks only 2026-07-28 and does not negotiate a version.
-  - A failed POST is an error for that request ID, or an error on the channel
+  - A failed POST is an error for that request id, or an error on the channel
     when it carried a notification. A response stream that ends without
     answering counts the same way, and so does a notification answered with a
-    body or a JSON reply whose ID does not match the request's.
+    body or a JSON reply whose id does not match the request's.
   - Valid `x-mcp-header` annotations from `tools/list` are mirrored on later
     `tools/call` requests, including an integer written as a decimal. A value
     the tool cannot carry fails the request instead of going out without its

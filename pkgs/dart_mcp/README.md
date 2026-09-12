@@ -117,7 +117,7 @@ Both the `MCPServer` and `MCPClient` support these.
 | Utility | Support | Notes |
 | --- | --- | --- |
 | [Ping](https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/ping) | :heavy_check_mark: |  |
-| [Cancellation](https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/cancellation/) | :construction: | The receiving half: a cancelled request's response and the `notifications/progress` carrying its token stay off the wire, and `MCPBase.cancellations` reports what the peer cancelled. The request's handler is not stopped, and neither role sends a cancellation, so a client cannot cancel a request it made. https://github.com/dart-lang/ai/issues/37 |
+| [Cancellation](https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/cancellation/) | :construction: | The receiving half: a cancelled incoming request sends no further messages and progress is limited to an active request. The handler is not stopped, and neither role sends a cancellation, so a client cannot cancel a request it made. https://github.com/dart-lang/ai/issues/37 |
 | [Progress](https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/) | :heavy_check_mark: |  |
 
 ## Transport Mechanisms
