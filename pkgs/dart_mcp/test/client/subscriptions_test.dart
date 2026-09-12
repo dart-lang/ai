@@ -139,6 +139,9 @@ final class _InspectingServerConnection extends ServerConnection {
 
   void sendPingWithId() =>
       sendRequestWithId<EmptyResult>(PingRequest.methodName);
+
+  Future<EmptyResult> sendPendingPing() =>
+      sendRequest<EmptyResult>(PingRequest.methodName);
 }
 
 void main() {
@@ -365,11 +368,21 @@ void main() {
     final controller = StreamChannelController<Map<String, Object?>>(
       sync: true,
     );
-    final message = controller.local.stream.first;
+    final messages = controller.local.stream.take(2).toList();
     final connection = _InspectingServerConnection(
       _IgnoringSinkTransformsChannel(controller.foreign),
     );
     addTearDown(connection.shutdown);
+    final pendingRequest = expectLater(
+      connection.sendPendingPing(),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          'The client closed with pending request "ping".',
+        ),
+      ),
+    );
 
     expect(
       connection.sendPingWithId,
@@ -382,7 +395,11 @@ void main() {
       ),
     );
 
-    expect((await message)[Keys.method], PingRequest.methodName);
+    await pendingRequest;
+    expect(
+      (await messages).map((message) => message[Keys.method]),
+      everyElement(PingRequest.methodName),
+    );
     await connection.done.timeout(const Duration(seconds: 5));
     expect(connection.isActive, isFalse);
   });
