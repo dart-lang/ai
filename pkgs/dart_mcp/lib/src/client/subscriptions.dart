@@ -23,7 +23,7 @@ final class Subscription {
     Future<SubscriptionsListenResult> result,
     this._requestSent,
   ) {
-    _requestSent.then<void>((_) {}, onError: _finishWithError).ignore();
+    _requestSent.then<void>((_) {}, onError: _finishSendFailure).ignore();
     result.then<void>((_) => _finish(), onError: _finishWithError).ignore();
     // A failure reaches all three of [done], [acknowledged] and
     // [notifications], and wanting one must not raise out of the other two.
@@ -96,7 +96,7 @@ final class Subscription {
     try {
       await _requestSent;
       await _connection._cancelSubscription(id);
-    } catch (error, stackTrace) {
+    } on Object catch (error, stackTrace) {
       await _finish(error: error, stackTrace: stackTrace);
       rethrow;
     }
@@ -130,4 +130,10 @@ final class Subscription {
   /// it.
   Future<void> _finishWithError(Object error, StackTrace stackTrace) =>
       _finish(error: error, stackTrace: stackTrace);
+
+  Future<void> _finishSendFailure(Object error, StackTrace stackTrace) {
+    final finished = _finishWithError(error, stackTrace);
+    completeRequestLocally(_connection, id);
+    return finished;
+  }
 }
