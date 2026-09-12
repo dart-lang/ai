@@ -25,13 +25,10 @@ base class _SubscribingServer extends MCPServer
       );
 }
 
-/// A server whose acknowledgements are missing a field the client reads them
-/// by, the shapes the schema leaves room for.
+/// A server whose acknowledgements omit fields the client reads.
 ///
-/// `notifications` is the only required param on the acknowledgement and
-/// `_meta` is not required at all, so a client cannot assume either is there.
-/// The subscription is held open until [shutdown] the way
-/// [SubscriptionsSupport] holds a well-formed one.
+/// The schema permits missing `_meta` and requires only `notifications`, so
+/// the test holds an otherwise valid subscription open until [shutdown].
 base class _MalformedAckServer extends MCPServer with SubscriptionsSupport {
   _MalformedAckServer(super.channel)
     : super.fromStreamChannel(
