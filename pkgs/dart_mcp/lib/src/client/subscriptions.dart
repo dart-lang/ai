@@ -43,7 +43,7 @@ final class Subscription {
   /// The connection this subscription reads its notifications from.
   final ServerConnection _connection;
 
-  /// The JSON-RPC id of the `subscriptions/listen` request that opened this
+  /// The JSON-RPC ID of the `subscriptions/listen` request that opened this
   /// subscription.
   ///
   /// Every message the server sends on the stream carries it under the

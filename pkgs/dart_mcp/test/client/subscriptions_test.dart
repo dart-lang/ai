@@ -119,7 +119,7 @@ void main() {
   /// Opens a subscription for [notifications] and names it on the server the
   /// way a transport serving this method does.
   ///
-  /// `listen` returns before the request reaches the server, so the id it went
+  /// `listen` returns before the request reaches the server, so the ID it went
   /// out under is there to name the subscription by.
   Subscription listen([SubscriptionFilter? notifications]) {
     final subscription = environment.serverConnection.listen(
@@ -139,7 +139,7 @@ void main() {
         ),
       );
 
-  /// The subscription id on [notification], read off its raw metadata.
+  /// The subscription ID on [notification], read off its raw metadata.
   Object? subscriptionIdOf(Notification notification) {
     final meta = (notification as Map<String, Object?>)[Keys.meta];
     return (meta as Map<String, Object?>)[Keys.subscriptionIdMeta];
@@ -222,7 +222,7 @@ void main() {
     },
   );
 
-  test('drops a notification which carries no subscription id', () async {
+  test('drops a notification which carries no subscription ID', () async {
     final subscription = listen();
     final events = <Notification>[];
     final listener = subscription.notifications.listen(events.add);

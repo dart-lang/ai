@@ -13,9 +13,9 @@
   2026-07-28. An unsettled connection still gets it.
 - Add a client fixture for the MCP conformance suite under `tool/`.
 - Add `ServerConnection.listen`, which opens a `subscriptions/listen`
-  stream and returns a `Subscription` reporting the JSON-RPC id it was
+  stream and returns a `Subscription` reporting the JSON-RPC ID it was
   named by, the filter the server acknowledged, the notifications carrying
-  that id, and the result the server ends the subscription with.
+  that ID, and the result the server ends the subscription with.
 - Let `handleRequestScopedMessage` route server-to-client requests through an
   `onRequest` callback on revisions before 2026-07-28. Missing callbacks and
   invalid callback responses fail the server request without leaving it open.
@@ -267,9 +267,9 @@
   which have them.
 - Serve `subscriptions/listen` from `SubscriptionsSupport`, which
   acknowledges the filter the server can honor, stamps the subscription
-  id, and holds the request until shutdown, see
+  ID, and holds the request until shutdown, see
   https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/subscriptions.
-  - A handler cannot read the JSON-RPC id of the request it answers, so a
+  - A handler cannot read the JSON-RPC ID of the request it answers, so a
     transport names the subscription by setting
     `SubscriptionsSupport.nextSubscriptionId` before delivering it.
     `handleRequestScopedMessage` does. A request arriving without one is
@@ -279,7 +279,7 @@
     the response ends the subscription without a final result. An
     acknowledgement whose params are not a JSON object is answered with an
     error rather than dropped.
-  - The dispatcher still fills the request id into the acknowledgement and
+  - The dispatcher still fills the request ID into the acknowledgement and
     the result under `io.modelcontextprotocol/subscriptionId` when a
     handler leaves it out. The factories for those two types now take a
     required `MetaWithSubscriptionId` through the new `WithSubscriptionId`
@@ -314,10 +314,10 @@
 - Stop `BaseMetadata`, `MetaWithProgressToken`, `CompletionContext`,
   `PromptReference` and `ElicitResult` from writing an explicit `null` for an
   optional field that was not given. The schema types all five as non-nullable.
-- Fix `RequestId` so it can hold a JSON-RPC id. Its representation type was
+- Fix `RequestId` so it can hold a JSON-RPC ID. Its representation type was
   `json_rpc_2`'s `Parameter` rather than `Object`, which its sibling
   `ProgressToken` uses, so `CancelledNotification.requestId` threw for every
-  id a peer can send and no id could be constructed to pass to the
+  ID a peer can send and no ID could be constructed to pass to the
   `CancelledNotification` factory.
 - Add `ProtocolVersion.v2026_07_28`. `ProtocolVersion.latestSupported` still
   points at 2025-11-25, the newest version the legacy `initialize` handshake
@@ -344,10 +344,10 @@
 - Add `streamableHttpClientChannel`, posting each client message as a
   Streamable HTTP request and emitting JSON or SSE responses on the channel.
   The helper speaks only 2026-07-28 and does not negotiate a version.
-  - A failed POST is an error for that request id, or an error on the channel
+  - A failed POST is an error for that request ID, or an error on the channel
     when it carried a notification. A response stream that ends without
     answering counts the same way, and so does a notification answered with a
-    body or a JSON reply whose id does not match the request's.
+    body or a JSON reply whose ID does not match the request's.
   - Valid `x-mcp-header` annotations from `tools/list` are mirrored on later
     `tools/call` requests, including an integer written as a decimal. A value
     the tool cannot carry fails the request instead of going out without its

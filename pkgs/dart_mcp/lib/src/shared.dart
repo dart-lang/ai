@@ -38,7 +38,7 @@ base class MCPBase {
   final _progressControllers =
       <ProgressToken, StreamController<ProgressNotification>>{};
 
-  /// The JSON-RPC id of the last request this side wrote to the channel, or
+  /// The JSON-RPC ID of the last request this side wrote to the channel, or
   /// `null` once [sendRequestWithId] has taken it.
   Object? _lastSentRequestId;
 
@@ -136,18 +136,18 @@ base class MCPBase {
     }
   }
 
-  /// Sends [request] to the peer and reports the JSON-RPC id it went out
+  /// Sends [request] to the peer and reports the JSON-RPC ID it went out
   /// under, alongside the future for its response.
   ///
-  /// Throws a [StateError] if the request went out without a recorded id.
+  /// Throws a [StateError] if the request went out without a recorded ID.
   @protected
   ({RequestId id, Future<T> result}) sendRequestWithId<T extends Result?>(
     String methodName, [
     Request? request,
   ]) {
     _lastSentRequestId = null;
-    // `Peer.sendRequest` writes the encoded request, id and all, to the sink
-    // before it returns, so the recorded id belongs to this request.
+    // `Peer.sendRequest` writes the encoded request, ID and all, to the sink
+    // before it returns, so the recorded ID belongs to this request.
     final result = _peer.sendRequest(methodName, request);
     final id = _lastSentRequestId;
     _lastSentRequestId = null;
@@ -239,7 +239,7 @@ base class MCPBase {
     request,
   ).then((_) => true).timeout(timeout, onTimeout: () => false);
 
-  /// Records the JSON-RPC id of each request written to [channel] in
+  /// Records the JSON-RPC ID of each request written to [channel] in
   /// [_lastSentRequestId].
   ///
   /// A message with both a `method` and an `id` is a request.
