@@ -10,6 +10,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:dart_mcp/client.dart' show SubscriptionNotification;
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp/src/utils/constants.dart';
 import 'package:dart_mcp/src/utils/streamable_http.dart';
@@ -2778,7 +2779,7 @@ void main() {
             capabilities: client.capabilities,
           ),
         );
-        final firstChanges = <Notification>[];
+        final firstChanges = <SubscriptionNotification>[];
         final firstListener = first.notifications.listen(firstChanges.add);
         addTearDown(firstListener.cancel);
         final accepted = await first.acknowledged.timeout(
@@ -2793,7 +2794,7 @@ void main() {
             capabilities: client.capabilities,
           ),
         );
-        final secondChanges = <Notification>[];
+        final secondChanges = <SubscriptionNotification>[];
         final arrived = Completer<void>();
         final secondListener = second.notifications.listen((notification) {
           secondChanges.add(notification);
@@ -2817,7 +2818,7 @@ void main() {
 
         expect(secondChanges, hasLength(1));
         final meta =
-            (secondChanges.single as Map<String, Object?>)[Keys.meta]
+            (secondChanges.single.params as Map<String, Object?>)[Keys.meta]
                 as Map<String, Object?>;
         expect(
           meta[Keys.subscriptionIdMeta],
@@ -2875,7 +2876,7 @@ void main() {
           capabilities: client.capabilities,
         ),
       );
-      final secondChanges = <Notification>[];
+      final secondChanges = <SubscriptionNotification>[];
       final arrived = Completer<void>();
       final listener = second.notifications.listen((notification) {
         secondChanges.add(notification);

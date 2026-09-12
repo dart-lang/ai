@@ -4,6 +4,9 @@
 
 part of 'client.dart';
 
+/// A notification and the method it arrived under on a subscription.
+typedef SubscriptionNotification = ({String method, Notification params});
+
 /// One open `subscriptions/listen` stream, opened by
 /// [ServerConnection.listen].
 ///
@@ -22,14 +25,21 @@ final class Subscription {
     // The filter names four notification types and the connection already
     // routes each to a stream of its own, so this reads them from there
     // rather than registering handlers json_rpc_2 refuses as duplicates.
-    for (final stream in <Stream<Object?>>[
-      _connection.toolListChanged,
-      _connection.promptListChanged,
-      _connection.resourceListChanged,
-      _connection.resourceUpdated,
-    ]) {
-      _forwarding.add(stream.listen(_forward));
-    }
+    _forwarding.addAll([
+      _connection.toolListChanged.listen(
+        (params) => _forward(ToolListChangedNotification.methodName, params),
+      ),
+      _connection.promptListChanged.listen(
+        (params) => _forward(PromptListChangedNotification.methodName, params),
+      ),
+      _connection.resourceListChanged.listen(
+        (params) =>
+            _forward(ResourceListChangedNotification.methodName, params),
+      ),
+      _connection.resourceUpdated.listen(
+        (params) => _forward(ResourceUpdatedNotification.methodName, params),
+      ),
+    ]);
     result.then<void>((_) => _finish(), onError: _finishWithError).ignore();
     // A failure reaches all three of [done], [acknowledged] and
     // [notifications], and wanting one must not raise out of the other two.
@@ -54,7 +64,7 @@ final class Subscription {
   final _acknowledged = Completer<SubscriptionFilter>();
 
   /// Carries [notifications].
-  final _notifications = StreamController<Notification>.broadcast();
+  final _notifications = StreamController<SubscriptionNotification>.broadcast();
 
   /// The notification types the server agreed to send.
   ///
@@ -70,7 +80,7 @@ final class Subscription {
   /// [ServerConnection.toolListChanged], [ServerConnection.promptListChanged],
   /// [ServerConnection.resourceListChanged] and
   /// [ServerConnection.resourceUpdated].
-  Stream<Notification> get notifications => _notifications.stream;
+  Stream<SubscriptionNotification> get notifications => _notifications.stream;
 
   /// Completes when this subscription closes locally or remotely.
   Future<void> get done => _done.future;
@@ -87,14 +97,16 @@ final class Subscription {
     if (!_acknowledged.isCompleted) _acknowledged.complete(accepted);
   }
 
-  /// Adds [notification] to [notifications] if it carries [id].
-  void _forward(Object? notification) {
-    final fields = notification as Map<String, Object?>?;
+  /// Adds [params] under [method] if it carries [id].
+  void _forward(String method, Object? params) {
+    final fields = params as Map<String, Object?>?;
     final meta = fields?[Keys.meta];
     if (meta is! Map<String, Object?>) return;
     final sentId = meta[Keys.subscriptionIdMeta];
     if (sentId == null || RequestId(sentId) != id) return;
-    if (!_notifications.isClosed) _notifications.add(Notification(fields!));
+    if (!_notifications.isClosed) {
+      _notifications.add((method: method, params: Notification(fields!)));
+    }
   }
 
   Future<void> _close() async {

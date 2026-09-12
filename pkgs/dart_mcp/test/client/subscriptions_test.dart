@@ -145,8 +145,8 @@ void main() {
       );
 
   /// The subscription ID on [notification], read off its raw metadata.
-  Object? subscriptionIdOf(Notification notification) {
-    final meta = (notification as Map<String, Object?>)[Keys.meta];
+  Object? subscriptionIdOf(SubscriptionNotification notification) {
+    final meta = (notification.params as Map<String, Object?>)[Keys.meta];
     return (meta as Map<String, Object?>)[Keys.subscriptionIdMeta];
   }
 
@@ -221,16 +221,16 @@ void main() {
   });
 
   test(
-    'delivers only the notifications carrying this subscription id',
+    'delivers only the notifications carrying this subscription ID',
     () async {
       final first = listen();
-      final firstEvents = <Notification>[];
+      final firstEvents = <SubscriptionNotification>[];
       final firstListener = first.notifications.listen(firstEvents.add);
       addTearDown(firstListener.cancel);
       await first.acknowledged.timeout(const Duration(seconds: 5));
 
       final second = listen();
-      final secondEvents = <Notification>[];
+      final secondEvents = <SubscriptionNotification>[];
       final secondListener = second.notifications.listen(secondEvents.add);
       addTearDown(secondListener.cancel);
       await second.acknowledged.timeout(const Duration(seconds: 5));
@@ -265,9 +265,46 @@ void main() {
     },
   );
 
+  test('preserves each list change method', () async {
+    final subscription = listen(
+      SubscriptionFilter(
+        toolsListChanged: true,
+        promptsListChanged: true,
+        resourcesListChanged: true,
+      ),
+    );
+    final events = <SubscriptionNotification>[];
+    final listener = subscription.notifications.listen(events.add);
+    addTearDown(listener.cancel);
+    await subscription.acknowledged.timeout(const Duration(seconds: 5));
+    final meta = MetaWithSubscriptionId(subscriptionId: subscription.id);
+
+    environment.server
+      ..sendNotification(
+        ToolListChangedNotification.methodName,
+        ToolListChangedNotification(meta: meta),
+      )
+      ..sendNotification(
+        PromptListChangedNotification.methodName,
+        PromptListChangedNotification(meta: meta),
+      )
+      ..sendNotification(
+        ResourceListChangedNotification.methodName,
+        ResourceListChangedNotification(meta: meta),
+      );
+    await pumpEventQueue();
+
+    expect(events.map((event) => event.method), [
+      ToolListChangedNotification.methodName,
+      PromptListChangedNotification.methodName,
+      ResourceListChangedNotification.methodName,
+    ]);
+    expect(events.map(subscriptionIdOf), everyElement(subscription.id));
+  });
+
   test('drops a notification which carries no subscription ID', () async {
     final subscription = listen();
-    final events = <Notification>[];
+    final events = <SubscriptionNotification>[];
     final listener = subscription.notifications.listen(events.add);
     addTearDown(listener.cancel);
     await subscription.acknowledged.timeout(const Duration(seconds: 5));
