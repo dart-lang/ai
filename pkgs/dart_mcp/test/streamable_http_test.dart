@@ -2773,6 +2773,10 @@ void main() {
 
         final first = connection.listen(
           SubscriptionFilter(toolsListChanged: true),
+          meta: MetaWithRequestEnvelope(
+            protocolVersion: ProtocolVersion.v2026_07_28,
+            capabilities: client.capabilities,
+          ),
         );
         final firstChanges = <Notification>[];
         final firstListener = first.notifications.listen(firstChanges.add);
@@ -2784,6 +2788,10 @@ void main() {
 
         final second = connection.listen(
           SubscriptionFilter(toolsListChanged: true),
+          meta: MetaWithRequestEnvelope(
+            protocolVersion: ProtocolVersion.v2026_07_28,
+            capabilities: client.capabilities,
+          ),
         );
         final secondChanges = <Notification>[];
         final arrived = Completer<void>();
@@ -2854,10 +2862,18 @@ void main() {
       );
       final first = connection.listen(
         SubscriptionFilter(toolsListChanged: true),
+        meta: MetaWithRequestEnvelope(
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          capabilities: client.capabilities,
+        ),
       );
       await first.acknowledged.timeout(const Duration(seconds: 5));
       final second = connection.listen(
         SubscriptionFilter(toolsListChanged: true),
+        meta: MetaWithRequestEnvelope(
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          capabilities: client.capabilities,
+        ),
       );
       final secondChanges = <Notification>[];
       final arrived = Completer<void>();
@@ -2887,6 +2903,10 @@ void main() {
 
       final early = connection.listen(
         SubscriptionFilter(toolsListChanged: true),
+        meta: MetaWithRequestEnvelope(
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          capabilities: client.capabilities,
+        ),
       );
       await early.close().timeout(const Duration(seconds: 5));
       await early.done.timeout(const Duration(seconds: 5));

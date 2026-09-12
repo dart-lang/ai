@@ -125,6 +125,10 @@ void main() {
   Subscription listen([SubscriptionFilter? notifications]) {
     final subscription = environment.serverConnection.listen(
       notifications ?? SubscriptionFilter(toolsListChanged: true),
+      meta: MetaWithRequestEnvelope(
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        capabilities: environment.client.capabilities,
+      ),
     );
     environment.server.nextSubscriptionId = subscription.id;
     return subscription;
@@ -162,6 +166,12 @@ void main() {
         contains('"id":${subscription.id}'),
         reason: 'the handle reports the id the request was written with',
       );
+      final message =
+          jsonDecode(sent.substring(sent.indexOf('{'))) as Map<String, Object?>;
+      expect((message[Keys.params] as Map<String, Object?>)[Keys.meta], {
+        Keys.protocolVersionMeta: '2026-07-28',
+        Keys.clientCapabilitiesMeta: <String, Object?>{},
+      });
     },
   );
 
@@ -322,6 +332,10 @@ void main() {
 
     final subscription = malformed.serverConnection.listen(
       SubscriptionFilter(toolsListChanged: true),
+      meta: MetaWithRequestEnvelope(
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        capabilities: malformed.client.capabilities,
+      ),
     );
     malformed.server.nextSubscriptionId = subscription.id;
     await pumpEventQueue();
@@ -341,6 +355,10 @@ void main() {
     // refused, and neither end of the handle may hang on that.
     final subscription = environment.serverConnection.listen(
       SubscriptionFilter(toolsListChanged: true),
+      meta: MetaWithRequestEnvelope(
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        capabilities: environment.client.capabilities,
+      ),
     );
     await expectLater(
       subscription.done.timeout(const Duration(seconds: 5)),

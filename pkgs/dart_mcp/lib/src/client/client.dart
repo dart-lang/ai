@@ -743,7 +743,10 @@ base class ServerConnection extends MCPBase {
   ///
   /// You should check the [protocolVersion] before using this API, it must be
   /// >= [ProtocolVersion.v2026_07_28].
-  Subscription listen(SubscriptionFilter notifications) {
+  Subscription listen(
+    SubscriptionFilter notifications, {
+    required MetaWithRequestEnvelope meta,
+  }) {
     if (!_acknowledgementsRegistered) {
       registerNotificationHandler<SubscriptionsAcknowledgedNotification>(
         SubscriptionsAcknowledgedNotification.methodName,
@@ -753,7 +756,7 @@ base class ServerConnection extends MCPBase {
     }
     final sent = sendRequestWithId<SubscriptionsListenResult>(
       SubscriptionsListenRequest.methodName,
-      SubscriptionsListenRequest(notifications: notifications),
+      SubscriptionsListenRequest(notifications: notifications, meta: meta),
     );
     return _subscriptions[sent.id] = Subscription._(this, sent.id, sent.result);
   }
