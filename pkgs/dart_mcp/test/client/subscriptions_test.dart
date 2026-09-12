@@ -5,6 +5,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:async/async.dart' show StreamSinkTransformer;
 import 'package:dart_mcp/client.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp/src/shared.dart';
@@ -107,6 +108,39 @@ final class _ControlledCancellationChannel
 
   @override
   Future<void> cancelRequest(RequestId requestId) async => onCancel(requestId);
+}
+
+/// A channel which deliberately drops sink transformations.
+final class _IgnoringSinkTransformsChannel
+    extends DelegatingStreamChannel<Map<String, Object?>> {
+  _IgnoringSinkTransformsChannel(super.channel);
+
+  @override
+  StreamChannel<Map<String, Object?>> transformSink(
+    StreamSinkTransformer<Map<String, Object?>, Map<String, Object?>>
+    transformer,
+  ) => this;
+}
+
+/// Exposes request-result completion to lifecycle tests.
+final class _InspectingServerConnection extends ServerConnection {
+  _InspectingServerConnection(
+    StreamChannel<Map<String, Object?>> channel, {
+    Sink<String>? protocolLogSink,
+  }) : super.fromStreamChannel(channel, protocolLogSink: protocolLogSink);
+
+  final pendingResults = <RequestId, Future<void>>{};
+
+  @override
+  ({RequestId id, Future<T> result, Future<void> sent})
+  sendRequestWithId<T extends Result?>(String methodName, {Request? request}) {
+    final sent = super.sendRequestWithId<T>(methodName, request: request);
+    pendingResults[sent.id] = sent.result.then<void>((_) {});
+    return sent;
+  }
+
+  void sendPingWithId() =>
+      sendRequestWithId<EmptyResult>(PingRequest.methodName);
 }
 
 void main() {
@@ -295,6 +329,64 @@ void main() {
       throwsA(same(failure)),
     );
     await notificationEnd;
+  });
+
+  test('clears the pending result after a deferred send failure', () async {
+    final controller = StreamChannelController<Map<String, Object?>>(
+      sync: true,
+    );
+    final failure = StateError('listen write failed');
+    final log = _LogSink()..onAdd = (_) => throw failure;
+    final connection = _InspectingServerConnection(
+      controller.foreign,
+      protocolLogSink: log,
+    );
+    addTearDown(connection.shutdown);
+
+    final subscription = connection.listen(
+      SubscriptionFilter(toolsListChanged: true),
+      meta: MetaWithRequestEnvelope(
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        capabilities: environment.client.capabilities,
+      ),
+    );
+    final pendingResult = connection.pendingResults[subscription.id]!;
+
+    await expectLater(
+      subscription.done.timeout(const Duration(seconds: 5)),
+      throwsA(same(failure)),
+    );
+    await expectLater(
+      pendingResult.timeout(const Duration(seconds: 5)),
+      completes,
+    );
+    expect(connection.isActive, isTrue);
+  });
+
+  test('closes the connection when request ID capture fails', () async {
+    final controller = StreamChannelController<Map<String, Object?>>(
+      sync: true,
+    );
+    final message = controller.local.stream.first;
+    final connection = _InspectingServerConnection(
+      _IgnoringSinkTransformsChannel(controller.foreign),
+    );
+    addTearDown(connection.shutdown);
+
+    expect(
+      connection.sendPingWithId,
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          'Encoding "ping" recorded no JSON-RPC ID.',
+        ),
+      ),
+    );
+
+    expect((await message)[Keys.method], PingRequest.methodName);
+    await connection.done.timeout(const Duration(seconds: 5));
+    expect(connection.isActive, isFalse);
   });
 
   test('keeps the listen ID when logging sends a nested request', () async {

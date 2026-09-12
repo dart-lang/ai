@@ -166,9 +166,10 @@ base class MCPBase {
     }
   }
 
-  /// Returns [request]'s ID and response future before writing to the channel.
-  ///
-  /// Throws a [StateError] if encoding produced no request ID.
+  /// Relies on json_rpc_2 writing the request to its sink before sendRequest
+  /// returns. Captures the ID before installing the subscription handle,
+  /// deferring the transport write until that handle can receive
+  /// acknowledgements. Throws [StateError] if capture fails.
   @protected
   ({RequestId id, Future<T> result, Future<void> sent})
   sendRequestWithId<T extends Result?>(String methodName, {Request? request}) {
@@ -183,6 +184,8 @@ base class MCPBase {
     final id = captured.id;
     final forward = captured.forward;
     if (id == null || forward == null) {
+      result.ignore();
+      unawaited(shutdown());
       throw StateError('Encoding "$methodName" recorded no JSON-RPC ID.');
     }
     final sent = Completer<void>();
