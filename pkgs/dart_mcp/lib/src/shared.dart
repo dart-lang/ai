@@ -350,8 +350,20 @@ base class MCPBase {
     Object id,
   ) {
     final params = message[Keys.params];
+    Map<String, Object?>? copiedParams;
+    if (params is Map) {
+      try {
+        copiedParams = Map<String, Object?>.from(params);
+        // A runtime-generic Map reports a non-string key as a TypeError.
+        // ignore: avoid_catching_errors
+      } on TypeError catch (_) {
+        // A raw in-memory channel can carry a Map with a non-string key even
+        // though JSON cannot. Let the RPC layer answer that malformed request
+        // instead of failing this connection while copying its parameters.
+      }
+    }
     // A malformed request still needs an answer, so guard each metadata read.
-    final meta = params is Map<String, Object?> ? params[Keys.meta] : null;
+    final meta = copiedParams?[Keys.meta];
     final token =
         meta is Map<String, Object?>
             ? MetaWithProgressToken.fromMap(meta).progressToken
@@ -360,10 +372,9 @@ base class MCPBase {
     _inFlightRequests[id] = request;
     if (token != null) _requestsByProgressToken.putIfAbsent(token, () => id);
 
-    if (params is Map<String, Object?>) {
-      final copied = Map<String, Object?>.from(params);
-      _requestsByParameters[copied] = request;
-      return {...message, Keys.params: copied};
+    if (copiedParams != null) {
+      _requestsByParameters[copiedParams] = request;
+      return {...message, Keys.params: copiedParams};
     }
     if (!message.containsKey(Keys.params)) {
       final copied = <String, Object?>{};

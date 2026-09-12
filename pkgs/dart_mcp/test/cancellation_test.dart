@@ -59,6 +59,18 @@ void main() {
       await pumpEventQueue();
 
       expect(harness.framesWithId(1), isEmpty);
+      expect(
+        harness.frames.where(
+          (frame) => frame['method'] == LoggingMessageNotification.methodName,
+        ),
+        isEmpty,
+      );
+      expect(
+        harness.frames.where(
+          (frame) => frame['method'] == PingRequest.methodName,
+        ),
+        isEmpty,
+      );
 
       harness.server.parameterlessCalled = Completer<void>();
       harness.server.finishParameterless = Completer<void>();
@@ -71,9 +83,29 @@ void main() {
       harness.server.finishParameterless.complete();
       await pumpEventQueue();
 
+      final sentPings = harness.frames.where(
+        (frame) => frame['method'] == PingRequest.methodName,
+      );
+      expect(sentPings, hasLength(1));
+      harness.send({
+        'jsonrpc': '2.0',
+        'id': sentPings.single['id'],
+        'result': EmptyResult() as Map<String, Object?>,
+      });
+      await pumpEventQueue();
+
       expect(harness.framesWithId(2), hasLength(1));
       expect(harness.framesWithId(2).single, contains('result'));
       expect(harness.framesWithId(2).single, isNot(contains('error')));
+      expect(
+        harness.frames
+            .where(
+              (frame) =>
+                  frame['method'] == LoggingMessageNotification.methodName,
+            )
+            .map((frame) => (frame['params'] as Map<String, Object?>)['data']),
+        ['parameterless completed'],
+      );
     },
   );
 
@@ -475,7 +507,7 @@ void main() {
     harness.server.logAfterTool = true;
     harness.server.requestAfterSlowTool = true;
 
-    harness.sendSlowRequest(1, 'cancelled');
+    harness.sendSlowRequestWithGeneralParams(1, 'cancelled');
     harness.sendOtherSlowRequest(2, 'active');
     await Future.wait([
       harness.server.slowToolCalled.future,
@@ -748,6 +780,22 @@ class _Harness {
   void sendSlowRequest(Object id, String token) =>
       _sendToolRequest(id, slowToolName, token);
 
+  /// Sends the slow request in a generally typed Map with string keys.
+  void sendSlowRequestWithGeneralParams(Object id, String token) {
+    final typed =
+        CallToolRequest(
+              name: slowToolName,
+              meta: MetaWithProgressToken(progressToken: ProgressToken(token)),
+            )
+            as Map<String, Object?>;
+    send({
+      'jsonrpc': '2.0',
+      'id': id,
+      'method': CallToolRequest.methodName,
+      'params': Map<Object, Object?>.from(typed),
+    });
+  }
+
   /// Sends a request to the other slow tool under [token].
   void sendOtherSlowRequest(Object id, String token) =>
       _sendToolRequest(id, otherSlowToolName, token);
@@ -907,6 +955,8 @@ final class _CancellationTestServer extends MCPServer
       ([PingRequest? _]) async {
         if (!parameterlessCalled.isCompleted) parameterlessCalled.complete();
         await finishParameterless.future;
+        log(LoggingLevel.error, 'parameterless completed');
+        await sendRequest<EmptyResult>(PingRequest.methodName);
         return EmptyResult();
       },
     );
