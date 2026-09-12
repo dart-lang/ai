@@ -124,10 +124,8 @@ final class _IgnoringSinkTransformsChannel
 
 /// Exposes request-result completion to lifecycle tests.
 final class _InspectingServerConnection extends ServerConnection {
-  _InspectingServerConnection(
-    StreamChannel<Map<String, Object?>> channel, {
-    Sink<String>? protocolLogSink,
-  }) : super.fromStreamChannel(channel, protocolLogSink: protocolLogSink);
+  _InspectingServerConnection(super.channel, {super.protocolLogSink})
+    : super.fromStreamChannel();
 
   final pendingResults = <RequestId, Future<void>>{};
 
