@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dart_mcp/client.dart';
 import 'package:dart_mcp/server.dart';
@@ -177,6 +178,38 @@ void main() {
     );
   });
 
+  test('closes over stdio with one cancellation notification', () async {
+    final subscription = listen();
+    final listener = subscription.notifications.listen((_) {});
+    listener.pause();
+    addTearDown(listener.cancel);
+    await subscription.acknowledged.timeout(const Duration(seconds: 5));
+
+    await subscription.close().timeout(const Duration(seconds: 5));
+    await subscription.done.timeout(const Duration(seconds: 5));
+    await subscription.close().timeout(const Duration(seconds: 5));
+
+    final cancelled =
+        protocolLog.lines
+            .where(
+              (line) =>
+                  line.startsWith('>>>') &&
+                  line.contains(CancelledNotification.methodName),
+            )
+            .map(
+              (line) =>
+                  jsonDecode(line.substring(line.indexOf('{')))
+                      as Map<String, Object?>,
+            )
+            .toList();
+    expect(cancelled, hasLength(1));
+    expect(cancelled.single, {
+      Keys.jsonrpc: '2.0',
+      Keys.method: CancelledNotification.methodName,
+      Keys.params: {Keys.requestId: subscription.id},
+    });
+  });
+
   test(
     'delivers only the notifications carrying this subscription id',
     () async {
@@ -264,9 +297,16 @@ void main() {
       );
 
       unawaited(environment.server.shutdown());
-      final ended = await subscription.done.timeout(const Duration(seconds: 5));
-      expect(ended.subscriptionId, subscription.id);
+      await subscription.done.timeout(const Duration(seconds: 5));
       expect(closed, isTrue, reason: 'the stream closes with the subscription');
+      await subscription.close().timeout(const Duration(seconds: 5));
+      expect(
+        protocolLog.lines.where(
+          (line) => line.contains(CancelledNotification.methodName),
+        ),
+        isEmpty,
+        reason: 'closing a subscription the server ended sends nothing',
+      );
     },
   );
 
@@ -293,12 +333,7 @@ void main() {
     );
 
     unawaited(malformed.server.shutdown());
-    final ended = await subscription.done.timeout(const Duration(seconds: 5));
-    expect(
-      ended.subscriptionId,
-      subscription.id,
-      reason: 'the subscription still ends on the result the server sends',
-    );
+    await subscription.done.timeout(const Duration(seconds: 5));
   });
 
   test('reports a refused subscription on both of its ends', () async {

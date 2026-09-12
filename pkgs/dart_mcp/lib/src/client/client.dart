@@ -306,7 +306,11 @@ base class ServerConnection extends MCPBase {
   }) : _elicitationFormSupport = elicitationFormSupport ?? elicitationSupport,
        _elicitationUrlSupport = elicitationUrlSupport,
        _samplingSupport = samplingSupport,
-       _rootsSupport = rootsSupport {
+       _rootsSupport = rootsSupport,
+       _requestCancellation =
+           channel is RequestCancellation
+               ? channel as RequestCancellation
+               : null {
     if (rootsSupport != null) {
       registerRequestHandler(
         ListRootsRequest.methodName,
@@ -722,6 +726,8 @@ base class ServerConnection extends MCPBase {
   /// of the `subscriptions/listen` request that opened it.
   final _subscriptions = <RequestId, Subscription>{};
 
+  final RequestCancellation? _requestCancellation;
+
   /// Whether [listen] has registered the handler for the server's
   /// acknowledgements.
   ///
@@ -750,6 +756,22 @@ base class ServerConnection extends MCPBase {
       SubscriptionsListenRequest(notifications: notifications),
     );
     return _subscriptions[sent.id] = Subscription._(this, sent.id, sent.result);
+  }
+
+  Future<void> _cancelSubscription(RequestId id) async {
+    try {
+      final requestCancellation = _requestCancellation;
+      if (requestCancellation != null) {
+        await requestCancellation.cancelRequest(id);
+      } else {
+        sendNotification(
+          CancelledNotification.methodName,
+          CancelledNotification(requestId: id),
+        );
+      }
+    } finally {
+      completeRequestLocally(this, id);
+    }
   }
 
   /// Reports the acknowledged filter to the subscription [notification] names.

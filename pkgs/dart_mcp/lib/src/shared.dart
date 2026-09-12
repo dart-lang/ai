@@ -9,12 +9,25 @@ library;
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:async/async.dart' show StreamSinkTransformer;
+import 'package:async/async.dart' show StreamGroup, StreamSinkTransformer;
 import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'api/api.dart';
 import 'utils/constants.dart';
+
+abstract interface class RequestCancellation {
+  Future<void> cancelRequest(RequestId requestId);
+}
+
+void completeRequestLocally(MCPBase target, RequestId requestId) {
+  if (target._localResponses.isClosed) return;
+  target._localResponses.add({
+    Keys.jsonrpc: '2.0',
+    Keys.id: requestId,
+    Keys.result: const <String, Object?>{},
+  });
+}
 
 /// Base class for MCP server-related implementations.
 ///
@@ -26,6 +39,7 @@ import 'utils/constants.dart';
 /// - [ServerConnection] A class that represents an active server connection.
 base class MCPBase {
   late final Peer _peer;
+  final _localResponses = StreamController<Map<String, Object?>>(sync: true);
 
   /// The name of the associated server.
   ///
@@ -61,8 +75,19 @@ base class MCPBase {
     // The channel type admits only JSON objects, so json_rpc_2 never
     // receives a batch and never writes the `List` frames its batch support
     // would answer one with.
+    final instrumented = _recordSentRequestIds(
+      _maybeForwardMessages(channel, protocolLogSink),
+    );
+    final remote = instrumented.stream.transform(
+      StreamTransformer.fromHandlers(
+        handleDone:
+            (sink) =>
+                unawaited(_localResponses.close().whenComplete(sink.close)),
+      ),
+    );
+    final incoming = StreamGroup.merge([remote, _localResponses.stream]);
     _peer = Peer.withoutJson(
-      _recordSentRequestIds(_maybeForwardMessages(channel, protocolLogSink)),
+      StreamChannel.withCloseGuarantee(incoming, instrumented.sink),
     );
     registerNotificationHandler(
       ProgressNotification.methodName,

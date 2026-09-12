@@ -2823,11 +2823,76 @@ void main() {
         );
 
         await hosted[1].shutdown();
-        final ended = await second.done.timeout(const Duration(seconds: 5));
-        expect(ended.subscriptionId, second.id);
+        await second.done.timeout(const Duration(seconds: 5));
         await hosted[0].shutdown();
       },
     );
+
+    test('client close ends only its listen response', () async {
+      final host = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => host.close(force: true));
+      final hosted = <MCPServer>[];
+      final responsesDone = <Future<void>>[];
+      var requestCount = 0;
+      host.listen((request) {
+        requestCount++;
+        responsesDone.add(request.response.done);
+        handleStreamableHttpRequest(request, (channel) {
+          final server = _EquippedServer(channel);
+          hosted.add(server);
+          return server;
+        }, listenKeepAliveInterval: const Duration(milliseconds: 20));
+      });
+      final client = TestMCPClient();
+      addTearDown(client.shutdown);
+      final connection = client.connectServer(
+        streamableHttpClientChannel(
+          Uri.http('${host.address.host}:${host.port}', '/mcp'),
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          clientCapabilities: client.capabilities,
+        ),
+      );
+      final first = connection.listen(
+        SubscriptionFilter(toolsListChanged: true),
+      );
+      await first.acknowledged.timeout(const Duration(seconds: 5));
+      final second = connection.listen(
+        SubscriptionFilter(toolsListChanged: true),
+      );
+      final secondChanges = <Notification>[];
+      final arrived = Completer<void>();
+      final listener = second.notifications.listen((notification) {
+        secondChanges.add(notification);
+        if (!arrived.isCompleted) arrived.complete();
+      });
+      addTearDown(listener.cancel);
+      await second.acknowledged.timeout(const Duration(seconds: 5));
+
+      await first.close().timeout(const Duration(seconds: 5));
+      await first.done.timeout(const Duration(seconds: 5));
+      await responsesDone[0].timeout(const Duration(seconds: 5));
+      await hosted[0].done.timeout(const Duration(seconds: 5));
+      expect(requestCount, 2, reason: 'HTTP close sends no cancellation POST');
+      expect(hosted[0].isActive, isFalse);
+      expect(hosted[1].isActive, isTrue);
+
+      hosted[1].sendNotification(
+        ToolListChangedNotification.methodName,
+        ToolListChangedNotification(),
+      );
+      await arrived.future.timeout(const Duration(seconds: 5));
+      expect(secondChanges, hasLength(1));
+      expect((await connection.listTools()).tools, isEmpty);
+      await second.close().timeout(const Duration(seconds: 5));
+
+      final early = connection.listen(
+        SubscriptionFilter(toolsListChanged: true),
+      );
+      await early.close().timeout(const Duration(seconds: 5));
+      await early.done.timeout(const Duration(seconds: 5));
+      await pumpEventQueue(times: 20);
+      expect((await connection.listTools()).tools, isEmpty);
+    });
   });
 
   group('notifications and responses', () {

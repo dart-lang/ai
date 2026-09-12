@@ -30,13 +30,10 @@ final class Subscription {
     ]) {
       _forwarding.add(stream.listen(_forward));
     }
-    _done = result.then((ended) async {
-      await _close();
-      return ended;
-    }, onError: _closeWithError);
+    result.then<void>((_) => _finish(), onError: _finishWithError).ignore();
     // A failure reaches all three of [done], [acknowledged] and
     // [notifications], and wanting one must not raise out of the other two.
-    _done.ignore();
+    _done.future.ignore();
     _acknowledged.future.ignore();
   }
 
@@ -75,13 +72,15 @@ final class Subscription {
   /// [ServerConnection.resourceUpdated].
   Stream<Notification> get notifications => _notifications.stream;
 
-  /// Completes when the server ends this subscription gracefully, with the
-  /// [SubscriptionsListenResult] it answers the opening request with.
-  ///
-  /// A transport that drops carries no such result and completes this with an
-  /// error instead.
-  Future<SubscriptionsListenResult> get done => _done;
-  late final Future<SubscriptionsListenResult> _done;
+  /// Completes when this subscription closes locally or remotely.
+  Future<void> get done => _done.future;
+  final _done = Completer<void>();
+
+  /// Stops this subscription without closing its connection.
+  Future<void> close() => _closing ?? _finishing ?? (_closing = _close());
+  Future<void>? _closing;
+
+  Future<void>? _finishing;
 
   /// Reports the filter on the server's acknowledgement of this subscription.
   void _acknowledge(SubscriptionFilter accepted) {
@@ -98,26 +97,42 @@ final class Subscription {
     if (!_notifications.isClosed) _notifications.add(Notification(fields!));
   }
 
-  /// Releases everything this subscription holds.
   Future<void> _close() async {
+    try {
+      await _connection._cancelSubscription(id);
+    } finally {
+      await _finish();
+    }
+  }
+
+  Future<void> _finish({Object? error, StackTrace? stackTrace}) =>
+      _finishing ??= _finishOnce(error: error, stackTrace: stackTrace);
+
+  Future<void> _finishOnce({Object? error, StackTrace? stackTrace}) async {
     _connection._subscriptions.remove(id);
+    if (!_acknowledged.isCompleted) {
+      _acknowledged.completeError(
+        error ?? StateError('Closed before acknowledgement.'),
+        stackTrace ?? StackTrace.current,
+      );
+    }
+    if (error != null && !_notifications.isClosed) {
+      _notifications.addError(error, stackTrace);
+    }
     await Future.wait([
       for (final forwarding in _forwarding) forwarding.cancel(),
     ]);
     _forwarding.clear();
-    await _notifications.close();
+    unawaited(_notifications.close());
+    if (error == null) {
+      _done.complete();
+    } else {
+      _done.completeError(error, stackTrace);
+    }
   }
 
   /// Reports [error] on both observable ends of the subscription and closes
   /// it.
-  Future<Never> _closeWithError(Object error, StackTrace stackTrace) async {
-    if (!_acknowledged.isCompleted) {
-      _acknowledged.completeError(error, stackTrace);
-    }
-    if (!_notifications.isClosed) {
-      _notifications.addError(error, stackTrace);
-    }
-    await _close();
-    Error.throwWithStackTrace(error, stackTrace);
-  }
+  Future<void> _finishWithError(Object error, StackTrace stackTrace) =>
+      _finish(error: error, stackTrace: stackTrace);
 }
