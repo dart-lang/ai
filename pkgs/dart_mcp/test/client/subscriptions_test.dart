@@ -88,8 +88,6 @@ base class _MalformedAckServer extends MCPServer with SubscriptionsSupport {
 
 /// Collects the protocol log lines a [TestEnvironment] writes.
 class _LogSink implements Sink<String> {
-  _LogSink({this.onAdd});
-
   void Function(String data)? onAdd;
   final lines = <String>[];
 
@@ -218,32 +216,35 @@ void main() {
       addTearDown(client.shutdown);
       late RequestId requestId;
       controller.local.stream.listen((message) {
-        if (message[Keys.method] != SubscriptionsListenRequest.methodName)
+        if (message[Keys.method] != SubscriptionsListenRequest.methodName) {
           return;
+        }
         requestId = RequestId(message[Keys.id]!);
-        controller.local.sink
-          ..add({
-            Keys.jsonrpc: '2.0',
-            Keys.method: SubscriptionsAcknowledgedNotification.methodName,
-            Keys.params: SubscriptionsAcknowledgedNotification(
-              notifications: SubscriptionFilter(toolsListChanged: true),
-              meta: MetaWithSubscriptionId(subscriptionId: requestId),
-            ),
-          })
-          ..add({
+        controller.local.sink.add({
+          Keys.jsonrpc: '2.0',
+          Keys.method: SubscriptionsAcknowledgedNotification.methodName,
+          Keys.params: SubscriptionsAcknowledgedNotification(
+            notifications: SubscriptionFilter(toolsListChanged: true),
+            meta: MetaWithSubscriptionId(subscriptionId: requestId),
+          ),
+        });
+        for (var sequence = 0; sequence < 20; sequence++) {
+          controller.local.sink.add({
             Keys.jsonrpc: '2.0',
             Keys.method: ToolListChangedNotification.methodName,
-            Keys.params: ToolListChangedNotification(
-              meta: MetaWithSubscriptionId(subscriptionId: requestId),
-            ),
-          })
-          ..add({
-            Keys.jsonrpc: '2.0',
-            Keys.id: requestId,
-            Keys.result: SubscriptionsListenResult(
-              meta: MetaWithSubscriptionId(subscriptionId: requestId),
-            ),
+            Keys.params: ToolListChangedNotification.fromMap({
+              Keys.meta: MetaWithSubscriptionId(subscriptionId: requestId),
+              'sequence': sequence,
+            }),
           });
+        }
+        controller.local.sink.add({
+          Keys.jsonrpc: '2.0',
+          Keys.id: requestId,
+          Keys.result: SubscriptionsListenResult(
+            meta: MetaWithSubscriptionId(subscriptionId: requestId),
+          ),
+        });
       });
 
       final subscription = connection.listen(
@@ -253,14 +254,23 @@ void main() {
           capabilities: client.capabilities,
         ),
       );
-      final notification = subscription.notifications.first;
+      final notifications = subscription.notifications.toList();
 
       expect((await subscription.acknowledged).toolsListChanged, isTrue);
-      expect(
-        (await notification).method,
-        ToolListChangedNotification.methodName,
-      );
       await subscription.done;
+      final received = await notifications;
+      expect(received, hasLength(20));
+      expect(
+        received.map((notification) => notification.method),
+        everyElement(ToolListChangedNotification.methodName),
+      );
+      expect(
+        received.map(
+          (notification) =>
+              (notification.params as Map<String, Object?>)['sequence'],
+        ),
+        orderedEquals(List<int>.generate(20, (index) => index)),
+      );
     },
   );
 
@@ -581,7 +591,7 @@ void main() {
     final streamDone = Completer<void>();
     final listener = subscription.notifications.listen(
       (_) {},
-      onError: (Object error) => streamError.complete(error),
+      onError: streamError.complete,
       onDone: streamDone.complete,
     );
     listener.pause();

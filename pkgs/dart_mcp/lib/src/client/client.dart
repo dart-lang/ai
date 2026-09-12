@@ -355,6 +355,10 @@ base class ServerConnection extends MCPBase {
       PromptListChangedNotification.methodName,
       (notification) {
         _responseCache.invalidateMethod(ListPromptsRequest.methodName);
+        _forwardSubscriptionNotification(
+          PromptListChangedNotification.methodName,
+          notification,
+        );
         _promptListChangedController.sink.add(notification);
       },
     );
@@ -363,6 +367,10 @@ base class ServerConnection extends MCPBase {
       ToolListChangedNotification.methodName,
       (notification) {
         _responseCache.invalidateMethod(ListToolsRequest.methodName);
+        _forwardSubscriptionNotification(
+          ToolListChangedNotification.methodName,
+          notification,
+        );
         _toolListChangedController.sink.add(notification);
       },
     );
@@ -373,6 +381,10 @@ base class ServerConnection extends MCPBase {
         _responseCache
           ..invalidateMethod(ListResourcesRequest.methodName)
           ..invalidateMethod(ListResourceTemplatesRequest.methodName);
+        _forwardSubscriptionNotification(
+          ResourceListChangedNotification.methodName,
+          notification,
+        );
         _resourceListChangedController.sink.add(notification);
       },
     );
@@ -381,6 +393,10 @@ base class ServerConnection extends MCPBase {
       ResourceUpdatedNotification.methodName,
       (notification) {
         _responseCache.invalidateResource(notification.uri);
+        _forwardSubscriptionNotification(
+          ResourceUpdatedNotification.methodName,
+          notification,
+        );
         _resourceUpdatedController.sink.add(notification);
       },
     );
@@ -780,6 +796,12 @@ base class ServerConnection extends MCPBase {
         CancelledNotification(requestId: id),
       );
       completeRequestLocally(this, id);
+    }
+  }
+
+  void _forwardSubscriptionNotification(String method, Object? params) {
+    for (final subscription in _subscriptions.values.toList()) {
+      subscription._forward(method, params);
     }
   }
 

@@ -23,24 +23,6 @@ final class Subscription {
     Future<SubscriptionsListenResult> result,
     this._requestSent,
   ) {
-    // The filter names four notification types and the connection already
-    // routes each to a stream of its own, so this reads them from there
-    // rather than registering handlers json_rpc_2 refuses as duplicates.
-    _forwarding.addAll([
-      _connection.toolListChanged.listen(
-        (params) => _forward(ToolListChangedNotification.methodName, params),
-      ),
-      _connection.promptListChanged.listen(
-        (params) => _forward(PromptListChangedNotification.methodName, params),
-      ),
-      _connection.resourceListChanged.listen(
-        (params) =>
-            _forward(ResourceListChangedNotification.methodName, params),
-      ),
-      _connection.resourceUpdated.listen(
-        (params) => _forward(ResourceUpdatedNotification.methodName, params),
-      ),
-    ]);
     result.then<void>((_) => _finish(), onError: _finishWithError).ignore();
     // A failure reaches all three of [done], [acknowledged] and
     // [notifications], and wanting one must not raise out of the other two.
@@ -59,9 +41,6 @@ final class Subscription {
   /// Every message the server sends on the stream carries it under the
   /// `io.modelcontextprotocol/subscriptionId` metadata key.
   final RequestId id;
-
-  /// The subscriptions on the connection streams this one forwards from.
-  final _forwarding = <StreamSubscription<Object?>>[];
 
   /// Completes [acknowledged].
   final _acknowledged = Completer<SubscriptionFilter>();
@@ -124,9 +103,7 @@ final class Subscription {
   Future<void> _finish({Object? error, StackTrace? stackTrace}) =>
       _finishing ??= _finishOnce(error: error, stackTrace: stackTrace);
 
-  Future<void> _finishOnce({Object? error, StackTrace? stackTrace}) async {
-    // Deliver connection events queued before the terminating response.
-    await Future<void>.value();
+  Future<void> _finishOnce({Object? error, StackTrace? stackTrace}) {
     _connection._subscriptions.remove(id);
     if (!_acknowledged.isCompleted) {
       _acknowledged.completeError(
@@ -137,16 +114,13 @@ final class Subscription {
     if (error != null && !_notifications.isClosed) {
       _notifications.addError(error, stackTrace);
     }
-    await Future.wait([
-      for (final forwarding in _forwarding) forwarding.cancel(),
-    ]);
-    _forwarding.clear();
     unawaited(_notifications.close());
     if (error == null) {
       _done.complete();
     } else {
       _done.completeError(error, stackTrace);
     }
+    return Future<void>.value();
   }
 
   /// Reports [error] on both observable ends of the subscription and closes
