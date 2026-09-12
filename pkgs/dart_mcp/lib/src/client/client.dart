@@ -738,8 +738,7 @@ base class ServerConnection extends MCPBase {
   Future<void> unsubscribeResource(UnsubscribeRequest request) =>
       sendRequest(UnsubscribeRequest.methodName, request);
 
-  /// The subscriptions this connection has open, each under the JSON-RPC ID
-  /// of the `subscriptions/listen` request that opened it.
+  /// The subscriptions this connection has open, keyed by [Subscription.id].
   final _subscriptions = <RequestId, Subscription>{};
 
   final RequestCancellation? _requestCancellation;
