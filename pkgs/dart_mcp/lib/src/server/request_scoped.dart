@@ -36,9 +36,9 @@ typedef MCPServerFactory =
 /// `resultType`, and, for the requests the caching rules name, carries `ttlMs`
 /// and `cacheScope` unless it is an interim `resources/read` result, which is
 /// not cacheable. The acknowledgement and result for `subscriptions/listen`
-/// carry the request id under `io.modelcontextprotocol/subscriptionId`.
+/// carry the request ID under `io.modelcontextprotocol/subscriptionId`.
 /// A listen request is named before delivery by setting
-/// [SubscriptionsSupport.nextSubscriptionId] to that id. A
+/// [SubscriptionsSupport.nextSubscriptionId] to that ID. A
 /// field the handler left out is filled in: a `resultType`
 /// left `null` becomes `complete`, a `ttlMs` which is `null` becomes `0`, and
 /// a `cacheScope` which is `null` becomes `private`. The dispatcher cannot
@@ -77,7 +77,7 @@ typedef MCPServerFactory =
 ///
 /// On revisions before 2026-07-28, requests from the server back to the client
 /// are passed to [onRequest]. Its response must be a JSON-RPC response carrying
-/// the request id. A callback error or an invalid response fails the server's
+/// the request ID. A callback error or an invalid response fails the server's
 /// request with an internal error. A response completed after the exchange has
 /// closed is discarded. Without [onRequest], server requests fail immediately.
 /// The callback is not used on 2026-07-28.
@@ -87,7 +87,7 @@ typedef MCPServerFactory =
 /// receive the serialized error and notifications receive no response.
 ///
 /// Throws an [ArgumentError] if [message] is not a JSON-RPC request or
-/// notification (no string `method`, a `null` id, or a `result` or `error`
+/// notification (no string `method`, a `null` ID, or a `result` or `error`
 /// member), or if its method is the legacy `initialize` request or
 /// `initialized` notification; classifying a message as legacy or
 /// request-scoped is the transport's job. Errors thrown by [serverFactory] or
@@ -149,6 +149,7 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
   final server = serverFactory(
     StreamChannel.withCloseGuarantee(inbound.stream, outbound.sink),
   );
+  server._serverRequestsSupported = routeServerRequests && onRequest != null;
 
   final isRequest = object.kind == JsonRpc2Kind.request;
   final response = Completer<Map<String, Object?>?>();
@@ -275,7 +276,7 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
 }
 
 /// Returns the answer for a server [request], or an internal error carrying
-/// its id when [onRequest] fails or returns an invalid response.
+/// its ID when [onRequest] fails or returns an invalid response.
 Future<Map<String, Object?>> _answerServerRequest(
   Map<String, Object?> request,
   FutureOr<Map<String, Object?>> Function(Map<String, Object?> request)
@@ -334,8 +335,8 @@ Map<String, Object?> _errorResponse(Object? id, String message) =>
 /// https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr.
 ///
 /// An undeclared capability is refused with [_missingClientCapability], the
-/// error [MCPServer.listRoots] and [ElicitationRequestSupport.elicit] raise for
-/// the same request on a connected transport, which
+/// error the server-side roots and elicitation helpers raise for the same
+/// request on a connected transport, which
 /// `handleStreamableHttpRequest` in `package:dart_mcp/streamable_http.dart`
 /// maps to HTTP 400 while it can still send a JSON response.
 ///
@@ -351,6 +352,26 @@ RpcException? _inputRequiredRefusal(
   if (result is! Map<String, Object?>) return null;
   if (result[Keys.resultType] != ResultTypes.inputRequired) return null;
 
+  return _inputRequiredResultRefusal(
+    result,
+    method,
+    initialization.clientCapabilities,
+  );
+}
+
+/// Shape and capability checks for an `input_required` [result] on [method].
+///
+/// Returns null when the result may go out. [_inputRequiredRefusal] still
+/// unpacks the JSON-RPC response and applies the 2026-07-28 version gate.
+/// When [legacyVersion] is set, a method that revision does not have is
+/// refused with [_removedMethod] after the method is known and before the
+/// capability check.
+RpcException? _inputRequiredResultRefusal(
+  Map<String, Object?> result,
+  String method,
+  ClientCapabilities capabilities, [
+  ProtocolVersion? legacyVersion,
+]) {
   if (!_inputRequiredMethods.contains(method)) {
     return _malformedInputRequired(
       'on $method, which this revision allows only on '
@@ -378,7 +399,6 @@ RpcException? _inputRequiredRefusal(
       'whose `${Keys.inputRequests}` was not a string-keyed map.',
     );
   }
-  final capabilities = initialization.clientCapabilities;
   for (final request in requests.values) {
     if (request is! Map) {
       return _malformedInputRequired(
@@ -393,6 +413,9 @@ RpcException? _inputRequiredRefusal(
         'containing an input request whose method was not one of '
         '${InputRequest.methodNames.map((m) => '`$m`').join(', ')}.',
       );
+    }
+    if (legacyVersion != null && !legacyVersion.methodIsValid(inputMethod)) {
+      return _removedMethod(inputMethod, legacyVersion);
     }
     switch (inputMethod) {
       case ListRootsRequest.methodName:
