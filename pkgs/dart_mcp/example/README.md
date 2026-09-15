@@ -10,8 +10,10 @@ To run the examples, run the client file directly, so for instance
 tools, connected to the example server that provides tools
 (at `example/tools_server.dart`).
 
-`streamable_http_server.dart` has no client pair. Run it directly and it prints
-a `curl` command which calls its tool. `streamableHttpClientChannel` in
+`streamable_http_server.dart` and `streamable_http_client.dart` are a pair.
+Run the server first. It prints its URL. Then run
+`dart run example/streamable_http_client.dart <url>` to list tools and call
+`greet`. `streamableHttpClientChannel` in
 `package:dart_mcp/streamable_http.dart` is the client transport.
 
 # Full Featured Examples
