@@ -2901,7 +2901,7 @@ void main() {
           final server = _EquippedServer(channel);
           hosted.add(server);
           return server;
-        }, listenKeepAliveInterval: const Duration(milliseconds: 20));
+        }, keepAliveInterval: const Duration(milliseconds: 20));
       });
       final client = TestMCPClient();
       addTearDown(client.shutdown);
@@ -2979,7 +2979,7 @@ void main() {
           final server = _EquippedServer(channel);
           hosted.add(server);
           return server;
-        }, listenKeepAliveInterval: const Duration(milliseconds: 20));
+        }, keepAliveInterval: const Duration(milliseconds: 20));
       });
       final client = TestMCPClient();
       addTearDown(client.shutdown);
