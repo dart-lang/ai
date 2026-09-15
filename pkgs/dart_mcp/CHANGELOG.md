@@ -18,6 +18,8 @@
 - Advertise the notification capabilities from a protected
   `MCPServer.advertisedCapabilities` getter, which `SubscriptionsSupport`
   overrides, instead of a type check on the server.
+- Add an example pair under `example/` that greets over stdio and over
+  Streamable HTTP, asking who to greet with an `InputRequiredResult`.
 - **BREAKING**:
   - `MCPBase` (including the `MCPServer.fromStreamChannel` and
     `ServerConnection.fromStreamChannel` constructors),
