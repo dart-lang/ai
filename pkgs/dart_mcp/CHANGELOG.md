@@ -26,10 +26,14 @@
   revision does not interrupt one. A handler that wants to stop reads
   `MCPBase.captureIncomingRequestActivity`. `MCPBase.cancellations` reports
   valid notifications so subclasses can log their reasons.
-  On servers, `maxRetainedCancellations` caps the cancellations a connection
-  holds for requests it has not answered. Exceeding the bound closes the connection
-  instead of forgetting a cancellation, and zero closes on the first live
-  cancellation.
+  `maxRetainedCancellations` caps the cancellations a connection holds for
+  requests it has not answered, on a client as well as a server. Exceeding
+  the bound closes the connection instead of forgetting a cancellation, and
+  zero closes on the first live cancellation. The same number caps the
+  progress tokens of answered cancelled requests, where exceeding it forgets
+  the oldest token and lets one late progress notification through.
+  `MCPBase.sendRequestKeepingProgress` throws a `StateError` when the calling
+  handler's own request has been cancelled.
 - **BREAKING**:
   - `MCPBase` (including the `MCPServer.fromStreamChannel` and
     `ServerConnection.fromStreamChannel` constructors),

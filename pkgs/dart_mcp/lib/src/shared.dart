@@ -58,7 +58,12 @@ base class MCPBase {
   /// The response is dropped, so the ID leaves [_inFlightRequests] while a
   /// late progress notification still names the token. Keeping that token
   /// quiet is this package's choice, not a rule the specification states.
-  /// Bounded by `maxRetainedCancellations`.
+  ///
+  /// `maxRetainedCancellations` bounds this set too, and passing the bound
+  /// forgets the oldest token here instead of ending the connection. The two
+  /// policies differ on purpose. Forgetting a cancelled request would put its
+  /// response back on the wire, and forgetting a token no live request owns
+  /// costs at most one stray frame.
   final _unownedProgressTokens = <ProgressToken>{};
 
   /// How many unanswered cancellations this connection retains.
@@ -117,7 +122,9 @@ base class MCPBase {
   ///
   /// [maxRetainedCancellations] bounds how many cancelled requests still wait
   /// here for a response. Passing the bound ends the connection, and no
-  /// cancellation is lost. Zero keeps room for none.
+  /// cancellation is lost. Zero keeps room for none. It also bounds the tokens
+  /// kept for cancelled requests this side has answered, and passing that
+  /// bound forgets the oldest of them.
   MCPBase(
     StreamChannel<Map<String, Object?>> channel, {
     Sink<String>? protocolLogSink,
@@ -249,6 +256,8 @@ base class MCPBase {
   /// This is for a caller that sends several requests under one progress
   /// token, such as an `input_required` retry. That caller owns the token and
   /// hands it back with [closeProgress] once it stops sending.
+  /// Throws a [StateError] after the handler's request is cancelled, since
+  /// nothing it sends can reach the peer any more.
   @protected
   Future<T> sendRequestKeepingProgress<T extends Result?>(
     String methodName, [
