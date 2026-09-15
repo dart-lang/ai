@@ -50,13 +50,12 @@ void main() {
   late Uri uri;
   late MCPServerFactory serverFactory;
   late StreamController<Map<String, Object?>> subscriptionNotifications;
+  Set<String>? allowedOrigins;
   final servers = <MCPServer>[];
   final notifications = <Map<String, Object?>>[];
 
   setUp(() async {
     serverFactory = _HttpTestServer.new;
-    servers.clear();
-    notifications.clear();
     subscriptionNotifications = StreamController.broadcast(sync: true);
     httpServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     uri = Uri.http('${httpServer.address.host}:${httpServer.port}', '/mcp');
@@ -73,13 +72,20 @@ void main() {
           subscriptionNotifications.add(notification);
         },
         subscriptionNotifications: subscriptionNotifications.stream,
-        listenKeepAliveInterval: const Duration(milliseconds: 50),
+        keepAliveInterval: const Duration(milliseconds: 50),
+        allowedOrigins: allowedOrigins,
       ),
     );
     addTearDown(() async {
       await httpServer.close(force: true);
       await subscriptionNotifications.close();
     });
+  });
+
+  tearDown(() {
+    servers.clear();
+    allowedOrigins = null;
+    notifications.clear();
   });
 
   /// A request body for [method] carrying the standard envelope.
@@ -156,9 +162,13 @@ void main() {
   ];
 
   /// The JSON-RPC messages an SSE response [text] carries, in order.
+  ///
+  /// A keep-alive comment is a frame with no field lines at all, and no
+  /// message, so it is left out here.
   List<Map<String, Object?>> events(String text) => [
     for (final frame in frames(text))
-      jsonDecode(frame['data']!) as Map<String, Object?>,
+      if (frame['data'] case final data?)
+        jsonDecode(data) as Map<String, Object?>,
   ];
 
   Object? errorCode(String text) =>
@@ -1947,6 +1957,101 @@ void main() {
     });
   });
 
+  group('origin validation', () {
+    test('serves a request carrying an origin with no allowlist', () async {
+      final (status, _, text) = await post(
+        headers: {...headers(listTools), 'Origin': 'https://client.example'},
+        json: body(listTools),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('accepts an origin in the allowlist', () async {
+      allowedOrigins = {'https://client.example'};
+      final (status, _, text) = await post(
+        headers: {...headers(listTools), 'Origin': 'https://client.example'},
+        json: body(listTools),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('rejects an origin outside the allowlist', () async {
+      allowedOrigins = {'https://client.example'};
+      final (status, _, text) = await post(
+        headers: {...headers(listTools), 'Origin': 'https://other.example'},
+        json: body(listTools),
+      );
+      expect(status, HttpStatus.forbidden);
+      expect(text, isEmpty);
+      expect(servers, isEmpty);
+    });
+
+    test('rejects an origin sent as two separate field lines', () async {
+      allowedOrigins = {'https://client.example'};
+      final requestBody = jsonEncode(body(listTools));
+      final response = await rawRequest(
+        'POST /mcp HTTP/1.1\r\n'
+        'Host: localhost\r\n'
+        'Content-Type: application/json\r\n'
+        'Accept: application/json, text/event-stream\r\n'
+        'Mcp-Protocol-Version: $version\r\n'
+        'Mcp-Method: $listTools\r\n'
+        'Origin: https://client.example\r\n'
+        'Origin: https://other.example\r\n'
+        'Content-Length: ${requestBody.length}\r\n'
+        'Connection: close\r\n'
+        '\r\n'
+        '$requestBody',
+      );
+      // The first line is in the allowlist, so only the line count can be
+      // what this rejection is about.
+      expect(response, startsWith('HTTP/1.1 403'));
+      expect(servers, isEmpty);
+    });
+
+    test('serves two origin field lines with no allowlist', () async {
+      final requestBody = jsonEncode(body(listTools));
+      final response = await rawRequest(
+        'POST /mcp HTTP/1.1\r\n'
+        'Host: localhost\r\n'
+        'Content-Type: application/json\r\n'
+        'Accept: application/json, text/event-stream\r\n'
+        'Mcp-Protocol-Version: $version\r\n'
+        'Mcp-Method: $listTools\r\n'
+        'Origin: https://client.example\r\n'
+        'Origin: https://other.example\r\n'
+        'Content-Length: ${requestBody.length}\r\n'
+        'Connection: close\r\n'
+        '\r\n'
+        '$requestBody',
+      );
+      expect(response, startsWith('HTTP/1.1 200'));
+      expect(errorCode(jsonBody(response)), isNull);
+    });
+    test('accepts a request without origin', () async {
+      allowedOrigins = {'https://client.example'};
+      final (status, _, text) = await post(
+        headers: headers(listTools),
+        json: body(listTools),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('rejects any origin when the allowlist is empty', () async {
+      allowedOrigins = {};
+      final (status, _, text) = await post(
+        headers: {...headers(listTools), 'Origin': 'https://client.example'},
+        json: body(listTools),
+      );
+      expect(status, HttpStatus.forbidden);
+      expect(text, isEmpty);
+      expect(servers, isEmpty);
+    });
+  });
+
   group('subscriptions/listen', () {
     test('streams accepted changes before the result', () async {
       serverFactory = _EquippedServer.new;
@@ -2534,6 +2639,53 @@ void main() {
       // not onto the message frame that follows it.
       await keptAlive.future.timeout(const Duration(seconds: 5));
       await servers.single.shutdown();
+    });
+
+    test('keeps a notifying stream alive with an SSE comment', () async {
+      releaseNotifyThenWait = Completer<void>();
+      addTearDown(() {
+        if (!releaseNotifyThenWait.isCompleted) {
+          releaseNotifyThenWait.complete();
+        }
+      });
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.openUrl('POST', uri);
+      headers(callTool).forEach(request.headers.set);
+      request.headers.set('Mcp-Name', 'test/notify-then-wait');
+      request.write(
+        jsonEncode(
+          body(callTool, params: {Keys.name: 'test/notify-then-wait'}),
+        ),
+      );
+      final response = await request.close();
+
+      // The handler stays parked past the keep-alive interval, so a comment
+      // lands between the notification and the result.
+      final chunks = StringBuffer();
+      final keptAlive = Completer<void>();
+      final subscription = response.transform(utf8.decoder).listen((chunk) {
+        chunks.write(chunk);
+        if (!keptAlive.isCompleted &&
+            chunks.toString().split('\n\n').any((f) => f.startsWith(':'))) {
+          keptAlive.complete();
+        }
+      });
+      addTearDown(subscription.cancel);
+
+      await keptAlive.future.timeout(const Duration(seconds: 5));
+      releaseNotifyThenWait.complete();
+      await subscription.asFuture<void>();
+
+      final text = chunks.toString();
+      expect(frames(text), hasLength(greaterThan(2)));
+      final messages = events(text);
+      expect(messages, hasLength(2));
+      expect(
+        messages.first[Keys.method],
+        LoggingMessageNotification.methodName,
+      );
+      expect(messages.last[Keys.id], 1);
     });
 
     test('does not register on earlier revisions', () async {
@@ -3718,6 +3870,101 @@ void main() {
       expect(status, 200);
       expect(errorCode(text), isNull);
     });
+
+    test('cancels a request when its SSE response closes', () async {
+      releaseDisconnectHandler = Completer<void>();
+      addTearDown(() {
+        if (!releaseDisconnectHandler.isCompleted) {
+          releaseDisconnectHandler.complete();
+        }
+      });
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(uri);
+      headers(callTool).forEach(request.headers.set);
+      request.headers.set('Mcp-Name', 'test/disconnect');
+      request.write(
+        jsonEncode(body(callTool, params: {Keys.name: 'test/disconnect'})),
+      );
+      final response = await request.close();
+      final firstFrame = Completer<void>();
+      final chunks = StringBuffer();
+      final subscription = response.transform(utf8.decoder).listen((chunk) {
+        chunks.write(chunk);
+        if (!firstFrame.isCompleted && chunks.toString().contains('\n\n')) {
+          firstFrame.complete();
+        }
+      }, onError: (Object _) {});
+      addTearDown(subscription.cancel);
+
+      await firstFrame.future.timeout(const Duration(seconds: 5));
+      expect(events(chunks.toString()), hasLength(1));
+      final server = servers.single;
+      client.close(force: true);
+
+      await server.done.timeout(const Duration(seconds: 5));
+      expect(server.isActive, isFalse);
+      releaseDisconnectHandler.complete();
+      await pumpEventQueue(times: 20);
+      expect(events(chunks.toString()), hasLength(1));
+    });
+
+    test('does not cancel before an SSE response starts', () async {
+      _noStreamHandlerEntered = Completer<void>();
+      _releaseNoStreamHandler = Completer<void>();
+      addTearDown(() {
+        if (!_releaseNoStreamHandler.isCompleted) {
+          _releaseNoStreamHandler.complete();
+        }
+      });
+      final quiet = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => quiet.close(force: true));
+      final handled = Completer<void>();
+      quiet.listen((request) {
+        () async {
+          Timer? keepAlive;
+          try {
+            final handling = handleStreamableHttpRequest(request, (channel) {
+              final server = _NoStreamServer(channel);
+              servers.add(server);
+              return server;
+            });
+            await _noStreamHandlerEntered.future;
+            request.response.bufferOutput = false;
+            keepAlive = Timer.periodic(
+              const Duration(milliseconds: 10),
+              (_) => request.response.write('ready'),
+            );
+            request.response.write('ready');
+            await request.response.flush();
+            await handling;
+          } finally {
+            keepAlive?.cancel();
+            handled.complete();
+          }
+        }().ignore();
+      });
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(
+        Uri.http('${quiet.address.host}:${quiet.port}', '/mcp'),
+      );
+      headers('test/no-stream').forEach(request.headers.set);
+      request.write(jsonEncode(body('test/no-stream')));
+      final response = await request.close();
+      final subscription = response.listen((_) {}, onError: (Object _) {});
+      addTearDown(subscription.cancel);
+      await _noStreamHandlerEntered.future.timeout(const Duration(seconds: 5));
+      final server = servers.single;
+
+      client.close(force: true);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(server.isActive, isTrue);
+
+      _releaseNoStreamHandler.complete();
+      await server.done.timeout(const Duration(seconds: 5));
+      await handled.future.timeout(const Duration(seconds: 5));
+    });
   });
 
   group('malformed bodies', () {
@@ -4857,6 +5104,28 @@ final class _CountingHttpRequest extends Stream<Uint8List>
 /// Held by `test/notify-then-wait` until a test releases it.
 Completer<void> releaseNotifyThenWait = Completer<void>();
 
+/// Held by `test/disconnect` until its response stream has closed.
+Completer<void> releaseDisconnectHandler = Completer<void>();
+
+Completer<void> _noStreamHandlerEntered = Completer<void>();
+Completer<void> _releaseNoStreamHandler = Completer<void>();
+
+base class _NoStreamServer extends MCPServer {
+  _NoStreamServer(super.channel)
+    : super.fromStreamChannel(
+        implementation: Implementation(
+          name: 'no stream test server',
+          version: '0.1.0',
+        ),
+      ) {
+    registerRequestHandler<Request?, Result?>('test/no-stream', (_) async {
+      _noStreamHandlerEntered.complete();
+      await _releaseNoStreamHandler.future;
+      return EmptyResult();
+    });
+  }
+}
+
 base class _HttpTestServer extends MCPServer
     with LoggingSupport, ToolsSupport, SubscriptionsSupport {
   bool get _declaredSampling => clientCapabilities.sampling != null;
@@ -5041,6 +5310,26 @@ base class _HttpTestServer extends MCPServer
         return CallToolResult(content: [TextContent(text: 'released')]);
       },
     );
+    registerTool(Tool(name: 'test/disconnect', inputSchema: ObjectSchema()), (
+      _,
+    ) async {
+      sendNotification(
+        LoggingMessageNotification.methodName,
+        LoggingMessageNotification(
+          level: LoggingLevel.error,
+          data: 'before disconnect',
+        ),
+      );
+      await releaseDisconnectHandler.future;
+      sendNotification(
+        LoggingMessageNotification.methodName,
+        LoggingMessageNotification(
+          level: LoggingLevel.error,
+          data: 'after disconnect',
+        ),
+      );
+      return CallToolResult(content: [TextContent(text: 'late result')]);
+    });
     registerTool(
       Tool(name: 'test/notify-then-throw', inputSchema: ObjectSchema()),
       (_) {
