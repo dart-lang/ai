@@ -55,9 +55,10 @@ base class MCPBase {
 
   /// Progress tokens of cancelled requests this side has already answered.
   ///
-  /// The response is dropped, so the ID leaves [_inFlightRequests]; a late
-  /// progress notification still names the token, and the specification keeps
-  /// it off the wire. Bounded by `maxRetainedCancellations`.
+  /// The response is dropped, so the ID leaves [_inFlightRequests] while a
+  /// late progress notification still names the token. Keeping that token
+  /// quiet is this package's choice, not a rule the specification states.
+  /// Bounded by `maxRetainedCancellations`.
   final _unownedProgressTokens = <ProgressToken>{};
 
   /// How many unanswered cancellations this connection retains.
@@ -300,9 +301,11 @@ base class MCPBase {
   /// Notes each request the peer sends on [channel] and keeps the messages for
   /// a cancelled one off it.
   ///
-  /// A receiver must send no response and no further message for a request the
-  /// peer cancelled. Responses and progress are dropped at the channel edge;
-  /// notifications sent by its handler are dropped by [sendNotification].
+  /// The specification asks a server receiving a cancellation to stop
+  /// processing, free resources and send no response, all as SHOULDs. This
+  /// package keeps the whole wire side of the request quiet: responses and
+  /// progress are dropped at the channel edge, and notifications its handler
+  /// sends are dropped by [sendNotification].
   ///
   /// Progress is forwarded only for the active request carrying its token.
   StreamChannel<Map<String, Object?>> _trackCancellations(
@@ -390,10 +393,11 @@ base class MCPBase {
     final request = _IncomingRequest(progressToken: token);
     _inFlightRequests[id] = request;
     if (token != null) {
-      // A token a cancelled or untrackable request left behind belongs to this
-      // request now, so its progress goes out again.
+      // The newest request declaring a token owns it. A cancelled request keeps
+      // running, so leaving the old owner in place would take the progress of a
+      // live request that reuses the token.
       _unownedProgressTokens.remove(token);
-      _requestsByProgressToken.putIfAbsent(token, () => id);
+      _requestsByProgressToken[token] = id;
     }
 
     if (copiedParams != null) {

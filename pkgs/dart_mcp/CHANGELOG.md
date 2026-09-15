@@ -15,12 +15,16 @@
 - Let `handleRequestScopedMessage` route server-to-client requests through an
   `onRequest` callback on revisions before 2026-07-28. Missing callbacks and
   invalid callback responses fail the server request without leaving it open.
-- Honour `notifications/cancelled`. A cancelled request sends no further
-  messages. Progress stays off the wire once its request is cancelled, once a
-  dropped response has answered it, or when the request that declared its
-  token arrived with an ID this side cannot track. Progress carrying a token
-  no request declared reaches the peer unchanged. The handler keeps running
-  because it still cannot see its request ID. `MCPBase.cancellations` reports
+- Honour `notifications/cancelled`. A cancelled request goes quiet on the
+  wire. Progress stays off it once the request is cancelled, once a dropped
+  response has answered it, or when the request that declared its token
+  arrived with an ID this side cannot track. Progress carrying a token no
+  request declared reaches the peer unchanged. A cancelled
+  `subscriptions/listen` request ends its subscription and frees the slot its
+  cancellation holds. The handler keeps running, because the
+  specification asks a server to stop processing as a SHOULD and this
+  revision does not interrupt one. A handler that wants to stop reads
+  `MCPBase.captureIncomingRequestActivity`. `MCPBase.cancellations` reports
   valid notifications so subclasses can log their reasons.
   On servers, `maxRetainedCancellations` bounds cancelled requests whose
   responses have not arrived. Exceeding the bound closes the connection
@@ -47,6 +51,10 @@
       which cannot be encoded.
     - On in-memory channels, `RpcException.data` is no longer normalized by a
       JSON round trip, so it can be an untyped map.
+  - `MCPBase.sendNotification` sends nothing while the request whose handler
+    calls it is cancelled, `MCPServer.log` included. A subscription a handler
+    opens for the life of the connection belongs in
+    `MCPBase.runOutsideRequest`, keeping it off that request.
   - `MCPBase` now registers the handler for `notifications/cancelled`, so a
     subclass that registered its own handler for that method must read
     `MCPBase.cancellations` instead. A second registration for one method name

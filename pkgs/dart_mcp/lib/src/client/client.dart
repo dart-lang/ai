@@ -302,6 +302,7 @@ base class ServerConnection extends MCPBase {
     ElicitationSupport? elicitationSupport,
     ElicitationFormSupport? elicitationFormSupport,
     ElicitationUrlSupport? elicitationUrlSupport,
+    super.maxRetainedCancellations,
   }) : _elicitationFormSupport = elicitationFormSupport ?? elicitationSupport,
        _elicitationUrlSupport = elicitationUrlSupport,
        _samplingSupport = samplingSupport,

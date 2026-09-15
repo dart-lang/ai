@@ -392,6 +392,59 @@ void main() {
     expect(harness.framesWithId(2), hasLength(1));
   });
 
+  test('a live request takes over a token from a cancelled one', () async {
+    final harness = _Harness();
+    await harness.initialize();
+
+    harness.send({
+      'jsonrpc': '2.0',
+      'id': 1,
+      'method': CallToolRequest.methodName,
+      'params':
+          CallToolRequest(
+                name: _Harness.slowToolName,
+                meta: MetaWithProgressToken(progressToken: ProgressToken('t')),
+              )
+              as Map<String, Object?>,
+    });
+    await harness.server.slowToolCalled.future;
+    harness.send({
+      'jsonrpc': '2.0',
+      'method': CancelledNotification.methodName,
+      'params':
+          CancelledNotification(requestId: RequestId(1))
+              as Map<String, Object?>,
+    });
+    await pumpEventQueue();
+
+    // The cancelled handler is still running, so request 1 still holds the
+    // token when request 2 declares it. The live request owns it from here.
+    harness.send({
+      'jsonrpc': '2.0',
+      'id': 2,
+      'method': CallToolRequest.methodName,
+      'params':
+          CallToolRequest(
+                name: _Harness.otherSlowToolName,
+                meta: MetaWithProgressToken(progressToken: ProgressToken('t')),
+              )
+              as Map<String, Object?>,
+    });
+    await harness.server.otherSlowToolCalled.future;
+    harness.server.notifyProgress(
+      ProgressNotification(progressToken: ProgressToken('t'), progress: 1),
+    );
+    await pumpEventQueue();
+
+    expect(harness.progressFrames, hasLength(1));
+
+    harness.server.finishSlowTool.complete();
+    harness.server.finishOtherSlowTool.complete();
+    await pumpEventQueue();
+    expect(harness.framesWithId(1), isEmpty);
+    expect(harness.framesWithId(2), hasLength(1));
+  });
+
   test(
     'a cancellation that arrives after the response changes nothing',
     () async {
@@ -629,7 +682,7 @@ void main() {
     expect(harness.progressFrames, isEmpty);
   });
 
-  test('overflow suppresses subscription shutdown responses', () async {
+  test('a cancelled subscription frees its retained slot', () async {
     final harness = _SubscriptionHarness(maxRetainedCancellations: 1);
     await harness.initialize();
 
@@ -641,11 +694,13 @@ void main() {
 
     harness.cancel(1);
     await pumpEventQueue();
-    expect(harness.server.isActive, isTrue);
     harness.cancel(2);
-    await harness.server.done;
     await pumpEventQueue();
 
+    // Ending each cancelled subscription lets its response leave the handler,
+    // so a single retained slot serves both. A subscription that waited for
+    // shutdown instead would fill the bound and take the connection down.
+    expect(harness.server.isActive, isTrue);
     expect(harness.framesWithId(1), isEmpty);
     expect(harness.framesWithId(2), isEmpty);
   });

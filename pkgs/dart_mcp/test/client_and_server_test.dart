@@ -244,8 +244,26 @@ void main() {
   });
 
   test('servers can handle progress notifications', () async {
-    final client = ListRootsProgressTestMCPClient();
-    final environment = TestEnvironment(client, TestMCPServer.new);
+    final environment = TestEnvironment(
+      ListRootsProgressTestMCPClient(),
+      (channel) => TestMCPServer(
+        channel.transformSink(
+          StreamSinkTransformer<
+            Map<String, Object?>,
+            Map<String, Object?>
+          >.fromHandlers(
+            handleData: (data, sink) async {
+              // Add a short delay when sending out a list roots request so
+              // we can get progress notifications.
+              if (data[Keys.method] == ListRootsRequest.methodName) {
+                await Future<void>.delayed(const Duration(milliseconds: 10));
+              }
+              sink.add(data);
+            },
+          ),
+        ),
+      ),
+    );
     await environment.initializeServer();
     final server = environment.server;
 
@@ -273,9 +291,7 @@ void main() {
       reason: 'Should not receive progress events for completed requests',
     );
 
-    await client.listRootsCalled.future;
     environment.serverConnection.notifyProgress(expectedNotification);
-    client.finishListRoots.complete();
     await onDone;
     environment.serverConnection.notifyProgress(lateNotification);
 
@@ -482,17 +498,7 @@ final class InitializeProgressTestMCPServer extends TestMCPServer
 }
 
 final class ListRootsProgressTestMCPClient extends TestMCPClient
-    with RootsSupport {
-  final listRootsCalled = Completer<void>();
-  final finishListRoots = Completer<void>();
-
-  @override
-  Future<ListRootsResult> handleListRoots([ListRootsRequest? request]) async {
-    listRootsCalled.complete();
-    await finishListRoots.future;
-    return super.handleListRoots(request);
-  }
-}
+    with RootsSupport {}
 
 final class TestOldMcpServer extends TestMCPServer {
   TestOldMcpServer(super.channel);
