@@ -21,8 +21,8 @@ import '../utils/streamable_http.dart';
 /// written to `_meta` and `MCP-Protocol-Version`. [clientCapabilities] and
 /// [clientInfo] merge into `_meta`. JSON replies use `jsonDecode` and SSE
 /// replies use [sseMessageStream]. A failed POST is a JSON-RPC error for that
-/// request id, or an error on the channel itself when it carried a
-/// notification. Notifications have no id to carry an error. A response
+/// request ID, or an error on the channel itself when it carried a
+/// notification. Notifications have no ID to carry an error. A response
 /// stream that ends without answering the request fails it the same way. A
 /// `202` on a notification is not an inbound message. Valid `x-mcp-header`
 /// annotations from `tools/list` are mirrored on later `tools/call` requests.
@@ -216,7 +216,7 @@ Stream<Map<String, Object?>> _sendStreamableHttpMessage(
     );
   } catch (error, stackTrace) {
     if (!message.containsKey(Keys.id)) {
-      // A notification has no id to attach a JSON-RPC error to. A message this
+      // A notification has no ID to attach a JSON-RPC error to. A message this
       // client never sent is the caller's to fix, but a POST that failed on
       // the wire has nothing else to report it.
       if (posting) Error.throwWithStackTrace(error, stackTrace);

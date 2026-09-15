@@ -6,26 +6,33 @@ part of 'server.dart';
 
 /// A mixin for MCP servers which serve `subscriptions/listen` requests.
 ///
-/// Stamps the subscription id on the acknowledgement and holds the request
-/// until shutdown. A `package:json_rpc_2` handler does not receive that id,
+/// Stamps the subscription ID on the acknowledgement and holds the request
+/// until shutdown. A `package:json_rpc_2` handler does not receive that ID,
 /// so a transport sets [nextSubscriptionId] before delivering the request.
 /// [handleRequestScopedMessage] does. A request without one is refused.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/subscriptions.
 base mixin SubscriptionsSupport on MCPServer {
-  /// Ends each open subscription, under the id it was opened with.
+  /// Ends each open subscription, under the ID it was opened with.
   final Map<RequestId, Completer<void>> _subscriptions = {};
 
   /// The first [shutdown] call, which every later one waits on.
   Completer<void>? _shutdown;
 
-  /// The id the next `subscriptions/listen` request opens its subscription
+  /// The ID the next `subscriptions/listen` request opens its subscription
   /// under.
   ///
-  /// A handler cannot read the JSON-RPC id of the request it answers, and a
-  /// subscription is named by that id. The transport serving the request sets
+  /// A handler cannot read the JSON-RPC ID of the request it answers, and a
+  /// subscription is named by that ID. The transport serving the request sets
   /// this before delivering it. Leaving it `null` refuses the request.
   RequestId? nextSubscriptionId;
+
+  /// Advertises every registered capability, since this server serves the
+  /// `subscriptions/listen` requests a client opens to hear those
+  /// notifications on. The copy keeps the advertisement off server state.
+  @override
+  ServerCapabilities get advertisedCapabilities =>
+      ServerCapabilities.fromMap({...capabilities as Map<String, Object?>});
 
   @override
   FutureOr<void> initialize(MCPServerInitialization initialization) async {
@@ -74,7 +81,7 @@ base mixin SubscriptionsSupport on MCPServer {
 
   /// Acknowledges [request] and keeps it open until the server shuts down.
   ///
-  /// The acknowledgement and the result both carry the subscription id under
+  /// The acknowledgement and the result both carry the subscription ID under
   /// `io.modelcontextprotocol/subscriptionId`. On a server with
   /// [ResourcesSupport], every URI the acknowledged `resourceSubscriptions`
   /// filter names starts sending [ResourceUpdatedNotification]s, so that
@@ -148,15 +155,15 @@ base mixin SubscriptionsSupport on MCPServer {
       throw RpcException(
         error_code.INVALID_REQUEST,
         'A `${SubscriptionsListenRequest.methodName}` subscription is named '
-        'by the JSON-RPC id of the request which opens it, and this server '
-        'was given no id to name this one by.',
+        'by the JSON-RPC ID of the request which opens it, and this server '
+        'was given no ID to name this one by.',
       );
     }
     if (_subscriptions.containsKey(subscriptionId)) {
       throw RpcException(
         error_code.INVALID_REQUEST,
         'A `${SubscriptionsListenRequest.methodName}` subscription is already '
-        'open under this request id.',
+        'open under this request ID.',
       );
     }
     final subscriptionEnd = Completer<void>();

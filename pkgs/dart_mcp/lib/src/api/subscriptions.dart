@@ -93,7 +93,7 @@ extension type WithSubscriptionId._fromMap(Map<String, Object?> _value) {
     return MetaWithSubscriptionId.fromMap(meta as Map<String, Object?>);
   }
 
-  /// The JSON-RPC id of the [SubscriptionsListenRequest] which opened the
+  /// The JSON-RPC ID of the [SubscriptionsListenRequest] which opened the
   /// stream this message belongs to.
   ///
   /// Every message on the stream carries it under the
@@ -111,7 +111,7 @@ extension type MetaWithSubscriptionId.fromMap(Map<String, Object?> _value)
   factory MetaWithSubscriptionId({required RequestId subscriptionId}) =>
       MetaWithSubscriptionId.fromMap({Keys.subscriptionIdMeta: subscriptionId});
 
-  /// The JSON-RPC id of the [SubscriptionsListenRequest] which opened the
+  /// The JSON-RPC ID of the [SubscriptionsListenRequest] which opened the
   /// stream this metadata belongs to.
   RequestId get subscriptionId {
     final subscriptionId = _value[Keys.subscriptionIdMeta];
@@ -147,7 +147,7 @@ extension type SubscriptionsListenResult.fromMap(Map<String, Object?> _value)
 /// Sent by the server to acknowledge a [SubscriptionsListenRequest] and report
 /// the notification types it agreed to send.
 ///
-/// This is the first message carrying the subscription's id. Over stdio every
+/// This is the first message carrying the subscription's ID. Over stdio every
 /// subscription shares one channel, so messages from other subscriptions may
 /// arrive before this acknowledgement.
 ///

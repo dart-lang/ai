@@ -15,7 +15,10 @@
 - Let `handleRequestScopedMessage` route server-to-client requests through an
   `onRequest` callback on revisions before 2026-07-28. Missing callbacks and
   invalid callback responses fail the server request without leaving it open.
-- Add an example pair under `example/` which greets over stdio and over
+- Advertise the notification capabilities from a protected
+  `MCPServer.advertisedCapabilities` getter, which `SubscriptionsSupport`
+  overrides, instead of a type check on the server.
+- Add an example pair under `example/` that greets over stdio and over
   Streamable HTTP, asking who to greet with an `InputRequiredResult`.
 - **BREAKING**:
   - `MCPBase` (including the `MCPServer.fromStreamChannel` and
