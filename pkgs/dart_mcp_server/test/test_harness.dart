@@ -26,23 +26,49 @@ import 'package:test/test.dart';
 import 'package:test_process/test_process.dart';
 import 'package:unified_analytics/unified_analytics.dart';
 
+/// Calls [fn], retrying up to [maxTries] times with exponential backoff.
+///
+/// If [retryUntil] is given, a result which does not satisfy it is treated the
+/// same as a thrown error and retried.
+///
+/// The delays are [initialDelay], then double each time, so the default gives
+/// up after roughly 7.75 seconds of waiting. That matters because most of what
+/// these retries are waiting on is an app finishing its startup, which takes
+/// seconds and not milliseconds - especially on Windows CI runners.
+///
+/// On failure the original error is rethrown with its original stack trace, and
+/// the last result (if any) is attached to the test output via
+/// [printOnFailure].
 Future<T> callWithRetry<T>(
   FutureOr<T> Function() fn, {
   int maxTries = 5,
   bool Function(T)? retryUntil,
+  Duration initialDelay = const Duration(milliseconds: 250),
 }) async {
   var tryCount = 0;
+  T? lastResult;
+  var hasResult = false;
   while (true) {
     try {
       final result = await fn();
       if (retryUntil?.call(result) == false) {
-        throw StateError('Retry condition not met');
+        lastResult = result;
+        hasResult = true;
+        throw StateError('Retry condition not met for result: $result');
       }
       return result;
-    } catch (_) {
-      if (tryCount++ >= maxTries) rethrow;
+    } catch (error, stackTrace) {
+      if (tryCount++ >= maxTries) {
+        if (hasResult) {
+          printOnFailure(
+            'callWithRetry gave up after $tryCount attempts. '
+            'Last result was: $lastResult',
+          );
+        }
+        Error.throwWithStackTrace(error, stackTrace);
+      }
     }
-    await Future<void>.delayed(Duration(milliseconds: 100 * tryCount));
+    await Future<void>.delayed(initialDelay * (1 << (tryCount - 1)));
   }
 }
 
@@ -142,12 +168,18 @@ class TestHarness {
   }
 
   /// Starts an app debug session.
+  ///
+  /// By default this does not return until the MCP server has discovered the
+  /// app and connected its own VM service client to it. Pass
+  /// [waitForServerConnection] as `false` to observe the server's state before
+  /// it has connected.
   Future<AppDebugSession> startDebugSession(
     String projectRoot,
     String appPath, {
     required bool isFlutter,
     List<String> args = const [],
     FakeEditorExtension? editorExtension,
+    bool waitForServerConnection = true,
   }) async {
     final session = await AppDebugSession._start(
       projectRoot,
@@ -162,7 +194,34 @@ class TestHarness {
     if (!roots.any((r) => r.uri == root.uri)) {
       mcpClient.addRoot(root);
     }
+    // Only meaningful if the server has a DTD to discover the app through.
+    // Tests which connect straight to a VM service URI never connect a DTD.
+    if (waitForServerConnection && _isConnectedToDtd) {
+      await waitForAppConnection(session);
+    }
     return session;
+  }
+
+  /// Waits until the MCP server reports [session]'s app as connected.
+  ///
+  /// [AppDebugSession._start] returns as soon as the app prints its VM service
+  /// URI, but the server still has to hear about the registration over DTD and
+  /// connect its own VM service client. Racing that handshake - rather than
+  /// waiting for it - is the largest source of flakiness in these tests, and it
+  /// shows up as a spurious "No active app connection" error.
+  Future<void> waitForAppConnection(AppDebugSession session) async {
+    await callWithRetry(
+      () => callTool(
+        CallToolRequest(
+          name: ToolNames.dtd.name,
+          arguments: {ParameterNames.command: DtdCommand.listConnectedApps},
+        ),
+      ),
+      // ~15s of backoff in total, well within the `live-app` tag's budget.
+      maxTries: 6,
+      retryUntil: (result) =>
+          jsonEncode(result.structuredContent).contains(session.vmServiceUri),
+    );
   }
 
   /// Creates a canonical [Root] object for a given [projectPath].
@@ -177,6 +236,13 @@ class TestHarness {
     await (editorExtension ?? fakeEditorExtension)?.removeDebugSession(session);
     await AppDebugSession.kill(session.appProcess, session.isFlutter);
   }
+
+  /// Whether [connectToDtd] has successfully connected the server to a DTD.
+  ///
+  /// Some tests drive the VM service directly and never connect to a DTD at
+  /// all; there is nothing for [waitForAppConnection] to wait on in that case.
+  bool get isConnectedToDtd => _isConnectedToDtd;
+  bool _isConnectedToDtd = false;
 
   /// Connects the MCP server to the dart tooling daemon at the [dtdUri] using
   /// the "connectDartToolingDaemon" tool function.
@@ -204,6 +270,7 @@ class TestHarness {
       ),
       expectError: expectError,
     );
+    if (result.isError != true) _isConnectedToDtd = true;
     return result;
   }
 
@@ -291,22 +358,35 @@ final class AppDebugSession {
 
     String? vmServiceUri;
     final stdout = StreamQueue(process.stdoutStream());
-    while (vmServiceUri == null && await stdout.hasNext) {
-      final line = await stdout.next;
-      final serviceString = isFlutter
-          ? 'A Dart VM Service'
-          : 'The Dart VM service';
-      if (line.contains(serviceString)) {
-        vmServiceUri = line
-            .substring(line.indexOf('http:'))
-            .replaceFirst('http:', 'ws:');
-        await stdout.cancel();
+    // Generous, because a cold `flutter run` on a loaded Windows CI runner is
+    // slow, but bounded so that a launch which never reports a URI fails with
+    // this message rather than silently eating the whole test timeout.
+    final deadline = Stopwatch()..start();
+    const startupTimeout = Duration(minutes: 2);
+    try {
+      while (vmServiceUri == null &&
+          await stdout.hasNext.timeout(startupTimeout - deadline.elapsed)) {
+        final line = await stdout.next.timeout(
+          startupTimeout - deadline.elapsed,
+        );
+        final serviceString = isFlutter
+            ? 'A Dart VM Service'
+            : 'The Dart VM service';
+        if (line.contains(serviceString)) {
+          vmServiceUri = line
+              .substring(line.indexOf('http:'))
+              .replaceFirst('http:', 'ws:');
+          await stdout.cancel();
+        }
       }
+    } on TimeoutException catch (_) {
+      // Fall through to the StateError below, which has a better message.
     }
     if (vmServiceUri == null) {
       throw StateError(
         'Failed to read vm service URI from the '
-        '`${isFlutter ? 'flutter' : 'dart'} run` output',
+        '`${isFlutter ? 'flutter' : 'dart'} run` output for `$appPath` after '
+        '${deadline.elapsed.inSeconds}s',
       );
     }
     return AppDebugSession._(
