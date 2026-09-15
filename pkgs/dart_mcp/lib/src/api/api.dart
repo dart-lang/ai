@@ -499,18 +499,26 @@ enum CacheScope {
   private,
 }
 
-/// Could be either [TextContent], [ImageContent], [AudioContent],
-/// [EmbeddedResource], [ToolUseContent] or [ToolResultContent].
+/// Could be either [TextContent], [ImageContent], [AudioContent] or
+/// [EmbeddedResource].
 ///
-/// Use [isText], [isImage], [isAudio], [isEmbeddedResource], [isToolUse] and
-/// [isToolResult] before casting to the more specific types, or switch on the
-/// [type] and then cast.
+/// Use [isText], [isImage] and [isEmbeddedResource] before casting to the more
+/// specific types, or switch on the [type] and then cast.
 ///
 /// Doing `is` checks does not work because these are just extension types, they
 /// all have the same runtime type (`Map<String, Object?>`).
 extension type Content._(Map<String, Object?> _value) {
   factory Content.fromMap(Map<String, Object?> value) {
     assert(value.containsKey(Keys.type));
+    assert(
+      value[Keys.type] != ToolUseContent.expectedType &&
+          value[Keys.type] != ToolResultContent.expectedType,
+      'Sampling tool content cannot be read as Content.',
+    );
+    // Tool use and tool result belong to sampling messages, where they read
+    // as a `SamplingMessageContentBlock`. A `tools/call` result carrying one
+    // is a mix-up the static types already refuse, and a map arriving here
+    // skips those types, so the assert covers that path.
     return Content._(value);
   }
 
@@ -526,12 +534,6 @@ extension type Content._(Map<String, Object?> _value) {
   /// Alias for [EmbeddedResource.new].
   static const embeddedResource = EmbeddedResource.new;
 
-  /// Alias for [ToolUseContent.new].
-  static const toolUse = ToolUseContent.new;
-
-  /// Alias for [ToolResultContent.new].
-  static const toolResult = ToolResultContent.new;
-
   /// Whether or not this is a [TextContent].
   bool get isText => _value[Keys.type] == TextContent.expectedType;
 
@@ -545,24 +547,17 @@ extension type Content._(Map<String, Object?> _value) {
   bool get isEmbeddedResource =>
       _value[Keys.type] == EmbeddedResource.expectedType;
 
-  /// Whether or not this is a [ToolUseContent].
-  bool get isToolUse => _value[Keys.type] == ToolUseContent.expectedType;
-
-  /// Whether or not this is a [ToolResultContent].
-  bool get isToolResult => _value[Keys.type] == ToolResultContent.expectedType;
-
   /// The type of content.
   ///
   /// You can use this in a switch to handle the various types (see the static
-  /// `expectedType` getters), or you can use [isText], [isImage], [isAudio],
-  /// [isEmbeddedResource], [isToolUse] and [isToolResult] to determine the type
-  /// and then do the cast.
+  /// `expectedType` getters), or you can use [isText], [isImage], [isAudio] and
+  /// [isEmbeddedResource] to determine the type and then do the cast.
   String get type => _value[Keys.type] as String;
 }
 
 /// Text provided to or from an LLM.
 extension type TextContent.fromMap(Map<String, Object?> _value)
-    implements Content, Annotated, WithMetadata {
+    implements Content, SamplingMessageContentBlock, Annotated, WithMetadata {
   static const expectedType = 'text';
 
   factory TextContent({
@@ -588,7 +583,7 @@ extension type TextContent.fromMap(Map<String, Object?> _value)
 
 /// An image provided to or from an LLM.
 extension type ImageContent.fromMap(Map<String, Object?> _value)
-    implements Content, Annotated, WithMetadata {
+    implements Content, SamplingMessageContentBlock, Annotated, WithMetadata {
   static const expectedType = 'image';
 
   factory ImageContent({
@@ -623,7 +618,7 @@ extension type ImageContent.fromMap(Map<String, Object?> _value)
 ///
 /// Only supported since version [ProtocolVersion.v2025_03_26].
 extension type AudioContent.fromMap(Map<String, Object?> _value)
-    implements Content, Annotated, WithMetadata {
+    implements Content, SamplingMessageContentBlock, Annotated, WithMetadata {
   static const expectedType = 'audio';
 
   factory AudioContent({

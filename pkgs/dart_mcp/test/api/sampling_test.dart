@@ -20,7 +20,7 @@ void main() {
         input: {'city': 'Ankara'},
       );
       final decoded = jsonDecode(jsonEncode(content)) as Map<String, Object?>;
-      final parsed = Content.fromMap(decoded);
+      final parsed = SamplingMessageContentBlock.fromMap(decoded);
 
       expect(parsed.isToolUse, isTrue);
       expect(parsed.isToolResult, isFalse);
@@ -35,7 +35,7 @@ void main() {
         isError: false,
       );
       final decoded = jsonDecode(jsonEncode(content)) as Map<String, Object?>;
-      final parsed = Content.fromMap(decoded);
+      final parsed = SamplingMessageContentBlock.fromMap(decoded);
 
       expect(parsed.isToolResult, isTrue);
       expect(parsed.isToolUse, isFalse);
@@ -47,7 +47,11 @@ void main() {
     test('a sampling message carries tool use content', () {
       final message = SamplingMessage(
         role: Role.assistant,
-        content: Content.toolUse(id: 'call-1', name: 'lookup', input: {}),
+        content: SamplingMessageContentBlock.toolUse(
+          id: 'call-1',
+          name: 'lookup',
+          input: {},
+        ),
       );
       final decoded = jsonDecode(jsonEncode(message)) as Map<String, Object?>;
       final parsed = SamplingMessage.fromMap(decoded);
@@ -57,10 +61,37 @@ void main() {
     });
 
     test('text content is neither tool use nor tool result', () {
-      final content = Content.text(text: 'hi');
+      final content = SamplingMessageContentBlock.text(text: 'hi');
 
       expect(content.isToolUse, isFalse);
       expect(content.isToolResult, isFalse);
+    });
+
+    test('SamplingMessage round trips text content through the union', () {
+      final message = SamplingMessage(
+        role: Role.user,
+        content: SamplingMessageContentBlock.text(text: 'merhaba'),
+      );
+      final decoded = jsonDecode(jsonEncode(message)) as Map<String, Object?>;
+      final parsed = SamplingMessage.fromMap(decoded);
+
+      expect(parsed.content.type, TextContent.expectedType);
+      expect((parsed.content as TextContent).text, 'merhaba');
+    });
+
+    test('CreateMessageResult accepts a SamplingMessageContentBlock', () {
+      final block = SamplingMessageContentBlock.toolResult(
+        toolUseId: 'call-2',
+        content: [TextContent(text: 'ok')],
+      );
+      final result = CreateMessageResult(
+        role: Role.assistant,
+        content: block,
+        model: 'fakeModel',
+      );
+
+      expect(result.content.isToolResult, isTrue);
+      expect((result.content as ToolResultContent).toolUseId, 'call-2');
     });
 
     test('tools reads as null when the key is absent', () {
@@ -214,9 +245,9 @@ void main() {
       expect(decoded.name, 'lookup');
       expect(decoded.input, {'query': 'weather'});
 
-      final asContent = Content.fromMap(wire);
+      final asContent = SamplingMessageContentBlock.fromMap(wire);
       expect(asContent.isToolUse, isTrue);
-      expect(asContent.isText, isFalse);
+      expect(asContent.isToolResult, isFalse);
     });
 
     test('writes metadata when provided', () {
@@ -264,9 +295,9 @@ void main() {
       expect(decoded.structuredContent, isNull);
       expect(decoded.isError, isNull);
 
-      final asContent = Content.fromMap(wire);
+      final asContent = SamplingMessageContentBlock.fromMap(wire);
       expect(asContent.isToolResult, isTrue);
-      expect(asContent.isText, isFalse);
+      expect(asContent.isToolUse, isFalse);
     });
 
     test('omits absent optional fields', () {
@@ -341,6 +372,17 @@ void main() {
       ),
       expectedResult,
     );
+  });
+
+  test('reading tool content as plain content is refused', () {
+    final wire = {
+      'type': ToolUseContent.expectedType,
+      'id': 'call-1',
+      'name': 'greet',
+    };
+
+    expect(() => Content.fromMap(wire), throwsA(isA<AssertionError>()));
+    expect(SamplingMessageContentBlock.fromMap(wire).isToolUse, isTrue);
   });
 }
 

@@ -12,8 +12,8 @@
 - Let `handleRequestScopedMessage` route server-to-client requests through an
   `onRequest` callback on revisions before 2026-07-28. Missing callbacks and
   invalid callback responses fail the server request without leaving it open.
-- Add `ToolUseContent` and `ToolResultContent` for sampling messages, and a
-  `tools` list on `CreateMessageRequest`.
+- Add `ToolUseContent`, `ToolResultContent`, a `SamplingMessageContentBlock`
+  union for them, and a `tools` list on `CreateMessageRequest`.
 - **BREAKING**:
   - `MCPBase` (including the `MCPServer.fromStreamChannel` and
     `ServerConnection.fromStreamChannel` constructors),
@@ -151,6 +151,13 @@
     each identifier stay the ones the caller passed, and an empty extension
     name such as `example/` is still valid. Writing null `extensions` now
     leaves the key out instead of writing a null.
+  - `SamplingMessage.content` and `CreateMessageResult.content` now read
+    `SamplingMessageContentBlock` instead of `Content`. `TextContent`,
+    `ImageContent` and `AudioContent` implement both types.
+    `ToolUseContent` and `ToolResultContent` implement only the new one,
+    keeping a plain `tools/call` result from carrying tool content by
+    accident. `ToolResultContent.content` still reads `List<Content>`,
+    the union a tool result's payload uses in the schema.
 - Cap the request body in `handleStreamableHttpRequest` at
   `maxRequestBodyBytes`, 4 MiB by default.
   Larger bodies get `413` and an invalid request error. The same cap is the
