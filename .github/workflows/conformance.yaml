@@ -5,9 +5,15 @@
 name: package:dart_mcp conformance
 permissions: read-all
 
-# The MCP conformance suite is an npm package that is still in alpha, so this
-# runs on a schedule and by hand rather than on every pull request.
+# The MCP conformance suite is an npm package that is still in alpha. This job
+# runs weekly, by hand, and on pull requests that touch the package.
+# `continue-on-error` keeps the run green when the suite fails. The job itself
+# still reports the failure.
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/conformance.yaml'
+      - 'pkgs/dart_mcp/**'
   schedule:
     - cron: '0 0 * * 0' # weekly
   workflow_dispatch:
@@ -19,6 +25,7 @@ defaults:
 jobs:
   conformance:
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
