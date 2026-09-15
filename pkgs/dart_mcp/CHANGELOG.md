@@ -26,9 +26,9 @@
   revision does not interrupt one. A handler that wants to stop reads
   `MCPBase.captureIncomingRequestActivity`. `MCPBase.cancellations` reports
   valid notifications so subclasses can log their reasons.
-  On servers, `maxRetainedCancellations` bounds cancelled requests whose
-  responses have not arrived. Exceeding the bound closes the connection
-  instead of forgetting a cancellation; zero closes on the first live
+  On servers, `maxRetainedCancellations` caps the cancellations a connection
+  holds for requests it has not answered. Exceeding the bound closes the connection
+  instead of forgetting a cancellation, and zero closes on the first live
   cancellation.
 - **BREAKING**:
   - `MCPBase` (including the `MCPServer.fromStreamChannel` and
@@ -51,8 +51,8 @@
       which cannot be encoded.
     - On in-memory channels, `RpcException.data` is no longer normalized by a
       JSON round trip, so it can be an untyped map.
-  - `MCPBase.sendNotification` sends nothing while the request whose handler
-    calls it is cancelled, `MCPServer.log` included. A subscription a handler
+  - `MCPBase.sendNotification` sends nothing while the request its handler
+    answers is cancelled, `MCPServer.log` included. A subscription a handler
     opens for the life of the connection belongs in
     `MCPBase.runOutsideRequest`, keeping it off that request.
   - `MCPBase` now registers the handler for `notifications/cancelled`, so a

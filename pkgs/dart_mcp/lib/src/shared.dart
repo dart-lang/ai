@@ -72,19 +72,19 @@ base class MCPBase {
   /// Marks synthetic parameter maps that stand in for an omitted `params`.
   final _omittedParameters = Expando<bool>();
 
-  /// The zone key for the request whose handler is currently running.
+  /// The zone key for the request a running handler answers.
   final _currentRequestKey = Object();
 
-  /// The zone in which this connection was created.
+  /// The zone this connection was created in.
   late final Zone _connectionZone;
 
-  /// Every `notifications/cancelled` the peer sends whose `requestId` is a
-  /// JSON-RPC ID, in arrival order.
+  /// Every `notifications/cancelled` the peer sends with a JSON-RPC
+  /// `requestId`, in arrival order.
   ///
   /// [MCPBase] registers the connection's only `notifications/cancelled`
-  /// handler, so a subclass that wants to log a cancellation reason, which the
-  /// specification asks both parties to do, reads it here rather than
-  /// registering a handler of its own.
+  /// handler. A subclass that wants to log a cancellation reason, as both
+  /// roles are asked to, reads it here instead of registering a handler of
+  /// its own.
   ///
   /// A notification naming a request this side is not answering appears here
   /// too, because the ID may belong to a request this side sent. The
@@ -115,9 +115,9 @@ base class MCPBase {
   /// be logged to it. It is the responsibility of the caller to close the
   /// sink.
   ///
-  /// [maxRetainedCancellations] bounds cancelled requests whose responses have
-  /// not arrived. Exceeding it closes the connection rather than forgetting a
-  /// live cancellation. Zero closes on the first live cancellation.
+  /// [maxRetainedCancellations] bounds how many cancelled requests still wait
+  /// here for a response. Passing the bound ends the connection, and no
+  /// cancellation is lost. Zero keeps room for none.
   MCPBase(
     StreamChannel<Map<String, Object?>> channel, {
     Sink<String>? protocolLogSink,
@@ -257,7 +257,7 @@ base class MCPBase {
     final currentRequest = Zone.current[_currentRequestKey];
     if (currentRequest is _IncomingRequest && currentRequest.cancelled) {
       throw StateError(
-        'The request which started this operation was cancelled.',
+        'The request that started this operation was cancelled.',
       );
     }
     return ((await _peer.sendRequest(methodName, request)) as Map?)
@@ -272,7 +272,7 @@ base class MCPBase {
   /// Reports the peer's cancellation on [cancellations], and remembers it if
   /// it names a request this side is still answering.
   ///
-  /// A `requestId` which is not a JSON-RPC ID, an absent one included, is
+  /// A `requestId` that is not a JSON-RPC ID, an absent one included, is
   /// dropped: it can match no request in either direction. Every other
   /// cancellation is reported, including one for an ID this side never saw or
   /// has already answered, because the ID may name a request this side sent.
@@ -281,7 +281,7 @@ base class MCPBase {
   void _handleCancelled(CancelledNotification notification) {
     // A JSON-RPC ID is a `String` or a number, so anything else cannot name a
     // request. `RequestId` is an extension type on `Object`, so the value has
-    // to be tested rather than cast.
+    // to be tested instead of cast.
     final Object? id = notification.requestId;
     if (id == null || (id is! String && id is! num)) return;
     _cancellations.add(notification);
@@ -415,9 +415,10 @@ base class MCPBase {
 
   /// Records the progress token of a request this side cannot track.
   ///
-  /// A request whose JSON-RPC ID is not a string or a number never reaches
-  /// [_inFlightRequests], so a cancellation can never name it and its progress
-  /// has no owner. A later request declaring the same token takes it back.
+  /// A request with a JSON-RPC ID that is not a string or a number never
+  /// reaches [_inFlightRequests], so a cancellation can never name it and its
+  /// progress has no owner. A later request declaring the same token takes it
+  /// back.
   void _disownProgressToken(Map<String, Object?> message) {
     final params = message[Keys.params];
     if (params is! Map<String, Object?>) return;

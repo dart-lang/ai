@@ -165,10 +165,10 @@ void main() {
     });
     await pumpEventQueue();
 
-    // The specification's "ignore" is about the wire: no error response and
-    // no state change. The ID may name a request this side sent, so the
-    // notification is still reported; the two that name no JSON-RPC ID at all
-    // are dropped.
+    // The specification's "ignore" is about the wire, with no error response
+    // and no state change. An outgoing request can carry that ID, and the
+    // notification is reported either way. The two naming no JSON-RPC ID at
+    // all are dropped.
     expect(cancellations, hasLength(1));
     expect(cancellations.single.requestId, 404);
     expect(harness.frames.where((f) => f.containsKey('error')), isEmpty);
@@ -184,7 +184,7 @@ void main() {
     expect(harness.framesWithId(404), hasLength(1));
   });
 
-  test('a request whose `_meta` is not an object is still answered', () async {
+  test('a request with a non-object `_meta` is still answered', () async {
     final harness = _Harness();
     await harness.initialize();
 
@@ -513,9 +513,8 @@ void main() {
       });
       await pumpEventQueue();
 
-      // The race the specification asks both parties to handle: the answer was
-      // already on the wire, so nothing is taken back, and the notification is
-      // reported like any other.
+      // The answer was already on the wire in this race, and nothing is
+      // taken back. The notification is reported like any other.
       expect(cancellations, hasLength(1));
       expect(harness.framesWithId(1), hasLength(1));
       expect(harness.frames.where((f) => f.containsKey('error')), isEmpty);
@@ -836,7 +835,7 @@ void main() {
       harness.listChanges,
       hasLength(1),
       reason:
-          'a stream that outlives the request which opened it belongs to '
+          'a stream that outlives the request that opened it belongs to '
           'the connection',
     );
   });
@@ -1042,7 +1041,7 @@ class _Harness {
   }
 }
 
-/// A server with one tool whose handler the test releases by hand.
+/// A server with one tool the test releases by hand.
 final class _CancellationTestServer extends MCPServer
     with ToolsSupport, LoggingSupport, ResourcesSupport {
   _CancellationTestServer(super.channel, {super.maxRetainedCancellations})
@@ -1168,7 +1167,7 @@ final class _CancellationTestServer extends MCPServer
   }
 }
 
-/// A server whose open listen requests expose shutdown response races.
+/// A server with open listen requests that expose shutdown response races.
 final class _CancellationSubscriptionServer extends MCPServer
     with ResourcesSupport, SubscriptionsSupport {
   _CancellationSubscriptionServer(
