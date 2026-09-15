@@ -44,6 +44,12 @@ void main() async {
 
   // The tool takes no arguments. It asks for the name it greets instead.
   final result = await server.callTool(CallToolRequest(name: 'greet'));
+  // `content` belongs to the complete result, so check the type the response
+  // carries before reading it. The union erases to a map, so `is` cannot tell
+  // the two apart.
+  if (result.isInputRequired) {
+    throw StateError('The server asked for input this client cannot answer.');
+  }
   for (final content in result.content) {
     if (content.isText) print((content as TextContent).text);
   }
