@@ -21,6 +21,7 @@ part 'elicitation_support.dart';
 part 'response_cache.dart';
 part 'roots_support.dart';
 part 'sampling_support.dart';
+part 'subscriptions.dart';
 
 /// The base class for MCP clients.
 ///
@@ -305,7 +306,11 @@ base class ServerConnection extends MCPBase {
   }) : _elicitationFormSupport = elicitationFormSupport ?? elicitationSupport,
        _elicitationUrlSupport = elicitationUrlSupport,
        _samplingSupport = samplingSupport,
-       _rootsSupport = rootsSupport {
+       _rootsSupport = rootsSupport,
+       _requestCancellation =
+           channel is RequestCancellation
+               ? channel as RequestCancellation
+               : null {
     if (rootsSupport != null) {
       registerRequestHandler(
         ListRootsRequest.methodName,
@@ -350,6 +355,10 @@ base class ServerConnection extends MCPBase {
       PromptListChangedNotification.methodName,
       (notification) {
         _responseCache.invalidateMethod(ListPromptsRequest.methodName);
+        _forwardSubscriptionNotification(
+          PromptListChangedNotification.methodName,
+          notification,
+        );
         _promptListChangedController.sink.add(notification);
       },
     );
@@ -358,6 +367,10 @@ base class ServerConnection extends MCPBase {
       ToolListChangedNotification.methodName,
       (notification) {
         _responseCache.invalidateMethod(ListToolsRequest.methodName);
+        _forwardSubscriptionNotification(
+          ToolListChangedNotification.methodName,
+          notification,
+        );
         _toolListChangedController.sink.add(notification);
       },
     );
@@ -368,6 +381,10 @@ base class ServerConnection extends MCPBase {
         _responseCache
           ..invalidateMethod(ListResourcesRequest.methodName)
           ..invalidateMethod(ListResourceTemplatesRequest.methodName);
+        _forwardSubscriptionNotification(
+          ResourceListChangedNotification.methodName,
+          notification,
+        );
         _resourceListChangedController.sink.add(notification);
       },
     );
@@ -376,6 +393,10 @@ base class ServerConnection extends MCPBase {
       ResourceUpdatedNotification.methodName,
       (notification) {
         _responseCache.invalidateResource(notification.uri);
+        _forwardSubscriptionNotification(
+          ResourceUpdatedNotification.methodName,
+          notification,
+        );
         _resourceUpdatedController.sink.add(notification);
       },
     );
@@ -716,6 +737,101 @@ base class ServerConnection extends MCPBase {
   /// Updates will come on the [resourceUpdated] stream.
   Future<void> unsubscribeResource(UnsubscribeRequest request) =>
       sendRequest(UnsubscribeRequest.methodName, request);
+
+  /// The subscriptions this connection has open, keyed by [Subscription.id].
+  final _subscriptions = <RequestId, Subscription>{};
+
+  final RequestCancellation? _requestCancellation;
+
+  /// Whether [listen] has registered the server's subscription handlers.
+  ///
+  /// [_subscriptions] empties out again as subscriptions end, so it cannot
+  /// answer this.
+  bool _subscriptionHandlersRegistered = false;
+
+  /// Opens a `subscriptions/listen` stream for the types [notifications]
+  /// names.
+  ///
+  /// Returns before the server sees the request, so subscribe to
+  /// [Subscription.notifications] synchronously.
+  ///
+  /// You should check the [protocolVersion] before using this API, it must be
+  /// >= [ProtocolVersion.v2026_07_28].
+  Subscription listen(
+    SubscriptionFilter notifications, {
+    required MetaWithRequestEnvelope meta,
+  }) {
+    if (!_subscriptionHandlersRegistered) {
+      registerNotificationHandler<SubscriptionsAcknowledgedNotification>(
+        SubscriptionsAcknowledgedNotification.methodName,
+        _handleSubscriptionsAcknowledged,
+      );
+      registerNotificationHandler<CancelledNotification>(
+        CancelledNotification.methodName,
+        _handleSubscriptionCancelled,
+      );
+      _subscriptionHandlersRegistered = true;
+    }
+    final sent = sendRequestWithId<SubscriptionsListenResult>(
+      SubscriptionsListenRequest.methodName,
+      request: SubscriptionsListenRequest(
+        notifications: notifications,
+        meta: meta,
+      ),
+    );
+    return _subscriptions[sent.id] = Subscription._(
+      this,
+      sent.id,
+      sent.result,
+      sent.sent,
+    );
+  }
+
+  Future<void> _cancelSubscription(RequestId id) async {
+    final requestCancellation = _requestCancellation;
+    if (requestCancellation != null) {
+      completeRequestLocally(this, id);
+      await requestCancellation.cancelRequest(id);
+    } else {
+      sendNotification(
+        CancelledNotification.methodName,
+        CancelledNotification(requestId: id),
+      );
+      completeRequestLocally(this, id);
+    }
+  }
+
+  void _forwardSubscriptionNotification(String method, Object? params) {
+    for (final subscription in _subscriptions.values.toList()) {
+      subscription._forward(method, params);
+    }
+  }
+
+  /// Ends the open subscription named by [notification], if there is one.
+  void _handleSubscriptionCancelled(CancelledNotification notification) {
+    final subscription = _subscriptions[notification.requestId];
+    if (subscription == null) return;
+    unawaited(subscription._finish());
+    completeRequestLocally(this, subscription.id);
+  }
+
+  /// Reports the acknowledged filter to the subscription [notification] names.
+  ///
+  /// The fields are read off the raw map, so a malformed one leaves its
+  /// subscription unacknowledged.
+  void _handleSubscriptionsAcknowledged(
+    SubscriptionsAcknowledgedNotification notification,
+  ) {
+    final fields = notification as Map<String, Object?>;
+    final meta = fields[Keys.meta];
+    final id =
+        meta is Map<String, Object?> ? meta[Keys.subscriptionIdMeta] : null;
+    final accepted = fields[Keys.notifications];
+    if (id == null || accepted is! Map<String, Object?>) return;
+    _subscriptions[RequestId(id)]?._acknowledge(
+      SubscriptionFilter.fromMap(accepted),
+    );
+  }
 
   /// Sends a request to change the current logging level.
   ///
