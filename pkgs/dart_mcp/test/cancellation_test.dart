@@ -297,6 +297,48 @@ void main() {
     expect(harness.framesWithId(1), hasLength(1));
   });
 
+  test('the unowned token bound forgets the oldest token', () async {
+    final harness = _Harness(maxRetainedCancellations: 1);
+    await harness.initialize();
+
+    for (final token in ['first', 'second']) {
+      harness.send({
+        'jsonrpc': '2.0',
+        'id': <Object?>['not an id'],
+        'method': CallToolRequest.methodName,
+        'params':
+            CallToolRequest(
+                  name: _Harness.slowToolName,
+                  meta: MetaWithProgressToken(
+                    progressToken: ProgressToken(token),
+                  ),
+                )
+                as Map<String, Object?>,
+      });
+      await pumpEventQueue();
+    }
+
+    harness.server.notifyProgress(
+      ProgressNotification(progressToken: ProgressToken('second'), progress: 1),
+    );
+    await pumpEventQueue();
+    expect(
+      harness.progressFrames,
+      isEmpty,
+      reason: 'the newest disowned token is the one the bound keeps',
+    );
+
+    harness.server.notifyProgress(
+      ProgressNotification(progressToken: ProgressToken('first'), progress: 1),
+    );
+    await pumpEventQueue();
+    expect(
+      harness.progressFrames,
+      hasLength(1),
+      reason: 'a token the bound has dropped has no owner to be cancelled',
+    );
+  });
+
   test('progress after a dropped response stays off the wire', () async {
     final harness = _Harness();
     await harness.initialize();
@@ -767,6 +809,38 @@ void main() {
     );
   });
 
+  test('a cancelled handshake still notifies list changes', () async {
+    final harness = _Harness();
+    final release = harness.server.holdInitialize = Completer<void>();
+    harness.sendInitialize(0);
+    await harness.server.initializeCalled.future;
+
+    // The cancellation arrives while the handshake is still in its handler, so
+    // the mixins open their streams under a request that is already cancelled.
+    harness.cancel(0);
+    await pumpEventQueue();
+    release.complete();
+    await harness.finishInitialize();
+    expect(
+      harness.framesWithId(0),
+      isEmpty,
+      reason: 'the cancelled handshake gets no response',
+    );
+
+    harness.server.addResource(
+      Resource(name: 'watched', uri: 'file:///watched'),
+      (_) => ReadResourceResult(contents: const []),
+    );
+    await pumpEventQueue();
+    expect(
+      harness.listChanges,
+      hasLength(1),
+      reason:
+          'a stream that outlives the request which opened it belongs to '
+          'the connection',
+    );
+  });
+
   test('negative retained cancellation bounds fail construction', () async {
     final toServer = StreamController<Map<String, Object?>>.broadcast();
     final fromServer = StreamController<Map<String, Object?>>.broadcast();
@@ -929,11 +1003,23 @@ class _Harness {
     (frame) => frame['method'] == ProgressNotification.methodName,
   );
 
+  /// The resource list-changed notifications the server wrote.
+  Iterable<Map<String, Object?>> get listChanges => frames.where(
+    (frame) => frame['method'] == ResourceListChangedNotification.methodName,
+  );
+
   /// Runs the legacy handshake with raw frames.
   Future<void> initialize() async {
+    sendInitialize(0);
+    await finishInitialize();
+    frames.clear();
+  }
+
+  /// Sends the legacy `initialize` request as [id].
+  void sendInitialize(Object id) {
     send({
       'jsonrpc': '2.0',
-      'id': 0,
+      'id': id,
       'method': InitializeRequest.methodName,
       'params':
           InitializeRequest(
@@ -943,19 +1029,22 @@ class _Harness {
               )
               as Map<String, Object?>,
     });
+  }
+
+  /// Accepts the handshake and waits for the server to be ready to serve.
+  Future<void> finishInitialize() async {
     send({
       'jsonrpc': '2.0',
       'method': InitializedNotification.methodName,
       'params': InitializedNotification() as Map<String, Object?>,
     });
     await server.initialized;
-    frames.clear();
   }
 }
 
 /// A server with one tool whose handler the test releases by hand.
 final class _CancellationTestServer extends MCPServer
-    with ToolsSupport, LoggingSupport {
+    with ToolsSupport, LoggingSupport, ResourcesSupport {
   _CancellationTestServer(super.channel, {super.maxRetainedCancellations})
     : super.fromStreamChannel(
         implementation: Implementation(
@@ -1003,8 +1092,21 @@ final class _CancellationTestServer extends MCPServer
   /// Completed after the test has observed the handlers' responses.
   final finishLateLogs = Completer<void>();
 
+  /// Completes once the handshake has reached its handler.
+  final initializeCalled = Completer<void>();
+
+  /// Completed by the test to let the handshake register the mixins.
+  ///
+  /// A test that cancels the handshake first needs the request to still be in
+  /// flight when the cancellation arrives.
+  Completer<void>? holdInitialize;
+
   @override
-  FutureOr<void> initialize(MCPServerInitialization initialization) {
+  Duration get resourceUpdateThrottleDelay => Duration.zero;
+
+  @override
+  Future<void> initialize(MCPServerInitialization initialization) async {
+    if (!initializeCalled.isCompleted) initializeCalled.complete();
     registerRequestHandler<PingRequest?, EmptyResult>(
       _Harness.parameterlessMethod,
       ([PingRequest? _]) async {
@@ -1060,6 +1162,8 @@ final class _CancellationTestServer extends MCPServer
         return CallToolResult(content: []);
       },
     );
+    final hold = holdInitialize;
+    if (hold != null) await hold.future;
     return super.initialize(initialization);
   }
 }
