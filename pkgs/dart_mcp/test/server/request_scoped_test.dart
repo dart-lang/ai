@@ -1181,15 +1181,33 @@ void main() {
       }
     });
 
-    test('leaves input_required alone on an earlier revision', () async {
-      final harness = _DispatcherHarness();
-      final response = await harness.dispatch(
+    test('shims input_required on an earlier revision', () async {
+      final methods = <String>[];
+      final response = await handleRequestScopedMessage(
         _callTool('asks_to_elicit'),
-        _initialization(protocolVersion: ProtocolVersion.v2025_11_25),
+        _initialization(
+          protocolVersion: ProtocolVersion.v2025_11_25,
+          capabilities: ClientCapabilities(
+            elicitation: ElicitationCapability(form: {}),
+          ),
+        ),
+        _DispatcherTestServer.new,
+        onRequest: (request) {
+          methods.add(request[Keys.method] as String);
+          return _responseFor(request, {
+            Keys.action: ElicitationAction.accept.name,
+          });
+        },
       );
 
       expect(response![Keys.error], isNull);
-      expect(_result(response)[Keys.inputRequests], isNotEmpty);
+      expect(
+        (CallToolResult.fromMap(_result(response)).content.single
+                as TextContent)
+            .text,
+        'ok',
+      );
+      expect(methods, [ElicitRequest.methodName]);
     });
 
     test('shuts the server down after a dispatch', () async {
@@ -1683,30 +1701,33 @@ final class _DispatcherTestServer extends TestMCPServer
           ),
           'asks_for_roots': InputRequest.listRoots(ListRootsRequest()),
         }.entries) {
-      registerTool(
-        Tool(name: entry.key, inputSchema: ObjectSchema()),
-        (_) => CallToolResult.fromMap({
-          Keys.content: [TextContent(text: 'waiting')],
-          Keys.resultType: ResultTypes.inputRequired,
-          Keys.inputRequests: {'answer': entry.value},
-        }),
-      );
+      registerTool(Tool(name: entry.key, inputSchema: ObjectSchema()), (
+        request,
+      ) {
+        if (request.inputResponses?.containsKey('answer') ?? false) {
+          return _okToolResult;
+        }
+        return InputRequiredResult(inputRequests: {'answer': entry.value});
+      });
     }
     registerTool(
       Tool(name: 'asks_to_elicit_by_url', inputSchema: ObjectSchema()),
-      (_) => CallToolResult.fromMap({
-        Keys.content: [TextContent(text: 'waiting')],
-        Keys.resultType: ResultTypes.inputRequired,
-        Keys.inputRequests: {
-          'answer': InputRequest.elicit(
-            ElicitRequest.url(
-              message: 'Sign in',
-              url: 'https://example.com/sign-in',
-              elicitationId: 'e1',
+      (request) {
+        if (request.inputResponses?.containsKey('answer') ?? false) {
+          return _okToolResult;
+        }
+        return InputRequiredResult(
+          inputRequests: {
+            'answer': InputRequest.elicit(
+              ElicitRequest.url(
+                message: 'Sign in',
+                url: 'https://example.com/sign-in',
+                elicitationId: 'e1',
+              ),
             ),
-          ),
-        },
-      }),
+          },
+        );
+      },
     );
     // Registered directly, not by mixing in `PromptsSupport`: the guard
     // dispatches on the method, and the mixin would also change what this
@@ -1742,9 +1763,13 @@ final class _DispatcherTestServer extends TestMCPServer
       log(LoggingLevel.error, 'from the handler');
       return CallToolResult(content: [TextContent(text: 'notified')]);
     });
-    registerTool(Tool(name: 'roots', inputSchema: ObjectSchema()), (_) async {
-      final roots = await listRoots(ListRootsRequest());
-      return CallToolResult(content: [TextContent(text: '$roots')]);
+    registerTool(Tool(name: 'roots', inputSchema: ObjectSchema()), (request) {
+      if (request.inputResponses?['roots'] case final ListRootsResult roots) {
+        return CallToolResult(content: [TextContent(text: '$roots')]);
+      }
+      return InputRequiredResult(
+        inputRequests: {'roots': InputRequest.listRoots(ListRootsRequest())},
+      );
     });
     registerTool(Tool(name: 'shutdown', inputSchema: ObjectSchema()), (
       _,
@@ -1778,19 +1803,40 @@ final class _LegacyRequestServer extends TestMCPServer
 
   @override
   FutureOr<void> initialize(MCPServerInitialization initialization) {
-    registerTool(Tool(name: 'roots', inputSchema: ObjectSchema()), (_) async {
-      await listRoots();
-      return _okToolResult;
-    });
-    registerTool(Tool(name: 'sample', inputSchema: ObjectSchema()), (_) async {
-      await createMessage(CreateMessageRequest(messages: [], maxTokens: 1));
-      return _okToolResult;
-    });
-    registerTool(Tool(name: 'elicit', inputSchema: ObjectSchema()), (_) async {
-      await elicit(
-        ElicitRequest.form(message: 'Choose', requestedSchema: ObjectSchema()),
+    registerTool(Tool(name: 'roots', inputSchema: ObjectSchema()), (request) {
+      if (request.inputResponses?['roots'] case final ListRootsResult _) {
+        return _okToolResult;
+      }
+      return InputRequiredResult(
+        inputRequests: {'roots': InputRequest.listRoots(ListRootsRequest())},
       );
-      return _okToolResult;
+    });
+    registerTool(Tool(name: 'sample', inputSchema: ObjectSchema()), (request) {
+      if (request.inputResponses?['sample'] case final CreateMessageResult _) {
+        return _okToolResult;
+      }
+      return InputRequiredResult(
+        inputRequests: {
+          'sample': InputRequest.sample(
+            CreateMessageRequest(messages: [], maxTokens: 1),
+          ),
+        },
+      );
+    });
+    registerTool(Tool(name: 'elicit', inputSchema: ObjectSchema()), (request) {
+      if (request.inputResponses?['elicit'] case final ElicitResult _) {
+        return _okToolResult;
+      }
+      return InputRequiredResult(
+        inputRequests: {
+          'elicit': InputRequest.elicit(
+            ElicitRequest.form(
+              message: 'Choose',
+              requestedSchema: ObjectSchema(),
+            ),
+          ),
+        },
+      );
     });
     registerTool(Tool(name: 'ping', inputSchema: ObjectSchema()), (_) async {
       if (!await ping()) throw StateError('ping failed');

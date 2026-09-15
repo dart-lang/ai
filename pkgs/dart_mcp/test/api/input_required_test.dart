@@ -257,6 +257,54 @@ void main() {
       );
     });
 
+    test('elicitResult returns null when the key is absent', () {
+      final request = GetPromptRequest.fromMap({
+        'name': 'review',
+        'inputResponses': {'github_login': elicited},
+      });
+
+      expect(
+        request.elicitResult('github_login')!.action,
+        ElicitationAction.accept,
+      );
+      expect(request.elicitResult('missing'), isNull);
+      expect(
+        GetPromptRequest(name: 'review').elicitResult('github_login'),
+        isNull,
+      );
+    });
+
+    test('createMessageResult and listRootsResult read the matching arm', () {
+      final roots = ListRootsResult(roots: [Root(uri: 'file:///a')]);
+      final request = GetPromptRequest.fromMap({
+        'name': 'review',
+        'inputResponses': {'capital': sampled, 'workspace': roots},
+      });
+
+      expect(request.createMessageResult('capital')!.model, 'a-model');
+      expect(
+        request.listRootsResult('workspace')!.roots.single.uri,
+        'file:///a',
+      );
+      expect(request.createMessageResult('missing'), isNull);
+      expect(request.listRootsResult('missing'), isNull);
+    });
+
+    test('a present response missing a required key is an ArgumentError', () {
+      final request = GetPromptRequest.fromMap({
+        'name': 'review',
+        'inputResponses': {
+          'github_login': <String, Object?>{},
+          'capital': <String, Object?>{'model': 'a-model'},
+          'workspace': <String, Object?>{},
+        },
+      });
+
+      expect(() => request.elicitResult('github_login'), throwsArgumentError);
+      expect(() => request.createMessageResult('capital'), throwsArgumentError);
+      expect(() => request.listRootsResult('workspace'), throwsArgumentError);
+    });
+
     test('writes an empty inputResponses next to a request state', () {
       expect(
         CallToolRequest(
