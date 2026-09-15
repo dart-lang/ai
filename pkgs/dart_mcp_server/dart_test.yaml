@@ -1,0 +1,20 @@
+# Copyright (c) 2026, the Dart project authors.  Please see the AUTHORS file
+# for details. All rights reserved. Use of this source code is governed by a
+# BSD-style license that can be found in the LICENSE file.
+
+# Almost every test in this package starts the MCP server as a subprocess, and
+# many also shell out to `dart` or `flutter`. Process startup is much more
+# expensive on Windows CI runners than it is locally, so the 30 second default
+# leaves no useful margin.
+timeout: 90s
+
+tags:
+  # Tests which launch a real app (`flutter run` / `dart run`), register it with
+  # DTD, and then drive it over the VM service.
+  #
+  # Even on a healthy run these take 15-30 seconds each, because every test pays
+  # for a DTD startup, an MCP server startup and a full app startup. They are
+  # also the heaviest tests in terms of CPU, so CI runs them with a reduced
+  # concurrency (see .github/workflows/dart_mcp_server.yaml).
+  live-app:
+    timeout: 5m

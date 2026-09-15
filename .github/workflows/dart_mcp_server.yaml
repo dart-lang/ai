@@ -28,6 +28,9 @@ defaults:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
+    # A healthy run is well under 20 minutes. Fail fast on a genuine hang
+    # rather than burning the 6 hour default.
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -67,4 +70,8 @@ jobs:
       - run: dart tool/update_readme.dart
       - run: git diff --exit-code README.md || (echo 'README.md needs to be updated. Run "dart tool/update_readme.dart"' && false)
 
-      - run: dart test
+      - run: dart test --exclude-tags=live-app
+
+      # These launch real apps, so run them one suite at a time to avoid
+      # starving each other on a 4 vCPU runner.
+      - run: dart test --tags=live-app --concurrency=1 --retry=1
