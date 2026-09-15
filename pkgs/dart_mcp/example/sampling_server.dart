@@ -16,8 +16,7 @@ void main() {
   MCPServerWithSampling(stdioChannel(input: io.stdin, output: io.stdout));
 }
 
-/// This server uses the [createMessage] function to make sampling requests
-/// to the client.
+/// This server uses [sendRequest] to make sampling requests to the client.
 base class MCPServerWithSampling extends MCPServer with LoggingSupport {
   MCPServerWithSampling(super.channel)
     : super.fromStreamChannel(
@@ -34,7 +33,8 @@ base class MCPServerWithSampling extends MCPServer with LoggingSupport {
   /// Makes a sampling request and logs the response.
   void _makeSamplingRequest() async {
     // Actually send the request.
-    final result = await createMessage(
+    final result = await sendRequest<CreateMessageResult>(
+      CreateMessageRequest.methodName,
       CreateMessageRequest(
         // All of the messages to be included in the context for the sampling
         // request.

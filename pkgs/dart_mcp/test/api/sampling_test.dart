@@ -129,7 +129,8 @@ void main() {
         );
 
     expect(
-      await server.createMessage(
+      await server.sendRequest<CreateMessageResult>(
+        CreateMessageRequest.methodName,
         CreateMessageRequest(messages: [], maxTokens: 100),
       ),
       expectedResult,
