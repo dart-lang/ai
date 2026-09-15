@@ -149,6 +149,7 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
   final server = serverFactory(
     StreamChannel.withCloseGuarantee(inbound.stream, outbound.sink),
   );
+  server._serverRequestsSupported = routeServerRequests && onRequest != null;
 
   final isRequest = object.kind == JsonRpc2Kind.request;
   final response = Completer<Map<String, Object?>?>();
@@ -334,8 +335,8 @@ Map<String, Object?> _errorResponse(Object? id, String message) =>
 /// https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr.
 ///
 /// An undeclared capability is refused with [_missingClientCapability], the
-/// error [MCPServer.listRoots] and [ElicitationRequestSupport.elicit] raise for
-/// the same request on a connected transport, which
+/// error the server-side roots and elicitation helpers raise for the same
+/// request on a connected transport, which
 /// `handleStreamableHttpRequest` in `package:dart_mcp/streamable_http.dart`
 /// maps to HTTP 400 while it can still send a JSON response.
 ///
@@ -351,6 +352,26 @@ RpcException? _inputRequiredRefusal(
   if (result is! Map<String, Object?>) return null;
   if (result[Keys.resultType] != ResultTypes.inputRequired) return null;
 
+  return _inputRequiredResultRefusal(
+    result,
+    method,
+    initialization.clientCapabilities,
+  );
+}
+
+/// Shape and capability checks for an `input_required` [result] on [method].
+///
+/// Returns null when the result may go out. [_inputRequiredRefusal] still
+/// unpacks the JSON-RPC response and applies the 2026-07-28 version gate.
+/// When [legacyVersion] is set, a method that revision does not have is
+/// refused with [_removedMethod] after the method is known and before the
+/// capability check.
+RpcException? _inputRequiredResultRefusal(
+  Map<String, Object?> result,
+  String method,
+  ClientCapabilities capabilities, [
+  ProtocolVersion? legacyVersion,
+]) {
   if (!_inputRequiredMethods.contains(method)) {
     return _malformedInputRequired(
       'on $method, which this revision allows only on '
@@ -378,7 +399,6 @@ RpcException? _inputRequiredRefusal(
       'whose `${Keys.inputRequests}` was not a string-keyed map.',
     );
   }
-  final capabilities = initialization.clientCapabilities;
   for (final request in requests.values) {
     if (request is! Map) {
       return _malformedInputRequired(
@@ -393,6 +413,9 @@ RpcException? _inputRequiredRefusal(
         'containing an input request whose method was not one of '
         '${InputRequest.methodNames.map((m) => '`$m`').join(', ')}.',
       );
+    }
+    if (legacyVersion != null && !legacyVersion.methodIsValid(inputMethod)) {
+      return _removedMethod(inputMethod, legacyVersion);
     }
     switch (inputMethod) {
       case ListRootsRequest.methodName:
