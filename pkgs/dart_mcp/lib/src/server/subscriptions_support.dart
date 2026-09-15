@@ -19,6 +19,9 @@ base mixin SubscriptionsSupport on MCPServer {
   /// The first [shutdown] call, which every later one waits on.
   Completer<void>? _shutdown;
 
+  /// Listens for cancellations naming one of [_subscriptions].
+  StreamSubscription<CancelledNotification>? _cancellationSubscription;
+
   /// The ID the next `subscriptions/listen` request opens its subscription
   /// under.
   ///
@@ -43,6 +46,18 @@ base mixin SubscriptionsSupport on MCPServer {
         SubscriptionsListenRequest.methodName,
         handleSubscriptionsListen,
       );
+      // A cancellation for a listen request ends that subscription. Without
+      // this the handler waits until shutdown, its response never leaves, and
+      // the connection keeps the cancellation retained for a request that is
+      // never answered.
+      _cancellationSubscription = cancellations.listen((notification) {
+        final id = notification.requestId;
+        if (id == null) return;
+        final subscription = _subscriptions[id];
+        if (subscription != null && !subscription.isCompleted) {
+          subscription.complete();
+        }
+      });
     }
 
     await super.initialize(initialization);
@@ -64,6 +79,7 @@ base mixin SubscriptionsSupport on MCPServer {
       for (final subscription in open) {
         if (!subscription.isCompleted) subscription.complete();
       }
+      await _cancellationSubscription?.cancel();
       if (open.isNotEmpty && isActive) {
         // `package:json_rpc_2` writes each response in a microtask once its
         // handler returns, and drops it when the connection is already
@@ -168,10 +184,11 @@ base mixin SubscriptionsSupport on MCPServer {
     }
     final subscriptionEnd = Completer<void>();
     _subscriptions[subscriptionId] = subscriptionEnd;
+    final resourceUris = {...?accepted.resourceSubscriptions};
     try {
       if (this case final ResourcesSupport resources) {
-        for (final uri in accepted.resourceSubscriptions ?? const <String>[]) {
-          resources._sendUpdatesFor(uri);
+        for (final uri in resourceUris) {
+          resources._sendUpdatesFor(uri, subscriptionId: subscriptionId);
         }
       }
       sendNotification(
@@ -187,6 +204,12 @@ base mixin SubscriptionsSupport on MCPServer {
       );
     } finally {
       _subscriptions.remove(subscriptionId);
+      if (this case final ResourcesSupport resources) {
+        await [
+          for (final uri in resourceUris)
+            resources._stopUpdatesFor(uri, subscriptionId: subscriptionId),
+        ].wait;
+      }
     }
   }
 }

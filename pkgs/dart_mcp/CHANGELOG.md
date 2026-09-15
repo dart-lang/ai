@@ -18,6 +18,25 @@
 - Advertise the notification capabilities from a protected
   `MCPServer.advertisedCapabilities` getter, which `SubscriptionsSupport`
   overrides, instead of a type check on the server.
+- Honour `notifications/cancelled`. A cancelled request goes quiet on the
+  wire. Progress stays off it once the request is cancelled, once a dropped
+  response has answered it, or when the request that declared its token
+  arrived with an ID this side cannot track. Progress carrying a token no
+  request declared reaches the peer unchanged. A cancelled
+  `subscriptions/listen` request ends its subscription and frees the slot its
+  cancellation holds. The handler keeps running, because the
+  specification asks a server to stop processing as a SHOULD and this
+  revision does not interrupt one. A handler that wants to stop reads
+  `MCPBase.captureIncomingRequestActivity`. `MCPBase.cancellations` reports
+  valid notifications so subclasses can log their reasons.
+  `maxRetainedCancellations` caps the cancellations a connection holds for
+  requests it has not answered, on a client as well as a server. Exceeding
+  the bound closes the connection instead of forgetting a cancellation, and
+  zero closes on the first live cancellation. The same number caps the
+  progress tokens of answered cancelled requests, where exceeding it forgets
+  the oldest token and lets one late progress notification through.
+  `MCPBase.sendRequestKeepingProgress` throws a `StateError` when the calling
+  handler's own request has been cancelled.
 - **BREAKING**:
   - `MCPBase` (including the `MCPServer.fromStreamChannel` and
     `ServerConnection.fromStreamChannel` constructors),
@@ -39,6 +58,15 @@
       which cannot be encoded.
     - On in-memory channels, `RpcException.data` is no longer normalized by a
       JSON round trip, so it can be an untyped map.
+  - `MCPBase.sendNotification` sends nothing while the request its handler
+    answers is cancelled, `MCPServer.log` included. A subscription a handler
+    opens for the life of the connection belongs in
+    `MCPBase.runOutsideRequest`, keeping it off that request.
+  - `MCPBase` now registers the handler for `notifications/cancelled`, so a
+    subclass that registered its own handler for that method must read
+    `MCPBase.cancellations` instead. A second registration for one method name
+    throws an `ArgumentError` out of `package:json_rpc_2`, before any message
+    flows.
   - Separate server feature registration from the legacy protocol handshake.
     `MCPServer.initialize` now accepts an `MCPServerInitialization` containing
     the protocol version, client information, and client capabilities, and
