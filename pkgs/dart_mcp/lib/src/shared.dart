@@ -350,15 +350,7 @@ base class MCPBase {
                   _requestsByProgressToken.remove(token);
                 }
                 if (_cancelledRequests.remove(id)) {
-                  if (token != null) {
-                    if (_unownedProgressTokens.length >=
-                        _maxRetainedCancellations) {
-                      _unownedProgressTokens.remove(
-                        _unownedProgressTokens.first,
-                      );
-                    }
-                    _unownedProgressTokens.add(token);
-                  }
+                  if (token != null) _disownToken(token);
                   return;
                 }
               case JsonRpc2Kind.notification:
@@ -435,10 +427,19 @@ base class MCPBase {
     if (meta is! Map<String, Object?>) return;
     final token = MetaWithProgressToken.fromMap(meta).progressToken;
     if (token == null) return;
-    if (_unownedProgressTokens.length >= _maxRetainedCancellations) {
+    _disownToken(token);
+  }
+
+  /// Retains [token] as unowned, never holding more than the bound allows.
+  ///
+  /// Trimming after the insert keeps the bound exact at every value, zero
+  /// included, where the set ends up empty again and the next progress
+  /// notification for [token] reaches the peer.
+  void _disownToken(ProgressToken token) {
+    _unownedProgressTokens.add(token);
+    while (_unownedProgressTokens.length > _maxRetainedCancellations) {
       _unownedProgressTokens.remove(_unownedProgressTokens.first);
     }
-    _unownedProgressTokens.add(token);
   }
 
   /// Whether [token] belongs to a request this side answers and has cancelled.

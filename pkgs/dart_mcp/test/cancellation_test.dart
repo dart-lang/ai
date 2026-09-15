@@ -339,6 +339,41 @@ void main() {
     );
   });
 
+  test('a zero token bound retains nothing and stays up', () async {
+    final harness = _Harness(maxRetainedCancellations: 0);
+    await harness.initialize();
+
+    harness.send({
+      'jsonrpc': '2.0',
+      'id': <Object?>['not an id'],
+      'method': CallToolRequest.methodName,
+      'params':
+          CallToolRequest(
+                name: _Harness.slowToolName,
+                meta: MetaWithProgressToken(
+                  progressToken: ProgressToken('zero'),
+                ),
+              )
+              as Map<String, Object?>,
+    });
+    await pumpEventQueue();
+
+    expect(
+      harness.server.isActive,
+      isTrue,
+      reason: 'a bound of zero has no oldest token to forget',
+    );
+    harness.server.notifyProgress(
+      ProgressNotification(progressToken: ProgressToken('zero'), progress: 1),
+    );
+    await pumpEventQueue();
+    expect(
+      harness.progressFrames,
+      hasLength(1),
+      reason: 'a bound of zero keeps no token to suppress progress with',
+    );
+  });
+
   test('progress after a dropped response stays off the wire', () async {
     final harness = _Harness();
     await harness.initialize();
