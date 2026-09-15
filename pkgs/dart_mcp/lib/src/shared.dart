@@ -53,6 +53,13 @@ base class MCPBase {
   /// The active request ID for each progress token.
   final _requestsByProgressToken = <ProgressToken, Object>{};
 
+  /// Progress tokens of cancelled requests this side has already answered.
+  ///
+  /// The response is dropped, so the ID leaves [_inFlightRequests]; a late
+  /// progress notification still names the token, and the specification keeps
+  /// it off the wire. Bounded by `maxRetainedCancellations`.
+  final _unownedProgressTokens = <ProgressToken>{};
+
   /// How many unanswered cancellations this connection retains.
   final int _maxRetainedCancellations;
 
@@ -146,6 +153,7 @@ base class MCPBase {
     _inFlightRequests.clear();
     _cancelledRequests.clear();
     _requestsByProgressToken.clear();
+    _unownedProgressTokens.clear();
     final progressControllers = _progressControllers.values.toList();
     _progressControllers.clear();
     await Future.wait([
@@ -308,6 +316,8 @@ base class MCPBase {
               case JsonRpc2Kind.request:
                 if (_validIncomingRequest(message)) {
                   message = _trackIncomingRequest(message, object.id!);
+                } else {
+                  _disownProgressToken(message);
                 }
               case JsonRpc2Kind.notification:
               case JsonRpc2Kind.response:
@@ -328,6 +338,15 @@ base class MCPBase {
                   _requestsByProgressToken.remove(token);
                 }
                 if (_cancelledRequests.remove(id)) {
+                  if (token != null) {
+                    if (_unownedProgressTokens.length >=
+                        _maxRetainedCancellations) {
+                      _unownedProgressTokens.remove(
+                        _unownedProgressTokens.first,
+                      );
+                    }
+                    _unownedProgressTokens.add(token);
+                  }
                   return;
                 }
               case JsonRpc2Kind.notification:
@@ -335,7 +354,7 @@ base class MCPBase {
                 final params = message[Keys.params];
                 if (params is! Map<String, Object?>) break;
                 final token = (params as WithProgressToken).progressToken;
-                if (token != null && !_progressIsActive(token)) return;
+                if (token != null && _progressWasCancelled(token)) return;
               case JsonRpc2Kind.request:
                 break;
             }
@@ -370,7 +389,12 @@ base class MCPBase {
             : null;
     final request = _IncomingRequest(progressToken: token);
     _inFlightRequests[id] = request;
-    if (token != null) _requestsByProgressToken.putIfAbsent(token, () => id);
+    if (token != null) {
+      // A token a cancelled or untrackable request left behind belongs to this
+      // request now, so its progress goes out again.
+      _unownedProgressTokens.remove(token);
+      _requestsByProgressToken.putIfAbsent(token, () => id);
+    }
 
     if (copiedParams != null) {
       _requestsByParameters[copiedParams] = request;
@@ -385,11 +409,37 @@ base class MCPBase {
     return message;
   }
 
-  /// Whether [token] belongs to an active request that is not cancelled.
-  bool _progressIsActive(ProgressToken token) {
+  /// Records the progress token of a request this side cannot track.
+  ///
+  /// A request whose JSON-RPC ID is not a string or a number never reaches
+  /// [_inFlightRequests], so a cancellation can never name it and its progress
+  /// has no owner. A later request declaring the same token takes it back.
+  void _disownProgressToken(Map<String, Object?> message) {
+    final params = message[Keys.params];
+    if (params is! Map<String, Object?>) return;
+    final meta = params[Keys.meta];
+    if (meta is! Map<String, Object?>) return;
+    final token = MetaWithProgressToken.fromMap(meta).progressToken;
+    if (token == null) return;
+    if (_unownedProgressTokens.length >= _maxRetainedCancellations) {
+      _unownedProgressTokens.remove(_unownedProgressTokens.first);
+    }
+    _unownedProgressTokens.add(token);
+  }
+
+  /// Whether [token] belongs to a request this side answers and has cancelled.
+  ///
+  /// A token this connection never tracked is not one it can call cancelled.
+  /// The request-scoped dispatcher builds a server per message, so a progress
+  /// token can reach the sink on a connection that never saw the request it
+  /// belongs to, and dropping it there would take a notification the peer is
+  /// still waiting for.
+  bool _progressWasCancelled(ProgressToken token) {
+    if (_unownedProgressTokens.contains(token)) return true;
     final id = _requestsByProgressToken[token];
-    final request = id == null ? null : _inFlightRequests[id];
-    return request != null && !request.cancelled;
+    if (id == null) return false;
+    final request = _inFlightRequests[id];
+    return request == null || request.cancelled;
   }
 
   /// Whether [message] is a request the JSON-RPC server will dispatch.
