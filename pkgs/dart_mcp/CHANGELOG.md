@@ -15,6 +15,9 @@
 - Let `handleRequestScopedMessage` route server-to-client requests through an
   `onRequest` callback on revisions before 2026-07-28. Missing callbacks and
   invalid callback responses fail the server request without leaving it open.
+- Advertise the notification capabilities from a protected
+  `MCPServer.advertisedCapabilities` getter, which `SubscriptionsSupport`
+  overrides, instead of a type check on the server.
 - Honour `notifications/cancelled`. A cancelled request goes quiet on the
   wire. Progress stays off it once the request is cancelled, once a dropped
   response has answered it, or when the request that declared its token
