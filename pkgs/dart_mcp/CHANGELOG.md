@@ -16,10 +16,12 @@
   `onRequest` callback on revisions before 2026-07-28. Missing callbacks and
   invalid callback responses fail the server request without leaving it open.
 - Honour `notifications/cancelled`. A cancelled request sends no further
-  messages. Progress sent before its request starts, after its response, or
-  after cancellation is dropped. The handler keeps running because it still
-  cannot see its request ID. `MCPBase.cancellations` reports valid
-  notifications so subclasses can log their reasons.
+  messages. Progress stays off the wire once its request is cancelled, once a
+  dropped response has answered it, or when the request that declared its
+  token arrived with an ID this side cannot track. Progress carrying a token
+  no request declared reaches the peer unchanged. The handler keeps running
+  because it still cannot see its request ID. `MCPBase.cancellations` reports
+  valid notifications so subclasses can log their reasons.
   On servers, `maxRetainedCancellations` bounds cancelled requests whose
   responses have not arrived. Exceeding the bound closes the connection
   instead of forgetting a cancellation; zero closes on the first live
