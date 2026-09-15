@@ -2799,7 +2799,7 @@ void main() {
     test(
       'tells two client subscriptions apart by the ID on the wire',
       () async {
-        // Each listen request reads only its own server's changes, which is
+        // Each listen request reads only its own server's changes, and that is
         // what gives one connection two streams to tell apart. A host passing
         // one shared `subscriptionNotifications` stream to every request sends
         // every change to every stream instead.

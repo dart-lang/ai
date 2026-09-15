@@ -51,7 +51,7 @@ final class Subscription {
 
   /// The notification types the server agreed to send.
   ///
-  /// An unsupported type is left out rather than sent back as `false`, so
+  /// An unsupported type is left out instead of sent back as `false`, so
   /// compare this against what was asked for. Errors if the subscription ends
   /// first.
   Future<SubscriptionFilter> get acknowledged => _acknowledged.future;

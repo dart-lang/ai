@@ -166,6 +166,8 @@ base class MCPBase {
     }
   }
 
+  /// Sends [methodName] and hands back the JSON-RPC ID it goes out under.
+  ///
   /// Relies on json_rpc_2 writing the request to its sink before sendRequest
   /// returns. Captures the ID before installing the subscription handle,
   /// deferring the transport write until that handle can receive

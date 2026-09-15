@@ -16,7 +16,7 @@ import 'package:test/test.dart';
 
 import '../test_utils.dart';
 
-/// A server on a connection which is not request scoped, the shape a stdio
+/// A server on a connection that is not request scoped, the shape a stdio
 /// transport for this revision has.
 base class _SubscribingServer extends MCPServer
     with ToolsSupport, SubscriptionsSupport {
@@ -26,7 +26,7 @@ base class _SubscribingServer extends MCPServer
       );
 }
 
-/// A server whose acknowledgements omit fields the client reads.
+/// A server with acknowledgements that omit fields the client reads.
 ///
 /// The schema permits missing `_meta` and requires only `notifications`, so
 /// the test holds an otherwise valid subscription open until [shutdown].
@@ -50,7 +50,7 @@ base class _MalformedAckServer extends MCPServer with SubscriptionsSupport {
   ) async {
     final subscriptionId = nextSubscriptionId!;
     nextSubscriptionId = null;
-    // Carries the filter, but nothing saying which subscription it is for.
+    // Carries the filter, but nothing that names the subscription.
     sendNotification(
       SubscriptionsAcknowledgedNotification.methodName,
       SubscriptionsAcknowledgedNotification.fromMap({
@@ -110,7 +110,7 @@ final class _ControlledCancellationChannel
   Future<void> cancelRequest(RequestId requestId) async => onCancel(requestId);
 }
 
-/// A channel which deliberately drops sink transformations.
+/// A channel that deliberately drops sink transformations.
 final class _IgnoringSinkTransformsChannel
     extends DelegatingStreamChannel<Map<String, Object?>> {
   _IgnoringSinkTransformsChannel(super.channel);
@@ -183,7 +183,7 @@ void main() {
     return subscription;
   }
 
-  /// Sends a tools-list change from the server under [subscriptionId], the way
+  /// Sends a tools-list change from the server under [subscriptionId], as
   /// a server stamps every message it sends on a subscription.
   void notifyToolsListChanged(RequestId subscriptionId) =>
       environment.server.sendNotification(
@@ -933,7 +933,7 @@ void main() {
     expect(events.map(subscriptionIdOf), everyElement(subscription.id));
   });
 
-  test('drops a notification which carries no subscription ID', () async {
+  test('drops a notification that carries no subscription ID', () async {
     final subscription = listen();
     final events = <SubscriptionNotification>[];
     final listener = subscription.notifications.listen(events.add);
@@ -1037,7 +1037,7 @@ void main() {
   });
 
   test('reports a refused subscription on both of its ends', () async {
-    // A transport which does not name the subscription gets the request
+    // A transport that does not name the subscription gets the request
     // refused, and neither end of the handle may hang on that.
     final subscription = environment.serverConnection.listen(
       SubscriptionFilter(toolsListChanged: true),
