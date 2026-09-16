@@ -276,12 +276,13 @@ void main() {
     );
     final progress = <num>[];
     var streamClosed = false;
-    connection
+    final subscription = connection
         .onProgress(request)
         .listen(
           (notification) => progress.add(notification.progress),
           onDone: () => streamClosed = true,
         );
+    addTearDown(subscription.cancel);
 
     expect(
       await connection
