@@ -18,6 +18,11 @@
 - Advertise the notification capabilities from a protected
   `MCPServer.advertisedCapabilities` getter, which `SubscriptionsSupport`
   overrides, instead of a type check on the server.
+- Add `ServerConnection.listAllTools`, `listAllResources`,
+  `listAllResourceTemplates` and `listAllPrompts`. Each walks the pages of its
+  list request and yields the items as a `Stream`, stopping at a default
+  64-page `maxPageCount` that passing `null` lifts. The single-page methods are
+  unchanged.
 - **BREAKING**:
   - `MCPBase` (including the `MCPServer.fromStreamChannel` and
     `ServerConnection.fromStreamChannel` constructors),

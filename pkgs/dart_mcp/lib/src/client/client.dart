@@ -562,6 +562,126 @@ base class ServerConnection extends MCPBase {
   Future<ListPromptsResult> listPrompts([ListPromptsRequest? request]) =>
       sendRequest(ListPromptsRequest.methodName, request);
 
+  /// Every [Tool] on this server, walking `tools/list` pages until one reports
+  /// no `nextCursor`.
+  ///
+  /// [request] gives the first cursor and the metadata every page carries.
+  /// [maxPageCount] bounds the walk, throwing past it; `null` lifts the bound.
+  Stream<Tool> listAllTools({
+    ListToolsRequest? request,
+    int? maxPageCount = 64,
+  }) => _listAllPages(
+    ListToolsRequest.methodName,
+    (cursor) => ListToolsRequest(cursor: cursor, meta: request?.meta),
+    (ListToolsResult page) => page.tools,
+    request?.cursor,
+    maxPageCount,
+  );
+
+  /// Every [Resource] on this server, walking `resources/list` pages until one
+  /// reports no `nextCursor`.
+  ///
+  /// [request] gives the first cursor and the metadata every page carries.
+  /// [maxPageCount] bounds the walk, throwing past it; `null` lifts the bound.
+  Stream<Resource> listAllResources({
+    ListResourcesRequest? request,
+    int? maxPageCount = 64,
+  }) => _listAllPages(
+    ListResourcesRequest.methodName,
+    (cursor) => ListResourcesRequest(cursor: cursor, meta: request?.meta),
+    (ListResourcesResult page) => page.resources,
+    request?.cursor,
+    maxPageCount,
+  );
+
+  /// Every [ResourceTemplate] on this server, walking
+  /// `resources/templates/list` pages until one reports no `nextCursor`.
+  ///
+  /// [request] gives the first cursor and the metadata every page carries.
+  /// [maxPageCount] bounds the walk, throwing past it; `null` lifts the bound.
+  Stream<ResourceTemplate> listAllResourceTemplates({
+    ListResourceTemplatesRequest? request,
+    int? maxPageCount = 64,
+  }) => _listAllPages(
+    ListResourceTemplatesRequest.methodName,
+    (cursor) =>
+        ListResourceTemplatesRequest(cursor: cursor, meta: request?.meta),
+    (ListResourceTemplatesResult page) => page.resourceTemplates,
+    request?.cursor,
+    maxPageCount,
+  );
+
+  /// Every [Prompt] on this server, walking `prompts/list` pages until one
+  /// reports no `nextCursor`.
+  ///
+  /// [request] gives the first cursor and the metadata every page carries.
+  /// [maxPageCount] bounds the walk, throwing past it; `null` lifts the bound.
+  Stream<Prompt> listAllPrompts({
+    ListPromptsRequest? request,
+    int? maxPageCount = 64,
+  }) => _listAllPages(
+    ListPromptsRequest.methodName,
+    (cursor) => ListPromptsRequest(cursor: cursor, meta: request?.meta),
+    (ListPromptsResult page) => page.prompts,
+    request?.cursor,
+    maxPageCount,
+  );
+
+  /// Yields each [methodName] page's items, requesting a page only when the
+  /// last is consumed.
+  ///
+  /// [pageRequest] builds one page's request; [itemsOf] reads its items;
+  /// [maxPageCount] bounds it, and anything under 1 is an [ArgumentError].
+  Stream<T> _listAllPages<T, R extends PaginatedResult>(
+    String methodName,
+    Request Function(Cursor? cursor) pageRequest,
+    List<T> Function(R page) itemsOf,
+    Cursor? cursor,
+    int? maxPageCount,
+  ) {
+    if (maxPageCount != null && maxPageCount < 1) {
+      throw ArgumentError.value(
+        maxPageCount,
+        'maxPageCount',
+        'Must be at least 1',
+      );
+    }
+    return _walkPages(methodName, pageRequest, itemsOf, cursor, maxPageCount);
+  }
+
+  /// The [_listAllPages] walk, entered once [maxPageCount] is known good.
+  ///
+  /// Every page goes out under one progress token, closed when the walk ends.
+  Stream<T> _walkPages<T, R extends PaginatedResult>(
+    String methodName,
+    Request Function(Cursor? cursor) pageRequest,
+    List<T> Function(R page) itemsOf,
+    Cursor? cursor,
+    int? maxPageCount,
+  ) async* {
+    var request = pageRequest(cursor);
+    var pagesRequested = 0;
+    try {
+      while (true) {
+        final page = await sendRequestKeepingProgress<R>(methodName, request);
+        pagesRequested++;
+        for (final item in itemsOf(page)) {
+          yield item;
+        }
+        final next = page.nextCursor;
+        if (next == null) return;
+        if (maxPageCount != null && pagesRequested >= maxPageCount) {
+          // A cursor's value says nothing about where the listing ends, so a
+          // server that keeps handing out cursors is stopped by this count.
+          throw StateError('$methodName still had pages after $maxPageCount.');
+        }
+        request = pageRequest(next);
+      }
+    } finally {
+      await closeProgress(request);
+    }
+  }
+
   /// Gets the requested [Prompt] from the server.
   Future<GetPromptResult> getPrompt(GetPromptRequest request) =>
       sendRequestWithInputs(GetPromptRequest.methodName, request);
