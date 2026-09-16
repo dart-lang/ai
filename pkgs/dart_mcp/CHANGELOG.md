@@ -141,6 +141,8 @@
   Larger bodies get `413` and an invalid request error. The same cap is the
   discard budget. A client that has not finished sending may not read the
   response. Negative caps throw a `RangeError`.
+- Answer `415` and an invalid request error when a request body does not
+  arrive as `application/json`.
 - Add `supportsFormElicitation` and `supportsUrlElicitation` for a server to
   ask before it sends. An empty `elicitation` object still means form, the way
   `elicitation` read before the split.
