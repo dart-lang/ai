@@ -20,7 +20,7 @@ void main(List<String> args) async {
       'Usage: dart run example/streamable_http_client.dart <url>\n'
       'Pass the URL printed by example/streamable_http_server.dart.',
     );
-    exitCode = 64;
+    exitCode = 2;
     return;
   }
 
