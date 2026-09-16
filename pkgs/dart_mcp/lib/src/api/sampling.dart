@@ -133,13 +133,13 @@ extension type CreateMessageResult.fromMap(Map<String, Object?> _value)
     implements Result, SamplingMessage {
   factory CreateMessageResult({
     required Role role,
-    required SamplingMessageContentBlock content,
+    required List<SamplingMessageContentBlock> content,
     required String model,
     String? stopReason,
     Meta? meta,
   }) => CreateMessageResult.fromMap({
     Keys.role: role.name,
-    Keys.content: content,
+    Keys.content: _encodeContent(content),
     Keys.model: model,
     if (stopReason != null) Keys.stopReason: stopReason,
     if (meta != null) Keys.meta: meta,
@@ -162,19 +162,39 @@ extension type CreateMessageResult.fromMap(Map<String, Object?> _value)
 extension type SamplingMessage.fromMap(Map<String, Object?> _value) {
   factory SamplingMessage({
     required Role role,
-    required SamplingMessageContentBlock content,
-  }) => SamplingMessage.fromMap({Keys.role: role.name, Keys.content: content});
+    required List<SamplingMessageContentBlock> content,
+  }) => SamplingMessage.fromMap({
+    Keys.role: role.name,
+    Keys.content: _encodeContent(content),
+  });
 
   /// The role of the message.
   Role get role =>
       Role.values.firstWhere((value) => value.name == _value[Keys.role]);
 
   /// The content of the message.
-  SamplingMessageContentBlock get content =>
-      _value[Keys.content] as SamplingMessageContentBlock;
+  ///
+  /// The schema allows one block or a list of them under `content`, and both
+  /// read as a list here. One block comes back as a single-element list.
+  List<SamplingMessageContentBlock> get content {
+    final content = _value[Keys.content];
+    if (content is List) {
+      return content.cast<SamplingMessageContentBlock>();
+    }
+    return [content as SamplingMessageContentBlock];
+  }
 }
 
-/// The content of a [SamplingMessage], sent to or received from an LLM.
+/// Writes [content] under `content` as one of the schema's two shapes.
+///
+/// A single block goes on the wire as that block. Two or more go as a list.
+Object? _encodeContent(List<SamplingMessageContentBlock> content) {
+  if (content.length == 1) return content.single;
+  return content;
+}
+
+/// One block of a [SamplingMessage]'s content, sent to or received from an
+/// LLM.
 ///
 /// Could be either [TextContent], [ImageContent], [AudioContent],
 /// [ToolUseContent] or [ToolResultContent].
