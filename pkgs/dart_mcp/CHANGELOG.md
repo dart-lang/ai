@@ -21,8 +21,9 @@
 - Honour `notifications/cancelled`. A cancelled request goes quiet on the
   wire. Progress stays off it once the request is cancelled, once a dropped
   response has answered it, or when the request that declared its token
-  arrived with an ID this side cannot track. Progress carrying a token no
-  request declared reaches the peer unchanged. A cancelled
+  arrived with an ID this side cannot track and no live request holds that
+  token. Progress carrying a token no request declared reaches the peer
+  unchanged. A cancelled
   `subscriptions/listen` request ends its subscription and frees the slot its
   cancellation holds. The handler keeps running, because the
   specification asks a server to stop processing as a SHOULD and this

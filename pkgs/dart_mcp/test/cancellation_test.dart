@@ -339,6 +339,62 @@ void main() {
     );
   });
 
+  test('a malformed request cannot take a live token', () async {
+    final harness = _Harness();
+    await harness.initialize();
+
+    harness.send({
+      'jsonrpc': '2.0',
+      'id': 1,
+      'method': CallToolRequest.methodName,
+      'params':
+          CallToolRequest(
+                name: _Harness.slowToolName,
+                meta: MetaWithProgressToken(
+                  progressToken: ProgressToken('shared'),
+                ),
+              )
+              as Map<String, Object?>,
+    });
+    await harness.server.slowToolCalled.future;
+
+    harness.server.notifyProgress(
+      ProgressNotification(progressToken: ProgressToken('shared'), progress: 1),
+    );
+    await pumpEventQueue();
+    expect(harness.progressFrames, hasLength(1));
+
+    // The server never dispatches this one, so it owns nothing. Disowning the
+    // token here would drop the progress of the request still running under it.
+    harness.send({
+      'jsonrpc': '2.0',
+      'id': <Object?>['not an id'],
+      'method': CallToolRequest.methodName,
+      'params':
+          CallToolRequest(
+                name: _Harness.slowToolName,
+                meta: MetaWithProgressToken(
+                  progressToken: ProgressToken('shared'),
+                ),
+              )
+              as Map<String, Object?>,
+    });
+    await pumpEventQueue();
+
+    harness.server.notifyProgress(
+      ProgressNotification(progressToken: ProgressToken('shared'), progress: 2),
+    );
+    await pumpEventQueue();
+    expect(
+      harness.progressFrames,
+      hasLength(2),
+      reason: 'the live request still owns the token',
+    );
+
+    harness.server.finishSlowTool.complete();
+    await pumpEventQueue();
+  });
+
   test('a zero token bound retains nothing and stays up', () async {
     final harness = _Harness(maxRetainedCancellations: 0);
     await harness.initialize();

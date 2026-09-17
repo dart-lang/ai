@@ -420,6 +420,10 @@ base class MCPBase {
   /// reaches [_inFlightRequests], so a cancellation can never name it and its
   /// progress has no owner. A later request declaring the same token takes it
   /// back.
+  ///
+  /// A token a live request still owns stays owned. The undispatched request
+  /// holds nothing, and disowning the token here would drop the progress of
+  /// the request running under it.
   void _disownProgressToken(Map<String, Object?> message) {
     final params = message[Keys.params];
     if (params is! Map<String, Object?>) return;
@@ -427,6 +431,11 @@ base class MCPBase {
     if (meta is! Map<String, Object?>) return;
     final token = MetaWithProgressToken.fromMap(meta).progressToken;
     if (token == null) return;
+    final owner = _requestsByProgressToken[token];
+    if (owner != null) {
+      final request = _inFlightRequests[owner];
+      if (request != null && !request.cancelled) return;
+    }
     _disownToken(token);
   }
 
