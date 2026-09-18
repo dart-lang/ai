@@ -32,6 +32,10 @@ void main() async {
   // When the server connection is closed, kill the process.
   unawaited(server.done.then((_) => process.kill()));
 
+  // The revision this handshake settles on decides how the tool asks for input.
+  // Below 2026-07-28 the server's `InputRequiredResult` reaches this client as
+  // an `elicitation/create` request, answered by `handleElicitation`. On
+  // 2026-07-28 it arrives as the call's own result and the guard below fires.
   final initializeResult = await server.initialize(
     InitializeRequest(
       protocolVersion: ProtocolVersion.latestSupported,

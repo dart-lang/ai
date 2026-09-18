@@ -135,6 +135,10 @@ base class MCPServerWithInputRequired extends MCPServer with ToolsSupport {
   /// The implementation of the `greet` tool, asking for a name on the first
   /// call and greeting the answer the second call carries.
   CallToolResponse _greet(CallToolRequest request) {
+    // The first call answers with an input request. The retry arrives with the
+    // client's answer under the same key, and reading that key here is what
+    // separates the two rounds.
+    // https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr
     if (request.elicitResult('name') case final answer?) {
       // `decline` and `cancel` both leave the tool without a name, as does an
       // `accept` that carries no content.
