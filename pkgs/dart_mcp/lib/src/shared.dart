@@ -47,27 +47,28 @@ base class MCPBase {
   /// to.
   final _inFlightRequests = <Object, _IncomingRequest>{};
 
-  /// The IDs in [_inFlightRequests] the peer has cancelled.
-  final _cancelledRequests = <Object>{};
-
   /// The active request ID for each progress token.
   final _requestsByProgressToken = <ProgressToken, Object>{};
 
-  /// Progress tokens of cancelled requests this side has already answered.
+  /// Progress tokens no request owns any more.
   ///
-  /// The response is dropped, so the ID leaves [_inFlightRequests] while a
-  /// late progress notification still names the token. Keeping that token
-  /// quiet is this package's choice, not a rule the specification states.
+  /// A token gets here by one route. The peer sends a request carrying a
+  /// progress token, cancels it, and the handler answers anyway. That response
+  /// is dropped, and dropping it takes the request out of
+  /// [_inFlightRequests] and the token out of [_requestsByProgressToken]. A
+  /// handler still running can then send progress under that token, and by
+  /// then nothing is left to recognise it as cancelled. This set is what
+  /// recognises it.
   ///
-  /// `maxRetainedCancellations` bounds this set too, and passing the bound
-  /// forgets the oldest token here instead of ending the connection. The two
-  /// policies differ on purpose. Forgetting a cancelled request would put its
-  /// response back on the wire, and forgetting a token no live request owns
-  /// costs at most one stray frame.
+  /// Entries are kept rather than dropped because the request they belonged to
+  /// is gone: there is no later event to clean them up on. `maxRetainedTokens`
+  /// therefore caps the set and the oldest entry falls out first. Losing an
+  /// entry costs one stray progress notification, which the specification
+  /// allows a peer to ignore.
   final _unownedProgressTokens = <ProgressToken>{};
 
   /// How many unanswered cancellations this connection retains.
-  final int _maxRetainedCancellations;
+  final int _maxRetainedTokens;
 
   final _cancellations = StreamController<CancelledNotification>.broadcast();
 
@@ -114,25 +115,30 @@ base class MCPBase {
   Future<void> get done => _done.future;
   final _done = Completer<void>();
 
+  /// The sink [protocolLog] writes to, if the caller asked for a protocol log.
+  Sink<String>? _protocolLogSink;
+
   /// Initializes an MCP connection on [channel].
   ///
   /// If [protocolLogSink] is provided, all incoming and outgoing messages will
   /// be logged to it. It is the responsibility of the caller to close the
   /// sink.
   ///
-  /// [maxRetainedCancellations] bounds how many cancelled requests still wait
-  /// here for a response. Passing the bound ends the connection, and no
-  /// cancellation is lost. Zero keeps room for none. It also bounds the tokens
-  /// kept for cancelled requests this side has answered, and passing that
-  /// bound forgets the oldest of them.
+  /// [maxRetainedTokens] bounds the progress tokens kept for cancelled
+  /// requests this side has already answered, and passing the bound forgets
+  /// the oldest of them. Zero keeps room for none. Cancelled requests
+  /// themselves are not bounded here: one is remembered on the entry it
+  /// already has in this connection's in-flight requests, and that entry
+  /// leaves when its response does.
   MCPBase(
     StreamChannel<Map<String, Object?>> channel, {
     Sink<String>? protocolLogSink,
-    int maxRetainedCancellations = 1024,
-  }) : _maxRetainedCancellations = RangeError.checkNotNegative(
-         maxRetainedCancellations,
-         'maxRetainedCancellations',
+    int maxRetainedTokens = 1024,
+  }) : _maxRetainedTokens = RangeError.checkNotNegative(
+         maxRetainedTokens,
+         'maxRetainedTokens',
        ) {
+    _protocolLogSink = protocolLogSink;
     _connectionZone = Zone.current;
     // The channel type admits only JSON objects, so json_rpc_2 never
     // receives a batch and never writes the `List` frames its batch support
@@ -159,7 +165,6 @@ base class MCPBase {
   Future<void> shutdown() async {
     await _peer.close();
     _inFlightRequests.clear();
-    _cancelledRequests.clear();
     _requestsByProgressToken.clear();
     _unownedProgressTokens.clear();
     final progressControllers = _progressControllers.values.toList();
@@ -292,19 +297,16 @@ base class MCPBase {
     // request. `RequestId` is an extension type on `Object`, so the value has
     // to be tested instead of cast.
     final Object? id = notification.requestId;
-    if (id == null || (id is! String && id is! num)) return;
+    if (id == null) return;
+    if (id is! String && id is! num) {
+      protocolLog(
+        'Dropped a `${CancelledNotification.methodName}` naming '
+        '${jsonEncode(id)}, which is not a JSON-RPC ID.',
+      );
+      return;
+    }
     _cancellations.add(notification);
-    if (!_inFlightRequests.containsKey(id) || _cancelledRequests.contains(id)) {
-      return;
-    }
-    final request = _inFlightRequests[id]!;
-    request.cancelled = true;
-    if (_cancelledRequests.length == _maxRetainedCancellations) {
-      _cancelledRequests.add(id);
-      unawaited(_peer.close());
-      return;
-    }
-    _cancelledRequests.add(id);
+    _inFlightRequests[id]?.cancelled = true;
   }
 
   /// Notes each request the peer sends on [channel] and keeps the messages for
@@ -345,11 +347,12 @@ base class MCPBase {
             switch (object.kind) {
               case JsonRpc2Kind.response:
                 final id = object.id;
-                final token = _inFlightRequests.remove(id)?.progressToken;
+                final request = _inFlightRequests.remove(id);
+                final token = request?.progressToken;
                 if (token != null && _requestsByProgressToken[token] == id) {
                   _requestsByProgressToken.remove(token);
                 }
-                if (_cancelledRequests.remove(id)) {
+                if (request?.cancelled == true) {
                   if (token != null) _disownToken(token);
                   return;
                 }
@@ -446,7 +449,7 @@ base class MCPBase {
   /// notification for [token] reaches the peer.
   void _disownToken(ProgressToken token) {
     _unownedProgressTokens.add(token);
-    while (_unownedProgressTokens.length > _maxRetainedCancellations) {
+    while (_unownedProgressTokens.length > _maxRetainedTokens) {
       _unownedProgressTokens.remove(_unownedProgressTokens.first);
     }
   }
@@ -531,6 +534,15 @@ base class MCPBase {
     PingRequest.methodName,
     request,
   ).then((_) => true).timeout(timeout, onTimeout: () => false);
+
+  /// Writes [message] to the protocol log, if the caller asked for one.
+  ///
+  /// The prefix separates this from the traffic: `<<<` is a message read off
+  /// the channel, `>>>` one written to it, and `!!!` something this package
+  /// decided about a message rather than the message itself.
+  @protected
+  void protocolLog(String message) =>
+      _protocolLogSink?.add('!!! ($name) $message\n');
 
   /// If [protocolLogSink] is non-null, emits messages to it for all messages
   /// sent over [channel].

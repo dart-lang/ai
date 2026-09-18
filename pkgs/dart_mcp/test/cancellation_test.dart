@@ -241,6 +241,26 @@ void main() {
     expect(harness.framesWithId(2).single, isNot(contains('error')));
   });
 
+  test(
+    'an unusable cancellation ID is logged and a missing one is not',
+    () async {
+      final harness = _Harness();
+      await harness.initialize();
+
+      harness.cancel(<Object?>['bad']);
+      harness.send({
+        'jsonrpc': '2.0',
+        'method': CancelledNotification.methodName,
+        'params': <String, Object?>{},
+      });
+      await pumpEventQueue();
+
+      expect(harness.diagnostics, hasLength(1));
+      expect(harness.diagnostics.single, contains('["bad"]'));
+      expect(harness.diagnostics.single, contains('not a JSON-RPC ID'));
+    },
+  );
+
   test('invalid request IDs leave no progress owner', () async {
     final harness = _Harness();
     await harness.initialize();
@@ -298,7 +318,7 @@ void main() {
   });
 
   test('the unowned token bound forgets the oldest token', () async {
-    final harness = _Harness(maxRetainedCancellations: 1);
+    final harness = _Harness(maxRetainedTokens: 1);
     await harness.initialize();
 
     for (final token in ['first', 'second']) {
@@ -396,7 +416,7 @@ void main() {
   });
 
   test('a zero token bound retains nothing and stays up', () async {
-    final harness = _Harness(maxRetainedCancellations: 0);
+    final harness = _Harness(maxRetainedTokens: 0);
     await harness.initialize();
 
     harness.send({
@@ -748,29 +768,22 @@ void main() {
     expect(await ping, isA<EmptyResult>());
   });
 
-  test('zero retained cancellations closes on the first live one', () async {
-    final harness = _Harness(maxRetainedCancellations: 0);
-    await harness.initialize();
-
-    harness.sendSlowRequest(1, 't1');
-    await harness.server.slowToolCalled.future;
-    harness.cancel(1);
-    await harness.server.done;
-
-    expect(harness.framesWithId(1), isEmpty);
-  });
-
-  test('one retained cancellation can be reused after its response', () async {
-    final harness = _Harness(maxRetainedCancellations: 1);
+  test('cancelling past any bound keeps the connection up', () async {
+    final harness = _Harness(maxRetainedTokens: 0);
     await harness.initialize();
 
     await harness.cancelGated(1, 't1');
     await harness.cancelGated(2, 't2');
+    await harness.cancelGated(3, 't3');
+
     expect(harness.server.isActive, isTrue);
+    expect(harness.framesWithId(1), isEmpty);
+    expect(harness.framesWithId(2), isEmpty);
+    expect(harness.framesWithId(3), isEmpty);
   });
 
-  test('a repeated cancellation does not consume another slot', () async {
-    final harness = _Harness(maxRetainedCancellations: 1);
+  test('a repeated cancellation is harmless', () async {
+    final harness = _Harness();
     await harness.initialize();
 
     harness.sendSlowRequest(1, 't1');
@@ -785,8 +798,8 @@ void main() {
     expect(harness.framesWithId(1), isEmpty);
   });
 
-  test('the bound closes instead of forgetting a live cancellation', () async {
-    final harness = _Harness(maxRetainedCancellations: 1);
+  test('two cancelled requests both go quiet on the wire', () async {
+    final harness = _Harness();
     await harness.initialize();
 
     harness.sendSlowRequest(1, 't1');
@@ -800,7 +813,9 @@ void main() {
     expect(harness.server.isActive, isTrue);
 
     harness.cancel(2);
-    await harness.server.done;
+    harness.server.finishSlowTool.complete();
+    harness.server.finishOtherSlowTool.complete();
+    await pumpEventQueue();
     harness.server.notifyProgress(
       ProgressNotification(progressToken: ProgressToken('t1'), progress: 1),
     );
@@ -814,31 +829,34 @@ void main() {
     expect(harness.progressFrames, isEmpty);
   });
 
-  test('a cancelled subscription frees its retained slot', () async {
-    final harness = _SubscriptionHarness(maxRetainedCancellations: 1);
-    await harness.initialize();
+  test(
+    'a cancelled subscription ends instead of waiting for shutdown',
+    () async {
+      final harness = _SubscriptionHarness(maxRetainedTokens: 1);
+      await harness.initialize();
 
-    harness.listen(1);
-    await pumpEventQueue();
-    harness.listen(2);
-    await pumpEventQueue();
-    expect(harness.acknowledgements, hasLength(2));
+      harness.listen(1);
+      await pumpEventQueue();
+      harness.listen(2);
+      await pumpEventQueue();
+      expect(harness.acknowledgements, hasLength(2));
 
-    harness.cancel(1);
-    await pumpEventQueue();
-    harness.cancel(2);
-    await pumpEventQueue();
+      harness.cancel(1);
+      await pumpEventQueue();
+      harness.cancel(2);
+      await pumpEventQueue();
 
-    // Ending each cancelled subscription lets its response leave the handler,
-    // so a single retained slot serves both. A subscription that waited for
-    // shutdown instead would fill the bound and take the connection down.
-    expect(harness.server.isActive, isTrue);
-    expect(harness.framesWithId(1), isEmpty);
-    expect(harness.framesWithId(2), isEmpty);
-  });
+      // Ending each cancelled subscription lets its response leave the handler.
+      // A subscription that waited for shutdown instead would hold its request
+      // open for the life of the connection.
+      expect(harness.server.isActive, isTrue);
+      expect(harness.framesWithId(1), isEmpty);
+      expect(harness.framesWithId(2), isEmpty);
+    },
+  );
 
   test('resource updates follow active listen owners exactly once', () async {
-    final harness = _SubscriptionHarness(maxRetainedCancellations: 4);
+    final harness = _SubscriptionHarness(maxRetainedTokens: 4);
     await harness.initialize();
 
     harness.listen(
@@ -931,7 +949,7 @@ void main() {
     );
   });
 
-  test('negative retained cancellation bounds fail construction', () async {
+  test('a negative token bound fails construction', () async {
     final toServer = StreamController<Map<String, Object?>>.broadcast();
     final fromServer = StreamController<Map<String, Object?>>.broadcast();
     addTearDown(() async {
@@ -944,7 +962,7 @@ void main() {
     );
 
     expect(
-      () => _CancellationTestServer(channel, maxRetainedCancellations: -1),
+      () => _CancellationTestServer(channel, maxRetainedTokens: -1),
       throwsRangeError,
     );
   });
@@ -966,18 +984,20 @@ class _Harness {
 
   late final _CancellationTestServer server;
 
-  _Harness({int? maxRetainedCancellations}) {
+  _Harness({int? maxRetainedTokens}) {
     _fromServer.stream.listen(frames.add);
     final channel = StreamChannel<Map<String, Object?>>.withCloseGuarantee(
       _toServer.stream,
       _fromServer.sink,
     );
+    final logSink = _ListSink(protocolLog);
     server =
-        maxRetainedCancellations == null
-            ? _CancellationTestServer(channel)
+        maxRetainedTokens == null
+            ? _CancellationTestServer(channel, protocolLogSink: logSink)
             : _CancellationTestServer(
               channel,
-              maxRetainedCancellations: maxRetainedCancellations,
+              maxRetainedTokens: maxRetainedTokens,
+              protocolLogSink: logSink,
             );
     addTearDown(() async {
       if (!server.finishSlowTool.isCompleted) server.finishSlowTool.complete();
@@ -994,6 +1014,13 @@ class _Harness {
       await server.shutdown();
     });
   }
+
+  /// Everything this connection wrote to its protocol log.
+  final protocolLog = <String>[];
+
+  /// The protocol log entries this package wrote about a message.
+  Iterable<String> get diagnostics =>
+      protocolLog.where((l) => l.startsWith('!!!'));
 
   /// Sends a request to the slow tool under [token].
   void sendSlowRequest(Object id, String token) =>
@@ -1133,15 +1160,31 @@ class _Harness {
 }
 
 /// A server with one tool the test releases by hand.
+/// Collects protocol log entries into [target].
+final class _ListSink implements Sink<String> {
+  _ListSink(this.target);
+
+  final List<String> target;
+
+  @override
+  void add(String data) => target.add(data);
+
+  @override
+  void close() {}
+}
+
 final class _CancellationTestServer extends MCPServer
     with ToolsSupport, LoggingSupport, ResourcesSupport {
-  _CancellationTestServer(super.channel, {super.maxRetainedCancellations})
-    : super.fromStreamChannel(
-        implementation: Implementation(
-          name: 'cancellation test server',
-          version: '1.0.0',
-        ),
-      );
+  _CancellationTestServer(
+    super.channel, {
+    super.maxRetainedTokens,
+    super.protocolLogSink,
+  }) : super.fromStreamChannel(
+         implementation: Implementation(
+           name: 'cancellation test server',
+           version: '1.0.0',
+         ),
+       );
 
   /// Completes when the slow tool's handler has started.
   final slowToolCalled = Completer<void>();
@@ -1263,7 +1306,7 @@ final class _CancellationSubscriptionServer extends MCPServer
     with ResourcesSupport, SubscriptionsSupport {
   _CancellationSubscriptionServer(
     super.channel, {
-    required super.maxRetainedCancellations,
+    required super.maxRetainedTokens,
   }) : super.fromStreamChannel(
          implementation: Implementation(
            name: 'cancellation subscription server',
@@ -1284,14 +1327,14 @@ final class _SubscriptionHarness {
   final frames = <Map<String, Object?>>[];
   late final _CancellationSubscriptionServer server;
 
-  _SubscriptionHarness({required int maxRetainedCancellations}) {
+  _SubscriptionHarness({required int maxRetainedTokens}) {
     _fromServer.stream.listen(frames.add);
     server = _CancellationSubscriptionServer(
       StreamChannel<Map<String, Object?>>.withCloseGuarantee(
         _toServer.stream,
         _fromServer.sink,
       ),
-      maxRetainedCancellations: maxRetainedCancellations,
+      maxRetainedTokens: maxRetainedTokens,
     );
     addTearDown(server.shutdown);
   }

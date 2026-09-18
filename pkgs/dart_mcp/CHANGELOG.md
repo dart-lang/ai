@@ -26,18 +26,19 @@
   arrived with an ID this side cannot track and no live request holds that
   token. Progress carrying a token no request declared reaches the peer
   unchanged. A cancelled
-  `subscriptions/listen` request ends its subscription and frees the slot its
-  cancellation holds. The handler keeps running, because the
+  `subscriptions/listen` request ends its subscription instead of waiting for
+  shutdown. The handler keeps running, because the
   specification asks a server to stop processing as a SHOULD and this
   revision does not interrupt one. A handler that wants to stop reads
   `MCPBase.captureIncomingRequestActivity`. `MCPBase.cancellations` reports
-  valid notifications so subclasses can log their reasons.
-  `maxRetainedCancellations` caps the cancellations a connection holds for
-  requests it has not answered, on a client as well as a server. Exceeding
-  the bound closes the connection instead of forgetting a cancellation, and
-  zero closes on the first live cancellation. The same number caps the
-  progress tokens of answered cancelled requests, where exceeding it forgets
-  the oldest token and lets one late progress notification through.
+  valid notifications so subclasses can log their reasons, and a cancellation
+  naming something that cannot be a JSON-RPC ID is reported on the protocol
+  log under a `!!!` prefix. `maxRetainedTokens` caps the progress tokens a
+  connection keeps for requests it answered after they were cancelled, on a
+  client as well as a server; exceeding it forgets the oldest token and lets
+  one late progress notification through. Cancelled requests themselves are
+  not capped, because each one is remembered on the entry it already has
+  among the connection's unanswered requests.
   `MCPBase.sendRequestKeepingProgress` throws a `StateError` when the calling
   handler's own request has been cancelled.
 - **BREAKING**:

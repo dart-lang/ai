@@ -147,14 +147,14 @@ abstract base class MCPServer extends MCPBase {
 
   /// Serves MCP on [channel].
   ///
-  /// [maxRetainedCancellations] caps how many client cancellations wait here
-  /// for an answer.
+  /// [maxRetainedTokens] caps the progress tokens this server keeps for
+  /// requests the client cancelled and this server answered anyway.
   MCPServer.fromStreamChannel(
     super.channel, {
     required this.implementation,
     this.instructions,
     super.protocolLogSink,
-    super.maxRetainedCancellations,
+    super.maxRetainedTokens,
     this.maxInputRequiredRounds = 8,
   }) {
     if (maxInputRequiredRounds < 1) {
