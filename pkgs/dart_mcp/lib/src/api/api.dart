@@ -2,8 +2,9 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-/// Interfaces are based on
-/// https://github.com/modelcontextprotocol/specification/blob/main/schema/2025-06-18/schema.ts
+/// Interfaces are based on the schema files under
+/// https://github.com/modelcontextprotocol/modelcontextprotocol/tree/main/schema,
+/// one directory per revision. See DEVELOPING.md.
 library;
 
 import 'dart:collection';
