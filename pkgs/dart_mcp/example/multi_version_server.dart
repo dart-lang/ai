@@ -61,7 +61,8 @@ Future<void> _serveStreamableHttp() async {
         request,
         MCPServerWithInputRequired.new,
       );
-    } catch (error) {
+    } on Exception catch (error) {
+      // An `Error` is a bug in this example, and letting it crash says so.
       io.stderr.writeln('request failed: $error');
     }
   });
