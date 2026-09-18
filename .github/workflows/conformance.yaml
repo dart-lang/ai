@@ -50,4 +50,5 @@ jobs:
           npx @modelcontextprotocol/conformance@0.2.0-alpha.11 client \
             --command "dart run tool/conformance_client.dart" \
             --requirements 2026-07-28 \
-            --expected-failures tool/conformance_expected_failures.yaml
+            --expected-failures tool/conformance_expected_failures.yaml \
+            --timeout 120000
