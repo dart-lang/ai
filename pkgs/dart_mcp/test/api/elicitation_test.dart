@@ -190,7 +190,8 @@ void main() {
         ),
       );
 
-      final elicitationRequest = server.elicit(
+      final elicitationRequest = server.sendRequest<ElicitResult>(
+        ElicitRequest.methodName,
         ElicitRequest.form(
           message: 'What is your name?',
           requestedSchema: ObjectSchema(

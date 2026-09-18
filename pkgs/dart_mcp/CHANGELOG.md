@@ -1,5 +1,8 @@
 ## 0.6.0-wip
 
+- Validate the `Origin` header against `allowedOrigins` on
+  `handleStreamableHttpRequest`, answering 403 when a request carries one the
+  list leaves out. Leaving the argument off keeps the header unread.
 - Add optional headers to `streamableHttpClientChannel`, with protocol headers
   taking precedence on each POST.
 - Convert schema enum values and multi-select defaults to fixed-length lists so
@@ -12,6 +15,11 @@
 - Let `handleRequestScopedMessage` route server-to-client requests through an
   `onRequest` callback on revisions before 2026-07-28. Missing callbacks and
   invalid callback responses fail the server request without leaving it open.
+- Advertise the notification capabilities from a protected
+  `MCPServer.advertisedCapabilities` getter, which `SubscriptionsSupport`
+  overrides, instead of a type check on the server.
+- Add `ToolUseContent`, `ToolResultContent`, a `SamplingMessageContentBlock`
+  union for them, and a `tools` list on `CreateMessageRequest`.
 - **BREAKING**:
   - `MCPBase` (including the `MCPServer.fromStreamChannel` and
     `ServerConnection.fromStreamChannel` constructors),
@@ -52,21 +60,26 @@
     - On the client, `MCPClient.capabilities` already worked this way.
   - Override `MCPServer.initializeLegacy` only to customize the legacy
     initialize response or version negotiation.
-  - On revisions that have `elicitation/create`,
-    `ElicitationRequestSupport.elicit` now throws an `RpcException` with
-    `McpErrorCodes.missingRequiredClientCapability` instead of a `StateError`
-    when the client did not declare the capability the request needs, naming
-    the missing capability under `data.requiredCapabilities`, which the
-    2026-07-28 revision requires of that error.
-    `ToolsSupport.callTool` rethrows an `RpcException`, so a tool which elicits
-    reaches the client as that error rather than as a `CallToolResult` whose
-    text is a Dart stack trace. A server catching the `StateError` needs to
-    catch `RpcException` instead, which comes from `package:json_rpc_2`.
-  - `ElicitationRequestSupport.elicit` also checks which mode a request names
-    on those same revisions. A server that guarded on `supportsElicitation`
-    should read `supportsFormElicitation` or `supportsUrlElicitation`. A
-    request naming an unknown mode is answered with `-32602` (invalid params)
-    instead of going out with that mode still on it.
+  - Remove `ElicitationRequestSupport.elicit`, `MCPServer.listRoots` and
+    `MCPServer.createMessage`. Ask with an `InputRequiredResult` on
+    `tools/call`, `prompts/get`, or `resources/read`, see
+    https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr.
+    Before 2026-07-28 a shim sends each `InputRequest` as that revision's
+    request and reruns the handler, at most
+    `MCPServer.maxInputRequiredRounds` (8). Below 1 throws a `RangeError`.
+    Exceeding the rounds or a malformed `input_required` including an
+    unknown elicitation mode is `-32603`. Undeclared capabilities stay
+    `McpErrorCodes.missingRequiredClientCapability` under
+    `data.requiredCapabilities`. `ToolsSupport.callTool` rethrows an
+    `RpcException`, so a tool whose input request fails reaches the client
+    as that error, not a `CallToolResult` with a Dart stack trace. Catch
+    `RpcException` (`package:json_rpc_2`) instead of the `StateError`
+    `elicit` threw; read `supportsFormElicitation` or
+    `supportsUrlElicitation` instead of `supportsElicitation`.
+    `ProtocolVersion.v2026_07_28.removedMethods` lists `roots/list`,
+    `sampling/createMessage`, and `elicitation/create`, so
+    `methodIsValid` answers for all three. The shim rejects
+    `elicitation/create` before 2025-06-18.
   - `ServerConnection` now answers an elicitation mode the client did not
     declare with `-32602` (invalid params), where it used to answer a `decline`,
     as if the user had sent it. An unrecognized one used to throw out of the
@@ -79,30 +92,6 @@
     Dart stack trace attached. A server which overrides `readResource` and
     catches the `ArgumentError` its dartdoc used to promise needs to catch
     `RpcException` from `package:json_rpc_2` instead.
-  - On revisions before 2026-07-28, `MCPServer.listRoots` and
-    `MCPServer.createMessage` now throw an `RpcException` with
-    `McpErrorCodes.missingRequiredClientCapability` when the client did not
-    declare `roots` or `sampling`, naming the missing capability under
-    `data.requiredCapabilities`, the same way `ElicitationRequestSupport.elicit`
-    already did. Both used to send the request anyway, so what came back
-    depended on the peer: a client with no handler answered `-32601`, and a
-    request-scoped transport answered `-32603` because it cannot carry a
-    server to client request at all. A server which expects either of those
-    codes for an undeclared capability should read `MCPServer.supportsRoots`
-    or `MCPServer.supportsSampling` first.
-  - `MCPServer.listRoots`, `MCPServer.createMessage`, and
-    `ElicitationRequestSupport.elicit` now throw an `RpcException` with
-    `-32603` when the negotiated protocol version does not have the method,
-    before they read any client capability.
-    `ProtocolVersion.v2026_07_28.removedMethods` now lists `roots/list`,
-    `sampling/createMessage`, and `elicitation/create`, which that revision
-    dropped along with the rest of the `ServerRequest` union, so
-    `ProtocolVersion.methodIsValid` answers for all three. A server on it asks
-    the client for input with an `InputRequiredResult` on `tools/call`,
-    `prompts/get`, or `resources/read` instead, see
-    https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr.
-    `elicit` also throws on 2024-11-05 and 2025-03-26, the two revisions before
-    2025-06-18 added `elicitation/create`.
   - `ResourceLink.icons` is now `List<Icon>?` instead of `List<String>?`, and
     its factory takes the icons, the way the other five types carrying `icons`
     already do. The field has been an array of icons since 2025-11-25 added it,
@@ -149,6 +138,13 @@
     each identifier stay the ones the caller passed, and an empty extension
     name such as `example/` is still valid. Writing null `extensions` now
     leaves the key out instead of writing a null.
+  - `SamplingMessage.content` and `CreateMessageResult.content` now read
+    `SamplingMessageContentBlock` instead of `Content`. `TextContent`,
+    `ImageContent` and `AudioContent` implement both types.
+    `ToolUseContent` and `ToolResultContent` implement only the new one,
+    keeping a plain `tools/call` result from carrying tool content by
+    accident. `ToolResultContent.content` still reads `List<Content>`,
+    the union a tool result's payload uses in the schema.
 - Cap the request body in `handleStreamableHttpRequest` at
   `maxRequestBodyBytes`, 4 MiB by default.
   Larger bodies get `413` and an invalid request error. The same cap is the
@@ -248,6 +244,9 @@
   `CallToolRequest`, `GetPromptRequest` and `ReadResourceRequest` take an
   `inputResponses` and a `requestState`, matching the three requests the schema
   answers with an `InputRequiredResult`.
+- Add `WithInputResponses.elicitResult`, `.createMessageResult` and
+  `.listRootsResult`. A missing key is null. A present value missing a
+  required field throws an `ArgumentError`.
 - Add `SubscriptionFilter`, `SubscriptionsListenRequest`,
   `SubscriptionsListenResult`, and `SubscriptionsAcknowledgedNotification`,
   modeling the `subscriptions/listen` request the 2026-07-28 revision adds, see
@@ -326,11 +325,12 @@
   takes `ttlMs` and `cacheScope` on the same terms as the other five cacheable
   results, so the sixth operation the caching rules name is no longer the one
   that cannot carry the hints.
-- Answer a request whose handler emits related notifications on an SSE
-  response stream. A quiet handler keeps its JSON body. List changes and
-  resource updates skip that request's stream, since this revision carries
-  those on a `subscriptions/listen` stream. Does not treat a closed stream as
-  cancellation, which the specification requires.
+- Use an SSE response when a request handler emits related notifications. A
+  quiet handler keeps its JSON body. List changes and resource updates stay on
+  `subscriptions/listen`. Closing the response cancels the request and shuts
+  its server down without a final result. The `handleStreamableHttpRequest`
+  parameter `listenKeepAliveInterval` is now `keepAliveInterval` because it
+  covers every SSE response.
 - Add `sseMessageStream`, decoding the `message` events of an SSE response
   into JSON objects. Undecodable data becomes an error event without ending
   the stream, though `await for` stops on the first one.

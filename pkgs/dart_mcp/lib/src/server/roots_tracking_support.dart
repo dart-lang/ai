@@ -9,7 +9,7 @@ part of 'server.dart';
 ///
 /// Listens to change events and updates the set of [roots].
 base mixin RootsTrackingSupport on LoggingSupport {
-  /// All known workspace [Root]s from the last call to [listRoots].
+  /// All known workspace [Root]s from the last roots request.
   ///
   /// May be a [Future] if we are currently requesting the roots.
   FutureOr<List<Root>> get roots => switch (_rootsState) {
@@ -25,7 +25,7 @@ base mixin RootsTrackingSupport on LoggingSupport {
   /// otherwise `null`.
   List<Root>? _roots;
 
-  /// Completer for any pending [listRoots] call if [_rootsState] is
+  /// Completer for any pending roots request if [_rootsState] is
   /// [_RootsState.pending], otherwise `null`.
   Completer<List<Root>>? _rootsCompleter = Completer();
 
@@ -58,15 +58,15 @@ base mixin RootsTrackingSupport on LoggingSupport {
     return super.initialize(initialization);
   }
 
-  /// Updates the list of [roots] by calling [listRoots].
+  /// Updates the list of [roots] by requesting them from the client.
   ///
   /// Normalizes file paths to file: URIs to handle clients which do not
   /// follow the spec exactly.
   ///
   /// If the current [_rootsCompleter] was not yet completed, then we wait to
   /// complete it until we get an updated list of roots, so that we don't get
-  /// stale results from [listRoots] requests that are still in flight during
-  /// a change notification.
+  /// stale results from roots requests that are still in flight during a
+  /// change notification.
   @mustCallSuper
   Future<void> updateRoots() async {
     _rootsState = _RootsState.pending;
@@ -84,15 +84,20 @@ base mixin RootsTrackingSupport on LoggingSupport {
 
     ListRootsResult? result;
     try {
-      result = await listRoots(ListRootsRequest());
+      _rejectRemovedMethod(ListRootsRequest.methodName, protocolVersion);
+      if (!supportsRoots) throw _missingRoots;
+      result = await sendRequest<ListRootsResult>(
+        ListRootsRequest.methodName,
+        ListRootsRequest(),
+      );
     } on RpcException catch (e) {
-      log(LoggingLevel.error, 'Error calling listRoots: $e');
+      log(LoggingLevel.error, 'Error requesting roots: $e');
       // json_rpc_2 completes requests which are still pending when the
       // connection closes with a `StateError`, for instance when a
       // request-scoped exchange is torn down mid-request.
       // ignore: avoid_catching_errors
     } on StateError catch (e) {
-      log(LoggingLevel.error, 'Error calling listRoots: $e');
+      log(LoggingLevel.error, 'Error requesting roots: $e');
     } finally {
       // Only complete the completer if it's still the one we created. Otherwise
       // we wait for the next result to come back and throw away this result.
@@ -139,6 +144,6 @@ enum _RootsState {
   /// No change notification since our last update.
   upToDate,
 
-  /// Waiting for a `listRoots` response.
+  /// Waiting for a roots response.
   pending,
 }

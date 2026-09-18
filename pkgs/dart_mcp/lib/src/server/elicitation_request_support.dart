@@ -4,8 +4,8 @@
 
 part of 'server.dart';
 
-/// A mixin that adds support for making `elicitation/create` requests to a
-/// [MCPServer].
+/// A mixin that adds client capability checks and completion notifications for
+/// elicitation to an [MCPServer].
 base mixin ElicitationRequestSupport on LoggingSupport {
   /// Whether or not the connected client supports elicitation.
   ///
@@ -44,43 +44,6 @@ base mixin ElicitationRequestSupport on LoggingSupport {
       }
     });
     return super.initialize(initialization);
-  }
-
-  /// Sends an `elicitation/create` request to the client.
-  ///
-  /// Throws an [RpcException] when [protocolVersion] does not have
-  /// `elicitation/create`. 2026-07-28 took it out, and carries an
-  /// [ElicitRequest] in an [InputRequiredResult] instead. 2025-06-18 added it.
-  ///
-  /// Otherwise this only succeeds if the client has advertised the mode the
-  /// request asks for, as [supportsFormElicitation] and
-  /// [supportsUrlElicitation] read it, and throws an [RpcException] with
-  /// [McpErrorCodes.missingRequiredClientCapability] when the client has not,
-  /// naming the capability it is missing under `data.requiredCapabilities`.
-  ///
-  /// [ToolsSupport.callTool] rethrows an [RpcException] instead of folding it
-  /// into a [CallToolResult], so a tool which elicits reaches the client as
-  /// that error rather than as a result whose text is a Dart stack trace.
-  Future<ElicitResult> elicit(ElicitRequest request) async {
-    _rejectRemovedMethod(ElicitRequest.methodName, protocolVersion);
-    final raw = request.rawMode;
-    if (raw != null && !ElicitationMode.values.any((m) => m.name == raw)) {
-      throw RpcException.invalidParams(
-        'The elicitation mode was "$raw", which is not one of: '
-        '${ElicitationMode.values.map((m) => m.name).join(', ')}',
-      );
-    }
-    switch (request.mode) {
-      case ElicitationMode.url:
-        if (!supportsUrlElicitation) {
-          throw _missingUrlElicitation;
-        }
-      case ElicitationMode.form:
-        if (!supportsFormElicitation) {
-          throw _missingFormElicitation;
-        }
-    }
-    return sendRequest(ElicitRequest.methodName, request);
   }
 
   /// Notifies the client that a URL elicitation has completed.
