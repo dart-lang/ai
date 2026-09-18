@@ -20,6 +20,8 @@
   overrides, instead of a type check on the server.
 - Add `ToolUseContent`, `ToolResultContent`, a `SamplingMessageContentBlock`
   union for them, and a `tools` list on `CreateMessageRequest`.
+- Add an example pair under `example/` that greets over stdio and over
+  Streamable HTTP, asking who to greet with an `InputRequiredResult`.
 - **BREAKING**:
   - `MCPBase` (including the `MCPServer.fromStreamChannel` and
     `ServerConnection.fromStreamChannel` constructors),
