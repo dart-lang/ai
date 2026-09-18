@@ -312,6 +312,13 @@ base mixin ResourcesSupport on MCPServer {
 /// A single throttled wire subscription and every protocol owner of it.
 final class _ResourceUpdateSubscription {
   final controller = StreamController<ResourceUpdatedNotification>();
+
+  /// The `subscriptions/listen` requests holding this subscription open, keyed
+  /// by the subscription ID each one was acknowledged under.
+  ///
+  /// A value answers whether its own request is still uncancelled, and an
+  /// update goes out once any owner answers `true`.
   final modernOwners = <Object, bool Function()>{};
+
   bool hasLegacyOwner = false;
 }
