@@ -1,4 +1,4 @@
-## 1.1.2-dev
+## 1.1.2
 
 - Let the `create` tool pass the project root to the underlying CLI, and reject
   an empty `directory`.
