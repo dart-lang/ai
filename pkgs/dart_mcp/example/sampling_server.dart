@@ -43,7 +43,7 @@ base class MCPServerWithSampling extends MCPServer with LoggingSupport {
             // The role to be assigned the message in the context.
             role: Role.user,
             // The actual content of the message in the context.
-            content: Content.text(text: 'Hello'),
+            content: [Content.text(text: 'Hello')],
           ),
         ],
         // The maximum response size in tokens.
@@ -57,7 +57,7 @@ base class MCPServerWithSampling extends MCPServer with LoggingSupport {
     // Simply log the result, the client will print this to the console.
     log(
       LoggingLevel.warning,
-      '(${result.role}): ${(result.content as TextContent).text}',
+      '(${result.role}): ${(result.content.single as TextContent).text}',
     );
   }
 }

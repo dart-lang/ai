@@ -1135,7 +1135,7 @@ final class _InputClient extends MCPClient
     handled.add('sampling/createMessage');
     return CreateMessageResult(
       role: Role.assistant,
-      content: Content.text(text: 'sampled'),
+      content: [Content.text(text: 'sampled')],
       model: 'test-model',
     );
   }
