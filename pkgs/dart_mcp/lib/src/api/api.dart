@@ -510,6 +510,15 @@ enum CacheScope {
 extension type Content._(Map<String, Object?> _value) {
   factory Content.fromMap(Map<String, Object?> value) {
     assert(value.containsKey(Keys.type));
+    assert(
+      value[Keys.type] != ToolUseContent.expectedType &&
+          value[Keys.type] != ToolResultContent.expectedType,
+      'Sampling tool content cannot be read as Content.',
+    );
+    // Tool use and tool result belong to sampling messages, where they read
+    // as a `SamplingMessageContentBlock`. A `tools/call` result carrying one
+    // is a mix-up the static types already refuse, and a map arriving here
+    // skips those types, so the assert covers that path.
     return Content._(value);
   }
 
@@ -548,7 +557,7 @@ extension type Content._(Map<String, Object?> _value) {
 
 /// Text provided to or from an LLM.
 extension type TextContent.fromMap(Map<String, Object?> _value)
-    implements Content, Annotated, WithMetadata {
+    implements Content, SamplingMessageContentBlock, Annotated, WithMetadata {
   static const expectedType = 'text';
 
   factory TextContent({
@@ -574,7 +583,7 @@ extension type TextContent.fromMap(Map<String, Object?> _value)
 
 /// An image provided to or from an LLM.
 extension type ImageContent.fromMap(Map<String, Object?> _value)
-    implements Content, Annotated, WithMetadata {
+    implements Content, SamplingMessageContentBlock, Annotated, WithMetadata {
   static const expectedType = 'image';
 
   factory ImageContent({
@@ -609,7 +618,7 @@ extension type ImageContent.fromMap(Map<String, Object?> _value)
 ///
 /// Only supported since version [ProtocolVersion.v2025_03_26].
 extension type AudioContent.fromMap(Map<String, Object?> _value)
-    implements Content, Annotated, WithMetadata {
+    implements Content, SamplingMessageContentBlock, Annotated, WithMetadata {
   static const expectedType = 'audio';
 
   factory AudioContent({

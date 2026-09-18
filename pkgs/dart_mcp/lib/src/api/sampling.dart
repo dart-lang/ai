@@ -36,6 +36,7 @@ extension type CreateMessageRequest.fromMap(Map<String, Object?> _value)
     required int maxTokens,
     List<String>? stopSequences,
     ToolChoice? toolChoice,
+    List<Tool>? tools,
     Map<String, Object?>? metadata,
     MetaWithProgressToken? meta,
   }) => CreateMessageRequest.fromMap({
@@ -47,6 +48,7 @@ extension type CreateMessageRequest.fromMap(Map<String, Object?> _value)
     Keys.maxTokens: maxTokens,
     if (stopSequences != null) Keys.stopSequences: stopSequences,
     if (toolChoice != null) Keys.toolChoice: toolChoice,
+    if (tools != null) Keys.tools: tools,
     if (metadata != null) Keys.metadata: metadata,
     if (meta != null) Keys.meta: meta,
   });
@@ -111,6 +113,9 @@ extension type CreateMessageRequest.fromMap(Map<String, Object?> _value)
   /// Controls how the model uses tools (if available).
   ToolChoice? get toolChoice => _value[Keys.toolChoice] as ToolChoice?;
 
+  /// Tools the model may call during this request.
+  List<Tool>? get tools => (_value[Keys.tools] as List?)?.cast<Tool>();
+
   /// Optional metadata to pass through to the LLM provider.
   ///
   /// The format of this metadata is provider-specific.
@@ -128,7 +133,7 @@ extension type CreateMessageResult.fromMap(Map<String, Object?> _value)
     implements Result, SamplingMessage {
   factory CreateMessageResult({
     required Role role,
-    required Content content,
+    required SamplingMessageContentBlock content,
     required String model,
     String? stopReason,
     Meta? meta,
@@ -145,8 +150,8 @@ extension type CreateMessageResult.fromMap(Map<String, Object?> _value)
 
   /// The reason why sampling stopped, if known.
   ///
-  /// Known reasons are "endTurn", "stopSequence", "maxTokens", or any other
-  /// reason.
+  /// Known reasons are "endTurn", "stopSequence", "maxTokens", "toolUse", or
+  /// any other reason.
   String? get stopReason => _value[Keys.stopReason] as String?;
 
   /// The JSON representation of this object.
@@ -155,15 +160,159 @@ extension type CreateMessageResult.fromMap(Map<String, Object?> _value)
 
 /// Describes a message issued to or received from an LLM API.
 extension type SamplingMessage.fromMap(Map<String, Object?> _value) {
-  factory SamplingMessage({required Role role, required Content content}) =>
-      SamplingMessage.fromMap({Keys.role: role.name, Keys.content: content});
+  factory SamplingMessage({
+    required Role role,
+    required SamplingMessageContentBlock content,
+  }) => SamplingMessage.fromMap({Keys.role: role.name, Keys.content: content});
 
   /// The role of the message.
   Role get role =>
       Role.values.firstWhere((value) => value.name == _value[Keys.role]);
 
   /// The content of the message.
-  Content get content => _value[Keys.content] as Content;
+  SamplingMessageContentBlock get content =>
+      _value[Keys.content] as SamplingMessageContentBlock;
+}
+
+/// The content of a [SamplingMessage], sent to or received from an LLM.
+///
+/// Could be either [TextContent], [ImageContent], [AudioContent],
+/// [ToolUseContent] or [ToolResultContent].
+///
+/// Switch on the [type] before casting to the more specific types. The two
+/// arms a `tools/call` result cannot carry have their own checks,
+/// [isToolUse] and [isToolResult]. A [TextContent], [ImageContent] or
+/// [AudioContent] read as a [Content] keeps the checks declared there.
+///
+/// This does not implement [Content]. A plain `tools/call` result never
+/// carries [ToolUseContent] or [ToolResultContent]. Keeping sampling content
+/// on its own type stops the two from being swapped by accident.
+///
+/// Doing `is` checks does not work because these are just extension types,
+/// they all have the same runtime type (`Map<String, Object?>`).
+extension type SamplingMessageContentBlock._(Map<String, Object?> _value) {
+  factory SamplingMessageContentBlock.fromMap(Map<String, Object?> value) {
+    assert(value.containsKey(Keys.type));
+    return SamplingMessageContentBlock._(value);
+  }
+
+  /// Alias for [TextContent.new].
+  static const text = TextContent.new;
+
+  /// Alias for [ImageContent.new].
+  static const image = ImageContent.new;
+
+  /// Alias for [AudioContent.new].
+  static const audio = AudioContent.new;
+
+  /// Alias for [ToolUseContent.new].
+  static const toolUse = ToolUseContent.new;
+
+  /// Alias for [ToolResultContent.new].
+  static const toolResult = ToolResultContent.new;
+
+  /// Whether or not this is a [ToolUseContent].
+  bool get isToolUse => _value[Keys.type] == ToolUseContent.expectedType;
+
+  /// Whether or not this is a [ToolResultContent].
+  bool get isToolResult => _value[Keys.type] == ToolResultContent.expectedType;
+
+  /// The type of content.
+  ///
+  /// Switch on this to handle each case (see the static `expectedType`
+  /// getters). [isToolUse] and [isToolResult] cover the two arms a
+  /// `tools/call` result cannot carry.
+  String get type => _value[Keys.type] as String;
+}
+
+/// A request from the assistant to call a tool.
+///
+/// From the 2025-11-25 revision.
+extension type ToolUseContent.fromMap(Map<String, Object?> _value)
+    implements SamplingMessageContentBlock, WithMetadata {
+  static const expectedType = 'tool_use';
+
+  factory ToolUseContent({
+    required String id,
+    required String name,
+    required Map<String, Object?> input,
+    Meta? meta,
+  }) => ToolUseContent.fromMap({
+    Keys.id: id,
+    Keys.input: input,
+    Keys.name: name,
+    Keys.type: expectedType,
+    if (meta != null) Keys.meta: meta,
+  });
+
+  /// The content type, always [expectedType].
+  String get type {
+    final type = _value[Keys.type] as String;
+    assert(type == expectedType);
+    return type;
+  }
+
+  /// The unique identifier for this tool use.
+  String get id => _value[Keys.id] as String;
+
+  /// The name of the tool to call.
+  String get name => _value[Keys.name] as String;
+
+  /// The arguments to pass to the tool.
+  Map<String, Object?> get input =>
+      (_value[Keys.input] as Map).cast<String, Object?>();
+}
+
+/// The result of a tool use, provided by the user back to the assistant.
+///
+/// From the 2025-11-25 revision.
+extension type ToolResultContent.fromMap(Map<String, Object?> _value)
+    implements SamplingMessageContentBlock, WithMetadata {
+  static const expectedType = 'tool_result';
+
+  factory ToolResultContent({
+    required List<Content> content,
+    required String toolUseId,
+    Map<String, Object?>? structuredContent,
+    bool? isError,
+    Meta? meta,
+  }) => ToolResultContent.fromMap({
+    Keys.content: content,
+    Keys.toolUseId: toolUseId,
+    Keys.type: expectedType,
+    if (structuredContent != null) Keys.structuredContent: structuredContent,
+    if (isError != null) Keys.isError: isError,
+    if (meta != null) Keys.meta: meta,
+  });
+
+  /// The content type, always [expectedType].
+  String get type {
+    final type = _value[Keys.type] as String;
+    assert(type == expectedType);
+    return type;
+  }
+
+  /// The content returned by the tool, either [TextContent], [ImageContent],
+  /// [AudioContent], [ResourceLink] or [EmbeddedResource].
+  List<Content> get content {
+    final content = (_value[Keys.content] as List?)?.cast<Content>();
+    if (content == null) {
+      throw ArgumentError(
+        'Missing ${Keys.content} field in $ToolResultContent',
+      );
+    }
+    return content;
+  }
+
+  /// The structured result returned by the tool.
+  Map<String, Object?>? get structuredContent =>
+      _value[Keys.structuredContent] as Map<String, Object?>?;
+
+  /// Whether the tool use resulted in an error.
+  bool? get isError => _value[Keys.isError] as bool?;
+
+  /// The identifier of the tool use this result corresponds to.
+  String get toolUseId => _value[Keys.toolUseId] as String;
 }
 
 /// The server's preferences for model selection, requested of the client

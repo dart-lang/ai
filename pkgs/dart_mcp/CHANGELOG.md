@@ -18,6 +18,8 @@
 - Advertise the notification capabilities from a protected
   `MCPServer.advertisedCapabilities` getter, which `SubscriptionsSupport`
   overrides, instead of a type check on the server.
+- Add `ToolUseContent`, `ToolResultContent`, a `SamplingMessageContentBlock`
+  union for them, and a `tools` list on `CreateMessageRequest`.
 - Honour `notifications/cancelled`. A cancelled request goes quiet on the
   wire. Progress stays off it once the request is cancelled, once a dropped
   response has answered it, or when the request that declared its token
@@ -165,6 +167,13 @@
     each identifier stay the ones the caller passed, and an empty extension
     name such as `example/` is still valid. Writing null `extensions` now
     leaves the key out instead of writing a null.
+  - `SamplingMessage.content` and `CreateMessageResult.content` now read
+    `SamplingMessageContentBlock` instead of `Content`. `TextContent`,
+    `ImageContent` and `AudioContent` implement both types.
+    `ToolUseContent` and `ToolResultContent` implement only the new one,
+    keeping a plain `tools/call` result from carrying tool content by
+    accident. `ToolResultContent.content` still reads `List<Content>`,
+    the union a tool result's payload uses in the schema.
 - Cap the request body in `handleStreamableHttpRequest` at
   `maxRequestBodyBytes`, 4 MiB by default.
   Larger bodies get `413` and an invalid request error. The same cap is the
