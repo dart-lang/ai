@@ -565,78 +565,76 @@ base class ServerConnection extends MCPBase {
   /// Every [Tool] on this server, walking `tools/list` pages until one reports
   /// no `nextCursor`.
   ///
-  /// [request] gives the first cursor and the metadata every page carries.
+  /// [request] asks for the first page, and each later page repeats it with
+  /// the next cursor.
   /// [maxPageCount] bounds the walk, throwing past it; `null` lifts the bound.
   Stream<Tool> listAllTools({
     ListToolsRequest? request,
     int? maxPageCount = 64,
   }) => _listAllPages(
     ListToolsRequest.methodName,
-    (cursor) => ListToolsRequest(cursor: cursor, meta: request?.meta),
+    request ?? ListToolsRequest(),
     (ListToolsResult page) => page.tools,
-    request?.cursor,
     maxPageCount,
   );
 
   /// Every [Resource] on this server, walking `resources/list` pages until one
   /// reports no `nextCursor`.
   ///
-  /// [request] gives the first cursor and the metadata every page carries.
+  /// [request] asks for the first page, and each later page repeats it with
+  /// the next cursor.
   /// [maxPageCount] bounds the walk, throwing past it; `null` lifts the bound.
   Stream<Resource> listAllResources({
     ListResourcesRequest? request,
     int? maxPageCount = 64,
   }) => _listAllPages(
     ListResourcesRequest.methodName,
-    (cursor) => ListResourcesRequest(cursor: cursor, meta: request?.meta),
+    request ?? ListResourcesRequest(),
     (ListResourcesResult page) => page.resources,
-    request?.cursor,
     maxPageCount,
   );
 
   /// Every [ResourceTemplate] on this server, walking
   /// `resources/templates/list` pages until one reports no `nextCursor`.
   ///
-  /// [request] gives the first cursor and the metadata every page carries.
+  /// [request] asks for the first page, and each later page repeats it with
+  /// the next cursor.
   /// [maxPageCount] bounds the walk, throwing past it; `null` lifts the bound.
   Stream<ResourceTemplate> listAllResourceTemplates({
     ListResourceTemplatesRequest? request,
     int? maxPageCount = 64,
   }) => _listAllPages(
     ListResourceTemplatesRequest.methodName,
-    (cursor) =>
-        ListResourceTemplatesRequest(cursor: cursor, meta: request?.meta),
+    request ?? ListResourceTemplatesRequest(),
     (ListResourceTemplatesResult page) => page.resourceTemplates,
-    request?.cursor,
     maxPageCount,
   );
 
   /// Every [Prompt] on this server, walking `prompts/list` pages until one
   /// reports no `nextCursor`.
   ///
-  /// [request] gives the first cursor and the metadata every page carries.
+  /// [request] asks for the first page, and each later page repeats it with
+  /// the next cursor.
   /// [maxPageCount] bounds the walk, throwing past it; `null` lifts the bound.
   Stream<Prompt> listAllPrompts({
     ListPromptsRequest? request,
     int? maxPageCount = 64,
   }) => _listAllPages(
     ListPromptsRequest.methodName,
-    (cursor) => ListPromptsRequest(cursor: cursor, meta: request?.meta),
+    request ?? ListPromptsRequest(),
     (ListPromptsResult page) => page.prompts,
-    request?.cursor,
     maxPageCount,
   );
 
   /// Yields each [methodName] page's items, requesting a page only when the
   /// last is consumed.
   ///
-  /// [pageRequest] builds one page's request; [itemsOf] reads its items;
+  /// [request] asks for the first page; [itemsOf] reads a page's items;
   /// [maxPageCount] bounds it, and anything under 1 is an [ArgumentError].
   Stream<T> _listAllPages<T, R extends PaginatedResult>(
     String methodName,
-    Request Function(Cursor? cursor) pageRequest,
+    PaginatedRequest request,
     List<T> Function(R page) itemsOf,
-    Cursor? cursor,
     int? maxPageCount,
   ) {
     if (maxPageCount != null && maxPageCount < 1) {
@@ -646,7 +644,7 @@ base class ServerConnection extends MCPBase {
         'Must be at least 1',
       );
     }
-    return _walkPages(methodName, pageRequest, itemsOf, cursor, maxPageCount);
+    return _walkPages(methodName, request, itemsOf, maxPageCount);
   }
 
   /// The [_listAllPages] walk, entered once [maxPageCount] is known good.
@@ -654,16 +652,18 @@ base class ServerConnection extends MCPBase {
   /// Every page goes out under one progress token, closed when the walk ends.
   Stream<T> _walkPages<T, R extends PaginatedResult>(
     String methodName,
-    Request Function(Cursor? cursor) pageRequest,
+    PaginatedRequest request,
     List<T> Function(R page) itemsOf,
-    Cursor? cursor,
     int? maxPageCount,
   ) async* {
-    var request = pageRequest(cursor);
+    var pageRequest = request;
     var pagesRequested = 0;
     try {
       while (true) {
-        final page = await sendRequestKeepingProgress<R>(methodName, request);
+        final page = await sendRequestKeepingProgress<R>(
+          methodName,
+          pageRequest,
+        );
         pagesRequested++;
         for (final item in itemsOf(page)) {
           yield item;
@@ -675,10 +675,10 @@ base class ServerConnection extends MCPBase {
           // server that keeps handing out cursors is stopped by this count.
           throw StateError('$methodName still had pages after $maxPageCount.');
         }
-        request = pageRequest(next);
+        pageRequest = pageRequest.copyWithCursor(next);
       }
     } finally {
-      await closeProgress(request);
+      await closeProgress(pageRequest);
     }
   }
 

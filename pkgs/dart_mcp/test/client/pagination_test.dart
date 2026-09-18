@@ -265,6 +265,44 @@ void main() {
     expect(server.cursors, hasLength(64));
   });
 
+  test('an entry the walk does not read reaches every page', () async {
+    server.pages = [
+      ['a'],
+      ['b'],
+    ];
+
+    await connection
+        .listAllTools(
+          request: ListToolsRequest.fromMap({_PagingServer.extraKey: 'kept'}),
+        )
+        .drain<void>();
+
+    expect(server.extras, ['kept', 'kept']);
+  });
+
+  test('such an entry outlives a walk that starts at a cursor', () async {
+    server.pages = [
+      ['a'],
+      ['b'],
+      ['c'],
+    ];
+
+    await connection
+        .listAllPrompts(
+          request: ListPromptsRequest.fromMap({
+            'cursor': _PagingServer.cursorFor(1),
+            _PagingServer.extraKey: 'kept',
+          }),
+        )
+        .drain<void>();
+
+    expect(server.extras, ['kept', 'kept']);
+    expect(server.cursors, [
+      _PagingServer.cursorFor(1),
+      _PagingServer.cursorFor(2),
+    ]);
+  });
+
   test('every page carries the progress token and it closes once', () async {
     server.pages = [
       ['a'],
@@ -355,6 +393,12 @@ final class _PagingServer extends TestMCPServer {
   /// The cursor of every list request this server answered, in order.
   final cursors = <Cursor?>[];
 
+  /// The key this server reads off a request to prove a copy kept it.
+  static const extraKey = 'anEntryTheWalkDoesNotRead';
+
+  /// The [extraKey] entry of every list request this server answered.
+  final extras = <Object?>[];
+
   /// A cursor this server rejects as no longer valid.
   Cursor? invalidCursor;
 
@@ -374,6 +418,7 @@ final class _PagingServer extends TestMCPServer {
   List<String> _page(PaginatedRequest? request) {
     final cursor = request?.cursor;
     cursors.add(cursor);
+    extras.add((request as Map<String, Object?>?)?[extraKey]);
     if (invalidCursor != null && cursor == invalidCursor) {
       throw RpcException(
         error_code.INVALID_PARAMS,

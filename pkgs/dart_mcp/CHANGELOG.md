@@ -25,6 +25,8 @@
   list request and yields the items as a `Stream`, stopping at a default
   64-page `maxPageCount` that passing `null` lifts. The single-page methods are
   unchanged.
+- Add `PaginatedRequest.copyWithCursor`, which the page walks above use to move
+  to the next page while keeping the entries already on the request.
 - **BREAKING**:
   - `MCPBase` (including the `MCPServer.fromStreamChannel` and
     `ServerConnection.fromStreamChannel` constructors),

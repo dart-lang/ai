@@ -435,6 +435,15 @@ extension type PaginatedRequest._fromMap(Map<String, Object?> _value)
   Cursor? get cursor => _value[Keys.cursor] as Cursor?;
 }
 
+extension PaginatedRequestCopy on PaginatedRequest {
+  /// A copy of this request that asks for the page at [cursor].
+  ///
+  /// Copying keeps every entry the caller put on the request, including ones
+  /// this package does not read.
+  PaginatedRequest copyWithCursor(Cursor cursor) =>
+      PaginatedRequest._fromMap({..._value, Keys.cursor: cursor});
+}
+
 /// A "mixin"-like extension type for any result type that contains a [Cursor]
 /// at the key "cursor".
 ///
