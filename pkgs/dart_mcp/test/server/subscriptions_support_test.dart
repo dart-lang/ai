@@ -57,6 +57,10 @@ void main() {
       SubscriptionsListenRequest(
         notifications:
             notifications ?? SubscriptionFilter(toolsListChanged: true),
+        meta: MetaWithRequestEnvelope(
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          capabilities: environment.client.capabilities,
+        ),
       ),
     );
   }

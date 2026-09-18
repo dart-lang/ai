@@ -9,11 +9,33 @@ library;
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:async/async.dart' show StreamSinkTransformer;
+import 'package:async/async.dart' show StreamGroup, StreamSinkTransformer;
 import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'api/api.dart';
+import 'utils/constants.dart';
+
+/// Cancels one request without closing its channel.
+abstract interface class RequestCancellation {
+  /// Cancels the request named by [requestId].
+  Future<void> cancelRequest(RequestId requestId);
+}
+
+/// Holds the ID and deferred channel write captured while one request encodes.
+final class _CapturedRequest {
+  RequestId? id;
+  void Function()? forward;
+}
+
+void completeRequestLocally(MCPBase target, RequestId requestId) {
+  if (target._local.isClosed) return;
+  target._local.add({
+    Keys.jsonrpc: '2.0',
+    Keys.id: requestId,
+    Keys.result: const <String, Object?>{},
+  });
+}
 
 /// Base class for MCP server-related implementations.
 ///
@@ -25,6 +47,7 @@ import 'api/api.dart';
 /// - [ServerConnection] A class that represents an active server connection.
 base class MCPBase {
   late final Peer _peer;
+  final _local = StreamController<Map<String, Object?>>(sync: true);
 
   /// The name of the associated server.
   ///
@@ -36,6 +59,9 @@ base class MCPBase {
   /// These are created through the [onProgress] method.
   final _progressControllers =
       <ProgressToken, StreamController<ProgressNotification>>{};
+
+  /// The request [sendRequestWithId] is currently encoding.
+  _CapturedRequest? _capturedRequest;
 
   /// Whether the connection with the peer is active.
   bool get isActive => !_peer.isClosed;
@@ -56,7 +82,18 @@ base class MCPBase {
     // The channel type admits only JSON objects, so json_rpc_2 never
     // receives a batch and never writes the `List` frames its batch support
     // would answer one with.
-    _peer = Peer.withoutJson(_maybeForwardMessages(channel, protocolLogSink));
+    final instrumented = _recordSentRequestIds(
+      _maybeForwardMessages(channel, protocolLogSink),
+    );
+    final remote = instrumented.stream.transform(
+      StreamTransformer.fromHandlers(
+        handleDone: (s) => unawaited(_local.close().whenComplete(s.close)),
+      ),
+    );
+    final incoming = StreamGroup.merge([remote, _local.stream]);
+    _peer = Peer.withoutJson(
+      StreamChannel.withCloseGuarantee(incoming, instrumented.sink),
+    );
     registerNotificationHandler(
       ProgressNotification.methodName,
       _handleProgress,
@@ -127,6 +164,42 @@ base class MCPBase {
     } finally {
       await closeProgress(request);
     }
+  }
+
+  /// Sends [methodName] and hands back the JSON-RPC ID it goes out under.
+  ///
+  /// Relies on json_rpc_2 writing the request to its sink before sendRequest
+  /// returns. Captures the ID before installing the subscription handle,
+  /// deferring the transport write until that handle can receive
+  /// acknowledgements. Throws [StateError] if capture fails.
+  @protected
+  ({RequestId id, Future<T> result, Future<void> sent})
+  sendRequestWithId<T extends Result?>(String methodName, {Request? request}) {
+    final captured = _CapturedRequest();
+    _capturedRequest = captured;
+    late final Future<Object?> result;
+    try {
+      result = _peer.sendRequest(methodName, request);
+    } finally {
+      _capturedRequest = null;
+    }
+    final id = captured.id;
+    final forward = captured.forward;
+    if (id == null || forward == null) {
+      result.ignore();
+      unawaited(shutdown());
+      throw StateError('Encoding "$methodName" recorded no JSON-RPC ID.');
+    }
+    final sent = Completer<void>();
+    sent.future.ignore();
+    scheduleMicrotask(() => sent.complete(Future.sync(forward)));
+    return (
+      id: id,
+      result: result.then(
+        (value) => (value as Map?)?.cast<String, Object?>() as T,
+      ),
+      sent: sent.future,
+    );
   }
 
   /// Sends [request] to the peer like [sendRequest] does, but leaves any
@@ -202,6 +275,25 @@ base class MCPBase {
     PingRequest.methodName,
     request,
   ).then((_) => true).timeout(timeout, onTimeout: () => false);
+
+  /// Captures one request before forwarding other messages to [channel].
+  StreamChannel<Map<String, Object?>> _recordSentRequestIds(
+    StreamChannel<Map<String, Object?>> channel,
+  ) => channel.transformSink(
+    StreamSinkTransformer.fromHandlers(
+      handleData: (data, sink) {
+        final id = data[Keys.id];
+        final captured = _capturedRequest;
+        if (id != null && data.containsKey(Keys.method) && captured != null) {
+          captured
+            ..id = RequestId(id)
+            ..forward = (() => sink.add(data));
+          return;
+        }
+        sink.add(data);
+      },
+    ),
+  );
 
   /// If [protocolLogSink] is non-null, emits messages to it for all messages
   /// sent over [channel].
