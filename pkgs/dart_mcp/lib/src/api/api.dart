@@ -433,9 +433,7 @@ extension type PaginatedRequest._fromMap(Map<String, Object?> _value)
   ///
   /// If provided, the server should return results starting after this cursor.
   Cursor? get cursor => _value[Keys.cursor] as Cursor?;
-}
 
-extension PaginatedRequestCopy on PaginatedRequest {
   /// A copy of this request that asks for the page at [cursor].
   ///
   /// Copying keeps every entry the caller put on the request, including ones
