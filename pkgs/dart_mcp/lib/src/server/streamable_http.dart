@@ -157,7 +157,10 @@ Future<void> handleStreamableHttpRequest(
       response,
       HttpStatus.unsupportedMediaType,
       RpcException(
-        McpErrorCodes.headerMismatch,
+        // The schema binds `HeaderMismatch` to `400`, and `Content-Type` is
+        // not among the request headers the specification requires. An
+        // oversized body already gets this code.
+        error_code.INVALID_REQUEST,
         'The request body must be sent as ${ContentType.json.mimeType}',
       ),
       null,
