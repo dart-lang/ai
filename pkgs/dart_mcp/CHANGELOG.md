@@ -20,6 +20,13 @@
   overrides, instead of a type check on the server.
 - Add `ToolUseContent`, `ToolResultContent`, a `SamplingMessageContentBlock`
   union for them, and a `tools` list on `CreateMessageRequest`.
+- Add `ServerConnection.listAllTools`, `listAllResources`,
+  `listAllResourceTemplates` and `listAllPrompts`. Each walks the pages of its
+  list request and yields the items as a `Stream`, stopping at a default
+  64-page `maxPageCount` that passing `null` lifts. The single-page methods are
+  unchanged.
+- Add `PaginatedRequest.copyWithCursor`, which the page walks above use to move
+  to the next page while keeping the entries already on the request.
 - **BREAKING**:
   - `MCPBase` (including the `MCPServer.fromStreamChannel` and
     `ServerConnection.fromStreamChannel` constructors),
