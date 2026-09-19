@@ -2,6 +2,9 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+@Tags(['live-app'])
+library;
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -1624,17 +1627,20 @@ void action() {
 }
 ''';
 
-/// Tries to delete [dir] up to 5 times, waiting 200ms between each.
+/// Tries to delete [dir], backing off exponentially between attempts.
 ///
-/// Necessary for windows tests.
+/// Necessary for windows tests, where a handle on a file under [dir] can
+/// outlive the process that held it by a noticeable amount of time. Gives up
+/// silently after ~8s rather than failing the test over a temp directory.
 Future<void> _deleteWithRetry(Directory dir) async {
-  var i = 0;
-  while (++i <= 5) {
+  var delay = const Duration(milliseconds: 250);
+  for (var i = 0; i < 6; i++) {
     try {
       await dir.delete(recursive: true);
       return;
     } catch (_) {
-      await Future<void>.delayed(const Duration(milliseconds: 200));
+      await Future<void>.delayed(delay);
+      delay *= 2;
     }
   }
 }

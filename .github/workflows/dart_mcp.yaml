@@ -26,6 +26,8 @@ defaults:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
+    # Fail fast on a genuine hang rather than burning the 6 hour default.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
