@@ -1,5 +1,5 @@
 ---
-name: update-mpc-spec-version
+name: update-mcp-spec-version
 description: Instructions for updating the supported Model Context Protocol (MCP) specification version in the `dart_mcp` package.
 internal: true
 ---
