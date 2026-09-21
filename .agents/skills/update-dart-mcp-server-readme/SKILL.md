@@ -1,6 +1,7 @@
 ---
-name: Update dart_mcp_server README.md file
+name: update-dart-mcp-server-readme
 description: Instructions for updating the README.md file in the `dart_mcp_server` package.
+internal: true
 ---
 
 This file is mostly auto-generated, to update it run the script under `pkgs/dart_mcp_server`

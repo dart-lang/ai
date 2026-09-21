@@ -1,8 +1,9 @@
 ---
-name: add_mcp_feature
+name: add-dart-mcp-server-feature
 description: >
   Instructions for adding new features (tools, prompts, etc.) to the
   dart_mcp_server package.
+internal: true
 ---
 
 # Adding Features to dart_mcp_server
