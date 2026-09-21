@@ -27,6 +27,8 @@
   unchanged.
 - Add `PaginatedRequest.copyWithCursor`, which the page walks above use to move
   to the next page while keeping the entries already on the request.
+- Add an example pair under `example/` that greets over stdio and over
+  Streamable HTTP, asking who to greet with an `InputRequiredResult`.
 - **BREAKING**:
   - `MCPBase` (including the `MCPServer.fromStreamChannel` and
     `ServerConnection.fromStreamChannel` constructors),
@@ -146,7 +148,9 @@
     name such as `example/` is still valid. Writing null `extensions` now
     leaves the key out instead of writing a null.
   - `SamplingMessage.content` and `CreateMessageResult.content` now read
-    `SamplingMessageContentBlock` instead of `Content`. `TextContent`,
+    `List<SamplingMessageContentBlock>` instead of `Content`. The schema
+    allows one block or a list of them under `content`; both shapes read as a
+    list, and one block still goes on the wire as that block. `TextContent`,
     `ImageContent` and `AudioContent` implement both types.
     `ToolUseContent` and `ToolResultContent` implement only the new one,
     keeping a plain `tools/call` result from carrying tool content by
@@ -157,6 +161,8 @@
   Larger bodies get `413` and an invalid request error. The same cap is the
   discard budget. A client that has not finished sending may not read the
   response. Negative caps throw a `RangeError`.
+- Answer `415` and an invalid request error when a request body does not
+  arrive as `application/json`.
 - Add `supportsFormElicitation` and `supportsUrlElicitation` for a server to
   ask before it sends. An empty `elicitation` object still means form, the way
   `elicitation` read before the split.

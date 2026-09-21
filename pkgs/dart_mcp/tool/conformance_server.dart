@@ -1007,7 +1007,10 @@ base class _ConformanceServer extends MCPServer
       InputRequest.sample(
         CreateMessageRequest(
           messages: [
-            SamplingMessage(role: Role.user, content: TextContent(text: text)),
+            SamplingMessage(
+              role: Role.user,
+              content: [TextContent(text: text)],
+            ),
           ],
           maxTokens: maxTokens,
         ),
