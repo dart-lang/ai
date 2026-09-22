@@ -517,10 +517,12 @@ void main() {
       final controller = StreamChannelController<Map<String, Object?>>(
         sync: true,
       );
-      Map<String, Object?>? reverseResponse;
+      final reverseResponse = Completer<Map<String, Object?>>();
       controller.local.stream.listen((message) {
         if (message[Keys.method] != SubscriptionsListenRequest.methodName) {
-          if (!message.containsKey(Keys.method)) reverseResponse = message;
+          if (!message.containsKey(Keys.method)) {
+            reverseResponse.complete(message);
+          }
           return;
         }
         final id = RequestId(message[Keys.id]!);
@@ -576,7 +578,7 @@ void main() {
       final events = subscription.notifications.toList();
 
       await subscription.done;
-      expect(reverseResponse, {
+      expect(await reverseResponse.future.timeout(const Duration(seconds: 5)), {
         Keys.jsonrpc: '2.0',
         Keys.id: subscription.id,
         Keys.result: <String, Object?>{},
@@ -597,11 +599,17 @@ void main() {
     controller.local.stream.listen((message) {
       final id = RequestId(message[Keys.id]!);
       if (message[Keys.method] == PingRequest.methodName) {
-        controller.local.sink.add({
-          Keys.jsonrpc: '2.0',
-          Keys.id: id,
-          Keys.result: <String, Object?>{},
-        });
+        // A real transport never replies inside the write: json_rpc_2 writes
+        // a request before registering it, so a reply delivered synchronously
+        // here on this sync channel would arrive before that registration and
+        // be dropped.
+        scheduleMicrotask(
+          () => controller.local.sink.add({
+            Keys.jsonrpc: '2.0',
+            Keys.id: id,
+            Keys.result: <String, Object?>{},
+          }),
+        );
         return;
       }
       if (message[Keys.method] != SubscriptionsListenRequest.methodName) return;
