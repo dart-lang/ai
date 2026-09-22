@@ -178,6 +178,9 @@ extension type SamplingMessage.fromMap(Map<String, Object?> _value) {
   /// read as a list here. One block comes back as a single-element list.
   List<SamplingMessageContentBlock> get content {
     final content = _value[Keys.content];
+    if (content == null) {
+      throw ArgumentError('Missing ${Keys.content} field in $SamplingMessage.');
+    }
     if (content is List) {
       return content.cast<SamplingMessageContentBlock>();
     }
