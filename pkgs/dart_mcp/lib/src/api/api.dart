@@ -2,8 +2,9 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-/// Interfaces are based on
-/// https://github.com/modelcontextprotocol/specification/blob/main/schema/2025-06-18/schema.ts
+/// Interfaces are based on the schema files under
+/// https://github.com/modelcontextprotocol/modelcontextprotocol/tree/main/schema,
+/// one directory per revision. See DEVELOPING.md.
 library;
 
 import 'dart:collection';
@@ -433,6 +434,13 @@ extension type PaginatedRequest._fromMap(Map<String, Object?> _value)
   ///
   /// If provided, the server should return results starting after this cursor.
   Cursor? get cursor => _value[Keys.cursor] as Cursor?;
+
+  /// A copy of this request that asks for the page at [cursor].
+  ///
+  /// Copying keeps every entry the caller put on the request, including ones
+  /// this package does not read.
+  PaginatedRequest copyWithCursor(Cursor cursor) =>
+      PaginatedRequest._fromMap({..._value, Keys.cursor: cursor});
 }
 
 /// A "mixin"-like extension type for any result type that contains a [Cursor]
