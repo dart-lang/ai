@@ -43,6 +43,10 @@
   `MCPBase.sendRequestKeepingProgress` throws a `StateError` when the calling
   handler's own request has been cancelled.
 - Add a Streamable HTTP client example under `example/`.
+- Add `ServerConnection.initializeAcrossVersions` for initializing a
+  connection to a server that may predate 2026-07-28. It takes an
+  `MCPServerInitialization`, now also exported from
+  `package:dart_mcp/client.dart`, and returns an `InitializedServer`.
 - **BREAKING**:
   - `MCPBase` (including the `MCPServer.fromStreamChannel` and
     `ServerConnection.fromStreamChannel` constructors),

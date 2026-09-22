@@ -163,6 +163,49 @@ extension type InitializedNotification.fromMap(Map<String, Object?> _value)
       InitializedNotification.fromMap({if (meta != null) Keys.meta: meta});
 }
 
+/// The client context an MCP server is initialized with.
+///
+/// Legacy transports provide this once per connection after negotiating a
+/// protocol version. Request-scoped transports provide it once per request.
+/// Clients pass one to `ServerConnection.initializeAcrossVersions`.
+final class MCPServerInitialization {
+  /// Creates the context a server is initialized with.
+  const MCPServerInitialization({
+    required this.protocolVersion,
+    required this.clientCapabilities,
+    this.clientInfo,
+    this.logLevel,
+  });
+
+  /// The protocol version used for this connection or request.
+  ///
+  /// Passed to `ServerConnection.initializeAcrossVersions`, this is the newest
+  /// version the client offers.
+  final ProtocolVersion protocolVersion;
+
+  /// The capabilities declared by the client.
+  final ClientCapabilities clientCapabilities;
+
+  /// The implementation information declared by the client, if any.
+  ///
+  /// The legacy handshake always provides this. Request-scoped transports may
+  /// omit it, since clients are not required to send it on every request.
+  final Implementation? clientInfo;
+
+  /// The log level the client asked for on this request, if any.
+  ///
+  /// Request-scoped transports read this from the reserved
+  /// `io.modelcontextprotocol/logLevel` request metadata key, see
+  /// https://modelcontextprotocol.io/specification/2026-07-28/server/utilities/logging.
+  /// On 2026-07-28 `LoggingSupport.initialize` copies this onto
+  /// `LoggingSupport.loggingLevel`, `null` included. That revision took
+  /// `logging/setLevel` out, and `LoggingSupport` does not register it. The
+  /// legacy handshake has no per-request level and leaves this null, so the
+  /// level starts at `LoggingLevel.warning` unless the server picked one for
+  /// itself, and `logging/setLevel` moves it from there.
+  final LoggingLevel? logLevel;
+}
+
 /// A [Meta] object carrying the envelope keys a request on the 2026-07-28
 /// revision sends.
 ///
