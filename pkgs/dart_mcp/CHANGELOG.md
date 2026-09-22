@@ -29,6 +29,7 @@
   to the next page while keeping the entries already on the request.
 - Add an example pair under `example/` that greets over stdio and over
   Streamable HTTP, asking who to greet with an `InputRequiredResult`.
+- Add a Streamable HTTP client example under `example/`.
 - **BREAKING**:
   - `MCPBase` (including the `MCPServer.fromStreamChannel` and
     `ServerConnection.fromStreamChannel` constructors),
