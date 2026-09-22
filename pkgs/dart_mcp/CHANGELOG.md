@@ -151,8 +151,9 @@
   - `SamplingMessage.content` and `CreateMessageResult.content` now read
     `List<SamplingMessageContentBlock>` instead of `Content`. The schema
     allows one block or a list of them under `content`; both shapes read as a
-    list, and one block still goes on the wire as that block. `TextContent`,
-    `ImageContent` and `AudioContent` implement both types.
+    list, and one block still goes on the wire as that block. A missing
+    `content` throws an `ArgumentError`. `TextContent`, `ImageContent` and
+    `AudioContent` implement both types.
     `ToolUseContent` and `ToolResultContent` implement only the new one,
     keeping a plain `tools/call` result from carrying tool content by
     accident. `ToolResultContent.content` still reads `List<Content>`,
