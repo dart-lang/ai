@@ -239,7 +239,7 @@ final class _ConformanceClient extends MCPClient
     Implementation serverInfo,
   ) => CreateMessageResult(
     role: Role.assistant,
-    content: TextContent(text: 'conformance'),
+    content: [TextContent(text: 'conformance')],
     model: 'conformance',
   );
 }

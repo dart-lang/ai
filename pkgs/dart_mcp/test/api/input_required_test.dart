@@ -188,7 +188,7 @@ void main() {
     final elicited = ElicitResult(action: ElicitationAction.accept);
     final sampled = CreateMessageResult(
       role: Role.assistant,
-      content: Content.text(text: 'Paris'),
+      content: [Content.text(text: 'Paris')],
       model: 'a-model',
     );
 
