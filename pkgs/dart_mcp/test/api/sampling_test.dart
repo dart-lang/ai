@@ -81,6 +81,13 @@ void main() {
       expect((parsed.content.single as TextContent).text, 'merhaba');
     });
 
+    test('SamplingMessage throws when content is missing', () {
+      expect(
+        () => SamplingMessage.fromMap({'role': 'user'}).content,
+        throwsArgumentError,
+      );
+    });
+
     test('CreateMessageResult accepts a SamplingMessageContentBlock', () {
       final block = SamplingMessageContentBlock.toolResult(
         toolUseId: 'call-2',
