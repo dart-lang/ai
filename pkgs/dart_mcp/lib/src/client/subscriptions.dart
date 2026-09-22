@@ -80,13 +80,12 @@ final class Subscription {
     if (!_acknowledged.isCompleted) _acknowledged.complete(accepted);
   }
 
-  /// Adds [params] under [method] after acknowledgement if it carries [id].
-  void _forward(String method, Object? params) {
-    if (params is! Map<String, Object?>) return;
-    final meta = params[Keys.meta];
-    if (meta is! Map<String, Object?>) return;
-    final sentId = meta[Keys.subscriptionIdMeta];
-    if (sentId == null || RequestId(sentId) != id) return;
+  /// Adds [params] under [method], once this subscription is acknowledged
+  /// and still open.
+  ///
+  /// [ServerConnection._forwardSubscriptionNotification] has already matched
+  /// [params] to this subscription's [id].
+  void _forward(String method, Map<String, Object?> params) {
     if (!_acknowledged.isCompleted) return;
     if (!_notifications.isClosed) {
       _notifications.add((method: method, params: Notification(params)));

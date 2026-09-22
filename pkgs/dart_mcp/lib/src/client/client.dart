@@ -921,10 +921,19 @@ base class ServerConnection extends MCPBase {
     }
   }
 
+  /// Delivers [params] to the subscription its raw `_meta` names, if that
+  /// subscription is still open.
+  ///
+  /// Reads the ID off the raw map instead of the typed [WithSubscriptionId]
+  /// getter, which throws on a malformed `_meta` and would skip the
+  /// connection-wide `sink.add` each caller runs right after this.
   void _forwardSubscriptionNotification(String method, Object? params) {
-    for (final subscription in _subscriptions.values.toList()) {
-      subscription._forward(method, params);
-    }
+    if (params is! Map<String, Object?>) return;
+    final meta = params[Keys.meta];
+    if (meta is! Map<String, Object?>) return;
+    final id = meta[Keys.subscriptionIdMeta];
+    if (id == null) return;
+    _subscriptions[RequestId(id)]?._forward(method, params);
   }
 
   /// Ends the open subscription named by [notification], if there is one.

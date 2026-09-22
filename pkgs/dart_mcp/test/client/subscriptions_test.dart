@@ -961,6 +961,39 @@ void main() {
     );
   });
 
+  test('reaches no subscription when its ID matches none of them', () async {
+    final first = listen();
+    final firstEvents = <SubscriptionNotification>[];
+    final firstListener = first.notifications.listen(firstEvents.add);
+    addTearDown(firstListener.cancel);
+    await first.acknowledged.timeout(const Duration(seconds: 5));
+
+    final second = listen();
+    final secondEvents = <SubscriptionNotification>[];
+    final secondListener = second.notifications.listen(secondEvents.add);
+    addTearDown(secondListener.cancel);
+    await second.acknowledged.timeout(const Duration(seconds: 5));
+
+    environment.server.sendNotification(
+      ToolListChangedNotification.methodName,
+      ToolListChangedNotification(
+        meta: MetaWithSubscriptionId(
+          subscriptionId: RequestId('no-open-subscription'),
+        ),
+      ),
+    );
+    await pumpEventQueue();
+
+    expect(
+      firstEvents,
+      isEmpty,
+      reason:
+          'a subscription ID matching neither open subscription reaches '
+          'none of them',
+    );
+    expect(secondEvents, isEmpty);
+  });
+
   test(
     'completes with the result the server ends the subscription with',
     () async {
