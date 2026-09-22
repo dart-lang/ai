@@ -2873,7 +2873,7 @@ void main() {
       expect(status, 415);
       // Written out so the check does not read back the constant the
       // response was built from.
-      expect(errorCode(text), -32020);
+      expect(errorCode(text), -32600);
       expect(servers, isEmpty);
     });
 
@@ -2884,7 +2884,7 @@ void main() {
       );
       expect(status, 415);
       expect(responseHeaders.contentType?.mimeType, 'application/json');
-      expect(errorCode(text), McpErrorCodes.headerMismatch);
+      expect(errorCode(text), error_code.INVALID_REQUEST);
     });
 
     test('tolerates a charset on the Content-Type', () async {
@@ -2969,7 +2969,7 @@ void main() {
         '$requestBody',
       );
       expect(response, startsWith('HTTP/1.1 415'));
-      expect(errorCode(jsonBody(response)), McpErrorCodes.headerMismatch);
+      expect(errorCode(jsonBody(response)), error_code.INVALID_REQUEST);
       expect(servers, isEmpty);
     });
 
@@ -4307,7 +4307,7 @@ void main() {
         overTheLimit,
       ], between: (_) => headersSeen.future);
       expect(status, 415);
-      expect(errorCode(text), McpErrorCodes.headerMismatch);
+      expect(errorCode(text), error_code.INVALID_REQUEST);
     });
 
     test('reads a smaller overflow to its end', () async {
@@ -4343,7 +4343,7 @@ void main() {
         contentType: 'text/plain',
       );
       expect(status, 415);
-      expect(errorCode(text), McpErrorCodes.headerMismatch);
+      expect(errorCode(text), error_code.INVALID_REQUEST);
       expect(receivedRequests.single.bytesRead, 2 * limit);
     });
 

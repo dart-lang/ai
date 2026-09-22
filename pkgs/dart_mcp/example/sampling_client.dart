@@ -71,13 +71,10 @@ final class MCPClientWithSamplingSupport extends MCPClient
     // Note that in a real client, you should also ask the user to approve the
     // elicitation request.
     print('Received sampling request: $request');
+    final asked = request.messages.single.content.single as TextContent;
     return CreateMessageResult(
       role: Role.assistant,
-      content: Content.text(
-        text:
-            'You asked '
-            '"${(request.messages.single.content as TextContent).text}"',
-      ),
+      content: [Content.text(text: 'You asked "${asked.text}"')],
       model: 'Echo bot',
     );
   }

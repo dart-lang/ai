@@ -4,7 +4,7 @@ description: >
   so Antigravity, Claude, Codex, Cursor, and other agents
   know how to use your stack.
 # Must be kept in sync with lib/src/core/version.dart
-version: 1.0.1
+version: 1.0.2
 repository: https://github.com/dart-lang/ai/tree/main/pkgs/skills
 issue_tracker: https://github.com/dart-lang/ai/issues?q=is%3Aissue+is%3Aopen+label%3Apackage%3Askills
 
@@ -16,7 +16,7 @@ environment:
 
 dependencies:
   args: ^2.7.0
-  cli_util: ^0.5.1
+  cli_util: '>=0.5.1 <0.7.0'
   collection: ^1.19.1
   crypto: ^3.0.7
   glob: ^2.1.0

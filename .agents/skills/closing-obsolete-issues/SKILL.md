@@ -1,6 +1,7 @@
 ---
 name: closing-obsolete-issues
 description: Find and close obsolete, stale, or not reproducible issues in the dart-lang/ai repository.
+internal: true
 ---
 
 # Closing Obsolete Issues
@@ -25,7 +26,7 @@ Use this skill to find old, outdated issues in the `dart-lang/ai` repository tha
    - **Safety Rule**: Do not assume a bug is fixed or obsolete just because the code has been updated. Verify if the specific bug behavior is still possible. Valid bugs or feature requests should not be closed as stale just because they are old or have no activity. Inactivity alone does not invalidate a feature request or bug report.
 
 3. **Draft and Review Closing Comments (CRITICAL MANDATE)**:
-   - For issues identified as candidates for closing, draft a detailed comment for each explaining *why* it can be closed.
+   - For issues identified as candidates for closing, draft a detailed comment for each explaining _why_ it can be closed.
    - **Style Constraint**: DO NOT use em dashes (—) in the comments. Use hyphens (-) or colons (:) instead.
    - **Template**: Consult `references/rationale_templates.md` for wording inspiration.
    - Each comment MUST end with: "If there is more work to do here, please let us know by commenting on this issue or filing a new one with up to date information. Thanks!"

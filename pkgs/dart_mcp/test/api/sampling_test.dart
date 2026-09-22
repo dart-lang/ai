@@ -47,17 +47,19 @@ void main() {
     test('a sampling message carries tool use content', () {
       final message = SamplingMessage(
         role: Role.assistant,
-        content: SamplingMessageContentBlock.toolUse(
-          id: 'call-1',
-          name: 'lookup',
-          input: {},
-        ),
+        content: [
+          SamplingMessageContentBlock.toolUse(
+            id: 'call-1',
+            name: 'lookup',
+            input: {},
+          ),
+        ],
       );
       final decoded = jsonDecode(jsonEncode(message)) as Map<String, Object?>;
       final parsed = SamplingMessage.fromMap(decoded);
 
-      expect(parsed.content.isToolUse, isTrue);
-      expect((parsed.content as ToolUseContent).id, 'call-1');
+      expect(parsed.content.single.isToolUse, isTrue);
+      expect((parsed.content.single as ToolUseContent).id, 'call-1');
     });
 
     test('text content is neither tool use nor tool result', () {
@@ -70,13 +72,13 @@ void main() {
     test('SamplingMessage round trips text content through the union', () {
       final message = SamplingMessage(
         role: Role.user,
-        content: SamplingMessageContentBlock.text(text: 'merhaba'),
+        content: [SamplingMessageContentBlock.text(text: 'merhaba')],
       );
       final decoded = jsonDecode(jsonEncode(message)) as Map<String, Object?>;
       final parsed = SamplingMessage.fromMap(decoded);
 
-      expect(parsed.content.type, TextContent.expectedType);
-      expect((parsed.content as TextContent).text, 'merhaba');
+      expect(parsed.content.single.type, TextContent.expectedType);
+      expect((parsed.content.single as TextContent).text, 'merhaba');
     });
 
     test('CreateMessageResult accepts a SamplingMessageContentBlock', () {
@@ -86,18 +88,87 @@ void main() {
       );
       final result = CreateMessageResult(
         role: Role.assistant,
-        content: block,
+        content: [block],
         model: 'fakeModel',
       );
 
-      expect(result.content.isToolResult, isTrue);
-      expect((result.content as ToolResultContent).toolUseId, 'call-2');
+      expect(result.content.single.isToolResult, isTrue);
+      expect((result.content.single as ToolResultContent).toolUseId, 'call-2');
     });
 
     test('tools reads as null when the key is absent', () {
       final request = CreateMessageRequest(messages: [], maxTokens: 1);
 
       expect(request.tools, isNull);
+    });
+  });
+
+  group('content as one block or a list', () {
+    test('a list on the wire reads as every block in it', () {
+      final message = SamplingMessage.fromMap({
+        'role': 'assistant',
+        'content': [
+          {'type': 'text', 'text': 'first'},
+          {
+            'type': 'tool_use',
+            'id': 'call-1',
+            'name': 'lookup',
+            'input': <String, Object?>{},
+          },
+        ],
+      });
+
+      expect(message.content, hasLength(2));
+      expect((message.content.first as TextContent).text, 'first');
+      expect(message.content.last.isToolUse, isTrue);
+    });
+
+    test('a bare block on the wire reads as one block', () {
+      final message = SamplingMessage.fromMap({
+        'role': 'user',
+        'content': {'type': 'text', 'text': 'only'},
+      });
+
+      expect(message.content, hasLength(1));
+      expect((message.content.single as TextContent).text, 'only');
+    });
+
+    test('one block goes on the wire as that block', () {
+      final message = SamplingMessage(
+        role: Role.user,
+        content: [TextContent(text: 'only')],
+      );
+      final decoded = jsonDecode(jsonEncode(message)) as Map<String, Object?>;
+
+      expect(decoded['content'], isA<Map<String, Object?>>());
+      expect(SamplingMessage.fromMap(decoded).content, hasLength(1));
+    });
+
+    test('two blocks go on the wire as a list', () {
+      final message = SamplingMessage(
+        role: Role.assistant,
+        content: [TextContent(text: 'first'), TextContent(text: 'second')],
+      );
+      final decoded = jsonDecode(jsonEncode(message)) as Map<String, Object?>;
+
+      expect(decoded['content'], isA<List<Object?>>());
+      final parsed = SamplingMessage.fromMap(decoded);
+      expect(parsed.content, hasLength(2));
+      expect((parsed.content.last as TextContent).text, 'second');
+    });
+
+    test('a result reads a list the same way a message does', () {
+      final result = CreateMessageResult.fromMap({
+        'role': 'assistant',
+        'model': 'a-model',
+        'content': [
+          {'type': 'text', 'text': 'one'},
+          {'type': 'text', 'text': 'two'},
+        ],
+      });
+
+      expect(result.content, hasLength(2));
+      expect((result.content.first as TextContent).text, 'one');
     });
   });
 
@@ -362,7 +433,7 @@ void main() {
     final expectedResult =
         client.nextResult = CreateMessageResult(
           role: Role.assistant,
-          content: TextContent(text: 'Hello'),
+          content: [TextContent(text: 'Hello')],
           model: 'fakeModel',
         );
 
