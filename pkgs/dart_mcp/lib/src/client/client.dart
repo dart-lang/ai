@@ -351,6 +351,9 @@ base class ServerConnection extends MCPBase {
       });
     }
 
+    // Subscription notifications reach these handlers on both transports,
+    // since the Streamable HTTP client merges each listen response into this
+    // connection's incoming stream. They also go to the matching subscription.
     registerNotificationHandler<PromptListChangedNotification?>(
       PromptListChangedNotification.methodName,
       (notification) {
@@ -409,6 +412,15 @@ base class ServerConnection extends MCPBase {
     registerNotificationHandler(
       ElicitationCompleteNotification.methodName,
       _elicitationCompleteController.sink.add,
+    );
+
+    registerNotificationHandler<SubscriptionsAcknowledgedNotification>(
+      SubscriptionsAcknowledgedNotification.methodName,
+      _handleSubscriptionsAcknowledged,
+    );
+    registerNotificationHandler<CancelledNotification>(
+      CancelledNotification.methodName,
+      _handleSubscriptionCancelled,
     );
   }
 
@@ -863,14 +875,14 @@ base class ServerConnection extends MCPBase {
 
   final RequestCancellation? _requestCancellation;
 
-  /// Whether [listen] has registered the server's subscription handlers.
-  ///
-  /// [_subscriptions] empties out again as subscriptions end, so it cannot
-  /// answer this.
-  bool _subscriptionHandlersRegistered = false;
-
   /// Opens a `subscriptions/listen` stream for the types [notifications]
   /// names.
+  ///
+  /// This sends `subscriptions/listen` and returns a [Subscription] for its
+  /// request ID. The server acknowledges the accepted filter, then
+  /// notifications carrying that ID reach [Subscription.notifications]. The
+  /// subscription ends when the client closes it, the server cancels or
+  /// completes it, or the connection ends.
   ///
   /// Returns before the server sees the request, so subscribe to
   /// [Subscription.notifications] synchronously.
@@ -881,17 +893,6 @@ base class ServerConnection extends MCPBase {
     SubscriptionFilter notifications, {
     required MetaWithRequestEnvelope meta,
   }) {
-    if (!_subscriptionHandlersRegistered) {
-      registerNotificationHandler<SubscriptionsAcknowledgedNotification>(
-        SubscriptionsAcknowledgedNotification.methodName,
-        _handleSubscriptionsAcknowledged,
-      );
-      registerNotificationHandler<CancelledNotification>(
-        CancelledNotification.methodName,
-        _handleSubscriptionCancelled,
-      );
-      _subscriptionHandlersRegistered = true;
-    }
     final sent = sendRequestWithId<SubscriptionsListenResult>(
       SubscriptionsListenRequest.methodName,
       request: SubscriptionsListenRequest(
@@ -913,6 +914,7 @@ base class ServerConnection extends MCPBase {
       completeRequestLocally(this, id);
       await requestCancellation.cancelRequest(id);
     } else {
+      // Stdio uses a notification to cancel the open listen request.
       sendNotification(
         CancelledNotification.methodName,
         CancelledNotification(requestId: id),

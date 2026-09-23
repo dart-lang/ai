@@ -16,7 +16,9 @@
   `id`, `acknowledged`, a `notifications` stream of `SubscriptionNotification`
   records, and `done`. `Subscription.close()` ends only that subscription
   without closing its connection. Subclasses reach the same ID capture through
-  the protected `MCPBase.sendRequestWithId`.
+  the protected `MCPBase.sendRequestWithId`. A `ServerConnection` now handles
+  `notifications/subscriptions/acknowledged` and `notifications/cancelled`
+  itself. Registering another handler for either one throws.
 - Let `handleRequestScopedMessage` route server-to-client requests through an
   `onRequest` callback on revisions before 2026-07-28. Missing callbacks and
   invalid callback responses fail the server request without leaving it open.

@@ -47,6 +47,15 @@ void completeRequestLocally(MCPBase target, RequestId requestId) {
 /// - [ServerConnection] A class that represents an active server connection.
 base class MCPBase {
   late final Peer _peer;
+
+  /// An in-process source merged with the incoming channel stream.
+  ///
+  /// Client subscription cancellation, server cancellation, and a failed
+  /// listen send use [completeRequestLocally] to complete a pending request
+  /// without waiting for the peer. A response the peer sends later finds no
+  /// pending request and is dropped. Synchronous delivery puts the local
+  /// result into the merged stream during `add`. It closes when the remote
+  /// stream ends.
   final _local = StreamController<Map<String, Object?>>(sync: true);
 
   /// The name of the associated server.

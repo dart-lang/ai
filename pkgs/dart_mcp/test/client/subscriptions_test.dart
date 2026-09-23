@@ -961,6 +961,55 @@ void main() {
     );
   });
 
+  test(
+    'forwards notifications with malformed metadata to the connection stream',
+    () async {
+      final subscription = listen();
+      final subscriptionEvents = <SubscriptionNotification>[];
+      final subscriptionListener = subscription.notifications.listen(
+        subscriptionEvents.add,
+      );
+      addTearDown(subscriptionListener.cancel);
+      final connectionEvents = <ToolListChangedNotification?>[];
+      final connectionListener = environment.serverConnection.toolListChanged
+          .listen(connectionEvents.add);
+      addTearDown(connectionListener.cancel);
+      await subscription.acknowledged.timeout(const Duration(seconds: 5));
+
+      for (final meta in [null, 'not a map']) {
+        environment.server.sendNotification(
+          ToolListChangedNotification.methodName,
+          ToolListChangedNotification.fromMap({Keys.meta: meta}),
+        );
+      }
+      await pumpEventQueue();
+
+      expect(subscriptionEvents, isEmpty);
+      expect(connectionEvents, hasLength(2));
+    },
+  );
+
+  test('forwards a named notification to both streams', () async {
+    final subscription = listen();
+    final subscriptionEvents = <SubscriptionNotification>[];
+    final subscriptionListener = subscription.notifications.listen(
+      subscriptionEvents.add,
+    );
+    addTearDown(subscriptionListener.cancel);
+    final connectionEvents = <ToolListChangedNotification?>[];
+    final connectionListener = environment.serverConnection.toolListChanged
+        .listen(connectionEvents.add);
+    addTearDown(connectionListener.cancel);
+    await subscription.acknowledged.timeout(const Duration(seconds: 5));
+
+    notifyToolsListChanged(subscription.id);
+    await pumpEventQueue();
+
+    expect(subscriptionEvents, hasLength(1));
+    expect(subscriptionIdOf(subscriptionEvents.single), subscription.id);
+    expect(connectionEvents, hasLength(1));
+  });
+
   test('reaches no subscription when its ID matches none of them', () async {
     final first = listen();
     final firstEvents = <SubscriptionNotification>[];
