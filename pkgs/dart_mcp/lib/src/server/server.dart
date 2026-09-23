@@ -145,6 +145,7 @@ abstract base class MCPServer extends MCPBase {
       _rootsListChangedController?.stream;
   StreamController<RootsListChangedNotification?>? _rootsListChangedController;
 
+  /// Serves MCP on [channel].
   MCPServer.fromStreamChannel(
     super.channel, {
     required this.implementation,

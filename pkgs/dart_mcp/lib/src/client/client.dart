@@ -418,10 +418,7 @@ base class ServerConnection extends MCPBase {
       SubscriptionsAcknowledgedNotification.methodName,
       _handleSubscriptionsAcknowledged,
     );
-    registerNotificationHandler<CancelledNotification>(
-      CancelledNotification.methodName,
-      _handleSubscriptionCancelled,
-    );
+    cancellations.listen(_handleSubscriptionCancelled);
   }
 
   /// Close all connections and streams so the process can cleanly exit.
