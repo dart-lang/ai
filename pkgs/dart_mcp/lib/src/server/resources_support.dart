@@ -260,12 +260,7 @@ base mixin ResourcesSupport on MCPServer {
         subscription.controller.stream
             .throttle(resourceUpdateThrottleDelay, trailing: true)
             .listen((notification) {
-              if (!subscription.hasLegacyOwner &&
-                  !subscription.modernOwners.values.any(
-                    (isActive) => isActive(),
-                  )) {
-                return;
-              }
+              if (!subscription.hasListeners) return;
               sendNotification(
                 ResourceUpdatedNotification.methodName,
                 notification,
@@ -274,6 +269,7 @@ base mixin ResourcesSupport on MCPServer {
         return subscription;
       }),
     );
+    // The legacy protocol has no subscription IDs, so null marks its owner.
     if (subscriptionId == null) {
       subscription.hasLegacyOwner = true;
     } else {
@@ -285,14 +281,7 @@ base mixin ResourcesSupport on MCPServer {
   Future<void> _stopUpdatesFor(String uri, {Object? subscriptionId}) async {
     final subscription = _subscribedResources[uri];
     if (subscription == null) return;
-    if (subscriptionId == null) {
-      subscription.hasLegacyOwner = false;
-    } else {
-      subscription.modernOwners.remove(subscriptionId);
-    }
-    if (subscription.hasLegacyOwner || subscription.modernOwners.isNotEmpty) {
-      return;
-    }
+    if (!subscription.stopUpdates(subscriptionId)) return;
     _subscribedResources.remove(uri);
     await subscription.controller.close();
   }
@@ -321,4 +310,23 @@ final class _ResourceUpdateSubscription {
   final modernOwners = <Object, bool Function()>{};
 
   bool hasLegacyOwner = false;
+
+  /// Whether the legacy owner or an uncancelled listen request wants updates.
+  bool get hasListeners =>
+      hasLegacyOwner || modernOwners.values.any((isActive) => isActive());
+
+  /// Removes the owner [subscriptionId] and returns whether no owner remains
+  /// registered, so the caller can close the subscription.
+  ///
+  /// A null [subscriptionId] is the legacy owner, since the legacy protocol
+  /// has no subscription IDs. A cancelled listen request still counts until it
+  /// is removed here.
+  bool stopUpdates(Object? subscriptionId) {
+    if (subscriptionId == null) {
+      hasLegacyOwner = false;
+    } else {
+      modernOwners.remove(subscriptionId);
+    }
+    return !hasLegacyOwner && modernOwners.isEmpty;
+  }
 }
