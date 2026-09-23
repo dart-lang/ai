@@ -218,14 +218,13 @@ void main() {
       ),
     );
 
+    final lateNotification = ProgressNotification(
+      progressToken: request.meta!.progressToken!,
+      progress: 100,
+    );
     expect(
       serverConnection.onProgress(request),
-      neverEmits(
-        ProgressNotification(
-          progressToken: request.meta!.progressToken!,
-          progress: 100,
-        ),
-      ),
+      neverEmits(lateNotification),
       reason: 'Should not receive progress events for completed requests',
     );
 
@@ -234,7 +233,11 @@ void main() {
 
     await serverConnection.callTool(request);
 
-    environment.server.sendLateNotification(request.meta!.progressToken!);
+    environment.serverChannel.sink.add({
+      Keys.jsonrpc: '2.0',
+      Keys.method: ProgressNotification.methodName,
+      Keys.params: lateNotification as Map<String, Object?>,
+    });
 
     // Give the bad notification time to hit our stream.
     await pumpEventQueue();
@@ -471,11 +474,6 @@ final class InitializeProgressTestMCPServer extends TestMCPServer
     await pumpEventQueue();
 
     return CallToolResult(content: []);
-  }
-
-  /// Used by the test to send a notification after the request has completed.
-  void sendLateNotification(ProgressToken token) {
-    notifyProgress(ProgressNotification(progressToken: token, progress: 100));
   }
 
   static final myProgressTool = Tool(
