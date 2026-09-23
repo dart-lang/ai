@@ -218,14 +218,13 @@ void main() {
       ),
     );
 
+    final lateNotification = ProgressNotification(
+      progressToken: request.meta!.progressToken!,
+      progress: 100,
+    );
     expect(
       serverConnection.onProgress(request),
-      neverEmits(
-        ProgressNotification(
-          progressToken: request.meta!.progressToken!,
-          progress: 100,
-        ),
-      ),
+      neverEmits(lateNotification),
       reason: 'Should not receive progress events for completed requests',
     );
 
@@ -234,7 +233,11 @@ void main() {
 
     await serverConnection.callTool(request);
 
-    environment.server.sendLateNotification(request.meta!.progressToken!);
+    environment.serverChannel.sink.add({
+      Keys.jsonrpc: '2.0',
+      Keys.method: ProgressNotification.methodName,
+      Keys.params: lateNotification as Map<String, Object?>,
+    });
 
     // Give the bad notification time to hit our stream.
     await pumpEventQueue();
@@ -243,23 +246,7 @@ void main() {
   test('servers can handle progress notifications', () async {
     final environment = TestEnvironment(
       ListRootsProgressTestMCPClient(),
-      (channel) => TestMCPServer(
-        channel.transformSink(
-          StreamSinkTransformer<
-            Map<String, Object?>,
-            Map<String, Object?>
-          >.fromHandlers(
-            handleData: (data, sink) async {
-              // Add a short delay when sending out a list roots request so
-              // we can get progress notifications.
-              if (data[Keys.method] == ListRootsRequest.methodName) {
-                await Future<void>.delayed(const Duration(milliseconds: 10));
-              }
-              sink.add(data);
-            },
-          ),
-        ),
-      ),
+      TestMCPServer.new,
     );
     await environment.initializeServer();
     final server = environment.server;
@@ -271,10 +258,6 @@ void main() {
     // Ensure the subscription is set up before calling the tool.
     await pumpEventQueue();
 
-    final onDone = server.sendRequest<ListRootsResult>(
-      ListRootsRequest.methodName,
-      request,
-    );
     final expectedNotification = ProgressNotification(
       progressToken: request.meta!.progressToken!,
       progress: 50,
@@ -291,9 +274,16 @@ void main() {
       reason: 'Should not receive progress events for completed requests',
     );
 
-    environment.serverConnection.notifyProgress(expectedNotification);
+    final onDone = server.sendRequest<ListRootsResult>(
+      ListRootsRequest.methodName,
+      request,
+    );
     await onDone;
-    environment.serverConnection.notifyProgress(lateNotification);
+    environment.clientChannel.sink.add({
+      Keys.jsonrpc: '2.0',
+      Keys.method: ProgressNotification.methodName,
+      Keys.params: lateNotification as Map<String, Object?>,
+    });
 
     // Give the bad notification time to hit our stream.
     await pumpEventQueue();
@@ -486,11 +476,6 @@ final class InitializeProgressTestMCPServer extends TestMCPServer
     return CallToolResult(content: []);
   }
 
-  /// Used by the test to send a notification after the request has completed.
-  void sendLateNotification(ProgressToken token) {
-    notifyProgress(ProgressNotification(progressToken: token, progress: 100));
-  }
-
   static final myProgressTool = Tool(
     name: 'progress',
     inputSchema: ObjectSchema(),
@@ -498,7 +483,19 @@ final class InitializeProgressTestMCPServer extends TestMCPServer
 }
 
 final class ListRootsProgressTestMCPClient extends TestMCPClient
-    with RootsSupport {}
+    with RootsSupport {
+  @override
+  Future<ListRootsResult> handleListRoots([ListRootsRequest? request]) async {
+    connections.single.notifyProgress(
+      ProgressNotification(
+        progressToken: request!.meta!.progressToken!,
+        progress: 50,
+      ),
+    );
+    await pumpEventQueue();
+    return await super.handleListRoots(request);
+  }
+}
 
 final class TestOldMcpServer extends TestMCPServer {
   TestOldMcpServer(super.channel);

@@ -1931,7 +1931,11 @@ Map<String, Object?> _callTool(
   Keys.jsonrpc: '2.0',
   Keys.id: 1,
   Keys.method: CallToolRequest.methodName,
-  Keys.params: {Keys.name: name, Keys.arguments: arguments},
+  Keys.params: {
+    Keys.name: name,
+    Keys.arguments: arguments,
+    if (name == 'notify') Keys.meta: {Keys.progressToken: 1},
+  },
 };
 
 Map<String, Object?> _readResource() => {

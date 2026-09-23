@@ -29,6 +29,19 @@
   to the next page while keeping the entries already on the request.
 - Add an example pair under `example/` that greets over stdio and over
   Streamable HTTP, asking who to greet with an `InputRequiredResult`.
+- Honour `notifications/cancelled`. A cancelled request goes quiet on the
+  wire. Progress stays off it once the request is cancelled, once a dropped
+  response has answered it, or when no active request owns its token. A
+  cancelled `subscriptions/listen` request ends its subscription instead of
+  waiting for shutdown. The handler keeps running, because the
+  specification asks a server to stop processing as a SHOULD and this
+  revision does not interrupt one. A handler that wants to stop reads
+  `MCPBase.captureIncomingRequestActivity`. `MCPBase.cancellations` reports
+  valid notifications so subclasses can log their reasons, and a cancellation
+  naming something that cannot be a JSON-RPC ID is reported on the protocol
+  log under a `!!!` prefix.
+  `MCPBase.sendRequestKeepingProgress` throws a `StateError` when the calling
+  handler's own request has been cancelled.
 - Add a Streamable HTTP client example under `example/`.
 - **BREAKING**:
   - `MCPBase` (including the `MCPServer.fromStreamChannel` and
@@ -51,6 +64,15 @@
       which cannot be encoded.
     - On in-memory channels, `RpcException.data` is no longer normalized by a
       JSON round trip, so it can be an untyped map.
+  - `MCPBase.sendNotification` sends nothing while the request its handler
+    answers is cancelled, `MCPServer.log` included. A subscription a handler
+    opens for the life of the connection belongs in
+    `MCPBase.runOutsideRequest`, keeping it off that request.
+  - `MCPBase` now registers the handler for `notifications/cancelled`, so a
+    subclass that registered its own handler for that method must read
+    `MCPBase.cancellations` instead. A second registration for one method name
+    throws an `ArgumentError` out of `package:json_rpc_2`, before any message
+    flows.
   - Separate server feature registration from the legacy protocol handshake.
     `MCPServer.initialize` now accepts an `MCPServerInitialization` containing
     the protocol version, client information, and client capabilities, and
