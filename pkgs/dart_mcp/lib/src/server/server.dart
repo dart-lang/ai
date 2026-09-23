@@ -146,15 +146,11 @@ abstract base class MCPServer extends MCPBase {
   StreamController<RootsListChangedNotification?>? _rootsListChangedController;
 
   /// Serves MCP on [channel].
-  ///
-  /// [maxRetainedTokens] caps the progress tokens this server keeps for
-  /// requests the client cancelled and this server answered anyway.
   MCPServer.fromStreamChannel(
     super.channel, {
     required this.implementation,
     this.instructions,
     super.protocolLogSink,
-    super.maxRetainedTokens,
     this.maxInputRequiredRounds = 8,
   }) {
     if (maxInputRequiredRounds < 1) {

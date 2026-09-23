@@ -293,9 +293,6 @@ base class ServerConnection extends MCPBase {
   ///
   /// If the client supports "sampling", then it should provide an
   /// implementation through [samplingSupport].
-  ///
-  /// [maxRetainedTokens] bounds the progress tokens this connection keeps for
-  /// requests it cancelled and the server answered anyway.
   ServerConnection.fromStreamChannel(
     super.channel, {
     super.protocolLogSink,
@@ -305,7 +302,6 @@ base class ServerConnection extends MCPBase {
     ElicitationSupport? elicitationSupport,
     ElicitationFormSupport? elicitationFormSupport,
     ElicitationUrlSupport? elicitationUrlSupport,
-    super.maxRetainedTokens,
   }) : _elicitationFormSupport = elicitationFormSupport ?? elicitationSupport,
        _elicitationUrlSupport = elicitationUrlSupport,
        _samplingSupport = samplingSupport,
