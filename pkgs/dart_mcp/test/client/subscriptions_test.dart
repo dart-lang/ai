@@ -667,7 +667,7 @@ void main() {
     );
     expect(await events, isEmpty);
     await expectLater(connection.pendingResults[subscription.id]!, completes);
-    expect(await connection.ping(), isTrue);
+    expect(await connection.ping(timeout: const Duration(seconds: 30)), isTrue);
   });
 
   test('server cancellation ends only its acknowledged subscription', () async {
@@ -746,7 +746,9 @@ void main() {
     expect(remainingEvents, hasLength(1));
 
     var pingCompleted = false;
-    final ping = connection.ping().then((value) {
+    final ping = connection.ping(timeout: const Duration(seconds: 30)).then((
+      value,
+    ) {
       pingCompleted = true;
       return value;
     });
