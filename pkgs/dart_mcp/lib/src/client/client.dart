@@ -116,6 +116,35 @@ base class MCPClient {
   }
 }
 
+/// The server details that [ServerConnection.initializeAcrossVersions]
+/// returns after discovery or legacy initialization.
+final class InitializedServer {
+  /// Creates initialized server details.
+  const InitializedServer({
+    required this.protocolVersion,
+    required this.capabilities,
+    this.serverInfo,
+    this.instructions,
+  });
+
+  /// The protocol version the connection settled on.
+  final ProtocolVersion protocolVersion;
+
+  /// The capabilities the server declared, from its [DiscoverResult] or its
+  /// [InitializeResult].
+  final ServerCapabilities capabilities;
+
+  /// The server implementation information, if provided.
+  ///
+  /// This is `null` when a server on 2026-07-28 left
+  /// `io.modelcontextprotocol/serverInfo` out of its answer, as that revision
+  /// allows.
+  final Implementation? serverInfo;
+
+  /// Instructions for using the server, if it sent any.
+  final String? instructions;
+}
+
 /// An active server connection.
 base class ServerConnection extends MCPBase {
   final _responseCache = _ClientResponseCache();
@@ -181,9 +210,9 @@ base class ServerConnection extends MCPBase {
   /// handler.
   Implementation? serverInfo;
 
-  /// The [ServerCapabilities] returned from the [initialize] request.
+  /// The [ServerCapabilities] the server declared.
   ///
-  /// Only assigned after [initialize] has successfully completed.
+  /// Assigned by [initialize] and by [initializeAcrossVersions].
   late ServerCapabilities serverCapabilities;
 
   /// The [ElicitationUrlSupport] for this connection, if any.
@@ -453,6 +482,11 @@ base class ServerConnection extends MCPBase {
   /// the server connection closes prematurely due to misconfiguration). To
   /// debug these errors you should pass a `protocolLogSink` when creating these
   /// connections.
+  ///
+  /// A server that only serves request-scoped revisions rejects this request.
+  /// If the answer names a version this client does not support, this closes
+  /// the connection but returns the result. Use [initializeAcrossVersions]
+  /// for version negotiation.
   Future<InitializeResult> initialize(InitializeRequest request) async {
     final response = await sendRequest<InitializeResult>(
       InitializeRequest.methodName,
@@ -476,12 +510,16 @@ base class ServerConnection extends MCPBase {
   /// envelope keys the schema requires, plus [clientInfo], [logLevel] and
   /// [progressToken] when given.
   ///
-  /// Returns the result as it arrived: this connection's
-  /// [ServerConnection.protocolVersion], [serverCapabilities] and [serverInfo]
-  /// still come from [initialize].
+  /// Returns the result as it arrived, without setting this connection's
+  /// [ServerConnection.protocolVersion], [serverCapabilities] or [serverInfo].
   ///
   /// Clients should probe with this before sending any other request, see
   /// https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/stdio#backward-compatibility.
+  ///
+  /// A server that does not serve [protocolVersion] rejects this with
+  /// [McpErrorCodes.unsupportedProtocolVersion]. A server from before
+  /// 2026-07-28 answers with an error of its own choosing, or not at all. To
+  /// handle both, use [initializeAcrossVersions].
   Future<DiscoverResult> discover({
     required ProtocolVersion protocolVersion,
     required ClientCapabilities capabilities,
@@ -500,6 +538,114 @@ base class ServerConnection extends MCPBase {
       ),
     ),
   );
+
+  /// Initializes this connection through discovery or legacy initialization,
+  /// following
+  /// https://modelcontextprotocol.io/specification/2026-07-28/basic/versioning#backward-compatibility-with-initialization-based-versions.
+  ///
+  /// If the proposed version has `server/discover`, this probes with [discover]
+  /// first and falls back to [initialize] after [discoverTimeout] or an
+  /// unrecognized [RpcException]. Rethrows 2026-07-28 refusals as
+  /// [RpcException]s.
+  ///
+  /// Throws an [ArgumentError] without [MCPServerInitialization.clientInfo],
+  /// since the legacy fallback needs it, and a [StateError] if the discover
+  /// result omits the proposed version or the legacy answer names a version
+  /// this client does not support. If [setLogLevel] fails, the handshake is
+  /// already complete and the fields stay set.
+  ///
+  /// The fallback needs a channel that also carries legacy requests, such as
+  /// `stdioChannel`. Later 2026-07-28 requests need their own envelope.
+  Future<InitializedServer> initializeAcrossVersions(
+    MCPServerInitialization initialization, {
+    // Leaves room for a slow server start while bounding how long a silent
+    // legacy server delays the fallback.
+    Duration discoverTimeout = const Duration(seconds: 10),
+  }) async {
+    final clientInfo = ArgumentError.checkNotNull(
+      initialization.clientInfo,
+      'clientInfo',
+    );
+    final proposed = initialization.protocolVersion;
+    if (proposed.methodIsValid(DiscoverRequest.methodName)) {
+      try {
+        final result = await discover(
+          protocolVersion: proposed,
+          capabilities: initialization.clientCapabilities,
+          clientInfo: clientInfo,
+          logLevel: initialization.logLevel,
+        ).timeout(
+          discoverTimeout,
+          onTimeout:
+              () =>
+                  throw TimeoutException(
+                    'No answer to the discover probe within $discoverTimeout',
+                  ),
+        );
+        if (!result.supportedVersions.contains(proposed.versionString)) {
+          throw StateError(
+            'A server answered discover on ${proposed.versionString} but '
+            'listed ${result.supportedVersions} instead.',
+          );
+        }
+        final rawServerInfo = result.meta?[Keys.serverInfoMeta];
+        protocolVersion = proposed;
+        serverCapabilities = result.capabilities;
+        serverInfo =
+            rawServerInfo is Map<String, Object?>
+                ? Implementation.fromMap(rawServerInfo)
+                : null;
+        return InitializedServer(
+          protocolVersion: proposed,
+          capabilities: result.capabilities,
+          serverInfo: serverInfo,
+          instructions: result.instructions,
+        );
+      } on TimeoutException {
+        // A legacy server may never answer a method it does not know. A
+        // silent probe falls back too, and a late answer to it is ignored.
+      } on RpcException catch (error) {
+        // These codes come from a server that understood the probe and
+        // refused it. The compatibility procedure stops on these errors. For an
+        // unsupported version, a caller can retry with one the error lists.
+        // The spec falls back on any other error.
+        if (error.code == McpErrorCodes.unsupportedProtocolVersion ||
+            error.code == McpErrorCodes.missingRequiredClientCapability ||
+            error.code == McpErrorCodes.headerMismatch) {
+          rethrow;
+        }
+      }
+    }
+
+    final legacyVersion =
+        proposed.isSupported ? proposed : ProtocolVersion.latestSupported;
+    final result = await initialize(
+      InitializeRequest(
+        protocolVersion: legacyVersion,
+        capabilities: initialization.clientCapabilities,
+        clientInfo: clientInfo,
+      ),
+    );
+    final serverVersion = result.protocolVersion;
+    if (serverVersion == null || !serverVersion.isSupported) {
+      throw StateError(
+        'The server answered initialize with the unsupported protocol version '
+        '"${(result as Map<String, Object?>)[Keys.protocolVersion]}", and '
+        'initialize has shut the connection down.',
+      );
+    }
+    notifyInitialized();
+    final logLevel = initialization.logLevel;
+    if (logLevel != null && result.capabilities.logging != null) {
+      await setLogLevel(SetLevelRequest(level: logLevel));
+    }
+    return InitializedServer(
+      protocolVersion: serverVersion,
+      capabilities: result.capabilities,
+      serverInfo: result.serverInfo,
+      instructions: result.instructions,
+    );
+  }
 
   /// List all the tools from this server.
   Future<ListToolsResult> listTools([ListToolsRequest? request]) =>
