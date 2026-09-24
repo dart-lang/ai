@@ -77,9 +77,17 @@ void main() {
     test('writes the filter it is given', () {
       final request = SubscriptionsListenRequest(
         notifications: SubscriptionFilter(toolsListChanged: true),
+        meta: MetaWithRequestEnvelope(
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          capabilities: ClientCapabilities(),
+        ),
       );
       expect(request as Map<String, Object?>, {
         'notifications': {'toolsListChanged': true},
+        '_meta': {
+          'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+          'io.modelcontextprotocol/clientCapabilities': <String, Object?>{},
+        },
       });
       expect(request.notifications.toolsListChanged, true);
     });

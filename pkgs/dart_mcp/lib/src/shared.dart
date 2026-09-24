@@ -9,13 +9,34 @@ library;
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:async/async.dart' show StreamSinkTransformer;
+import 'package:async/async.dart' show StreamGroup, StreamSinkTransformer;
 import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'api/api.dart';
 import 'utils/constants.dart';
 import 'utils/json_rpc_2_object.dart';
+
+/// Cancels one request without closing its channel.
+abstract interface class RequestCancellation {
+  /// Cancels the request named by [requestId].
+  Future<void> cancelRequest(RequestId requestId);
+}
+
+/// Holds the ID and deferred channel write captured while one request encodes.
+final class _CapturedRequest {
+  RequestId? id;
+  void Function()? forward;
+}
+
+void completeRequestLocally(MCPBase target, RequestId requestId) {
+  if (target._local.isClosed) return;
+  target._local.add({
+    Keys.jsonrpc: '2.0',
+    Keys.id: requestId,
+    Keys.result: const <String, Object?>{},
+  });
+}
 
 /// Base class for MCP server-related implementations.
 ///
@@ -27,6 +48,16 @@ import 'utils/json_rpc_2_object.dart';
 /// - [ServerConnection] A class that represents an active server connection.
 base class MCPBase {
   late final Peer _peer;
+
+  /// An in-process source merged with the incoming channel stream.
+  ///
+  /// Client subscription cancellation, server cancellation, and a failed
+  /// listen send use [completeRequestLocally] to complete a pending request
+  /// without waiting for the peer. A response the peer sends later finds no
+  /// pending request and is dropped. Synchronous delivery puts the local
+  /// result into the merged stream during `add`. It closes when the remote
+  /// stream ends.
+  final _local = StreamController<Map<String, Object?>>(sync: true);
 
   /// The name of the associated server.
   ///
@@ -50,7 +81,11 @@ base class MCPBase {
   /// The active request ID for each progress token.
   final _requestsByProgressToken = <ProgressToken, Object>{};
 
-  final _cancellations = StreamController<CancelledNotification>.broadcast();
+  /// Delivered synchronously to close a subscription before a later
+  /// acknowledgement or notification can reach it.
+  final _cancellations = StreamController<CancelledNotification>.broadcast(
+    sync: true,
+  );
 
   /// Connects a handler invocation to the request observed at the channel edge.
   final _requestsByParameters = Expando<_IncomingRequest>();
@@ -88,6 +123,9 @@ base class MCPBase {
   /// events will not be re-played when you subscribe.
   Stream<CancelledNotification> get cancellations => _cancellations.stream;
 
+  /// The request [sendRequestWithId] is currently encoding.
+  _CapturedRequest? _capturedRequest;
+
   /// Whether the connection with the peer is active.
   bool get isActive => !_peer.isClosed;
 
@@ -112,8 +150,22 @@ base class MCPBase {
     // The channel type admits only JSON objects, so json_rpc_2 never
     // receives a batch and never writes the `List` frames its batch support
     // would answer one with.
+    final instrumented = _recordSentRequestIds(
+      _maybeForwardMessages(channel, protocolLogSink),
+    );
+    final remote = instrumented.stream.transform<Map<String, Object?>>(
+      StreamTransformer.fromHandlers(
+        handleDone: (s) => unawaited(_local.close().whenComplete(s.close)),
+      ),
+    );
+    final incoming = StreamGroup.merge<Map<String, Object?>>([
+      remote,
+      _local.stream,
+    ]);
     _peer = Peer.withoutJson(
-      _trackCancellations(_maybeForwardMessages(channel, protocolLogSink)),
+      _trackCancellations(
+        StreamChannel.withCloseGuarantee(incoming, instrumented.sink),
+      ),
     );
     registerNotificationHandler(
       ProgressNotification.methodName,
@@ -223,6 +275,42 @@ base class MCPBase {
     }
   }
 
+  /// Sends [methodName] and hands back the JSON-RPC ID it goes out under.
+  ///
+  /// Relies on json_rpc_2 writing the request to its sink before sendRequest
+  /// returns. Captures the ID before installing the subscription handle,
+  /// deferring the transport write until that handle can receive
+  /// acknowledgements. Throws [StateError] if capture fails.
+  @protected
+  ({RequestId id, Future<T> result, Future<void> sent})
+  sendRequestWithId<T extends Result?>(String methodName, {Request? request}) {
+    final captured = _CapturedRequest();
+    _capturedRequest = captured;
+    late final Future<Object?> result;
+    try {
+      result = _peer.sendRequest(methodName, request);
+    } finally {
+      _capturedRequest = null;
+    }
+    final id = captured.id;
+    final forward = captured.forward;
+    if (id == null || forward == null) {
+      result.ignore();
+      unawaited(shutdown());
+      throw StateError('Encoding "$methodName" recorded no JSON-RPC ID.');
+    }
+    final sent = Completer<void>();
+    sent.future.ignore();
+    scheduleMicrotask(() => sent.complete(Future.sync(forward)));
+    return (
+      id: id,
+      result: result.then(
+        (value) => (value as Map?)?.cast<String, Object?>() as T,
+      ),
+      sent: sent.future,
+    );
+  }
+
   /// Sends [request] to the peer like [sendRequest] does, but leaves any
   /// progress stream for it open.
   ///
@@ -273,8 +361,8 @@ base class MCPBase {
       );
       return;
     }
-    _cancellations.add(notification);
     _inFlightRequests[id]?.cancelled = true;
+    _cancellations.add(notification);
   }
 
   /// Notes each request the peer sends on [channel] and keeps the messages for
@@ -465,6 +553,25 @@ base class MCPBase {
   @protected
   void protocolLog(String message) =>
       _protocolLogSink?.add('!!! ($name) $message\n');
+
+  /// Captures one request before forwarding other messages to [channel].
+  StreamChannel<Map<String, Object?>> _recordSentRequestIds(
+    StreamChannel<Map<String, Object?>> channel,
+  ) => channel.transformSink(
+    StreamSinkTransformer.fromHandlers(
+      handleData: (data, sink) {
+        final id = data[Keys.id];
+        final captured = _capturedRequest;
+        if (id != null && data.containsKey(Keys.method) && captured != null) {
+          captured
+            ..id = RequestId(id)
+            ..forward = (() => sink.add(data));
+          return;
+        }
+        sink.add(data);
+      },
+    ),
+  );
 
   /// If [protocolLogSink] is non-null, emits messages to it for all messages
   /// sent over [channel].
