@@ -690,6 +690,38 @@ void main() {
     await pumpEventQueue();
   });
 
+  test('progress sent by a cancellation listener stays off the wire', () async {
+    final harness = _Harness();
+    await harness.initialize();
+    const token = 'during-cancellation';
+    harness.server.cancellations.listen((notification) {
+      if (notification.requestId == RequestId(1)) {
+        harness.server.notifyProgress(
+          ProgressNotification(
+            progressToken: ProgressToken(token),
+            progress: 1,
+          ),
+        );
+      }
+    });
+
+    harness.sendSlowRequest(1, token);
+    await harness.server.slowToolCalled.future;
+    harness.cancel(1);
+    await pumpEventQueue();
+
+    expect(
+      harness.progressFrames.where(
+        (frame) =>
+            (frame['params'] as Map<String, Object?>)['progressToken'] == token,
+      ),
+      isEmpty,
+    );
+
+    harness.server.finishSlowTool.complete();
+    await pumpEventQueue();
+  });
+
   test('cancellation suppresses only its handler notifications', () async {
     final harness = _Harness();
     await harness.initialize();

@@ -81,6 +81,8 @@ base class MCPBase {
   /// The active request ID for each progress token.
   final _requestsByProgressToken = <ProgressToken, Object>{};
 
+  /// Delivered synchronously to close a subscription before a later
+  /// acknowledgement or notification can reach it.
   final _cancellations = StreamController<CancelledNotification>.broadcast(
     sync: true,
   );
@@ -359,8 +361,8 @@ base class MCPBase {
       );
       return;
     }
-    _cancellations.add(notification);
     _inFlightRequests[id]?.cancelled = true;
+    _cancellations.add(notification);
   }
 
   /// Notes each request the peer sends on [channel] and keeps the messages for
