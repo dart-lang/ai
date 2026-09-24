@@ -31,6 +31,9 @@ class ScannedSkill {
   /// Relative path within the source repo or package (e.g. "skills/my-skill").
   final String? path;
 
+  /// The description from the skill's frontmatter, if available.
+  final String? description;
+
   const ScannedSkill({
     this.packageName,
     this.gitUrl,
@@ -38,6 +41,7 @@ class ScannedSkill {
     required this.skillPath,
     this.isGlobal = false,
     this.path,
+    this.description,
   });
 
   String get sourceUri => gitUrl ?? 'package:$packageName';
@@ -117,6 +121,7 @@ class SkillScanner {
           skillName: skillName,
           skillPath: entity.path,
           path: pathInPackage,
+          description: frontmatter.description,
         ),
       );
     }

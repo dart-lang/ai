@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io' as io;
-import 'dart:math' as math;
 
 import 'package:cli_util/cli_components.dart' as cli;
 import 'package:io/io.dart';
@@ -24,12 +23,13 @@ class CliUtilDialogSupport implements DialogSupport {
   Future<int?> showSingleSelectDialog(
     List<String> options, {
     String? title,
+    List<String?>? descriptions,
   }) async {
     if (title != null) io.stdout.writeln(title);
     final result = await cli.showSingleSelectDialog(
-      options,
+      _selectOptions(options, descriptions),
       _sharedStdIn,
-      maxVisibleItems: _computeMaxVisibleItems(),
+      sizing: _sizing,
     );
     if (result != null) {
       io.stdout.writeln('> ${options[result]}');
@@ -42,13 +42,14 @@ class CliUtilDialogSupport implements DialogSupport {
     List<String> options, {
     String? title,
     Set<int> initialSelected = const {},
+    List<String?>? descriptions,
   }) async {
     if (title != null) io.stdout.writeln(title);
     final result = await cli.showMultiSelectDialog(
-      options,
+      _selectOptions(options, descriptions),
       _sharedStdIn,
       initialSelected: initialSelected,
-      maxVisibleItems: _computeMaxVisibleItems(),
+      sizing: _sizing,
     );
     if (result != null) {
       final selectionStr = result.isEmpty
@@ -60,18 +61,24 @@ class CliUtilDialogSupport implements DialogSupport {
   }
 }
 
-/// Uses `stdout.terminalLines` when possible to fill up all vertical space,
-/// with sensible defaults and minimums.
-int _computeMaxVisibleItems() {
-  if (!io.stdout.hasTerminal) return _defaultItems;
-  try {
-    // One extra line for the title, and one for padding at bottom, minimum 5.
-    return math.max(io.stdout.terminalLines - 2, _minItems);
-  } on io.StdoutException {
-    return _defaultItems;
+/// Combines [labels] and optional [descriptions] into [cli.SelectOption]s.
+List<cli.SelectOption> _selectOptions(
+  List<String> labels,
+  List<String?>? descriptions,
+) {
+  if (descriptions != null && descriptions.length != labels.length) {
+    throw ArgumentError.value(
+      descriptions,
+      'descriptions',
+      'Must have the same length as options (${labels.length})',
+    );
   }
+  return [
+    for (var i = 0; i < labels.length; i++)
+      cli.SelectOption(labels[i], description: descriptions?[i]),
+  ];
 }
 
-/// Constants for dialog configuration.
-const _minItems = 5;
-const _defaultItems = 10;
+/// Fills up all available vertical space in the terminal, and allows
+/// descriptions to take up to half of that space.
+const _sizing = cli.SelectComponentSizing.fit();

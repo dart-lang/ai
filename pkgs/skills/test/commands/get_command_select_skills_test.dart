@@ -303,4 +303,71 @@ void main() {
       });
     },
   );
+
+  group('Given a dependency with skills that have descriptions', () {
+    late String projectPath;
+    late FakeDialogSupport fakeDialogSupport;
+
+    setUp(() async {
+      await d.dir('dep1', [
+        pubspec('dep1'),
+        d.dir('skills', [
+          d.dir('dep1-described', [
+            d.file(
+              'SKILL.md',
+              '---\nname: dep1-described\n'
+                  'description: Does useful things.\n---\n',
+            ),
+          ]),
+          d.dir('dep1-undescribed', [
+            d.file('SKILL.md', '---\nname: dep1-undescribed\n---\n'),
+          ]),
+        ]),
+      ]).create();
+
+      final projectRootDir = d.dir('project', [
+        pubspec('project', dependencies: [.new('dep1')]),
+      ]);
+      await projectRootDir.create();
+      projectPath = projectRootDir.io.path;
+      fakeDialogSupport = FakeDialogSupport();
+    });
+
+    test('when running `skills get` (interactive), then the descriptions are '
+        'passed to the selection dialog', () async {
+      fakeDialogSupport.multiSelectResults.add({});
+
+      final getCommand = GetCommand(
+        dialogSupport: fakeDialogSupport,
+        gitRunner: GitRunner(isAvailableOverride: () async => false),
+      );
+      final runner = SkillsCommandRunner('skills', 'Test')
+        ..addCommand(getCommand);
+
+      await overrideAnsiOutput(false, () async {
+        await runner.run([
+          'get',
+          '--directory',
+          projectPath,
+          '--agent',
+          Agent.generic.cliName,
+          '--package',
+          'dep1',
+        ]);
+      });
+
+      expect(fakeDialogSupport.allMultiSelectOptions, hasLength(1));
+      final options = fakeDialogSupport.allMultiSelectOptions.single;
+      final descriptions = fakeDialogSupport.allMultiSelectDescriptions.single;
+      expect(descriptions, hasLength(options.length));
+      final describedIndex = options.indexWhere(
+        (o) => o.contains('dep1-described'),
+      );
+      final undescribedIndex = options.indexWhere(
+        (o) => o.contains('dep1-undescribed'),
+      );
+      expect(descriptions![describedIndex], 'Does useful things.');
+      expect(descriptions[undescribedIndex], isNull);
+    });
+  });
 }

@@ -75,6 +75,19 @@ Instructions.
         expect(skill.packageName, equals('my_package'));
       }
     });
+
+    test('when scanning then descriptions are parsed', () async {
+      final scanner = SkillScanner(logger);
+      final skills = await scanner.scanPackage(package);
+
+      expect(
+        {for (final s in skills) s.skillName: s.description},
+        equals({
+          'my_package-code-gen': 'Generates code.',
+          'my-package-api-design': 'Designs APIs.',
+        }),
+      );
+    });
   });
 
   group(

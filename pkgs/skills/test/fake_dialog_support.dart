@@ -26,6 +26,8 @@ class FakeDialogSupport implements DialogSupport {
   final List<Set<int>> allInitialSelected = [];
   // All the titles given for dialogs in order.
   final List<String?> allTitles = [];
+  // All the descriptions given for multi select dialogs in order.
+  final List<List<String?>?> allMultiSelectDescriptions = [];
 
   // If `true`, then prompts for suggested repos will return an empty selection.
   final bool skipSuggestedRepos;
@@ -40,6 +42,7 @@ class FakeDialogSupport implements DialogSupport {
     allMultiSelectOptions.clear();
     allInitialSelected.clear();
     allTitles.clear();
+    allMultiSelectDescriptions.clear();
     lastSingleSelectOptions.clear();
   }
 
@@ -47,6 +50,7 @@ class FakeDialogSupport implements DialogSupport {
   Future<int?> showSingleSelectDialog(
     List<String> options, {
     String? title,
+    List<String?>? descriptions,
   }) async {
     lastSingleSelectOptions.add(options);
     return singleSelectResults[_singleSelectCallCount++];
@@ -57,6 +61,7 @@ class FakeDialogSupport implements DialogSupport {
     List<String> options, {
     String? title,
     Set<int> initialSelected = const {},
+    List<String?>? descriptions,
   }) async {
     if (skipSuggestedRepos &&
         (title == installDartSkillsText ||
@@ -67,6 +72,7 @@ class FakeDialogSupport implements DialogSupport {
     allMultiSelectOptions.add(options);
     allInitialSelected.add(initialSelected);
     allTitles.add(title);
+    allMultiSelectDescriptions.add(descriptions);
 
     return multiSelectResults[_multiSelectCallCount++];
   }

@@ -747,6 +747,7 @@ Future<_PromptResult> _promptForSkillsToInstall({
         options,
         title: 'Select skills to install/update from $displayName:',
         initialSelected: initialSelected,
+        descriptions: [for (final opt in dialogOptions) opt.skill.description],
       );
 
       if (selectedIndices != null) {
@@ -873,6 +874,10 @@ class OrphanedSkill implements ScannedSkill {
 
   @override
   String? get path => null;
+
+  /// Not a real skill, has no description
+  @override
+  String? get description => null;
 
   @override
   String get sourceUri => gitUrl ?? 'package:${packageName!}';

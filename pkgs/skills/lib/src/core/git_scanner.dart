@@ -90,6 +90,7 @@ class GitScanner {
             skillPath: skillDir.path,
             isGlobal: isGlobal,
             path: pathInRepo,
+            description: frontmatter.description,
           ),
         );
       }

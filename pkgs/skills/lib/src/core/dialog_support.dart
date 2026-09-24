@@ -14,7 +14,15 @@ abstract interface class DialogSupport {
   /// cancelled or not implemented.
   ///
   /// The [title] will be shown in an implementation specific way if given.
-  Future<int?> showSingleSelectDialog(List<String> options, {String? title});
+  ///
+  /// If given, [descriptions] must be the same length as [options], and each
+  /// non-null entry is shown in an implementation specific way as additional
+  /// details for the corresponding option.
+  Future<int?> showSingleSelectDialog(
+    List<String> options, {
+    String? title,
+    List<String?>? descriptions,
+  });
 
   /// Shows a multi select dialog with the given [options].
   ///
@@ -24,10 +32,15 @@ abstract interface class DialogSupport {
   /// The [title] will be shown in an implementation specific way if given.
   ///
   /// If given, [initialSelected] are the initially selected indices.
+  ///
+  /// If given, [descriptions] must be the same length as [options], and each
+  /// non-null entry is shown in an implementation specific way as additional
+  /// details for the corresponding option.
   Future<Set<int>?> showMultiSelectDialog(
     List<String> options, {
     String? title,
     Set<int> initialSelected = const {},
+    List<String?>? descriptions,
   });
 }
 

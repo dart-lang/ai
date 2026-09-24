@@ -12,7 +12,10 @@ class SkillFrontmatter {
   /// The parsed name.
   final String name;
 
-  SkillFrontmatter(this.name, {required this.isInternal});
+  /// The parsed description, if present.
+  final String? description;
+
+  SkillFrontmatter(this.name, {required this.isInternal, this.description});
 
   /// Extracts values from a parsed skill frontmatter [YamlDocument].
   factory SkillFrontmatter.fromYaml(YamlDocument document) {
@@ -29,6 +32,11 @@ class SkillFrontmatter {
     } else {
       throw FormatException('Expected a String name property', mapContent);
     }
+
+    final description = switch (mapContent['description']) {
+      final String d when d.trim().isNotEmpty => d.trim(),
+      _ => null,
+    };
 
     final YamlMap? metadata;
     if (mapContent['metadata'] case YamlMap? parsedMetadata) {
@@ -47,7 +55,11 @@ class SkillFrontmatter {
       isInternal = false;
     }
 
-    return SkillFrontmatter(name, isInternal: isInternal);
+    return SkillFrontmatter(
+      name,
+      isInternal: isInternal,
+      description: description,
+    );
   }
 
   /// Parses the [SkillFrontmatter] from the full skill file content.
