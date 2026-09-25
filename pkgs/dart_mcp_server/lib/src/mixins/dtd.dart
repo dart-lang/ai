@@ -260,8 +260,9 @@ base mixin DartToolingDaemonSupport
       appUri: appUri,
       callback: (vmService) async {
         final appListener = await _AppListener.forVmService(vmService, this);
-        if (!appListener.registeredServices.containsKey(
+        if (!await appListener.hasService(
           _flutterDriverService,
+          timeout: const Duration(seconds: 10),
         )) {
           return _flutterDriverNotRegistered;
         }
@@ -553,7 +554,6 @@ base mixin DartToolingDaemonSupport
   }
 
   Future<CallToolResult> _listConnectedApps(CallToolRequest request) async {
-    if (activeVmServices.isEmpty) return _noActiveAppConnection;
     final textResult = <TextContent>[];
     // Connected app info by DTD uri.
     final structuredResult = <String, List<Map<String, Object?>>>{};
@@ -590,6 +590,11 @@ base mixin DartToolingDaemonSupport
         ),
       );
     }
+
+    // Only report that nothing is connected once every DTD has been polled
+    // above, otherwise a tool call which lands before the server has heard
+    // about a freshly registered app reports it as missing.
+    if (activeVmServices.isEmpty) return _noActiveAppConnection;
 
     return CallToolResult(
       content: textResult,
@@ -1731,19 +1736,39 @@ class _AppListener {
   final StreamController<String> _errorsController;
 
   /// Stream subscriptions we need to cancel on [shutdown].
-  final Iterable<StreamSubscription<void>> _subscriptions;
+  final _subscriptions = <StreamSubscription<void>>[];
 
   /// The vm service instance connected to the flutter app.
   final VmService _vmService;
 
-  _AppListener._(
-    this.errorLog,
-    this.registeredServices,
-    this._errorsController,
-    this._subscriptions,
-    this._vmService,
-  ) {
+  /// Whether [shutdown] has already run.
+  bool _isShutDown = false;
+
+  _AppListener._(this._vmService)
+    : errorLog = ErrorLog(),
+      registeredServices = <String, String?>{},
+      // Needs to be a broadcast stream because we use it to add errors to the
+      // list but also expose it to clients so they can know when new errors
+      // are added.
+      _errorsController = StreamController<String>.broadcast() {
+    _errorsController.stream.listen(errorLog.add);
     _vmService.onDone.then((_) => shutdown());
+  }
+
+  /// Records [serviceName] as registered and completes anything that is waiting
+  /// on it in [waitForServiceRegistration].
+  ///
+  /// [methodName] is the method used to invoke the service, which is only known
+  /// for services registered through the `Service` stream. Extensions
+  /// registered on an isolate are invoked by their own name and so record a
+  /// `null` method.
+  void _onServiceRegistered(String serviceName, String? methodName) {
+    registeredServices[serviceName] = methodName;
+    final pending = _pendingServiceRequests.remove(serviceName);
+    if (pending == null) return;
+    for (final completer in pending) {
+      if (!completer.isCompleted) completer.complete(methodName);
+    }
   }
 
   /// Maintain a cache of app listeners by [VmService] instance as an
@@ -1757,55 +1782,37 @@ class _AppListener {
     LoggingSupport logger,
   ) async {
     return _appListeners[vmService] ??= () async {
-      // Needs to be a broadcast stream because we use it to add errors to the
-      // list but also expose it to clients so they can know when new errors
-      // are added.
-      final errorsController = StreamController<String>.broadcast();
-      final errorLog = ErrorLog();
-      errorsController.stream.listen(errorLog.add);
-      final subscriptions = <StreamSubscription<void>>[];
-      final registeredServices = <String, String?>{};
-      final pendingServiceRequests = <String, List<Completer<String?>>>{};
+      final listener = _AppListener._(vmService);
 
       try {
-        subscriptions.addAll([
+        listener._subscriptions.addAll([
           vmService.onServiceEvent.listen((Event e) {
             switch (e.kind) {
               case EventKind.kServiceRegistered:
-                final serviceName = e.service!;
-                registeredServices[serviceName] = e.method;
-                // If there are any pending requests for this service, complete
-                // them.
-                if (pendingServiceRequests.containsKey(serviceName)) {
-                  for (final completer
-                      in pendingServiceRequests[serviceName]!) {
-                    completer.complete(e.method);
-                  }
-                  pendingServiceRequests.remove(serviceName);
-                }
+                listener._onServiceRegistered(e.service!, e.method);
               case EventKind.kServiceUnregistered:
-                registeredServices.remove(e.service!);
+                listener.registeredServices.remove(e.service!);
             }
           }),
           vmService.onIsolateEvent.listen((e) {
             switch (e.kind) {
               case EventKind.kServiceExtensionAdded:
-                registeredServices[e.extensionRPC!] = null;
+                listener._onServiceRegistered(e.extensionRPC!, null);
             }
           }),
         ]);
-        subscriptions.add(
+        listener._subscriptions.add(
           vmService.onExtensionEventWithHistory.listen((Event e) {
             if (e.extensionKind == 'Flutter.Error') {
               // TODO(https://github.com/dart-lang/ai/issues/57): consider
               // pruning this content down to only what is useful for the LLM to
               // understand the error and its source.
-              errorsController.add(e.json.toString());
+              listener._errorsController.add(e.json.toString());
             }
           }),
         );
         Event? lastError;
-        subscriptions.add(
+        listener._subscriptions.add(
           vmService.onStderrEventWithHistory.listen((Event e) {
             if (lastError case final last?
                 when last.timestamp == e.timestamp && last.bytes == e.bytes) {
@@ -1817,7 +1824,7 @@ class _AppListener {
             // TODO(https://github.com/dart-lang/ai/issues/57): consider
             // pruning this content down to only what is useful for the LLM to
             // understand the error and its source.
-            errorsController.add(message);
+            listener._errorsController.add(message);
           }),
         );
 
@@ -1831,23 +1838,22 @@ class _AppListener {
         final vm = await vmService.getVM();
         final isolate = await vmService.getIsolate(vm.isolates!.first.id!);
         for (final extension in isolate.extensionRPCs ?? <String>[]) {
-          registeredServices[extension] = null;
+          listener._onServiceRegistered(extension, null);
         }
       } catch (e) {
         logger.log(LoggingLevel.error, 'Error subscribing to app errors: $e');
       }
-      return _AppListener._(
-        errorLog,
-        registeredServices,
-        errorsController,
-        subscriptions,
-        vmService,
-      );
+      return listener;
     }();
   }
 
   /// Returns a future that completes with the registered method name for the
   /// given [serviceName].
+  ///
+  /// Completes with `null` both when [serviceName] is registered but has no
+  /// distinct method name (which is the case for service extensions registered
+  /// on an isolate) and when [timeout] elapses. Use [hasService] if you need to
+  /// tell those two cases apart.
   Future<String?> waitForServiceRegistration(
     String serviceName, {
     Duration timeout = const Duration(seconds: 1),
@@ -1871,9 +1877,33 @@ class _AppListener {
     );
   }
 
+  /// Whether [serviceName] is registered, waiting up to [timeout] for it to
+  /// show up.
+  ///
+  /// Service extensions are registered as the app starts up, so a tool invoked
+  /// immediately after launching an app may arrive before the extension it
+  /// needs exists.
+  Future<bool> hasService(
+    String serviceName, {
+    Duration timeout = const Duration(seconds: 1),
+  }) async {
+    if (registeredServices.containsKey(serviceName)) return true;
+    await waitForServiceRegistration(serviceName, timeout: timeout);
+    return registeredServices.containsKey(serviceName);
+  }
+
   Future<void> shutdown() async {
+    if (_isShutDown) return;
+    _isShutDown = true;
     errorLog.clear();
     registeredServices.clear();
+    // Anything still waiting on a service will never see it now.
+    for (final pending in _pendingServiceRequests.values) {
+      for (final completer in pending) {
+        if (!completer.isCompleted) completer.complete(null);
+      }
+    }
+    _pendingServiceRequests.clear();
     await _errorsController.close();
     await Future.wait(_subscriptions.map((s) => s.cancel()));
     try {
