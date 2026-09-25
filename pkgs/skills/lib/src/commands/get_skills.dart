@@ -682,7 +682,7 @@ Future<_PromptResult> _promptForSkillsToInstall({
     }
 
     hasAnyChangesToPrint = true;
-    final options = <String>[];
+    final options = <SelectOption>[];
     final initialSelected = <int>{};
     final dialogOptions = <_DialogOption>[];
 
@@ -729,7 +729,12 @@ Future<_PromptResult> _promptForSkillsToInstall({
     });
 
     for (var i = 0; i < dialogOptions.length; i++) {
-      options.add(dialogOptions[i].label);
+      options.add(
+        SelectOption(
+          dialogOptions[i].label,
+          description: dialogOptions[i].skill.description,
+        ),
+      );
       if (dialogOptions[i].isSelected) {
         initialSelected.add(i);
       }
@@ -743,11 +748,10 @@ Future<_PromptResult> _promptForSkillsToInstall({
         logger.info('  ${opt.label}');
       }
     } else {
-      final selectedIndices = await dialogSupport.showMultiSelectDialog(
+      final selectedIndices = await dialogSupport.showMultiSelectOptionsDialog(
         options,
         title: 'Select skills to install/update from $displayName:',
         initialSelected: initialSelected,
-        descriptions: [for (final opt in dialogOptions) opt.skill.description],
       );
 
       if (selectedIndices != null) {

@@ -26,8 +26,6 @@ class FakeDialogSupport implements DialogSupport {
   final List<Set<int>> allInitialSelected = [];
   // All the titles given for dialogs in order.
   final List<String?> allTitles = [];
-  // All the descriptions given for multi select dialogs in order.
-  final List<List<String?>?> allMultiSelectDescriptions = [];
 
   // If `true`, then prompts for suggested repos will return an empty selection.
   final bool skipSuggestedRepos;
@@ -42,7 +40,6 @@ class FakeDialogSupport implements DialogSupport {
     allMultiSelectOptions.clear();
     allInitialSelected.clear();
     allTitles.clear();
-    allMultiSelectDescriptions.clear();
     lastSingleSelectOptions.clear();
   }
 
@@ -50,7 +47,6 @@ class FakeDialogSupport implements DialogSupport {
   Future<int?> showSingleSelectDialog(
     List<String> options, {
     String? title,
-    List<String?>? descriptions,
   }) async {
     lastSingleSelectOptions.add(options);
     return singleSelectResults[_singleSelectCallCount++];
@@ -61,7 +57,6 @@ class FakeDialogSupport implements DialogSupport {
     List<String> options, {
     String? title,
     Set<int> initialSelected = const {},
-    List<String?>? descriptions,
   }) async {
     if (skipSuggestedRepos &&
         (title == installDartSkillsText ||
@@ -72,8 +67,52 @@ class FakeDialogSupport implements DialogSupport {
     allMultiSelectOptions.add(options);
     allInitialSelected.add(initialSelected);
     allTitles.add(title);
-    allMultiSelectDescriptions.add(descriptions);
 
     return multiSelectResults[_multiSelectCallCount++];
+  }
+}
+
+/// A fake implementation of [EnhancedDialogSupport] for testing.
+///
+/// Records option labels the same way as [FakeDialogSupport], and additionally
+/// records the descriptions of all multi select options.
+class FakeEnhancedDialogSupport extends FakeDialogSupport
+    implements EnhancedDialogSupport {
+  // All the descriptions given for recorded multi select dialogs in order,
+  // parallel to [allMultiSelectOptions].
+  final List<List<String?>> allMultiSelectDescriptions = [];
+
+  FakeEnhancedDialogSupport({super.skipSuggestedRepos});
+
+  @override
+  void reset() {
+    super.reset();
+    allMultiSelectDescriptions.clear();
+  }
+
+  @override
+  Future<int?> showEnhancedSingleSelectDialog(
+    List<SelectOption> options, {
+    String? title,
+  }) =>
+      showSingleSelectDialog([for (final o in options) o.label], title: title);
+
+  @override
+  Future<Set<int>?> showEnhancedMultiSelectDialog(
+    List<SelectOption> options, {
+    String? title,
+    Set<int> initialSelected = const {},
+  }) {
+    final recordedCount = allMultiSelectOptions.length;
+    final result = showMultiSelectDialog(
+      [for (final o in options) o.label],
+      title: title,
+      initialSelected: initialSelected,
+    );
+    // Only record descriptions if the dialog was recorded (not skipped).
+    if (allMultiSelectOptions.length > recordedCount) {
+      allMultiSelectDescriptions.add([for (final o in options) o.description]);
+    }
+    return result;
   }
 }

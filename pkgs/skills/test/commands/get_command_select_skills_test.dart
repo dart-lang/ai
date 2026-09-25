@@ -306,7 +306,6 @@ void main() {
 
   group('Given a dependency with skills that have descriptions', () {
     late String projectPath;
-    late FakeDialogSupport fakeDialogSupport;
 
     setUp(() async {
       await d.dir('dep1', [
@@ -330,15 +329,12 @@ void main() {
       ]);
       await projectRootDir.create();
       projectPath = projectRootDir.io.path;
-      fakeDialogSupport = FakeDialogSupport();
     });
 
-    test('when running `skills get` (interactive), then the descriptions are '
-        'passed to the selection dialog', () async {
-      fakeDialogSupport.multiSelectResults.add({});
-
+    Future<void> runGet(FakeDialogSupport dialogSupport) async {
+      dialogSupport.multiSelectResults.add({});
       final getCommand = GetCommand(
-        dialogSupport: fakeDialogSupport,
+        dialogSupport: dialogSupport,
         gitRunner: GitRunner(isAvailableOverride: () async => false),
       );
       final runner = SkillsCommandRunner('skills', 'Test')
@@ -355,6 +351,12 @@ void main() {
           'dep1',
         ]);
       });
+    }
+
+    test('when running `skills get` with an EnhancedDialogSupport, then the '
+        'descriptions are passed to the selection dialog', () async {
+      final fakeDialogSupport = FakeEnhancedDialogSupport();
+      await runGet(fakeDialogSupport);
 
       expect(fakeDialogSupport.allMultiSelectOptions, hasLength(1));
       final options = fakeDialogSupport.allMultiSelectOptions.single;
@@ -366,8 +368,23 @@ void main() {
       final undescribedIndex = options.indexWhere(
         (o) => o.contains('dep1-undescribed'),
       );
-      expect(descriptions![describedIndex], 'Does useful things.');
+      expect(descriptions[describedIndex], 'Does useful things.');
       expect(descriptions[undescribedIndex], isNull);
+    });
+
+    test('when running `skills get` with a basic DialogSupport, then the '
+        'dialog falls back to just the labels', () async {
+      final fakeDialogSupport = FakeDialogSupport();
+      await runGet(fakeDialogSupport);
+
+      expect(fakeDialogSupport.allMultiSelectOptions, hasLength(1));
+      expect(
+        fakeDialogSupport.allMultiSelectOptions.single,
+        unorderedEquals([
+          contains('dep1-described'),
+          contains('dep1-undescribed'),
+        ]),
+      );
     });
   });
 }
