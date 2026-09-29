@@ -50,13 +50,10 @@ class WorkspaceResolver {
   /// strategies (pub workspace, melos, single package). Otherwise, scans
   /// immediate subdirectories for Dart packages.
   ///
-  /// If no Dart packages are found and [allowNoPackages] is `true`, returns a
-  /// [WorkspaceLayout] rooted at [projectPath] with no packages. Otherwise a
-  /// [StateError] is thrown.
-  Future<WorkspaceLayout> resolve(
-    String projectPath, {
-    bool allowNoPackages = false,
-  }) async {
+  /// If no Dart packages are found, returns a [WorkspaceLayout] rooted at
+  /// [projectPath] with no packages. Skills can still be installed from git
+  /// repositories in this case.
+  Future<WorkspaceLayout> resolve(String projectPath) async {
     final pubspecFile = File(p.join(projectPath, 'pubspec.yaml'));
     if (await pubspecFile.exists()) {
       return _resolveFromPubspec(projectPath);
@@ -65,14 +62,7 @@ class WorkspaceResolver {
     final implicit = await _resolveImplicitWorkspace(projectPath);
     if (implicit != null) return implicit;
 
-    if (allowNoPackages) {
-      return WorkspaceLayout(rootPath: projectPath, packages: const []);
-    }
-
-    throw StateError(
-      'No pubspec.yaml found in $projectPath. '
-      'Run this command from a Dart or Flutter project root.',
-    );
+    return WorkspaceLayout(rootPath: projectPath, packages: const []);
   }
 
   /// Resolves a workspace from a directory that contains a pubspec.yaml.

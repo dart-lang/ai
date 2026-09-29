@@ -15,20 +15,12 @@ abstract class SkillsCommand extends Command<void> {
   ///
   /// Uses [--directory] if set, otherwise the current working directory.
   /// This allows tests and scripts to run without changing the process cwd.
-  ///
-  /// If [allowNoPackages] is `true`, a directory that contains no Dart
-  /// packages resolves to an empty workspace rather than throwing.
-  Future<WorkspaceLayout> resolveWorkspace({
-    bool allowNoPackages = false,
-  }) async {
+  Future<WorkspaceLayout> resolveWorkspace() async {
     final dir = globalResults?['directory'] as String?;
     final path = dir != null
         ? p.normalize(p.absolute(dir))
         : Directory.current.path;
-    return const WorkspaceResolver().resolve(
-      path,
-      allowNoPackages: allowNoPackages,
-    );
+    return const WorkspaceResolver().resolve(path);
   }
 }
 

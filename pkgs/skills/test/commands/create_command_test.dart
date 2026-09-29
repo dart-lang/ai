@@ -18,6 +18,29 @@ void main() {
   });
 
   group('CreateCommand', () {
+    test('throws a UsageException when not in a package', () async {
+      await d.dir('not_a_package').create();
+
+      expect(
+        () => runner.run([
+          'create',
+          '--name',
+          'my-skill',
+          '--description',
+          'my description',
+          '-C',
+          d.path('not_a_package'),
+        ]),
+        throwsA(
+          isA<UsageException>().having(
+            (e) => e.message,
+            'message',
+            contains('No Dart or Flutter package found'),
+          ),
+        ),
+      );
+    });
+
     test('creates a skill with valid name and description from args', () async {
       await d.dir('project', [pubspec('my_package')]).create();
 

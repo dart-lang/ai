@@ -2,8 +2,9 @@
 
 ## 1.0.3
 
-- `skills add` no longer requires running from a Dart package root, since it
-  only installs skills from git repositories.
+- Commands no longer require running from a Dart or Flutter project root. When
+  no project is found, `skills add` and `skills get` only install skills from
+  git repositories. `skills create` still requires a package.
 
 ## 1.0.2
 

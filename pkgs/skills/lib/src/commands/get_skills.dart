@@ -67,7 +67,14 @@ Future<bool> getSkills({
   }
 
   // If git urls were given, but no packages, don't update any packages.
-  final packages = sourceUris.isNotEmpty && requestedPackages.isEmpty
+  final onlyGitSources = sourceUris.isNotEmpty && requestedPackages.isEmpty;
+  if (!onlyGitSources && workspace.packages.isEmpty) {
+    logger.info(
+      'No Dart or Flutter project found in ${workspace.rootPath}, only '
+      'installing skills from git repos.',
+    );
+  }
+  final packages = onlyGitSources || workspace.packages.isEmpty
       ? const <ResolvedPackage>[]
       : await PackageResolver.resolveWorkspace(
           workspace,

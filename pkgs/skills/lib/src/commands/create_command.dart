@@ -37,9 +37,16 @@ class CreateCommand extends SkillsCommand {
   Future<void> run() async {
     final argResults = this.argResults!;
     final workspace = await resolveWorkspace();
-    final package = workspace.packages.firstWhere(
-      (p) => p.path == workspace.rootPath,
-    );
+    final package = workspace.packages
+        .where((p) => p.path == workspace.rootPath)
+        .firstOrNull;
+    if (package == null) {
+      throw UsageException(
+        'No Dart or Flutter package found in ${workspace.rootPath}. Run this '
+        'command from the root of the package you want to add a skill to.',
+        usage,
+      );
+    }
 
     var skillName = argResults.option('name')?.trim();
     var description = argResults.option('description')?.trim();
