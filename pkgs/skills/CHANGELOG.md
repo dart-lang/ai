@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.3
+
+- `skills add` no longer requires running from a Dart package root, since it
+  only installs skills from git repositories.
+
 ## 1.0.2
 
 - Add an `example/` directory documenting common CLI invocations.

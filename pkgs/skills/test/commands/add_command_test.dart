@@ -200,6 +200,65 @@ Test skill body.
         );
       });
 
+      group('from a directory without a pubspec.yaml', () {
+        late String nonPackagePath;
+
+        setUp(() async {
+          await d.dir('not_a_package', []).create();
+          nonPackagePath = d.path('not_a_package');
+        });
+
+        test('adds to local manifest', () async {
+          await realGitRunner.run([
+            'add',
+            '--directory',
+            nonPackagePath,
+            '--agent',
+            'cursor',
+            '--all',
+            fileUrl,
+          ]);
+
+          final localFile = File(SkillManifest.pathIn(nonPackagePath));
+          final manifest = await SkillManifest.loadOrEmpty(localFile);
+          expect(
+            manifest.sourceUrisForAgent('cursor').containsKey(fileUrl),
+            isTrue,
+          );
+          expect(
+            File(
+              p.join(
+                nonPackagePath,
+                '.cursor',
+                'skills',
+                'my-skill',
+                'SKILL.md',
+              ),
+            ).existsSync(),
+            isTrue,
+          );
+        });
+
+        test('adds to global config when --global is passed', () async {
+          await realGitRunner.run([
+            'add',
+            '--global',
+            '--directory',
+            nonPackagePath,
+            '--agent',
+            'cursor',
+            '--all',
+            fileUrl,
+          ]);
+
+          final globalConfig = await GlobalConfig.loadOrEmpty(
+            File(globalConfigPath),
+          );
+          expect(globalConfig.gitRepos, hasLength(1));
+          expect(globalConfig.gitRepos.first.cloneUrl, fileUrl);
+        });
+      });
+
       test(
         'does not add to manifest or config when repo sync fails and git is available',
         () async {

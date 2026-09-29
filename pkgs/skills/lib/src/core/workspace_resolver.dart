@@ -49,7 +49,14 @@ class WorkspaceResolver {
   /// If [projectPath] contains a `pubspec.yaml`, resolves using standard
   /// strategies (pub workspace, melos, single package). Otherwise, scans
   /// immediate subdirectories for Dart packages.
-  Future<WorkspaceLayout> resolve(String projectPath) async {
+  ///
+  /// If no Dart packages are found and [allowNoPackages] is `true`, returns a
+  /// [WorkspaceLayout] rooted at [projectPath] with no packages. Otherwise a
+  /// [StateError] is thrown.
+  Future<WorkspaceLayout> resolve(
+    String projectPath, {
+    bool allowNoPackages = false,
+  }) async {
     final pubspecFile = File(p.join(projectPath, 'pubspec.yaml'));
     if (await pubspecFile.exists()) {
       return _resolveFromPubspec(projectPath);
@@ -57,6 +64,10 @@ class WorkspaceResolver {
 
     final implicit = await _resolveImplicitWorkspace(projectPath);
     if (implicit != null) return implicit;
+
+    if (allowNoPackages) {
+      return WorkspaceLayout(rootPath: projectPath, packages: const []);
+    }
 
     throw StateError(
       'No pubspec.yaml found in $projectPath. '

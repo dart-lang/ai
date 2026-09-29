@@ -69,7 +69,9 @@ class AddCommand extends SkillsCommand {
       );
     }
 
-    final workspace = await resolveWorkspace();
+    // Adding git repos does not require any Dart packages, so allow running
+    // from any directory.
+    final workspace = await resolveWorkspace(allowNoPackages: true);
     final rootPath = workspace.rootPath;
 
     final agents = await resolveAgents(
