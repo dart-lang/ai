@@ -487,14 +487,18 @@ base class ServerConnection extends MCPBase {
   /// If the answer names a version this client does not support, this closes
   /// the connection but returns the result. Use [initializeAcrossVersions]
   /// for version negotiation.
-  Future<InitializeResult> initialize(InitializeRequest request) async {
+  @Deprecated('Use initializeAcrossVersions instead.')
+  Future<InitializeResult> initialize(InitializeRequest request) =>
+      _initialize(request);
+
+  Future<InitializeResult> _initialize(InitializeRequest request) async {
     final response = await sendRequest<InitializeResult>(
       InitializeRequest.methodName,
       request,
     );
     serverCapabilities = response.capabilities;
     final serverVersion = response.protocolVersion;
-    if (serverVersion == null || !serverVersion.isSupported) {
+    if (serverVersion == null || !serverVersion.isLegacyVersion) {
       await shutdown();
     } else {
       protocolVersion = serverVersion;
@@ -618,8 +622,8 @@ base class ServerConnection extends MCPBase {
     }
 
     final legacyVersion =
-        proposed.isSupported ? proposed : ProtocolVersion.latestSupported;
-    final result = await initialize(
+        proposed.isLegacyVersion ? proposed : ProtocolVersion.lastLegacyVersion;
+    final result = await _initialize(
       InitializeRequest(
         protocolVersion: legacyVersion,
         capabilities: initialization.clientCapabilities,
@@ -627,7 +631,7 @@ base class ServerConnection extends MCPBase {
       ),
     );
     final serverVersion = result.protocolVersion;
-    if (serverVersion == null || !serverVersion.isSupported) {
+    if (serverVersion == null || !serverVersion.isLegacyVersion) {
       throw StateError(
         'The server answered initialize with the unsupported protocol version '
         '"${(result as Map<String, Object?>)[Keys.protocolVersion]}", and '

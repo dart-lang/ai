@@ -184,7 +184,7 @@ void main() {
       unawaited(server.initialized);
       await environment.serverConnection.initialize(
         InitializeRequest(
-          protocolVersion: ProtocolVersion.latestSupported,
+          protocolVersion: ProtocolVersion.lastLegacyVersion,
           capabilities: environment.client.capabilities,
           clientInfo: environment.client.implementation,
         ),

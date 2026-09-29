@@ -24,53 +24,53 @@ void main() {
 
   test('protocol versions can be compared', () {
     expect(
-      ProtocolVersion.latestSupported > ProtocolVersion.oldestSupported,
+      ProtocolVersion.lastLegacyVersion > ProtocolVersion.oldestSupported,
       true,
     );
     expect(
-      ProtocolVersion.latestSupported >= ProtocolVersion.oldestSupported,
+      ProtocolVersion.lastLegacyVersion >= ProtocolVersion.oldestSupported,
       true,
     );
     expect(
-      ProtocolVersion.latestSupported < ProtocolVersion.oldestSupported,
+      ProtocolVersion.lastLegacyVersion < ProtocolVersion.oldestSupported,
       false,
     );
     expect(
-      ProtocolVersion.latestSupported <= ProtocolVersion.oldestSupported,
+      ProtocolVersion.lastLegacyVersion <= ProtocolVersion.oldestSupported,
       false,
     );
 
     expect(
-      ProtocolVersion.oldestSupported > ProtocolVersion.latestSupported,
+      ProtocolVersion.oldestSupported > ProtocolVersion.lastLegacyVersion,
       false,
     );
     expect(
-      ProtocolVersion.oldestSupported >= ProtocolVersion.latestSupported,
+      ProtocolVersion.oldestSupported >= ProtocolVersion.lastLegacyVersion,
       false,
     );
     expect(
-      ProtocolVersion.oldestSupported < ProtocolVersion.latestSupported,
+      ProtocolVersion.oldestSupported < ProtocolVersion.lastLegacyVersion,
       true,
     );
     expect(
-      ProtocolVersion.oldestSupported <= ProtocolVersion.latestSupported,
+      ProtocolVersion.oldestSupported <= ProtocolVersion.lastLegacyVersion,
       true,
     );
 
     expect(
-      ProtocolVersion.latestSupported <= ProtocolVersion.latestSupported,
+      ProtocolVersion.lastLegacyVersion <= ProtocolVersion.lastLegacyVersion,
       true,
     );
     expect(
-      ProtocolVersion.latestSupported >= ProtocolVersion.latestSupported,
+      ProtocolVersion.lastLegacyVersion >= ProtocolVersion.lastLegacyVersion,
       true,
     );
     expect(
-      ProtocolVersion.latestSupported < ProtocolVersion.latestSupported,
+      ProtocolVersion.lastLegacyVersion < ProtocolVersion.lastLegacyVersion,
       false,
     );
     expect(
-      ProtocolVersion.latestSupported > ProtocolVersion.latestSupported,
+      ProtocolVersion.lastLegacyVersion > ProtocolVersion.lastLegacyVersion,
       false,
     );
   });
@@ -80,8 +80,11 @@ void main() {
     // handshake refusing it is what downgrades a modern server talking to a
     // legacy client, so this must stay false until that handshake learns
     // the revision.
-    expect(ProtocolVersion.v2026_07_28.isSupported, false);
-    expect(ProtocolVersion.v2026_07_28 > ProtocolVersion.latestSupported, true);
+    expect(ProtocolVersion.v2026_07_28.isLegacyVersion, false);
+    expect(
+      ProtocolVersion.v2026_07_28 > ProtocolVersion.lastLegacyVersion,
+      true,
+    );
   });
 
   test('protocol versions declare Streamable HTTP support', () {

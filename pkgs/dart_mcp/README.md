@@ -72,9 +72,9 @@ by `stdioChannel` to `MCPClient.connectServer`, or any other
 `StreamChannel<String>` whose events each contain one complete JSON document.
 
 The returned `ServerConnection` should be used for all interactions with the
-server, starting with a call to `ServerConnection.initialize`, followed up with
-a call to `ServerConnection.notifyInitialized` (if initialization was
-successful). If a version could not be negotiated or a server does not support
+server, starting with a call to `ServerConnection.initializeAcrossVersions`,
+which settles the protocol version through discovery or the legacy initialize
+handshake. If a version could not be negotiated or a server does not support
 required features, the server connection should be closed (by calling
 `ServerConnection.shutdown`).
 
@@ -87,8 +87,8 @@ All server capabilities and utilities are exposed as methods or streams on the
 `ServerConnection` class.
 
 Before attempting to call methods on the server however, you should first verify
-the capabilities of the server by reading them from the `InitializeResult` returned
-from `ServerConnection.initialize`.
+the capabilities of the server by reading them from the `InitializedServer`
+returned from `ServerConnection.initializeAcrossVersions`.
 
 [initialization_lifecycle]: https://modelcontextprotocol.io/specification/2024-11-05/basic/lifecycle/#initialization
 

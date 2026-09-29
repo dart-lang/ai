@@ -84,12 +84,12 @@ void main() {
         final result = await environment.serverConnection
             .initializeAcrossVersions(_initialization());
 
-        expect(result.protocolVersion, ProtocolVersion.latestSupported);
+        expect(result.protocolVersion, ProtocolVersion.lastLegacyVersion);
         expect(result.serverInfo?.name, 'test server');
         expect(result.instructions, 'A test server');
         expect(
           environment.serverConnection.protocolVersion,
-          ProtocolVersion.latestSupported,
+          ProtocolVersion.lastLegacyVersion,
         );
         expect(
           environment.serverConnection.serverCapabilities,
@@ -170,7 +170,7 @@ void main() {
           _initialization(),
         );
 
-        expect(result.protocolVersion, ProtocolVersion.latestSupported);
+        expect(result.protocolVersion, ProtocolVersion.lastLegacyVersion);
         expect(
           harness.requests.map((request) => request[Keys.method]),
           contains(InitializeRequest.methodName),
@@ -194,7 +194,7 @@ void main() {
         discoverTimeout: const Duration(milliseconds: 10),
       );
 
-      expect(result.protocolVersion, ProtocolVersion.latestSupported);
+      expect(result.protocolVersion, ProtocolVersion.lastLegacyVersion);
       expect(
         harness.requests.map((request) => request[Keys.method]),
         contains(InitializeRequest.methodName),
@@ -249,7 +249,7 @@ void main() {
       });
 
       final result = await harness.connection.initializeAcrossVersions(
-        _initialization(protocolVersion: ProtocolVersion.latestSupported),
+        _initialization(protocolVersion: ProtocolVersion.lastLegacyVersion),
       );
 
       expect(result.protocolVersion, ProtocolVersion.v2025_06_18);
@@ -260,7 +260,7 @@ void main() {
       final initializeParams = initialize[Keys.params] as Map<String, Object?>;
       expect(
         initializeParams[Keys.protocolVersion],
-        ProtocolVersion.latestSupported.versionString,
+        ProtocolVersion.lastLegacyVersion.versionString,
       );
     });
 
@@ -366,7 +366,7 @@ void main() {
           _initialization(logLevel: LoggingLevel.debug),
         );
 
-        expect(result.protocolVersion, ProtocolVersion.latestSupported);
+        expect(result.protocolVersion, ProtocolVersion.lastLegacyVersion);
         final setLevel = harness.requests.singleWhere(
           (request) => request[Keys.method] == SetLevelRequest.methodName,
         );
@@ -386,7 +386,7 @@ void main() {
           _initialization(logLevel: LoggingLevel.debug),
         );
 
-        expect(result.protocolVersion, ProtocolVersion.latestSupported);
+        expect(result.protocolVersion, ProtocolVersion.lastLegacyVersion);
         expect(
           harness.requests.map((request) => request[Keys.method]),
           isNot(contains(SetLevelRequest.methodName)),
@@ -443,7 +443,7 @@ void main() {
       );
       expect(
         harness.connection.protocolVersion,
-        ProtocolVersion.latestSupported,
+        ProtocolVersion.lastLegacyVersion,
       );
       expect(
         harness.connection.serverCapabilities as Map<String, Object?>,

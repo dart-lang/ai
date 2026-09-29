@@ -12,6 +12,7 @@ import 'package:json_rpc_2/error_code.dart' as error_code;
 import 'package:json_rpc_2/json_rpc_2.dart';
 
 import '../api/api.dart';
+import '../shared.dart';
 import '../utils/constants.dart';
 import '../utils/json_rpc_2_object.dart';
 import '../utils/streamable_http.dart';
@@ -915,7 +916,7 @@ String _decodeSentinel(String value) =>
 
 /// The protocol versions this handler implements.
 ///
-/// The legacy handshake negotiates [ProtocolVersion.latestSupported] instead.
+/// The legacy handshake negotiates [ProtocolVersion.lastLegacyVersion] instead.
 /// The request-scoped protocol this transport speaks was introduced later, so
 /// the two sets are deliberately separate.
 const _supportedVersions = {ProtocolVersion.v2026_07_28};

@@ -88,7 +88,8 @@ void main() {
           Keys.id: 1,
           Keys.method: InitializeRequest.methodName,
           Keys.params: {
-            Keys.protocolVersion: ProtocolVersion.latestSupported.versionString,
+            Keys.protocolVersion:
+                ProtocolVersion.lastLegacyVersion.versionString,
             Keys.capabilities: <String, Object?>{},
             Keys.clientInfo: {Keys.name: 'test client', Keys.version: '0.1'},
           },
@@ -111,7 +112,7 @@ void main() {
 
       final initializeDone = connection.initialize(
         InitializeRequest(
-          protocolVersion: ProtocolVersion.latestSupported,
+          protocolVersion: ProtocolVersion.lastLegacyVersion,
           capabilities: client.capabilities,
           clientInfo: client.implementation,
         ),
@@ -123,7 +124,8 @@ void main() {
           Keys.jsonrpc: '2.0',
           Keys.id: request[Keys.id],
           Keys.result: {
-            Keys.protocolVersion: ProtocolVersion.latestSupported.versionString,
+            Keys.protocolVersion:
+                ProtocolVersion.lastLegacyVersion.versionString,
             Keys.capabilities: <String, Object?>{},
             Keys.serverInfo: {Keys.name: 'test server', Keys.version: '0.1'},
           },

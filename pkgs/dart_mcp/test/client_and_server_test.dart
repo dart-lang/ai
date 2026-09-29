@@ -22,7 +22,7 @@ void main() {
 
     expect(initializeResult.capabilities, isEmpty);
     expect(initializeResult.instructions, environment.server.instructions);
-    expect(initializeResult.protocolVersion, ProtocolVersion.latestSupported);
+    expect(initializeResult.protocolVersion, ProtocolVersion.lastLegacyVersion);
 
     expect(environment.server.clientInfo, environment.client.implementation);
     expect(
@@ -173,7 +173,7 @@ void main() {
         );
         await environment.serverConnection.initialize(
           InitializeRequest(
-            protocolVersion: ProtocolVersion.latestSupported,
+            protocolVersion: ProtocolVersion.lastLegacyVersion,
             capabilities: environment.client.capabilities,
             clientInfo: environment.client.implementation,
           ),
@@ -367,7 +367,8 @@ void main() {
           Keys.id: id,
           Keys.method: InitializeRequest.methodName,
           Keys.params: {
-            Keys.protocolVersion: ProtocolVersion.latestSupported.versionString,
+            Keys.protocolVersion:
+                ProtocolVersion.lastLegacyVersion.versionString,
             Keys.capabilities: <String, Object?>{
               'extensions': invalidExtensions[id],
             },
@@ -413,7 +414,7 @@ void main() {
       expect(
         connection.initialize(
           InitializeRequest(
-            protocolVersion: ProtocolVersion.latestSupported,
+            protocolVersion: ProtocolVersion.lastLegacyVersion,
             capabilities: ClientCapabilities(),
             clientInfo: Implementation(name: '', version: ''),
           ),

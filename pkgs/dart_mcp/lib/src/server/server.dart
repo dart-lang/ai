@@ -270,8 +270,8 @@ abstract base class MCPServer extends MCPBase {
     // terminate the connection.
     final clientProtocolVersion = request.protocolVersion;
     final negotiatedProtocolVersion =
-        clientProtocolVersion == null || !clientProtocolVersion.isSupported
-            ? ProtocolVersion.latestSupported
+        clientProtocolVersion == null || !clientProtocolVersion.isLegacyVersion
+            ? ProtocolVersion.lastLegacyVersion
             : clientProtocolVersion;
 
     late final ClientCapabilities clientCapabilities;

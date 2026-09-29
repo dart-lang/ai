@@ -41,10 +41,10 @@ void main() async {
 
     // Initialize the server and let it know our capabilities.
     print('initializing server');
-    final initializeResult = await server.initialize(
-      InitializeRequest(
-        protocolVersion: ProtocolVersion.latestSupported,
-        capabilities: client.capabilities,
+    final initializeResult = await server.initializeAcrossVersions(
+      MCPServerInitialization(
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: client.capabilities,
         clientInfo: client.implementation,
       ),
     );
@@ -61,10 +61,6 @@ void main() async {
       await server.shutdown();
       throw StateError('Server doesn\'t support completions!');
     }
-
-    // Notify the server that we are initialized.
-    server.notifyInitialized();
-    print('sent initialized notification');
 
     // List all the available prompts from the server.
     print('Listing prompts from server');
