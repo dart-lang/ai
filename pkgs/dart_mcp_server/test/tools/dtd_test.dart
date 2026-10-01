@@ -1374,7 +1374,10 @@ void main() {
         );
 
         final listRequest = CallToolRequest(
-          name: ToolNames.listRegisteredServices.name,
+          name: ToolNames.vmService.name,
+          arguments: {
+            ParameterNames.command: VmServiceCommand.listRegisteredServices,
+          },
         );
         final listResult = await testHarness.callTool(listRequest);
         expect(jsonDecode((listResult.content.single as TextContent).text), [

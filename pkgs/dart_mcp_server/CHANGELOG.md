@@ -1,8 +1,8 @@
 ## 1.2.0
 
-- Add a `list_registered_services` tool, which lists the services that VM
-  service clients (such as DevTools) registered on a running app, with their
-  human readable aliases.
+- Add a `listRegisteredServices` command to the `vm_service` tool, which lists
+  the services that VM service clients (such as DevTools) registered on a
+  running app, with their human readable aliases.
 - The `vm_service` tool's `callMethod` command now accepts the name a service
   was registered with, and calls the namespaced method (e.g. `s1.myService`)
   for it. If more than one client registered the service, it returns an error

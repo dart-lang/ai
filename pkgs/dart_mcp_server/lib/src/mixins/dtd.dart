@@ -232,7 +232,6 @@ base mixin DartToolingDaemonSupport
     registerTool(widgetInspectorTool, _widgetInspector);
     registerTool(flutterDriverTool, _callFlutterDriver);
     registerTool(vmServiceTool, _vmService);
-    registerTool(listRegisteredServicesTool, _listRegisteredServices);
 
     return super.initialize(request);
   }
@@ -247,7 +246,6 @@ base mixin DartToolingDaemonSupport
     widgetInspectorTool,
     flutterDriverTool,
     vmServiceTool,
-    listRegisteredServicesTool,
   ];
 
   @override
@@ -1556,8 +1554,10 @@ base mixin DartToolingDaemonSupport
     description:
         'Manage and interact with VM service connections. This tool '
         'allows you to connect to an app using its VM service URI, disconnect '
-        'from it, or invoke VM service methods directly. Connecting allows '
-        'features like hot reload to work on apps not launched via DTD.',
+        'from it, invoke VM service methods directly, or list the services '
+        'that VM service clients (such as DevTools) registered on it. '
+        'Connecting allows features like hot reload to work on apps not '
+        'launched via DTD.',
     annotations: ToolAnnotations(title: 'VM Service'),
     inputSchema: Schema.object(
       properties: {
@@ -1567,6 +1567,7 @@ base mixin DartToolingDaemonSupport
             VmServiceCommand.connect,
             VmServiceCommand.disconnect,
             VmServiceCommand.callMethod,
+            VmServiceCommand.listRegisteredServices,
           ],
         ),
         ParameterNames.appUri: Schema.string(
@@ -1577,9 +1578,11 @@ base mixin DartToolingDaemonSupport
         ParameterNames.method: Schema.string(
           description:
               'The name of the vm service method to invoke. Required for '
-              'callMethod. Services registered by other VM service clients '
-              'can be called by the name they were registered with; see '
-              '`${ToolNames.listRegisteredServices.name}`.',
+              '${VmServiceCommand.callMethod}. Services registered by other '
+              'VM service clients can be called by the name they were '
+              'registered with; use the '
+              '${VmServiceCommand.listRegisteredServices} command to list '
+              'them.',
         ),
         ParameterNames.isolateId: Schema.string(
           description:
@@ -1593,31 +1596,6 @@ base mixin DartToolingDaemonSupport
         ),
       },
       required: [ParameterNames.command],
-      additionalProperties: false,
-    ),
-  )..categories = [FeatureCategory.dartToolingDaemon];
-
-  @visibleForTesting
-  static final listRegisteredServicesTool = Tool(
-    name: ToolNames.listRegisteredServices.name,
-    description:
-        'Lists the services that VM service clients (such as DevTools or '
-        'IDEs) have registered on a running app, with their human readable '
-        'aliases. Call them with the `${ToolNames.vmService.name}` tool '
-        '(command `${VmServiceCommand.callMethod}`), using the service name, '
-        'or the method name if more than one client registered the service.',
-    annotations: ToolAnnotations(
-      title: 'List Registered VM Services',
-      readOnlyHint: true,
-    ),
-    inputSchema: Schema.object(
-      properties: {
-        ParameterNames.appUri: Schema.string(
-          description:
-              'The app URI (vm service URI) to target. Required if multiple '
-              'apps are connected.',
-        ),
-      },
       additionalProperties: false,
     ),
   )..categories = [FeatureCategory.dartToolingDaemon];
@@ -1692,6 +1670,9 @@ base mixin DartToolingDaemonSupport
           )..failureReason = CallToolFailureReason.argumentError;
         }
         return _callVmServiceMethod(request);
+
+      case VmServiceCommand.listRegisteredServices:
+        return _listRegisteredServices(request);
 
       default:
         return CallToolResult(
@@ -2084,6 +2065,7 @@ extension VmServiceCommand on Never {
   static const connect = 'connect';
   static const disconnect = 'disconnect';
   static const callMethod = 'callMethod';
+  static const listRegisteredServices = 'listRegisteredServices';
 }
 
 extension on VmServiceInfo {
