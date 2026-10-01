@@ -180,6 +180,7 @@ extension WithFailureReason on CallToolResult {
 /// Known reasons for failed tool calls.
 enum CallToolFailureReason {
   alreadyDisconnected,
+  ambiguousServiceMethod,
   applicationNotFound,
   argumentError,
   connectedAppServiceNotSupported,

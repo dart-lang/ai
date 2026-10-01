@@ -51,6 +51,7 @@ enum ToolNames {
   hotRestart('hot_restart'),
   launchApp('launch_app'),
   listDevices('list_devices'),
+  listRegisteredServices('list_registered_services'),
   listRunningApps('list_running_apps'),
   lsp('lsp'),
   pub('pub'),
