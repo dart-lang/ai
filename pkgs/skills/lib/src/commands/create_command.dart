@@ -38,7 +38,7 @@ class CreateCommand extends SkillsCommand {
     final argResults = this.argResults!;
     final workspace = await resolveWorkspace();
     final package = workspace.packages
-        .where((p) => p.path == workspace.rootPath)
+        .where((pkg) => p.equals(pkg.path, workspace.rootPath))
         .firstOrNull;
     if (package == null) {
       throw UsageException(
