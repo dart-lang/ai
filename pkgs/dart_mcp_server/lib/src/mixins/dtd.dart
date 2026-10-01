@@ -399,7 +399,7 @@ base mixin DartToolingDaemonSupport
 
   static String _describeRegistrations(Map<String, String?> registrations) => [
     for (final MapEntry(key: method, value: alias) in registrations.entries)
-      '- $method${alias == null ? '' : ' ($alias)'}',
+      '- $method${alias == null || alias.isEmpty ? '' : ' ($alias)'}',
   ].join('\n');
 
   /// Connects to the Dart Tooling Daemon.
