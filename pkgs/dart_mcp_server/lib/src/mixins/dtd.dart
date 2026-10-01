@@ -327,23 +327,23 @@ base mixin DartToolingDaemonSupport
         // namespaced method name (e.g. `s1.foo`), so map the service name
         // passed to `registerService` to that method.
         final appListener = await _AppListener.forVmService(vmService, this);
-        final registrations = appListener.serviceRegistrations[method];
-        if (registrations != null) {
-          if (registrations.length > 1) {
-            return CallToolResult(
-              isError: true,
-              content: [
-                TextContent(
-                  text:
-                      'Multiple clients registered the service "$method". '
-                      'Call one of these methods instead:\n'
-                      '${_describeRegistrations(registrations)}',
-                ),
-              ],
-            )..failureReason = CallToolFailureReason.ambiguousServiceMethod;
-          }
-          method = registrations.keys.single;
+        final registrations =
+            appListener.serviceRegistrations[method] ??
+            const <String, String?>{};
+        if (registrations.length > 1) {
+          return CallToolResult(
+            isError: true,
+            content: [
+              TextContent(
+                text:
+                    'Multiple clients registered the service "$method". '
+                    'Call one of these methods instead:\n'
+                    '${_describeRegistrations(registrations)}',
+              ),
+            ],
+          )..failureReason = CallToolFailureReason.ambiguousServiceMethod;
         }
+        if (registrations.isNotEmpty) method = registrations.keys.single;
         try {
           final result = await vmService.callMethod(
             method,
