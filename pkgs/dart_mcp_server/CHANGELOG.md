@@ -1,3 +1,13 @@
+## 1.2.0
+
+- Add a `listRegisteredServices` command to the `vm_service` tool, which lists
+  the services that VM service clients (such as DevTools) registered on a
+  running app, with their human readable aliases.
+- The `vm_service` tool's `callMethod` command now accepts the name a service
+  was registered with, and calls the namespaced method (e.g. `s1.myService`)
+  for it. If more than one client registered the service, it returns an error
+  listing the method names and aliases to choose from.
+
 ## 1.1.2
 
 - Let the `create` tool pass the project root to the underlying CLI, and reject

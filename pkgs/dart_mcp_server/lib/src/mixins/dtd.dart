@@ -315,7 +315,7 @@ base mixin DartToolingDaemonSupport
 
   Future<CallToolResult> _callVmServiceMethod(CallToolRequest request) async {
     // These are already validated to match the schema definition.
-    final method = request.arguments?[ParameterNames.method] as String;
+    var method = request.arguments?[ParameterNames.method] as String;
     final isolateId = request.arguments?[ParameterNames.isolateId] as String?;
     final args =
         request.arguments?[ParameterNames.arguments] as Map<String, Object?>?;
@@ -323,6 +323,27 @@ base mixin DartToolingDaemonSupport
     return _callOnVmService(
       appUri: appUri,
       callback: (vmService) async {
+        // Services registered by other clients have to be called by their
+        // namespaced method name (e.g. `s1.foo`), so map the service name
+        // passed to `registerService` to that method.
+        final appListener = await _AppListener.forVmService(vmService, this);
+        final registrations =
+            appListener.serviceRegistrations[method] ??
+            const <String, String?>{};
+        if (registrations.length > 1) {
+          return CallToolResult(
+            isError: true,
+            content: [
+              TextContent(
+                text:
+                    'Multiple clients registered the service "$method". '
+                    'Call one of these methods instead:\n'
+                    '${_describeRegistrations(registrations)}',
+              ),
+            ],
+          )..failureReason = CallToolFailureReason.ambiguousServiceMethod;
+        }
+        if (registrations.isNotEmpty) method = registrations.keys.single;
         try {
           final result = await vmService.callMethod(
             method,
@@ -348,6 +369,38 @@ base mixin DartToolingDaemonSupport
       },
     );
   }
+
+  /// Lists the services registered by VM service clients, with their method
+  /// names and human readable aliases.
+  Future<CallToolResult> _listRegisteredServices(
+    CallToolRequest request,
+  ) async {
+    final appUri = request.arguments?[ParameterNames.appUri] as String?;
+    return _callOnVmService(
+      appUri: appUri,
+      callback: (vmService) async {
+        final appListener = await _AppListener.forVmService(vmService, this);
+        return CallToolResult(
+          content: [
+            TextContent(
+              text: jsonEncode([
+                for (final MapEntry(key: service, value: registrations)
+                    in appListener.serviceRegistrations.entries)
+                  for (final MapEntry(key: method, value: alias)
+                      in registrations.entries)
+                    {'service': service, 'method': method, 'alias': alias},
+              ]),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  static String _describeRegistrations(Map<String, String?> registrations) => [
+    for (final MapEntry(key: method, value: alias) in registrations.entries)
+      '- $method${alias == null || alias.isEmpty ? '' : ' ($alias)'}',
+  ].join('\n');
 
   /// Connects to the Dart Tooling Daemon.
   ///
@@ -1501,8 +1554,10 @@ base mixin DartToolingDaemonSupport
     description:
         'Manage and interact with VM service connections. This tool '
         'allows you to connect to an app using its VM service URI, disconnect '
-        'from it, or invoke VM service methods directly. Connecting allows '
-        'features like hot reload to work on apps not launched via DTD.',
+        'from it, invoke VM service methods directly, or list the services '
+        'that VM service clients (such as DevTools) registered on it. '
+        'Connecting allows features like hot reload to work on apps not '
+        'launched via DTD.',
     annotations: ToolAnnotations(title: 'VM Service'),
     inputSchema: Schema.object(
       properties: {
@@ -1512,6 +1567,7 @@ base mixin DartToolingDaemonSupport
             VmServiceCommand.connect,
             VmServiceCommand.disconnect,
             VmServiceCommand.callMethod,
+            VmServiceCommand.listRegisteredServices,
           ],
         ),
         ParameterNames.appUri: Schema.string(
@@ -1522,7 +1578,11 @@ base mixin DartToolingDaemonSupport
         ParameterNames.method: Schema.string(
           description:
               'The name of the vm service method to invoke. Required for '
-              'callMethod.',
+              '${VmServiceCommand.callMethod}. Services registered by other '
+              'VM service clients can be called by the name they were '
+              'registered with; use the '
+              '${VmServiceCommand.listRegisteredServices} command to list '
+              'them.',
         ),
         ParameterNames.isolateId: Schema.string(
           description:
@@ -1610,6 +1670,9 @@ base mixin DartToolingDaemonSupport
           )..failureReason = CallToolFailureReason.argumentError;
         }
         return _callVmServiceMethod(request);
+
+      case VmServiceCommand.listRegisteredServices:
+        return _listRegisteredServices(request);
 
       default:
         return CallToolResult(
@@ -1723,6 +1786,14 @@ class _AppListener {
   /// A map of service names to the names of their methods.
   final Map<String, String?> registeredServices;
 
+  /// All services registered by VM service clients, keyed by the service name
+  /// passed to `registerService`, then by the method name to call (which is
+  /// namespaced by the registering client, e.g. `s1.myService`), with the
+  /// human readable alias as the value.
+  ///
+  /// More than one client can register the same service name.
+  final Map<String, Map<String, String?>> serviceRegistrations;
+
   /// A map of service names to completers that should be fired when the service
   /// is registered.
   final _pendingServiceRequests = <String, List<Completer<String?>>>{};
@@ -1739,6 +1810,7 @@ class _AppListener {
   _AppListener._(
     this.errorLog,
     this.registeredServices,
+    this.serviceRegistrations,
     this._errorsController,
     this._subscriptions,
     this._vmService,
@@ -1765,6 +1837,7 @@ class _AppListener {
       errorsController.stream.listen(errorLog.add);
       final subscriptions = <StreamSubscription<void>>[];
       final registeredServices = <String, String?>{};
+      final serviceRegistrations = <String, Map<String, String?>>{};
       final pendingServiceRequests = <String, List<Completer<String?>>>{};
 
       try {
@@ -1774,6 +1847,10 @@ class _AppListener {
               case EventKind.kServiceRegistered:
                 final serviceName = e.service!;
                 registeredServices[serviceName] = e.method;
+                serviceRegistrations.putIfAbsent(
+                  serviceName,
+                  () => {},
+                )[e.method!] = e.alias;
                 // If there are any pending requests for this service, complete
                 // them.
                 if (pendingServiceRequests.containsKey(serviceName)) {
@@ -1784,7 +1861,15 @@ class _AppListener {
                   pendingServiceRequests.remove(serviceName);
                 }
               case EventKind.kServiceUnregistered:
-                registeredServices.remove(e.service!);
+                final serviceName = e.service!;
+                final remaining = serviceRegistrations[serviceName]
+                  ?..remove(e.method);
+                if (remaining == null || remaining.isEmpty) {
+                  serviceRegistrations.remove(serviceName);
+                  registeredServices.remove(serviceName);
+                } else if (registeredServices[serviceName] == e.method) {
+                  registeredServices[serviceName] = remaining.keys.last;
+                }
             }
           }),
           vmService.onIsolateEvent.listen((e) {
@@ -1839,6 +1924,7 @@ class _AppListener {
       return _AppListener._(
         errorLog,
         registeredServices,
+        serviceRegistrations,
         errorsController,
         subscriptions,
         vmService,
@@ -1874,6 +1960,7 @@ class _AppListener {
   Future<void> shutdown() async {
     errorLog.clear();
     registeredServices.clear();
+    serviceRegistrations.clear();
     await _errorsController.close();
     await Future.wait(_subscriptions.map((s) => s.cancel()));
     try {
@@ -1978,6 +2065,7 @@ extension VmServiceCommand on Never {
   static const connect = 'connect';
   static const disconnect = 'disconnect';
   static const callMethod = 'callMethod';
+  static const listRegisteredServices = 'listRegisteredServices';
 }
 
 extension on VmServiceInfo {

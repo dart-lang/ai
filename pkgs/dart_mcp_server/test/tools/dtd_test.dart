@@ -21,6 +21,7 @@ import 'package:test/test.dart';
 import 'package:unified_analytics/testing.dart';
 import 'package:unified_analytics/unified_analytics.dart' as ua;
 import 'package:vm_service/vm_service.dart';
+import 'package:vm_service/vm_service_io.dart';
 
 import '../test_harness.dart';
 
@@ -1322,6 +1323,118 @@ void main() {
                 as Map<String, Object?>;
         expect(content['method'], 'ext.test.echo');
         expect(content['parameters'], containsPair('message', 'hello'));
+
+        debugSession.appProcess.stdin.writeln('q');
+        await testHarness.stopDebugSession(debugSession);
+      });
+
+      test('calls and lists services registered by other clients', () async {
+        final debugSession = await testHarness.startDebugSession(
+          dartCliAppsPath,
+          'bin/infinite_wait.dart',
+          isFlutter: false,
+        );
+        await debugSession.appProcess.stdout.next;
+        // Make sure the server is connected to the app.
+        await _getIsolateId(testHarness);
+
+        const service = 'echoService';
+        Future<VmService> registerClient(String alias) async {
+          final client = await vmServiceConnectUri(
+            debugSession.vmServiceUri.toString(),
+          );
+          addTearDown(client.dispose);
+          client.registerServiceCallback(
+            service,
+            (params) async => {
+              'result': {'alias': alias, ...params},
+            },
+          );
+          await client.registerService(service, alias);
+          return client;
+        }
+
+        final callByServiceName = CallToolRequest(
+          name: ToolNames.vmService.name,
+          arguments: {
+            ParameterNames.command: VmServiceCommand.callMethod,
+            ParameterNames.method: service,
+            ParameterNames.arguments: {'message': 'hello'},
+          },
+        );
+
+        await registerClient('First client');
+        final result = await testHarness.callToolWithRetry(callByServiceName);
+        expect(
+          jsonDecode((result.content.single as TextContent).text),
+          allOf(
+            containsPair('alias', 'First client'),
+            containsPair('message', 'hello'),
+          ),
+        );
+
+        final listRequest = CallToolRequest(
+          name: ToolNames.vmService.name,
+          arguments: {
+            ParameterNames.command: VmServiceCommand.listRegisteredServices,
+          },
+        );
+        final listResult = await testHarness.callTool(listRequest);
+        expect(jsonDecode((listResult.content.single as TextContent).text), [
+          {
+            'service': service,
+            'method': endsWith('.$service'),
+            'alias': 'First client',
+          },
+        ]);
+
+        final second = await registerClient('Second client');
+        final ambiguousResult = await testHarness.callToolWithRetry(
+          callByServiceName,
+          expectError: true,
+        );
+        final ambiguousText =
+            (ambiguousResult.content.single as TextContent).text;
+        expect(ambiguousText, contains('Multiple clients registered'));
+        expect(ambiguousText, contains('(First client)'));
+        expect(ambiguousText, contains('(Second client)'));
+
+        // The namespaced method name still targets a specific client.
+        final services =
+            jsonDecode(
+                  ((await testHarness.callTool(listRequest)).content.single
+                          as TextContent)
+                      .text,
+                )
+                as List;
+        expect(services, hasLength(2));
+        final secondMethod =
+            (services.singleWhere((s) => (s as Map)['alias'] == 'Second client')
+                    as Map)['method']
+                as String;
+        final secondResult = await testHarness.callTool(
+          CallToolRequest(
+            name: ToolNames.vmService.name,
+            arguments: {
+              ParameterNames.command: VmServiceCommand.callMethod,
+              ParameterNames.method: secondMethod,
+            },
+          ),
+        );
+        expect(
+          jsonDecode((secondResult.content.single as TextContent).text),
+          containsPair('alias', 'Second client'),
+        );
+
+        // Once the second client goes away, the service name is unambiguous.
+        await second.dispose();
+        final afterDispose = await testHarness.callToolWithRetry(
+          callByServiceName,
+        );
+        expect(
+          jsonDecode((afterDispose.content.single as TextContent).text),
+          containsPair('alias', 'First client'),
+        );
 
         debugSession.appProcess.stdin.writeln('q');
         await testHarness.stopDebugSession(debugSession);
