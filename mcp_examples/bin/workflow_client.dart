@@ -428,25 +428,22 @@ final class WorkflowClient extends MCPClient with RootsSupport {
     // Use a copy of the list to allow removal during iteration
     final connectionsToInitialize = List.of(serverConnections);
     for (var connection in connectionsToInitialize) {
-      final result = await connection.initialize(
-        InitializeRequest(
-          protocolVersion: ProtocolVersion.latestSupported,
-          capabilities: capabilities,
-          clientInfo: implementation,
-        ),
-      );
-      final serverName = connection.serverInfo?.name ?? 'server';
-      if (!result.protocolVersion!.isSupported) {
+      try {
+        await connection.initializeAcrossVersions(
+          MCPServerInitialization(
+            protocolVersion: ProtocolVersion.v2026_07_28,
+            clientCapabilities: capabilities,
+            clientInfo: implementation,
+          ),
+        );
+      } on StateError catch (error) {
+        final serverName = connection.serverInfo?.name ?? 'server';
         logger.stderr(
-          'Protocol version mismatch for $serverName, '
-          'expected a version between ${ProtocolVersion.oldestSupported} and '
-          '${ProtocolVersion.latestSupported}, but got '
-          '${result.protocolVersion}. Disconnecting.',
+          'Protocol version mismatch for $serverName: '
+          '${error.message} Disconnecting.',
         );
         await connection.shutdown();
         serverConnections.remove(connection);
-      } else {
-        connection.notifyInitialized(InitializedNotification());
       }
     }
   }

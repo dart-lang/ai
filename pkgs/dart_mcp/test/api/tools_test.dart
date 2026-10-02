@@ -2191,7 +2191,7 @@ void main() {
       final serverConnection = environment.serverConnection;
       await serverConnection.initialize(
         InitializeRequest(
-          protocolVersion: ProtocolVersion.latestSupported,
+          protocolVersion: ProtocolVersion.lastLegacyVersion,
           capabilities: environment.client.capabilities,
           clientInfo: environment.client.implementation,
         ),
@@ -2229,7 +2229,7 @@ void main() {
       final serverConnection = environment.serverConnection;
       await serverConnection.initialize(
         InitializeRequest(
-          protocolVersion: ProtocolVersion.latestSupported,
+          protocolVersion: ProtocolVersion.lastLegacyVersion,
           capabilities: environment.client.capabilities,
           clientInfo: environment.client.implementation,
         ),
@@ -2270,7 +2270,7 @@ void main() {
       final serverConnection = environment.serverConnection;
       await serverConnection.initialize(
         InitializeRequest(
-          protocolVersion: ProtocolVersion.latestSupported,
+          protocolVersion: ProtocolVersion.lastLegacyVersion,
           capabilities: environment.client.capabilities,
           clientInfo: environment.client.implementation,
         ),
@@ -2311,7 +2311,7 @@ void main() {
       final serverConnection = environment.serverConnection;
       await serverConnection.initialize(
         InitializeRequest(
-          protocolVersion: ProtocolVersion.latestSupported,
+          protocolVersion: ProtocolVersion.lastLegacyVersion,
           capabilities: environment.client.capabilities,
           clientInfo: environment.client.implementation,
         ),

@@ -10,7 +10,7 @@ import 'package:test/test.dart';
 void main() {
   test('null instructions', () async {
     final result = InitializeResult(
-      protocolVersion: ProtocolVersion.latestSupported,
+      protocolVersion: ProtocolVersion.lastLegacyVersion,
       serverCapabilities: ServerCapabilities(),
       serverInfo: Implementation(name: 'name', version: 'version'),
     );
@@ -21,7 +21,7 @@ void main() {
 
   test('nonnull instructions', () async {
     final result = InitializeResult(
-      protocolVersion: ProtocolVersion.latestSupported,
+      protocolVersion: ProtocolVersion.lastLegacyVersion,
       serverCapabilities: ServerCapabilities(),
       serverInfo: Implementation(name: 'name', version: 'version'),
       instructions: 'foo',
@@ -257,20 +257,20 @@ void main() {
         in <String, void Function()>{
           'initialize request': () {
             InitializeRequest(
-              protocolVersion: ProtocolVersion.latestSupported,
+              protocolVersion: ProtocolVersion.lastLegacyVersion,
               capabilities: malformedClient,
               clientInfo: implementation,
             );
           },
           'request envelope': () {
             MetaWithRequestEnvelope(
-              protocolVersion: ProtocolVersion.latestSupported,
+              protocolVersion: ProtocolVersion.lastLegacyVersion,
               capabilities: malformedClient,
             );
           },
           'initialize result': () {
             InitializeResult(
-              protocolVersion: ProtocolVersion.latestSupported,
+              protocolVersion: ProtocolVersion.lastLegacyVersion,
               serverCapabilities: malformedServer,
               serverInfo: implementation,
             );
