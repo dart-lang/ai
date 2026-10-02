@@ -2,6 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -10,6 +11,7 @@ import 'package:stream_channel/stream_channel.dart';
 import 'package:stream_transform/stream_transform.dart';
 
 import '../api/api.dart';
+import '../shared.dart';
 import '../utils/constants.dart';
 import '../utils/json_rpc_2_object.dart';
 import '../utils/sse.dart' show sseMessageStream;
@@ -75,7 +77,7 @@ StreamChannel<Map<String, Object?>> streamableHttpClientChannel(
         onError: controller.local.sink.addError,
         onDone: controller.local.sink.close,
       );
-  return controller.foreign;
+  return _StreamableHttpClientChannel(controller.foreign, state);
 }
 
 /// Sends one JSON-RPC [message] and emits each message in its response.
@@ -139,6 +141,10 @@ Stream<Map<String, Object?>> _sendStreamableHttpMessage(
             : const <String, String>{};
     posting = true;
     final request = await httpClient.postUrl(uri);
+    final requestId = message[Keys.id];
+    if (requestId != null) {
+      await state.track(RequestId(requestId), request.abort);
+    }
     headers?.forEach(request.headers.set);
     request.headers
       ..contentType = ContentType.json
@@ -193,12 +199,28 @@ Stream<Map<String, Object?>> _sendStreamableHttpMessage(
     }
     if (responseType == eventStreamMimeType) {
       var answered = false;
-      await for (final event in sseMessageStream(response)) {
-        if (event[Keys.id] == message[Keys.id] &&
-            (event.containsKey(Keys.result) || event.containsKey(Keys.error))) {
-          answered = true;
+      final events = StreamIterator(sseMessageStream(response));
+      if (requestId != null) {
+        await state.track(RequestId(requestId), () async {
+          try {
+            (await response.detachSocket()).destroy();
+          } finally {
+            events.cancel().ignore();
+          }
+        });
+      }
+      try {
+        while (await events.moveNext()) {
+          final event = events.current;
+          if (event[Keys.id] == requestId &&
+              (event.containsKey(Keys.result) ||
+                  event.containsKey(Keys.error))) {
+            answered = true;
+          }
+          yield state.recordIncoming(event);
         }
-        yield state.recordIncoming(event);
+      } finally {
+        await events.cancel();
       }
       if (wantsResponse && !answered) {
         throw StateError(
@@ -230,7 +252,34 @@ Stream<Map<String, Object?>> _sendStreamableHttpMessage(
         Keys.message: error.toString(),
       },
     });
+  } finally {
+    final requestId = message[Keys.id];
+    if (requestId != null) state.finish(RequestId(requestId));
   }
+}
+
+/// Adds per-request cancellation to a streamable HTTP channel.
+final class _StreamableHttpClientChannel
+    extends DelegatingStreamChannel<Map<String, Object?>>
+    implements RequestCancellation {
+  _StreamableHttpClientChannel(super.channel, this._state);
+
+  final _StreamableHttpClientState _state;
+
+  @override
+  Future<void> cancelRequest(RequestId requestId) =>
+      _state.cancelRequest(requestId);
+
+  @override
+  StreamChannel<Map<String, Object?>> changeStream(
+    Stream<Map<String, Object?>> Function(Stream<Map<String, Object?>>) change,
+  ) => _StreamableHttpClientChannel(super.changeStream(change), _state);
+
+  @override
+  StreamChannel<Map<String, Object?>> changeSink(
+    StreamSink<Map<String, Object?>> Function(StreamSink<Map<String, Object?>>)
+    change,
+  ) => _StreamableHttpClientChannel(super.changeSink(change), _state);
 }
 
 /// Tracks request state shared by the POSTs on one client channel.
@@ -239,8 +288,25 @@ Stream<Map<String, Object?>> _sendStreamableHttpMessage(
 /// later `tools/call` requests. Request ids retain each page's role so a
 /// first page replaces the cache and continuation pages extend it.
 final class _StreamableHttpClientState {
+  final _requestCancellations = <RequestId, FutureOr<void> Function()>{};
+  final _cancelledRequests = <RequestId>{};
   final _listToolsRequestIds = <Object?, bool>{};
   final _toolHeaders = <String, List<_McpHeaderDeclaration>>{};
+
+  Future<void> cancelRequest(RequestId requestId) async {
+    _cancelledRequests.add(requestId);
+    await _requestCancellations[requestId]?.call();
+  }
+
+  Future<void> track(RequestId id, FutureOr<void> Function() cancel) async {
+    _requestCancellations[id] = cancel;
+    if (_cancelledRequests.remove(id)) await cancel();
+  }
+
+  void finish(RequestId requestId) {
+    _requestCancellations.remove(requestId);
+    _cancelledRequests.remove(requestId);
+  }
 
   void recordOutgoing(Map<String, Object?> message, String method) {
     if (method == ListToolsRequest.methodName && message.containsKey(Keys.id)) {

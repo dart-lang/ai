@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp/src/utils/constants.dart';
@@ -22,16 +23,44 @@ base class _SubscribingServer extends MCPServer
       );
 }
 
+/// Reads incoming protocol messages without registering another handler.
+final class _IncomingMessageSink implements Sink<String> {
+  _IncomingMessageSink(this.onMessage);
+
+  final void Function(Map<String, Object?>) onMessage;
+
+  @override
+  void add(String data) {
+    if (!data.startsWith('<<<')) return;
+    final jsonStart = data.indexOf('{');
+    if (jsonStart < 0) return;
+    onMessage((jsonDecode(data.substring(jsonStart)) as Map).cast());
+  }
+
+  @override
+  void close() {}
+}
+
 void main() {
   late TestEnvironment<TestMCPClient, _SubscribingServer> environment;
   final acknowledgements = <SubscriptionsAcknowledgedNotification>[];
 
   setUp(() async {
     acknowledgements.clear();
-    environment = TestEnvironment(TestMCPClient(), _SubscribingServer.new);
-    environment.serverConnection.registerNotificationHandler(
-      SubscriptionsAcknowledgedNotification.methodName,
-      acknowledgements.add,
+    environment = TestEnvironment(
+      TestMCPClient(),
+      _SubscribingServer.new,
+      protocolLogSink: _IncomingMessageSink((message) {
+        if (message[Keys.method] !=
+            SubscriptionsAcknowledgedNotification.methodName) {
+          return;
+        }
+        acknowledgements.add(
+          SubscriptionsAcknowledgedNotification.fromMap(
+            (message[Keys.params] as Map).cast<String, Object?>(),
+          ),
+        );
+      }),
     );
     // The 2026-07-28 revision took the `initialize` handshake out, so a
     // transport for it hands the server its context directly.
@@ -57,6 +86,10 @@ void main() {
       SubscriptionsListenRequest(
         notifications:
             notifications ?? SubscriptionFilter(toolsListChanged: true),
+        meta: MetaWithRequestEnvelope(
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          capabilities: environment.client.capabilities,
+        ),
       ),
     );
   }

@@ -21,6 +21,7 @@ part 'elicitation_support.dart';
 part 'response_cache.dart';
 part 'roots_support.dart';
 part 'sampling_support.dart';
+part 'subscriptions.dart';
 
 /// The base class for MCP clients.
 ///
@@ -305,7 +306,11 @@ base class ServerConnection extends MCPBase {
   }) : _elicitationFormSupport = elicitationFormSupport ?? elicitationSupport,
        _elicitationUrlSupport = elicitationUrlSupport,
        _samplingSupport = samplingSupport,
-       _rootsSupport = rootsSupport {
+       _rootsSupport = rootsSupport,
+       _requestCancellation =
+           channel is RequestCancellation
+               ? channel as RequestCancellation
+               : null {
     if (rootsSupport != null) {
       registerRequestHandler(
         ListRootsRequest.methodName,
@@ -346,10 +351,17 @@ base class ServerConnection extends MCPBase {
       });
     }
 
+    // Subscription notifications reach these handlers on both transports,
+    // since the Streamable HTTP client merges each listen response into this
+    // connection's incoming stream. They also go to the matching subscription.
     registerNotificationHandler<PromptListChangedNotification?>(
       PromptListChangedNotification.methodName,
       (notification) {
         _responseCache.invalidateMethod(ListPromptsRequest.methodName);
+        _forwardSubscriptionNotification(
+          PromptListChangedNotification.methodName,
+          notification,
+        );
         _promptListChangedController.sink.add(notification);
       },
     );
@@ -358,6 +370,10 @@ base class ServerConnection extends MCPBase {
       ToolListChangedNotification.methodName,
       (notification) {
         _responseCache.invalidateMethod(ListToolsRequest.methodName);
+        _forwardSubscriptionNotification(
+          ToolListChangedNotification.methodName,
+          notification,
+        );
         _toolListChangedController.sink.add(notification);
       },
     );
@@ -368,6 +384,10 @@ base class ServerConnection extends MCPBase {
         _responseCache
           ..invalidateMethod(ListResourcesRequest.methodName)
           ..invalidateMethod(ListResourceTemplatesRequest.methodName);
+        _forwardSubscriptionNotification(
+          ResourceListChangedNotification.methodName,
+          notification,
+        );
         _resourceListChangedController.sink.add(notification);
       },
     );
@@ -376,6 +396,10 @@ base class ServerConnection extends MCPBase {
       ResourceUpdatedNotification.methodName,
       (notification) {
         _responseCache.invalidateResource(notification.uri);
+        _forwardSubscriptionNotification(
+          ResourceUpdatedNotification.methodName,
+          notification,
+        );
         _resourceUpdatedController.sink.add(notification);
       },
     );
@@ -389,6 +413,12 @@ base class ServerConnection extends MCPBase {
       ElicitationCompleteNotification.methodName,
       _elicitationCompleteController.sink.add,
     );
+
+    registerNotificationHandler<SubscriptionsAcknowledgedNotification>(
+      SubscriptionsAcknowledgedNotification.methodName,
+      _handleSubscriptionsAcknowledged,
+    );
+    cancellations.listen(_handleSubscriptionCancelled);
   }
 
   /// Close all connections and streams so the process can cleanly exit.
@@ -836,6 +866,100 @@ base class ServerConnection extends MCPBase {
   /// Updates will come on the [resourceUpdated] stream.
   Future<void> unsubscribeResource(UnsubscribeRequest request) =>
       sendRequest(UnsubscribeRequest.methodName, request);
+
+  /// The subscriptions this connection has open, keyed by [Subscription.id].
+  final _subscriptions = <RequestId, Subscription>{};
+
+  final RequestCancellation? _requestCancellation;
+
+  /// Opens a `subscriptions/listen` stream for the types [notifications]
+  /// names.
+  ///
+  /// This sends `subscriptions/listen` and returns a [Subscription] for its
+  /// request ID. The server acknowledges the accepted filter, then
+  /// notifications carrying that ID reach [Subscription.notifications]. The
+  /// subscription ends when the client closes it, the server cancels or
+  /// completes it, or the connection ends.
+  ///
+  /// Returns before the server sees the request, so subscribe to
+  /// [Subscription.notifications] synchronously.
+  ///
+  /// You should check the [protocolVersion] before using this API, it must be
+  /// >= [ProtocolVersion.v2026_07_28].
+  Subscription listen(
+    SubscriptionFilter notifications, {
+    required MetaWithRequestEnvelope meta,
+  }) {
+    final sent = sendRequestWithId<SubscriptionsListenResult>(
+      SubscriptionsListenRequest.methodName,
+      request: SubscriptionsListenRequest(
+        notifications: notifications,
+        meta: meta,
+      ),
+    );
+    return _subscriptions[sent.id] = Subscription._(
+      this,
+      sent.id,
+      sent.result,
+      sent.sent,
+    );
+  }
+
+  Future<void> _cancelSubscription(RequestId id) async {
+    final requestCancellation = _requestCancellation;
+    if (requestCancellation != null) {
+      completeRequestLocally(this, id);
+      await requestCancellation.cancelRequest(id);
+    } else {
+      // Stdio uses a notification to cancel the open listen request.
+      sendNotification(
+        CancelledNotification.methodName,
+        CancelledNotification(requestId: id),
+      );
+      completeRequestLocally(this, id);
+    }
+  }
+
+  /// Delivers [params] to the subscription its raw `_meta` names, if that
+  /// subscription is still open.
+  ///
+  /// Reads the ID off the raw map instead of the typed [WithSubscriptionId]
+  /// getter, which throws on a malformed `_meta` and would skip the
+  /// connection-wide `sink.add` each caller runs right after this.
+  void _forwardSubscriptionNotification(String method, Object? params) {
+    if (params is! Map<String, Object?>) return;
+    final meta = params[Keys.meta];
+    if (meta is! Map<String, Object?>) return;
+    final id = meta[Keys.subscriptionIdMeta];
+    if (id == null) return;
+    _subscriptions[RequestId(id)]?._forward(method, params);
+  }
+
+  /// Ends the open subscription named by [notification], if there is one.
+  void _handleSubscriptionCancelled(CancelledNotification notification) {
+    final subscription = _subscriptions[notification.requestId];
+    if (subscription == null) return;
+    unawaited(subscription._finish());
+    completeRequestLocally(this, subscription.id);
+  }
+
+  /// Reports the acknowledged filter to the subscription [notification] names.
+  ///
+  /// The fields are read off the raw map, so a malformed one leaves its
+  /// subscription unacknowledged.
+  void _handleSubscriptionsAcknowledged(
+    SubscriptionsAcknowledgedNotification notification,
+  ) {
+    final fields = notification as Map<String, Object?>;
+    final meta = fields[Keys.meta];
+    final id =
+        meta is Map<String, Object?> ? meta[Keys.subscriptionIdMeta] : null;
+    final accepted = fields[Keys.notifications];
+    if (id == null || accepted is! Map<String, Object?>) return;
+    _subscriptions[RequestId(id)]?._acknowledge(
+      SubscriptionFilter.fromMap(accepted),
+    );
+  }
 
   /// Sends a request to change the current logging level.
   ///

@@ -12,6 +12,13 @@
 - Stop sending `notifications/roots/list_changed` to a server that speaks
   2026-07-28. An unsettled connection still gets it.
 - Add a client fixture for the MCP conformance suite under `tool/`.
+- Add `ServerConnection.listen`. It answers with a `Subscription` carrying
+  `id`, `acknowledged`, a `notifications` stream of `SubscriptionNotification`
+  records, and `done`. `Subscription.close()` ends only that subscription
+  without closing its connection. Subclasses reach the same ID capture through
+  the protected `MCPBase.sendRequestWithId`. A `ServerConnection` now handles
+  `notifications/subscriptions/acknowledged` itself. Registering another
+  handler for it throws.
 - Let `handleRequestScopedMessage` route server-to-client requests through an
   `onRequest` callback on revisions before 2026-07-28. Missing callbacks and
   invalid callback responses fail the server request without leaving it open.
@@ -44,6 +51,9 @@
   handler's own request has been cancelled.
 - Add a Streamable HTTP client example under `example/`.
 - **BREAKING**:
+  - The `SubscriptionsListenRequest` factory now requires `meta` as a
+    `MetaWithRequestEnvelope` instead of accepting an optional
+    `MetaWithProgressToken`.
   - `MCPBase` (including the `MCPServer.fromStreamChannel` and
     `ServerConnection.fromStreamChannel` constructors),
     `MCPClient.connectServer`, `MCPServerFactory`, and `stdioChannel` now
