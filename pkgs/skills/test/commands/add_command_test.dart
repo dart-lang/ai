@@ -1,7 +1,9 @@
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
+import 'package:logging/logging.dart';
 import 'package:skills/src/commands/add_command.dart';
+import 'package:skills/src/commands/get_command.dart';
 import 'package:skills/src/commands/skills_command_runner.dart';
 import 'package:skills/src/core/git_runner.dart';
 import 'package:skills/src/models/global_config.dart';
@@ -198,6 +200,136 @@ Test skill body.
           manifest.sourceUrisForAgent('cursor').containsKey(fileUrl),
           isTrue,
         );
+      });
+
+      group('from a directory without a pubspec.yaml', () {
+        late String nonPackagePath;
+
+        setUp(() async {
+          await d.dir('not_a_package', []).create();
+          nonPackagePath = d.path('not_a_package');
+        });
+
+        test('adds to local manifest', () async {
+          await realGitRunner.run([
+            'add',
+            '--directory',
+            nonPackagePath,
+            '--agent',
+            'cursor',
+            '--all',
+            fileUrl,
+          ]);
+
+          final localFile = File(SkillManifest.pathIn(nonPackagePath));
+          final manifest = await SkillManifest.loadOrEmpty(localFile);
+          expect(
+            manifest.sourceUrisForAgent('cursor').containsKey(fileUrl),
+            isTrue,
+          );
+          expect(
+            File(
+              p.join(
+                nonPackagePath,
+                '.cursor',
+                'skills',
+                'my-skill',
+                'SKILL.md',
+              ),
+            ).existsSync(),
+            isTrue,
+          );
+        });
+
+        test('get updates skills from git repos and logs a message', () async {
+          await realGitRunner.run([
+            'add',
+            '--directory',
+            nonPackagePath,
+            '--agent',
+            'cursor',
+            '--all',
+            fileUrl,
+          ]);
+
+          // Update the skill in the source repo.
+          final localPath = p.normalize(p.absolute(d.path('local_repo')));
+          await File(
+            p.join(localPath, 'skills', 'my-skill', 'SKILL.md'),
+          ).writeAsString('''
+---
+name: my-skill
+description: A test skill.
+---
+Updated skill body.
+''');
+          await Process.run('git', [
+            'commit',
+            '-am',
+            'update',
+          ], workingDirectory: localPath);
+
+          final logs = <String>[];
+          final sub = Logger.root.onRecord.listen((r) => logs.add(r.message));
+          addTearDown(sub.cancel);
+
+          final getRunner = SkillsCommandRunner('skills', 'Test')
+            ..addCommand(
+              GetCommand(
+                dialogSupport: fakeDialogSupport,
+                gitRunner: const GitRunner(),
+              ),
+            );
+          await getRunner.run([
+            'get',
+            '--directory',
+            nonPackagePath,
+            '--agent',
+            'cursor',
+            '--all',
+          ]);
+
+          expect(
+            logs,
+            contains(
+              contains(
+                'No Dart or Flutter project found in $nonPackagePath, only '
+                'installing skills from git repos.',
+              ),
+            ),
+          );
+          expect(
+            File(
+              p.join(
+                nonPackagePath,
+                '.cursor',
+                'skills',
+                'my-skill',
+                'SKILL.md',
+              ),
+            ).readAsStringSync(),
+            contains('Updated skill body.'),
+          );
+        });
+
+        test('adds to global config when --global is passed', () async {
+          await realGitRunner.run([
+            'add',
+            '--global',
+            '--directory',
+            nonPackagePath,
+            '--agent',
+            'cursor',
+            '--all',
+            fileUrl,
+          ]);
+
+          final globalConfig = await GlobalConfig.loadOrEmpty(
+            File(globalConfigPath),
+          );
+          expect(globalConfig.gitRepos, hasLength(1));
+          expect(globalConfig.gitRepos.first.cloneUrl, fileUrl);
+        });
       });
 
       test(
