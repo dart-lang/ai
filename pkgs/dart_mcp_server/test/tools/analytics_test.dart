@@ -384,6 +384,19 @@ void main() {
       },
     );
 
+    test('asserts that command parameters are strings', () {
+      final tool = Tool(
+        name: 'int_commands',
+        inputSchema: Schema.object(
+          properties: {ParameterNames.command: Schema.int()},
+        ),
+      )..categories = [FeatureCategory.cli];
+      expect(
+        () => server.registerTool(tool, (_) => CallToolResult(content: [])),
+        throwsA(isA<AssertionError>()),
+      );
+    });
+
     test('are not sent for unknown tools', () async {
       analytics.sentEvents.clear();
       final result = await testHarness.mcpServerConnection.callTool(

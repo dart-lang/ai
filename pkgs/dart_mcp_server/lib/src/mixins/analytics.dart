@@ -192,10 +192,19 @@ base mixin AnalyticsEvents
 /// The values allowed for the `command` parameter of [tool], according to the
 /// `enum` in its input schema.
 ///
-/// Returns an empty set if [tool] has no `command` parameter, or if that
-/// parameter doesn't declare an `enum`.
+/// Returns an empty set if [tool] has no `command` parameter, if that parameter
+/// isn't a string, or if it doesn't declare an `enum`.
 Set<String> _knownCommands(Tool tool) {
   final commandSchema = tool.inputSchema.properties?[ParameterNames.command];
   if (commandSchema == null) return const {};
+  // Only string commands are supported today. We assert so that our tests catch
+  // any other types, but just don't log those commands in production.
+  final isStringSchema = commandSchema.type == JsonType.string;
+  assert(
+    isStringSchema,
+    'The `${ParameterNames.command}` parameter of the `${tool.name}` tool must '
+    'be a string, but it has type `${commandSchema.type?.typeName}`.',
+  );
+  if (!isStringSchema) return const {};
   return {...?(commandSchema as StringSchema).enumValues};
 }
