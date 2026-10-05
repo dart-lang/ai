@@ -31,6 +31,14 @@ All server features are implemented as mixins on the `DartMCPServer` at
   add a constant to the `ParameterNames` extension in
   `pkgs/dart_mcp_server/lib/src/utils/names.dart` and use that constant
   instead of hardcoding string literals in your tool parsing and schema.
+- **Analytics**: Never send raw strings from the client to analytics. Tools
+  with a `command` parameter must declare its values with an `enum` (for
+  example `EnumSchema.untitledSingleSelect`), because only those values are
+  included in the logged tool name. Similarly, new prompts must be added to the
+  `PromptNames` enum, because only those prompt names are logged. Create
+  analytics events with `createDartMCPEvent` from
+  `pkgs/dart_mcp_server/lib/src/utils/analytics.dart`, which sanitizes the
+  client info.
 
 ## 3. Testing
 

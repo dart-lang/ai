@@ -40,9 +40,18 @@ base mixin AnalyticsEvents
     return super.listPrompts(request);
   }
 
+  /// The names of the prompts that are set up by this server.
+  ///
+  /// Prompt names in requests come directly from the client, so these are the
+  /// only ones that we log.
+  static final _knownPromptNames = {
+    for (final prompt in PromptNames.values) prompt.name,
+  };
+
   @override
   Future<GetPromptResult> getPrompt(GetPromptRequest request) async {
     final watch = Stopwatch()..start();
+    final isKnownPrompt = _knownPromptNames.contains(request.name);
     GetPromptResult? result;
     try {
       return result = await super.getPrompt(request);
@@ -52,10 +61,13 @@ base mixin AnalyticsEvents
         _createDartMCPEvent(
           type: AnalyticsEvent.getPrompt.name,
           additionalData: GetPromptMetrics(
-            name: request.name,
+            name: isKnownPrompt ? request.name : null,
             success: result != null && result.messages.isNotEmpty,
             elapsedMilliseconds: watch.elapsedMilliseconds,
             withArguments: request.arguments?.isNotEmpty == true,
+            failureReason: isKnownPrompt
+                ? null
+                : GetPromptFailureReason.noSuchPrompt,
           ),
         ),
       );
@@ -96,14 +108,24 @@ base mixin AnalyticsEvents
     FutureOr<CallToolResult> Function(CallToolRequest) impl, {
     bool validateArguments = true,
   }) {
+    final knownCommands = _knownCommands(tool);
     super.registerTool(tool, (request) async {
       final watch = Stopwatch()..start();
+      // The command comes directly from the client, so we only log it if it is
+      // one of the known commands for this tool.
+      final command = request.arguments?[ParameterNames.command];
+      final isKnownCommand = knownCommands.contains(command);
+      final isUnknownCommand =
+          command != null && knownCommands.isNotEmpty && !isKnownCommand;
       CallToolResult? result;
       if (validateArguments) {
         final errors = tool.inputSchema.validate(
           request.arguments ?? const <String, Object?>{},
         );
         if (errors.isNotEmpty) {
+          final failureReason = isUnknownCommand
+              ? CallToolFailureReason.noSuchCommand
+              : CallToolFailureReason.argumentError;
           result = CallToolResult(
             content: [
               Content.text(
@@ -115,7 +137,7 @@ base mixin AnalyticsEvents
                 Content.text(text: error.toErrorString()),
             ],
             isError: true,
-          )..failureReason = CallToolFailureReason.argumentError;
+          )..failureReason = failureReason;
         }
       }
       String? errorType;
@@ -127,16 +149,11 @@ base mixin AnalyticsEvents
         rethrow;
       } finally {
         watch.stop();
-        var toolName = request.name;
-        if (request.arguments?[ParameterNames.command]
-            case final String command) {
-          toolName += '.$command';
-        }
         trySendAnalyticsEvent(
           _createDartMCPEvent(
             type: AnalyticsEvent.callTool.name,
             additionalData: CallToolMetrics(
-              tool: toolName,
+              tool: isKnownCommand ? '${tool.name}.$command' : tool.name,
               success: result != null && result.isError != true,
               elapsedMilliseconds: watch.elapsedMilliseconds,
               failureReason:
@@ -156,12 +173,10 @@ base mixin AnalyticsEvents
   Event _createDartMCPEvent({
     required String type,
     CustomMetrics? additionalData,
-  }) => Event.dartMCPEvent(
-    client: clientInfo.name,
-    clientVersion: clientInfo.version,
-    serverVersion: implementation.version,
+  }) => createDartMCPEvent(
+    clientInfo: clientInfo,
+    serverInfo: implementation,
     type: type,
-    agentPlugin: agentPlugin,
     additionalData: additionalData,
   );
 
@@ -172,4 +187,15 @@ base mixin AnalyticsEvents
       log(LoggingLevel.warning, 'Error sending analytics event: $e');
     }
   }
+}
+
+/// The values allowed for the `command` parameter of [tool], according to the
+/// `enum` in its input schema.
+///
+/// Returns an empty set if [tool] has no `command` parameter, or if that
+/// parameter doesn't declare an `enum`.
+Set<String> _knownCommands(Tool tool) {
+  final commandSchema = tool.inputSchema.properties?[ParameterNames.command];
+  if (commandSchema == null) return const {};
+  return {...?(commandSchema as StringSchema).enumValues};
 }
