@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.3
+
+- Commands no longer require running from a Dart or Flutter project root. When
+  no project is found, `skills add` and `skills get` only install skills from
+  git repositories. `skills create` still requires a package.
+
 ## 1.0.2
 
 - Add an `example/` directory documenting common CLI invocations.
