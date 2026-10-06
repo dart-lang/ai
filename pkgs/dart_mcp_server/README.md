@@ -171,11 +171,36 @@ available to the agent. For example, in a GEMINI.md file in your project:
 
 ## Tools
 
+Not all tools are enabled by default. Use the `--enable` and `--disable` flags
+to control which tools are available, by tool name or by category. For example,
+to enable the tools for launching and managing Flutter apps (the
+`flutter_app_lifecycle` category):
+
+```json
+{
+  "mcpServers": {
+    "dart": {
+      "command": "dart",
+      "args": [
+        "mcp-server",
+        "--enable",
+        "flutter_app_lifecycle"
+      ]
+    }
+  }
+}
+```
+
+Enabling a category also enables any tools in that category which are disabled
+by default. Disabling takes precedence over enabling at the same level, and
+names take precedence over categories. Run `dart mcp-server --help` for the
+full list of tool and category names.
+
 <!-- run 'dart tool/update_readme.dart' to update -->
 
 <!-- generated -->
 
-| Tool Name | Title | Description | Categories | Enabled |
+| Tool Name | Title | Description | Categories | Enabled by default |
 | --- | --- | --- | --- | --- |
 | `analyze_files` | Analyze projects | Analyzes specific paths, or the entire project, for errors. | analysis | Yes |
 | `create_project` | Create project | Creates a new Dart or Flutter project. | cli | No |

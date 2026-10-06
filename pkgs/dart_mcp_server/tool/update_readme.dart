@@ -27,7 +27,7 @@ void main(List<String> args) async {
   tools.sortBy((tool) => tool.name);
 
   final buf = StringBuffer('''
-| Tool Name | Title | Description | Categories | Enabled |
+| Tool Name | Title | Description | Categories | Enabled by default |
 | --- | --- | --- | --- | --- |
 ''');
   for (final tool in tools) {

@@ -1,3 +1,9 @@
+## 1.1.4-wip
+
+- Fix the `--enable` help text, which incorrectly said that all features are
+  enabled by default. Document how to enable tools that are disabled by default
+  in the README.
+
 ## 1.1.3
 
 - Only include the `command` argument in the tool name sent to analytics when it
