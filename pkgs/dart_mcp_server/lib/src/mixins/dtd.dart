@@ -12,7 +12,6 @@ import 'package:dds_service_extensions/dds_service_extensions.dart';
 import 'package:dtd/dtd.dart';
 import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:meta/meta.dart';
-import 'package:unified_analytics/unified_analytics.dart' as ua;
 import 'package:vm_service/vm_service.dart';
 import 'package:vm_service/vm_service_io.dart';
 import 'package:web_socket/web_socket.dart';
@@ -162,12 +161,10 @@ base mixin DartToolingDaemonSupport
       watch.stop();
       try {
         analytics?.send(
-          ua.Event.dartMCPEvent(
-            client: clientInfo.name,
-            clientVersion: clientInfo.version,
-            serverVersion: implementation.version,
+          createDartMCPEvent(
+            clientInfo: clientInfo,
+            serverInfo: implementation,
             type: AnalyticsEvent.readResource.name,
-            agentPlugin: agentPlugin,
             additionalData: ReadResourceMetrics(
               kind: ResourceKind.runtimeErrors,
               length: result.contents.length,

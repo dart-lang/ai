@@ -9,6 +9,7 @@ import 'package:dart_mcp_server/src/features_configuration.dart';
 import 'package:dart_mcp_server/src/server.dart';
 import 'package:dart_mcp_server/src/utils/analytics.dart';
 import 'package:dart_mcp_server/src/utils/names.dart';
+import 'package:json_rpc_2/json_rpc_2.dart' show RpcException;
 import 'package:test/test.dart';
 import 'package:unified_analytics/testing.dart';
 import 'package:unified_analytics/unified_analytics.dart';
@@ -262,12 +263,16 @@ void main() {
       );
     });
 
-    test('includes the command in the tool name if present', () async {
+    test('includes known commands in the tool name', () async {
       analytics.sentEvents.clear();
       final tool = Tool(
         name: 'meta_tool',
         inputSchema: Schema.object(
-          properties: {ParameterNames.command: Schema.string()},
+          properties: {
+            ParameterNames.command: EnumSchema.untitledSingleSelect(
+              values: ['hello'],
+            ),
+          },
           required: [ParameterNames.command],
         ),
       )..categories = [FeatureCategory.cli];
@@ -307,6 +312,142 @@ void main() {
       );
     });
 
+    test('does not include unknown commands in the tool name', () async {
+      analytics.sentEvents.clear();
+      final tool = Tool(
+        name: 'meta_tool',
+        inputSchema: Schema.object(
+          properties: {
+            ParameterNames.command: EnumSchema.untitledSingleSelect(
+              values: ['hello'],
+            ),
+          },
+          required: [ParameterNames.command],
+        ),
+      )..categories = [FeatureCategory.cli];
+      server.registerTool(tool, (_) => CallToolResult(content: []));
+      final result = await testHarness.mcpServerConnection.callTool(
+        CallToolRequest(
+          name: tool.name,
+          arguments: {ParameterNames.command: r'hello ${oops}'},
+        ),
+      );
+      expect(result.isError, true);
+      expect(
+        analytics.sentEvents.last,
+        isA<Event>()
+            .having((e) => e.eventName, 'eventName', DashEvent.dartMCPEvent)
+            .having(
+              (e) => e.eventData,
+              'eventData',
+              equals({
+                'client': server.clientInfo.name,
+                'clientVersion': server.clientInfo.version,
+                'serverVersion': server.implementation.version,
+                'type': AnalyticsEvent.callTool.name,
+                'tool': tool.name,
+                'success': false,
+                'failureReason': CallToolFailureReason.noSuchCommand.name,
+                'elapsedMilliseconds': isA<int>(),
+              }),
+            ),
+      );
+    });
+
+    test(
+      'does not include commands for tools without known commands',
+      () async {
+        analytics.sentEvents.clear();
+        final toolWithoutCommands = Tool(
+          name: 'no_commands',
+          inputSchema: Schema.object(),
+        )..categories = [FeatureCategory.cli];
+        final toolWithFreeFormCommands = Tool(
+          name: 'free_form_commands',
+          inputSchema: Schema.object(
+            properties: {ParameterNames.command: Schema.string()},
+          ),
+        )..categories = [FeatureCategory.cli];
+        for (final tool in [toolWithoutCommands, toolWithFreeFormCommands]) {
+          server.registerTool(tool, (_) => CallToolResult(content: []));
+          await testHarness.mcpServerConnection.callTool(
+            CallToolRequest(
+              name: tool.name,
+              arguments: {ParameterNames.command: r'${oops}'},
+            ),
+          );
+          expect(
+            analytics.sentEvents.last,
+            isA<Event>().having((e) => e.eventData['tool'], 'tool', tool.name),
+          );
+        }
+      },
+    );
+
+    test('asserts that command parameters are strings', () {
+      final tool = Tool(
+        name: 'int_commands',
+        inputSchema: Schema.object(
+          properties: {ParameterNames.command: Schema.int()},
+        ),
+      )..categories = [FeatureCategory.cli];
+      expect(
+        () => server.registerTool(tool, (_) => CallToolResult(content: [])),
+        throwsA(isA<AssertionError>()),
+      );
+    });
+
+    test('are not sent for unknown tools', () async {
+      analytics.sentEvents.clear();
+      final result = await testHarness.mcpServerConnection.callTool(
+        CallToolRequest(name: r'not_a_real_tool_${oops}'),
+      );
+      expect(result.isError, true);
+      expect(
+        analytics.sentEvents,
+        isEmpty,
+        reason:
+            'Tool names come directly from the client, so we should never log '
+            'ones that we do not recognize.',
+      );
+    });
+
+    test('can include the commands for all registered tools', () async {
+      final toolsWithCommands = [
+        for (final tool in (await server.listTools()).tools)
+          if (tool.inputSchema.properties?[ParameterNames.command]
+              case final commandSchema?)
+            (tool.name, commandSchema as StringSchema),
+      ];
+      // Make sure we are actually testing something.
+      expect(toolsWithCommands, isNotEmpty);
+      for (final (toolName, commandSchema) in toolsWithCommands) {
+        expect(
+          commandSchema.enumValues ?? const <String>[],
+          isNotEmpty,
+          reason:
+              'The `${ParameterNames.command}` parameter of the `$toolName` '
+              'tool must list its allowed values in an `enum`, because only '
+              'those values are included in analytics.',
+        );
+      }
+    });
+
+    test('can include the names of all registered prompts', () async {
+      final promptNames = [
+        for (final prompt in (await server.listPrompts()).prompts) prompt.name,
+      ];
+      // Make sure we are actually testing something.
+      expect(promptNames, isNotEmpty);
+      expect(
+        promptNames,
+        everyElement(isIn(PromptNames.values.map((p) => p.name))),
+        reason:
+            'All prompts must be listed in `PromptNames`, because only those '
+            'prompt names are included in analytics.',
+      );
+    });
+
     test('includes custom metrics if provided', () async {
       analytics.sentEvents.clear();
       final tool = Tool(name: 'hello', inputSchema: Schema.object())
@@ -333,8 +474,10 @@ void main() {
     });
 
     group('are sent for prompts', () {
+      // We only log the names of the prompts that are set up by this server,
+      // so this fake prompt replaces one of those.
       final helloPrompt = Prompt(
-        name: 'hello',
+        name: PromptNames.flutterDriverUserJourneyTest.name,
         arguments: [PromptArgument(name: 'name', required: false)],
       )..categories = [FeatureCategory.cli];
       GetPromptResult getHelloPrompt(GetPromptRequest request) {
@@ -358,7 +501,9 @@ void main() {
       }
 
       setUp(() {
-        server.addPrompt(helloPrompt, getHelloPrompt);
+        server
+          ..removePrompt(helloPrompt.name)
+          ..addPrompt(helloPrompt, getHelloPrompt);
       });
 
       test('with no arguments', () async {
@@ -445,6 +590,35 @@ void main() {
                   'success': false,
                   'elapsedMilliseconds': isA<int>(),
                   'withArguments': true,
+                }),
+              ),
+        );
+      });
+
+      test('without the name if it is unknown', () async {
+        analytics.sentEvents.clear();
+        await expectLater(
+          testHarness.getPrompt(
+            GetPromptRequest(name: r'not_a_real_prompt_${oops}'),
+          ),
+          throwsA(isA<RpcException>()),
+        );
+        expect(
+          analytics.sentEvents.last,
+          isA<Event>()
+              .having((e) => e.eventName, 'eventName', DashEvent.dartMCPEvent)
+              .having(
+                (e) => e.eventData,
+                'eventData',
+                equals({
+                  'client': server.clientInfo.name,
+                  'clientVersion': server.clientInfo.version,
+                  'serverVersion': server.implementation.version,
+                  'type': AnalyticsEvent.getPrompt.name,
+                  'success': false,
+                  'failureReason': GetPromptFailureReason.noSuchPrompt.name,
+                  'elapsedMilliseconds': isA<int>(),
+                  'withArguments': false,
                 }),
               ),
         );

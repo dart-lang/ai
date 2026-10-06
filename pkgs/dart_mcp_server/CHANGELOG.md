@@ -1,3 +1,13 @@
+## 1.1.3
+
+- Only include the `command` argument in the tool name sent to analytics when it
+  is one of the commands the tool supports, and report unsupported commands as
+  `noSuchCommand` failures.
+- Only send the names of this server's own prompts to analytics, and report
+  requests for any other prompt as `noSuchPrompt` failures.
+- Sanitize the client name, client version, and agent plugin before sending them
+  to analytics.
+
 ## 1.1.2
 
 - Let the `create` tool pass the project root to the underlying CLI, and reject
