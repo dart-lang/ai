@@ -1,4 +1,4 @@
-## 1.1.3-dev
+## 1.1.3
 
 - Only include the `command` argument in the tool name sent to analytics when it
   is one of the commands the tool supports, and report unsupported commands as
