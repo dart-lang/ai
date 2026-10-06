@@ -1552,7 +1552,7 @@ base mixin DartToolingDaemonSupport
         'Manage and interact with VM service connections. This tool '
         'allows you to connect to an app using its VM service URI, disconnect '
         'from it, invoke VM service methods directly, or list the services '
-        'that VM service clients (such as DevTools) registered on it. '
+        'that VM service clients registered on it. '
         'Connecting allows features like hot reload to work on apps not '
         'launched via DTD.',
     annotations: ToolAnnotations(title: 'VM Service'),
@@ -1865,6 +1865,8 @@ class _AppListener {
                   serviceRegistrations.remove(serviceName);
                   registeredServices.remove(serviceName);
                 } else if (registeredServices[serviceName] == e.method) {
+                  // Other clients still provide this service, so keep it
+                  // available but point it at a remaining registration.
                   registeredServices[serviceName] = remaining.keys.last;
                 }
             }

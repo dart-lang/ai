@@ -199,7 +199,7 @@ available to the agent. For example, in a GEMINI.md file in your project:
 | `roots` |  | Manage project roots. | None | Yes |
 | `run_tests` | Run tests | Run Dart or Flutter tests with an agent centric UX. ALWAYS use instead of `dart test` or `flutter test` shell commands. | cli | No |
 | `stop_app` |  | Kills a running Flutter process started by the launch_app tool. | flutter, flutter_app_lifecycle | No |
-| `vm_service` | VM Service | Manage and interact with VM service connections. This tool allows you to connect to an app using its VM service URI, disconnect from it, invoke VM service methods directly, or list the services that VM service clients (such as DevTools) registered on it. Connecting allows features like hot reload to work on apps not launched via DTD. | dart_tooling_daemon | Yes |
+| `vm_service` | VM Service | Manage and interact with VM service connections. This tool allows you to connect to an app using its VM service URI, disconnect from it, invoke VM service methods directly, or list the services that VM service clients registered on it. Connecting allows features like hot reload to work on apps not launched via DTD. | dart_tooling_daemon | Yes |
 | `widget_inspector` | Widget Inspector | Interact with the Flutter widget inspector in the active Flutter application. Requires an active DTD connection. | flutter | Yes |
 
 <!-- generated -->
