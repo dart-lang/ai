@@ -54,7 +54,7 @@ class TestEnvironment<Client extends MCPClient, Server extends MCPServer> {
   /// notification, then returns the original [InitializeResult] for tests
   /// to inspect if desired.
   Future<InitializeResult> initializeServer({
-    ProtocolVersion protocolVersion = ProtocolVersion.latestSupported,
+    ProtocolVersion protocolVersion = ProtocolVersion.lastLegacyVersion,
   }) async {
     final initializeResult = await serverConnection.initialize(
       InitializeRequest(
@@ -65,7 +65,7 @@ class TestEnvironment<Client extends MCPClient, Server extends MCPServer> {
     );
 
     /// Only notify initialized if we got a supported protocol version
-    if (initializeResult.protocolVersion?.isSupported == true) {
+    if (initializeResult.protocolVersion?.isLegacyVersion == true) {
       serverConnection.notifyInitialized(InitializedNotification());
       await server.initialized;
     }

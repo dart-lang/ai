@@ -43,6 +43,13 @@
   `MCPBase.sendRequestKeepingProgress` throws a `StateError` when the calling
   handler's own request has been cancelled.
 - Add a Streamable HTTP client example under `example/`.
+- Add `ServerConnection.initializeAcrossVersions` for initializing a
+  connection to a server that may predate 2026-07-28. It takes an
+  `MCPServerInitialization`, now also exported from
+  `package:dart_mcp/client.dart`, and returns an `InitializedServer`.
+- Deprecate `ServerConnection.initialize`. Use `initializeAcrossVersions`
+  instead, which settles the version through discovery or the legacy
+  handshake.
 - **BREAKING**:
   - `MCPBase` (including the `MCPServer.fromStreamChannel` and
     `ServerConnection.fromStreamChannel` constructors),
@@ -180,6 +187,8 @@
     keeping a plain `tools/call` result from carrying tool content by
     accident. `ToolResultContent.content` still reads `List<Content>`,
     the union a tool result's payload uses in the schema.
+  - Rename `ProtocolVersion.isSupported` to `isLegacyVersion` and
+    `ProtocolVersion.latestSupported` to `lastLegacyVersion`.
 - Cap the request body in `handleStreamableHttpRequest` at
   `maxRequestBodyBytes`, 4 MiB by default.
   Larger bodies get `413` and an invalid request error. The same cap is the
@@ -348,7 +357,7 @@
   `ProgressToken` uses, so `CancelledNotification.requestId` threw for every
   id a peer can send and no id could be constructed to pass to the
   `CancelledNotification` factory.
-- Add `ProtocolVersion.v2026_07_28`. `ProtocolVersion.latestSupported` still
+- Add `ProtocolVersion.v2026_07_28`. `ProtocolVersion.lastLegacyVersion` still
   points at 2025-11-25, the newest version the legacy `initialize` handshake
   negotiates; transports for the request-scoped protocol carry their own set
   of supported versions.
