@@ -1,3 +1,9 @@
+## 1.2.1-wip
+
+- Fix the `--enable` help text, which incorrectly said that all features are
+  enabled by default. Document how to enable tools that are disabled by default
+  in the README.
+
 ## 1.2.0
 
 - Add a `listRegisteredServices` command to the `vm_service` tool, which lists

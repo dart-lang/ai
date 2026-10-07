@@ -73,8 +73,10 @@ ArgParser createArgParser({
         ..addMultiOption(
           enabledFeaturesOption,
           help:
-              'The names or categories of features to enable. All features are '
-              'always enabled by default, but this can be used to override a '
+              'The names or categories of features to enable. Most features '
+              'are enabled by default, but some are not and must be enabled '
+              'by name or by category. See the README for which tools are '
+              'enabled by default. This can also be used to override a '
               'disabled category to re-enable more specific features under '
               'that category.',
           allowed: allFeatureAndCategoryNames,
