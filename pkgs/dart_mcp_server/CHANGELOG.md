@@ -1,3 +1,29 @@
+## 1.2.1-wip
+
+- Fix the `--enable` help text, which incorrectly said that all features are
+  enabled by default. Document how to enable tools that are disabled by default
+  in the README.
+
+## 1.2.0
+
+- Add a `listRegisteredServices` command to the `vm_service` tool, which lists
+  the services that VM service clients registered on a running app, with their
+  human readable aliases.
+- The `vm_service` tool's `callMethod` command now accepts the name a service
+  was registered with, and calls the namespaced method (e.g. `s1.myService`)
+  for it. If more than one client registered the service, it returns an error
+  listing the method names and aliases to choose from.
+
+## 1.1.3
+
+- Only include the `command` argument in the tool name sent to analytics when it
+  is one of the commands the tool supports, and report unsupported commands as
+  `noSuchCommand` failures.
+- Only send the names of this server's own prompts to analytics, and report
+  requests for any other prompt as `noSuchPrompt` failures.
+- Sanitize the client name, client version, and agent plugin before sending them
+  to analytics.
+
 ## 1.1.2
 
 - Let the `create` tool pass the project root to the underlying CLI, and reject

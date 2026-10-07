@@ -251,15 +251,14 @@ ignore:
   });
 
   group('Given a directory without any pubspec.yaml in tree', () {
-    test('when resolving then throws StateError', () async {
+    test('when resolving then returns an empty workspace', () async {
       await d.dir('empty_dir').create();
 
       const resolver = WorkspaceResolver();
+      final layout = await resolver.resolve(d.path('empty_dir'));
 
-      expect(
-        () => resolver.resolve(d.path('empty_dir')),
-        throwsA(isA<StateError>()),
-      );
+      expect(layout.rootPath, equals(d.path('empty_dir')));
+      expect(layout.packages, isEmpty);
     });
   });
 

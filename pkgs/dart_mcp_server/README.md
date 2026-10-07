@@ -171,11 +171,36 @@ available to the agent. For example, in a GEMINI.md file in your project:
 
 ## Tools
 
+Not all tools are enabled by default. Use the `--enable` and `--disable` flags
+to control which tools are available, by tool name or by category. For example,
+to enable the tools for launching and managing Flutter apps (the
+`flutter_app_lifecycle` category):
+
+```json
+{
+  "mcpServers": {
+    "dart": {
+      "command": "dart",
+      "args": [
+        "mcp-server",
+        "--enable",
+        "flutter_app_lifecycle"
+      ]
+    }
+  }
+}
+```
+
+Enabling a category also enables any tools in that category which are disabled
+by default. Disabling takes precedence over enabling at the same level, and
+names take precedence over categories. Run `dart mcp-server --help` for the
+full list of tool and category names.
+
 <!-- run 'dart tool/update_readme.dart' to update -->
 
 <!-- generated -->
 
-| Tool Name | Title | Description | Categories | Enabled |
+| Tool Name | Title | Description | Categories | Enabled by default |
 | --- | --- | --- | --- | --- |
 | `analyze_files` | Analyze projects | Analyzes specific paths, or the entire project, for errors. | analysis | Yes |
 | `create_project` | Create project | Creates a new Dart or Flutter project. | cli | No |
@@ -199,7 +224,7 @@ available to the agent. For example, in a GEMINI.md file in your project:
 | `roots` |  | Manage project roots. | None | Yes |
 | `run_tests` | Run tests | Run Dart or Flutter tests with an agent centric UX. ALWAYS use instead of `dart test` or `flutter test` shell commands. | cli | No |
 | `stop_app` |  | Kills a running Flutter process started by the launch_app tool. | flutter, flutter_app_lifecycle | No |
-| `vm_service` | VM Service | Manage and interact with VM service connections. This tool allows you to connect to an app using its VM service URI, disconnect from it, or invoke VM service methods directly. Connecting allows features like hot reload to work on apps not launched via DTD. | dart_tooling_daemon | Yes |
+| `vm_service` | VM Service | Manage and interact with VM service connections. This tool allows you to connect to an app using its VM service URI, disconnect from it, invoke VM service methods directly, or list the services that VM service clients registered on it. Connecting allows features like hot reload to work on apps not launched via DTD. | dart_tooling_daemon | Yes |
 | `widget_inspector` | Widget Inspector | Interact with the Flutter widget inspector in the active Flutter application. Requires an active DTD connection. | flutter | Yes |
 
 <!-- generated -->

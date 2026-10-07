@@ -36,15 +36,14 @@ void main() async {
   // Below 2026-07-28 the server's `InputRequiredResult` reaches this client as
   // an `elicitation/create` request, answered by `handleElicitation`. On
   // 2026-07-28 it arrives as the call's own result and the guard below fires.
-  final initializeResult = await server.initialize(
-    InitializeRequest(
-      protocolVersion: ProtocolVersion.latestSupported,
-      capabilities: client.capabilities,
+  final initializeResult = await server.initializeAcrossVersions(
+    MCPServerInitialization(
+      protocolVersion: ProtocolVersion.v2026_07_28,
+      clientCapabilities: client.capabilities,
       clientInfo: client.implementation,
     ),
   );
-  print('initialized on ${initializeResult.protocolVersion?.versionString}');
-  server.notifyInitialized();
+  print('initialized on ${initializeResult.protocolVersion.versionString}');
 
   // The tool takes no arguments. It asks for the name it greets instead.
   final result = await server.callTool(CallToolRequest(name: 'greet'));
