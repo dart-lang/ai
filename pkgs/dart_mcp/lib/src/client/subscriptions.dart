@@ -64,6 +64,7 @@ final class Subscription {
 
   final Future<void> _requestSent;
 
+  /// The connection streams the local view reads on older versions.
   final _localListeners = <StreamSubscription<Notification?>>[];
 
   /// The JSON-RPC ID of the `subscriptions/listen` request that opened this
