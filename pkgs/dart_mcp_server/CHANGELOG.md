@@ -1,8 +1,18 @@
-## 1.1.4-wip
+## 1.2.1-wip
 
 - Fix the `--enable` help text, which incorrectly said that all features are
   enabled by default. Document how to enable tools that are disabled by default
   in the README.
+
+## 1.2.0
+
+- Add a `listRegisteredServices` command to the `vm_service` tool, which lists
+  the services that VM service clients registered on a running app, with their
+  human readable aliases.
+- The `vm_service` tool's `callMethod` command now accepts the name a service
+  was registered with, and calls the namespaced method (e.g. `s1.myService`)
+  for it. If more than one client registered the service, it returns an error
+  listing the method names and aliases to choose from.
 
 ## 1.1.3
 
