@@ -1022,24 +1022,52 @@ base class ServerConnection extends MCPBase {
 
   final RequestCancellation? _requestCancellation;
 
-  /// Opens a `subscriptions/listen` stream for the types [notifications]
-  /// names.
+  /// Opens a subscription for the types [notifications] names across protocol
+  /// versions.
   ///
-  /// This sends `subscriptions/listen` and returns a [Subscription] for its
-  /// request ID. The server acknowledges the accepted filter, then
-  /// notifications carrying that ID reach [Subscription.notifications]. The
+  /// On versions defining `subscriptions/listen`, sends that request with
+  /// [meta]. The server acknowledges the accepted filter, then notifications
+  /// carrying its request ID reach [Subscription.notifications]. The
   /// subscription ends when the client closes it, the server cancels or
   /// completes it, or the connection ends.
   ///
+  /// On older versions, sends nothing and immediately acknowledges only the
+  /// requested list-changed types [serverCapabilities] supports. Notifications
+  /// are a local view of the connection's list-changed streams, and closing
+  /// the subscription sends nothing. Its [Subscription.id] is `null`, and
+  /// [meta] is not sent. `resourceSubscriptions` is never acknowledged on
+  /// these versions; use [subscribeResource] and [resourceUpdated] instead.
+  ///
   /// Returns before the server sees the request, so subscribe to
   /// [Subscription.notifications] synchronously.
-  ///
-  /// You should check the [protocolVersion] before using this API, it must be
-  /// >= [ProtocolVersion.v2026_07_28].
   Subscription listen(
     SubscriptionFilter notifications, {
     required MetaWithRequestEnvelope meta,
   }) {
+    final version = protocolVersion;
+    if (version != null &&
+        !version.methodIsValid(SubscriptionsListenRequest.methodName)) {
+      return Subscription._local(
+        this,
+        SubscriptionFilter(
+          toolsListChanged:
+              notifications.toolsListChanged == true &&
+                      serverCapabilities.tools?.listChanged == true
+                  ? true
+                  : null,
+          promptsListChanged:
+              notifications.promptsListChanged == true &&
+                      serverCapabilities.prompts?.listChanged == true
+                  ? true
+                  : null,
+          resourcesListChanged:
+              notifications.resourcesListChanged == true &&
+                      serverCapabilities.resources?.listChanged == true
+                  ? true
+                  : null,
+        ),
+      );
+    }
     final sent = sendRequestWithId<SubscriptionsListenResult>(
       SubscriptionsListenRequest.methodName,
       request: SubscriptionsListenRequest(
@@ -1090,7 +1118,7 @@ base class ServerConnection extends MCPBase {
     final subscription = _subscriptions[notification.requestId];
     if (subscription == null) return;
     unawaited(subscription._finish());
-    completeRequestLocally(this, subscription.id);
+    completeRequestLocally(this, subscription.id!);
   }
 
   /// Reports the acknowledged filter to the subscription [notification] names.

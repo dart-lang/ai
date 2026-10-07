@@ -7,11 +7,11 @@ part of 'client.dart';
 /// A notification and the method it arrived under on a subscription.
 typedef SubscriptionNotification = ({String method, Notification params});
 
-/// One open `subscriptions/listen` stream, opened by
-/// [ServerConnection.listen].
+/// One open subscription, opened by [ServerConnection.listen].
 ///
-/// The server stamps the [id] of that request on every message it sends on
-/// the stream, so one connection can carry several subscriptions.
+/// On versions defining `subscriptions/listen`, the server stamps the [id] of
+/// that request on every message it sends on the stream. On older versions,
+/// this is a local view of the connection's list-changed notifications.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/subscriptions.
 final class Subscription {
@@ -31,17 +31,48 @@ final class Subscription {
     _acknowledged.future.ignore();
   }
 
+  Subscription._local(this._connection, SubscriptionFilter accepted)
+    : id = null,
+      _requestSent = Future<void>.value() {
+    _acknowledge(accepted);
+    if (accepted.toolsListChanged == true) {
+      _listenLocal(
+        ToolListChangedNotification.methodName,
+        _connection.toolListChanged,
+      );
+    }
+    if (accepted.promptsListChanged == true) {
+      _listenLocal(
+        PromptListChangedNotification.methodName,
+        _connection.promptListChanged,
+      );
+    }
+    if (accepted.resourcesListChanged == true) {
+      _listenLocal(
+        ResourceListChangedNotification.methodName,
+        _connection.resourceListChanged,
+      );
+    }
+    _connection.done
+        .then<void>((_) => _finish(), onError: _finishWithError)
+        .ignore();
+    _done.future.ignore();
+  }
+
   /// The connection this subscription reads its notifications from.
   final ServerConnection _connection;
 
   final Future<void> _requestSent;
+
+  final _localListeners = <StreamSubscription<Notification?>>[];
 
   /// The JSON-RPC ID of the `subscriptions/listen` request that opened this
   /// subscription.
   ///
   /// Every message the server sends on the stream carries it under the
   /// `io.modelcontextprotocol/subscriptionId` metadata key.
-  final RequestId id;
+  /// On older versions this is `null`, because no request is sent.
+  final RequestId? id;
 
   /// Completes [acknowledged].
   final _acknowledged = Completer<SubscriptionFilter>();
@@ -49,7 +80,8 @@ final class Subscription {
   /// Carries [notifications].
   final _notifications = StreamController<SubscriptionNotification>.broadcast();
 
-  /// The notification types the server agreed to send.
+  /// The notification types the server agreed to send, or the requested
+  /// list-changed types its capabilities support on older versions.
   ///
   /// An unsupported type is left out instead of sent back as `false`, so
   /// compare this against what was asked for. Errors if the subscription ends
@@ -80,9 +112,18 @@ final class Subscription {
     if (!_acknowledged.isCompleted) _acknowledged.complete(accepted);
   }
 
+  void _listenLocal(String method, Stream<Notification?> notifications) {
+    _localListeners.add(
+      notifications.listen((notification) {
+        _forward(method, (notification as Map<String, Object?>?) ?? {});
+      }),
+    );
+  }
+
   /// Adds [params] under [method], once this subscription is acknowledged
   /// and still open.
   ///
+  /// On versions defining `subscriptions/listen`,
   /// [ServerConnection._forwardSubscriptionNotification] has already matched
   /// [params] to this subscription's [id].
   void _forward(String method, Map<String, Object?> params) {
@@ -93,6 +134,8 @@ final class Subscription {
   }
 
   Future<void> _close() async {
+    final id = this.id;
+    if (id == null) return _finish();
     try {
       await _requestSent;
       await _connection._cancelSubscription(id);
@@ -108,6 +151,10 @@ final class Subscription {
 
   Future<void> _finishOnce({Object? error, StackTrace? stackTrace}) {
     _connection._subscriptions.remove(id);
+    for (final listener in _localListeners) {
+      unawaited(listener.cancel());
+    }
+    _localListeners.clear();
     if (!_acknowledged.isCompleted) {
       _acknowledged.completeError(
         error ?? StateError('Closed before acknowledgement.'),
@@ -133,7 +180,7 @@ final class Subscription {
 
   Future<void> _finishSendFailure(Object error, StackTrace stackTrace) {
     final finished = _finishWithError(error, stackTrace);
-    completeRequestLocally(_connection, id);
+    completeRequestLocally(_connection, id!);
     return finished;
   }
 }

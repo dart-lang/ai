@@ -504,7 +504,7 @@ void main() {
         Keys.jsonrpc: '2.0',
         Keys.id: subscription.id,
         Keys.result: SubscriptionsListenResult(
-          meta: MetaWithSubscriptionId(subscriptionId: subscription.id),
+          meta: MetaWithSubscriptionId(subscriptionId: subscription.id!),
         ),
       });
       await subscription.done;
@@ -715,7 +715,7 @@ void main() {
     controller.local.sink.add({
       Keys.jsonrpc: '2.0',
       Keys.method: CancelledNotification.methodName,
-      Keys.params: CancelledNotification(requestId: cancelled.id),
+      Keys.params: CancelledNotification(requestId: cancelled.id!),
     });
     await cancelled.done.timeout(const Duration(seconds: 5));
     await expectLater(connection.pendingResults[cancelled.id]!, completes);
@@ -725,7 +725,7 @@ void main() {
         Keys.jsonrpc: '2.0',
         Keys.method: ToolListChangedNotification.methodName,
         Keys.params: ToolListChangedNotification.fromMap({
-          Keys.meta: MetaWithSubscriptionId(subscriptionId: cancelled.id),
+          Keys.meta: MetaWithSubscriptionId(subscriptionId: cancelled.id!),
           'late': true,
         }),
       })
@@ -738,7 +738,7 @@ void main() {
         Keys.jsonrpc: '2.0',
         Keys.method: ToolListChangedNotification.methodName,
         Keys.params: ToolListChangedNotification(
-          meta: MetaWithSubscriptionId(subscriptionId: remaining.id),
+          meta: MetaWithSubscriptionId(subscriptionId: remaining.id!),
         ),
       });
     await pumpEventQueue();
@@ -772,7 +772,7 @@ void main() {
       Keys.jsonrpc: '2.0',
       Keys.id: remaining.id,
       Keys.result: SubscriptionsListenResult(
-        meta: MetaWithSubscriptionId(subscriptionId: remaining.id),
+        meta: MetaWithSubscriptionId(subscriptionId: remaining.id!),
       ),
     });
     await remaining.done;
@@ -793,7 +793,7 @@ void main() {
     await subscription.close().timeout(const Duration(seconds: 5));
     await subscription.done.timeout(const Duration(seconds: 5));
     await subscription.close().timeout(const Duration(seconds: 5));
-    notifyToolsListChanged(other.id);
+    notifyToolsListChanged(other.id!);
     await pumpEventQueue();
     expect(otherEvents, hasLength(1));
     await expectLater(environment.serverConnection.ping(), completes);
@@ -882,7 +882,7 @@ void main() {
         reason: 'two subscriptions on one connection get two request IDs',
       );
 
-      notifyToolsListChanged(second.id);
+      notifyToolsListChanged(second.id!);
       await pumpEventQueue();
 
       expect(
@@ -893,7 +893,7 @@ void main() {
       expect(secondEvents, hasLength(1));
       expect(subscriptionIdOf(secondEvents.single), second.id);
 
-      notifyToolsListChanged(first.id);
+      notifyToolsListChanged(first.id!);
       await pumpEventQueue();
 
       expect(firstEvents, hasLength(1));
@@ -918,7 +918,7 @@ void main() {
     final listener = subscription.notifications.listen(events.add);
     addTearDown(listener.cancel);
     await subscription.acknowledged.timeout(const Duration(seconds: 5));
-    final meta = MetaWithSubscriptionId(subscriptionId: subscription.id);
+    final meta = MetaWithSubscriptionId(subscriptionId: subscription.id!);
 
     environment.server
       ..sendNotification(
@@ -1004,7 +1004,7 @@ void main() {
     addTearDown(connectionListener.cancel);
     await subscription.acknowledged.timeout(const Duration(seconds: 5));
 
-    notifyToolsListChanged(subscription.id);
+    notifyToolsListChanged(subscription.id!);
     await pumpEventQueue();
 
     expect(subscriptionEvents, hasLength(1));
@@ -1159,5 +1159,270 @@ void main() {
     listener.resume();
     expect(await streamError.future, isA<RpcException>());
     await streamDone.future;
+  });
+
+  group('legacy subscriptions', () {
+    late TestEnvironment<TestMCPClient, TestMCPServer> legacy;
+
+    Future<void> initializeLegacy([ServerCapabilities? capabilities]) async {
+      legacy = TestEnvironment(
+        TestMCPClient(),
+        TestMCPServer.new,
+        protocolLogSink: protocolLog,
+      );
+      (legacy.server.capabilities as Map<String, Object?>).addAll(
+        (capabilities ??
+                ServerCapabilities(
+                  tools: Tools(listChanged: true),
+                  prompts: Prompts(listChanged: true),
+                  resources: Resources(listChanged: true, subscribe: true),
+                ))
+            as Map<String, Object?>,
+      );
+      await legacy.initializeServer(
+        protocolVersion: ProtocolVersion.v2025_11_25,
+      );
+    }
+
+    Subscription listenLegacy([SubscriptionFilter? notifications]) =>
+        legacy.serverConnection.listen(
+          notifications ?? SubscriptionFilter(toolsListChanged: true),
+          meta: MetaWithRequestEnvelope(
+            protocolVersion: ProtocolVersion.v2025_11_25,
+            capabilities: legacy.client.capabilities,
+          ),
+        );
+
+    void notifyListChanges() {
+      legacy.server
+        ..sendNotification(
+          ToolListChangedNotification.methodName,
+          ToolListChangedNotification(),
+        )
+        ..sendNotification(
+          PromptListChangedNotification.methodName,
+          PromptListChangedNotification(),
+        )
+        ..sendNotification(
+          ResourceListChangedNotification.methodName,
+          ResourceListChangedNotification(),
+        );
+    }
+
+    test('sends neither a listen request nor a cancellation', () async {
+      await initializeLegacy();
+      protocolLog.lines.clear();
+      final subscription = listenLegacy();
+
+      expect(subscription.id, isNull);
+      expect((await subscription.acknowledged).toolsListChanged, isTrue);
+      await subscription.close();
+      await pumpEventQueue();
+
+      expect(protocolLog.lines, isEmpty);
+    });
+
+    for (final listChanged in [true, false, null]) {
+      test('acknowledges capabilities with listChanged $listChanged', () async {
+        await initializeLegacy(
+          ServerCapabilities(
+            tools: Tools(listChanged: listChanged),
+            prompts: Prompts(listChanged: listChanged),
+            resources: Resources(listChanged: listChanged, subscribe: true),
+          ),
+        );
+        final subscription = listenLegacy(
+          SubscriptionFilter(
+            toolsListChanged: true,
+            promptsListChanged: true,
+            resourcesListChanged: true,
+            resourceSubscriptions: ['file:///watched.txt'],
+          ),
+        );
+        final accepted = await subscription.acknowledged.timeout(Duration.zero);
+
+        expect(
+          accepted.toolsListChanged,
+          listChanged == true ? isTrue : isNull,
+        );
+        expect(
+          accepted.promptsListChanged,
+          listChanged == true ? isTrue : isNull,
+        );
+        expect(
+          accepted.resourcesListChanged,
+          listChanged == true ? isTrue : isNull,
+        );
+        expect(accepted.resourceSubscriptions, isNull);
+      });
+    }
+
+    test('leaves missing capabilities unacknowledged', () async {
+      await initializeLegacy(ServerCapabilities());
+      final subscription = listenLegacy(
+        SubscriptionFilter(
+          toolsListChanged: true,
+          promptsListChanged: true,
+          resourcesListChanged: true,
+        ),
+      );
+
+      expect(await subscription.acknowledged, isEmpty);
+    });
+
+    test('forwards only accepted list changes from the connection', () async {
+      await initializeLegacy(
+        ServerCapabilities(
+          tools: Tools(listChanged: true),
+          prompts: Prompts(listChanged: false),
+          resources: Resources(listChanged: true, subscribe: true),
+        ),
+      );
+      final subscription = listenLegacy(
+        SubscriptionFilter(
+          toolsListChanged: true,
+          promptsListChanged: true,
+          resourcesListChanged: true,
+          resourceSubscriptions: ['file:///watched.txt'],
+        ),
+      );
+      final events = <SubscriptionNotification>[];
+      final listener = subscription.notifications.listen(events.add);
+      addTearDown(listener.cancel);
+      final connectionEvents = <ToolListChangedNotification?>[];
+      final connectionListener = legacy.serverConnection.toolListChanged.listen(
+        connectionEvents.add,
+      );
+      addTearDown(connectionListener.cancel);
+      await subscription.acknowledged;
+
+      notifyListChanges();
+      legacy.server.sendNotification(
+        ResourceUpdatedNotification.methodName,
+        ResourceUpdatedNotification(uri: 'file:///watched.txt'),
+      );
+      await pumpEventQueue();
+
+      expect(events.map((event) => event.method), [
+        ToolListChangedNotification.methodName,
+        ResourceListChangedNotification.methodName,
+      ]);
+      expect(events.first.params, same(connectionEvents.single));
+    });
+
+    test('leaves false and omitted filter types out', () async {
+      await initializeLegacy();
+      final subscription = listenLegacy(
+        SubscriptionFilter(toolsListChanged: true, promptsListChanged: false),
+      );
+      final events = <SubscriptionNotification>[];
+      final listener = subscription.notifications.listen(events.add);
+      addTearDown(listener.cancel);
+      final accepted = await subscription.acknowledged;
+
+      expect(accepted.toolsListChanged, isTrue);
+      expect(accepted.promptsListChanged, isNull);
+      expect(accepted.resourcesListChanged, isNull);
+      notifyListChanges();
+      await pumpEventQueue();
+
+      expect(events.map((event) => event.method), [
+        ToolListChangedNotification.methodName,
+      ]);
+    });
+
+    test(
+      'preserves each list change method, including omitted params',
+      () async {
+        await initializeLegacy();
+        final subscription = listenLegacy(
+          SubscriptionFilter(
+            toolsListChanged: true,
+            promptsListChanged: true,
+            resourcesListChanged: true,
+          ),
+        );
+        final events = <SubscriptionNotification>[];
+        final listener = subscription.notifications.listen(events.add);
+        addTearDown(listener.cancel);
+        await subscription.acknowledged;
+
+        for (final method in [
+          ToolListChangedNotification.methodName,
+          PromptListChangedNotification.methodName,
+          ResourceListChangedNotification.methodName,
+        ]) {
+          legacy.server.sendNotification(method);
+        }
+        await pumpEventQueue();
+
+        expect(events.map((event) => event.method), [
+          ToolListChangedNotification.methodName,
+          PromptListChangedNotification.methodName,
+          ResourceListChangedNotification.methodName,
+        ]);
+        expect(events.map((event) => event.params), everyElement(isEmpty));
+      },
+    );
+
+    test('close finishes the handle even with a paused listener', () async {
+      await initializeLegacy();
+      final subscription = listenLegacy();
+      var closed = false;
+      final listener = subscription.notifications.listen(
+        (_) {},
+        onDone: () => closed = true,
+      );
+      listener.pause();
+      addTearDown(listener.cancel);
+
+      await subscription.close().timeout(const Duration(seconds: 5));
+      await subscription.done.timeout(const Duration(seconds: 5));
+      await subscription.close();
+      expect(closed, isFalse);
+      listener.resume();
+      await pumpEventQueue();
+      expect(closed, isTrue);
+      expect(legacy.serverConnection.isActive, isTrue);
+    });
+
+    test('two handles remain independent when one closes', () async {
+      await initializeLegacy();
+      final first = listenLegacy();
+      final second = listenLegacy();
+      final firstEvents = <SubscriptionNotification>[];
+      final firstListener = first.notifications.listen(firstEvents.add);
+      addTearDown(firstListener.cancel);
+      final secondEvents = <SubscriptionNotification>[];
+      final secondListener = second.notifications.listen(secondEvents.add);
+      addTearDown(secondListener.cancel);
+      var secondDone = false;
+      unawaited(second.done.then((_) => secondDone = true));
+
+      notifyListChanges();
+      await pumpEventQueue();
+      expect(firstEvents, hasLength(1));
+      expect(secondEvents, hasLength(1));
+      await first.close();
+      notifyListChanges();
+      await pumpEventQueue();
+
+      expect(firstEvents, hasLength(1));
+      expect(secondEvents, hasLength(2));
+      expect(secondDone, isFalse);
+      await second.close();
+      await second.done;
+    });
+
+    test('closing the connection finishes an open handle', () async {
+      await initializeLegacy();
+      final subscription = listenLegacy();
+      final notifications = subscription.notifications.toList();
+
+      await legacy.serverConnection.shutdown();
+      await subscription.done.timeout(const Duration(seconds: 5));
+      expect(await notifications, isEmpty);
+      await subscription.close();
+    });
   });
 }
