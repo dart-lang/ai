@@ -58,10 +58,10 @@ extension type SubscriptionsListenRequest.fromMap(Map<String, Object?> _value)
 
   factory SubscriptionsListenRequest({
     required SubscriptionFilter notifications,
-    MetaWithProgressToken? meta,
+    required MetaWithRequestEnvelope meta,
   }) => SubscriptionsListenRequest.fromMap({
     Keys.notifications: notifications,
-    if (meta != null) Keys.meta: meta,
+    Keys.meta: meta,
   });
 
   /// The notification types this request opts in to.
