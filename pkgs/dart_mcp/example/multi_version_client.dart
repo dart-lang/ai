@@ -53,15 +53,15 @@ void main() async {
       capabilities: client.capabilities,
     ),
   );
+  final toolChanges = subscription.notifications.listen((notification) async {
+    if (notification.method == ToolListChangedNotification.methodName) {
+      final tools = await server.listTools();
+      print('tools: ${tools.tools.map((tool) => tool.name).join(', ')}');
+    }
+  });
   final accepted = await subscription.acknowledged;
-  StreamSubscription<SubscriptionNotification>? toolChanges;
-  if (accepted.toolsListChanged == true) {
-    toolChanges = subscription.notifications.listen((notification) async {
-      if (notification.method == ToolListChangedNotification.methodName) {
-        final tools = await server.listTools();
-        print('tools: ${tools.tools.map((tool) => tool.name).join(', ')}');
-      }
-    });
+  if (accepted.toolsListChanged != true) {
+    print('tool list changes not accepted');
   }
 
   // The tool takes no arguments. It asks for the name it greets instead.
@@ -76,8 +76,8 @@ void main() async {
     if (content.isText) print((content as TextContent).text);
   }
 
+  await toolChanges.cancel();
   await subscription.close();
-  await toolChanges?.cancel();
   await client.shutdown();
 }
 
