@@ -1,5 +1,9 @@
 ## 1.2.1-wip
 
+- When the Flutter SDK cannot be found, the error now says which Dart SDK the
+  server is using and where that path came from (an explicit path such as
+  `--dart-sdk`, `DART_ROOT`, `DART_SDK`, or the running executable), and
+  mentions `--flutter-sdk`.
 - Fix the `--enable` help text, which incorrectly said that all features are
   enabled by default. Document how to enable tools that are disabled by default
   in the README.
