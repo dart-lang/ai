@@ -110,6 +110,9 @@ final class Subscription {
   /// The connection this subscription reads its notifications from.
   final ServerConnection _connection;
 
+  /// Completes once the `subscriptions/listen` request is sent, so [close]
+  /// never sends its cancellation ahead of that request. Already complete on
+  /// legacy versions, where no request is sent.
   final Future<void> _requestSent;
 
   /// The connection streams the local view reads on legacy versions.
@@ -159,14 +162,20 @@ final class Subscription {
 
   /// Completes when this subscription closes locally or remotely.
   Future<void> get done => _done.future;
+
+  /// Completes [done].
   final _done = Completer<void>();
 
   /// Stops this subscription without closing its connection.
   ///
   /// Also closes [notifications], which ends its listeners.
   Future<void> close() => _closing ?? _finishing ?? (_closing = _close());
+
+  /// The first [close], if it came before this subscription started to finish.
   Future<void>? _closing;
 
+  /// The one cleanup of this subscription, started by whichever end finishes
+  /// it first.
   Future<void>? _finishing;
 
   /// Reports the filter on the server's acknowledgement of this subscription.
