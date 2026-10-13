@@ -1031,12 +1031,21 @@ base class ServerConnection extends MCPBase {
   /// subscription ends when the client closes it, the server cancels or
   /// completes it, or the connection ends.
   ///
-  /// On older versions, sends nothing and immediately acknowledges only the
-  /// requested list-changed types [serverCapabilities] supports. Notifications
-  /// are a local view of the connection's list-changed streams, and closing
-  /// the subscription sends nothing. Its [Subscription.id] is `null`, and
-  /// [meta] is not sent. `resourceSubscriptions` is never acknowledged on
-  /// these versions; use [subscribeResource] and [resourceUpdated] instead.
+  /// On legacy versions, sends no `subscriptions/listen` request and
+  /// acknowledges [notifications] without the types [serverCapabilities] does
+  /// not support. Notifications are a local view of the connection's
+  /// list-changed and [resourceUpdated] streams. Its [Subscription.id] is
+  /// `null`, and [meta] is not sent. When the server supports
+  /// `resources.subscribe`, each URI in `resourceSubscriptions` is subscribed
+  /// with `resources/subscribe` before the acknowledgement, left out of it if
+  /// that request fails, and unsubscribed when the last open subscription
+  /// watching it closes. The server keeps one `resources/subscribe` state per
+  /// URI for the whole connection, shared with [subscribeResource] and
+  /// [unsubscribeResource], so mixing them with this for the same URI can end
+  /// the other's updates early.
+  ///
+  /// Throws an [UnsupportedError] on a later version that does not define
+  /// `subscriptions/listen`.
   ///
   /// Returns before the server sees the request, so subscribe to
   /// [Subscription.notifications] synchronously.
@@ -1045,27 +1054,14 @@ base class ServerConnection extends MCPBase {
     required MetaWithRequestEnvelope meta,
   }) {
     final version = protocolVersion;
+    if (version != null && version.isLegacyVersion) {
+      return Subscription._legacy(this, notifications, serverCapabilities);
+    }
     if (version != null &&
         !version.methodIsValid(SubscriptionsListenRequest.methodName)) {
-      return Subscription._local(
-        this,
-        SubscriptionFilter(
-          toolsListChanged:
-              notifications.toolsListChanged == true &&
-                      serverCapabilities.tools?.listChanged == true
-                  ? true
-                  : null,
-          promptsListChanged:
-              notifications.promptsListChanged == true &&
-                      serverCapabilities.prompts?.listChanged == true
-                  ? true
-                  : null,
-          resourcesListChanged:
-              notifications.resourcesListChanged == true &&
-                      serverCapabilities.resources?.listChanged == true
-                  ? true
-                  : null,
-        ),
+      throw UnsupportedError(
+        '${SubscriptionsListenRequest.methodName} is not supported on protocol '
+        'version ${version.versionString}.',
       );
     }
     final sent = sendRequestWithId<SubscriptionsListenResult>(
@@ -1081,6 +1077,39 @@ base class ServerConnection extends MCPBase {
       sent.result,
       sent.sent,
     );
+  }
+
+  /// The `resources/subscribe` request for each URI legacy subscriptions
+  /// watch.
+  ///
+  /// The server keeps one subscription per URI for the whole connection.
+  final _legacyResourceSubscriptions = <String, _ResourceSubscription>{};
+
+  /// Subscribes to [uri] unless an open legacy subscription already does.
+  Future<void> _retainResource(String uri) {
+    final existing = _legacyResourceSubscriptions[uri];
+    if (existing != null) {
+      existing.count++;
+      return existing.subscribed;
+    }
+    final subscription = _ResourceSubscription(
+      subscribeResource(SubscribeRequest(uri: uri)),
+    );
+    _legacyResourceSubscriptions[uri] = subscription;
+    return subscription.subscribed;
+  }
+
+  /// Unsubscribes from [uri] once no open legacy subscription watches it.
+  void _releaseResource(String uri) {
+    final existing = _legacyResourceSubscriptions[uri];
+    if (existing == null) return;
+    if (--existing.count > 0) return;
+    _legacyResourceSubscriptions.remove(uri);
+    if (existing.refused || !isActive) return;
+    // Sent right away so a later `resources/subscribe` for the same URI
+    // reaches the server after it. The local subscription is already closed,
+    // so its result is not awaited.
+    unsubscribeResource(UnsubscribeRequest(uri: uri)).ignore();
   }
 
   Future<void> _cancelSubscription(RequestId id) async {
@@ -1201,4 +1230,21 @@ extension ElicitationServerConnection on ElicitRequest {
       (notification) => notification.elicitationId == elicitationId,
     );
   }
+}
+
+/// A `resources/subscribe` request shared by the legacy subscriptions watching
+/// its URI.
+final class _ResourceSubscription {
+  _ResourceSubscription(this.subscribed) {
+    subscribed.then<void>((_) {}, onError: (_) => refused = true).ignore();
+  }
+
+  /// Completes when the server answers the request.
+  final Future<void> subscribed;
+
+  /// How many open subscriptions watch the URI.
+  int count = 1;
+
+  /// Whether the server answered the request with an error.
+  bool refused = false;
 }

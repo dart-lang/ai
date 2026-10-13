@@ -84,6 +84,45 @@ base class _MalformedAckServer extends MCPServer with SubscriptionsSupport {
   }
 }
 
+/// A legacy server recording the `resources/subscribe` and
+/// `resources/unsubscribe` requests it gets.
+base class _LegacyServer extends TestMCPServer {
+  _LegacyServer(super.channel) {
+    registerRequestHandler(SubscribeRequest.methodName, (
+      SubscribeRequest request,
+    ) {
+      if (request.uri == refusedUri) {
+        throw ArgumentError('Unknown resource ${request.uri}.');
+      }
+      subscribed.add(request.uri);
+      requests.add((SubscribeRequest.methodName, request.uri));
+      return EmptyResult();
+    });
+    registerRequestHandler(UnsubscribeRequest.methodName, (
+      UnsubscribeRequest request,
+    ) {
+      unsubscribed.add(request.uri);
+      requests.add((UnsubscribeRequest.methodName, request.uri));
+      if (request.uri == stuckUri) {
+        throw ArgumentError('Cannot unsubscribe from ${request.uri}.');
+      }
+      return EmptyResult();
+    });
+  }
+
+  /// The URI this server refuses to subscribe to.
+  static const refusedUri = 'file:///missing.txt';
+
+  /// The URI this server refuses to unsubscribe from.
+  static const stuckUri = 'file:///stuck.txt';
+
+  final subscribed = <String>[];
+  final unsubscribed = <String>[];
+
+  /// The method and URI of each request it handled, in order.
+  final requests = <(String, String)>[];
+}
+
 /// Collects the protocol log lines a [TestEnvironment] writes.
 class _LogSink implements Sink<String> {
   void Function(String data)? onAdd;
@@ -120,6 +159,47 @@ final class _IgnoringSinkTransformsChannel
     StreamSinkTransformer<Map<String, Object?>, Map<String, Object?>>
     transformer,
   ) => this;
+}
+
+/// Wraps a server [channel] so that each `resources/subscribe` response is
+/// followed, before anything else, by a resource update for its URI and a tool
+/// list change.
+StreamChannel<Map<String, Object?>> _notifyingAfterSubscribe(
+  StreamChannel<Map<String, Object?>> channel,
+) {
+  final subscribeUris = <Object?, Object?>{};
+  return channel
+      .transformStream(
+        StreamTransformer.fromHandlers(
+          handleData: (message, sink) {
+            if (message[Keys.method] == SubscribeRequest.methodName) {
+              final params = message[Keys.params] as Map<String, Object?>;
+              subscribeUris[message[Keys.id]] = params[Keys.uri];
+            }
+            sink.add(message);
+          },
+        ),
+      )
+      .transformSink(
+        StreamSinkTransformer.fromHandlers(
+          handleData: (message, sink) {
+            sink.add(message);
+            if (!message.containsKey(Keys.result)) return;
+            final id = message[Keys.id];
+            if (!subscribeUris.containsKey(id)) return;
+            sink
+              ..add({
+                Keys.jsonrpc: '2.0',
+                Keys.method: ResourceUpdatedNotification.methodName,
+                Keys.params: {Keys.uri: subscribeUris.remove(id)},
+              })
+              ..add({
+                Keys.jsonrpc: '2.0',
+                Keys.method: ToolListChangedNotification.methodName,
+              });
+          },
+        ),
+      );
 }
 
 /// Exposes request-result completion to lifecycle tests.
@@ -1088,6 +1168,16 @@ void main() {
     },
   );
 
+  test('closing ends the notifications stream', () async {
+    final subscription = listen();
+    final done = Completer<void>();
+    subscription.notifications.listen((_) {}, onDone: done.complete);
+    await subscription.acknowledged.timeout(const Duration(seconds: 5));
+
+    await subscription.close().timeout(const Duration(seconds: 5));
+    await done.future.timeout(const Duration(seconds: 5));
+  });
+
   test('leaves a subscription unacknowledged on a malformed ack', () async {
     final malformed = TestEnvironment(TestMCPClient(), _MalformedAckServer.new);
     await malformed.server.initialize(
@@ -1162,12 +1252,16 @@ void main() {
   });
 
   group('legacy subscriptions', () {
-    late TestEnvironment<TestMCPClient, TestMCPServer> legacy;
+    late TestEnvironment<TestMCPClient, _LegacyServer> legacy;
 
-    Future<void> initializeLegacy([ServerCapabilities? capabilities]) async {
+    Future<void> initializeLegacy([
+      ServerCapabilities? capabilities,
+      _LegacyServer Function(StreamChannel<Map<String, Object?>>) createServer =
+          _LegacyServer.new,
+    ]) async {
       legacy = TestEnvironment(
         TestMCPClient(),
-        TestMCPServer.new,
+        createServer,
         protocolLogSink: protocolLog,
       );
       (legacy.server.capabilities as Map<String, Object?>).addAll(
@@ -1239,7 +1333,9 @@ void main() {
             resourceSubscriptions: ['file:///watched.txt'],
           ),
         );
-        final accepted = await subscription.acknowledged.timeout(Duration.zero);
+        final accepted = await subscription.acknowledged.timeout(
+          const Duration(seconds: 5),
+        );
 
         expect(
           accepted.toolsListChanged,
@@ -1253,9 +1349,258 @@ void main() {
           accepted.resourcesListChanged,
           listChanged == true ? isTrue : isNull,
         );
-        expect(accepted.resourceSubscriptions, isNull);
+        expect(accepted.resourceSubscriptions, ['file:///watched.txt']);
       });
     }
+
+    test('keeps filter keys it does not know in the acknowledgement', () async {
+      await initializeLegacy();
+      final subscription = listenLegacy(
+        SubscriptionFilter.fromMap({
+          Keys.toolsListChanged: true,
+          'futureNotifications': {'enabled': true},
+        }),
+      );
+
+      expect(await subscription.acknowledged, {
+        Keys.toolsListChanged: true,
+        'futureNotifications': {'enabled': true},
+      });
+    });
+
+    test('leaves resource subscriptions out without subscribe', () async {
+      await initializeLegacy(
+        ServerCapabilities(resources: Resources(listChanged: true)),
+      );
+      final subscription = listenLegacy(
+        SubscriptionFilter(
+          resourcesListChanged: true,
+          resourceSubscriptions: ['file:///watched.txt'],
+        ),
+      );
+
+      expect(await subscription.acknowledged, {
+        Keys.resourcesListChanged: true,
+      });
+      await subscription.close();
+      await pumpEventQueue();
+      expect(legacy.server.subscribed, isEmpty);
+      expect(legacy.server.unsubscribed, isEmpty);
+    });
+
+    test('subscribes to each resource and forwards only its updates', () async {
+      await initializeLegacy();
+      final subscription = listenLegacy(
+        SubscriptionFilter(
+          resourceSubscriptions: ['file:///a.txt', 'file:///b.txt'],
+        ),
+      );
+      final events = <SubscriptionNotification>[];
+      final listener = subscription.notifications.listen(events.add);
+      addTearDown(listener.cancel);
+
+      expect((await subscription.acknowledged).resourceSubscriptions, [
+        'file:///a.txt',
+        'file:///b.txt',
+      ]);
+      expect(legacy.server.subscribed, ['file:///a.txt', 'file:///b.txt']);
+      for (final uri in ['file:///a.txt', 'file:///c.txt']) {
+        legacy.server.sendNotification(
+          ResourceUpdatedNotification.methodName,
+          ResourceUpdatedNotification(uri: uri),
+        );
+      }
+      await pumpEventQueue();
+      expect(events.map((event) => event.method), [
+        ResourceUpdatedNotification.methodName,
+      ]);
+      expect(
+        (events.single.params as ResourceUpdatedNotification).uri,
+        'file:///a.txt',
+      );
+
+      await subscription.close();
+      await pumpEventQueue();
+      expect(legacy.server.unsubscribed, ['file:///a.txt', 'file:///b.txt']);
+    });
+
+    test(
+      'unsubscribes a shared resource once the last handle closes',
+      () async {
+        await initializeLegacy();
+        final first = listenLegacy(
+          SubscriptionFilter(resourceSubscriptions: ['file:///a.txt']),
+        );
+        final second = listenLegacy(
+          SubscriptionFilter(resourceSubscriptions: ['file:///a.txt']),
+        );
+        final secondEvents = <SubscriptionNotification>[];
+        final secondListener = second.notifications.listen(secondEvents.add);
+        addTearDown(secondListener.cancel);
+        await first.acknowledged;
+        await second.acknowledged;
+        expect(legacy.server.subscribed, ['file:///a.txt']);
+
+        await first.close();
+        await pumpEventQueue();
+        expect(legacy.server.unsubscribed, isEmpty);
+        legacy.server.sendNotification(
+          ResourceUpdatedNotification.methodName,
+          ResourceUpdatedNotification(uri: 'file:///a.txt'),
+        );
+        await pumpEventQueue();
+        expect(secondEvents, hasLength(1));
+
+        await second.close();
+        await pumpEventQueue();
+        expect(legacy.server.unsubscribed, ['file:///a.txt']);
+      },
+    );
+
+    test('leaves a refused resource out of the acknowledgement', () async {
+      await initializeLegacy();
+      final subscription = listenLegacy(
+        SubscriptionFilter(
+          toolsListChanged: true,
+          resourceSubscriptions: [
+            'file:///a.txt',
+            _LegacyServer.refusedUri,
+            'file:///b.txt',
+          ],
+        ),
+      );
+      final events = <SubscriptionNotification>[];
+      final listener = subscription.notifications.listen(events.add);
+      addTearDown(listener.cancel);
+      var done = false;
+      unawaited(subscription.done.then((_) => done = true));
+
+      expect(await subscription.acknowledged, {
+        Keys.toolsListChanged: true,
+        Keys.resourceSubscriptions: ['file:///a.txt', 'file:///b.txt'],
+      });
+      for (final uri in [_LegacyServer.refusedUri, 'file:///a.txt']) {
+        legacy.server.sendNotification(
+          ResourceUpdatedNotification.methodName,
+          ResourceUpdatedNotification(uri: uri),
+        );
+      }
+      await pumpEventQueue();
+      expect(
+        events.map(
+          (event) => (event.params as ResourceUpdatedNotification).uri,
+        ),
+        ['file:///a.txt'],
+      );
+      expect(done, isFalse);
+
+      await subscription.close();
+      await subscription.done;
+      await pumpEventQueue();
+      expect(legacy.server.unsubscribed, ['file:///a.txt', 'file:///b.txt']);
+    });
+
+    test(
+      'forwards notifications sent right after a subscribe response',
+      () async {
+        await initializeLegacy(
+          null,
+          (channel) => _LegacyServer(_notifyingAfterSubscribe(channel)),
+        );
+        final subscription = listenLegacy(
+          SubscriptionFilter(
+            toolsListChanged: true,
+            resourceSubscriptions: ['file:///a.txt'],
+          ),
+        );
+        final events = <SubscriptionNotification>[];
+        final listener = subscription.notifications.listen(events.add);
+        addTearDown(listener.cancel);
+
+        await subscription.acknowledged;
+        await pumpEventQueue();
+        expect(events.map((event) => event.method), [
+          ResourceUpdatedNotification.methodName,
+          ToolListChangedNotification.methodName,
+        ]);
+        expect(
+          (events.first.params as ResourceUpdatedNotification).uri,
+          'file:///a.txt',
+        );
+        await subscription.close();
+      },
+    );
+
+    test('leaves resource subscriptions out when all are refused', () async {
+      await initializeLegacy();
+      final subscription = listenLegacy(
+        SubscriptionFilter(
+          toolsListChanged: true,
+          resourceSubscriptions: [_LegacyServer.refusedUri],
+        ),
+      );
+
+      expect(await subscription.acknowledged, {Keys.toolsListChanged: true});
+      await subscription.close();
+      await pumpEventQueue();
+      expect(legacy.server.unsubscribed, isEmpty);
+    });
+
+    test('closes even if the server fails to unsubscribe', () async {
+      await initializeLegacy();
+      final subscription = listenLegacy(
+        SubscriptionFilter(resourceSubscriptions: [_LegacyServer.stuckUri]),
+      );
+      await subscription.acknowledged;
+
+      await subscription.close();
+      await pumpEventQueue();
+      expect(legacy.server.unsubscribed, [_LegacyServer.stuckUri]);
+    });
+
+    test('unsubscribes when closed before the subscribe response', () async {
+      await initializeLegacy();
+      final subscription = listenLegacy(
+        SubscriptionFilter(resourceSubscriptions: ['file:///a.txt']),
+      );
+
+      await subscription.close();
+      await expectLater(subscription.acknowledged, throwsStateError);
+      await pumpEventQueue();
+      // The server handles the subscribe request first, so it must be undone.
+      expect(legacy.server.requests, [
+        (SubscribeRequest.methodName, 'file:///a.txt'),
+        (UnsubscribeRequest.methodName, 'file:///a.txt'),
+      ]);
+    });
+
+    test(
+      'resubscribes a resource right after its last handle closes',
+      () async {
+        await initializeLegacy();
+        final first = listenLegacy(
+          SubscriptionFilter(resourceSubscriptions: ['file:///a.txt']),
+        );
+        await first.acknowledged;
+
+        final closed = first.close();
+        final second = listenLegacy(
+          SubscriptionFilter(resourceSubscriptions: ['file:///a.txt']),
+        );
+        await closed;
+
+        expect((await second.acknowledged).resourceSubscriptions, [
+          'file:///a.txt',
+        ]);
+        await pumpEventQueue();
+        expect(legacy.server.requests, [
+          (SubscribeRequest.methodName, 'file:///a.txt'),
+          (UnsubscribeRequest.methodName, 'file:///a.txt'),
+          (SubscribeRequest.methodName, 'file:///a.txt'),
+        ]);
+        await second.close();
+      },
+    );
 
     test('leaves missing capabilities unacknowledged', () async {
       await initializeLegacy(ServerCapabilities());
@@ -1306,6 +1651,7 @@ void main() {
       expect(events.map((event) => event.method), [
         ToolListChangedNotification.methodName,
         ResourceListChangedNotification.methodName,
+        ResourceUpdatedNotification.methodName,
       ]);
       expect(events.first.params, same(connectionEvents.single));
     });
@@ -1423,6 +1769,24 @@ void main() {
       await subscription.done.timeout(const Duration(seconds: 5));
       expect(await notifications, isEmpty);
       await subscription.close();
+    });
+
+    test('closing the connection does not unsubscribe resources', () async {
+      await initializeLegacy();
+      final subscription = listenLegacy(
+        SubscriptionFilter(resourceSubscriptions: ['file:///a.txt']),
+      );
+      await subscription.acknowledged;
+      protocolLog.lines.clear();
+
+      await legacy.serverConnection.shutdown();
+      await subscription.done.timeout(const Duration(seconds: 5));
+      await pumpEventQueue();
+      expect(legacy.server.unsubscribed, isEmpty);
+      expect(
+        protocolLog.lines,
+        isNot(contains(contains(UnsubscribeRequest.methodName))),
+      );
     });
   });
 }

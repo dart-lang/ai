@@ -19,7 +19,8 @@
   the protected `MCPBase.sendRequestWithId`. A `ServerConnection` now handles
   `notifications/subscriptions/acknowledged` itself. Registering another
   handler for it throws.
-  `listen` also supports older versions through local list-changed streams.
+  On legacy versions `listen` gives a local view of the list-changed streams,
+  and of `resources/subscribe` for `resourceSubscriptions`.
 - Let `handleRequestScopedMessage` route server-to-client requests through an
   `onRequest` callback on revisions before 2026-07-28. Missing callbacks and
   invalid callback responses fail the server request without leaving it open.

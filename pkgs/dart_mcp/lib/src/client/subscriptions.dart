@@ -10,8 +10,9 @@ typedef SubscriptionNotification = ({String method, Notification params});
 /// One open subscription, opened by [ServerConnection.listen].
 ///
 /// On versions defining `subscriptions/listen`, the server stamps the [id] of
-/// that request on every message it sends on the stream. On older versions,
-/// this is a local view of the connection's list-changed notifications.
+/// that request on every message it sends on the stream. On legacy versions,
+/// this is a local view of the connection's list-changed and resource update
+/// notifications.
 ///
 /// See https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/subscriptions.
 final class Subscription {
@@ -22,7 +23,7 @@ final class Subscription {
     this.id,
     Future<SubscriptionsListenResult> result,
     this._requestSent,
-  ) {
+  ) : _resourceUris = {} {
     _requestSent.then<void>((_) {}, onError: _finishSendFailure).ignore();
     result.then<void>((_) => _finish(), onError: _finishWithError).ignore();
     // A failure reaches all three of [done], [acknowledged] and
@@ -31,10 +32,36 @@ final class Subscription {
     _acknowledged.future.ignore();
   }
 
+  /// Opens the local view [ServerConnection.listen] gives on legacy versions.
+  ///
+  /// Acknowledges [requested] without the types [capabilities] does not
+  /// support. Keys this package does not know are kept as they were.
+  factory Subscription._legacy(
+    ServerConnection connection,
+    SubscriptionFilter requested,
+    ServerCapabilities capabilities,
+  ) {
+    final accepted = Map.of(requested as Map<String, Object?>);
+    for (final (key, supported) in [
+      (Keys.toolsListChanged, capabilities.tools?.listChanged),
+      (Keys.promptsListChanged, capabilities.prompts?.listChanged),
+      (Keys.resourcesListChanged, capabilities.resources?.listChanged),
+    ]) {
+      if (accepted[key] != true || supported != true) accepted.remove(key);
+    }
+    if (capabilities.resources?.subscribe != true) {
+      accepted.remove(Keys.resourceSubscriptions);
+    }
+    return Subscription._local(
+      connection,
+      SubscriptionFilter.fromMap(accepted),
+    );
+  }
+
   Subscription._local(this._connection, SubscriptionFilter accepted)
     : id = null,
-      _requestSent = Future<void>.value() {
-    _acknowledge(accepted);
+      _requestSent = Future<void>.value(),
+      _resourceUris = {...?accepted.resourceSubscriptions} {
     if (accepted.toolsListChanged == true) {
       _listenLocal(
         ToolListChangedNotification.methodName,
@@ -53,6 +80,27 @@ final class Subscription {
         _connection.resourceListChanged,
       );
     }
+    if (_resourceUris.isEmpty) {
+      _acknowledge(accepted);
+    } else {
+      _localListeners.add(
+        _connection.resourceUpdated.listen((notification) {
+          if (_resourceUris.contains(notification.uri)) {
+            _forward(
+              ResourceUpdatedNotification.methodName,
+              notification as Map<String, Object?>,
+            );
+          }
+        }),
+      );
+      Future.wait([
+        for (final uri in _resourceUris.toList())
+          _connection
+              ._retainResource(uri)
+              .then<void>((_) {}, onError: (Object _) => _refuseResource(uri)),
+      ]).then<void>((_) => _acknowledgeResources(accepted)).ignore();
+      _acknowledged.future.ignore();
+    }
     _connection.done
         .then<void>((_) => _finish(), onError: _finishWithError)
         .ignore();
@@ -64,15 +112,20 @@ final class Subscription {
 
   final Future<void> _requestSent;
 
-  /// The connection streams the local view reads on older versions.
+  /// The connection streams the local view reads on legacy versions.
   final _localListeners = <StreamSubscription<Notification?>>[];
+
+  /// The resources the local view watches on legacy versions.
+  ///
+  /// A resource the server refuses to subscribe to is removed.
+  final Set<String> _resourceUris;
 
   /// The JSON-RPC ID of the `subscriptions/listen` request that opened this
   /// subscription.
   ///
   /// Every message the server sends on the stream carries it under the
   /// `io.modelcontextprotocol/subscriptionId` metadata key.
-  /// On older versions this is `null`, because no request is sent.
+  /// On legacy versions this is `null`, because no request is sent.
   final RequestId? id;
 
   /// Completes [acknowledged].
@@ -81,11 +134,17 @@ final class Subscription {
   /// Carries [notifications].
   final _notifications = StreamController<SubscriptionNotification>.broadcast();
 
-  /// The notification types the server agreed to send, or the requested
-  /// list-changed types its capabilities support on older versions.
+  /// The notification types the server agreed to send.
+  ///
+  /// On legacy versions this is the requested filter without the types the
+  /// server's capabilities do not support and the list-changed types not
+  /// requested as `true`. Keys this package does not know are kept as they
+  /// were.
   ///
   /// An unsupported type is left out instead of sent back as `false`, so
-  /// compare this against what was asked for. Errors if the subscription ends
+  /// compare this against what was asked for. On legacy versions, a URI whose
+  /// `resources/subscribe` request fails is left out of
+  /// `resourceSubscriptions` in the same way. Errors if the subscription ends
   /// first.
   Future<SubscriptionFilter> get acknowledged => _acknowledged.future;
 
@@ -103,6 +162,8 @@ final class Subscription {
   final _done = Completer<void>();
 
   /// Stops this subscription without closing its connection.
+  ///
+  /// Also closes [notifications], which ends its listeners.
   Future<void> close() => _closing ?? _finishing ?? (_closing = _close());
   Future<void>? _closing;
 
@@ -111,6 +172,29 @@ final class Subscription {
   /// Reports the filter on the server's acknowledgement of this subscription.
   void _acknowledge(SubscriptionFilter accepted) {
     if (!_acknowledged.isCompleted) _acknowledged.complete(accepted);
+  }
+
+  /// Acknowledges [accepted] without the resources the server refused.
+  ///
+  /// Keeps the order of `resourceSubscriptions` and the other keys as they
+  /// were, and leaves `resourceSubscriptions` out if no resource is left.
+  void _acknowledgeResources(SubscriptionFilter accepted) {
+    final resourceSubscriptions = [
+      for (final uri in accepted.resourceSubscriptions!)
+        if (_resourceUris.contains(uri)) uri,
+    ];
+    final filter = {...accepted as Map<String, Object?>};
+    if (resourceSubscriptions.isEmpty) {
+      filter.remove(Keys.resourceSubscriptions);
+    } else {
+      filter[Keys.resourceSubscriptions] = resourceSubscriptions;
+    }
+    _acknowledge(SubscriptionFilter.fromMap(filter));
+  }
+
+  /// Stops watching [uri] after the server refused to subscribe to it.
+  void _refuseResource(String uri) {
+    if (_resourceUris.remove(uri)) _connection._releaseResource(uri);
   }
 
   void _listenLocal(String method, Stream<Notification?> notifications) {
@@ -156,6 +240,10 @@ final class Subscription {
       unawaited(listener.cancel());
     }
     _localListeners.clear();
+    for (final uri in _resourceUris) {
+      _connection._releaseResource(uri);
+    }
+    _resourceUris.clear();
     if (!_acknowledged.isCompleted) {
       _acknowledged.completeError(
         error ?? StateError('Closed before acknowledgement.'),

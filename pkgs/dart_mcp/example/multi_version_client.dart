@@ -53,7 +53,8 @@ void main() async {
       capabilities: client.capabilities,
     ),
   );
-  final toolChanges = subscription.notifications.listen((notification) async {
+  // Closing the subscription ends this listener too.
+  subscription.notifications.listen((notification) async {
     if (notification.method == ToolListChangedNotification.methodName) {
       final tools = await server.listTools();
       print('tools: ${tools.tools.map((tool) => tool.name).join(', ')}');
@@ -76,7 +77,6 @@ void main() async {
     if (content.isText) print((content as TextContent).text);
   }
 
-  await toolChanges.cancel();
   await subscription.close();
   await client.shutdown();
 }
