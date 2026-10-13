@@ -71,7 +71,11 @@ void main() {
       test('names the --dart-sdk argument', () async {
         final path = await fakeDartSdk();
         final sdk = Sdk.find(dartSdkPath: path, environment: const {});
-        expectMessage(sdk, [contains('the --dart-sdk argument')]);
+        expectMessage(sdk, [
+          contains(
+            'an explicitly given path (typically the --dart-sdk argument)',
+          ),
+        ]);
       });
 
       test('records the running executable when nothing is configured', () {

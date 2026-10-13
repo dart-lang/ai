@@ -46,7 +46,8 @@ class Sdk {
     environment ??= Platform.environment;
     String dartSdkSource;
     if (dartSdkPath != null) {
-      dartSdkSource = 'the --dart-sdk argument';
+      dartSdkSource =
+          'an explicitly given path (typically the --dart-sdk argument)';
     } else if (environment['DART_ROOT'] case final root?) {
       dartSdkPath = root;
       dartSdkSource = 'the DART_ROOT environment variable';
