@@ -21,7 +21,11 @@ class Sdk {
   /// The path to the root of the Flutter SDK.
   final String? flutterSdkPath;
 
-  Sdk({this.dartSdkPath, this.flutterSdkPath});
+  /// Where [dartSdkPath] came from, for error messages, for example
+  /// "the DART_ROOT environment variable".
+  final String? dartSdkSource;
+
+  Sdk({this.dartSdkPath, this.flutterSdkPath, this.dartSdkSource});
 
   /// Creates an [Sdk] from the path to the Dart SDK.
   ///
@@ -40,12 +44,25 @@ class Sdk {
     Map<String, String>? environment,
   }) {
     environment ??= Platform.environment;
-    dartSdkPath ??= environment['DART_ROOT'] ?? environment['DART_SDK'];
+    String dartSdkSource;
+    if (dartSdkPath != null) {
+      dartSdkSource = 'the --dart-sdk argument';
+    } else if (environment['DART_ROOT'] case final root?) {
+      dartSdkPath = root;
+      dartSdkSource = 'the DART_ROOT environment variable';
+    } else if (environment['DART_SDK'] case final sdk?) {
+      dartSdkPath = sdk;
+      dartSdkSource = 'the DART_SDK environment variable';
+    } else {
+      // Assume that we are running from the Dart SDK bin dir if not given any
+      // other configuration.
+      dartSdkPath = p.dirname(p.dirname(Platform.resolvedExecutable));
+      dartSdkSource =
+          'the executable running the server '
+          '(${Platform.resolvedExecutable})';
+    }
     flutterSdkPath ??=
         environment['FLUTTER_ROOT'] ?? environment['FLUTTER_SDK'];
-    // Assume that we are running from the Dart SDK bin dir if not given any
-    // other configuration.
-    dartSdkPath ??= p.dirname(p.dirname(Platform.resolvedExecutable));
 
     final versionFile = dartSdkPath.child('version');
     if (!File(versionFile).existsSync()) {
@@ -65,7 +82,11 @@ class Sdk {
       }
     }
 
-    return Sdk(dartSdkPath: dartSdkPath, flutterSdkPath: flutterSdkPath);
+    return Sdk(
+      dartSdkPath: dartSdkPath,
+      flutterSdkPath: flutterSdkPath,
+      dartSdkSource: dartSdkSource,
+    );
   }
 
   /// The path to the `dart` executable.
@@ -87,11 +108,23 @@ class Sdk {
       flutterSdkPath
           ?.child('bin')
           .child('flutter${Platform.isWindows ? '.bat' : ''}') ??
-      (throw ArgumentError(
-        'Flutter SDK location unknown. To work on flutter projects, you must '
-        'spawn the server using `dart` from the flutter SDK and not a Dart '
-        'SDK, or set a FLUTTER_SDK environment variable.',
-      ));
+      (throw ArgumentError(_flutterSdkUnknownMessage));
+
+  String get _flutterSdkUnknownMessage {
+    final usingDart = switch ((dartSdkPath, dartSdkSource)) {
+      (final path?, final source?) =>
+        'The server is using the Dart SDK at $path, from $source, which is '
+            'not inside a Flutter SDK. ',
+      (final path?, null) =>
+        'The server is using the Dart SDK at $path, which is not inside a '
+            'Flutter SDK. ',
+      _ => '',
+    };
+    return 'Flutter SDK location unknown. $usingDart'
+        'To work on Flutter projects, start the server with the `dart` '
+        'executable from a Flutter SDK (<flutter>/bin/dart), pass '
+        '--flutter-sdk, or set the FLUTTER_SDK environment variable.';
+  }
 }
 
 extension on String {

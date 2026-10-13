@@ -32,5 +32,60 @@ void main() {
       final sdk = Sdk.find(environment: const {});
       expect(sdk.dartSdkPath, realSdkPath);
     });
+
+    group('flutterExecutablePath error', () {
+      Future<String> fakeDartSdk() async {
+        final dir = d.dir('dart-sdk', [d.file('version', '')]);
+        await dir.create();
+        return dir.io.path;
+      }
+
+      void expectMessage(Sdk sdk, List<Matcher> parts) {
+        expect(
+          () => sdk.flutterExecutablePath,
+          throwsA(
+            isA<ArgumentError>().having(
+              (e) => e.message,
+              'message',
+              allOf([startsWith('Flutter SDK location unknown.'), ...parts]),
+            ),
+          ),
+        );
+      }
+
+      test('names the Dart SDK and the DART_ROOT variable', () async {
+        final path = await fakeDartSdk();
+        final sdk = Sdk.find(environment: {'DART_ROOT': path});
+        expectMessage(sdk, [
+          contains('Dart SDK at $path'),
+          contains('the DART_ROOT environment variable'),
+        ]);
+      });
+
+      test('names the DART_SDK variable', () async {
+        final path = await fakeDartSdk();
+        final sdk = Sdk.find(environment: {'DART_SDK': path});
+        expectMessage(sdk, [contains('the DART_SDK environment variable')]);
+      });
+
+      test('names the --dart-sdk argument', () async {
+        final path = await fakeDartSdk();
+        final sdk = Sdk.find(dartSdkPath: path, environment: const {});
+        expectMessage(sdk, [contains('the --dart-sdk argument')]);
+      });
+
+      test('records the running executable when nothing is configured', () {
+        final sdk = Sdk.find(environment: const {});
+        expect(sdk.dartSdkSource, contains(Platform.resolvedExecutable));
+      });
+
+      test('still explains the fix when nothing is known', () {
+        expectMessage(Sdk(), [
+          isNot(contains('Dart SDK at')),
+          contains('FLUTTER_SDK environment variable'),
+          contains('--flutter-sdk'),
+        ]);
+      });
+    });
   });
 }
