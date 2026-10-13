@@ -137,6 +137,13 @@ final class Subscription {
   /// Carries [notifications].
   final _notifications = StreamController<SubscriptionNotification>.broadcast();
 
+  /// The notifications the local view got before [acknowledged] completed,
+  /// in the order they arrived.
+  ///
+  /// A legacy server can send a resource update right after its
+  /// `resources/subscribe` response, while other URIs still wait for theirs.
+  final _early = <SubscriptionNotification>[];
+
   /// The notification types the server agreed to send.
   ///
   /// On legacy versions this is the requested filter without the types the
@@ -178,9 +185,24 @@ final class Subscription {
   /// it first.
   Future<void>? _finishing;
 
-  /// Reports the filter on the server's acknowledgement of this subscription.
+  /// Reports the filter on the server's acknowledgement of this subscription,
+  /// then adds the notifications the local view held until it.
+  ///
+  /// Drops the held updates for a resource the server refused in the
+  /// meantime.
   void _acknowledge(SubscriptionFilter accepted) {
-    if (!_acknowledged.isCompleted) _acknowledged.complete(accepted);
+    if (_acknowledged.isCompleted) return;
+    _acknowledged.complete(accepted);
+    for (final notification in _early) {
+      if (notification.method == ResourceUpdatedNotification.methodName &&
+          !_resourceUris.contains(
+            (notification.params as ResourceUpdatedNotification).uri,
+          )) {
+        continue;
+      }
+      if (!_notifications.isClosed) _notifications.add(notification);
+    }
+    _early.clear();
   }
 
   /// Acknowledges [accepted] without the resources the server refused.
@@ -214,17 +236,20 @@ final class Subscription {
     );
   }
 
-  /// Adds [params] under [method], once this subscription is acknowledged
-  /// and still open.
+  /// Adds [params] under [method] while this subscription is open.
   ///
   /// On versions defining `subscriptions/listen`,
   /// [ServerConnection._forwardSubscriptionNotification] has already matched
-  /// [params] to this subscription's [id].
+  /// [params] to this subscription's [id], and [params] is dropped if it comes
+  /// before the acknowledgement. On legacy versions, it is held in [_early]
+  /// until [_acknowledge].
   void _forward(String method, Map<String, Object?> params) {
-    if (!_acknowledged.isCompleted) return;
-    if (!_notifications.isClosed) {
-      _notifications.add((method: method, params: Notification(params)));
+    final notification = (method: method, params: Notification(params));
+    if (!_acknowledged.isCompleted) {
+      if (id == null) _early.add(notification);
+      return;
     }
+    if (!_notifications.isClosed) _notifications.add(notification);
   }
 
   Future<void> _close() async {
@@ -253,6 +278,7 @@ final class Subscription {
       _connection._releaseResource(uri);
     }
     _resourceUris.clear();
+    _early.clear();
     if (!_acknowledged.isCompleted) {
       _acknowledged.completeError(
         error ?? StateError('Closed before acknowledgement.'),

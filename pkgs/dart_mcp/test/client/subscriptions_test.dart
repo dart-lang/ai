@@ -202,6 +202,54 @@ StreamChannel<Map<String, Object?>> _notifyingAfterSubscribe(
       );
 }
 
+/// Wraps a server [channel] so that the `resources/subscribe` response for
+/// [later] waits until the one for [first] has gone out, followed by a
+/// resource update for [first].
+StreamChannel<Map<String, Object?>> _updatingBeforeLaterSubscribe(
+  StreamChannel<Map<String, Object?>> channel, {
+  required String first,
+  required String later,
+}) {
+  final subscribeUris = <Object?, Object?>{};
+  var updateSent = false;
+  Map<String, Object?>? heldResponse;
+  return channel
+      .transformStream(
+        StreamTransformer.fromHandlers(
+          handleData: (message, sink) {
+            if (message[Keys.method] == SubscribeRequest.methodName) {
+              final params = message[Keys.params] as Map<String, Object?>;
+              subscribeUris[message[Keys.id]] = params[Keys.uri];
+            }
+            sink.add(message);
+          },
+        ),
+      )
+      .transformSink(
+        StreamSinkTransformer.fromHandlers(
+          handleData: (message, sink) {
+            final uri =
+                message.containsKey(Keys.result)
+                    ? subscribeUris[message[Keys.id]]
+                    : null;
+            if (uri == later && !updateSent) {
+              heldResponse = message;
+              return;
+            }
+            sink.add(message);
+            if (uri != first) return;
+            sink.add({
+              Keys.jsonrpc: '2.0',
+              Keys.method: ResourceUpdatedNotification.methodName,
+              Keys.params: {Keys.uri: first},
+            });
+            updateSent = true;
+            if (heldResponse case final response?) sink.add(response);
+          },
+        ),
+      );
+}
+
 /// Exposes request-result completion to lifecycle tests.
 final class _InspectingServerConnection extends ServerConnection {
   _InspectingServerConnection(super.channel, {super.protocolLogSink})
@@ -1525,6 +1573,44 @@ void main() {
         ]);
         expect(
           (events.first.params as ResourceUpdatedNotification).uri,
+          'file:///a.txt',
+        );
+        await subscription.close();
+      },
+    );
+
+    test(
+      'forwards an update sent while another subscribe is pending',
+      () async {
+        await initializeLegacy(
+          null,
+          (channel) => _LegacyServer(
+            _updatingBeforeLaterSubscribe(
+              channel,
+              first: 'file:///a.txt',
+              later: 'file:///b.txt',
+            ),
+          ),
+        );
+        final subscription = listenLegacy(
+          SubscriptionFilter(
+            resourceSubscriptions: ['file:///a.txt', 'file:///b.txt'],
+          ),
+        );
+        final events = <SubscriptionNotification>[];
+        final listener = subscription.notifications.listen(events.add);
+        addTearDown(listener.cancel);
+
+        expect((await subscription.acknowledged).resourceSubscriptions, [
+          'file:///a.txt',
+          'file:///b.txt',
+        ]);
+        await pumpEventQueue();
+        expect(events.map((event) => event.method), [
+          ResourceUpdatedNotification.methodName,
+        ]);
+        expect(
+          (events.single.params as ResourceUpdatedNotification).uri,
           'file:///a.txt',
         );
         await subscription.close();
