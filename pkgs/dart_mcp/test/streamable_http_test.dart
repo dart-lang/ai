@@ -10,6 +10,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:dart_mcp/client.dart' show SubscriptionNotification;
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp/src/utils/constants.dart';
 import 'package:dart_mcp/src/utils/streamable_http.dart';
@@ -17,6 +18,8 @@ import 'package:dart_mcp/streamable_http.dart';
 import 'package:json_rpc_2/error_code.dart' as error_code;
 import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:test/test.dart';
+
+import 'test_utils.dart';
 
 /// The protocol version this transport speaks.
 const version = '2026-07-28';
@@ -2791,6 +2794,219 @@ void main() {
         isEmpty,
         reason: 'a second finish must not throw after the response is closed',
       );
+    });
+
+    test(
+      'tells two client subscriptions apart by the ID on the wire',
+      () async {
+        // Each listen request reads only its own server's changes, and that is
+        // what gives one connection two streams to tell apart. A host passing
+        // one shared `subscriptionNotifications` stream to every request sends
+        // every change to every stream instead.
+        final host = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        addTearDown(() => host.close(force: true));
+        final hosted = <MCPServer>[];
+        host.listen(
+          (request) => handleStreamableHttpRequest(request, (channel) {
+            final server = _EquippedServer(channel);
+            hosted.add(server);
+            return server;
+          }),
+        );
+        final client = TestMCPClient();
+        addTearDown(client.shutdown);
+        final connection = client.connectServer(
+          streamableHttpClientChannel(
+            Uri.http('${host.address.host}:${host.port}', '/mcp'),
+            protocolVersion: ProtocolVersion.v2026_07_28,
+            clientCapabilities: client.capabilities,
+          ),
+        );
+
+        final first = connection.listen(
+          SubscriptionFilter(toolsListChanged: true),
+          meta: MetaWithRequestEnvelope(
+            protocolVersion: ProtocolVersion.v2026_07_28,
+            capabilities: client.capabilities,
+          ),
+        );
+        final firstChanges = <SubscriptionNotification>[];
+        final firstListener = first.notifications.listen(firstChanges.add);
+        addTearDown(firstListener.cancel);
+        final accepted = await first.acknowledged.timeout(
+          const Duration(seconds: 5),
+        );
+        expect(accepted.toolsListChanged, isTrue);
+
+        final second = connection.listen(
+          SubscriptionFilter(toolsListChanged: true),
+          meta: MetaWithRequestEnvelope(
+            protocolVersion: ProtocolVersion.v2026_07_28,
+            capabilities: client.capabilities,
+          ),
+        );
+        final secondChanges = <SubscriptionNotification>[];
+        final arrived = Completer<void>();
+        final secondListener = second.notifications.listen((notification) {
+          secondChanges.add(notification);
+          if (!arrived.isCompleted) arrived.complete();
+        });
+        addTearDown(secondListener.cancel);
+        await second.acknowledged.timeout(const Duration(seconds: 5));
+        expect(
+          second.id,
+          isNot(first.id),
+          reason: 'two listen requests on one connection get two IDs',
+        );
+        expect(hosted, hasLength(2));
+
+        hosted[1].sendNotification(
+          ToolListChangedNotification.methodName,
+          ToolListChangedNotification(),
+        );
+        await arrived.future.timeout(const Duration(seconds: 5));
+        await pumpEventQueue(times: 20);
+
+        expect(secondChanges, hasLength(1));
+        final meta =
+            (secondChanges.single.params as Map<String, Object?>)[Keys.meta]
+                as Map<String, Object?>;
+        expect(
+          meta[Keys.subscriptionIdMeta],
+          second.id,
+          reason: 'the transport named the subscription by the request ID',
+        );
+        expect(
+          firstChanges,
+          isEmpty,
+          reason: 'a change named by the other subscription is not ours',
+        );
+
+        await hosted[1].shutdown();
+        await second.done.timeout(const Duration(seconds: 5));
+        await hosted[0].shutdown();
+      },
+    );
+
+    test('client close ends only its listen response', () async {
+      final host = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => host.close(force: true));
+      final hosted = <MCPServer>[];
+      final responsesDone = <Future<void>>[];
+      var requestCount = 0;
+      host.listen((request) {
+        requestCount++;
+        responsesDone.add(request.response.done);
+        handleStreamableHttpRequest(request, (channel) {
+          final server = _EquippedServer(channel);
+          hosted.add(server);
+          return server;
+        }, keepAliveInterval: const Duration(milliseconds: 20));
+      });
+      final client = TestMCPClient();
+      addTearDown(client.shutdown);
+      final connection = client.connectServer(
+        streamableHttpClientChannel(
+          Uri.http('${host.address.host}:${host.port}', '/mcp'),
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          clientCapabilities: client.capabilities,
+        ),
+      );
+      final first = connection.listen(
+        SubscriptionFilter(toolsListChanged: true),
+        meta: MetaWithRequestEnvelope(
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          capabilities: client.capabilities,
+        ),
+      );
+      await first.acknowledged.timeout(const Duration(seconds: 5));
+      final second = connection.listen(
+        SubscriptionFilter(toolsListChanged: true),
+        meta: MetaWithRequestEnvelope(
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          capabilities: client.capabilities,
+        ),
+      );
+      final secondChanges = <SubscriptionNotification>[];
+      final arrived = Completer<void>();
+      final listener = second.notifications.listen((notification) {
+        secondChanges.add(notification);
+        if (!arrived.isCompleted) arrived.complete();
+      });
+      addTearDown(listener.cancel);
+      await second.acknowledged.timeout(const Duration(seconds: 5));
+
+      await first.close().timeout(const Duration(seconds: 5));
+      await first.done.timeout(const Duration(seconds: 5));
+      await responsesDone[0].timeout(const Duration(seconds: 5));
+      await hosted[0].done.timeout(const Duration(seconds: 5));
+      expect(requestCount, 2, reason: 'HTTP close sends no cancellation POST');
+      expect(hosted[0].isActive, isFalse);
+      expect(hosted[1].isActive, isTrue);
+
+      hosted[1].sendNotification(
+        ToolListChangedNotification.methodName,
+        ToolListChangedNotification(),
+      );
+      await arrived.future.timeout(const Duration(seconds: 5));
+      expect(secondChanges, hasLength(1));
+      expect((await connection.listTools()).tools, isEmpty);
+      await second.close().timeout(const Duration(seconds: 5));
+
+      final early = connection.listen(
+        SubscriptionFilter(toolsListChanged: true),
+        meta: MetaWithRequestEnvelope(
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          capabilities: client.capabilities,
+        ),
+      );
+      await early.close().timeout(const Duration(seconds: 5));
+      await early.done.timeout(const Duration(seconds: 5));
+      await pumpEventQueue(times: 20);
+      expect((await connection.listTools()).tools, isEmpty);
+    });
+
+    test('client close survives supported channel wrappers', () async {
+      final host = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => host.close(force: true));
+      final hosted = <MCPServer>[];
+      final responsesDone = <Future<void>>[];
+      var requestCount = 0;
+      host.listen((request) {
+        requestCount++;
+        responsesDone.add(request.response.done);
+        handleStreamableHttpRequest(request, (channel) {
+          final server = _EquippedServer(channel);
+          hosted.add(server);
+          return server;
+        }, keepAliveInterval: const Duration(milliseconds: 20));
+      });
+      final client = TestMCPClient();
+      addTearDown(client.shutdown);
+      final channel = streamableHttpClientChannel(
+        Uri.http('${host.address.host}:${host.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: client.capabilities,
+      ).changeStream((stream) => stream).changeSink((sink) => sink);
+      final connection = client.connectServer(channel);
+      final subscription = connection.listen(
+        SubscriptionFilter(toolsListChanged: true),
+        meta: MetaWithRequestEnvelope(
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          capabilities: client.capabilities,
+        ),
+      );
+      await subscription.acknowledged.timeout(const Duration(seconds: 5));
+
+      await subscription.close().timeout(const Duration(seconds: 5));
+      await subscription.done.timeout(const Duration(seconds: 5));
+      await responsesDone.single.timeout(const Duration(seconds: 5));
+      await hosted.single.done.timeout(const Duration(seconds: 5));
+      expect(requestCount, 1, reason: 'HTTP close sends no cancellation POST');
+      expect(hosted.single.isActive, isFalse);
+
+      expect((await connection.listTools()).tools, isEmpty);
+      expect(requestCount, 2, reason: 'the shared client channel remains open');
     });
   });
 

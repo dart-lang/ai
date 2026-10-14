@@ -45,6 +45,26 @@ void main() async {
   );
   print('initialized on ${initializeResult.protocolVersion.versionString}');
 
+  // The same subscription works on every revision.
+  final subscription = server.listen(
+    SubscriptionFilter(toolsListChanged: true),
+    meta: MetaWithRequestEnvelope(
+      protocolVersion: initializeResult.protocolVersion,
+      capabilities: client.capabilities,
+    ),
+  );
+  // Closing the subscription ends this listener too.
+  subscription.notifications.listen((notification) async {
+    if (notification.method == ToolListChangedNotification.methodName) {
+      final tools = await server.listTools();
+      print('tools: ${tools.tools.map((tool) => tool.name).join(', ')}');
+    }
+  });
+  final accepted = await subscription.acknowledged;
+  if (accepted.toolsListChanged != true) {
+    print('tool list changes not accepted');
+  }
+
   // The tool takes no arguments. It asks for the name it greets instead.
   final result = await server.callTool(CallToolRequest(name: 'greet'));
   // `content` belongs to the complete result, so check the type the response
@@ -57,6 +77,7 @@ void main() async {
     if (content.isText) print((content as TextContent).text);
   }
 
+  await subscription.close();
   await client.shutdown();
 }
 
