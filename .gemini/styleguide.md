@@ -32,4 +32,5 @@ This style guide outlines the coding conventions for the dart-lang/ai repository
 
 ## 3. Guidelines from Existing Documentation
 
-Please refer to the [GEMINI.md](GEMINI.md) file for additional rules.
+Repository architecture and conventions for coding agents are in
+[GEMINI.md](../GEMINI.md) and [pkgs/skills/AGENTS.md](../pkgs/skills/AGENTS.md).
