@@ -1,4 +1,4 @@
-## 1.2.1-wip
+## 1.2.1
 
 - When the Flutter SDK cannot be found, the error now says which Dart SDK the
   server is using and where that path came from (an explicit path such as
@@ -7,6 +7,7 @@
 - Fix the `--enable` help text, which incorrectly said that all features are
   enabled by default. Document how to enable tools that are disabled by default
   in the README.
+- Require `package:unified_analytics` `^8.1.0`.
 
 ## 1.2.0
 
