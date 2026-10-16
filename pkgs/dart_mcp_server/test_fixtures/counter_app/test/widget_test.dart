@@ -4,6 +4,10 @@
 
 import 'package:counter_app/main.dart';
 
+// TODO: Migrate to package:material_ui once flutter_driver's ByTooltipMessage
+// finder recognizes material_ui's Tooltip; the dtd_test Flutter driver test
+// relies on it.
+// ignore: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
