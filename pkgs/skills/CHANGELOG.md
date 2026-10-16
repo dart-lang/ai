@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.4
+
+- Require `package:unified_analytics` `^8.1.0`.
+
 ## 1.0.3
 
 - Commands no longer require running from a Dart or Flutter project root. When
