@@ -2,6 +2,10 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+// TODO: Migrate to package:material_ui once flutter_driver's ByTooltipMessage
+// finder recognizes material_ui's Tooltip; the dtd_test Flutter driver test
+// relies on it.
+// ignore: deprecated_member_use
 import 'package:flutter/material.dart';
 
 void main() {
