@@ -9,7 +9,7 @@ This style guide outlines the coding conventions for the dart-lang/ai repository
 - **Zero-Formatting Policy:** Do NOT comment on indentation, spacing, or brace placement. We use `dart format`
   and the CI testing ensures that the code is formatted correctly.
 - **Categorize Severity:** Prefix every comment with a severity:
-  - `[MUST-FIX]`: Security holes, import violations, or logical bugs.
+  - `[MUST-FIX]`: Security holes or logical bugs.
   - `[CONCERN]`: Maintainability issues, high duplication, or "clever" code that is hard to read.
   - `[NIT]`: Idiomatic improvements or minor naming suggestions.
 - **Focus:** Prioritize logic, performance on the UI thread, and architectural consistency.
@@ -34,3 +34,43 @@ This style guide outlines the coding conventions for the dart-lang/ai repository
 
 Repository architecture and conventions for coding agents are in
 [GEMINI.md](../GEMINI.md) and [pkgs/skills/AGENTS.md](../pkgs/skills/AGENTS.md).
+
+## 4. Repository-specific review rules
+
+- **Spec grounding (`pkgs/dart_mcp`):** Code here implements the Model Context
+  Protocol (https://modelcontextprotocol.io/specification) and related specs
+  (for example, WHATWG server-sent events). When a change adds a constant, a
+  default, a limit, a field's optionality or nullability, or version-specific
+  behavior, check it against the spec schema for that protocol version. Ask
+  for a doc comment linking the relevant spec section when it's missing. When
+  you claim the spec requires something, cite the section; if you can't, phrase
+  it as a question.
+- **Limits and defaults:** A hard-coded limit, timeout, or retry count that
+  doesn't come from the spec should be configurable, keeping the current value
+  as the default. If it does come from the spec, link the section.
+- **Documentation:** New public members in `lib/` need a doc comment. Flag
+  (as `[CONCERN]`) complex private functions or classes whose purpose isn't
+  evident, and ask for a short comment on the high-level flow. Examples under
+  `example/` should explain protocol-specific steps, since users copy them.
+- **Extension types:** API types in `pkgs/dart_mcp/lib/src/api/` are extension
+  types over `Map<String, Object?>`. A cast (`as`) to one never fails at
+  runtime, and an `is` check can't tell union members apart. Don't suggest
+  either as a safety check. Discriminate with the provided getters (for example
+  `isInputRequired`, `type`, `resultType`) and validate the map's contents.
+- **JSON typing:** Treat decoded JSON maps as `Map<String, Object?>` and cast
+  values to `Object?` rather than leaving them `dynamic`. Prefer an `is` check
+  with type promotion (with a fallback or a clear error) over an `as` cast
+  followed by `!`.
+- **Copies and lookups:** Flag full copies of request/response maps
+  (`Map.from`, rebuilding a map field by field) when an in-place update would
+  do, and when rebuilding risks dropping unknown fields (copy the underlying map
+  and add to it instead). Flag loops over all subscriptions or entries when a
+  keyed lookup is available.
+- **LLM-facing text:** MCP tool/prompt descriptions and skill files are read by
+  models on every call. Don't ask to add explanations of concepts models already
+  know (hot reload, git, etc.) or "when to use this" text inside a skill body.
+  Flag additions that add tokens without changing behavior.
+- **Tests:** `TestEnvironment` (`pkgs/dart_mcp/test/test_utils.dart`) registers
+  its own `addTearDown(shutdown)`; don't ask for another. Do still ask for
+  `addTearDown` on other resources a test creates (subscriptions, processes,
+  controllers), and for cleanup in `tearDown` rather than `setUp`.
