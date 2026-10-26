@@ -36,18 +36,14 @@ void main() async {
 
   // Initialize the server and let it know our capabilities.
   print('initializing server');
-  final initializeResult = await server.initialize(
-    InitializeRequest(
-      protocolVersion: ProtocolVersion.latestSupported,
-      capabilities: client.capabilities,
+  final initializeResult = await server.initializeAcrossVersions(
+    MCPServerInitialization(
+      protocolVersion: ProtocolVersion.v2026_07_28,
+      clientCapabilities: client.capabilities,
       clientInfo: client.implementation,
     ),
   );
   print('initialized: $initializeResult');
-
-  // Notify the server that we are initialized.
-  server.notifyInitialized();
-  print('sent initialized notification');
 
   print('waiting for the server to send sampling requests');
 }
@@ -71,13 +67,10 @@ final class MCPClientWithSamplingSupport extends MCPClient
     // Note that in a real client, you should also ask the user to approve the
     // elicitation request.
     print('Received sampling request: $request');
+    final asked = request.messages.single.content.single as TextContent;
     return CreateMessageResult(
       role: Role.assistant,
-      content: Content.text(
-        text:
-            'You asked '
-            '"${(request.messages.single.content as TextContent).text}"',
-      ),
+      content: [Content.text(text: 'You asked "${asked.text}"')],
       model: 'Echo bot',
     );
   }
@@ -87,7 +80,7 @@ final class MCPClientWithSamplingSupport extends MCPClient
   /// The server will log the responses it gets to sampling messages.
   @override
   ServerConnection connectServer(
-    StreamChannel<String> channel, {
+    StreamChannel<Map<String, Object?>> channel, {
     Sink<String>? protocolLogSink,
   }) {
     final connection = super.connectServer(

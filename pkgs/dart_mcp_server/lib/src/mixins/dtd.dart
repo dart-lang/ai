@@ -4,6 +4,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show InternetAddress;
 
 import 'package:collection/collection.dart';
 import 'package:dart_mcp/server.dart';
@@ -11,7 +12,6 @@ import 'package:dds_service_extensions/dds_service_extensions.dart';
 import 'package:dtd/dtd.dart';
 import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:meta/meta.dart';
-import 'package:unified_analytics/unified_analytics.dart' as ua;
 import 'package:vm_service/vm_service.dart';
 import 'package:vm_service/vm_service_io.dart';
 import 'package:web_socket/web_socket.dart';
@@ -41,8 +41,8 @@ extension McpServiceConstants on Never {
 ///
 /// The MCPServer must already have the [ToolsSupport] mixin applied.
 base mixin DartToolingDaemonSupport
-    on ToolsSupport, LoggingSupport, ResourcesSupport, SdkSupport
-    implements AnalyticsSupport, ProcessManagerSupport {
+    on ToolsSupport, LoggingSupport, ResourcesSupport
+    implements AnalyticsSupport, ProcessManagerSupport, SdkSupport {
   /// The DTD instances that this server is connected to.
   final List<DartToolingDaemon> _dtds = [];
 
@@ -122,6 +122,71 @@ base mixin DartToolingDaemonSupport
     debugAwaitVmServiceDisposal ? await future : unawaited(future);
   }
 
+  /// Connects to [vmServiceUri] and adds it to the [activeVmServices].
+  Future<void> _addVmService(String vmServiceUri, {String? name}) async {
+    final vmServiceFuture = activeVmServices[vmServiceUri] =
+        vmServiceConnectUri(vmServiceUri);
+    final VmService vmService;
+    try {
+      vmService = await vmServiceFuture;
+      unawaited(
+        vmService.onDone.then((_) {
+          // If our exact instance is still in the active vm services
+          // for this uri, remove it.
+          if (activeVmServices[vmServiceUri] == vmServiceFuture) {
+            activeVmServices.remove(vmServiceUri);
+          }
+        }),
+      );
+    } catch (e) {
+      unawaited(activeVmServices.remove(vmServiceUri));
+      rethrow;
+    }
+    // Start listening for and collecting errors immediately.
+    final errorService = await _AppListener.forVmService(vmService, this);
+    final resource = Resource(
+      uri: '$runtimeErrorsScheme://${vmService.id}',
+      name: 'Errors for app ${name ?? vmServiceUri}',
+      description:
+          'Recent runtime errors seen for app "${name ?? vmServiceUri}".',
+    );
+    addResource(resource, (request) async {
+      final watch = Stopwatch()..start();
+      final result = ReadResourceResult(
+        contents: [
+          for (var error in errorService.errorLog.errors)
+            TextResourceContents(uri: resource.uri, text: error),
+        ],
+      );
+      watch.stop();
+      try {
+        analytics?.send(
+          createDartMCPEvent(
+            clientInfo: clientInfo,
+            serverInfo: implementation,
+            type: AnalyticsEvent.readResource.name,
+            additionalData: ReadResourceMetrics(
+              kind: ResourceKind.runtimeErrors,
+              length: result.contents.length,
+              elapsedMilliseconds: watch.elapsedMilliseconds,
+            ),
+          ),
+        );
+      } catch (e) {
+        log(LoggingLevel.warning, 'Error sending analytics event: $e');
+      }
+      return result;
+    });
+    try {
+      errorService.errorsStream.listen((_) => updateResource(resource));
+    } catch (_) {}
+    unawaited(
+      vmService.onDone.then((_) {
+        removeResource(resource.uri);
+      }),
+    );
+  }
+
   /// Updates the list of active VM services based on the connected apps in DTD.
   ///
   /// Returns the list of all VM service URIs that are currently connected to
@@ -141,56 +206,15 @@ base mixin DartToolingDaemonSupport
         continue;
       }
 
-      dtd.vmServiceUris.add(vmServiceUri);
-
-      final vmServiceFuture = activeVmServices[vmServiceUri] =
-          vmServiceConnectUri(vmServiceUri);
-      final vmService = await vmServiceFuture;
-      // Start listening for and collecting errors immediately.
-      final errorService = await _AppListener.forVmService(vmService, this);
-      final resource = Resource(
-        uri: '$runtimeErrorsScheme://${vmService.id}',
-        name: 'Errors for app ${vmServiceInfo.name}',
-        description:
-            'Recent runtime errors seen for app "${vmServiceInfo.name}".',
-      );
-      addResource(resource, (request) async {
-        final watch = Stopwatch()..start();
-        final result = ReadResourceResult(
-          contents: [
-            for (var error in errorService.errorLog.errors)
-              TextResourceContents(uri: resource.uri, text: error),
-          ],
-        );
-        watch.stop();
-        try {
-          analytics?.send(
-            ua.Event.dartMCPEvent(
-              client: clientInfo.name,
-              clientVersion: clientInfo.version,
-              serverVersion: implementation.version,
-              type: AnalyticsEvent.readResource.name,
-              additionalData: ReadResourceMetrics(
-                kind: ResourceKind.runtimeErrors,
-                length: result.contents.length,
-                elapsedMilliseconds: watch.elapsedMilliseconds,
-              ),
-            ),
-          );
-        } catch (e) {
-          log(LoggingLevel.warning, 'Error sending analytics event: $e');
-        }
-        return result;
-      });
       try {
-        errorService.errorsStream.listen((_) => updateResource(resource));
-      } catch (_) {}
-      unawaited(
-        vmService.onDone.then((_) {
-          removeResource(resource.uri);
-          activeVmServices.remove(vmServiceUri);
-        }),
-      );
+        await _addVmService(vmServiceUri, name: vmServiceInfo.name);
+        dtd.vmServiceUris.add(vmServiceUri);
+      } catch (e) {
+        log(
+          LoggingLevel.warning,
+          'Failed to connect to VM service at $vmServiceUri: $e',
+        );
+      }
     }
     return vmServiceInfos;
   }
@@ -204,6 +228,7 @@ base mixin DartToolingDaemonSupport
     registerTool(hotReloadTool, hotReload);
     registerTool(widgetInspectorTool, _widgetInspector);
     registerTool(flutterDriverTool, _callFlutterDriver);
+    registerTool(vmServiceTool, _vmService);
 
     return super.initialize(request);
   }
@@ -217,6 +242,7 @@ base mixin DartToolingDaemonSupport
     hotReloadTool,
     widgetInspectorTool,
     flutterDriverTool,
+    vmServiceTool,
   ];
 
   @override
@@ -284,7 +310,97 @@ base mixin DartToolingDaemonSupport
     );
   }
 
+  Future<CallToolResult> _callVmServiceMethod(CallToolRequest request) async {
+    // These are already validated to match the schema definition.
+    var method = request.arguments?[ParameterNames.method] as String;
+    final isolateId = request.arguments?[ParameterNames.isolateId] as String?;
+    final args =
+        request.arguments?[ParameterNames.arguments] as Map<String, Object?>?;
+    final appUri = request.arguments?[ParameterNames.appUri] as String?;
+    return _callOnVmService(
+      appUri: appUri,
+      callback: (vmService) async {
+        // Services registered by other clients have to be called by their
+        // namespaced method name (e.g. `s1.foo`), so map the service name
+        // passed to `registerService` to that method.
+        final appListener = await _AppListener.forVmService(vmService, this);
+        final registrations =
+            appListener.serviceRegistrations[method] ??
+            const <String, String?>{};
+        if (registrations.length > 1) {
+          return CallToolResult(
+            isError: true,
+            content: [
+              TextContent(
+                text:
+                    'Multiple clients registered the service "$method". '
+                    'Call one of these methods instead:\n'
+                    '${_describeRegistrations(registrations)}',
+              ),
+            ],
+          )..failureReason = CallToolFailureReason.ambiguousServiceMethod;
+        }
+        if (registrations.isNotEmpty) method = registrations.keys.single;
+        try {
+          final result = await vmService.callMethod(
+            method,
+            isolateId: isolateId,
+            args: args,
+          );
+          return CallToolResult(
+            content: [TextContent(text: jsonEncode(result.json))],
+          );
+        } on RPCError catch (e) {
+          return CallToolResult(
+            isError: true,
+            content: [
+              TextContent(text: 'RPCError when invoking method $method: $e'),
+            ],
+          )..failureReason = CallToolFailureReason.rpcError;
+        } catch (e) {
+          return CallToolResult(
+            isError: true,
+            content: [TextContent(text: 'Error invoking method $method: $e')],
+          )..failureReason = CallToolFailureReason.unhandledError;
+        }
+      },
+    );
+  }
+
+  /// Lists the services registered by VM service clients, with their method
+  /// names and human readable aliases.
+  Future<CallToolResult> _listRegisteredServices(
+    CallToolRequest request,
+  ) async {
+    final appUri = request.arguments?[ParameterNames.appUri] as String?;
+    return _callOnVmService(
+      appUri: appUri,
+      callback: (vmService) async {
+        final appListener = await _AppListener.forVmService(vmService, this);
+        return CallToolResult(
+          content: [
+            TextContent(
+              text: jsonEncode([
+                for (final MapEntry(key: service, value: registrations)
+                    in appListener.serviceRegistrations.entries)
+                  for (final MapEntry(key: method, value: alias)
+                      in registrations.entries)
+                    {'service': service, 'method': method, 'alias': alias},
+              ]),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  static String _describeRegistrations(Map<String, String?> registrations) => [
+    for (final MapEntry(key: method, value: alias) in registrations.entries)
+      '- $method${alias == null || alias.isEmpty ? '' : ' ($alias)'}',
+  ].join('\n');
+
   /// Connects to the Dart Tooling Daemon.
+  ///
   /// Connects to a single DTD at [uri].
   Future<CallToolResult> _connectToDtdSingle(Uri uri) async {
     if (_dtds.any((dtd) => dtd.uri == uri)) {
@@ -365,7 +481,42 @@ base mixin DartToolingDaemonSupport
       )..failureReason = CallToolFailureReason.mustSpecifyDtdUri;
     }
 
-    return _connectToDtdSingle(Uri.parse(uriString));
+    // The `uri` argument originates from the LLM and is therefore
+    // attacker-influenced (prompt injection). DTD instances always run on the
+    // local machine, so restrict connections to loopback hosts to prevent this
+    // tool from being used to open outbound WebSocket connections to arbitrary
+    // remote endpoints.
+    final uri = Uri.tryParse(uriString);
+    if (uri == null) {
+      return CallToolResult(
+        isError: true,
+        content: [Content.text(text: 'Failed to parse uri $uriString')],
+      )..failureReason = CallToolFailureReason.argumentError;
+    }
+    if (_checkIsAllowedDtdUri(uri) case final error?) {
+      return error;
+    }
+
+    return _connectToDtdSingle(uri);
+  }
+
+  /// Checks whether [uri] is an acceptable target for [_connect].
+  ///
+  /// Only `ws`/`wss` URIs targeting the local machine are allowed; the Dart
+  /// Tooling Daemon always listens on a loopback interface.
+  ///
+  /// If [uri] is invalid, returns an error result.
+  static CallToolResult? _checkIsAllowedDtdUri(Uri uri) {
+    if (uri.scheme != 'ws' && uri.scheme != 'wss') {
+      return _invalidDtdUri;
+    }
+    final host = uri.host;
+    if (host.isEmpty) return _invalidDtdUri;
+    if (host == 'localhost') return null;
+
+    final ip = InternetAddress.tryParse(host);
+    if (ip == null || !ip.isLoopback) return _invalidDtdUri;
+    return null;
   }
 
   /// Lists the available Dart Tooling Daemon instances.
@@ -447,16 +598,17 @@ base mixin DartToolingDaemonSupport
         return CallToolResult(
           isError: true,
           content: [TextContent(text: 'Unknown command: $command')],
-        );
+        )..failureReason = CallToolFailureReason.noSuchCommand;
     }
   }
 
   Future<CallToolResult> _listConnectedApps(CallToolRequest request) async {
-    if (_dtds.isEmpty) return _dtdNotConnected;
+    if (activeVmServices.isEmpty) return _noActiveAppConnection;
     final textResult = <TextContent>[];
     // Connected app info by DTD uri.
     final structuredResult = <String, List<Map<String, Object?>>>{};
 
+    final loggedAppUris = <String>{};
     for (final dtd in _dtds) {
       final vmServiceInfos = await updateActiveVmServices(dtd);
       final appsDescription = vmServiceInfos.isEmpty
@@ -469,6 +621,24 @@ base mixin DartToolingDaemonSupport
       structuredResult[dtd.uri.toString()] = vmServiceInfos
           .map((a) => a.toJson())
           .toList();
+      for (var info in vmServiceInfos) {
+        loggedAppUris.add(info.uri);
+      }
+    }
+
+    // Include other apps as well that are not associated with a DTD instance.
+    final standaloneApps = activeVmServices.keys.where(
+      (uri) => !loggedAppUris.contains(uri),
+    );
+    if (standaloneApps.isNotEmpty) {
+      structuredResult['standalone'] = [
+        for (final uri in standaloneApps) VmServiceInfo(uri: uri).toJson(),
+      ];
+      textResult.add(
+        TextContent(
+          text: '## Standalone Apps:\n${standaloneApps.join('\n')}\n',
+        ),
+      );
     }
 
     return CallToolResult(
@@ -763,7 +933,7 @@ base mixin DartToolingDaemonSupport
                 '${WidgetInspectorCommand.setWidgetSelectionMode}.',
           ),
         ],
-      )..failureReason = CallToolFailureReason.argumentError,
+      )..failureReason = CallToolFailureReason.noSuchCommand,
     };
   }
 
@@ -930,21 +1100,23 @@ base mixin DartToolingDaemonSupport
     required Future<CallToolResult> Function(VmService) callback,
     String? appUri,
   }) async {
-    if (_dtds.isEmpty) return _dtdNotConnected;
-    if (!_dtds.any((dtd) => dtd.supportsConnectedApps)) {
-      return _connectedAppsNotSupported;
-    }
-
-    // Update active vm services for all connected DTDs, if we no active ones
-    // or if the requested appUri is not in the active vm services.
+    // Update active vm services for all connected DTDs, if we have no active
+    // ones or if the requested appUri is not in the active vm services.
     if (activeVmServices.isEmpty ||
         (appUri != null && !activeVmServices.containsKey(appUri))) {
       for (final dtd in _dtds) {
-        await updateActiveVmServices(dtd);
+        if (dtd.supportsConnectedApps) {
+          await updateActiveVmServices(dtd);
+        }
       }
     }
 
-    if (activeVmServices.isEmpty) return _noActiveDebugSession;
+    if (activeVmServices.isEmpty) {
+      if (_dtds.isNotEmpty && !_dtds.any((dtd) => dtd.supportsConnectedApps)) {
+        return _connectedAppsNotSupported;
+      }
+      return _noActiveAppConnection;
+    }
 
     final String selectedAppUri;
     if (appUri != null) {
@@ -980,7 +1152,16 @@ base mixin DartToolingDaemonSupport
       selectedAppUri = activeVmServices.keys.first;
     }
 
-    return await callback(await activeVmServices[selectedAppUri]!);
+    final vmService = await activeVmServices[selectedAppUri]!;
+    return await Future.any([
+      callback(vmService),
+      vmService.onDone.then<CallToolResult>((_) {
+        return CallToolResult(
+          isError: true,
+          content: [TextContent(text: 'Service connection disposed.')],
+        )..failureReason = CallToolFailureReason.alreadyDisconnected;
+      }),
+    ]);
   }
 
   /// Retrieves the active location from the editor.
@@ -1258,14 +1439,14 @@ base mixin DartToolingDaemonSupport
     ),
   )..categories = [FeatureCategory.dartToolingDaemon];
 
-  @visibleForTesting
   static final hotReloadTool = Tool(
     name: ToolNames.hotReload.name,
     description:
         'Performs a hot reload of the active Flutter application. '
-        'This will apply the latest code changes to the running application, '
-        'while maintaining application state.  Reload will not update const '
-        'definitions of global values. Requires an active DTD connection.',
+        'Requires an active DTD connection, use '
+        'the `${DartToolingDaemonSupport.dtdTool.name}` tool to discover and '
+        'connect to an app pro-actively (don\'t wait for the user to instruct '
+        'you, this is a safe operation with minimal bad consequences).',
     annotations: ToolAnnotations(title: 'Hot reload', destructiveHint: true),
     inputSchema: Schema.object(
       properties: {
@@ -1286,7 +1467,6 @@ base mixin DartToolingDaemonSupport
     ),
   )..categories = [FeatureCategory.flutter];
 
-  @visibleForTesting
   static final hotRestartTool = Tool(
     name: ToolNames.hotRestart.name,
     description:
@@ -1365,6 +1545,140 @@ base mixin DartToolingDaemonSupport
         ..categories = [FeatureCategory.dartToolingDaemon]
         ..enabledByDefault = false;
 
+  @visibleForTesting
+  static final vmServiceTool = Tool(
+    name: ToolNames.vmService.name,
+    description:
+        'Manage and interact with VM service connections. This tool '
+        'allows you to connect to an app using its VM service URI, disconnect '
+        'from it, invoke VM service methods directly, or list the services '
+        'that VM service clients registered on it. '
+        'Connecting allows features like hot reload to work on apps not '
+        'launched via DTD.',
+    annotations: ToolAnnotations(title: 'VM Service'),
+    inputSchema: Schema.object(
+      properties: {
+        ParameterNames.command: EnumSchema.untitledSingleSelect(
+          description: 'The command to execute.',
+          values: [
+            VmServiceCommand.connect,
+            VmServiceCommand.disconnect,
+            VmServiceCommand.callMethod,
+            VmServiceCommand.listRegisteredServices,
+          ],
+        ),
+        ParameterNames.appUri: Schema.string(
+          description:
+              'The app URI (vm service URI) to target. Required if multiple '
+              'apps are connected, or when connecting or disconnecting.',
+        ),
+        ParameterNames.method: Schema.string(
+          description:
+              'The name of the vm service method to invoke. Required for '
+              '${VmServiceCommand.callMethod}. Services registered by other '
+              'VM service clients can be called by the name they were '
+              'registered with; use the '
+              '${VmServiceCommand.listRegisteredServices} command to list '
+              'them.',
+        ),
+        ParameterNames.isolateId: Schema.string(
+          description:
+              'The isolate ID to target, you can find isolate IDs using the '
+              '`getVM` method. Only methods that require an isolate ID should '
+              'be given one.',
+        ),
+        ParameterNames.arguments: Schema.object(
+          description: 'Arguments for the method (optional).',
+          additionalProperties: true,
+        ),
+      },
+      required: [ParameterNames.command],
+      additionalProperties: false,
+    ),
+  )..categories = [FeatureCategory.dartToolingDaemon];
+
+  Future<CallToolResult> _vmService(CallToolRequest request) async {
+    final command = request.arguments![ParameterNames.command] as String;
+    final uriString = request.arguments?[ParameterNames.appUri] as String?;
+    switch (command) {
+      case VmServiceCommand.connect:
+        if (uriString == null) {
+          return CallToolResult(
+            isError: true,
+            content: [
+              TextContent(text: 'No URI provided for connect command.'),
+            ],
+          )..failureReason = CallToolFailureReason.argumentError;
+        }
+        if (activeVmServices.containsKey(uriString)) {
+          return CallToolResult(
+            content: [TextContent(text: 'Already connected to $uriString.')],
+          );
+        }
+        try {
+          await _addVmService(uriString);
+          return CallToolResult(
+            content: [
+              TextContent(text: 'Successfully connected to $uriString.'),
+            ],
+          );
+        } catch (e) {
+          return CallToolResult(
+            isError: true,
+            content: [TextContent(text: 'Failed to connect: $e')],
+          )..failureReason = CallToolFailureReason.unhandledError;
+        }
+
+      case VmServiceCommand.disconnect:
+        if (uriString == null) {
+          return CallToolResult(
+            isError: true,
+            content: [
+              TextContent(text: 'No URI provided for connect command.'),
+            ],
+          )..failureReason = CallToolFailureReason.argumentError;
+        }
+        final vmServiceFuture = activeVmServices.remove(uriString);
+        if (vmServiceFuture == null) {
+          return CallToolResult(
+            isError: true,
+            content: [TextContent(text: 'Not connected to $uriString.')],
+          )..failureReason = CallToolFailureReason.applicationNotFound;
+        }
+        try {
+          final vmService = await vmServiceFuture;
+          await vmService.dispose();
+          return CallToolResult(
+            content: [TextContent(text: 'Disconnected from $uriString.')],
+          );
+        } catch (e) {
+          return CallToolResult(
+            isError: true,
+            content: [TextContent(text: 'Error disconnecting: $e')],
+          )..failureReason = CallToolFailureReason.unhandledError;
+        }
+
+      case VmServiceCommand.callMethod:
+        final method = request.arguments?[ParameterNames.method] as String?;
+        if (method == null) {
+          return CallToolResult(
+            isError: true,
+            content: [TextContent(text: 'No method provided for callMethod.')],
+          )..failureReason = CallToolFailureReason.argumentError;
+        }
+        return _callVmServiceMethod(request);
+
+      case VmServiceCommand.listRegisteredServices:
+        return _listRegisteredServices(request);
+
+      default:
+        return CallToolResult(
+          isError: true,
+          content: [TextContent(text: 'Unknown command: $command')],
+        )..failureReason = CallToolFailureReason.noSuchCommand;
+    }
+  }
+
   static final _connectedAppsNotSupported = CallToolResult(
     isError: true,
     content: [
@@ -1398,8 +1712,16 @@ base mixin DartToolingDaemonSupport
     ],
   )..failureReason = CallToolFailureReason.dtdAlreadyConnected;
 
-  static final _noActiveDebugSession = CallToolResult(
-    content: [TextContent(text: 'No active debug session.')],
+  static final _noActiveAppConnection = CallToolResult(
+    content: [
+      TextContent(
+        text:
+            'No active app connection. Use the `${dtdTool.name}` tool to '
+            'discover and connect to an app first. AGENT: Be pro-active and '
+            'connect to the app yourself unless explicitly instructed '
+            'otherwise. Read the dtd tool schema to use it correctly.',
+      ),
+    ],
     isError: true,
   )..failureReason = CallToolFailureReason.noActiveDebugSession;
 
@@ -1423,14 +1745,24 @@ base mixin DartToolingDaemonSupport
       Content.text(
         text:
             'Connected to a VM Service but expected to connect to a Dart '
-            'Tooling Daemon service. When launching apps from an IDE you '
-            'should have a "Copy DTD URI to clipboard" command pallete option, '
-            'or when directly launching apps from a terminal you can pass the '
-            '"--print-dtd" command line option in order to get the DTD URI.',
+            'Tooling Daemon service. Use the '
+            '${vmServiceTool.name}.${VmServiceCommand.connect} tool instead.',
       ),
     ],
     isError: true,
   )..failureReason = CallToolFailureReason.givenVmServiceUri;
+
+  static final _invalidDtdUri = CallToolResult(
+    isError: true,
+    content: [
+      Content.text(
+        text:
+            'Refusing to connect to invalid DTD URI. URIs must use the '
+            'ws:// or wss:// scheme and a loopback host (127.0.0.1, ::1, '
+            'or localhost).',
+      ),
+    ],
+  )..failureReason = CallToolFailureReason.argumentError;
 
   static final runtimeErrorsScheme = 'runtime-errors';
 
@@ -1451,6 +1783,14 @@ class _AppListener {
   /// A map of service names to the names of their methods.
   final Map<String, String?> registeredServices;
 
+  /// All services registered by VM service clients, keyed by the service name
+  /// passed to `registerService`, then by the method name to call (which is
+  /// namespaced by the registering client, e.g. `s1.myService`), with the
+  /// human readable alias as the value.
+  ///
+  /// More than one client can register the same service name.
+  final Map<String, Map<String, String?>> serviceRegistrations;
+
   /// A map of service names to completers that should be fired when the service
   /// is registered.
   final _pendingServiceRequests = <String, List<Completer<String?>>>{};
@@ -1467,6 +1807,7 @@ class _AppListener {
   _AppListener._(
     this.errorLog,
     this.registeredServices,
+    this.serviceRegistrations,
     this._errorsController,
     this._subscriptions,
     this._vmService,
@@ -1493,6 +1834,7 @@ class _AppListener {
       errorsController.stream.listen(errorLog.add);
       final subscriptions = <StreamSubscription<void>>[];
       final registeredServices = <String, String?>{};
+      final serviceRegistrations = <String, Map<String, String?>>{};
       final pendingServiceRequests = <String, List<Completer<String?>>>{};
 
       try {
@@ -1502,6 +1844,10 @@ class _AppListener {
               case EventKind.kServiceRegistered:
                 final serviceName = e.service!;
                 registeredServices[serviceName] = e.method;
+                serviceRegistrations.putIfAbsent(
+                  serviceName,
+                  () => {},
+                )[e.method!] = e.alias;
                 // If there are any pending requests for this service, complete
                 // them.
                 if (pendingServiceRequests.containsKey(serviceName)) {
@@ -1512,7 +1858,17 @@ class _AppListener {
                   pendingServiceRequests.remove(serviceName);
                 }
               case EventKind.kServiceUnregistered:
-                registeredServices.remove(e.service!);
+                final serviceName = e.service!;
+                final remaining = serviceRegistrations[serviceName]
+                  ?..remove(e.method);
+                if (remaining == null || remaining.isEmpty) {
+                  serviceRegistrations.remove(serviceName);
+                  registeredServices.remove(serviceName);
+                } else if (registeredServices[serviceName] == e.method) {
+                  // Other clients still provide this service, so keep it
+                  // available but point it at a remaining registration.
+                  registeredServices[serviceName] = remaining.keys.last;
+                }
             }
           }),
           vmService.onIsolateEvent.listen((e) {
@@ -1567,6 +1923,7 @@ class _AppListener {
       return _AppListener._(
         errorLog,
         registeredServices,
+        serviceRegistrations,
         errorsController,
         subscriptions,
         vmService,
@@ -1602,6 +1959,7 @@ class _AppListener {
   Future<void> shutdown() async {
     errorLog.clear();
     registeredServices.clear();
+    serviceRegistrations.clear();
     await _errorsController.close();
     await Future.wait(_subscriptions.map((s) => s.cancel()));
     try {
@@ -1700,6 +2058,13 @@ extension DtdCommand on Never {
   static const disconnect = 'disconnect';
   static const listConnectedApps = 'listConnectedApps';
   static const listDtdUris = 'listDtdUris';
+}
+
+extension VmServiceCommand on Never {
+  static const connect = 'connect';
+  static const disconnect = 'disconnect';
+  static const callMethod = 'callMethod';
+  static const listRegisteredServices = 'listRegisteredServices';
 }
 
 extension on VmServiceInfo {

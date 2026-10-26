@@ -15,6 +15,8 @@ import 'package:meta/meta.dart';
 
 import '../features_configuration.dart';
 import '../utils/analytics.dart';
+import '../utils/cli_utils.dart';
+import '../utils/file_system.dart';
 import '../utils/names.dart';
 import '../utils/process_manager.dart';
 import '../utils/sdk.dart';
@@ -35,7 +37,7 @@ class _RunningApp {
 /// launches.
 base mixin FlutterLauncherSupport
     on ToolsSupport, LoggingSupport, RootsTrackingSupport
-    implements ProcessManagerSupport, SdkSupport {
+    implements ProcessManagerSupport, SdkSupport, FileSystemSupport {
   final Map<int, _RunningApp> _runningApps = {};
   static const Set<String> _managedFlutterRunFlags = {
     '--print-dtd',
@@ -73,9 +75,7 @@ base mixin FlutterLauncherSupport
               'Launches a Flutter application and returns its DTD URI.',
           inputSchema: Schema.object(
             properties: {
-              'root': Schema.string(
-                description: 'The root directory of the Flutter project.',
-              ),
+              ParameterNames.root: rootSchema,
               'target': Schema.string(
                 description:
                     'The main entry point file of the application. Defaults to '
@@ -92,15 +92,16 @@ base mixin FlutterLauncherSupport
                 description:
                     'Additional arguments to pass to the `flutter run` '
                     'command. For example: ["--flavor", "dev", '
-                    '"--dart-define-from-file", "env.json"]. Do not include '
-                    '${_managedFlutterRunFlags.join(', ')} '
-                    'as these are managed automatically.',
+                    '"--dart-define=KEY=value"]. Only the following flags are '
+                    'permitted: ${_allowedFlutterRunFlags.join(', ')}. Do not '
+                    'include ${_managedFlutterRunFlags.join(', ')} as these '
+                    'are managed automatically.',
               ),
               'timeout': Schema.int(
                 description: 'Timeout in milliseconds, defaults to 90000.',
               ),
             },
-            required: ['root', 'device'],
+            required: [ParameterNames.root, 'device'],
             additionalProperties: false,
           ),
           outputSchema: Schema.object(
@@ -131,8 +132,33 @@ base mixin FlutterLauncherSupport
         ]
         ..enabledByDefault = false;
 
+  /// Additional `flutter run` flags that callers may pass via `args`. Any
+  /// argument beginning with `-` must match one of these (exactly, or as a
+  /// `--flag=value` prefix). This keeps a prompt-injected client from steering
+  /// the run via flags such as `--dart-define-from-file`,
+  /// `--use-application-binary`, `--local-engine`, `--shell`/`--pid-file`, etc.
+  static const Set<String> _allowedFlutterRunFlags = {
+    '--debug',
+    '--profile',
+    '--release',
+    '--jit-release',
+    '--flavor',
+    '--dart-define',
+    '--verbose',
+    '-v',
+    '--dart-entrypoint-args',
+    '-a',
+  };
+
   Future<CallToolResult> _launchApp(CallToolRequest request) async {
-    final root = request.arguments!['root'] as String;
+    final validation = validateRootConfig(
+      request.arguments,
+      fileSystem: fileSystem,
+      knownRoots: await roots,
+    );
+    if (validation.errorResult != null) return validation.errorResult!;
+    final root = fileSystem.directory(Uri.parse(validation.root!.uri)).path;
+
     final target = request.arguments!['target'] as String?;
     final device = request.arguments!['device'] as String;
     final args =
@@ -140,15 +166,20 @@ base mixin FlutterLauncherSupport
         <String>[];
     final blockedArgs = args
         .where(
-          (arg) => _managedFlutterRunFlags.any(
-            (flag) => arg == flag || arg.startsWith('$flag='),
-          ),
+          (arg) =>
+              _managedFlutterRunFlags.any(
+                (flag) => arg == flag || arg.startsWith('$flag='),
+              ) ||
+              (arg.startsWith('-') &&
+                  !_allowedFlutterRunFlags.any(
+                    (flag) => arg == flag || arg.startsWith('$flag='),
+                  )),
         )
         .toList();
     if (blockedArgs.isNotEmpty) {
       log(
         LoggingLevel.warning,
-        'launch_app called with managed flutter run flags in args: '
+        'launch_app called with disallowed flutter run flags in args: '
         '${blockedArgs.join(', ')}',
       );
       return CallToolResult(
@@ -156,10 +187,11 @@ base mixin FlutterLauncherSupport
         content: [
           TextContent(
             text:
-                'The `args` parameter contains managed flutter run options: '
-                '${blockedArgs.map((arg) => '`$arg`').join(', ')}. Remove '
-                'these from `args`; use the `device` and `target` parameters '
-                'instead.',
+                'The `args` parameter contains disallowed flutter run options: '
+                '${blockedArgs.map((arg) => '`$arg`').join(', ')}. Only the '
+                'following flags are permitted: '
+                '${_allowedFlutterRunFlags.join(', ')}. Use the `device` and '
+                '`target` parameters for device/entrypoint selection.',
           ),
         ],
       )..failureReason = CallToolFailureReason.argumentError;

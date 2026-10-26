@@ -1,3 +1,7 @@
+# Copyright (c) 2026, the Dart project authors.  Please see the AUTHORS file
+# for details. All rights reserved. Use of this source code is governed by a
+# BSD-style license that can be found in the LICENSE file.
+
 name: package:dart_mcp_server
 permissions: read-all
 
@@ -28,26 +32,23 @@ jobs:
       fail-fast: false
       matrix:
         flutterSdk:
-          # - beta 
+          - beta
           - master
         os:
           - ubuntu-latest
           - windows-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
       - name: Cache Pub hosted dependencies
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: "~/.pub-cache/hosted"
           key: "pub-cache-hosted;${{ matrix.flutterSdk }};${{ matrix.os }}"
-      - name: Cache Pub sdk git dependency
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae
-        with:
-          path: "~/.pub-cache/git/sdk-b0838eac58308fc4e6654ca99eda75b30649c08f/"
-          key: "pub-cache-git;${{ matrix.flutterSdk }};${{ matrix.os }}"
       # We need the flutter SDK in order to run the counter app for integration
       # testing.
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           channel: ${{ matrix.flutterSdk }}
           cache: true

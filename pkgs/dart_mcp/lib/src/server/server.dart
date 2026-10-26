@@ -3,20 +3,28 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:collection';
 
+import 'package:json_rpc_2/error_code.dart' as error_code;
 import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:meta/meta.dart';
+import 'package:stream_channel/stream_channel.dart';
 import 'package:stream_transform/stream_transform.dart';
 
 import '../api/api.dart';
 import '../shared.dart';
+import '../utils/constants.dart';
+import '../utils/json_rpc_2_object.dart';
 
 part 'completions_support.dart';
 part 'elicitation_request_support.dart';
+part 'legacy_input_required_shim.dart';
 part 'logging_support.dart';
 part 'prompts_support.dart';
+part 'request_scoped.dart';
 part 'resources_support.dart';
 part 'roots_tracking_support.dart';
+part 'subscriptions_support.dart';
 part 'tools_support.dart';
 
 /// Base class to extend when implementing an MCP server.
@@ -24,8 +32,11 @@ part 'tools_support.dart';
 /// Actual functionality beyond server initialization is done by mixing in
 /// additional support mixins such as [ToolsSupport], [ResourcesSupport] etc.
 abstract base class MCPServer extends MCPBase {
-  /// Completes when this server has finished initialization and gotten the
-  /// final ack from the client.
+  /// Completes when this server has finished initialization.
+  ///
+  /// Legacy transports complete this after the final acknowledgement from the
+  /// client. Request-scoped transports should call [handleInitialized] after
+  /// [initialize] and any transport-specific setup have completed.
   Future<InitializedNotification?> get initialized => _initialized.future;
   final Completer<InitializedNotification?> _initialized = Completer();
 
@@ -40,20 +51,47 @@ abstract base class MCPServer extends MCPBase {
   /// These may be used in system prompts.
   final String? instructions;
 
+  /// How many times a handler may be rerun for an `input_required` result.
+  ///
+  /// Used only on revisions before 2026-07-28. Exceeding it is an `-32603`
+  /// error. Values below 1 throw a [RangeError].
+  final int maxInputRequiredRounds;
+
   /// The negotiated protocol version.
   ///
-  /// Only assigned after `initialize` has been called.
+  /// Only assigned after [initialize] has been called.
   late ProtocolVersion protocolVersion;
+
+  /// [protocolVersion] once [initialize] has assigned it, else `null`.
+  ///
+  /// The legacy input-required wrap can run for a handler registered before
+  /// [initialize], so the shim reads this instead of the late field.
+  ProtocolVersion? _inputRequiredProtocolVersion;
 
   /// The capabilities of the client.
   ///
-  /// Only assigned after `initialize` has been called.
+  /// Only assigned after [initialize] has been called.
   late ClientCapabilities clientCapabilities;
+
+  /// Whether this connection can answer requests sent by the server.
+  ///
+  /// Legacy connections always can. Request-scoped transports set this from
+  /// their optional server-request callback before dispatching a message.
+  bool _serverRequestsSupported = true;
+
+  late final _LegacyInputRequiredShim _legacyInputRequiredShim =
+      _LegacyInputRequiredShim(this);
 
   /// The client implementation information provided during initialization.
   ///
-  /// Only assigned after `initialize` has been called.
-  late Implementation clientInfo;
+  /// `null` until [initialize] has been called, and remains `null` when the
+  /// client did not declare any implementation information.
+  Implementation? clientInfo;
+
+  /// The capabilities of this server, which [discover] advertises.
+  ///
+  /// This can be modified by overriding the [initialize] method.
+  final ServerCapabilities capabilities = ServerCapabilities();
 
   @override
   String get name => implementation.name;
@@ -69,17 +107,49 @@ abstract base class MCPServer extends MCPBase {
       _rootsListChangedController?.stream;
   StreamController<RootsListChangedNotification?>? _rootsListChangedController;
 
+  /// Serves MCP on [channel].
   MCPServer.fromStreamChannel(
     super.channel, {
     required this.implementation,
     this.instructions,
     super.protocolLogSink,
+    this.maxInputRequiredRounds = 8,
   }) {
-    registerRequestHandler(InitializeRequest.methodName, initialize);
+    if (maxInputRequiredRounds < 1) {
+      throw RangeError.range(
+        maxInputRequiredRounds,
+        1,
+        null,
+        'maxInputRequiredRounds',
+      );
+    }
+    registerRequestHandler(InitializeRequest.methodName, initializeLegacy);
 
     registerNotificationHandler(
       InitializedNotification.methodName,
       handleInitialized,
+    );
+  }
+
+  /// Registers [impl] for [name], and on revisions before 2026-07-28 wraps
+  /// the handlers that may answer `input_required` in the legacy shim.
+  @override
+  void registerRequestHandler<T extends Request?, R extends Result?>(
+    String name,
+    FutureOr<R> Function(T) impl,
+  ) {
+    if (!_inputRequiredMethods.contains(name)) {
+      return super.registerRequestHandler<T, R>(name, impl);
+    }
+    super.registerRequestHandler<T, R>(
+      name,
+      (request) async =>
+          await _legacyInputRequiredShim.fulfill(
+                name,
+                request as WithInputResponses,
+                (retry) async => (await impl(retry as T)) as Result,
+              )
+              as R,
     );
   }
 
@@ -90,20 +160,18 @@ abstract base class MCPServer extends MCPBase {
   }
 
   @mustCallSuper
-  /// Mixins should register their methods in this method, as well as editing
-  /// the [InitializeResult.capabilities] as needed.
-  FutureOr<InitializeResult> initialize(InitializeRequest request) {
-    // If we don't support or understand the version, set it to the latest one
-    // that we do support. If the client doesn't support that version they will
-    // terminate the connection.
-    final clientProtocolVersion = request.protocolVersion;
-    if (clientProtocolVersion == null || !clientProtocolVersion.isSupported) {
-      protocolVersion = ProtocolVersion.latestSupported;
-    } else {
-      protocolVersion = clientProtocolVersion;
-    }
-
-    clientCapabilities = request.capabilities;
+  /// Registers the features available to a client with [initialization].
+  ///
+  /// Mixins and subclasses should register request handlers and other features
+  /// in this method, as well as editing [capabilities].
+  ///
+  /// Transport-specific initialization, including the legacy MCP initialize
+  /// request, is handled separately.
+  FutureOr<void> initialize(MCPServerInitialization initialization) {
+    protocolVersion = initialization.protocolVersion;
+    _inputRequiredProtocolVersion = protocolVersion;
+    clientCapabilities = initialization.clientCapabilities;
+    clientInfo = initialization.clientInfo;
     if (clientCapabilities.roots?.listChanged == true) {
       _rootsListChangedController =
           StreamController<RootsListChangedNotification?>.broadcast();
@@ -112,33 +180,244 @@ abstract base class MCPServer extends MCPBase {
         _rootsListChangedController!.sink.add,
       );
     }
+    // Registering this handler is itself a statement about the lifecycle, so
+    // only a server on a request-scoped revision does it. A client probing
+    // under the stdio backward compatibility rules would read an answer here
+    // as "this connection is modern".
+    if (protocolVersion.methodIsValid(DiscoverRequest.methodName)) {
+      registerRequestHandler(DiscoverRequest.methodName, discover);
+    }
+  }
 
-    clientInfo = request.clientInfo;
+  /// Answers the `server/discover` request with the protocol versions this
+  /// server serves, the capabilities [initialize] registered, and the
+  /// instructions it was given.
+  ///
+  /// Only the revisions from [ProtocolVersion.v2026_07_28] on are advertised:
+  /// earlier ones are negotiated with the legacy `initialize` handshake, which
+  /// this request replaced. A transport that serves a narrower set than this
+  /// package implements rejects the versions it does not serve itself, the way
+  /// `handleStreamableHttpRequest` does with its own version header check.
+  ///
+  /// The request-scoped dispatcher fills in the rest of what the schema
+  /// requires, `resultType` and the caching hints, and stamps the server's
+  /// identity into `_meta`. This only answers the fields that are specific to
+  /// discovery. Override it to advertise something else.
+  ///
+  /// The request has no parameters of its own beyond the `_meta` envelope, and
+  /// the per-request context that envelope carries reaches a server through
+  /// [initialize] rather than through here, so it is optional the way the other
+  /// requests without parameters are.
+  ///
+  /// https://modelcontextprotocol.io/specification/2026-07-28/server/discover
+  FutureOr<DiscoverResult> discover([DiscoverRequest? request]) =>
+      DiscoverResult(
+        supportedVersions: [
+          for (final version in ProtocolVersion.values)
+            if (version.methodIsValid(DiscoverRequest.methodName))
+              version.versionString,
+        ],
+        capabilities: advertisedCapabilities,
+        instructions: instructions,
+      );
+
+  /// The capabilities [discover] advertises.
+  ///
+  /// On these revisions a client only hears a list change or a resource update
+  /// over a `subscriptions/listen` stream it opened with the matching
+  /// `promptsListChanged`, `toolsListChanged`, `resourcesListChanged` or
+  /// `resourceSubscriptions` filter. [SubscriptionsSupport] acknowledges the
+  /// request, and the Streamable HTTP transport routes matching notifications
+  /// from that request's server. A server with [SubscriptionsSupport] therefore
+  /// advertises the capabilities it registered, and overrides this to do so.
+  /// Without that mixin the four bits standing for those notifications come off
+  /// here: `listChanged` on each of the three, and `subscribe` on
+  /// [ServerCapabilities.resources].
+  /// Every other key the server registered is passed through, and
+  /// `initializeLegacy` keeps all of them, since the revisions that handshake
+  /// negotiates still serve `resources/subscribe` and send the list changes
+  /// without a filter.
+  @protected
+  ServerCapabilities get advertisedCapabilities => ServerCapabilities.fromMap({
+    ...capabilities as Map<String, Object?>,
+    if (capabilities.prompts case final prompts?)
+      Keys.prompts: Prompts.fromMap(
+        Map<String, Object?>.from(prompts as Map<String, Object?>)
+          ..remove(Keys.listChanged),
+      ),
+    if (capabilities.resources case final resources?)
+      Keys.resources: Resources.fromMap(
+        Map<String, Object?>.from(resources as Map<String, Object?>)
+          ..remove(Keys.listChanged)
+          ..remove(Keys.subscribe),
+      ),
+    if (capabilities.tools case final tools?)
+      Keys.tools: Tools.fromMap(
+        Map<String, Object?>.from(tools as Map<String, Object?>)
+          ..remove(Keys.listChanged),
+      ),
+  });
+
+  @mustCallSuper
+  /// Handles the initialize request used by legacy MCP protocols.
+  ///
+  /// Most servers should override [initialize] to register features. Override
+  /// this method only to customize legacy protocol negotiation or its wire
+  /// response.
+  FutureOr<InitializeResult> initializeLegacy(InitializeRequest request) async {
+    // If we don't support or understand the version, set it to the latest one
+    // that we do support. If the client doesn't support that version they will
+    // terminate the connection.
+    final clientProtocolVersion = request.protocolVersion;
+    final negotiatedProtocolVersion =
+        clientProtocolVersion == null || !clientProtocolVersion.isLegacyVersion
+            ? ProtocolVersion.lastLegacyVersion
+            : clientProtocolVersion;
+
+    late final ClientCapabilities clientCapabilities;
+    try {
+      clientCapabilities = request.capabilities;
+      // The getter validates what the client sent, so this error describes
+      // the request and not a bug on this side.
+      // ignore: avoid_catching_errors
+    } on ArgumentError {
+      throw RpcException.invalidParams(
+        'The initialize request has invalid capabilities',
+      );
+    }
 
     assert(!_initialized.isCompleted);
+    await initialize(
+      MCPServerInitialization(
+        protocolVersion: negotiatedProtocolVersion,
+        clientCapabilities: clientCapabilities,
+        clientInfo: request.clientInfo,
+      ),
+    );
     return InitializeResult(
-      protocolVersion: protocolVersion,
-      serverCapabilities: ServerCapabilities(),
+      protocolVersion: negotiatedProtocolVersion,
+      serverCapabilities: capabilities,
       serverInfo: implementation,
       instructions: instructions,
     );
   }
 
-  /// Called by the client after accepting our [InitializeResult].
+  /// Completes [initialized].
   ///
-  /// The server should not respond.
+  /// Legacy clients call this handler after accepting our [InitializeResult].
+  /// Request-scoped transports may call it without a notification after
+  /// [initialize] and transport-specific setup have completed.
+  ///
+  /// The server should not send a response.
   @mustCallSuper
   void handleInitialized([InitializedNotification? notification]) {
     _initialized.complete(notification);
   }
 
-  /// Lists all the root URIs from the client.
-  Future<ListRootsResult> listRoots([ListRootsRequest? request]) =>
-      sendRequest(ListRootsRequest.methodName, request);
-
-  /// A request to prompt the LLM owned by the client with a message.
+  /// Whether or not the connected client supports roots requests.
   ///
-  /// See https://spec.modelcontextprotocol.io/specification/2025-11-05/client/sampling/.
-  Future<CreateMessageResult> createMessage(CreateMessageRequest request) =>
-      sendRequest(CreateMessageRequest.methodName, request);
+  /// Only safe to call after calling [initialize] on `super` since this
+  /// is based on the client capabilities.
+  bool get supportsRoots => clientCapabilities.supportsRoots;
+
+  /// Whether or not the connected client supports sampling requests.
+  ///
+  /// Only safe to call after calling [initialize] on `super` since this
+  /// is based on the client capabilities.
+  bool get supportsSampling => clientCapabilities.supportsSampling;
+}
+
+/// The error [_rejectRemovedMethod] throws when [protocolVersion] does not
+/// have [method].
+///
+/// Only a revision with an `InputRequiredResult` can be pointed at it, and
+/// `elicit` also lands here on the revisions before 2025-06-18 added
+/// `elicitation/create`.
+RpcException _removedMethod(String method, ProtocolVersion protocolVersion) {
+  final replacement =
+      protocolVersion >= ProtocolVersion.v2026_07_28
+          ? ' Ask the client for input with an InputRequiredResult on '
+              '${CallToolRequest.methodName}, ${GetPromptRequest.methodName}, '
+              'or ${ReadResourceRequest.methodName} instead.'
+          : '';
+  return RpcException(
+    error_code.INTERNAL_ERROR,
+    'Protocol version ${protocolVersion.versionString} does not have '
+    '$method.$replacement',
+  );
+}
+
+/// Refuses to send [method] when [ProtocolVersion.methodIsValid] says
+/// [protocolVersion] does not have it.
+///
+/// Each sender calls this first, so a method the revision does not have fails
+/// for that reason instead of for a missing client capability.
+void _rejectRemovedMethod(String method, ProtocolVersion protocolVersion) {
+  if (protocolVersion.methodIsValid(method)) return;
+  throw _removedMethod(method, protocolVersion);
+}
+
+/// The error a server must return when handling a request needs [capability],
+/// which the client did not declare, carrying [required] under
+/// `data.requiredCapabilities`.
+RpcException _missingClientCapability(
+  String capability,
+  ClientCapabilities required,
+) => RpcException(
+  McpErrorCodes.missingRequiredClientCapability,
+  'The client did not declare the $capability capability',
+  data: {Keys.requiredCapabilities: required},
+);
+
+/// The refusal for a client that did not declare `roots`.
+RpcException get _missingRoots => _missingClientCapability(
+  'roots',
+  ClientCapabilities(roots: RootsCapabilities()),
+);
+
+/// The refusal for a client that did not declare `sampling`.
+RpcException get _missingSampling =>
+    _missingClientCapability('sampling', ClientCapabilities(sampling: {}));
+
+/// The refusal for a client whose `sampling` left out `tools`.
+RpcException get _missingSamplingTools => _missingClientCapability(
+  'sampling.tools',
+  ClientCapabilities(sampling: {Keys.tools: <String, Object?>{}}),
+);
+
+/// The refusal for a client that did not declare `elicitation.form`.
+RpcException get _missingFormElicitation => _missingClientCapability(
+  'elicitation.form',
+  ClientCapabilities(elicitation: ElicitationCapability(form: {})),
+);
+
+/// The refusal for a client that did not declare `elicitation.url`.
+RpcException get _missingUrlElicitation => _missingClientCapability(
+  'elicitation.url',
+  ClientCapabilities(elicitation: ElicitationCapability(url: {})),
+);
+
+/// The client capability reads a server makes, on the capabilities themselves
+/// so that [handleRequestScopedMessage] can make them without a server.
+///
+/// [MCPServer] and [ElicitationRequestSupport] expose and document all of
+/// these but [supportsSamplingTools], which only the input request guard
+/// needs.
+extension on ClientCapabilities {
+  bool get supportsRoots => roots != null;
+
+  bool get supportsSampling => sampling != null;
+
+  /// Whether or not the client can answer a sampling request carrying `tools`
+  /// or `toolChoice`.
+  bool get supportsSamplingTools => sampling?[Keys.tools] != null;
+
+  bool get supportsFormElicitation {
+    final elicitation = this.elicitation;
+    if (elicitation == null) return false;
+    return elicitation.form != null ||
+        (elicitation as Map<String, Object?>).isEmpty;
+  }
+
+  bool get supportsUrlElicitation => elicitation?.url != null;
 }

@@ -5,7 +5,7 @@
 part of 'server.dart';
 
 typedef ReadResourceHandler =
-    FutureOr<ReadResourceResult?> Function(ReadResourceRequest);
+    FutureOr<ReadResourceResponse?> Function(ReadResourceRequest);
 
 /// A mixin for MCP servers which support the `resources` capability.
 ///
@@ -37,9 +37,8 @@ base mixin ResourcesSupport on MCPServer {
   final List<({ResourceTemplate template, ReadResourceHandler handler})>
   _resourceTemplates = [];
 
-  /// The currently subscribed resource [StreamController]s by URI.
-  final Map<String, StreamController<ResourceUpdatedNotification>>
-  _subscribedResources = {};
+  /// The active legacy and modern resource update subscriptions by URI.
+  final Map<String, _ResourceUpdateSubscription> _subscribedResources = {};
 
   /// The [StreamController] which controls [ResourceListChangedNotification]s.
   final StreamController<void> _resourceListChangedController =
@@ -51,7 +50,7 @@ base mixin ResourcesSupport on MCPServer {
   /// Override this getter in subtypes in order to configure the delay.
   Duration get resourceUpdateThrottleDelay => const Duration(milliseconds: 500);
 
-  /// Invoked by the client as a part of initialization.
+  /// Invoked during server feature registration.
   ///
   /// Resources should usually be added in this function using [addResource]
   /// when possible.
@@ -60,7 +59,7 @@ base mixin ResourcesSupport on MCPServer {
   /// then the client will be notified of the changes based on their
   /// subscription preferences.
   @override
-  FutureOr<InitializeResult> initialize(InitializeRequest request) async {
+  FutureOr<void> initialize(MCPServerInitialization initialization) async {
     registerRequestHandler(ListResourcesRequest.methodName, listResources);
     registerRequestHandler(
       ListResourceTemplatesRequest.methodName,
@@ -72,19 +71,20 @@ base mixin ResourcesSupport on MCPServer {
     registerRequestHandler(SubscribeRequest.methodName, subscribeResource);
     registerRequestHandler(UnsubscribeRequest.methodName, unsubscribeResource);
 
-    final result = await super.initialize(request);
-    (result.capabilities.resources ??= Resources())
+    await super.initialize(initialization);
+    (capabilities.resources ??= Resources())
       ..listChanged = true
       ..subscribe = true;
-    _resourceListChangedController.stream
-        .throttle(resourceUpdateThrottleDelay, trailing: true)
-        .listen(
-          (_) => sendNotification(
-            ResourceListChangedNotification.methodName,
-            ResourceListChangedNotification(),
+    runOutsideRequest(
+      () => _resourceListChangedController.stream
+          .throttle(resourceUpdateThrottleDelay, trailing: true)
+          .listen(
+            (_) => sendNotification(
+              ResourceListChangedNotification.methodName,
+              ResourceListChangedNotification(),
+            ),
           ),
-        );
-    return result;
+    );
   }
 
   @override
@@ -93,7 +93,9 @@ base mixin ResourcesSupport on MCPServer {
     await _resourceListChangedController.close();
     final subscribed = _subscribedResources.values.toList();
     _subscribedResources.clear();
-    await subscribed.map((c) => c.close()).wait;
+    await subscribed
+        .map((subscription) => subscription.controller.close())
+        .wait;
   }
 
   /// Register [resource] to call [impl] when invoked.
@@ -105,7 +107,7 @@ base mixin ResourcesSupport on MCPServer {
   /// same name.
   void addResource(
     Resource resource,
-    FutureOr<ReadResourceResult> Function(ReadResourceRequest) impl,
+    FutureOr<ReadResourceResponse> Function(ReadResourceRequest) impl,
   ) {
     if (_resources.containsKey(resource.uri)) {
       throw StateError(
@@ -169,7 +171,7 @@ base mixin ResourcesSupport on MCPServer {
   /// Throws a [StateError] if [resource] does not exist.
   void updateResource(
     Resource resource, {
-    FutureOr<ReadResourceResult> Function(ReadResourceRequest)? impl,
+    FutureOr<ReadResourceResponse> Function(ReadResourceRequest)? impl,
   }) {
     if (!_resources.containsKey(resource.uri)) {
       throw StateError(
@@ -179,7 +181,7 @@ base mixin ResourcesSupport on MCPServer {
     }
     if (impl != null) _resourceImpls[resource.uri] = impl;
 
-    _subscribedResources[resource.uri]?.add(
+    _subscribedResources[resource.uri]?.controller.add(
       ResourceUpdatedNotification(uri: resource.uri),
     );
   }
@@ -203,10 +205,14 @@ base mixin ResourcesSupport on MCPServer {
 
   /// Reads the resource at `request.uri`.
   ///
-  /// Throws an [ArgumentError] if it does not exist (this gets translated into
-  /// a generic JSON RPC2 error response).
+  /// Throws an [RpcException] with the `-32602` code the 2026-07-28 revision
+  /// requires if no resource or template answers the URI, carrying that URI as
+  /// `data.uri`. Earlier revisions asked for `-32002` here, which this package
+  /// has never sent.
   @mustCallSuper
-  FutureOr<ReadResourceResult> readResource(ReadResourceRequest request) async {
+  FutureOr<ReadResourceResponse> readResource(
+    ReadResourceRequest request,
+  ) async {
     final impl = _resourceImpls[request.uri];
     if (impl == null) {
       // Check if it matches any resource template.
@@ -218,7 +224,11 @@ base mixin ResourcesSupport on MCPServer {
 
     final response = await impl?.call(request);
     if (response == null) {
-      throw ArgumentError.value(request.uri, 'uri', 'Resource not found');
+      throw RpcException(
+        error_code.INVALID_PARAMS,
+        'Resource not found',
+        data: {Keys.uri: request.uri},
+      );
     }
     return response;
   }
@@ -230,31 +240,93 @@ base mixin ResourcesSupport on MCPServer {
       throw ArgumentError.value(request.uri, 'uri', 'Resource not found');
     }
 
-    _subscribedResources.putIfAbsent(
-      request.uri,
-      () =>
-          StreamController<ResourceUpdatedNotification>()
-            ..stream
-                .throttle(resourceUpdateThrottleDelay, trailing: true)
-                .listen((notification) {
-                  sendNotification(
-                    ResourceUpdatedNotification.methodName,
-                    notification,
-                  );
-                }),
-    );
+    _sendUpdatesFor(request.uri);
 
     return EmptyResult();
+  }
+
+  /// Starts sending [ResourceUpdatedNotification]s for the resource at [uri].
+  ///
+  /// [subscribeResource] arms one on the revisions that still answer
+  /// `resources/subscribe`, and on 2026-07-28 an acknowledged
+  /// `resourceSubscriptions` filter arms one instead. A null [subscriptionId]
+  /// marks the legacy subscription; otherwise the listen request owns it.
+  void _sendUpdatesFor(String uri, {Object? subscriptionId}) {
+    final requestIsActive = captureIncomingRequestActivity();
+    final subscription = _subscribedResources.putIfAbsent(
+      uri,
+      () => runOutsideRequest(() {
+        final subscription = _ResourceUpdateSubscription();
+        subscription.controller.stream
+            .throttle(resourceUpdateThrottleDelay, trailing: true)
+            .listen((notification) {
+              if (!subscription.hasListeners) return;
+              sendNotification(
+                ResourceUpdatedNotification.methodName,
+                notification,
+              );
+            });
+        return subscription;
+      }),
+    );
+    // The legacy protocol has no subscription IDs, so null marks its owner.
+    if (subscriptionId == null) {
+      subscription.hasLegacyOwner = true;
+    } else {
+      subscription.modernOwners[subscriptionId] = requestIsActive;
+    }
+  }
+
+  /// Removes one owner from the resource update subscription for [uri].
+  Future<void> _stopUpdatesFor(String uri, {Object? subscriptionId}) async {
+    final subscription = _subscribedResources[uri];
+    if (subscription == null) return;
+    if (!subscription.stopUpdates(subscriptionId)) return;
+    _subscribedResources.remove(uri);
+    await subscription.controller.close();
   }
 
   /// Unsubscribes the client to the resource at `request.uri`.
   @mustCallSuper
   Future<EmptyResult> unsubscribeResource(UnsubscribeRequest request) async {
-    await _subscribedResources.remove(request.uri)?.close();
+    await _stopUpdatesFor(request.uri);
     return EmptyResult();
   }
 
   /// Called whenever the list of resources changes, it is the job of the client
   /// to then ask again for the list of tools.
   void _notifyResourceListChanged() => _resourceListChangedController.add(null);
+}
+
+/// A single throttled wire subscription and every protocol owner of it.
+final class _ResourceUpdateSubscription {
+  final controller = StreamController<ResourceUpdatedNotification>();
+
+  /// The `subscriptions/listen` requests holding this subscription open, keyed
+  /// by the subscription ID each one was acknowledged under.
+  ///
+  /// A value answers whether its own request is still uncancelled, and an
+  /// update goes out once any owner answers `true`.
+  final modernOwners = <Object, bool Function()>{};
+
+  bool hasLegacyOwner = false;
+
+  /// Whether the legacy owner or an uncancelled listen request wants updates.
+  bool get hasListeners =>
+      hasLegacyOwner || modernOwners.values.any((isActive) => isActive());
+
+  /// Removes the owner [subscriptionId] and returns whether no owner remains
+  /// registered, so the caller can close the subscription.
+  ///
+  /// A null [subscriptionId] is the legacy owner, since the legacy protocol
+  /// has no subscription IDs. A cancelled listen request still counts until it
+  /// is removed here.
+  bool stopUpdates(Object? subscriptionId) {
+    if (subscriptionId == null) {
+      hasLegacyOwner = false;
+    } else {
+      modernOwners.remove(subscriptionId);
+    }
+    return !hasLegacyOwner && modernOwners.isEmpty;
+  }
 }

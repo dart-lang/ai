@@ -5,7 +5,18 @@
 part of 'api.dart';
 
 /// The types of context in which should be included in a prompt.
-enum IncludeContext { none, thisService, allServers }
+///
+/// The schema deprecates [thisServer] and [allServers], asking a server to omit
+/// the field or send [none] unless the client declares the `sampling.context`
+/// capability.
+enum IncludeContext {
+  none,
+  thisServer,
+  allServers;
+
+  @Deprecated('Use `IncludeContext.thisServer` instead.')
+  static const thisService = thisServer;
+}
 
 /// A request from the server to sample an LLM via the client.
 ///
@@ -21,10 +32,11 @@ extension type CreateMessageRequest.fromMap(Map<String, Object?> _value)
     ModelPreferences? modelPreferences,
     String? systemPrompt,
     IncludeContext? includeContext,
-    int? temperature,
+    num? temperature,
     required int maxTokens,
     List<String>? stopSequences,
     ToolChoice? toolChoice,
+    List<Tool>? tools,
     Map<String, Object?>? metadata,
     MetaWithProgressToken? meta,
   }) => CreateMessageRequest.fromMap({
@@ -36,6 +48,7 @@ extension type CreateMessageRequest.fromMap(Map<String, Object?> _value)
     Keys.maxTokens: maxTokens,
     if (stopSequences != null) Keys.stopSequences: stopSequences,
     if (toolChoice != null) Keys.toolChoice: toolChoice,
+    if (tools != null) Keys.tools: tools,
     if (metadata != null) Keys.metadata: metadata,
     if (meta != null) Keys.meta: meta,
   });
@@ -65,15 +78,20 @@ extension type CreateMessageRequest.fromMap(Map<String, Object?> _value)
   ///
   /// The client MAY ignore this request.
   IncludeContext? get includeContext {
-    final includeContext = _value[Keys.includeContext] as String?;
+    var includeContext = _value[Keys.includeContext] as String?;
     if (includeContext == null) return null;
+    // This package wrote `thisService` for the schema's `thisServer` up to
+    // 0.5.2. Treat it as an alias in case a server is still on that version.
+    if (includeContext == 'thisService') {
+      includeContext = IncludeContext.thisServer.name;
+    }
     return IncludeContext.values.firstWhere(
       (value) => value.name == includeContext,
     );
   }
 
   /// The temperature to use for sampling.
-  double? get temperature => _value[Keys.temperature] as double?;
+  double? get temperature => (_value[Keys.temperature] as num?)?.toDouble();
 
   /// The maximum number of tokens to sample, as requested by the server.
   ///
@@ -95,6 +113,9 @@ extension type CreateMessageRequest.fromMap(Map<String, Object?> _value)
   /// Controls how the model uses tools (if available).
   ToolChoice? get toolChoice => _value[Keys.toolChoice] as ToolChoice?;
 
+  /// Tools the model may call during this request.
+  List<Tool>? get tools => (_value[Keys.tools] as List?)?.cast<Tool>();
+
   /// Optional metadata to pass through to the LLM provider.
   ///
   /// The format of this metadata is provider-specific.
@@ -112,13 +133,13 @@ extension type CreateMessageResult.fromMap(Map<String, Object?> _value)
     implements Result, SamplingMessage {
   factory CreateMessageResult({
     required Role role,
-    required Content content,
+    required List<SamplingMessageContentBlock> content,
     required String model,
     String? stopReason,
     Meta? meta,
   }) => CreateMessageResult.fromMap({
     Keys.role: role.name,
-    Keys.content: content,
+    Keys.content: _encodeContent(content),
     Keys.model: model,
     if (stopReason != null) Keys.stopReason: stopReason,
     if (meta != null) Keys.meta: meta,
@@ -129,8 +150,8 @@ extension type CreateMessageResult.fromMap(Map<String, Object?> _value)
 
   /// The reason why sampling stopped, if known.
   ///
-  /// Known reasons are "endTurn", "stopSequence", "maxTokens", or any other
-  /// reason.
+  /// Known reasons are "endTurn", "stopSequence", "maxTokens", "toolUse", or
+  /// any other reason.
   String? get stopReason => _value[Keys.stopReason] as String?;
 
   /// The JSON representation of this object.
@@ -139,15 +160,182 @@ extension type CreateMessageResult.fromMap(Map<String, Object?> _value)
 
 /// Describes a message issued to or received from an LLM API.
 extension type SamplingMessage.fromMap(Map<String, Object?> _value) {
-  factory SamplingMessage({required Role role, required Content content}) =>
-      SamplingMessage.fromMap({Keys.role: role.name, Keys.content: content});
+  factory SamplingMessage({
+    required Role role,
+    required List<SamplingMessageContentBlock> content,
+  }) => SamplingMessage.fromMap({
+    Keys.role: role.name,
+    Keys.content: _encodeContent(content),
+  });
 
   /// The role of the message.
   Role get role =>
       Role.values.firstWhere((value) => value.name == _value[Keys.role]);
 
   /// The content of the message.
-  Content get content => _value[Keys.content] as Content;
+  ///
+  /// The schema allows one block or a list of them under `content`, and both
+  /// read as a list here. One block comes back as a single-element list.
+  List<SamplingMessageContentBlock> get content {
+    final content = _value[Keys.content];
+    if (content == null) {
+      throw ArgumentError('Missing ${Keys.content} field in $SamplingMessage.');
+    }
+    if (content is List) {
+      return content.cast<SamplingMessageContentBlock>();
+    }
+    return [content as SamplingMessageContentBlock];
+  }
+}
+
+/// Writes [content] under `content` as one of the schema's two shapes.
+///
+/// A single block goes on the wire as that block. Two or more go as a list.
+Object? _encodeContent(List<SamplingMessageContentBlock> content) {
+  if (content.length == 1) return content.single;
+  return content;
+}
+
+/// One block of a [SamplingMessage]'s content, sent to or received from an
+/// LLM.
+///
+/// Could be either [TextContent], [ImageContent], [AudioContent],
+/// [ToolUseContent] or [ToolResultContent].
+///
+/// Switch on the [type] before casting to the more specific types. The two
+/// arms a `tools/call` result cannot carry have their own checks,
+/// [isToolUse] and [isToolResult]. A [TextContent], [ImageContent] or
+/// [AudioContent] read as a [Content] keeps the checks declared there.
+///
+/// This does not implement [Content]. A plain `tools/call` result never
+/// carries [ToolUseContent] or [ToolResultContent]. Keeping sampling content
+/// on its own type stops the two from being swapped by accident.
+///
+/// Doing `is` checks does not work because these are just extension types,
+/// they all have the same runtime type (`Map<String, Object?>`).
+extension type SamplingMessageContentBlock._(Map<String, Object?> _value) {
+  factory SamplingMessageContentBlock.fromMap(Map<String, Object?> value) {
+    assert(value.containsKey(Keys.type));
+    return SamplingMessageContentBlock._(value);
+  }
+
+  /// Alias for [TextContent.new].
+  static const text = TextContent.new;
+
+  /// Alias for [ImageContent.new].
+  static const image = ImageContent.new;
+
+  /// Alias for [AudioContent.new].
+  static const audio = AudioContent.new;
+
+  /// Alias for [ToolUseContent.new].
+  static const toolUse = ToolUseContent.new;
+
+  /// Alias for [ToolResultContent.new].
+  static const toolResult = ToolResultContent.new;
+
+  /// Whether or not this is a [ToolUseContent].
+  bool get isToolUse => _value[Keys.type] == ToolUseContent.expectedType;
+
+  /// Whether or not this is a [ToolResultContent].
+  bool get isToolResult => _value[Keys.type] == ToolResultContent.expectedType;
+
+  /// The type of content.
+  ///
+  /// Switch on this to handle each case (see the static `expectedType`
+  /// getters). [isToolUse] and [isToolResult] cover the two arms a
+  /// `tools/call` result cannot carry.
+  String get type => _value[Keys.type] as String;
+}
+
+/// A request from the assistant to call a tool.
+///
+/// From the 2025-11-25 revision.
+extension type ToolUseContent.fromMap(Map<String, Object?> _value)
+    implements SamplingMessageContentBlock, WithMetadata {
+  static const expectedType = 'tool_use';
+
+  factory ToolUseContent({
+    required String id,
+    required String name,
+    required Map<String, Object?> input,
+    Meta? meta,
+  }) => ToolUseContent.fromMap({
+    Keys.id: id,
+    Keys.input: input,
+    Keys.name: name,
+    Keys.type: expectedType,
+    if (meta != null) Keys.meta: meta,
+  });
+
+  /// The content type, always [expectedType].
+  String get type {
+    final type = _value[Keys.type] as String;
+    assert(type == expectedType);
+    return type;
+  }
+
+  /// The unique identifier for this tool use.
+  String get id => _value[Keys.id] as String;
+
+  /// The name of the tool to call.
+  String get name => _value[Keys.name] as String;
+
+  /// The arguments to pass to the tool.
+  Map<String, Object?> get input =>
+      (_value[Keys.input] as Map).cast<String, Object?>();
+}
+
+/// The result of a tool use, provided by the user back to the assistant.
+///
+/// From the 2025-11-25 revision.
+extension type ToolResultContent.fromMap(Map<String, Object?> _value)
+    implements SamplingMessageContentBlock, WithMetadata {
+  static const expectedType = 'tool_result';
+
+  factory ToolResultContent({
+    required List<Content> content,
+    required String toolUseId,
+    Map<String, Object?>? structuredContent,
+    bool? isError,
+    Meta? meta,
+  }) => ToolResultContent.fromMap({
+    Keys.content: content,
+    Keys.toolUseId: toolUseId,
+    Keys.type: expectedType,
+    if (structuredContent != null) Keys.structuredContent: structuredContent,
+    if (isError != null) Keys.isError: isError,
+    if (meta != null) Keys.meta: meta,
+  });
+
+  /// The content type, always [expectedType].
+  String get type {
+    final type = _value[Keys.type] as String;
+    assert(type == expectedType);
+    return type;
+  }
+
+  /// The content returned by the tool, either [TextContent], [ImageContent],
+  /// [AudioContent], [ResourceLink] or [EmbeddedResource].
+  List<Content> get content {
+    final content = (_value[Keys.content] as List?)?.cast<Content>();
+    if (content == null) {
+      throw ArgumentError(
+        'Missing ${Keys.content} field in $ToolResultContent',
+      );
+    }
+    return content;
+  }
+
+  /// The structured result returned by the tool.
+  Map<String, Object?>? get structuredContent =>
+      _value[Keys.structuredContent] as Map<String, Object?>?;
+
+  /// Whether the tool use resulted in an error.
+  bool? get isError => _value[Keys.isError] as bool?;
+
+  /// The identifier of the tool use this result corresponds to.
+  String get toolUseId => _value[Keys.toolUseId] as String;
 }
 
 /// The server's preferences for model selection, requested of the client
@@ -191,13 +379,13 @@ extension type ModelPreferences.fromMap(Map<String, Object?> _value) {
   ///
   /// A value of 0 means cost is not important, while a value of 1 means cost
   /// is the most important factor.
-  double? get costPriority => _value[Keys.costPriority] as double?;
+  double? get costPriority => (_value[Keys.costPriority] as num?)?.toDouble();
 
   /// How much to prioritize sampling speed (latency) when selecting a model.
   ///
   /// A value of 0 means speed is not important, while a value of 1 means speed
   /// is the most important factor.
-  double? get speedPriority => _value[Keys.speedPriority] as double?;
+  double? get speedPriority => (_value[Keys.speedPriority] as num?)?.toDouble();
 
   /// How much to prioritize intelligence and capabilities when selecting a
   /// model.
@@ -205,7 +393,7 @@ extension type ModelPreferences.fromMap(Map<String, Object?> _value) {
   /// A value of 0 means intelligence is not important, while a value of 1
   /// means intelligence is the most important factor.
   double? get intelligencePriority =>
-      _value[Keys.intelligencePriority] as double?;
+      (_value[Keys.intelligencePriority] as num?)?.toDouble();
 }
 
 /// Hints to use for model selection.

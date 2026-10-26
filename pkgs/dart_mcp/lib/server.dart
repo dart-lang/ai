@@ -4,3 +4,4 @@
 
 export 'src/api/api.dart';
 export 'src/server/server.dart';
+export 'src/shared.dart' show MCPServerInitialization;

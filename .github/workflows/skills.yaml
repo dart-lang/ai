@@ -1,0 +1,61 @@
+name: package:skills
+permissions: read-all
+
+on:
+  # Run CI on all PRs (against any branch) and on pushes to the main branch.
+  pull_request:
+    paths:
+      - ".github/workflows/skills.yaml"
+      - "pkgs/skills/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/skills.yaml"
+      - "pkgs/skills/**"
+  schedule:
+    - cron: "0 0 * * 0" # weekly
+
+defaults:
+  run:
+    working-directory: pkgs/skills
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        flutterSdk:
+          - beta
+          - master
+        os:
+          - ubuntu-latest
+          - windows-latest
+    steps:
+      # Enables git to use long paths on windows
+      - name: Enable long paths in Git
+        run: git config --global core.longpaths true
+        working-directory: ${{ github.workspace }}
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Cache Pub hosted dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        with:
+          path: "~/.pub-cache/hosted"
+          key: "pub-cache-hosted;${{ matrix.flutterSdk }};${{ matrix.os }}"
+      # We need the flutter SDK in order to run some of the integration tests
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          channel: ${{ matrix.flutterSdk }}
+          cache: true
+          cache-key: "flutter-:os:-:channel:-:version:-:arch:-:hash:"
+
+      - run: dart pub get
+
+      - run: dart analyze --fatal-infos
+
+      - run: dart format --output=none --set-exit-if-changed .
+        if: ${{ matrix.flutterSdk == 'master' }}
+
+      - run: dart test -p vm -c kernel,exe

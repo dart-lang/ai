@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:async/async.dart';
 import 'package:dart_mcp/client.dart';
 import 'package:dart_mcp/server.dart';
+import 'package:dart_mcp/src/utils/constants.dart';
 import 'package:json_rpc_2/error_code.dart';
 import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:stream_channel/stream_channel.dart';
@@ -21,7 +22,7 @@ void main() {
 
     expect(initializeResult.capabilities, isEmpty);
     expect(initializeResult.instructions, environment.server.instructions);
-    expect(initializeResult.protocolVersion, ProtocolVersion.latestSupported);
+    expect(initializeResult.protocolVersion, ProtocolVersion.lastLegacyVersion);
 
     expect(environment.server.clientInfo, environment.client.implementation);
     expect(
@@ -38,13 +39,14 @@ void main() {
     );
 
     expect(
-      environment.server.createMessage(
+      environment.server.sendRequest<CreateMessageResult>(
+        CreateMessageRequest.methodName,
         CreateMessageRequest(messages: [], maxTokens: 1),
       ),
       throwsA(
         isA<RpcException>().having((e) => e.code, 'code', METHOD_NOT_FOUND),
       ),
-      reason: 'The server calling unsupported methods should throw',
+      reason: 'The server calling an unsupported method should throw',
     );
   });
 
@@ -75,6 +77,24 @@ void main() {
     );
   });
 
+  test('protocol log survives unencodable messages', () async {
+    final serverLog = StreamController<String>();
+    final environment = TestEnvironment(
+      TestMCPClient(),
+      (c) => _BadMetaToolServer(c, protocolLogSink: serverLog.sink),
+    );
+    await environment.initializeServer();
+
+    expect(
+      serverLog.stream,
+      emitsThrough(allOf(startsWith('>>>'), contains('{1: kept}'))),
+    );
+    final result = await environment.serverConnection.callTool(
+      CallToolRequest(name: 'bad_meta_keys'),
+    );
+    expect((result.content.single as TextContent).text, 'kept');
+  });
+
   test('client and server can ping each other', () async {
     final environment = TestEnvironment(TestMCPClient(), TestMCPServer.new);
     await environment.initializeServer();
@@ -89,7 +109,7 @@ void main() {
         StreamTransformer.fromHandlers(
           handleData: (data, sink) async {
             // Simulate a server that doesn't respond for 100ms.
-            if (data.contains('"ping"')) return;
+            if (data[Keys.method] == PingRequest.methodName) return;
             sink.add(data);
           },
         ),
@@ -112,7 +132,7 @@ void main() {
         StreamSinkTransformer.fromHandlers(
           handleData: (data, sink) async {
             // Simulate a client that doesn't respond.
-            if (data.contains('"ping"')) return;
+            if (data[Keys.method] == PingRequest.methodName) return;
             sink.add(data);
           },
         ),
@@ -153,7 +173,7 @@ void main() {
         );
         await environment.serverConnection.initialize(
           InitializeRequest(
-            protocolVersion: ProtocolVersion.latestSupported,
+            protocolVersion: ProtocolVersion.lastLegacyVersion,
             capabilities: environment.client.capabilities,
             clientInfo: environment.client.implementation,
           ),
@@ -198,14 +218,13 @@ void main() {
       ),
     );
 
+    final lateNotification = ProgressNotification(
+      progressToken: request.meta!.progressToken!,
+      progress: 100,
+    );
     expect(
       serverConnection.onProgress(request),
-      neverEmits(
-        ProgressNotification(
-          progressToken: request.meta!.progressToken!,
-          progress: 100,
-        ),
-      ),
+      neverEmits(lateNotification),
       reason: 'Should not receive progress events for completed requests',
     );
 
@@ -214,7 +233,11 @@ void main() {
 
     await serverConnection.callTool(request);
 
-    environment.server.sendLateNotification(request.meta!.progressToken!);
+    environment.serverChannel.sink.add({
+      Keys.jsonrpc: '2.0',
+      Keys.method: ProgressNotification.methodName,
+      Keys.params: lateNotification as Map<String, Object?>,
+    });
 
     // Give the bad notification time to hit our stream.
     await pumpEventQueue();
@@ -223,20 +246,7 @@ void main() {
   test('servers can handle progress notifications', () async {
     final environment = TestEnvironment(
       ListRootsProgressTestMCPClient(),
-      (channel) => TestMCPServer(
-        channel.transformSink(
-          StreamSinkTransformer<String, String>.fromHandlers(
-            handleData: (data, sink) async {
-              // Add a short delay when sending out a list roots request so
-              // we can get progress notifications.
-              if (data.contains(ListRootsRequest.methodName)) {
-                await Future<void>.delayed(const Duration(milliseconds: 10));
-              }
-              sink.add(data);
-            },
-          ),
-        ),
-      ),
+      TestMCPServer.new,
     );
     await environment.initializeServer();
     final server = environment.server;
@@ -248,7 +258,6 @@ void main() {
     // Ensure the subscription is set up before calling the tool.
     await pumpEventQueue();
 
-    final onDone = server.listRoots(request);
     final expectedNotification = ProgressNotification(
       progressToken: request.meta!.progressToken!,
       progress: 50,
@@ -265,9 +274,16 @@ void main() {
       reason: 'Should not receive progress events for completed requests',
     );
 
-    environment.serverConnection.notifyProgress(expectedNotification);
+    final onDone = server.sendRequest<ListRootsResult>(
+      ListRootsRequest.methodName,
+      request,
+    );
     await onDone;
-    environment.serverConnection.notifyProgress(lateNotification);
+    environment.clientChannel.sink.add({
+      Keys.jsonrpc: '2.0',
+      Keys.method: ProgressNotification.methodName,
+      Keys.params: lateNotification as Map<String, Object?>,
+    });
 
     // Give the bad notification time to hit our stream.
     await pumpEventQueue();
@@ -321,50 +337,75 @@ void main() {
         await environment.initializeServer();
         expect(environment.client.connections, isEmpty);
         expect(environment.serverConnection.isActive, false);
+        expect(environment.serverConnection.serverInfo, isNull);
       },
     );
   });
 
   group('error handling', () {
-    test('client can handle invalid protocol messages', () async {
-      final protocolController = StreamController<String>();
-      final environment = TestEnvironment(
-        TestMCPClient(),
-        TestMCPServer.new,
-        protocolLogSink: protocolController.sink,
+    test('server rejects malformed extensions during initialization', () async {
+      final incoming = StreamController<Map<String, Object?>>();
+      final outgoing = StreamController<Map<String, Object?>>();
+      final server = TestMCPServer(
+        StreamChannel<Map<String, Object?>>.withGuarantees(
+          incoming.stream,
+          outgoing.sink,
+        ),
       );
-      environment.serverChannel.sink.add('Just some random text');
-      expect(
-        protocolController.stream,
-        emitsThrough(allOf(startsWith('>>>'), contains('Invalid JSON'))),
-      );
-      expect(environment.initializeServer(), completes);
+      addTearDown(server.shutdown);
+      final responses = StreamQueue(outgoing.stream);
+      addTearDown(responses.cancel);
+
+      final invalidExtensions = <Object?>[
+        <String, Object?>{'tasks': <String, Object?>{}},
+        <Object?>[],
+        null,
+      ];
+      for (var id = 0; id < invalidExtensions.length; id++) {
+        incoming.add({
+          Keys.jsonrpc: '2.0',
+          Keys.id: id,
+          Keys.method: InitializeRequest.methodName,
+          Keys.params: {
+            Keys.protocolVersion:
+                ProtocolVersion.lastLegacyVersion.versionString,
+            Keys.capabilities: <String, Object?>{
+              'extensions': invalidExtensions[id],
+            },
+            Keys.clientInfo: {'name': 'test client', 'version': '0.1.0'},
+          },
+        });
+
+        final response = await responses.next;
+        final error = response[Keys.error] as Map<String, Object?>;
+        expect(error[Keys.code], INVALID_PARAMS);
+      }
     });
 
-    test('server can handle invalid protocol messages', () async {
-      final protocolController = StreamController<String>();
+    test('client rejects malformed extensions in an initialize result', () {
       final environment = TestEnvironment(
         TestMCPClient(),
-        TestMCPServer.new,
-        protocolLogSink: protocolController.sink,
+        _MalformedCapabilitiesServer.new,
       );
-      environment.clientChannel.sink.add('Just some random text');
-      expect(
-        protocolController.stream,
-        emitsThrough(allOf(startsWith('<<<'), contains('Invalid JSON'))),
-      );
+
+      expect(environment.initializeServer(), throwsArgumentError);
+    });
+
+    test('server survives a map which is not a valid message', () async {
+      final environment = TestEnvironment(TestMCPClient(), TestMCPServer.new);
+      environment.clientChannel.sink.add({'foo': 1});
       expect(environment.initializeServer(), completes);
     });
 
     test('server exits before initialization', () {
       final client = TestMCPClient();
-      final clientController = StreamController<String>();
-      final serverController = StreamController<String>();
-      final clientChannel = StreamChannel<String>.withGuarantees(
+      final clientController = StreamController<Map<String, Object?>>();
+      final serverController = StreamController<Map<String, Object?>>();
+      final clientChannel = StreamChannel<Map<String, Object?>>.withGuarantees(
         clientController.stream,
         serverController.sink,
       );
-      final serverChannel = StreamChannel<String>.withGuarantees(
+      final serverChannel = StreamChannel<Map<String, Object?>>.withGuarantees(
         serverController.stream,
         clientController.sink,
       );
@@ -373,7 +414,7 @@ void main() {
       expect(
         connection.initialize(
           InitializeRequest(
-            protocolVersion: ProtocolVersion.latestSupported,
+            protocolVersion: ProtocolVersion.lastLegacyVersion,
             capabilities: ClientCapabilities(),
             clientInfo: Implementation(name: '', version: ''),
           ),
@@ -400,14 +441,27 @@ void main() {
   });
 }
 
+final class _MalformedCapabilitiesServer extends TestMCPServer {
+  _MalformedCapabilitiesServer(super.channel);
+
+  @override
+  Future<InitializeResult> initializeLegacy(InitializeRequest request) async {
+    final result = await super.initializeLegacy(request);
+    (result as Map<String, Object?>)[Keys.capabilities] = <String, Object?>{
+      'extensions': <String, Object?>{'tasks': <String, Object?>{}},
+    };
+    return result;
+  }
+}
+
 final class InitializeProgressTestMCPServer extends TestMCPServer
     with ToolsSupport {
   InitializeProgressTestMCPServer(super.channel);
 
   @override
-  FutureOr<InitializeResult> initialize(InitializeRequest request) {
+  FutureOr<void> initialize(MCPServerInitialization initialization) {
     registerTool(myProgressTool, _myToolImpl);
-    return super.initialize(request);
+    return super.initialize(initialization);
   }
 
   Future<CallToolResult> _myToolImpl(CallToolRequest request) async {
@@ -423,11 +477,6 @@ final class InitializeProgressTestMCPServer extends TestMCPServer
     return CallToolResult(content: []);
   }
 
-  /// Used by the test to send a notification after the request has completed.
-  void sendLateNotification(ProgressToken token) {
-    notifyProgress(ProgressNotification(progressToken: token, progress: 100));
-  }
-
   static final myProgressTool = Tool(
     name: 'progress',
     inputSchema: ObjectSchema(),
@@ -435,14 +484,26 @@ final class InitializeProgressTestMCPServer extends TestMCPServer
 }
 
 final class ListRootsProgressTestMCPClient extends TestMCPClient
-    with RootsSupport {}
+    with RootsSupport {
+  @override
+  Future<ListRootsResult> handleListRoots([ListRootsRequest? request]) async {
+    connections.single.notifyProgress(
+      ProgressNotification(
+        progressToken: request!.meta!.progressToken!,
+        progress: 50,
+      ),
+    );
+    await pumpEventQueue();
+    return await super.handleListRoots(request);
+  }
+}
 
 final class TestOldMcpServer extends TestMCPServer {
   TestOldMcpServer(super.channel);
 
   @override
-  Future<InitializeResult> initialize(InitializeRequest request) async {
-    return (await super.initialize(request))
+  Future<InitializeResult> initializeLegacy(InitializeRequest request) async {
+    return (await super.initializeLegacy(request))
       ..protocolVersion = ProtocolVersion.oldestSupported;
   }
 }
@@ -451,9 +512,27 @@ final class TestUnrecognizedVersionMcpServer extends TestMCPServer {
   TestUnrecognizedVersionMcpServer(super.channel);
 
   @override
-  Future<InitializeResult> initialize(InitializeRequest request) async {
-    final response = await super.initialize(request);
+  Future<InitializeResult> initializeLegacy(InitializeRequest request) async {
+    final response = await super.initializeLegacy(request);
     (response as Map<String, Object?>)['protocolVersion'] = 'fooBar';
     return response;
+  }
+}
+
+/// A server whose only tool returns a result with non-string metadata keys,
+/// which cannot be JSON encoded.
+final class _BadMetaToolServer extends TestMCPServer with ToolsSupport {
+  _BadMetaToolServer(super.channel, {super.protocolLogSink});
+
+  @override
+  FutureOr<void> initialize(MCPServerInitialization initialization) {
+    registerTool(
+      Tool(name: 'bad_meta_keys', inputSchema: ObjectSchema()),
+      (_) => CallToolResult.fromMap({
+        Keys.content: [TextContent(text: 'kept')],
+        Keys.meta: {1: 'kept'},
+      }),
+    );
+    return super.initialize(initialization);
   }
 }

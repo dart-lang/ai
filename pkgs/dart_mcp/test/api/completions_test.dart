@@ -10,6 +10,22 @@ import 'package:test/test.dart';
 import '../test_utils.dart';
 
 void main() {
+  test('a context and a reference leave out what they are not given', () {
+    expect(CompletionContext() as Map<String, Object?>, isEmpty);
+    expect(CompletionContext(arguments: {'a': 'b'}) as Map<String, Object?>, {
+      'arguments': {'a': 'b'},
+    });
+    expect(PromptReference(name: 'p') as Map<String, Object?>, {
+      'name': 'p',
+      'type': PromptReference.expectedType,
+    });
+    expect(PromptReference(name: 'p', title: 't') as Map<String, Object?>, {
+      'name': 'p',
+      'title': 't',
+      'type': PromptReference.expectedType,
+    });
+  });
+
   test('client can request prompt completions', () async {
     final environment = TestEnvironment(
       TestMCPClient(),

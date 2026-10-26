@@ -1,0 +1,380 @@
+// Copyright (c) 2026, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+import 'dart:convert';
+
+import 'package:dart_mcp/client.dart';
+import 'package:dart_mcp/src/utils/constants.dart';
+import 'package:test/test.dart';
+
+void main() {
+  group('InputRequest', () {
+    test('writes the method next to the request it applies to', () {
+      final sample = CreateMessageRequest(messages: [], maxTokens: 1);
+      expect(InputRequest.sample(sample) as Map<String, Object?>, {
+        'method': 'sampling/createMessage',
+        'params': sample,
+      });
+
+      final elicit = ElicitRequest.form(
+        message: 'What is your name?',
+        requestedSchema: ObjectSchema(
+          properties: {'name': StringSchema()},
+          required: ['name'],
+        ),
+      );
+      expect(InputRequest.elicit(elicit) as Map<String, Object?>, {
+        'method': 'elicitation/create',
+        'params': elicit,
+      });
+
+      final roots = ListRootsRequest();
+      expect(InputRequest.listRoots(roots) as Map<String, Object?>, {
+        'method': 'roots/list',
+        'params': roots,
+      });
+    });
+
+    test('reads back a request a server sent', () {
+      final request = InputRequest.fromMap({
+        'method': 'roots/list',
+        'params': <String, Object?>{},
+      });
+
+      expect(request.method, 'roots/list');
+      expect(request.params as Map<String, Object?>?, isEmpty);
+    });
+
+    test('tells the kinds apart by method', () {
+      final elicit = InputRequest.elicit(
+        ElicitRequest.form(
+          message: 'What is your name?',
+          requestedSchema: ObjectSchema(
+            properties: {'name': StringSchema()},
+            required: ['name'],
+          ),
+        ),
+      );
+      final sample = InputRequest.sample(
+        CreateMessageRequest(messages: [], maxTokens: 1),
+      );
+      final roots = InputRequest.listRoots(ListRootsRequest());
+
+      expect(
+        [elicit.isElicit, elicit.isSample, elicit.isListRoots],
+        [true, false, false],
+      );
+      expect(
+        [sample.isElicit, sample.isSample, sample.isListRoots],
+        [false, true, false],
+      );
+      expect(
+        [roots.isElicit, roots.isSample, roots.isListRoots],
+        [false, false, true],
+      );
+    });
+
+    test('rejects a request with no method', () {
+      expect(
+        () => InputRequest.fromMap({'params': <String, Object?>{}}),
+        throwsA(isA<AssertionError>()),
+      );
+      // A compiled executable has asserts stripped, so there is nothing to
+      // catch there.
+    }, testOn: '!exe');
+  });
+
+  group('InputRequiredResult', () {
+    test('writes only the fields it is given', () {
+      expect(
+        InputRequiredResult(requestState: 'opaque') as Map<String, Object?>,
+        {'resultType': 'input_required', 'requestState': 'opaque'},
+      );
+      expect(
+        InputRequiredResult(
+              inputRequests: {
+                'roots': InputRequest.listRoots(ListRootsRequest()),
+              },
+            )
+            as Map<String, Object?>,
+        {
+          'resultType': 'input_required',
+          'inputRequests': {
+            'roots': {'method': 'roots/list', 'params': <String, Object?>{}},
+          },
+        },
+      );
+    });
+
+    test('writes a padded request state unchanged', () {
+      const padded = '  client.state/+  ';
+      final result = InputRequiredResult(requestState: padded);
+
+      expect((result as Map<String, Object?>)[Keys.requestState], padded);
+    });
+
+    test('reads back the requests a server sent', () {
+      final result = InputRequiredResult.fromMap({
+        'resultType': 'input_required',
+        'inputRequests': {
+          'roots': {'method': 'roots/list', 'params': <String, Object?>{}},
+        },
+        'requestState': 'opaque',
+      });
+
+      expect(result.inputRequests, hasLength(1));
+      expect(result.inputRequests!['roots']!.method, 'roots/list');
+      expect(result.requestState, 'opaque');
+    });
+
+    test('leaves both fields null when a server omits them', () {
+      final result = InputRequiredResult.fromMap({
+        'resultType': 'input_required',
+      });
+
+      expect(result.inputRequests, isNull);
+      expect(result.requestState, isNull);
+    });
+
+    test('writes the metadata it is given', () {
+      expect(
+        InputRequiredResult(
+              requestState: 'opaque',
+              meta: Meta.fromMap({'io.modelcontextprotocol/serverInfo': {}}),
+            )
+            as Map<String, Object?>,
+        containsPair(
+          '_meta',
+          containsPair('io.modelcontextprotocol/serverInfo', isEmpty),
+        ),
+      );
+    });
+
+    test('tells no kind apart when an entry has no method', () {
+      final result = InputRequiredResult.fromMap({
+        'resultType': 'input_required',
+        'inputRequests': {'a': <String, Object?>{}},
+      });
+      final entry = result.inputRequests!['a']!;
+
+      expect(entry.isElicit, isFalse);
+      expect(entry.isSample, isFalse);
+      expect(entry.isListRoots, isFalse);
+    });
+
+    test('rejects a result which asks for nothing', () {
+      expect(InputRequiredResult.new, throwsA(isA<AssertionError>()));
+      expect(
+        () => InputRequiredResult(inputRequests: {}),
+        throwsA(isA<AssertionError>()),
+      );
+    }, testOn: '!exe');
+
+    test('writes an empty inputRequests next to a request state', () {
+      expect(
+        InputRequiredResult(inputRequests: {}, requestState: 'opaque')
+            as Map<String, Object?>,
+        {
+          'resultType': 'input_required',
+          'inputRequests': <String, InputRequest>{},
+          'requestState': 'opaque',
+        },
+      );
+    });
+  });
+
+  group('WithInputResponses', () {
+    final elicited = ElicitResult(action: ElicitationAction.accept);
+    final sampled = CreateMessageResult(
+      role: Role.assistant,
+      content: [Content.text(text: 'Paris')],
+      model: 'a-model',
+    );
+
+    test('the retry carries what the client gathered', () {
+      final request = CallToolRequest(
+        name: 'deploy',
+        inputResponses: {'github_login': elicited, 'capital': sampled},
+        requestState: 'an opaque blob',
+      );
+
+      expect(request as Map<String, Object?>, {
+        'name': 'deploy',
+        'inputResponses': {'github_login': elicited, 'capital': sampled},
+        'requestState': 'an opaque blob',
+      });
+    });
+
+    test('keeps untrusted requestState unchanged after JSON decoding', () {
+      final wire =
+          jsonDecode('{"uri":"file:///a","requestState":"  client.state/+  "}')
+              as Map<String, Object?>;
+
+      expect(
+        ReadResourceRequest.fromMap(wire).requestState,
+        '  client.state/+  ',
+      );
+    });
+
+    test('keeps padded requestState unchanged in the JSON it writes', () {
+      const padded = '  client.state/+  ';
+      for (var request in <WithInputResponses>[
+        CallToolRequest(name: 'deploy', requestState: padded),
+        GetPromptRequest(name: 'review', requestState: padded),
+        ReadResourceRequest(uri: 'file:///a', requestState: padded),
+      ]) {
+        final wire = jsonDecode(jsonEncode(request)) as Map<String, Object?>;
+        expect(wire[Keys.requestState], padded);
+      }
+    });
+
+    test('a first attempt writes neither field', () {
+      expect(CallToolRequest(name: 'deploy') as Map<String, Object?>, {
+        'name': 'deploy',
+      });
+      expect(GetPromptRequest(name: 'review') as Map<String, Object?>, {
+        'name': 'review',
+      });
+      expect(ReadResourceRequest(uri: 'file:///a') as Map<String, Object?>, {
+        'uri': 'file:///a',
+      });
+    });
+
+    test('a server reads each response back as what it asked for', () {
+      final request = GetPromptRequest.fromMap({
+        'name': 'review',
+        'inputResponses': {'github_login': elicited, 'capital': sampled},
+      });
+
+      expect(
+        (request.inputResponses!['github_login']! as ElicitResult).action,
+        ElicitationAction.accept,
+      );
+      expect(
+        (request.inputResponses!['capital']! as CreateMessageResult).model,
+        'a-model',
+      );
+    });
+
+    test('elicitResult returns null when the key is absent', () {
+      final request = GetPromptRequest.fromMap({
+        'name': 'review',
+        'inputResponses': {'github_login': elicited},
+      });
+
+      expect(
+        request.elicitResult('github_login')!.action,
+        ElicitationAction.accept,
+      );
+      expect(request.elicitResult('missing'), isNull);
+      expect(
+        GetPromptRequest(name: 'review').elicitResult('github_login'),
+        isNull,
+      );
+    });
+
+    test('createMessageResult and listRootsResult read the matching arm', () {
+      final roots = ListRootsResult(roots: [Root(uri: 'file:///a')]);
+      final request = GetPromptRequest.fromMap({
+        'name': 'review',
+        'inputResponses': {'capital': sampled, 'workspace': roots},
+      });
+
+      expect(request.createMessageResult('capital')!.model, 'a-model');
+      expect(
+        request.listRootsResult('workspace')!.roots.single.uri,
+        'file:///a',
+      );
+      expect(request.createMessageResult('missing'), isNull);
+      expect(request.listRootsResult('missing'), isNull);
+    });
+
+    test('a present response missing a required key is an ArgumentError', () {
+      final request = GetPromptRequest.fromMap({
+        'name': 'review',
+        'inputResponses': {
+          'github_login': <String, Object?>{},
+          'capital': <String, Object?>{'model': 'a-model'},
+          'workspace': <String, Object?>{},
+        },
+      });
+
+      expect(() => request.elicitResult('github_login'), throwsArgumentError);
+      expect(() => request.createMessageResult('capital'), throwsArgumentError);
+      expect(() => request.listRootsResult('workspace'), throwsArgumentError);
+    });
+
+    test('writes an empty inputResponses next to a request state', () {
+      expect(
+        CallToolRequest(
+              name: 'deploy',
+              inputResponses: {},
+              requestState: 'opaque',
+            )
+            as Map<String, Object?>,
+        {
+          'name': 'deploy',
+          'inputResponses': <String, Result>{},
+          'requestState': 'opaque',
+        },
+      );
+      expect(
+        GetPromptRequest(
+              name: 'review',
+              inputResponses: {},
+              requestState: 'opaque',
+            )
+            as Map<String, Object?>,
+        {
+          'name': 'review',
+          'inputResponses': <String, Result>{},
+          'requestState': 'opaque',
+        },
+      );
+      expect(
+        ReadResourceRequest(
+              uri: 'file:///a',
+              inputResponses: {},
+              requestState: 'opaque',
+            )
+            as Map<String, Object?>,
+        {
+          'uri': 'file:///a',
+          'inputResponses': <String, Result>{},
+          'requestState': 'opaque',
+        },
+      );
+    });
+
+    test('reads both fields back off all three', () {
+      for (var request in <WithInputResponses>[
+        CallToolRequest(
+          name: 'deploy',
+          inputResponses: {'github_login': elicited},
+          requestState: 'state',
+        ),
+        GetPromptRequest(
+          name: 'review',
+          inputResponses: {'github_login': elicited},
+          requestState: 'state',
+        ),
+        ReadResourceRequest(
+          uri: 'file:///a',
+          inputResponses: {'github_login': elicited},
+          requestState: 'state',
+        ),
+      ]) {
+        expect(request.requestState, 'state');
+        expect(request.inputResponses, {'github_login': elicited});
+      }
+    });
+
+    test('a request without them reads both as null', () {
+      final request = ReadResourceRequest.fromMap({'uri': 'file:///a'});
+
+      expect(request.inputResponses, isNull);
+      expect(request.requestState, isNull);
+    });
+  });
+}

@@ -9,12 +9,14 @@ import 'dart:io';
 
 import 'package:dart_mcp/server.dart';
 import 'package:json_rpc_2/json_rpc_2.dart';
-import 'package:language_server_protocol/protocol_generated.dart' as lsp;
 import 'package:meta/meta.dart';
 import 'package:unified_analytics/unified_analytics.dart';
 
 import '../features_configuration.dart';
 import '../lsp/wire_format.dart';
+// ignore: avoid_relative_lib_imports
+import '../third_party/language_server_protocol/lib/protocol_generated.dart'
+    as lsp;
 import '../utils/analytics.dart';
 import '../utils/cli_utils.dart';
 import '../utils/file_system.dart';
@@ -39,15 +41,25 @@ base mixin DartAnalyzerSupport
   @visibleForTesting
   Process? get liveAnalysisServer => _liveAnalysisServer;
 
+  /// Whether the LSP server supports the `dart/workspace/analysis/complete`
+  /// request.
+  ///
+  /// Assigned during server/client negotiation.
+  late bool _supportsWorkspaceAnalysisComplete;
+
   /// The current diagnostics for a given file.
   Map<Uri, List<lsp.Diagnostic>> diagnostics = {};
 
-  /// If currently analyzing or waiting on first analysis, a completer which
-  /// will be completed once analysis is over.
-  Completer<void>? _doneAnalyzing = Completer();
+  /// LEGACY MODE ONLY: If currently analyzing or waiting on first analysis, a
+  /// completer which will be completed once analysis is over based on legacy
+  /// analysis events.
+  ///
+  /// Always use [_waitForAnalysisToComplete] instead of reading this directly.
+  Completer<void>? _legacyDoneAnalyzing = Completer();
 
-  /// Completes the next time we get an analysis start event.
-  Completer<void> _analysisStart = Completer();
+  /// LEGACY MODE ONLY: Completes the next time we get a legacy analysis start
+  /// event.
+  Completer<void> _legacyAnalysisStart = Completer();
 
   /// The future for the current LSP server initialization.
   Future<String?>? _lspInitialization;
@@ -233,6 +245,14 @@ base mixin DartAnalyzerSupport
     }
 
     if (initializeResult != null) {
+      final experimental = initializeResult.capabilities.experimental;
+      if (experimental is Map &&
+          experimental.containsKey('workspaceAnalysisComplete')) {
+        _supportsWorkspaceAnalysisComplete = true;
+      } else {
+        _supportsWorkspaceAnalysisComplete = false;
+      }
+
       // Checks that we can set workspaces on the LSP server.
       final workspaceSupport =
           initializeResult.capabilities.workspace?.workspaceFolders;
@@ -348,15 +368,10 @@ base mixin DartAnalyzerSupport
         // as a confirmation to the LLM that it was respected.
         messages.add(TextContent(text: 'Applied quick fixes'));
 
-        if (_doneAnalyzing == null) {
-          // Wait a bit for the new analysis to start if not currently
-          // analyzing.
-          await _analysisStart.future.timeout(
-            const Duration(seconds: 1),
-            onTimeout: () {},
-          );
-        }
-        await _doneAnalyzing?.future;
+        await _waitForAnalysisToComplete(
+          analysisServer,
+          waitForSecondaryAnalysisInLegacyMode: true,
+        );
         applyFixesWatch.stop();
       }
 
@@ -489,7 +504,7 @@ base mixin DartAnalyzerSupport
         _ => CallToolResult(
           isError: true,
           content: [TextContent(text: 'Unknown LSP command: $command')],
-        ),
+        )..failureReason = CallToolFailureReason.noSuchCommand,
       };
       return result
         ..customMetrics = AnalysisMetrics(
@@ -600,7 +615,7 @@ base mixin DartAnalyzerSupport
         await _updateRootsToLspServer();
       }
 
-      await _doneAnalyzing?.future;
+      await _waitForAnalysisToComplete(_analysisServerConnection!);
 
       watch.stop();
       return await callback(
@@ -612,6 +627,33 @@ base mixin DartAnalyzerSupport
       // Restore the inactivity timer if all requests are done.
       _activeLspRequests--;
       _resetInactivityTimer();
+    }
+  }
+
+  /// Waits for analysis to complete using either the custom
+  /// `dart/workspace/analysis/complete` request (if supported) or by relying
+  /// on `$/analyzerStatus` push notifications.
+  ///
+  /// If [waitForSecondaryAnalysisInLegacyMode] is `true` and we are operating
+  /// in legacy mode, we will wait up to one second for a new analysis to start
+  /// before returning, unless we are already analyzing.
+  Future<void> _waitForAnalysisToComplete(
+    Peer analysisServer, {
+    bool waitForSecondaryAnalysisInLegacyMode = false,
+  }) async {
+    if (_supportsWorkspaceAnalysisComplete) {
+      await analysisServer.sendRequest('dart/workspace/analysis/complete');
+    } else {
+      if (waitForSecondaryAnalysisInLegacyMode &&
+          _legacyDoneAnalyzing == null) {
+        // Wait a bit for the new analysis to start if not currently
+        // analyzing.
+        await _legacyAnalysisStart.future.timeout(
+          const Duration(seconds: 1),
+          onTimeout: () {},
+        );
+      }
+      await _legacyDoneAnalyzing?.future;
     }
   }
 
@@ -639,27 +681,34 @@ base mixin DartAnalyzerSupport
 
     // Reset analysis related state.
     diagnostics.clear();
-    _doneAnalyzing = Completer<void>();
+    _legacyDoneAnalyzing = Completer<void>();
     _currentWorkspaceFolders.clear();
 
     server?.kill();
+    await server?.exitCode.timeout(
+      const Duration(seconds: 1),
+      onTimeout: () {
+        server.kill(ProcessSignal.sigkill);
+        return server.exitCode;
+      },
+    );
     await connection?.close();
   }
 
-  /// Handles `$/analyzerStatus` events, which tell us when analysis starts and
-  /// stops.
+  /// Handles legacy `$/analyzerStatus` events, which tell us when analysis
+  /// starts and stops, in legacy mode.
   void _handleAnalyzerStatus(Parameters params) {
     final isAnalyzing = params.asMap['isAnalyzing'] as bool;
     if (isAnalyzing) {
       // Leave existing completer in place - we start with one so we don't
       // respond too early to the first analyze request.
-      _doneAnalyzing ??= Completer<void>();
-      _analysisStart.complete(null);
-      _analysisStart = Completer();
+      _legacyDoneAnalyzing ??= Completer<void>();
+      _legacyAnalysisStart.complete(null);
+      _legacyAnalysisStart = Completer();
     } else {
-      assert(_doneAnalyzing != null);
-      _doneAnalyzing?.complete();
-      _doneAnalyzing = null;
+      assert(_legacyDoneAnalyzing != null);
+      _legacyDoneAnalyzing?.complete();
+      _legacyDoneAnalyzing = null;
     }
   }
 
@@ -707,6 +756,7 @@ base mixin DartAnalyzerSupport
     final content = await file.readAsString();
     final newContent = _applyEditsToString(content, edits);
     await file.writeAsString(newContent);
+    diagnostics.remove(uri);
   }
 
   /// Applies a list of [edits] to [content] and returns the new content.

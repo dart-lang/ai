@@ -75,15 +75,36 @@ void main() {
     // keep the test active.
     await environment.shutdown();
   });
+  test('a prompt handler can answer with an input-required result', () async {
+    final environment = TestEnvironment(
+      TestMCPClient(),
+      TestMCPServerWithPrompts.new,
+    );
+    await environment.initializeServer();
+
+    final server = environment.server;
+    server.addPrompt(
+      Prompt(name: 'needs input'),
+      (_) => InputRequiredResult(requestState: 'waiting'),
+    );
+
+    final result = await server.getPrompt(
+      GetPromptRequest(name: 'needs input'),
+    );
+    expect(result.isInputRequired, true);
+    expect((result as InputRequiredResult).requestState, 'waiting');
+
+    await environment.shutdown();
+  });
 }
 
 final class TestMCPServerWithPrompts extends TestMCPServer with PromptsSupport {
   TestMCPServerWithPrompts(super.channel);
 
   @override
-  FutureOr<InitializeResult> initialize(InitializeRequest request) {
+  FutureOr<void> initialize(MCPServerInitialization initialization) {
     addPrompt(greeting, _greetingPrompt);
-    return super.initialize(request);
+    return super.initialize(initialization);
   }
 
   FutureOr<GetPromptResult> _greetingPrompt(GetPromptRequest request) {

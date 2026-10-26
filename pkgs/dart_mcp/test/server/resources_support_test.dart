@@ -6,6 +6,8 @@ import 'dart:async';
 
 import 'package:async/async.dart';
 import 'package:dart_mcp/server.dart';
+import 'package:json_rpc_2/error_code.dart' as error_code;
+import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:test/test.dart';
 
 import '../test_utils.dart';
@@ -230,6 +232,55 @@ void main() {
       );
     },
   );
+
+  test('reading an unknown resource reports invalid params', () async {
+    final environment = TestEnvironment(
+      TestMCPClient(),
+      TestMCPServerWithResources.new,
+    );
+    await environment.initializeServer();
+
+    await expectLater(
+      environment.serverConnection.readResource(
+        ReadResourceRequest(uri: 'file:///NoSuchResource.txt'),
+      ),
+      throwsA(
+        isA<RpcException>()
+            .having((e) => e.code, 'code', error_code.INVALID_PARAMS)
+            .having((e) => e.message, 'message', 'Resource not found')
+            // The key is spelled out rather than read back through
+            // `Keys.uri`, so renaming the constant cannot keep this passing
+            // while the wire key changes.
+            .having(
+              (e) => (e.data as Map)['uri'],
+              'data.uri',
+              'file:///NoSuchResource.txt',
+            ),
+      ),
+    );
+  });
+
+  test('a resource handler can answer with an input-required result', () async {
+    final environment = TestEnvironment(
+      TestMCPClient(),
+      TestMCPServerWithResources.new,
+    );
+    await environment.initializeServer();
+
+    final server = environment.server;
+    server.addResource(
+      Resource(name: 'needs input', uri: 'needs://input'),
+      (_) => InputRequiredResult(requestState: 'waiting'),
+    );
+
+    final result = await server.readResource(
+      ReadResourceRequest(uri: 'needs://input'),
+    );
+    expect(result.isInputRequired, true);
+    expect((result as InputRequiredResult).requestState, 'waiting');
+
+    await environment.shutdown();
+  });
 }
 
 final class TestMCPServerWithResources extends TestMCPServer
@@ -243,7 +294,7 @@ final class TestMCPServerWithResources extends TestMCPServer
   TestMCPServerWithResources(super.channel, {this.fileContents = const {}});
 
   @override
-  FutureOr<InitializeResult> initialize(InitializeRequest request) {
+  FutureOr<void> initialize(MCPServerInitialization initialization) {
     addResource(
       helloWorld,
       (_) => ReadResourceResult(
@@ -253,7 +304,7 @@ final class TestMCPServerWithResources extends TestMCPServer
       ),
     );
     addResourceTemplate(packageUriTemplate, _readPackageResource);
-    return super.initialize(request);
+    return super.initialize(initialization);
   }
 
   Future<ReadResourceResult?> _readPackageResource(

@@ -15,11 +15,20 @@ base mixin ToolsSupport on MCPServer {
   /// The registered tools by name.
   final Map<String, Tool> _registeredTools = {};
 
+  /// The tools registered on this server, by name.
+  ///
+  /// [registerTool] and [unregisterTool] are what change this; the view
+  /// itself is read only. Reading it does not run [listTools], so a transport
+  /// can look a tool up without invoking an override.
+  late final Map<String, Tool> registeredTools = UnmodifiableMapView(
+    _registeredTools,
+  );
+
   /// The registered tool implementations by name.
-  final Map<String, FutureOr<CallToolResult> Function(CallToolRequest)>
+  final Map<String, FutureOr<CallToolResponse> Function(CallToolRequest)>
   _registeredToolImpls = {};
 
-  /// Invoked by the client as a part of initialization.
+  /// Invoked during server feature registration.
   ///
   /// Tools should usually be registered in this function using [registerTool]
   /// when possible.
@@ -27,13 +36,12 @@ base mixin ToolsSupport on MCPServer {
   /// If tools are registered after [initialized] completes, then the server
   /// will notify the client
   @override
-  FutureOr<InitializeResult> initialize(InitializeRequest request) async {
+  FutureOr<void> initialize(MCPServerInitialization initialization) async {
     registerRequestHandler(ListToolsRequest.methodName, listTools);
     registerRequestHandler(CallToolRequest.methodName, callTool);
 
-    final result = await super.initialize(request);
-    (result.capabilities.tools ??= Tools()).listChanged = true;
-    return result;
+    await super.initialize(initialization);
+    (capabilities.tools ??= Tools()).listChanged = true;
   }
 
   /// Register [tool] to call [impl] when invoked.
@@ -48,7 +56,7 @@ base mixin ToolsSupport on MCPServer {
   /// validated against the [tool]s input schema.
   void registerTool(
     Tool tool,
-    FutureOr<CallToolResult> Function(CallToolRequest) impl, {
+    FutureOr<CallToolResponse> Function(CallToolRequest) impl, {
     bool validateArguments = true,
   }) {
     if (_registeredTools.containsKey(tool.name)) {
@@ -66,6 +74,11 @@ base mixin ToolsSupport on MCPServer {
               if (errors.isNotEmpty) {
                 return CallToolResult(
                   content: [
+                    Content.text(
+                      text:
+                          'Invalid tool arguments, make sure to read the '
+                          'schema and try again:',
+                    ),
                     for (final error in errors)
                       Content.text(text: error.toErrorString()),
                   ],
@@ -102,7 +115,7 @@ base mixin ToolsSupport on MCPServer {
 
   /// Invoked when one of the registered tools is called.
   @mustCallSuper
-  Future<CallToolResult> callTool(CallToolRequest request) async {
+  Future<CallToolResponse> callTool(CallToolRequest request) async {
     final impl = _registeredToolImpls[request.name];
     if (impl == null) {
       return CallToolResult(

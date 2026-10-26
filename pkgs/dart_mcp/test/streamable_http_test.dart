@@ -1,0 +1,5761 @@
+// Copyright (c) 2026, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+@TestOn('vm')
+library;
+
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:dart_mcp/client.dart' show SubscriptionNotification;
+import 'package:dart_mcp/server.dart';
+import 'package:dart_mcp/src/utils/constants.dart';
+import 'package:dart_mcp/src/utils/streamable_http.dart';
+import 'package:dart_mcp/streamable_http.dart';
+import 'package:json_rpc_2/error_code.dart' as error_code;
+import 'package:json_rpc_2/json_rpc_2.dart';
+import 'package:test/test.dart';
+
+import 'test_utils.dart';
+
+/// The protocol version this transport speaks.
+const version = '2026-07-28';
+
+/// Shorthands for the method names these tests post, so that a name reads as
+/// one token at the call site.
+///
+/// The notifications keep their kind in the name because several tests turn
+/// on whether a body is a request or a notification.
+const listTools = ListToolsRequest.methodName;
+const callTool = CallToolRequest.methodName;
+const getPrompt = GetPromptRequest.methodName;
+const readResource = ReadResourceRequest.methodName;
+const initialize = InitializeRequest.methodName;
+const initializedNotification = InitializedNotification.methodName;
+const progressNotification = ProgressNotification.methodName;
+const ping = PingRequest.methodName;
+const setLevel = SetLevelRequest.methodName;
+const subscribe = SubscribeRequest.methodName;
+const unsubscribe = UnsubscribeRequest.methodName;
+const rootsListChangedNotification = RootsListChangedNotification.methodName;
+
+/// The headers every POST carries, whatever its body is.
+const transportHeaders = {
+  'Content-Type': 'application/json',
+  'Accept': 'application/json, text/event-stream',
+};
+
+void main() {
+  late HttpServer httpServer;
+  late Uri uri;
+  late MCPServerFactory serverFactory;
+  late StreamController<Map<String, Object?>> subscriptionNotifications;
+  Set<String>? allowedOrigins;
+  final servers = <MCPServer>[];
+  final notifications = <Map<String, Object?>>[];
+
+  setUp(() async {
+    serverFactory = _HttpTestServer.new;
+    subscriptionNotifications = StreamController.broadcast(sync: true);
+    httpServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    uri = Uri.http('${httpServer.address.host}:${httpServer.port}', '/mcp');
+    httpServer.listen(
+      (request) => handleStreamableHttpRequest(
+        request,
+        (channel) {
+          final server = serverFactory(channel);
+          servers.add(server);
+          return server;
+        },
+        onNotification: (notification) {
+          notifications.add(notification);
+          subscriptionNotifications.add(notification);
+        },
+        subscriptionNotifications: subscriptionNotifications.stream,
+        keepAliveInterval: const Duration(milliseconds: 50),
+        allowedOrigins: allowedOrigins,
+      ),
+    );
+    addTearDown(() async {
+      await httpServer.close(force: true);
+      await subscriptionNotifications.close();
+    });
+  });
+
+  tearDown(() {
+    servers.clear();
+    allowedOrigins = null;
+    notifications.clear();
+  });
+
+  /// A request body for [method] carrying the standard envelope.
+  Map<String, Object?> body(
+    String method, {
+    Object? id = 1,
+    Map<String, Object?>? params,
+    Object? bodyVersion,
+    Object? capabilities = const <String, Object?>{},
+  }) => {
+    Keys.jsonrpc: '2.0',
+    if (id != null) Keys.id: id,
+    Keys.method: method,
+    Keys.params: {
+      ...?params,
+      Keys.meta: {
+        Keys.protocolVersionMeta: bodyVersion ?? version,
+        Keys.clientCapabilitiesMeta: capabilities,
+      },
+    },
+  };
+
+  /// The transport and mirrored headers for [method].
+  Map<String, String> headers(
+    String method, {
+    String? headerVersion,
+    String? headerMethod,
+  }) => {
+    ...transportHeaders,
+    'Mcp-Protocol-Version': headerVersion ?? version,
+    'Mcp-Method': headerMethod ?? method,
+  };
+
+  Future<(int, HttpHeaders, String)> post({
+    Map<String, String> headers = const {},
+    Object? json,
+    String? raw,
+    String method = 'POST',
+  }) async {
+    final client = HttpClient();
+    addTearDown(client.close);
+    final request = await client.openUrl(method, uri);
+    headers.forEach(request.headers.set);
+    if (raw != null || json != null) {
+      request.write(raw ?? jsonEncode(json));
+    }
+    final response = await request.close();
+    final text = await utf8.decodeStream(response);
+    return (response.statusCode, response.headers, text);
+  }
+
+  Map<String, Object?> decode(String text) =>
+      jsonDecode(text) as Map<String, Object?>;
+
+  /// The field lines of one SSE frame, keyed by field name.
+  Map<String, String> fields(String frame) {
+    final fields = <String, String>{};
+    for (final line in frame.split('\n')) {
+      final colon = line.indexOf(':');
+      if (colon > 0) {
+        fields[line.substring(0, colon)] = line.substring(colon + 1).trim();
+      }
+    }
+    return fields;
+  }
+
+  /// The frames an SSE response [text] carries.
+  ///
+  /// Reads the fields the way a client does instead of matching the bytes the
+  /// transport writes, which lets a change to the framing fail a test here.
+  List<Map<String, String>> frames(String text) => [
+    for (final frame in text.split('\n\n'))
+      if (frame.trim().isNotEmpty) fields(frame),
+  ];
+
+  /// The JSON-RPC messages an SSE response [text] carries, in order.
+  ///
+  /// A keep-alive comment is a frame with no field lines at all, and no
+  /// message, so it is left out here.
+  List<Map<String, Object?>> events(String text) => [
+    for (final frame in frames(text))
+      if (frame['data'] case final data?)
+        jsonDecode(data) as Map<String, Object?>,
+  ];
+
+  Object? errorCode(String text) =>
+      (decode(text)[Keys.error] as Map<String, Object?>?)?[Keys.code];
+
+  Object? errorMessage(String text) =>
+      (decode(text)[Keys.error] as Map<String, Object?>?)?[Keys.message];
+
+  /// Sends [payload] over a raw socket and returns the raw response text.
+  ///
+  /// [HttpClient] refuses to send the malformed header values some tests
+  /// probe with and folds repeated header lines into one, so those requests
+  /// have to go over a socket. The payload must ask for `Connection: close`
+  /// or the read below never finishes.
+  Future<String> rawRequest(
+    String payload, [
+    List<int> bodyBytes = const [],
+  ]) async {
+    final socket = await Socket.connect(httpServer.address, httpServer.port);
+    socket.add(latin1.encode(payload));
+    socket.add(bodyBytes);
+    await socket.flush();
+    final response = utf8.decode(
+      await socket.fold(<int>[], (bytes, chunk) => bytes..addAll(chunk)),
+    );
+    socket.destroy();
+    return response;
+  }
+
+  /// The JSON body of a raw response, cut out of its framing.
+  String jsonBody(String response) =>
+      response.substring(response.indexOf('{'), response.lastIndexOf('}') + 1);
+
+  group('client channel', () {
+    test('omits custom headers by default', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      final observed = Completer<void>();
+      wireServer.listen((request) async {
+        try {
+          expect(
+            request.headers.value(HttpHeaders.authorizationHeader),
+            isNull,
+          );
+          expect(request.headers.value(protocolVersionHeader), version);
+          observed.complete();
+        } catch (error, stackTrace) {
+          observed.completeError(error, stackTrace);
+        } finally {
+          request.response
+            ..headers.contentType = ContentType.json
+            ..write(
+              jsonEncode({
+                Keys.jsonrpc: '2.0',
+                Keys.id: 1,
+                Keys.result: <String, Object?>{},
+              }),
+            );
+          await request.response.close();
+        }
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 1,
+        Keys.method: 'test/request',
+      });
+
+      await Future.wait([channel.stream.first, observed.future]);
+    });
+
+    test('sends caller authorization headers', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      final observed = Completer<void>();
+      wireServer.listen((request) async {
+        try {
+          expect(
+            request.headers.value(HttpHeaders.authorizationHeader),
+            'Bearer t',
+          );
+          observed.complete();
+        } catch (error, stackTrace) {
+          observed.completeError(error, stackTrace);
+        } finally {
+          request.response
+            ..headers.contentType = ContentType.json
+            ..write(
+              jsonEncode({
+                Keys.jsonrpc: '2.0',
+                Keys.id: 1,
+                Keys.result: <String, Object?>{},
+              }),
+            );
+          await request.response.close();
+        }
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+        headers: {'Authorization': 'Bearer t'},
+      );
+      addTearDown(() => channel.sink.close());
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 1,
+        Keys.method: 'test/request',
+      });
+
+      await Future.wait([channel.stream.first, observed.future]);
+    });
+
+    test('keeps protocol version over caller headers', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      final observed = Completer<void>();
+      wireServer.listen((request) async {
+        try {
+          expect(request.headers.value(protocolVersionHeader), version);
+          observed.complete();
+        } catch (error, stackTrace) {
+          observed.completeError(error, stackTrace);
+        } finally {
+          request.response
+            ..headers.contentType = ContentType.json
+            ..write(
+              jsonEncode({
+                Keys.jsonrpc: '2.0',
+                Keys.id: 1,
+                Keys.result: <String, Object?>{},
+              }),
+            );
+          await request.response.close();
+        }
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+        headers: {protocolVersionHeader: 'caller-version'},
+      );
+      addTearDown(() => channel.sink.close());
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 1,
+        Keys.method: 'test/request',
+      });
+
+      await Future.wait([channel.stream.first, observed.future]);
+    });
+
+    test('posts request metadata and emits the JSON response', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      final observed = Completer<void>();
+      wireServer.listen((request) async {
+        try {
+          final sent =
+              jsonDecode(await utf8.decodeStream(request))
+                  as Map<String, Object?>;
+          expect(request.method, 'POST');
+          expect(request.headers.contentType?.mimeType, 'application/json');
+          expect(
+            request.headers.value(HttpHeaders.acceptHeader),
+            'application/json, text/event-stream',
+          );
+          expect(request.headers.value('MCP-Protocol-Version'), version);
+          expect(request.headers.value('Mcp-Method'), 'tools/call');
+          expect(request.headers.value('Mcp-Name'), '=?base64?IGNhZsOpIA==?=');
+
+          final params = sent[Keys.params] as Map<String, Object?>;
+          expect(params[Keys.arguments], {'value': 1});
+          final meta = params[Keys.meta] as Map<String, Object?>;
+          expect(meta['com.example/keep'], true);
+          expect(meta[Keys.protocolVersionMeta], version);
+          expect(meta[Keys.clientCapabilitiesMeta], {
+            'sampling': <String, Object?>{},
+          });
+          expect(meta[Keys.clientInfoMeta], {
+            'name': 'test client',
+            'version': '1.0.0',
+          });
+          observed.complete();
+        } catch (error, stackTrace) {
+          observed.completeError(error, stackTrace);
+        } finally {
+          request.response
+            ..headers.contentType = ContentType.json
+            ..write(
+              jsonEncode({
+                Keys.jsonrpc: '2.0',
+                Keys.id: 7,
+                Keys.result: {'value': 'done'},
+              }),
+            );
+          await request.response.close();
+        }
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(sampling: {}),
+        clientInfo: Implementation(name: 'test client', version: '1.0.0'),
+      );
+      addTearDown(() => channel.sink.close());
+      final response = channel.stream.first;
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 7,
+        Keys.method: callTool,
+        Keys.params: {
+          Keys.name: ' café ',
+          Keys.arguments: {'value': 1},
+          Keys.meta: {'com.example/keep': true},
+        },
+      });
+
+      final results = await Future.wait<Object?>([response, observed.future]);
+      expect(results.first, {
+        Keys.jsonrpc: '2.0',
+        Keys.id: 7,
+        Keys.result: {'value': 'done'},
+      });
+    });
+
+    test('matches concurrent requests answered out of order', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      final requests = <Object?, (HttpRequest, String)>{};
+      wireServer.listen((request) async {
+        final sent =
+            jsonDecode(await utf8.decodeStream(request))
+                as Map<String, Object?>;
+        requests[sent[Keys.id]] = (request, sent[Keys.method] as String);
+        if (requests.length != 3) return;
+        for (final id in [2, 3, 1]) {
+          final (pending, method) = requests[id]!;
+          pending.response
+            ..headers.contentType = ContentType.json
+            ..write(
+              jsonEncode({
+                Keys.jsonrpc: '2.0',
+                Keys.id: id,
+                Keys.result: {'method': method},
+              }),
+            );
+          await pending.response.close();
+        }
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final responses = channel.stream
+          .take(3)
+          .toList()
+          .timeout(const Duration(seconds: 3));
+      channel.sink
+        ..add({Keys.jsonrpc: '2.0', Keys.id: 1, Keys.method: 'test/first'})
+        ..add({Keys.jsonrpc: '2.0', Keys.id: 2, Keys.method: 'test/second'})
+        ..add({Keys.jsonrpc: '2.0', Keys.id: 3, Keys.method: 'test/third'});
+
+      expect(await responses, [
+        {
+          Keys.jsonrpc: '2.0',
+          Keys.id: 2,
+          Keys.result: {'method': 'test/second'},
+        },
+        {
+          Keys.jsonrpc: '2.0',
+          Keys.id: 3,
+          Keys.result: {'method': 'test/third'},
+        },
+        {
+          Keys.jsonrpc: '2.0',
+          Keys.id: 1,
+          Keys.result: {'method': 'test/first'},
+        },
+      ]);
+    });
+
+    test('encodes only the names a header cannot carry', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      final sentNames = <String?>[];
+      wireServer.listen((request) async {
+        sentNames.add(request.headers.value('Mcp-Name'));
+        final sent =
+            jsonDecode(await utf8.decodeStream(request))
+                as Map<String, Object?>;
+        request.response
+          ..headers.contentType = ContentType.json
+          ..write(
+            jsonEncode({
+              Keys.jsonrpc: '2.0',
+              Keys.id: sent[Keys.id],
+              Keys.result: <String, Object?>{},
+            }),
+          );
+        await request.response.close();
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final iterator = StreamIterator(channel.stream);
+      addTearDown(iterator.cancel);
+
+      // One value per rule, chosen to fail that rule alone. The tab falls
+      // under the exemption in the last rule and stays plain.
+      var id = 0;
+      for (final (name, header) in [
+        ('a\tb', 'a\tb'),
+        ('', '=?base64??='),
+        (' west', '=?base64?IHdlc3Q=?='),
+        ('café', '=?base64?Y2Fmw6k=?='),
+        ('a\nb', '=?base64?YQpi?='),
+        ('=?base64?QUJD?=', '=?base64?PT9iYXNlNjQ/UVVKRD89?='),
+      ]) {
+        channel.sink.add({
+          Keys.jsonrpc: '2.0',
+          Keys.id: ++id,
+          Keys.method: callTool,
+          Keys.params: {Keys.name: name},
+        });
+        expect(await iterator.moveNext(), isTrue);
+        expect(sentNames.last, header, reason: jsonEncode(name));
+      }
+    });
+
+    test('omits absent client information from request metadata', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      final observed = Completer<void>();
+      wireServer.listen((request) async {
+        try {
+          final sent =
+              jsonDecode(await utf8.decodeStream(request))
+                  as Map<String, Object?>;
+          final params = sent[Keys.params] as Map<String, Object?>;
+          final meta = params[Keys.meta] as Map<String, Object?>;
+          expect(meta, isNot(contains(Keys.clientInfoMeta)));
+          observed.complete();
+        } catch (error, stackTrace) {
+          observed.completeError(error, stackTrace);
+        } finally {
+          request.response
+            ..headers.contentType = ContentType.json
+            ..write(
+              jsonEncode({
+                Keys.jsonrpc: '2.0',
+                Keys.id: 8,
+                Keys.result: <String, Object?>{},
+              }),
+            );
+          await request.response.close();
+        }
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 8,
+        Keys.method: 'test/request',
+      });
+
+      await Future.wait([channel.stream.first, observed.future]);
+    });
+
+    test('decodes every message from an SSE response', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      wireServer.listen((request) async {
+        await request.drain<void>();
+        request.response.headers.contentType = ContentType(
+          'text',
+          'event-stream',
+        );
+        request.response.write(
+          'event: message\n'
+          'data: {"jsonrpc":"2.0","method":"notifications/progress"}\n\n'
+          'event: message\n'
+          'data: {"jsonrpc":"2.0","id":12,"result":{"value":1}}\n\n',
+        );
+        await request.response.close();
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final events = channel.stream
+          .take(2)
+          .toList()
+          .timeout(const Duration(seconds: 3));
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 12,
+        Keys.method: 'test/request',
+      });
+
+      expect(await events, [
+        {Keys.jsonrpc: '2.0', Keys.method: progressNotification},
+        {
+          Keys.jsonrpc: '2.0',
+          Keys.id: 12,
+          Keys.result: {'value': 1},
+        },
+      ]);
+    });
+
+    test('keeps a failed POST local to its request id', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      wireServer.listen((request) async {
+        final sent =
+            jsonDecode(await utf8.decodeStream(request))
+                as Map<String, Object?>;
+        if (sent[Keys.id] == 20) {
+          request.response
+            ..statusCode = HttpStatus.badGateway
+            ..headers.contentType = ContentType.text
+            ..write('upstream stopped');
+        } else {
+          request.response
+            ..headers.contentType = ContentType.json
+            ..write(
+              jsonEncode({
+                Keys.jsonrpc: '2.0',
+                Keys.id: 21,
+                Keys.result: {'value': 'available'},
+              }),
+            );
+        }
+        await request.response.close();
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final responses = channel.stream.take(2).toList();
+      channel.sink
+        ..add({Keys.jsonrpc: '2.0', Keys.id: 20, Keys.method: 'test/failed'})
+        ..add({
+          Keys.jsonrpc: '2.0',
+          Keys.id: 21,
+          Keys.method: 'test/available',
+        });
+
+      final byId = {
+        for (final response in await responses) response[Keys.id]: response,
+      };
+      final failed = byId[20]![Keys.error] as Map<String, Object?>;
+      expect(failed[Keys.code], -32000);
+      expect(
+        failed[Keys.message],
+        allOf(contains('HTTP 502'), contains('upstream stopped')),
+      );
+      expect(byId[21], {
+        Keys.jsonrpc: '2.0',
+        Keys.id: 21,
+        Keys.result: {'value': 'available'},
+      });
+    });
+
+    test('does not drop tools from a later result that reuses a failed '
+        'tools/list id', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      final invalidTool = {
+        Keys.name: 'invalid',
+        Keys.inputSchema: {
+          Keys.type: 'object',
+          Keys.properties: {
+            'ratio': {Keys.type: 'number', Keys.xMcpHeader: 'Ratio'},
+          },
+        },
+      };
+      wireServer.listen((request) async {
+        final sent =
+            jsonDecode(await utf8.decodeStream(request))
+                as Map<String, Object?>;
+        if (sent[Keys.method] == listTools) {
+          request.response
+            ..statusCode = HttpStatus.badGateway
+            ..headers.contentType = ContentType.text
+            ..write('upstream stopped');
+        } else {
+          request.response
+            ..headers.contentType = ContentType.json
+            ..write(
+              jsonEncode({
+                Keys.jsonrpc: '2.0',
+                Keys.id: 47,
+                Keys.result: {
+                  Keys.tools: [invalidTool],
+                },
+              }),
+            );
+        }
+        await request.response.close();
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final iterator = StreamIterator(channel.stream);
+      addTearDown(iterator.cancel);
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 47,
+        Keys.method: listTools,
+      });
+      expect(await iterator.moveNext(), isTrue);
+      expect(iterator.current[Keys.error], isNotNull);
+
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 47,
+        Keys.method: 'test/other',
+      });
+      expect(await iterator.moveNext(), isTrue);
+      expect(iterator.current, {
+        Keys.jsonrpc: '2.0',
+        Keys.id: 47,
+        Keys.result: {
+          Keys.tools: [invalidTool],
+        },
+      });
+    });
+
+    test('mirrors tool parameters learned from tools/list', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      final observedHeader = Completer<void>();
+      wireServer.listen((request) async {
+        final sent =
+            jsonDecode(await utf8.decodeStream(request))
+                as Map<String, Object?>;
+        if (sent[Keys.method] == listTools) {
+          request.response
+            ..headers.contentType = ContentType.json
+            ..write(
+              jsonEncode({
+                Keys.jsonrpc: '2.0',
+                Keys.id: 30,
+                Keys.result: {
+                  Keys.tools: [
+                    {
+                      Keys.name: 'valid',
+                      Keys.inputSchema: {
+                        Keys.type: 'object',
+                        Keys.properties: {
+                          'context': {
+                            Keys.type: 'object',
+                            Keys.properties: {
+                              'region': {
+                                Keys.type: 'string',
+                                Keys.xMcpHeader: 'Region',
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                    {
+                      Keys.name: 'invalid',
+                      Keys.inputSchema: {
+                        Keys.type: 'object',
+                        Keys.properties: {
+                          'ratio': {
+                            Keys.type: 'number',
+                            Keys.xMcpHeader: 'Ratio',
+                          },
+                        },
+                      },
+                    },
+                  ],
+                },
+              }),
+            );
+        } else {
+          try {
+            expect(
+              request.headers.value('Mcp-Param-Region'),
+              '=?base64?IGNhZsOpIA==?=',
+            );
+            observedHeader.complete();
+          } catch (error, stackTrace) {
+            observedHeader.completeError(error, stackTrace);
+          }
+          request.response
+            ..headers.contentType = ContentType.json
+            ..write(
+              jsonEncode({
+                Keys.jsonrpc: '2.0',
+                Keys.id: 31,
+                Keys.result: <String, Object?>{},
+              }),
+            );
+        }
+        await request.response.close();
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final iterator = StreamIterator(channel.stream);
+      addTearDown(iterator.cancel);
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 30,
+        Keys.method: listTools,
+      });
+      expect(await iterator.moveNext(), isTrue);
+      final result = iterator.current[Keys.result] as Map<String, Object?>;
+      final tools = result[Keys.tools] as List;
+      expect(tools, hasLength(1));
+      expect((tools.single as Map<String, Object?>)[Keys.name], 'valid');
+
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 31,
+        Keys.method: callTool,
+        Keys.params: {
+          Keys.name: 'valid',
+          Keys.arguments: {
+            'context': {'region': ' café '},
+          },
+        },
+      });
+      expect(await iterator.moveNext(), isTrue);
+      await observedHeader.future;
+    });
+
+    test('encodes a mirrored value that needs base64', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      final headers = <String?>[];
+      wireServer.listen((request) async {
+        final sent =
+            jsonDecode(await utf8.decodeStream(request))
+                as Map<String, Object?>;
+        if (sent[Keys.method] == listTools) {
+          request.response
+            ..headers.contentType = ContentType.json
+            ..write(
+              jsonEncode({
+                Keys.jsonrpc: '2.0',
+                Keys.id: sent[Keys.id],
+                Keys.result: {
+                  Keys.tools: [
+                    {
+                      Keys.name: 'texted',
+                      Keys.inputSchema: {
+                        Keys.type: 'object',
+                        Keys.properties: {
+                          'text': {
+                            Keys.type: 'string',
+                            Keys.xMcpHeader: 'Text',
+                          },
+                        },
+                      },
+                    },
+                  ],
+                },
+              }),
+            );
+        } else {
+          headers.add(request.headers.value('Mcp-Param-Text'));
+          request.response
+            ..headers.contentType = ContentType.json
+            ..write(
+              jsonEncode({
+                Keys.jsonrpc: '2.0',
+                Keys.id: sent[Keys.id],
+                Keys.result: <String, Object?>{},
+              }),
+            );
+        }
+        await request.response.close();
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final iterator = StreamIterator(channel.stream);
+      addTearDown(iterator.cancel);
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 32,
+        Keys.method: listTools,
+      });
+      expect(await iterator.moveNext(), isTrue);
+
+      // Both values are plain ASCII. The encoded forms below are the
+      // specification's own worked examples.
+      for (final (id, text) in [(33, ' padded '), (34, '=?base64?literal?=')]) {
+        channel.sink.add({
+          Keys.jsonrpc: '2.0',
+          Keys.id: id,
+          Keys.method: callTool,
+          Keys.params: {
+            Keys.name: 'texted',
+            Keys.arguments: {'text': text},
+          },
+        });
+        expect(await iterator.moveNext(), isTrue, reason: text);
+      }
+
+      expect(headers, [
+        '=?base64?IHBhZGRlZCA=?=',
+        '=?base64?PT9iYXNlNjQ/bGl0ZXJhbD89?=',
+      ]);
+    });
+
+    test(
+      'keeps a failed notification from producing an inbound message',
+      () async {
+        final channel = streamableHttpClientChannel(
+          uri,
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          clientCapabilities: ClientCapabilities(),
+        );
+        addTearDown(() => channel.sink.close());
+        final response = channel.stream.first;
+        // A non-String method throws before the POST. A notification has no id
+        // to attach a JSON-RPC error to.
+        channel.sink.add({Keys.jsonrpc: '2.0', Keys.method: 42});
+        channel.sink.add({
+          Keys.jsonrpc: '2.0',
+          Keys.id: 43,
+          Keys.method: listTools,
+        });
+
+        final message = await response;
+        expect(message[Keys.id], 43);
+        expect(message[Keys.result], isNotNull);
+      },
+    );
+
+    test('acknowledges a notification without an inbound message', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      final notificationReceived = Completer<void>();
+      wireServer.listen((request) async {
+        final sent =
+            jsonDecode(await utf8.decodeStream(request))
+                as Map<String, Object?>;
+        if (!sent.containsKey(Keys.id)) {
+          request.response.statusCode = HttpStatus.accepted;
+          notificationReceived.complete();
+        } else {
+          request.response
+            ..headers.contentType = ContentType.json
+            ..write(
+              jsonEncode({
+                Keys.jsonrpc: '2.0',
+                Keys.id: 40,
+                Keys.result: <String, Object?>{},
+              }),
+            );
+        }
+        await request.response.close();
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final response = channel.stream.first;
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.method: progressNotification,
+      });
+      await notificationReceived.future;
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 40,
+        Keys.method: 'test/request',
+      });
+
+      expect(await response, {
+        Keys.jsonrpc: '2.0',
+        Keys.id: 40,
+        Keys.result: <String, Object?>{},
+      });
+    });
+
+    test('reports a failed notification POST on the channel', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      wireServer.listen((request) async {
+        await utf8.decodeStream(request);
+        request.response
+          ..statusCode = HttpStatus.internalServerError
+          ..headers.contentType = ContentType.text
+          ..write('no');
+        await request.response.close();
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final failure = channel.stream.first;
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.method: progressNotification,
+      });
+
+      await expectLater(failure, throwsA(isA<UnsupportedError>()));
+    });
+
+    test('names an invalid outgoing message in its request error', () async {
+      final channel = streamableHttpClientChannel(
+        uri,
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final response = channel.stream.first;
+      channel.sink.add({Keys.jsonrpc: '2.0', Keys.id: 41, Keys.result: {}});
+
+      final error = (await response)[Keys.error] as Map<String, Object?>;
+      expect(error[Keys.message], contains('(message)'));
+    });
+
+    test(
+      'names a tools/call whose params are not a string-keyed map',
+      () async {
+        final channel = streamableHttpClientChannel(
+          uri,
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          clientCapabilities: ClientCapabilities(),
+        );
+        addTearDown(() => channel.sink.close());
+        final response = channel.stream.first;
+        channel.sink.add({
+          Keys.jsonrpc: '2.0',
+          Keys.id: 44,
+          Keys.method: callTool,
+          Keys.params: <dynamic, dynamic>{
+            Keys.name: 'any',
+            Keys.arguments: <String, Object?>{},
+          },
+        });
+
+        final error = (await response)[Keys.error] as Map<String, Object?>;
+        expect(error[Keys.message], contains('(${Keys.params})'));
+      },
+    );
+
+    test(
+      'names a tools/call whose arguments are not a string-keyed map',
+      () async {
+        final channel = streamableHttpClientChannel(
+          uri,
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          clientCapabilities: ClientCapabilities(),
+        );
+        addTearDown(() => channel.sink.close());
+        final response = channel.stream.first;
+        channel.sink.add({
+          Keys.jsonrpc: '2.0',
+          Keys.id: 45,
+          Keys.method: callTool,
+          Keys.params: {
+            Keys.name: 'any',
+            Keys.arguments: <dynamic, dynamic>{'x': 1},
+          },
+        });
+
+        final error = (await response)[Keys.error] as Map<String, Object?>;
+        expect(error[Keys.message], contains('(${Keys.arguments})'));
+      },
+    );
+
+    test('posts a tools/call without arguments', () async {
+      final channel = streamableHttpClientChannel(
+        uri,
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final response = channel.stream.first;
+      // `arguments` is optional, and a zero-argument tool is the common case.
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 48,
+        Keys.method: callTool,
+        Keys.params: {Keys.name: 'test/version'},
+      });
+
+      final message = await response;
+      expect(message[Keys.error], isNull);
+      final result = message[Keys.result] as Map<String, Object?>;
+      final content = result[Keys.content] as List;
+      expect((content.single as Map<String, Object?>)[Keys.text], '1.2.3');
+    });
+
+    test(
+      'rejects a tools/call with the wrong shape before opening the POST',
+      () async {
+        // Bind and close so a POST would fail to connect. The shape error
+        // must be raised before postUrl, or the error would be the
+        // connection failure instead.
+        final wireServer = await ServerSocket.bind(
+          InternetAddress.loopbackIPv4,
+          0,
+        );
+        final closedUri = Uri.http(
+          '${wireServer.address.host}:${wireServer.port}',
+          '/mcp',
+        );
+        await wireServer.close();
+
+        final channel = streamableHttpClientChannel(
+          closedUri,
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          clientCapabilities: ClientCapabilities(),
+        );
+        addTearDown(() => channel.sink.close());
+        final response = channel.stream.first;
+        channel.sink.add({
+          Keys.jsonrpc: '2.0',
+          Keys.id: 46,
+          Keys.method: callTool,
+          Keys.params: <dynamic, dynamic>{
+            Keys.name: 'any',
+            Keys.arguments: <String, Object?>{},
+          },
+        });
+
+        final error = (await response)[Keys.error] as Map<String, Object?>;
+        expect(error[Keys.message], contains('(${Keys.params})'));
+      },
+    );
+
+    test('emits a JSON-RPC error from a 404 response', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      wireServer.listen((request) async {
+        await request.drain<void>();
+        request.response
+          ..statusCode = HttpStatus.notFound
+          ..headers.contentType = ContentType.json
+          ..write(
+            jsonEncode({
+              Keys.jsonrpc: '2.0',
+              Keys.id: 9,
+              Keys.error: {Keys.code: -32601, Keys.message: 'Unknown method'},
+            }),
+          );
+        await request.response.close();
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final response = channel.stream.first;
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 9,
+        Keys.method: 'test/unknown',
+      });
+
+      expect(await response, {
+        Keys.jsonrpc: '2.0',
+        Keys.id: 9,
+        Keys.error: {Keys.code: -32601, Keys.message: 'Unknown method'},
+      });
+    });
+
+    test('emits a request error for a 202 response', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      wireServer.listen((request) async {
+        await request.drain<void>();
+        request.response.statusCode = HttpStatus.accepted;
+        await request.response.close();
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final response = channel.stream.first;
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 10,
+        Keys.method: 'test/request',
+      });
+
+      final error = (await response)[Keys.error] as Map<String, Object?>;
+      expect(error[Keys.code], -32000);
+      expect(error[Keys.message], contains('Got HTTP 202'));
+    });
+
+    test('answers a request whose response stream ends without one', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      wireServer.listen((request) async {
+        await utf8.decodeStream(request);
+        request.response
+          ..headers.set(HttpHeaders.contentTypeHeader, 'text/event-stream')
+          ..write(
+            'event: message\ndata: {"jsonrpc":"2.0",'
+            '"method":"notifications/progress"}\n\n',
+          );
+        await request.response.close();
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final messages = channel.stream.take(2).toList();
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 60,
+        Keys.method: listTools,
+      });
+
+      expect((await messages).last, {
+        Keys.jsonrpc: '2.0',
+        Keys.id: 60,
+        Keys.error: {
+          Keys.code: error_code.SERVER_ERROR,
+          Keys.message: contains('ended without a response'),
+        },
+      });
+    });
+
+    test(
+      'answers a request whose JSON reply carries a mismatched id',
+      () async {
+        final wireServer = await HttpServer.bind(
+          InternetAddress.loopbackIPv4,
+          0,
+        );
+        addTearDown(() => wireServer.close(force: true));
+        wireServer.listen((request) async {
+          await utf8.decodeStream(request);
+          request.response
+            ..headers.contentType = ContentType.json
+            ..write(
+              jsonEncode({
+                Keys.jsonrpc: '2.0',
+                Keys.id: 61,
+                Keys.result: {'value': 'for a different request'},
+              }),
+            );
+          await request.response.close();
+        });
+
+        final channel = streamableHttpClientChannel(
+          Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          clientCapabilities: ClientCapabilities(),
+        );
+        addTearDown(() => channel.sink.close());
+        final response = channel.stream.first.timeout(
+          const Duration(seconds: 5),
+        );
+        channel.sink.add({
+          Keys.jsonrpc: '2.0',
+          Keys.id: 60,
+          Keys.method: 'test/request',
+        });
+
+        expect(await response, {
+          Keys.jsonrpc: '2.0',
+          Keys.id: 60,
+          Keys.error: {
+            Keys.code: error_code.SERVER_ERROR,
+            Keys.message: allOf(contains('request 60'), contains('id 61')),
+          },
+        });
+      },
+    );
+
+    test('reports a notification answered with a body', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      wireServer.listen((request) async {
+        await utf8.decodeStream(request);
+        request.response
+          ..statusCode = HttpStatus.ok
+          ..headers.contentType = ContentType.json
+          ..write(
+            jsonEncode({
+              Keys.jsonrpc: '2.0',
+              Keys.id: null,
+              Keys.error: {Keys.code: -32600, Keys.message: 'no'},
+            }),
+          );
+        await request.response.close();
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final failure = channel.stream.first;
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.method: progressNotification,
+      });
+
+      await expectLater(failure, throwsA(isA<StateError>()));
+    });
+
+    test('mirrors an integer parameter written as a decimal', () async {
+      final headers = <String?>[];
+      final wireServer = await _integerHeaderServer(headers);
+      addTearDown(() => wireServer.close(force: true));
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final seen = <Map<String, Object?>>[];
+      final listed = Completer<void>();
+      final called = Completer<void>();
+      channel.stream.listen((message) {
+        seen.add(message);
+        if (seen.length == 1) listed.complete();
+        if (seen.length == 2) called.complete();
+      });
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 70,
+        Keys.method: listTools,
+      });
+      await listed.future;
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 71,
+        Keys.method: callTool,
+        Keys.params: {
+          Keys.name: 'counted',
+          Keys.arguments: {'count': 42.0},
+        },
+      });
+
+      await called.future;
+      expect(headers, ['42']);
+    });
+
+    test('refuses a request whose mirrored integer is out of range', () async {
+      final headers = <String?>[];
+      final wireServer = await _integerHeaderServer(headers);
+      addTearDown(() => wireServer.close(force: true));
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final seen = <Map<String, Object?>>[];
+      final listed = Completer<void>();
+      final called = Completer<void>();
+      channel.stream.listen((message) {
+        seen.add(message);
+        if (seen.length == 1) listed.complete();
+        if (seen.length == 2) called.complete();
+      });
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 72,
+        Keys.method: listTools,
+      });
+      await listed.future;
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 73,
+        Keys.method: callTool,
+        Keys.params: {
+          Keys.name: 'counted',
+          Keys.arguments: {'count': 9007199254740992},
+        },
+      });
+
+      await called.future;
+      expect(seen.last, {
+        Keys.jsonrpc: '2.0',
+        Keys.id: 73,
+        Keys.error: {
+          Keys.code: error_code.SERVER_ERROR,
+          Keys.message: contains('cannot be mirrored onto'),
+        },
+      });
+      expect(headers, isEmpty);
+    });
+
+    test('refuses an integer parameter it cannot convert', () async {
+      final headers = <String?>[];
+      final wireServer = await _integerHeaderServer(headers);
+      addTearDown(() => wireServer.close(force: true));
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final iterator = StreamIterator(channel.stream);
+      addTearDown(iterator.cancel);
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 74,
+        Keys.method: listTools,
+      });
+      expect(await iterator.moveNext(), isTrue);
+
+      // One below the safe range, and one that is not an integer at all.
+      for (final (id, count) in [(75, -9007199254740992), (76, 1.5)]) {
+        channel.sink.add({
+          Keys.jsonrpc: '2.0',
+          Keys.id: id,
+          Keys.method: callTool,
+          Keys.params: {
+            Keys.name: 'counted',
+            Keys.arguments: {'count': count},
+          },
+        });
+        expect(await iterator.moveNext(), isTrue, reason: '$count');
+        expect(iterator.current, {
+          Keys.jsonrpc: '2.0',
+          Keys.id: id,
+          Keys.error: {
+            Keys.code: error_code.SERVER_ERROR,
+            Keys.message: contains('cannot be mirrored onto'),
+          },
+        }, reason: '$count');
+      }
+      expect(headers, isEmpty);
+    });
+
+    test('forgets the headers of a tool a later snapshot leaves out', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      final headers = <String?>[];
+      var listed = true;
+      wireServer.listen((request) async {
+        final sent =
+            jsonDecode(await utf8.decodeStream(request))
+                as Map<String, Object?>;
+        if (sent[Keys.method] == listTools) {
+          request.response
+            ..headers.contentType = ContentType.json
+            ..write(
+              jsonEncode({
+                Keys.jsonrpc: '2.0',
+                Keys.id: sent[Keys.id],
+                Keys.result: {
+                  Keys.tools: [
+                    if (listed)
+                      {
+                        Keys.name: 'regional',
+                        Keys.inputSchema: {
+                          Keys.type: 'object',
+                          Keys.properties: {
+                            'region': {
+                              Keys.type: 'string',
+                              Keys.xMcpHeader: 'Region',
+                            },
+                          },
+                        },
+                      },
+                  ],
+                },
+              }),
+            );
+          listed = false;
+        } else {
+          headers.add(request.headers.value('Mcp-Param-Region'));
+          request.response
+            ..headers.contentType = ContentType.json
+            ..write(
+              jsonEncode({
+                Keys.jsonrpc: '2.0',
+                Keys.id: sent[Keys.id],
+                Keys.result: <String, Object?>{},
+              }),
+            );
+        }
+        await request.response.close();
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final seen = <Map<String, Object?>>[];
+      final steps = [Completer<void>(), Completer<void>(), Completer<void>()];
+      channel.stream.listen((message) {
+        seen.add(message);
+        steps[seen.length - 1].complete();
+      });
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 80,
+        Keys.method: listTools,
+      });
+      await steps[0].future;
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 81,
+        Keys.method: listTools,
+      });
+      await steps[1].future;
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 82,
+        Keys.method: callTool,
+        Keys.params: {
+          Keys.name: 'regional',
+          Keys.arguments: {'region': 'west'},
+        },
+      });
+
+      await steps[2].future;
+      expect(headers, [null]);
+    });
+
+    test('drops a tool annotated under a schema it never reaches', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      wireServer.listen((request) async {
+        final sent =
+            jsonDecode(await utf8.decodeStream(request))
+                as Map<String, Object?>;
+        request.response
+          ..headers.contentType = ContentType.json
+          ..write(
+            jsonEncode({
+              Keys.jsonrpc: '2.0',
+              Keys.id: sent[Keys.id],
+              Keys.result: {
+                Keys.tools: [
+                  {
+                    Keys.name: 'hidden',
+                    Keys.inputSchema: {
+                      Keys.type: 'object',
+                      Keys.properties: {
+                        'body': {
+                          Keys.type: 'string',
+                          'contentSchema': {
+                            Keys.type: 'object',
+                            Keys.properties: {
+                              'region': {
+                                Keys.type: 'string',
+                                Keys.xMcpHeader: 'Region',
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                ],
+              },
+            }),
+          );
+        await request.response.close();
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final answer = channel.stream.first;
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 90,
+        Keys.method: listTools,
+      });
+
+      final result = (await answer)[Keys.result] as Map<String, Object?>;
+      expect(result[Keys.tools], isEmpty);
+    });
+
+    test('drops a tool with an invalid header annotation', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      late Map<String, Object?> inputSchema;
+      wireServer.listen((request) async {
+        final sent =
+            jsonDecode(await utf8.decodeStream(request))
+                as Map<String, Object?>;
+        request.response
+          ..headers.contentType = ContentType.json
+          ..write(
+            jsonEncode({
+              Keys.jsonrpc: '2.0',
+              Keys.id: sent[Keys.id],
+              Keys.result: {
+                Keys.tools: [
+                  {Keys.name: 'annotated', Keys.inputSchema: inputSchema},
+                ],
+              },
+            }),
+          );
+        await request.response.close();
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final iterator = StreamIterator(channel.stream);
+      addTearDown(iterator.cancel);
+
+      Map<String, Object?> mirrored(String header) => {
+        Keys.type: 'string',
+        Keys.xMcpHeader: header,
+      };
+      Map<String, Object?> object(Map<String, Object?> properties) => {
+        Keys.type: 'object',
+        Keys.properties: properties,
+      };
+      final schemas = <(String, Map<String, Object?>)>[
+        ('an empty name', object({'region': mirrored('')})),
+        ('a name holding a space', object({'region': mirrored('Bad Region')})),
+        (
+          'a name ending in a carriage return',
+          object({'region': mirrored('Region\r')}),
+        ),
+        (
+          'two names differing only in case',
+          object({'region': mirrored('Region'), 'area': mirrored('region')}),
+        ),
+        // An annotation on the root has no property path to read a value
+        // from, so the tool could never be called.
+        ('an annotation on the schema root', mirrored('Region')),
+      ];
+      var id = 91;
+      for (final (reason, schema) in schemas) {
+        inputSchema = schema;
+        channel.sink.add({
+          Keys.jsonrpc: '2.0',
+          Keys.id: id++,
+          Keys.method: listTools,
+        });
+        expect(await iterator.moveNext(), isTrue, reason: reason);
+        final result = iterator.current[Keys.result] as Map<String, Object?>;
+        expect(result[Keys.tools], isEmpty, reason: reason);
+      }
+    });
+
+    /// The tools left in a `tools/list` result carrying one tool named
+    /// `probe` with [schema].
+    Future<List<Object?>> listedTools(Map<String, Object?> schema) async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      wireServer.listen((request) async {
+        final sent =
+            jsonDecode(await utf8.decodeStream(request))
+                as Map<String, Object?>;
+        request.response
+          ..headers.contentType = ContentType.json
+          ..write(
+            jsonEncode({
+              Keys.jsonrpc: '2.0',
+              Keys.id: sent[Keys.id],
+              Keys.result: {
+                Keys.tools: [
+                  {Keys.name: 'probe', Keys.inputSchema: schema},
+                ],
+              },
+            }),
+          );
+        await request.response.close();
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      addTearDown(() => channel.sink.close());
+      final answer = channel.stream.first;
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 91,
+        Keys.method: listTools,
+      });
+      final result = (await answer)[Keys.result] as Map<String, Object?>;
+      return result[Keys.tools] as List<Object?>;
+    }
+
+    // One bad annotation costs the whole tool, so each schema here breaks a
+    // different constraint the specification puts on `x-mcp-header`.
+    final invalidSchemas = <({String constraint, Map<String, Object?> schema})>[
+      (
+        constraint: 'a non-token header name',
+        schema: {
+          Keys.type: 'object',
+          Keys.properties: {
+            'region': {Keys.type: 'string', Keys.xMcpHeader: 'Bad Header'},
+          },
+        },
+      ),
+      (
+        constraint: 'a repeated header name',
+        schema: {
+          Keys.type: 'object',
+          Keys.properties: {
+            'region': {Keys.type: 'string', Keys.xMcpHeader: 'Value'},
+            'zone': {Keys.type: 'string', Keys.xMcpHeader: 'value'},
+          },
+        },
+      ),
+      (
+        constraint: 'a root-level header',
+        schema: {Keys.type: 'string', Keys.xMcpHeader: 'Region'},
+      ),
+      (
+        constraint: r'a header under $defs',
+        schema: {
+          Keys.type: 'object',
+          r'$defs': {
+            'shared': {
+              Keys.type: 'object',
+              Keys.properties: {
+                'region': {Keys.type: 'string', Keys.xMcpHeader: 'Region'},
+              },
+            },
+          },
+        },
+      ),
+    ];
+    for (final invalid in invalidSchemas) {
+      test('drops a tool with ${invalid.constraint}', () async {
+        expect(await listedTools(invalid.schema), isEmpty);
+      });
+    }
+
+    test('keeps a tool that forbids extra properties', () async {
+      // A boolean subschema carries no annotation to read. Giving up on one
+      // would drop every tool that writes `additionalProperties: false`.
+      expect(
+        await listedTools({
+          Keys.type: 'object',
+          Keys.properties: {
+            'region': {Keys.type: 'string', Keys.xMcpHeader: 'Region'},
+          },
+          Keys.additionalProperties: false,
+        }),
+        hasLength(1),
+      );
+    });
+
+    test('rejects a protocol version outside its set', () {
+      expect(
+        () => streamableHttpClientChannel(
+          uri,
+          protocolVersion: ProtocolVersion.v2025_11_25,
+          clientCapabilities: ClientCapabilities(),
+        ),
+        throwsA(
+          isA<ArgumentError>()
+              .having(
+                (error) => error.invalidValue,
+                'invalidValue',
+                '2025-11-25',
+              )
+              .having(
+                (error) => error.message,
+                'message',
+                contains('2026-07-28'),
+              ),
+        ),
+      );
+    });
+
+    test('rejects cast client capabilities before opening a channel', () {
+      final capabilities =
+          <String, Object?>{
+                'extensions': <String, Object?>{'tasks': <String, Object?>{}},
+              }
+              as ClientCapabilities;
+
+      expect(
+        () => streamableHttpClientChannel(
+          uri,
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          clientCapabilities: capabilities,
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('forwards a capability set after the channel opens', () async {
+      final wireServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => wireServer.close(force: true));
+      final posted = Completer<Map<String, Object?>>();
+      wireServer.listen((request) async {
+        final sent =
+            jsonDecode(await utf8.decodeStream(request))
+                as Map<String, Object?>;
+        final params = sent[Keys.params] as Map<String, Object?>;
+        final meta = params[Keys.meta] as Map<String, Object?>;
+        posted.complete(
+          (meta[Keys.clientCapabilitiesMeta] as Map).cast<String, Object?>(),
+        );
+        request.response
+          ..headers.contentType = ContentType.json
+          ..write(
+            jsonEncode({
+              Keys.jsonrpc: '2.0',
+              Keys.id: sent[Keys.id],
+              Keys.result: <String, Object?>{},
+            }),
+          );
+        await request.response.close();
+      });
+
+      final capabilities = ClientCapabilities();
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: capabilities,
+      );
+      addTearDown(() => channel.sink.close());
+      capabilities.extensions = {'example/late': <String, Object?>{}};
+      channel.sink.add({Keys.jsonrpc: '2.0', Keys.id: 92, Keys.method: ping});
+
+      expect(await posted.future, {
+        'extensions': {'example/late': <String, Object?>{}},
+      });
+    });
+
+    test('closes an in-flight HTTP request with the channel', () async {
+      final wireServer = await ServerSocket.bind(
+        InternetAddress.loopbackIPv4,
+        0,
+      );
+      Socket? acceptedSocket;
+      addTearDown(() async {
+        acceptedSocket?.destroy();
+        await wireServer.close();
+      });
+      final requestStarted = Completer<void>();
+      final socketDone = Completer<void>();
+      void completeSocket() {
+        if (!socketDone.isCompleted) socketDone.complete();
+      }
+
+      wireServer.listen((socket) {
+        acceptedSocket = socket;
+        final requestBytes = <int>[];
+        var responseStarted = false;
+        socket.listen(
+          (bytes) async {
+            requestBytes.addAll(bytes);
+            if (responseStarted ||
+                !latin1.decode(requestBytes).contains('\r\n\r\n')) {
+              return;
+            }
+            responseStarted = true;
+            socket.write(
+              'HTTP/1.1 200 OK\r\n'
+              'Content-Type: application/json\r\n'
+              'Content-Length: 2\r\n'
+              '\r\n'
+              '{',
+            );
+            await socket.flush();
+            requestStarted.complete();
+          },
+          onError: (_, _) => completeSocket(),
+          onDone: completeSocket,
+        );
+      });
+
+      final channel = streamableHttpClientChannel(
+        Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(),
+      );
+      final channelDone = Completer<void>();
+      channel.stream.listen(null, onDone: channelDone.complete);
+      channel.sink.add({
+        Keys.jsonrpc: '2.0',
+        Keys.id: 11,
+        Keys.method: 'test/request',
+      });
+
+      await requestStarted.future;
+      await channel.sink.close();
+      await channelDone.future;
+      await socketDone.future.timeout(const Duration(seconds: 3));
+    });
+  });
+
+  group('happy path', () {
+    test('answers tools/list with JSON and server info', () async {
+      final (status, responseHeaders, text) = await post(
+        headers: headers(listTools),
+        json: body(listTools),
+      );
+      expect(status, 200);
+      expect(responseHeaders.contentType?.mimeType, 'application/json');
+      expect(responseHeaders.contentType?.charset, 'utf-8');
+      expect(responseHeaders.value('Mcp-Session-Id'), isNull);
+      final response = decode(text);
+      expect(response[Keys.id], 1);
+      final result = response[Keys.result] as Map<String, Object?>;
+      final tools = result[Keys.tools] as List;
+      expect(
+        tools.map((tool) => (tool as Map<String, Object?>)[Keys.name]),
+        contains('test/version'),
+      );
+      expect(
+        (result[Keys.meta] as Map<String, Object?>)[Keys.serverInfoMeta],
+        isNotNull,
+      );
+    });
+
+    test('answers tools/call with the tool result', () async {
+      final (status, _, text) = await post(
+        headers: {...headers(callTool), 'Mcp-Name': 'test/version'},
+        json: body(callTool, params: {Keys.name: 'test/version'}),
+      );
+      expect(status, 200);
+      final result = decode(text)[Keys.result] as Map<String, Object?>;
+      final content = result[Keys.content] as List;
+      expect((content.single as Map<String, Object?>)[Keys.text], '1.2.3');
+    });
+  });
+
+  group('origin validation', () {
+    test('serves a request carrying an origin with no allowlist', () async {
+      final (status, _, text) = await post(
+        headers: {...headers(listTools), 'Origin': 'https://client.example'},
+        json: body(listTools),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('accepts an origin in the allowlist', () async {
+      allowedOrigins = {'https://client.example'};
+      final (status, _, text) = await post(
+        headers: {...headers(listTools), 'Origin': 'https://client.example'},
+        json: body(listTools),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('rejects an origin outside the allowlist', () async {
+      allowedOrigins = {'https://client.example'};
+      final (status, _, text) = await post(
+        headers: {...headers(listTools), 'Origin': 'https://other.example'},
+        json: body(listTools),
+      );
+      expect(status, HttpStatus.forbidden);
+      expect(text, isEmpty);
+      expect(servers, isEmpty);
+    });
+
+    test('rejects an origin sent as two separate field lines', () async {
+      allowedOrigins = {'https://client.example'};
+      final requestBody = jsonEncode(body(listTools));
+      final response = await rawRequest(
+        'POST /mcp HTTP/1.1\r\n'
+        'Host: localhost\r\n'
+        'Content-Type: application/json\r\n'
+        'Accept: application/json, text/event-stream\r\n'
+        'Mcp-Protocol-Version: $version\r\n'
+        'Mcp-Method: $listTools\r\n'
+        'Origin: https://client.example\r\n'
+        'Origin: https://other.example\r\n'
+        'Content-Length: ${requestBody.length}\r\n'
+        'Connection: close\r\n'
+        '\r\n'
+        '$requestBody',
+      );
+      // The first line is in the allowlist, so only the line count can be
+      // what this rejection is about.
+      expect(response, startsWith('HTTP/1.1 403'));
+      expect(servers, isEmpty);
+    });
+
+    test('serves two origin field lines with no allowlist', () async {
+      final requestBody = jsonEncode(body(listTools));
+      final response = await rawRequest(
+        'POST /mcp HTTP/1.1\r\n'
+        'Host: localhost\r\n'
+        'Content-Type: application/json\r\n'
+        'Accept: application/json, text/event-stream\r\n'
+        'Mcp-Protocol-Version: $version\r\n'
+        'Mcp-Method: $listTools\r\n'
+        'Origin: https://client.example\r\n'
+        'Origin: https://other.example\r\n'
+        'Content-Length: ${requestBody.length}\r\n'
+        'Connection: close\r\n'
+        '\r\n'
+        '$requestBody',
+      );
+      expect(response, startsWith('HTTP/1.1 200'));
+      expect(errorCode(jsonBody(response)), isNull);
+    });
+    test('accepts a request without origin', () async {
+      allowedOrigins = {'https://client.example'};
+      final (status, _, text) = await post(
+        headers: headers(listTools),
+        json: body(listTools),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('rejects any origin when the allowlist is empty', () async {
+      allowedOrigins = {};
+      final (status, _, text) = await post(
+        headers: {...headers(listTools), 'Origin': 'https://client.example'},
+        json: body(listTools),
+      );
+      expect(status, HttpStatus.forbidden);
+      expect(text, isEmpty);
+      expect(servers, isEmpty);
+    });
+  });
+
+  group('subscriptions/listen', () {
+    test('streams accepted changes before the result', () async {
+      serverFactory = _EquippedServer.new;
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(uri);
+      headers(
+        SubscriptionsListenRequest.methodName,
+      ).forEach(request.headers.set);
+      request.write(
+        jsonEncode(
+          body(
+            SubscriptionsListenRequest.methodName,
+            id: 'listen-1',
+            params: {
+              Keys.notifications: {
+                Keys.toolsListChanged: true,
+                Keys.promptsListChanged: true,
+                Keys.resourcesListChanged: true,
+                Keys.resourceSubscriptions: ['file:///a'],
+              },
+            },
+          ),
+        ),
+      );
+      final response = await request.close();
+
+      final chunks = StringBuffer();
+      final firstFrame = Completer<void>();
+      final changesFrame = Completer<void>();
+      final done = Completer<void>();
+      final subscription = response.transform(utf8.decoder).listen((chunk) {
+        chunks.write(chunk);
+        final count = frames(chunks.toString()).length;
+        if (count >= 1 && !firstFrame.isCompleted) firstFrame.complete();
+        if (count >= 5 && !changesFrame.isCompleted) changesFrame.complete();
+      }, onDone: done.complete);
+      addTearDown(subscription.cancel);
+
+      await firstFrame.future;
+      expect(response.statusCode, 200);
+      expect(response.headers.contentType?.mimeType, 'text/event-stream');
+      expect(done.isCompleted, isFalse);
+      expect(events(chunks.toString()).single, {
+        'jsonrpc': '2.0',
+        'method': 'notifications/subscriptions/acknowledged',
+        'params': {
+          'notifications': {
+            'toolsListChanged': true,
+            'promptsListChanged': true,
+            'resourcesListChanged': true,
+            'resourceSubscriptions': ['file:///a'],
+          },
+          '_meta': {'io.modelcontextprotocol/subscriptionId': 'listen-1'},
+        },
+      });
+
+      final server = servers.single;
+      addTearDown(() async {
+        if (server.isActive) await server.shutdown();
+      });
+      server.sendNotification(
+        ToolListChangedNotification.methodName,
+        ToolListChangedNotification(),
+      );
+      server.sendNotification(
+        PromptListChangedNotification.methodName,
+        PromptListChangedNotification(),
+      );
+      server.sendNotification(
+        ResourceListChangedNotification.methodName,
+        ResourceListChangedNotification(),
+      );
+      server.sendNotification(
+        ResourceUpdatedNotification.methodName,
+        ResourceUpdatedNotification(uri: 'file:///b'),
+      );
+      server.sendNotification(
+        ResourceUpdatedNotification.methodName,
+        ResourceUpdatedNotification(uri: 'file:///a'),
+      );
+
+      await changesFrame.future;
+      final early = events(chunks.toString());
+      expect(early, hasLength(5));
+      expect(early.skip(1), [
+        {
+          'jsonrpc': '2.0',
+          'method': 'notifications/tools/list_changed',
+          'params': {
+            '_meta': {'io.modelcontextprotocol/subscriptionId': 'listen-1'},
+          },
+        },
+        {
+          'jsonrpc': '2.0',
+          'method': 'notifications/prompts/list_changed',
+          'params': {
+            '_meta': {'io.modelcontextprotocol/subscriptionId': 'listen-1'},
+          },
+        },
+        {
+          'jsonrpc': '2.0',
+          'method': 'notifications/resources/list_changed',
+          'params': {
+            '_meta': {'io.modelcontextprotocol/subscriptionId': 'listen-1'},
+          },
+        },
+        {
+          'jsonrpc': '2.0',
+          'method': 'notifications/resources/updated',
+          'params': {
+            'uri': 'file:///a',
+            '_meta': {'io.modelcontextprotocol/subscriptionId': 'listen-1'},
+          },
+        },
+      ]);
+
+      await server.shutdown();
+      await done.future;
+      final messages = events(chunks.toString());
+      expect(messages, hasLength(6));
+      expect(messages.last[Keys.id], 'listen-1');
+      final result = messages.last[Keys.result] as Map<String, Object?>;
+      expect(result[Keys.resultType], 'complete');
+      final meta = result[Keys.meta] as Map<String, Object?>;
+      expect(meta[Keys.subscriptionIdMeta], 'listen-1');
+      expect(meta[Keys.serverInfoMeta], {
+        'name': 'equipped test server',
+        'version': '0.1.0',
+      });
+    });
+
+    test('streams a change produced by another request server', () async {
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(uri);
+      headers(
+        SubscriptionsListenRequest.methodName,
+      ).forEach(request.headers.set);
+      request.write(
+        jsonEncode(
+          body(
+            SubscriptionsListenRequest.methodName,
+            id: 'listen-2',
+            params: {
+              Keys.notifications: {Keys.toolsListChanged: true},
+            },
+          ),
+        ),
+      );
+      final response = await request.close();
+      final chunks = StringBuffer();
+      final acknowledged = Completer<void>();
+      final done = Completer<void>();
+      final subscription = response.transform(utf8.decoder).listen((chunk) {
+        chunks.write(chunk);
+        final messages = events(chunks.toString());
+        if (messages.isNotEmpty && !acknowledged.isCompleted) {
+          acknowledged.complete();
+        }
+      }, onDone: done.complete);
+      addTearDown(subscription.cancel);
+
+      await acknowledged.future;
+      final listener = servers.single;
+      addTearDown(() async {
+        if (listener.isActive) await listener.shutdown();
+      });
+      final (status, _, text) = await post(
+        headers: {
+          ...headers(callTool),
+          'Mcp-Name': 'test/registers-then-fails',
+        },
+        json: body(callTool, params: {Keys.name: 'test/registers-then-fails'}),
+      );
+
+      expect(status, 400);
+      expect(errorCode(text), McpErrorCodes.missingRequiredClientCapability);
+      await pumpEventQueue(times: 20);
+      final messages = events(chunks.toString());
+      expect(messages, hasLength(2));
+      final change = messages[1];
+      expect(change[Keys.method], ToolListChangedNotification.methodName);
+      expect(change[Keys.params], {
+        Keys.meta: {Keys.subscriptionIdMeta: 'listen-2'},
+      });
+
+      await listener.shutdown();
+      await done.future;
+    });
+
+    test('treats false and absent filters as not requested', () async {
+      final filters = <Map<String, Object?>>[];
+      for (final notifications in [
+        {Keys.toolsListChanged: false},
+        <String, Object?>{},
+        {Keys.resourceSubscriptions: <String>[]},
+      ]) {
+        final acknowledgements = <Map<String, Object?>>[];
+        final acknowledged = Completer<void>();
+        late _HttpTestServer server;
+        final responseFuture = handleRequestScopedMessage(
+          body(
+            SubscriptionsListenRequest.methodName,
+            params: {Keys.notifications: notifications},
+          ),
+          MCPServerInitialization(
+            protocolVersion: ProtocolVersion.v2026_07_28,
+            clientCapabilities: ClientCapabilities(),
+          ),
+          (channel) => server = _HttpTestServer(channel),
+          onNotification: (notification) {
+            acknowledgements.add(notification);
+            acknowledged.complete();
+          },
+        );
+        await acknowledged.future;
+        await server.shutdown();
+        final response = await responseFuture;
+        expect(response![Keys.error], isNull);
+        final params =
+            acknowledgements.single[Keys.params] as Map<String, Object?>;
+        filters.add(
+          (params[Keys.notifications] as Map).cast<String, Object?>(),
+        );
+      }
+
+      expect(filters, [
+        <String, Object?>{},
+        <String, Object?>{},
+        <String, Object?>{},
+      ]);
+    });
+
+    test('omits an empty resource subscription list from the ack', () async {
+      serverFactory = _EquippedServer.new;
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(uri);
+      headers(
+        SubscriptionsListenRequest.methodName,
+      ).forEach(request.headers.set);
+      request.write(
+        jsonEncode(
+          body(
+            SubscriptionsListenRequest.methodName,
+            params: {
+              Keys.notifications: {Keys.resourceSubscriptions: <String>[]},
+            },
+          ),
+        ),
+      );
+      final response = await request.close();
+      final first = await response
+          .transform(utf8.decoder)
+          .firstWhere((chunk) => frames(chunk).isNotEmpty);
+      final acknowledgement = events(first).single;
+      final params = acknowledgement[Keys.params] as Map<String, Object?>;
+
+      expect(params[Keys.notifications], <String, Object?>{});
+      client.close(force: true);
+    });
+
+    test('acknowledges every requested server filter', () async {
+      final resources = ['file:///a'];
+      final notifications = <Map<String, Object?>>[];
+      final acknowledged = Completer<void>();
+      late _EquippedServer server;
+      final responseFuture = handleRequestScopedMessage(
+        body(
+          SubscriptionsListenRequest.methodName,
+          params: {
+            Keys.notifications: {
+              Keys.toolsListChanged: true,
+              Keys.promptsListChanged: true,
+              Keys.resourcesListChanged: true,
+              Keys.resourceSubscriptions: resources,
+            },
+          },
+        ),
+        MCPServerInitialization(
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          clientCapabilities: ClientCapabilities(),
+        ),
+        (channel) => server = _EquippedServer(channel),
+        onNotification: (notification) {
+          notifications.add(notification);
+          acknowledged.complete();
+        },
+      );
+      await acknowledged.future;
+      resources.add('file:///b');
+      await server.shutdown();
+      final response = await responseFuture;
+
+      expect(response![Keys.error], isNull);
+      final params = notifications.single[Keys.params] as Map<String, Object?>;
+      expect(params[Keys.notifications], {
+        'toolsListChanged': true,
+        'promptsListChanged': true,
+        'resourcesListChanged': true,
+        'resourceSubscriptions': ['file:///a'],
+      });
+    });
+
+    test('omits filters the server cannot deliver', () async {
+      final acknowledgements = <Map<String, Object?>>[];
+      final acknowledged = Completer<void>();
+      late _HttpTestServer server;
+      final responseFuture = handleRequestScopedMessage(
+        body(
+          SubscriptionsListenRequest.methodName,
+          params: {
+            Keys.notifications: {
+              Keys.toolsListChanged: true,
+              Keys.promptsListChanged: true,
+              Keys.resourcesListChanged: true,
+              Keys.resourceSubscriptions: ['file:///a'],
+            },
+          },
+        ),
+        MCPServerInitialization(
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          clientCapabilities: ClientCapabilities(),
+        ),
+        (channel) => server = _HttpTestServer(channel),
+        onNotification: (notification) {
+          acknowledgements.add(notification);
+          acknowledged.complete();
+        },
+      );
+
+      await acknowledged.future;
+      await server.shutdown();
+      final response = await responseFuture;
+
+      expect(response![Keys.error], isNull);
+      final params =
+          acknowledgements.single[Keys.params] as Map<String, Object?>;
+      expect(params[Keys.notifications], {'toolsListChanged': true});
+    });
+
+    test(
+      'omits the tools filter when the server registered no tools',
+      () async {
+        final acknowledgements = <Map<String, Object?>>[];
+        final acknowledged = Completer<void>();
+        late _PromptOnlyServer server;
+        final responseFuture = handleRequestScopedMessage(
+          body(
+            SubscriptionsListenRequest.methodName,
+            params: {
+              Keys.notifications: {
+                Keys.toolsListChanged: true,
+                Keys.promptsListChanged: true,
+              },
+            },
+          ),
+          MCPServerInitialization(
+            protocolVersion: ProtocolVersion.v2026_07_28,
+            clientCapabilities: ClientCapabilities(),
+          ),
+          (channel) => server = _PromptOnlyServer(channel),
+          onNotification: (notification) {
+            acknowledgements.add(notification);
+            acknowledged.complete();
+          },
+        );
+
+        await acknowledged.future;
+        await server.shutdown();
+        final response = await responseFuture;
+
+        expect(response![Keys.error], isNull);
+        final params =
+            acknowledgements.single[Keys.params] as Map<String, Object?>;
+        expect(params[Keys.notifications], {'promptsListChanged': true});
+      },
+    );
+
+    test('rejects malformed filters without opening a stream', () async {
+      serverFactory = _EquippedServer.new;
+      final malformed = [
+        body(SubscriptionsListenRequest.methodName, params: {}),
+        body(
+          SubscriptionsListenRequest.methodName,
+          params: {Keys.notifications: null},
+        ),
+        body(
+          SubscriptionsListenRequest.methodName,
+          params: {Keys.notifications: 42},
+        ),
+        body(
+          SubscriptionsListenRequest.methodName,
+          params: {
+            Keys.notifications: {Keys.toolsListChanged: 42},
+          },
+        ),
+        body(
+          SubscriptionsListenRequest.methodName,
+          params: {
+            Keys.notifications: {
+              Keys.resourceSubscriptions: [42],
+            },
+          },
+        ),
+      ];
+      final uncaught = <Object>[];
+      final responses = <(int, HttpHeaders, String)>[];
+
+      await runZonedGuarded(() async {
+        for (final requestBody in malformed) {
+          responses.add(
+            await post(
+              headers: headers(SubscriptionsListenRequest.methodName),
+              json: requestBody,
+            ),
+          );
+        }
+      }, (error, _) => uncaught.add(error));
+      await pumpEventQueue();
+
+      expect(uncaught, isEmpty);
+      for (final (status, responseHeaders, text) in responses) {
+        expect(status, 400);
+        expect(responseHeaders.contentType?.mimeType, 'application/json');
+        expect(errorCode(text), error_code.INVALID_PARAMS);
+        expect(
+          text,
+          isNot(contains(SubscriptionsAcknowledgedNotification.methodName)),
+        );
+        expect(text, isNot(contains('"stack"')));
+      }
+    });
+
+    test('rejects explicit null filter values', () async {
+      for (final key in [
+        Keys.toolsListChanged,
+        Keys.promptsListChanged,
+        Keys.resourcesListChanged,
+        Keys.resourceSubscriptions,
+      ]) {
+        late _EquippedServer server;
+        final acknowledgements = <Map<String, Object?>>[];
+        final response = await handleRequestScopedMessage(
+          body(
+            SubscriptionsListenRequest.methodName,
+            params: {
+              Keys.notifications: {key: null},
+            },
+          ),
+          MCPServerInitialization(
+            protocolVersion: ProtocolVersion.v2026_07_28,
+            clientCapabilities: ClientCapabilities(),
+          ),
+          (channel) => server = _EquippedServer(channel),
+          onNotification: (notification) {
+            acknowledgements.add(notification);
+            unawaited(Future<void>.delayed(Duration.zero, server.shutdown));
+          },
+        );
+
+        expect(response, containsPair(Keys.error, isA<Map<String, Object?>>()));
+        final error = response![Keys.error] as Map<String, Object?>;
+        expect(error[Keys.code], error_code.INVALID_PARAMS);
+        expect(acknowledgements, isEmpty);
+      }
+    });
+
+    test('advertises the filters its listen stream can deliver', () async {
+      serverFactory = _EquippedServer.new;
+      final (status, _, text) = await post(
+        headers: headers(DiscoverRequest.methodName),
+        json: body(DiscoverRequest.methodName),
+      );
+
+      expect(status, 200);
+      final result = decode(text)[Keys.result] as Map<String, Object?>;
+      final capabilities = result[Keys.capabilities] as Map<String, Object?>;
+      expect(capabilities['tools'], {'listChanged': true});
+      expect(capabilities['prompts'], {'listChanged': true});
+      expect(capabilities['resources'], {
+        'subscribe': true,
+        'listChanged': true,
+      });
+    });
+
+    test('keeps advertised capabilities separate from server state', () async {
+      late _EquippedServer server;
+      final response = await handleRequestScopedMessage(
+        body(DiscoverRequest.methodName),
+        MCPServerInitialization(
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          clientCapabilities: ClientCapabilities(),
+        ),
+        (channel) => server = _EquippedServer(channel),
+      );
+      final result = response![Keys.result] as Map<String, Object?>;
+      final advertised = result[Keys.capabilities] as Map<String, Object?>;
+      advertised[Keys.tools] = <String, Object?>{};
+
+      expect(server.capabilities.tools?.listChanged, isTrue);
+    });
+
+    test('shuts down the server when the client disconnects', () async {
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(uri);
+      headers(
+        SubscriptionsListenRequest.methodName,
+      ).forEach(request.headers.set);
+      request.write(
+        jsonEncode(
+          body(
+            SubscriptionsListenRequest.methodName,
+            params: {
+              Keys.notifications: {Keys.toolsListChanged: true},
+            },
+          ),
+        ),
+      );
+      final response = await request.close();
+      final acknowledged = Completer<void>();
+      final responseEnded = Completer<void>();
+      final chunks = StringBuffer();
+      final subscription = response
+          .transform(utf8.decoder)
+          .listen(
+            (chunk) {
+              chunks.write(chunk);
+              if (frames(chunks.toString()).isNotEmpty &&
+                  !acknowledged.isCompleted) {
+                acknowledged.complete();
+              }
+            },
+            onError: (Object _) {
+              if (!responseEnded.isCompleted) responseEnded.complete();
+            },
+            onDone: () {
+              if (!responseEnded.isCompleted) responseEnded.complete();
+            },
+          );
+      addTearDown(subscription.cancel);
+
+      await acknowledged.future;
+      final server = servers.single;
+      client.close(force: true);
+
+      await server.done.timeout(const Duration(seconds: 5));
+      await responseEnded.future.timeout(const Duration(seconds: 5));
+      expect(server.isActive, isFalse);
+    });
+
+    test('keeps the stream alive with an SSE comment', () async {
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(uri);
+      headers(
+        SubscriptionsListenRequest.methodName,
+      ).forEach(request.headers.set);
+      request.write(
+        jsonEncode(
+          body(
+            SubscriptionsListenRequest.methodName,
+            params: {
+              Keys.notifications: {Keys.toolsListChanged: true},
+            },
+          ),
+        ),
+      );
+      final response = await request.close();
+      final keptAlive = Completer<void>();
+      final chunks = StringBuffer();
+      final subscription = response.transform(utf8.decoder).listen((chunk) {
+        chunks.write(chunk);
+        if (!keptAlive.isCompleted &&
+            chunks.toString().split('\n\n').any((f) => f.startsWith(':'))) {
+          keptAlive.complete();
+        }
+      });
+      addTearDown(subscription.cancel);
+
+      // A keep-alive has to arrive as a comment in a frame of its own. An SSE
+      // client skips a line which opens with a colon, and joins one which does
+      // not onto the message frame that follows it.
+      await keptAlive.future.timeout(const Duration(seconds: 5));
+      await servers.single.shutdown();
+    });
+
+    test('keeps a notifying stream alive with an SSE comment', () async {
+      releaseNotifyThenWait = Completer<void>();
+      addTearDown(() {
+        if (!releaseNotifyThenWait.isCompleted) {
+          releaseNotifyThenWait.complete();
+        }
+      });
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.openUrl('POST', uri);
+      headers(callTool).forEach(request.headers.set);
+      request.headers.set('Mcp-Name', 'test/notify-then-wait');
+      request.write(
+        jsonEncode(
+          body(callTool, params: {Keys.name: 'test/notify-then-wait'}),
+        ),
+      );
+      final response = await request.close();
+
+      // The handler stays parked past the keep-alive interval, so a comment
+      // lands between the notification and the result.
+      final chunks = StringBuffer();
+      final keptAlive = Completer<void>();
+      final subscription = response.transform(utf8.decoder).listen((chunk) {
+        chunks.write(chunk);
+        if (!keptAlive.isCompleted &&
+            chunks.toString().split('\n\n').any((f) => f.startsWith(':'))) {
+          keptAlive.complete();
+        }
+      });
+      addTearDown(subscription.cancel);
+
+      await keptAlive.future.timeout(const Duration(seconds: 5));
+      releaseNotifyThenWait.complete();
+      await subscription.asFuture<void>();
+
+      final text = chunks.toString();
+      expect(frames(text), hasLength(greaterThan(2)));
+      final messages = events(text);
+      expect(messages, hasLength(2));
+      expect(
+        messages.first[Keys.method],
+        LoggingMessageNotification.methodName,
+      );
+      expect(messages.last[Keys.id], 1);
+    });
+
+    test('does not register on earlier revisions', () async {
+      final response = await handleRequestScopedMessage(
+        body(
+          SubscriptionsListenRequest.methodName,
+          params: {Keys.notifications: <String, Object?>{}},
+        ),
+        MCPServerInitialization(
+          protocolVersion: ProtocolVersion.v2025_11_25,
+          clientCapabilities: ClientCapabilities(),
+        ),
+        _HttpTestServer.new,
+      );
+
+      final error = response![Keys.error] as Map<String, Object?>;
+      expect(error[Keys.code], -32601);
+    });
+
+    test('answers an acknowledgement whose params are not a map with an '
+        'error', () async {
+      serverFactory = _AckWithoutParamsServer.new;
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(uri);
+      headers(
+        SubscriptionsListenRequest.methodName,
+      ).forEach(request.headers.set);
+      request.write(
+        jsonEncode(
+          body(
+            SubscriptionsListenRequest.methodName,
+            params: {
+              Keys.notifications: {Keys.toolsListChanged: true},
+            },
+          ),
+        ),
+      );
+      final response = await request.close().timeout(
+        const Duration(seconds: 5),
+      );
+      final text = await utf8.decodeStream(response);
+
+      expect(response.statusCode, HttpStatus.internalServerError);
+      expect(response.headers.contentType?.mimeType, 'application/json');
+      expect(errorCode(text), error_code.INTERNAL_ERROR);
+      expect(errorMessage(text), contains('must be a JSON object'));
+      expect(text, isNot(contains('"stack"')));
+    });
+
+    test('does not throw when finish runs after initialize already closed '
+        'the response', () async {
+      final failing = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => failing.close(force: true));
+      final uncaught = <Object>[];
+      final failure = Completer<Object>();
+      runZonedGuarded(() {
+        failing.listen(
+          (request) => handleStreamableHttpRequest(
+            request,
+            _AckThenFailInitialize.new,
+          ).onError<Object>((error, _) {
+            if (!failure.isCompleted) failure.complete(error);
+          }),
+        );
+      }, (error, _) => uncaught.add(error));
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(
+        Uri.http('${failing.address.host}:${failing.port}', '/mcp'),
+      );
+      headers(
+        SubscriptionsListenRequest.methodName,
+      ).forEach(request.headers.set);
+      request.write(
+        jsonEncode(
+          body(
+            SubscriptionsListenRequest.methodName,
+            params: {
+              Keys.notifications: {Keys.toolsListChanged: true},
+            },
+          ),
+        ),
+      );
+      final response = await request.close().timeout(
+        const Duration(seconds: 5),
+      );
+      final text = await utf8.decodeStream(response);
+      await pumpEventQueue(times: 20);
+
+      expect(response.statusCode, HttpStatus.internalServerError);
+      expect(errorCode(text), error_code.INTERNAL_ERROR);
+      expect(
+        await failure.future,
+        isA<StateError>().having(
+          (e) => e.message,
+          'message',
+          'initialize failed after announcing',
+        ),
+      );
+      expect(
+        uncaught,
+        isEmpty,
+        reason: 'a second finish must not throw after the response is closed',
+      );
+    });
+
+    test(
+      'tells two client subscriptions apart by the ID on the wire',
+      () async {
+        // Each listen request reads only its own server's changes, and that is
+        // what gives one connection two streams to tell apart. A host passing
+        // one shared `subscriptionNotifications` stream to every request sends
+        // every change to every stream instead.
+        final host = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        addTearDown(() => host.close(force: true));
+        final hosted = <MCPServer>[];
+        host.listen(
+          (request) => handleStreamableHttpRequest(request, (channel) {
+            final server = _EquippedServer(channel);
+            hosted.add(server);
+            return server;
+          }),
+        );
+        final client = TestMCPClient();
+        addTearDown(client.shutdown);
+        final connection = client.connectServer(
+          streamableHttpClientChannel(
+            Uri.http('${host.address.host}:${host.port}', '/mcp'),
+            protocolVersion: ProtocolVersion.v2026_07_28,
+            clientCapabilities: client.capabilities,
+          ),
+        );
+
+        final first = connection.listen(
+          SubscriptionFilter(toolsListChanged: true),
+          meta: MetaWithRequestEnvelope(
+            protocolVersion: ProtocolVersion.v2026_07_28,
+            capabilities: client.capabilities,
+          ),
+        );
+        final firstChanges = <SubscriptionNotification>[];
+        final firstListener = first.notifications.listen(firstChanges.add);
+        addTearDown(firstListener.cancel);
+        final accepted = await first.acknowledged.timeout(
+          const Duration(seconds: 5),
+        );
+        expect(accepted.toolsListChanged, isTrue);
+
+        final second = connection.listen(
+          SubscriptionFilter(toolsListChanged: true),
+          meta: MetaWithRequestEnvelope(
+            protocolVersion: ProtocolVersion.v2026_07_28,
+            capabilities: client.capabilities,
+          ),
+        );
+        final secondChanges = <SubscriptionNotification>[];
+        final arrived = Completer<void>();
+        final secondListener = second.notifications.listen((notification) {
+          secondChanges.add(notification);
+          if (!arrived.isCompleted) arrived.complete();
+        });
+        addTearDown(secondListener.cancel);
+        await second.acknowledged.timeout(const Duration(seconds: 5));
+        expect(
+          second.id,
+          isNot(first.id),
+          reason: 'two listen requests on one connection get two IDs',
+        );
+        expect(hosted, hasLength(2));
+
+        hosted[1].sendNotification(
+          ToolListChangedNotification.methodName,
+          ToolListChangedNotification(),
+        );
+        await arrived.future.timeout(const Duration(seconds: 5));
+        await pumpEventQueue(times: 20);
+
+        expect(secondChanges, hasLength(1));
+        final meta =
+            (secondChanges.single.params as Map<String, Object?>)[Keys.meta]
+                as Map<String, Object?>;
+        expect(
+          meta[Keys.subscriptionIdMeta],
+          second.id,
+          reason: 'the transport named the subscription by the request ID',
+        );
+        expect(
+          firstChanges,
+          isEmpty,
+          reason: 'a change named by the other subscription is not ours',
+        );
+
+        await hosted[1].shutdown();
+        await second.done.timeout(const Duration(seconds: 5));
+        await hosted[0].shutdown();
+      },
+    );
+
+    test('client close ends only its listen response', () async {
+      final host = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => host.close(force: true));
+      final hosted = <MCPServer>[];
+      final responsesDone = <Future<void>>[];
+      var requestCount = 0;
+      host.listen((request) {
+        requestCount++;
+        responsesDone.add(request.response.done);
+        handleStreamableHttpRequest(request, (channel) {
+          final server = _EquippedServer(channel);
+          hosted.add(server);
+          return server;
+        }, keepAliveInterval: const Duration(milliseconds: 20));
+      });
+      final client = TestMCPClient();
+      addTearDown(client.shutdown);
+      final connection = client.connectServer(
+        streamableHttpClientChannel(
+          Uri.http('${host.address.host}:${host.port}', '/mcp'),
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          clientCapabilities: client.capabilities,
+        ),
+      );
+      final first = connection.listen(
+        SubscriptionFilter(toolsListChanged: true),
+        meta: MetaWithRequestEnvelope(
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          capabilities: client.capabilities,
+        ),
+      );
+      await first.acknowledged.timeout(const Duration(seconds: 5));
+      final second = connection.listen(
+        SubscriptionFilter(toolsListChanged: true),
+        meta: MetaWithRequestEnvelope(
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          capabilities: client.capabilities,
+        ),
+      );
+      final secondChanges = <SubscriptionNotification>[];
+      final arrived = Completer<void>();
+      final listener = second.notifications.listen((notification) {
+        secondChanges.add(notification);
+        if (!arrived.isCompleted) arrived.complete();
+      });
+      addTearDown(listener.cancel);
+      await second.acknowledged.timeout(const Duration(seconds: 5));
+
+      await first.close().timeout(const Duration(seconds: 5));
+      await first.done.timeout(const Duration(seconds: 5));
+      await responsesDone[0].timeout(const Duration(seconds: 5));
+      await hosted[0].done.timeout(const Duration(seconds: 5));
+      expect(requestCount, 2, reason: 'HTTP close sends no cancellation POST');
+      expect(hosted[0].isActive, isFalse);
+      expect(hosted[1].isActive, isTrue);
+
+      hosted[1].sendNotification(
+        ToolListChangedNotification.methodName,
+        ToolListChangedNotification(),
+      );
+      await arrived.future.timeout(const Duration(seconds: 5));
+      expect(secondChanges, hasLength(1));
+      expect((await connection.listTools()).tools, isEmpty);
+      await second.close().timeout(const Duration(seconds: 5));
+
+      final early = connection.listen(
+        SubscriptionFilter(toolsListChanged: true),
+        meta: MetaWithRequestEnvelope(
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          capabilities: client.capabilities,
+        ),
+      );
+      await early.close().timeout(const Duration(seconds: 5));
+      await early.done.timeout(const Duration(seconds: 5));
+      await pumpEventQueue(times: 20);
+      expect((await connection.listTools()).tools, isEmpty);
+    });
+
+    test('client close survives supported channel wrappers', () async {
+      final host = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => host.close(force: true));
+      final hosted = <MCPServer>[];
+      final responsesDone = <Future<void>>[];
+      var requestCount = 0;
+      host.listen((request) {
+        requestCount++;
+        responsesDone.add(request.response.done);
+        handleStreamableHttpRequest(request, (channel) {
+          final server = _EquippedServer(channel);
+          hosted.add(server);
+          return server;
+        }, keepAliveInterval: const Duration(milliseconds: 20));
+      });
+      final client = TestMCPClient();
+      addTearDown(client.shutdown);
+      final channel = streamableHttpClientChannel(
+        Uri.http('${host.address.host}:${host.port}', '/mcp'),
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: client.capabilities,
+      ).changeStream((stream) => stream).changeSink((sink) => sink);
+      final connection = client.connectServer(channel);
+      final subscription = connection.listen(
+        SubscriptionFilter(toolsListChanged: true),
+        meta: MetaWithRequestEnvelope(
+          protocolVersion: ProtocolVersion.v2026_07_28,
+          capabilities: client.capabilities,
+        ),
+      );
+      await subscription.acknowledged.timeout(const Duration(seconds: 5));
+
+      await subscription.close().timeout(const Duration(seconds: 5));
+      await subscription.done.timeout(const Duration(seconds: 5));
+      await responsesDone.single.timeout(const Duration(seconds: 5));
+      await hosted.single.done.timeout(const Duration(seconds: 5));
+      expect(requestCount, 1, reason: 'HTTP close sends no cancellation POST');
+      expect(hosted.single.isActive, isFalse);
+
+      expect((await connection.listTools()).tools, isEmpty);
+      expect(requestCount, 2, reason: 'the shared client channel remains open');
+    });
+  });
+
+  group('notifications and responses', () {
+    test('acknowledges a notification without headers or dispatch', () async {
+      final (status, _, text) = await post(
+        headers: transportHeaders,
+        json: {Keys.jsonrpc: '2.0', Keys.method: progressNotification},
+      );
+      expect(status, 202);
+      expect(text, isEmpty);
+      expect(servers, isEmpty);
+    });
+
+    test('acknowledges an unknown notification', () async {
+      final (status, _, text) = await post(
+        headers: headers('no/such/notification'),
+        json: {Keys.jsonrpc: '2.0', Keys.method: 'no/such/notification'},
+      );
+      expect(status, 202);
+      expect(text, isEmpty);
+      expect(servers, isEmpty);
+    });
+
+    test('rejects a JSON-RPC response body', () async {
+      final (status, _, text) = await post(
+        headers: transportHeaders,
+        json: {
+          Keys.jsonrpc: '2.0',
+          Keys.id: 1,
+          Keys.result: <String, Object?>{},
+        },
+      );
+      expect(status, 400);
+      expect(errorCode(text), error_code.INVALID_REQUEST);
+      expect(servers, isEmpty);
+    });
+
+    test('rejects a message without a method before acknowledging', () async {
+      // A body with neither an id nor a method is a notification by shape,
+      // but the missing method is caught first, so it is a 400 not a 202.
+      final (status, _, text) = await post(
+        headers: transportHeaders,
+        json: {Keys.jsonrpc: '2.0'},
+      );
+      expect(status, 400);
+      expect(errorCode(text), error_code.INVALID_REQUEST);
+      expect(servers, isEmpty);
+    });
+
+    test('rejects a non-string method', () async {
+      final (status, _, text) = await post(
+        headers: transportHeaders,
+        json: {Keys.jsonrpc: '2.0', Keys.id: 1, Keys.method: 42},
+      );
+      expect(status, 400);
+      expect(errorCode(text), error_code.INVALID_REQUEST);
+    });
+
+    test('rejects a scalar body', () async {
+      final (status, _, text) = await post(
+        headers: transportHeaders,
+        raw: '42',
+      );
+      expect(status, 400);
+      expect(errorCode(text), error_code.INVALID_REQUEST);
+    });
+  });
+
+  group('content negotiation', () {
+    test('rejects a request without a Content-Type header', () async {
+      final (status, _, text) = await post(
+        headers: {
+          'Accept': 'application/json, text/event-stream',
+          'Mcp-Protocol-Version': version,
+          'Mcp-Method': listTools,
+        },
+        json: body(listTools),
+      );
+      expect(status, 415);
+      // Written out so the check does not read back the constant the
+      // response was built from.
+      expect(errorCode(text), -32600);
+      expect(servers, isEmpty);
+    });
+
+    test('rejects a text/plain Content-Type', () async {
+      final (status, responseHeaders, text) = await post(
+        headers: {...headers(listTools), 'Content-Type': 'text/plain'},
+        json: body(listTools),
+      );
+      expect(status, 415);
+      expect(responseHeaders.contentType?.mimeType, 'application/json');
+      expect(errorCode(text), error_code.INVALID_REQUEST);
+    });
+
+    test('tolerates a charset on the Content-Type', () async {
+      final (status, _, text) = await post(
+        headers: {
+          ...headers(listTools),
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+        json: body(listTools),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('rejects a request without an Accept header', () async {
+      final (status, _, text) = await post(
+        headers: {
+          'Content-Type': 'application/json',
+          'Mcp-Protocol-Version': version,
+          'Mcp-Method': listTools,
+        },
+        json: body(listTools),
+      );
+      expect(status, 400);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+      expect(servers, isEmpty);
+    });
+
+    test('rejects an Accept header without text/event-stream', () async {
+      final (status, responseHeaders, text) = await post(
+        headers: {...headers(listTools), 'Accept': 'application/json'},
+        json: body(listTools),
+      );
+      expect(status, 400);
+      expect(responseHeaders.contentType?.mimeType, 'application/json');
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+    });
+
+    test('rejects an Accept header without application/json', () async {
+      final (status, _, text) = await post(
+        headers: {...headers(listTools), 'Accept': 'text/event-stream'},
+        json: body(listTools),
+      );
+      expect(status, 400);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+    });
+
+    test('accepts the */* wildcard', () async {
+      final (status, _, text) = await post(
+        headers: {...headers(listTools), 'Accept': '*/*'},
+        json: body(listTools),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('accepts type wildcards with quality values', () async {
+      final (status, _, text) = await post(
+        headers: {
+          ...headers(listTools),
+          'Accept': 'application/*;q=0.9, text/*;q=0.8',
+        },
+        json: body(listTools),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('rejects a Content-Type dart:io cannot parse', () async {
+      // dart:io parses the header lazily and throws when it is first read,
+      // and that throw must land as a 415, not escape the handler and leave
+      // the request unanswered.
+      final requestBody = jsonEncode(body(listTools));
+      final response = await rawRequest(
+        'POST /mcp HTTP/1.1\r\n'
+        'Host: localhost\r\n'
+        'Content-Type: application/json; charset="utf-8\r\n'
+        'Accept: application/json, text/event-stream\r\n'
+        'Content-Length: ${requestBody.length}\r\n'
+        'Connection: close\r\n'
+        '\r\n'
+        '$requestBody',
+      );
+      expect(response, startsWith('HTTP/1.1 415'));
+      expect(errorCode(jsonBody(response)), error_code.INVALID_REQUEST);
+      expect(servers, isEmpty);
+    });
+
+    test('acknowledges a notification which accepts nothing', () async {
+      // The Accept rule only applies to requests, which are the only messages
+      // that get a body back.
+      final (status, _, text) = await post(
+        headers: {'Content-Type': 'application/json'},
+        json: {Keys.jsonrpc: '2.0', Keys.method: progressNotification},
+      );
+      expect(status, 202);
+      expect(text, isEmpty);
+    });
+  });
+
+  group('required headers', () {
+    test('rejects a missing protocol version header', () async {
+      final (status, _, text) = await post(
+        headers: {...transportHeaders, 'Mcp-Method': listTools},
+        json: body(listTools),
+      );
+      expect(status, 400);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+    });
+
+    test('rejects a header and body version mismatch', () async {
+      final (status, _, text) = await post(
+        headers: headers(listTools),
+        json: body(listTools, bodyVersion: '2025-06-18'),
+      );
+      expect(status, 400);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+    });
+
+    test('rejects a missing Mcp-Method header', () async {
+      final (status, _, text) = await post(
+        headers: {...transportHeaders, 'Mcp-Protocol-Version': version},
+        json: body(listTools),
+      );
+      expect(status, 400);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+    });
+
+    test('rejects an Mcp-Method header mismatch', () async {
+      final (status, _, text) = await post(
+        headers: headers(callTool),
+        json: body(listTools),
+      );
+      expect(status, 400);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+      expect(servers, isEmpty);
+    });
+
+    test('compares Mcp-Method values case sensitively', () async {
+      // Header names are case insensitive, header values are not.
+      final (status, _, text) = await post(
+        headers: {
+          ...headers(callTool, headerMethod: 'Tools/Call'),
+          'Mcp-Name': 'test/version',
+        },
+        json: body(callTool, params: {Keys.name: 'test/version'}),
+      );
+      expect(status, 400);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+      expect(servers, isEmpty);
+    });
+
+    test('rejects a tools/call without an Mcp-Name header', () async {
+      final (status, _, text) = await post(
+        headers: headers(callTool),
+        json: body(callTool, params: {Keys.name: 'test/version'}),
+      );
+      expect(status, 400);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+      // Messages name the headers in the casing the specification writes
+      // them in, not the lower case dart:io looks them up by.
+      expect(
+        decode(text)[Keys.error],
+        containsPair(Keys.message, contains('Mcp-Name header is required')),
+      );
+    });
+
+    test('requires an Mcp-Name header even without a body name', () async {
+      // The header is required for the method, not merely mirrored when the
+      // body happens to carry a value, so this never reaches the dispatcher.
+      final (status, _, text) = await post(
+        headers: headers(callTool),
+        json: body(callTool),
+      );
+      expect(status, 400);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+      expect(servers, isEmpty);
+    });
+
+    test('rejects a repeated Mcp-Method header', () async {
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(uri);
+      transportHeaders.forEach(request.headers.set);
+      request.headers
+        ..set('Mcp-Protocol-Version', version)
+        ..add('Mcp-Method', listTools)
+        ..add('Mcp-Method', listTools);
+      request.write(jsonEncode(body(listTools)));
+      final response = await request.close();
+      final text = await utf8.decodeStream(response);
+      expect(response.statusCode, 400);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+    });
+
+    test('rejects an Mcp-Name sent as two separate field lines', () async {
+      // dart:io's client folds repeated headers into one comma separated
+      // line, which the mismatch check catches, so the two-line shape the
+      // spec's "single value" rule is really about has to go over a raw
+      // socket: dart:io's server keeps the lines separate.
+      final requestBody = jsonEncode(
+        body(callTool, params: {Keys.name: 'test/version'}),
+      );
+      final response = await rawRequest(
+        'POST /mcp HTTP/1.1\r\n'
+        'Host: localhost\r\n'
+        'Content-Type: application/json\r\n'
+        'Accept: application/json, text/event-stream\r\n'
+        'Mcp-Protocol-Version: $version\r\n'
+        'Mcp-Method: $callTool\r\n'
+        'Mcp-Name: test/version\r\n'
+        'Mcp-Name: test/version\r\n'
+        'Content-Length: ${requestBody.length}\r\n'
+        'Connection: close\r\n'
+        '\r\n'
+        '$requestBody',
+      );
+      expect(response, startsWith('HTTP/1.1 400'));
+      final error = decode(jsonBody(response))[Keys.error];
+      expect(errorCode(jsonBody(response)), McpErrorCodes.headerMismatch);
+      // Both values are identical, so only the line count can be what this
+      // rejection is about.
+      expect(
+        error,
+        containsPair(Keys.message, contains('Mcp-Name header is required')),
+      );
+    });
+
+    test('rejects a prompts/get without an Mcp-Name header', () async {
+      final (status, _, text) = await post(
+        headers: headers(getPrompt),
+        json: body(getPrompt, params: {Keys.name: 'test/prompt'}),
+      );
+      expect(status, 400);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+      expect(servers, isEmpty);
+    });
+
+    test('matches a prompts/get Mcp-Name against the name', () async {
+      final (status, _, _) = await post(
+        headers: {...headers(getPrompt), 'Mcp-Name': 'test/prompt'},
+        json: body(getPrompt, params: {Keys.name: 'test/prompt'}),
+      );
+      // The method reaches the dispatcher, which supports no prompts.
+      expect(status, 404);
+    });
+
+    test('decodes a base64 sentinel Mcp-Name header', () async {
+      final encoded = base64.encode(utf8.encode('test/version'));
+      final (status, _, _) = await post(
+        headers: {...headers(callTool), 'Mcp-Name': '=?base64?$encoded?='},
+        json: body(callTool, params: {Keys.name: 'test/version'}),
+      );
+      expect(status, 200);
+    });
+
+    test('rejects a base64 sentinel Mcp-Name for another tool', () async {
+      final encoded = base64.encode(utf8.encode('test/throw'));
+      final (status, _, text) = await post(
+        headers: {...headers(callTool), 'Mcp-Name': '=?base64?$encoded?='},
+        json: body(callTool, params: {Keys.name: 'test/version'}),
+      );
+      expect(status, 400);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+      expect(servers, isEmpty);
+    });
+
+    test('rejects a repeated protocol version header', () async {
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(uri);
+      transportHeaders.forEach(request.headers.set);
+      request.headers
+        ..add('Mcp-Protocol-Version', version)
+        ..add('Mcp-Protocol-Version', version)
+        ..set('Mcp-Method', listTools);
+      request.write(jsonEncode(body(listTools)));
+      final response = await request.close();
+      final text = await utf8.decodeStream(response);
+      expect(response.statusCode, 400);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+    });
+
+    test('rejects an Mcp-Name sentinel that is not valid base64', () async {
+      final (status, _, text) = await post(
+        headers: {...headers(callTool), 'Mcp-Name': '=?base64?%%%?='},
+        json: body(callTool, params: {Keys.name: 'test/version'}),
+      );
+      expect(status, 400);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+    });
+
+    test('rejects an overlapping base64 sentinel without hanging', () async {
+      // '=?base64?=' is 10 characters: the prefix and suffix share a '?', so
+      // a naive slice throws a RangeError the handler would never answer.
+      final (status, _, text) = await post(
+        headers: {...headers(callTool), 'Mcp-Name': '=?base64?='},
+        json: body(callTool, params: {Keys.name: 'test/version'}),
+      );
+      expect(status, 400);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+    });
+
+    test('rejects a resources/read without an Mcp-Name header', () async {
+      final (status, _, text) = await post(
+        headers: headers(readResource),
+        json: body(readResource, params: {Keys.uri: 'file:///doc.txt'}),
+      );
+      expect(status, 400);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+      expect(servers, isEmpty);
+    });
+
+    test('matches a resources/read Mcp-Name against the uri', () async {
+      final (status, _, _) = await post(
+        headers: {...headers(readResource), 'Mcp-Name': 'file:///doc.txt'},
+        json: body(readResource, params: {Keys.uri: 'file:///doc.txt'}),
+      );
+      // The method reaches the dispatcher, which has no such resource.
+      expect(status, 404);
+    });
+  });
+
+  group('x-mcp-header custom headers', () {
+    /// A `tools/call` body for `test/withHeaderParam` with [arguments].
+    Map<String, Object?> callWithHeaderParam(Map<String, Object?> arguments) =>
+        body(
+          callTool,
+          params: {
+            Keys.name: 'test/withHeaderParam',
+            Keys.arguments: arguments,
+          },
+        );
+
+    /// The transport, `Mcp-Method`, and `Mcp-Name` headers for a
+    /// `test/withHeaderParam` call, plus any [extra] headers.
+    Map<String, String> callWithHeaderParamHeaders([
+      Map<String, String> extra = const {},
+    ]) => {...headers(callTool), 'Mcp-Name': 'test/withHeaderParam', ...extra};
+
+    test('ignores an annotation the specification does not allow', () async {
+      // A tool definition annotating a non-primitive is one the client is
+      // told to reject, so nothing here reads `Mcp-Param-Label`.
+      final (status, _, text) = await post(
+        headers: {
+          ...headers(callTool),
+          'Mcp-Name': 'test/badAnnotation',
+          'Mcp-Param-Label': 'wrong',
+        },
+        json: body(
+          callTool,
+          params: {
+            Keys.name: 'test/badAnnotation',
+            Keys.arguments: {'label': 'right'},
+          },
+        ),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test(
+      'ignores an Mcp-Param header for a tool that annotates none',
+      () async {
+        // `test/version` marks no property with `x-mcp-header`, so there is
+        // no argument to compare the header against, and it is ignored.
+        final (status, _, text) = await post(
+          headers: {
+            ...headers(callTool),
+            'Mcp-Name': 'test/version',
+            'Mcp-Param-Region': 'eu-west1',
+          },
+          json: body(
+            callTool,
+            params: {
+              Keys.name: 'test/version',
+              Keys.arguments: {'region': 'us-west1'},
+            },
+          ),
+        );
+        expect(status, 200);
+        expect(errorCode(text), isNull);
+      },
+    );
+
+    test('skips a schema part that cannot carry an annotation', () async {
+      final (status, _, text) = await post(
+        headers: {...headers(callTool), 'Mcp-Name': 'test/booleanSubschema'},
+        json: body(
+          callTool,
+          params: {
+            Keys.name: 'test/booleanSubschema',
+            Keys.arguments: {
+              'anything': 'x',
+              'nested': {'region': 'us-west1'},
+            },
+          },
+        ),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('skips a tool whose properties are not an object', () async {
+      final (status, _, text) = await post(
+        headers: {...headers(callTool), 'Mcp-Name': 'test/nonObjectProperties'},
+        json: body(callTool, params: {Keys.name: 'test/nonObjectProperties'}),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('accepts a matching value without listing tools', () async {
+      final (status, _, text) = await post(
+        headers: callWithHeaderParamHeaders({'Mcp-Param-Region': 'us-west1'}),
+        json: callWithHeaderParam({'region': 'us-west1'}),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+      expect((servers.single as _HttpTestServer).listToolsCalls, 0);
+    });
+
+    test('rejects arguments that are not an object', () async {
+      final (status, _, text) = await post(
+        headers: callWithHeaderParamHeaders({'Mcp-Param-Region': 'us-west1'}),
+        json: body(
+          callTool,
+          params: {
+            Keys.name: 'test/withHeaderParam',
+            Keys.arguments: 'us-west1',
+          },
+        ),
+      );
+      expect(status, 400);
+      expect(errorCode(text), error_code.INVALID_PARAMS);
+      expect(errorMessage(text), contains('params.arguments'));
+    });
+
+    test('rejects a non-ASCII header field value', () async {
+      final bodyBytes = utf8.encode(
+        jsonEncode(callWithHeaderParam({'region': 'é'})),
+      );
+      final response = await rawRequest(
+        'POST /mcp HTTP/1.1\r\n'
+        'Host: ${httpServer.address.host}:${httpServer.port}\r\n'
+        'Content-Type: application/json\r\n'
+        'Accept: application/json, text/event-stream\r\n'
+        'Mcp-Protocol-Version: $version\r\n'
+        'Mcp-Method: $callTool\r\n'
+        'Mcp-Name: test/withHeaderParam\r\n'
+        'Mcp-Param-Region: é\r\n'
+        'Content-Length: ${bodyBytes.length}\r\n'
+        'Connection: close\r\n'
+        '\r\n',
+        bodyBytes,
+      );
+      expect(response, startsWith('HTTP/1.1 400'));
+      expect(errorCode(jsonBody(response)), McpErrorCodes.headerMismatch);
+    });
+
+    test('rejects a header value that does not match the body', () async {
+      final (status, _, text) = await post(
+        headers: callWithHeaderParamHeaders({'Mcp-Param-Region': 'eu-west1'}),
+        json: callWithHeaderParam({'region': 'us-west1'}),
+      );
+      expect(status, 400);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+      expect(errorMessage(text), contains('eu-west1'));
+      expect(errorMessage(text), contains('us-west1'));
+    });
+
+    test('rejects a request missing a header its body requires', () async {
+      final (status, _, text) = await post(
+        headers: callWithHeaderParamHeaders(),
+        json: callWithHeaderParam({'region': 'us-west1'}),
+      );
+      expect(status, 400);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+      expect(errorMessage(text), contains('no single Mcp-Param-Region'));
+      expect(errorMessage(text), contains('us-west1'));
+    });
+
+    test('rejects a header for an absent argument', () async {
+      final (status, _, text) = await post(
+        headers: callWithHeaderParamHeaders({'Mcp-Param-Region': 'us-west1'}),
+        json: callWithHeaderParam(const {}),
+      );
+      expect(status, 400);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+      expect(errorMessage(text), contains('Mcp-Param-Region'));
+      expect(errorMessage(text), contains('params.arguments.region'));
+    });
+
+    test('rejects a header for a null argument', () async {
+      final (status, _, text) = await post(
+        headers: callWithHeaderParamHeaders({'Mcp-Param-Region': 'us-west1'}),
+        json: callWithHeaderParam({'region': null}),
+      );
+      expect(status, 400);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+      expect(errorMessage(text), contains('Mcp-Param-Region'));
+      expect(errorMessage(text), contains('params.arguments.region'));
+    });
+
+    test('rejects before an initialization notification commits', () async {
+      // Holding the notification back is what leaves the response headers
+      // free to carry a 400, and the price is that the rejected call sends
+      // none of them.
+      final notifying = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => notifying.close(force: true));
+      notifying.listen(
+        (request) =>
+            handleStreamableHttpRequest(request, _NotifyingInitServer.new),
+      );
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(
+        Uri.http('${notifying.address.host}:${notifying.port}', '/mcp'),
+      );
+      callWithHeaderParamHeaders().forEach(request.headers.set);
+      request.write(jsonEncode(callWithHeaderParam({'region': 'us-west1'})));
+      final response = await request.close();
+      final text = await utf8.decodeStream(response);
+
+      expect(response.statusCode, 400);
+      expect(response.headers.contentType?.mimeType, 'application/json');
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+      expect(text, isNot(contains('while starting up')));
+    });
+
+    test(
+      'does not require a header for an argument the body leaves null',
+      () async {
+        final (status, _, text) = await post(
+          headers: callWithHeaderParamHeaders(),
+          json: callWithHeaderParam({'region': null}),
+        );
+        expect(status, 200);
+        expect(errorCode(text), isNull);
+      },
+    );
+
+    test('decodes a base64-sentinel header value before comparing', () async {
+      final encoded = base64.encode(utf8.encode('us-west1'));
+      final (status, _, text) = await post(
+        headers: callWithHeaderParamHeaders({
+          'Mcp-Param-Region': '=?base64?$encoded?=',
+        }),
+        json: callWithHeaderParam({'region': 'us-west1'}),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('rejects a base64-sentinel header value with bad padding', () async {
+      final (status, _, text) = await post(
+        // The base64 encoding of "us-west1" is "dXMtd2VzdDE=", with its
+        // required padding character stripped here.
+        headers: callWithHeaderParamHeaders({
+          'Mcp-Param-Region': '=?base64?dXMtd2VzdDE?=',
+        }),
+        json: callWithHeaderParam({'region': 'us-west1'}),
+      );
+      expect(status, 400);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+      expect(errorMessage(text), contains('=?base64?dXMtd2VzdDE?='));
+      expect(errorMessage(text), contains('not valid base64'));
+    });
+
+    test('compares an integer property numerically', () async {
+      // The specification's own example of a numeric comparison: the header
+      // spells the number differently and still matches.
+      for (final header in ['42', '42.0']) {
+        final (status, _, text) = await post(
+          headers: callWithHeaderParamHeaders({'Mcp-Param-Count': header}),
+          json: callWithHeaderParam({'count': 42}),
+        );
+        expect(status, 200, reason: header);
+        expect(errorCode(text), isNull, reason: header);
+      }
+    });
+
+    test('rejects an integer header that is not a decimal', () async {
+      // A client is told to send the decimal spelling, so anything else in the
+      // header is a value some other component wrote. Letting `0x2a` match a
+      // body of `42` would be the disagreement this check exists to catch.
+      // Leading whitespace never reaches here: the HTTP layer trims a header
+      // value before this sees it.
+      for (final header in ['0x2a', '0X2A', '+42', '42.']) {
+        final (status, _, text) = await post(
+          headers: callWithHeaderParamHeaders({'Mcp-Param-Count': header}),
+          json: callWithHeaderParam({'count': 42}),
+        );
+        expect(status, 400, reason: header);
+        expect(errorCode(text), McpErrorCodes.headerMismatch, reason: header);
+      }
+
+      final (status, _, text) = await post(
+        headers: callWithHeaderParamHeaders({'Mcp-Param-Count': '1e3'}),
+        json: callWithHeaderParam({'count': 1000}),
+      );
+      expect(status, 400);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+    });
+
+    test('rejects a mismatched integer property', () async {
+      final (status, _, text) = await post(
+        headers: callWithHeaderParamHeaders({'Mcp-Param-Count': '7'}),
+        json: callWithHeaderParam({'count': 42}),
+      );
+      expect(status, 400);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+    });
+
+    test('rejects a mismatched header after an earlier one matches', () async {
+      // Nothing fixes the order a server walks a schema's properties in, so a
+      // single case gets past a match only by luck. Whichever of the two
+      // properties the walk reads first, one case sends it matching.
+      for (final (mismatched, bodyValue, sent) in [
+        (
+          'Mcp-Param-Count',
+          '42',
+          {'Mcp-Param-Region': 'us-west1', 'Mcp-Param-Count': '7'},
+        ),
+        (
+          'Mcp-Param-Region',
+          'us-west1',
+          {'Mcp-Param-Region': 'eu-west1', 'Mcp-Param-Count': '42'},
+        ),
+      ]) {
+        final (status, _, text) = await post(
+          headers: callWithHeaderParamHeaders(sent),
+          json: callWithHeaderParam({'region': 'us-west1', 'count': 42}),
+        );
+        expect(status, 400, reason: mismatched);
+        expect(
+          errorCode(text),
+          McpErrorCodes.headerMismatch,
+          reason: mismatched,
+        );
+        expect(errorMessage(text), contains(mismatched), reason: mismatched);
+        expect(errorMessage(text), contains(bodyValue), reason: mismatched);
+      }
+    });
+
+    test('compares a boolean property', () async {
+      final (status, _, text) = await post(
+        headers: callWithHeaderParamHeaders({'Mcp-Param-Flag': 'true'}),
+        json: callWithHeaderParam({'flag': true}),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('rejects a mismatched boolean property', () async {
+      final (status, _, text) = await post(
+        headers: callWithHeaderParamHeaders({'Mcp-Param-Flag': 'false'}),
+        json: callWithHeaderParam({'flag': true}),
+      );
+      expect(status, 400);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+    });
+  });
+
+  group('nested x-mcp-header custom headers', () {
+    /// A `tools/call` body for `test/withNestedHeaderParam` with
+    /// [arguments].
+    Map<String, Object?> callWithNestedHeaderParam(
+      Map<String, Object?> arguments,
+    ) => body(
+      callTool,
+      params: {
+        Keys.name: 'test/withNestedHeaderParam',
+        Keys.arguments: arguments,
+      },
+    );
+
+    /// The transport, `Mcp-Method`, and `Mcp-Name` headers for a
+    /// `test/withNestedHeaderParam` call, plus any [extra] headers.
+    Map<String, String> callWithNestedHeaderParamHeaders([
+      Map<String, String> extra = const {},
+    ]) => {
+      ...headers(callTool),
+      'Mcp-Name': 'test/withNestedHeaderParam',
+      ...extra,
+    };
+
+    test('accepts a header matching a nested property', () async {
+      final (status, _, text) = await post(
+        headers: callWithNestedHeaderParamHeaders({
+          'Mcp-Param-Region': 'us-west1',
+        }),
+        json: callWithNestedHeaderParam({
+          'location': {'region': 'us-west1'},
+        }),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('rejects a header that does not match a nested property', () async {
+      final (status, _, text) = await post(
+        headers: callWithNestedHeaderParamHeaders({
+          'Mcp-Param-Region': 'eu-west1',
+        }),
+        json: callWithNestedHeaderParam({
+          'location': {'region': 'us-west1'},
+        }),
+      );
+      expect(status, 400);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+    });
+
+    test(
+      'rejects a request missing the header a nested property requires',
+      () async {
+        final (status, _, text) = await post(
+          headers: callWithNestedHeaderParamHeaders(),
+          json: callWithNestedHeaderParam({
+            'location': {'region': 'us-west1'},
+          }),
+        );
+        expect(status, 400);
+        expect(errorCode(text), McpErrorCodes.headerMismatch);
+      },
+    );
+
+    test('skips a subtree whose carrying argument is not an object', () async {
+      final (status, _, text) = await post(
+        headers: callWithNestedHeaderParamHeaders({
+          'Mcp-Param-Region': 'us-west1',
+        }),
+        json: callWithNestedHeaderParam({'location': 'us-west1'}),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('rejects a header for an absent nested argument', () async {
+      final (status, _, text) = await post(
+        headers: callWithNestedHeaderParamHeaders({
+          'Mcp-Param-Region': 'us-west1',
+        }),
+        json: callWithNestedHeaderParam(const {}),
+      );
+      expect(status, 400);
+      expect(errorCode(text), McpErrorCodes.headerMismatch);
+    });
+
+    test('does not require a header when the object carrying a nested '
+        'property is absent', () async {
+      final (status, _, text) = await post(
+        headers: callWithNestedHeaderParamHeaders(),
+        json: callWithNestedHeaderParam(const {}),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+  });
+
+  group('removed 2025-11-25 mechanisms', () {
+    test('ignores an Mcp-Session-Id header and mints none', () async {
+      final (status, responseHeaders, text) = await post(
+        headers: {...headers(listTools), 'Mcp-Session-Id': 'abc'},
+        json: body(listTools),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+      expect(responseHeaders.value('Mcp-Session-Id'), isNull);
+    });
+
+    test('ignores a Last-Event-ID header', () async {
+      final (status, _, text) = await post(
+        headers: {...headers(listTools), 'Last-Event-ID': '42'},
+        json: body(listTools),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    group('methods the revision removed', () {
+      // This server mixes in `LoggingSupport` and `ResourcesSupport`, which
+      // the other server in this file does not. Three of the removed methods
+      // get their handlers from those. `ping` comes from `MCPBase`,
+      // and the roots handler from `MCPServer`, so the roots test below uses
+      // the default server. Before this gate each of them reached a handler
+      // when the body carried an id.
+      late HttpServer equipped;
+      late HttpClient client;
+
+      setUp(() async {
+        equipped = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        addTearDown(() => equipped.close(force: true));
+        equipped.listen(
+          (request) =>
+              handleStreamableHttpRequest(request, _EquippedServer.new),
+        );
+        client = HttpClient();
+        addTearDown(client.close);
+      });
+
+      for (final method in [ping, setLevel, subscribe, unsubscribe]) {
+        test('answers $method with 404', () async {
+          final request = await client.postUrl(
+            Uri.http('${equipped.address.host}:${equipped.port}', '/mcp'),
+          );
+          headers(method).forEach(request.headers.set);
+          request.write(jsonEncode(body(method)));
+          final response = await request.close();
+          final text = await utf8.decodeStream(response);
+          expect(response.statusCode, 404);
+          expect(errorCode(text), error_code.METHOD_NOT_FOUND);
+        });
+      }
+
+      test('acknowledges $ping as a notification with 202', () async {
+        // Dropping the id makes this a notification, which is acknowledged
+        // before the gate runs.
+        final (status, _, text) = await post(
+          headers: headers(ping),
+          json: body(ping, id: null),
+        );
+        expect(status, 202);
+        expect(text, isEmpty);
+      });
+
+      test('answers $rootsListChangedNotification with 404', () async {
+        // The capability is what would have registered a handler for this
+        // method, which is what the gate has to get in front of. The id
+        // makes this a request.
+        final (status, _, text) = await post(
+          headers: headers(rootsListChangedNotification),
+          json: body(
+            rootsListChangedNotification,
+            capabilities: {
+              'roots': {'listChanged': true},
+            },
+          ),
+        );
+        expect(status, 404);
+        expect(errorCode(text), error_code.METHOD_NOT_FOUND);
+      });
+    });
+  });
+
+  group('per-request log level', () {
+    /// A `tools/call` body for the tool that logs, carrying [logLevel] in its
+    /// envelope when one is given.
+    Map<String, Object?> logBody({Object? logLevel}) {
+      final request = body(callTool, params: {Keys.name: 'test/log'});
+      final params = request[Keys.params] as Map<String, Object?>;
+      final meta = params[Keys.meta] as Map<String, Object?>;
+      if (logLevel != null) meta[Keys.logLevelMeta] = logLevel;
+      return request;
+    }
+
+    Map<String, String> logHeaders() => {
+      ...headers(callTool),
+      'Mcp-Name': 'test/log',
+    };
+
+    test('drops a tool log when the envelope named no level', () async {
+      final (status, _, text) = await post(
+        headers: logHeaders(),
+        json: logBody(),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+      expect(notifications, isEmpty);
+    });
+
+    test('sends log messages at the level the envelope asked for', () async {
+      final (status, _, text) = await post(
+        headers: logHeaders(),
+        json: logBody(logLevel: LoggingLevel.error.name),
+      );
+      expect(status, 200);
+      final messages = events(text);
+      expect(
+        messages.first[Keys.method],
+        LoggingMessageNotification.methodName,
+      );
+      expect(messages.last[Keys.error], isNull);
+      expect(
+        notifications.single[Keys.method],
+        LoggingMessageNotification.methodName,
+      );
+    });
+
+    test('drops log messages below the level the envelope asked for', () async {
+      final (status, _, text) = await post(
+        headers: logHeaders(),
+        json: logBody(logLevel: LoggingLevel.emergency.name),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+      expect(notifications, isEmpty);
+    });
+
+    test('rejects a value that is not a logging level', () async {
+      final (status, _, text) = await post(
+        headers: logHeaders(),
+        json: logBody(logLevel: 'chatty'),
+      );
+      expect(status, 400);
+      expect(errorCode(text), error_code.INVALID_PARAMS);
+      expect(
+        errorMessage(text),
+        allOf([
+          contains('"chatty"'),
+          for (final level in LoggingLevel.values) contains(level.name),
+        ]),
+        reason: 'the rejection names the value and every level it could be',
+      );
+      expect(servers, isEmpty);
+    });
+
+    test('rejects a value that is not a String', () async {
+      final (status, _, text) = await post(
+        headers: logHeaders(),
+        json: logBody(logLevel: 3),
+      );
+      expect(status, 400);
+      expect(errorCode(text), error_code.INVALID_PARAMS);
+      expect(errorMessage(text), contains('"3"'));
+      expect(servers, isEmpty);
+    });
+  });
+
+  group('http methods', () {
+    for (final method in ['GET', 'DELETE', 'PUT']) {
+      test('rejects $method with 405', () async {
+        final (status, responseHeaders, text) = await post(
+          method: method,
+          headers: method == 'DELETE' ? {'Mcp-Session-Id': 'abc'} : const {},
+        );
+        expect(status, 405);
+        expect(responseHeaders.value(HttpHeaders.allowHeader), 'POST');
+        expect(text, isEmpty);
+        expect(servers, isEmpty);
+      });
+    }
+  });
+
+  group('client disconnects', () {
+    /// Sends a POST whose body never finishes arriving, then hangs up.
+    Future<void> disconnectMidBody({required String contentType}) async {
+      final socket = await Socket.connect(httpServer.address, httpServer.port);
+      socket.write(
+        'POST /mcp HTTP/1.1\r\n'
+        'Host: localhost\r\n'
+        'Content-Type: $contentType\r\n'
+        'Accept: application/json, text/event-stream\r\n'
+        'Content-Length: 500\r\n'
+        '\r\n'
+        '{"jsonrpc":"2.0",',
+      );
+      await socket.flush();
+      socket.destroy();
+      // The handler sees the disconnect asynchronously; give the event loop
+      // a beat so a failure surfaces inside this test.
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+
+    test('survives a disconnect while reading the body', () async {
+      await disconnectMidBody(contentType: 'application/json');
+      // There is no response to assert on, so the proof that the handler
+      // survived is a request which round-trips after the disconnect.
+      final (status, _, text) = await post(
+        headers: headers(listTools),
+        json: body(listTools),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('survives a disconnect while draining a rejected body', () async {
+      await disconnectMidBody(contentType: 'text/plain');
+      final (status, _, text) = await post(
+        headers: headers(listTools),
+        json: body(listTools),
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('cancels a request when its SSE response closes', () async {
+      releaseDisconnectHandler = Completer<void>();
+      addTearDown(() {
+        if (!releaseDisconnectHandler.isCompleted) {
+          releaseDisconnectHandler.complete();
+        }
+      });
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(uri);
+      headers(callTool).forEach(request.headers.set);
+      request.headers.set('Mcp-Name', 'test/disconnect');
+      request.write(
+        jsonEncode(body(callTool, params: {Keys.name: 'test/disconnect'})),
+      );
+      final response = await request.close();
+      final firstFrame = Completer<void>();
+      final chunks = StringBuffer();
+      final subscription = response.transform(utf8.decoder).listen((chunk) {
+        chunks.write(chunk);
+        if (!firstFrame.isCompleted && chunks.toString().contains('\n\n')) {
+          firstFrame.complete();
+        }
+      }, onError: (Object _) {});
+      addTearDown(subscription.cancel);
+
+      await firstFrame.future.timeout(const Duration(seconds: 5));
+      expect(events(chunks.toString()), hasLength(1));
+      final server = servers.single;
+      client.close(force: true);
+
+      await server.done.timeout(const Duration(seconds: 5));
+      expect(server.isActive, isFalse);
+      releaseDisconnectHandler.complete();
+      await pumpEventQueue(times: 20);
+      expect(events(chunks.toString()), hasLength(1));
+    });
+
+    test('does not cancel before an SSE response starts', () async {
+      _noStreamHandlerEntered = Completer<void>();
+      _releaseNoStreamHandler = Completer<void>();
+      addTearDown(() {
+        if (!_releaseNoStreamHandler.isCompleted) {
+          _releaseNoStreamHandler.complete();
+        }
+      });
+      final quiet = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => quiet.close(force: true));
+      final handled = Completer<void>();
+      quiet.listen((request) {
+        () async {
+          Timer? keepAlive;
+          try {
+            final handling = handleStreamableHttpRequest(request, (channel) {
+              final server = _NoStreamServer(channel);
+              servers.add(server);
+              return server;
+            });
+            await _noStreamHandlerEntered.future;
+            request.response.bufferOutput = false;
+            keepAlive = Timer.periodic(
+              const Duration(milliseconds: 10),
+              (_) => request.response.write('ready'),
+            );
+            request.response.write('ready');
+            await request.response.flush();
+            await handling;
+          } finally {
+            keepAlive?.cancel();
+            handled.complete();
+          }
+        }().ignore();
+      });
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(
+        Uri.http('${quiet.address.host}:${quiet.port}', '/mcp'),
+      );
+      headers('test/no-stream').forEach(request.headers.set);
+      request.write(jsonEncode(body('test/no-stream')));
+      final response = await request.close();
+      final subscription = response.listen((_) {}, onError: (Object _) {});
+      addTearDown(subscription.cancel);
+      await _noStreamHandlerEntered.future.timeout(const Duration(seconds: 5));
+      final server = servers.single;
+
+      client.close(force: true);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(server.isActive, isTrue);
+
+      _releaseNoStreamHandler.complete();
+      await server.done.timeout(const Duration(seconds: 5));
+      await handled.future.timeout(const Duration(seconds: 5));
+    });
+  });
+
+  group('malformed bodies', () {
+    test('rejects malformed JSON', () async {
+      final (status, _, text) = await post(
+        headers: transportHeaders,
+        raw: '{"jsonrpc": "2.0",',
+      );
+      expect(status, 400);
+      expect(errorCode(text), error_code.PARSE_ERROR);
+    });
+
+    test('rejects a batch array', () async {
+      final (status, _, text) = await post(
+        headers: transportHeaders,
+        raw: jsonEncode([body(listTools), body(listTools)]),
+      );
+      expect(status, 400);
+      expect(errorCode(text), error_code.INVALID_REQUEST);
+      expect(
+        decode(text)[Keys.error],
+        containsPair(Keys.message, contains('Batch')),
+      );
+    });
+
+    test('rejects an empty body', () async {
+      final (status, _, text) = await post(headers: transportHeaders, raw: '');
+      expect(status, 400);
+      expect(errorCode(text), error_code.PARSE_ERROR);
+    });
+
+    test('rejects an explicit null request id', () async {
+      final (status, _, text) = await post(
+        headers: headers(listTools),
+        json: {Keys.jsonrpc: '2.0', Keys.id: null, Keys.method: listTools},
+      );
+      expect(status, 400);
+      expect(errorCode(text), error_code.INVALID_REQUEST);
+    });
+  });
+
+  group('request body limit', () {
+    const defaultLimit = 4 * 1024 * 1024;
+
+    /// A well-formed `tools/list` body, and one padded past it.
+    ///
+    /// The cap is set to [atTheLimit]'s own length below. That puts the first
+    /// test on the boundary itself, and keeps the others just past it instead
+    /// of a megabyte past.
+    final atTheLimit = utf8.encode(jsonEncode(body(listTools)));
+    final overTheLimit = utf8.encode(
+      jsonEncode(body(listTools, params: {'pad': 'x' * 64})),
+    );
+
+    List<int> bodyNearDefault(int difference) => utf8.encode(
+      jsonEncode(
+        body(listTools, params: {'pad': 'x' * (defaultLimit + difference)}),
+      ),
+    );
+
+    late HttpServer capped;
+    late Uri cappedUri;
+    late HttpClient client;
+    late int? customLimit;
+    late List<Future<void>> handledRequests;
+    late List<_CountingHttpRequest> receivedRequests;
+
+    /// Completes once the capped server has parsed a request's headers, which
+    /// is before any of its body is read.
+    late Completer<void> headersSeen;
+
+    /// The `Content-Length` of each request the capped server received, or
+    /// -1 for a chunked one.
+    ///
+    /// The cap has to hold over both framings, so the tests below cover
+    /// both. Each checks the framing it actually got.
+    late List<int> declaredLengths;
+
+    setUp(() async {
+      declaredLengths = [];
+      handledRequests = [];
+      receivedRequests = [];
+      headersSeen = Completer<void>();
+      customLimit = atTheLimit.length;
+      capped = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => capped.close(force: true));
+
+      /// Records how [request] was framed before the handler consumes it.
+      Future<void> serve(HttpRequest request) {
+        declaredLengths.add(request.contentLength);
+        if (!headersSeen.isCompleted) headersSeen.complete();
+        final countedRequest = _CountingHttpRequest(request);
+        receivedRequests.add(countedRequest);
+        final limit = customLimit;
+        final handled =
+            limit == null
+                ? handleStreamableHttpRequest(
+                  countedRequest,
+                  _HttpTestServer.new,
+                )
+                : handleStreamableHttpRequest(
+                  countedRequest,
+                  _HttpTestServer.new,
+                  maxRequestBodyBytes: limit,
+                );
+        handledRequests.add(handled);
+        return handled;
+      }
+
+      capped.listen(serve);
+      cappedUri = Uri.http('${capped.address.host}:${capped.port}', '/mcp');
+      client = HttpClient();
+      addTearDown(client.close);
+    });
+
+    /// Posts [payload] to the capped server under a declared
+    /// `Content-Length`.
+    Future<(int, String)> postDeclared(List<int> payload) async {
+      final request = await client.postUrl(cappedUri);
+      headers(listTools).forEach(request.headers.set);
+      request.contentLength = payload.length;
+      request.add(payload);
+      final response = await request.close();
+      return (response.statusCode, await utf8.decodeStream(response));
+    }
+
+    /// Posts [chunks] as one chunked body, flushing between them so that
+    /// each one reaches the handler on its own.
+    Future<(int, String)> postChunks(List<List<int>> chunks) async {
+      final request = await client.postUrl(cappedUri);
+      headers(listTools).forEach(request.headers.set);
+      for (final chunk in chunks) {
+        request.add(chunk);
+        await request.flush();
+      }
+      final response = await request.close();
+      return (response.statusCode, await utf8.decodeStream(response));
+    }
+
+    /// The request line and headers of a raw POST to the capped server. It
+    /// asks for `Connection: close`. The response then ends with the
+    /// connection, and [sendRaw] reads to the end of it.
+    String rawHead({
+      int? contentLength,
+      String contentType = 'application/json',
+    }) {
+      final head = StringBuffer(
+        'POST /mcp HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n',
+      );
+      final requestHeaders = headers(listTools);
+      requestHeaders['Content-Type'] = contentType;
+      requestHeaders.forEach((name, value) => head.write('$name: $value\r\n'));
+      head.write(
+        contentLength == null
+            ? 'Transfer-Encoding: chunked\r\n'
+            : 'Content-Length: $contentLength\r\n',
+      );
+      return '$head\r\n';
+    }
+
+    /// [data] framed as one chunk of a chunked body.
+    List<int> chunk(List<int> data) => [
+      ...utf8.encode('${data.length.toRadixString(16)}\r\n'),
+      ...data,
+      ...utf8.encode('\r\n'),
+    ];
+    final lastChunk = utf8.encode('0\r\n\r\n');
+
+    /// Writes [segments] to the capped server one write at a time, awaiting
+    /// [between] after each but the last with the number of segments written
+    /// so far, and returns the status code and JSON body of the response.
+    ///
+    /// A socket puts the split between writes where the test wants it.
+    /// [HttpClient] decides that on its own, and not the same way on every
+    /// platform.
+    Future<(int, String)> sendRaw(
+      List<List<int>> segments, {
+      Future<void> Function(int written)? between,
+    }) async {
+      final socket = await Socket.connect(capped.address, capped.port);
+      final received = socket.fold(
+        <int>[],
+        (bytes, piece) => bytes..addAll(piece),
+      );
+      for (var i = 0; i < segments.length; i++) {
+        socket.add(segments[i]);
+        await socket.flush();
+        if (between != null && i < segments.length - 1) await between(i + 1);
+      }
+      final response = utf8.decode(await received);
+      socket.destroy();
+      if (!response.startsWith('HTTP/1.1 ')) {
+        fail(
+          'The connection closed without a response: ${jsonEncode(response)}',
+        );
+      }
+      return (int.parse(response.split(' ')[1]), jsonBody(response));
+    }
+
+    /// Sends [total] bytes of body under a declared [declared], in writes of
+    /// [piece] bytes. Each write is held back until the handler has read the
+    /// one before it, so every write reaches the handler as a chunk of its
+    /// own and the body crosses the cap [piece] bytes at a time.
+    Future<(int, String)> sendPaced(
+      int declared, {
+      required int total,
+      int piece = 256 * 1024,
+      String contentType = 'application/json',
+    }) {
+      final bytes = Uint8List(piece)..fillRange(0, piece, 0x78);
+      return sendRaw(
+        [
+          utf8.encode(
+            rawHead(contentLength: declared, contentType: contentType),
+          ),
+          for (var sent = 0; sent < total; sent += piece) bytes,
+        ],
+        between: (written) async {
+          await headersSeen.future;
+          await receivedRequests.single.whenRead((written - 1) * piece);
+        },
+      );
+    }
+
+    test('serves a body at the limit', () async {
+      final (status, text) = await postDeclared(atTheLimit);
+      expect(declaredLengths.single, atTheLimit.length);
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('uses the default 4 MiB limit', () async {
+      customLimit = null;
+      final belowDefault = bodyNearDefault(-1024);
+      expect(belowDefault.length, lessThan(defaultLimit));
+      final (acceptedStatus, acceptedText) = await postDeclared(belowDefault);
+      expect(acceptedStatus, 200);
+      expect(errorCode(acceptedText), isNull);
+
+      final aboveDefault = bodyNearDefault(1024);
+      expect(aboveDefault.length, greaterThan(defaultLimit));
+      final (rejectedStatus, rejectedText) = await postDeclared(aboveDefault);
+      expect(rejectedStatus, 413);
+      expect(errorCode(rejectedText), error_code.INVALID_REQUEST);
+      // A body this little over the cap is read to its end, which is what
+      // lets the client see the 413.
+      expect(receivedRequests[1].bytesRead, aboveDefault.length);
+    });
+
+    test('applies a larger custom limit', () async {
+      final aboveDefault = bodyNearDefault(1024);
+      customLimit = aboveDefault.length;
+      final (status, text) = await postDeclared(aboveDefault);
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('rejects a declared body over the limit with 413', () async {
+      final (status, text) = await sendRaw([
+        [
+          ...utf8.encode(rawHead(contentLength: overTheLimit.length)),
+          ...overTheLimit,
+        ],
+      ]);
+      expect(declaredLengths.single, overTheLimit.length);
+      expect(status, 413);
+      expect(errorCode(text), error_code.INVALID_REQUEST);
+      expect(
+        errorMessage(text),
+        contains('must not exceed ${atTheLimit.length} bytes'),
+      );
+      final error = decode(text)[Keys.error] as Map<String, Object?>;
+      expect((error[Keys.data] as Map<String, Object?>)[Keys.request], isNull);
+    });
+
+    test('rejects a chunked body over the limit with 413', () async {
+      final (status, text) = await sendRaw([
+        [...utf8.encode(rawHead()), ...chunk(overTheLimit), ...lastChunk],
+      ]);
+      expect(declaredLengths.single, -1);
+      expect(status, 413);
+      expect(errorCode(text), error_code.INVALID_REQUEST);
+    });
+
+    test('serves a body split across chunks', () async {
+      // Every chunk has to be kept, not just the one the body ends on.
+      final half = atTheLimit.length ~/ 2;
+      final (status, text) = await postChunks([
+        atTheLimit.sublist(0, half),
+        atTheLimit.sublist(half),
+      ]);
+      expect(declaredLengths.single, -1);
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('rejects chunks that only exceed the limit together', () async {
+      // Neither of these is over the cap on its own, so the counter has to
+      // measure the body and not the chunk it is reading.
+      final (status, text) = await sendRaw([
+        [
+          ...utf8.encode(rawHead()),
+          ...chunk(atTheLimit),
+          ...chunk(atTheLimit),
+          ...lastChunk,
+        ],
+      ]);
+      expect(declaredLengths.single, -1);
+      expect(status, 413);
+      expect(errorCode(text), error_code.INVALID_REQUEST);
+    });
+
+    test('answers a body that arrives after its headers', () async {
+      // When the headers came in an earlier read, dart:io runs the handler's
+      // loop body inside the read that delivers the chunk, before it has seen
+      // the end of the body. Cancelling the body there closes the connection
+      // at once and drops a response written afterwards, so the 413 has to be
+      // written before the loop is left. A single write of the whole request
+      // never takes that path. The cap here is small enough that this one
+      // chunk also uses up the discard budget.
+      final (status, text) = await sendRaw([
+        utf8.encode(rawHead(contentLength: overTheLimit.length)),
+        overTheLimit,
+      ], between: (_) => headersSeen.future);
+      expect(status, 413);
+      expect(errorCode(text), error_code.INVALID_REQUEST);
+    });
+
+    test('answers a late body of the wrong media type', () async {
+      // The media type branch reads through the same helper, so it meets the
+      // same read boundary. Pinning it here keeps the ordering from being lost
+      // if that branch ever stops sharing the helper.
+      final (status, text) = await sendRaw([
+        utf8.encode(
+          rawHead(
+            contentLength: overTheLimit.length,
+            contentType: 'text/plain',
+          ),
+        ),
+        overTheLimit,
+      ], between: (_) => headersSeen.future);
+      expect(status, 415);
+      expect(errorCode(text), error_code.INVALID_REQUEST);
+    });
+
+    test('reads a smaller overflow to its end', () async {
+      const limit = 1024 * 1024;
+      customLimit = limit;
+      final (status, text) = await sendPaced(
+        limit + limit ~/ 2,
+        total: limit + limit ~/ 2,
+      );
+      expect(status, 413);
+      expect(errorCode(text), error_code.INVALID_REQUEST);
+      expect(receivedRequests.single.bytesRead, limit + limit ~/ 2);
+    });
+
+    test('stops discarding at another limit', () async {
+      const limit = 1024 * 1024;
+      customLimit = limit;
+      // The client sends twice the cap of a body it declared three times the
+      // cap long, then waits. The handler has to answer on the write that
+      // fills the discard budget, or the response never comes.
+      final (status, text) = await sendPaced(3 * limit, total: 2 * limit);
+      expect(status, 413);
+      expect(errorCode(text), error_code.INVALID_REQUEST);
+      expect(receivedRequests.single.bytesRead, 2 * limit);
+    });
+
+    test('discards a body of the wrong media type the same way', () async {
+      const limit = 1024 * 1024;
+      customLimit = limit;
+      final (status, text) = await sendPaced(
+        3 * limit,
+        total: 2 * limit,
+        contentType: 'text/plain',
+      );
+      expect(status, 415);
+      expect(errorCode(text), error_code.INVALID_REQUEST);
+      expect(receivedRequests.single.bytesRead, 2 * limit);
+    });
+
+    test('throws on a negative cap', () async {
+      // A negative cap is not an off switch. Without the check, a handler
+      // given one answers 413 to every body that carries a byte.
+      final thrown = Completer<Object>();
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close(force: true));
+      server.listen(
+        (request) => handleStreamableHttpRequest(
+          request,
+          _HttpTestServer.new,
+          maxRequestBodyBytes: -1,
+        ).onError<Object>((error, _) => thrown.complete(error)),
+      );
+
+      // A handler that threw writes nothing, so the response never arrives.
+      // Racing the two lets a handler that answered 413 fail this fast.
+      final unanswered = HttpClient();
+      addTearDown(() => unanswered.close(force: true));
+      final uri = Uri.http('${server.address.host}:${server.port}', '/mcp');
+      final request = await unanswered.postUrl(uri);
+      headers(listTools).forEach(request.headers.set);
+      request.add(atTheLimit);
+      final outcome = await Future.any<Object>([
+        thrown.future,
+        request.close().then((response) => response.statusCode),
+      ]);
+
+      expect(outcome, isRangeError);
+      expect((outcome as RangeError).name, 'maxRequestBodyBytes');
+    });
+  });
+
+  group('rejection bodies', () {
+    Map<String, Object?> errorData(String text) =>
+        (decode(text)[Keys.error] as Map<String, Object?>)[Keys.data]
+            as Map<String, Object?>;
+
+    test('echo the message when the exception carries no data', () async {
+      // `RpcException.serialize` injects the request into `error.data` when
+      // the exception has no data of its own.
+      final request = body(listTools);
+      final (status, _, text) = await post(
+        headers: headers(callTool),
+        json: request,
+      );
+      expect(status, 400);
+      expect(errorData(text)[Keys.request], request);
+    });
+
+    test('echo the message alongside data the exception carries', () async {
+      // ...and injects it next to existing data when that is a map without
+      // a `request` key, so the version payload keeps its echo too.
+      final request = {Keys.jsonrpc: '2.0', Keys.id: 1, Keys.method: listTools};
+      final (status, _, text) = await post(
+        headers: {...transportHeaders, 'Mcp-Protocol-Version': '2025-11-25'},
+        json: request,
+      );
+      expect(status, 400);
+      final data = errorData(text);
+      expect(data[Keys.supported], [version]);
+      expect(data[Keys.request], request);
+    });
+
+    test('echo raw text for unparsed bodies, null for unread ones', () async {
+      final (_, _, unparsed) = await post(
+        headers: transportHeaders,
+        raw: '{"jsonrpc": "2.0",',
+      );
+      expect(errorData(unparsed)[Keys.request], '{"jsonrpc": "2.0",');
+
+      final (_, _, unread) = await post(
+        headers: {...headers(listTools), 'Content-Type': 'text/plain'},
+        json: body(listTools),
+      );
+      final data = errorData(unread);
+      expect(data.containsKey(Keys.request), true);
+      expect(data[Keys.request], isNull);
+    });
+  });
+
+  group('dispatch mappings', () {
+    test('maps an unknown method to 404', () async {
+      final (status, _, text) = await post(
+        headers: headers('no/such/method'),
+        json: body('no/such/method'),
+      );
+      expect(status, 404);
+      expect(errorCode(text), error_code.METHOD_NOT_FOUND);
+    });
+
+    test('maps an initialize request from a modern client to 404', () async {
+      final (status, _, text) = await post(
+        headers: headers(initialize),
+        json: body(initialize),
+      );
+      expect(status, 404);
+      expect(errorCode(text), error_code.METHOD_NOT_FOUND);
+      expect(servers, isEmpty);
+    });
+
+    test('maps an initialized notification carrying an id to 404', () async {
+      // Without an id this is a notification and gets a 202; with one it is a
+      // request for a method the request-scoped lifecycle does not have.
+      final (status, _, text) = await post(
+        headers: headers(initializedNotification),
+        json: body(initializedNotification),
+      );
+      expect(status, 404);
+      expect(errorCode(text), error_code.METHOD_NOT_FOUND);
+      expect(servers, isEmpty);
+    });
+
+    test('answers a legacy client with the versions it supports', () async {
+      // What a 2025-11-25 client actually sends: no `Mcp-Method` header and
+      // no `_meta` envelope, both of which this revision introduced.
+      final (status, _, text) = await post(
+        headers: {...transportHeaders, 'Mcp-Protocol-Version': '2025-11-25'},
+        json: {Keys.jsonrpc: '2.0', Keys.id: 1, Keys.method: initialize},
+      );
+      expect(status, 400);
+      expect(errorCode(text), -32022);
+      final data =
+          (decode(text)[Keys.error] as Map<String, Object?>)[Keys.data]
+              as Map<String, Object?>;
+      expect(data[Keys.supported], [version]);
+      expect(servers, isEmpty);
+    });
+
+    test('keeps a tool error result as 200', () async {
+      final (status, _, text) = await post(
+        headers: {...headers(callTool), 'Mcp-Name': 'no/such/tool'},
+        json: body(callTool, params: {Keys.name: 'no/such/tool'}),
+      );
+      expect(status, 200);
+      final result = decode(text)[Keys.result] as Map<String, Object?>;
+      expect(result[Keys.isError], isTrue);
+    });
+
+    test('maps a crashed handler to 500', () async {
+      // A handler which throws something other than an RpcException surfaces
+      // as a server error, the same class of failure as a server which cannot
+      // be built, which is answered with 500 as well.
+      final (status, _, text) = await post(
+        headers: headers('test/crash'),
+        json: body('test/crash'),
+      );
+      expect(status, 500);
+      expect(errorCode(text), error_code.SERVER_ERROR);
+    });
+
+    test('maps an RpcException from a tool to its HTTP status', () async {
+      final (status, _, text) = await post(
+        headers: {...headers(callTool), 'Mcp-Name': 'test/throw'},
+        json: body(callTool, params: {Keys.name: 'test/throw'}),
+      );
+      expect(status, 400);
+      expect(errorCode(text), error_code.INVALID_PARAMS);
+    });
+
+    test('keeps an error the spec defines no status for at 200', () async {
+      final (status, _, text) = await post(
+        headers: {...headers(callTool), 'Mcp-Name': 'test/unmappedCode'},
+        json: body(callTool, params: {Keys.name: 'test/unmappedCode'}),
+      );
+      expect(status, 200);
+      expect(errorCode(text), -32099);
+    });
+
+    test('maps an internal error from a dispatched response to 500', () async {
+      final (status, _, text) = await post(
+        headers: {...headers(callTool), 'Mcp-Name': 'test/internalError'},
+        json: body(callTool, params: {Keys.name: 'test/internalError'}),
+      );
+      expect(status, 500);
+      expect(errorCode(text), error_code.INTERNAL_ERROR);
+    });
+
+    test('maps a missing client capability error to 400', () async {
+      final (status, _, text) = await post(
+        headers: {...headers(callTool), 'Mcp-Name': 'test/needsSampling'},
+        json: body(callTool, params: {Keys.name: 'test/needsSampling'}),
+      );
+      expect(status, 400);
+      expect(errorCode(text), -32021);
+    });
+
+    test('rejects an envelope without client capabilities', () async {
+      final request = body(listTools);
+      final params = request[Keys.params] as Map<String, Object?>;
+      final meta = params[Keys.meta] as Map<String, Object?>;
+      meta.remove(Keys.clientCapabilitiesMeta);
+      final (status, _, text) = await post(
+        headers: headers(listTools),
+        json: request,
+      );
+      expect(status, 400);
+      expect(errorCode(text), error_code.INVALID_PARAMS);
+      expect(servers, isEmpty);
+    });
+
+    test('rejects a malformed extension identifier', () async {
+      final (status, _, text) = await post(
+        headers: headers(listTools),
+        json: body(
+          listTools,
+          capabilities: <String, Object?>{
+            'extensions': <String, Object?>{'tasks': <String, Object?>{}},
+          },
+        ),
+      );
+      expect(status, 400);
+      expect(errorCode(text), error_code.INVALID_PARAMS);
+      expect(servers, isEmpty);
+    });
+
+    test('rejects a non-map extensions value', () async {
+      for (final extensions in <Object?>[<Object?>[], null]) {
+        final (status, _, text) = await post(
+          headers: headers(listTools),
+          json: body(
+            listTools,
+            capabilities: <String, Object?>{'extensions': extensions},
+          ),
+        );
+        expect(status, 400);
+        expect(errorCode(text), error_code.INVALID_PARAMS);
+        expect(servers, isEmpty);
+      }
+    });
+
+    test('rejects a request without an envelope', () async {
+      final (status, _, text) = await post(
+        headers: headers(listTools),
+        json: {Keys.jsonrpc: '2.0', Keys.id: 1, Keys.method: listTools},
+      );
+      expect(status, 400);
+      expect(errorCode(text), error_code.INVALID_PARAMS);
+      expect(servers, isEmpty);
+    });
+
+    test('rejects an unknown protocol version', () async {
+      final (status, _, text) = await post(
+        headers: headers(listTools, headerVersion: '2099-01-01'),
+        json: body(listTools, bodyVersion: '2099-01-01'),
+      );
+      expect(status, 400);
+      expect(errorCode(text), McpErrorCodes.unsupportedProtocolVersion);
+      final data =
+          (decode(text)[Keys.error] as Map<String, Object?>)[Keys.data]
+              as Map<String, Object?>;
+      expect(data[Keys.requested], '2099-01-01');
+      expect(data[Keys.supported], [version]);
+      expect(servers, isEmpty);
+    });
+
+    test('rejects an earlier protocol version before the envelope', () async {
+      // The envelope is itself a 2026-07-28 construct, so a client on an
+      // earlier version cannot send one; the version answer has to come first
+      // or that client never learns what to renegotiate to.
+      final (status, _, text) = await post(
+        headers: headers(listTools, headerVersion: '2025-11-25'),
+        json: {Keys.jsonrpc: '2.0', Keys.id: 1, Keys.method: listTools},
+      );
+      expect(status, 400);
+      expect(errorCode(text), McpErrorCodes.unsupportedProtocolVersion);
+      final data =
+          (decode(text)[Keys.error] as Map<String, Object?>)[Keys.data]
+              as Map<String, Object?>;
+      expect(data[Keys.requested], '2025-11-25');
+      expect(data[Keys.supported], [version]);
+      expect(servers, isEmpty);
+    });
+
+    test('rejects an envelope version which is not a String', () async {
+      final (status, _, text) = await post(
+        headers: headers(listTools),
+        json: body(listTools, bodyVersion: 42),
+      );
+      expect(status, 400);
+      expect(errorCode(text), error_code.INVALID_PARAMS);
+      expect(servers, isEmpty);
+    });
+
+    test('rejects a malformed client info', () async {
+      final request = body(listTools);
+      final params = request[Keys.params] as Map<String, Object?>;
+      final meta = params[Keys.meta] as Map<String, Object?>;
+      meta[Keys.clientInfoMeta] = 'test client';
+      final (status, _, text) = await post(
+        headers: headers(listTools),
+        json: request,
+      );
+      expect(status, 400);
+      expect(errorCode(text), error_code.INVALID_PARAMS);
+      expect(servers, isEmpty);
+    });
+
+    test('answers 500 when the server cannot be created', () async {
+      final failing = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => failing.close(force: true));
+      final failure = Completer<Object>();
+      failing.listen(
+        (request) => handleStreamableHttpRequest(
+          request,
+          (_) => throw StateError('no server today'),
+        ).onError<Object>((error, _) => failure.complete(error)),
+      );
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(
+        Uri.http('${failing.address.host}:${failing.port}', '/mcp'),
+      );
+      headers(listTools).forEach(request.headers.set);
+      request.write(jsonEncode(body(listTools)));
+      final response = await request.close();
+      final text = await utf8.decodeStream(response);
+      expect(response.statusCode, 500);
+      expect(errorCode(text), error_code.INTERNAL_ERROR);
+      expect(await failure.future, isStateError);
+    });
+  });
+
+  group('request isolation', () {
+    String probed(String text) =>
+        (((decode(text)[Keys.result] as Map<String, Object?>)[Keys.content]
+                        as List)
+                    .single
+                as Map<String, Object?>)[Keys.text]
+            as String;
+
+    test('gives every request a fresh server and context', () async {
+      final probeHeaders = {
+        ...headers(callTool),
+        'Mcp-Name': 'test/capabilities',
+      };
+      final probeBody = {Keys.name: 'test/capabilities'};
+      final (_, _, first) = await post(
+        headers: probeHeaders,
+        json: body(
+          callTool,
+          params: probeBody,
+          capabilities: {Keys.sampling: <String, Object?>{}},
+        ),
+      );
+      final (_, _, second) = await post(
+        headers: probeHeaders,
+        json: body(callTool, params: probeBody),
+      );
+      expect(probed(first), 'true');
+      expect(probed(second), 'false');
+      expect(servers, hasLength(2));
+      expect(servers[0], isNot(same(servers[1])));
+    });
+
+    test('gives concurrent requests independent contexts', () async {
+      final probeHeaders = {
+        ...headers(callTool),
+        'Mcp-Name': 'test/capabilities',
+      };
+      final probeBody = {Keys.name: 'test/capabilities'};
+      final withSampling = post(
+        headers: probeHeaders,
+        json: body(
+          callTool,
+          params: probeBody,
+          capabilities: {Keys.sampling: <String, Object?>{}},
+        ),
+      );
+      final without = post(
+        headers: probeHeaders,
+        json: body(callTool, params: probeBody),
+      );
+      final [(_, _, first), (_, _, second)] = await Future.wait([
+        withSampling,
+        without,
+      ]);
+      expect(probed(first), 'true');
+      expect(probed(second), 'false');
+      expect(servers, hasLength(2));
+    });
+
+    test('accepts an optional client info', () async {
+      final request = body(listTools);
+      final params = request[Keys.params] as Map<String, Object?>;
+      final meta = params[Keys.meta] as Map<String, Object?>;
+      meta[Keys.clientInfoMeta] = {
+        Keys.name: 'test client',
+        Keys.version: '1.0.0',
+      };
+      final (status, _, text) = await post(
+        headers: headers(listTools),
+        json: request,
+      );
+      expect(status, 200);
+      expect(errorCode(text), isNull);
+    });
+
+    test('passes server notifications to the handler', () async {
+      final (status, _, text) = await post(
+        headers: {...headers(callTool), 'Mcp-Name': 'test/notify'},
+        json: body(callTool, params: {Keys.name: 'test/notify'}),
+      );
+      expect(status, 200);
+      final messages = events(text);
+      expect(
+        messages.first[Keys.method],
+        LoggingMessageNotification.methodName,
+      );
+      expect(messages.last[Keys.error], isNull);
+      expect(notifications, hasLength(1));
+      expect(
+        notifications.single[Keys.method],
+        LoggingMessageNotification.methodName,
+      );
+    });
+  });
+
+  group('response shape', () {
+    test('keeps a list change off the response stream', () async {
+      const tool = 'test/registers-then-fails';
+      final (status, responseHeaders, text) = await post(
+        headers: {...headers(callTool), 'Mcp-Name': tool},
+        json: body(callTool, params: {Keys.name: tool}),
+      );
+
+      // The list change belongs on a `subscriptions/listen` stream. Writing it
+      // here would commit the response and spend the 400 this revision
+      // requires of the error the handler goes on to throw.
+      expect(status, 400);
+      expect(responseHeaders.contentType?.mimeType, 'application/json');
+      expect(errorCode(text), -32021);
+      expect(
+        notifications.map((notification) => notification[Keys.method]),
+        contains(ToolListChangedNotification.methodName),
+      );
+    });
+
+    test('answers a quiet handler with a json body', () async {
+      final (status, responseHeaders, text) = await post(
+        headers: {...headers(listTools)},
+        json: body(listTools),
+      );
+      expect(status, 200);
+      expect(responseHeaders.contentType?.mimeType, 'application/json');
+      expect(decode(text)[Keys.error], isNull);
+    });
+
+    test('delivers a notification before the result', () async {
+      releaseNotifyThenWait = Completer<void>();
+      addTearDown(() {
+        if (!releaseNotifyThenWait.isCompleted) {
+          releaseNotifyThenWait.complete();
+        }
+      });
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.openUrl('POST', uri);
+      headers(callTool).forEach(request.headers.set);
+      request.headers.set('Mcp-Name', 'test/notify-then-wait');
+      request.write(
+        jsonEncode(
+          body(callTool, params: {Keys.name: 'test/notify-then-wait'}),
+        ),
+      );
+      final response = await request.close();
+
+      // The handler is still parked. Anything read here arrived before the
+      // result did, and a buffered response would deliver nothing until close.
+      final chunks = StringBuffer();
+      final firstFrame = Completer<String>();
+      final subscription = response.transform(utf8.decoder).listen((chunk) {
+        chunks.write(chunk);
+        if (!firstFrame.isCompleted && chunks.toString().contains('\n\n')) {
+          firstFrame.complete(chunks.toString());
+        }
+      });
+      addTearDown(subscription.cancel);
+
+      final early = await firstFrame.future;
+      expect(
+        events(early).single[Keys.method],
+        LoggingMessageNotification.methodName,
+      );
+
+      releaseNotifyThenWait.complete();
+      await subscription.asFuture<void>();
+      expect(events(chunks.toString()), hasLength(2));
+    });
+
+    test('keeps the stream open for a second notification', () async {
+      final (status, responseHeaders, text) = await post(
+        headers: {...headers(callTool), 'Mcp-Name': 'test/notify-twice'},
+        json: body(callTool, params: {Keys.name: 'test/notify-twice'}),
+      );
+      expect(status, 200);
+      expect(responseHeaders.contentType?.mimeType, 'text/event-stream');
+      final messages = events(text);
+      expect(messages, hasLength(3));
+      expect(
+        messages.take(2).map((m) => m[Keys.method]),
+        everyElement(LoggingMessageNotification.methodName),
+      );
+      expect(messages.last[Keys.id], isNotNull);
+    });
+
+    test('answers an unknown method with 404 and a json body', () async {
+      const unknown = 'test/nothing-defines-this';
+      final (status, responseHeaders, text) = await post(
+        headers: headers(unknown),
+        json: body(unknown),
+      );
+      expect(status, 404);
+      expect(responseHeaders.contentType?.mimeType, 'application/json');
+      expect(errorCode(text), error_code.METHOD_NOT_FOUND);
+    });
+
+    test('sets the streaming headers with the first event', () async {
+      final (_, responseHeaders, text) = await post(
+        headers: {...headers(callTool), 'Mcp-Name': 'test/notify'},
+        json: body(callTool, params: {Keys.name: 'test/notify'}),
+      );
+      expect(responseHeaders.contentType?.charset, 'utf-8');
+      expect(
+        responseHeaders.value(HttpHeaders.cacheControlHeader),
+        contains('no-cache'),
+      );
+      // A SHOULD of this revision. A reverse proxy that honors it stops
+      // holding the events back until the response closes.
+      expect(responseHeaders.value('x-accel-buffering'), 'no');
+      expect(
+        frames(text).map((frame) => frame['event']),
+        everyElement('message'),
+      );
+    });
+
+    test('hands its own stream to sseMessageStream', () async {
+      final (_, _, text) = await post(
+        headers: {...headers(callTool), 'Mcp-Name': 'test/notify'},
+        json: body(callTool, params: {Keys.name: 'test/notify'}),
+      );
+      // The decoder's own tests spell their input out by hand. This one
+      // reads back what the transport wrote.
+      final messages =
+          await sseMessageStream(Stream.value(utf8.encode(text))).toList();
+
+      expect(messages, hasLength(2));
+      expect(
+        messages.first[Keys.method],
+        LoggingMessageNotification.methodName,
+      );
+      expect(messages.last[Keys.id], isNotNull);
+    });
+
+    test('sends a late error as the last event on the stream', () async {
+      final (status, responseHeaders, text) = await post(
+        headers: {...headers(callTool), 'Mcp-Name': 'test/notify-then-throw'},
+        json: body(callTool, params: {Keys.name: 'test/notify-then-throw'}),
+      );
+      // The status is spent on the first notification. The mapped 400 this
+      // error carries when it arrives alone is no longer reachable.
+      expect(status, 200);
+      expect(responseHeaders.contentType?.mimeType, 'text/event-stream');
+      final messages = events(text);
+      expect(messages, hasLength(2));
+      expect(
+        (messages.last[Keys.error] as Map<String, Object?>)[Keys.code],
+        error_code.INVALID_PARAMS,
+      );
+    });
+
+    test('keeps a prompt list change off the response stream', () async {
+      final noisy = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => noisy.close(force: true));
+      const tool = 'test/adds-prompt';
+      noisy.listen(
+        (request) =>
+            handleStreamableHttpRequest(request, _PromptNoisyServer.new),
+      );
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(
+        Uri.http('${noisy.address.host}:${noisy.port}', '/mcp'),
+      );
+      final callHeaders = {...headers(callTool), 'Mcp-Name': tool};
+      callHeaders.forEach(request.headers.set);
+      request.write(jsonEncode(body(callTool, params: {Keys.name: tool})));
+      final response = await request.close();
+      final text = await utf8.decodeStream(response);
+
+      expect(response.statusCode, 200);
+      expect(response.headers.contentType?.mimeType, 'application/json');
+      expect(text, isNot(contains(PromptListChangedNotification.methodName)));
+    });
+
+    test('closes the stream when a notifying server fails', () async {
+      final failing = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => failing.close(force: true));
+      final failure = Completer<Object>();
+      failing.listen(
+        (request) => handleStreamableHttpRequest(
+          request,
+          _NoisyFailingServer.new,
+        ).onError<Object>((error, _) => failure.complete(error)),
+      );
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(
+        Uri.http('${failing.address.host}:${failing.port}', '/mcp'),
+      );
+      headers(listTools).forEach(request.headers.set);
+      request.write(jsonEncode(body(listTools)));
+      final response = await request.close();
+      // Without an answer through the stream this read never returns. The
+      // headers are already sent, and starting a fresh response throws inside
+      // the error path and leaves the connection open.
+      final text = await utf8.decodeStream(response);
+      expect(response.statusCode, 200);
+      expect(response.headers.contentType?.mimeType, 'text/event-stream');
+      final messages = events(text);
+      expect(messages, hasLength(2));
+      expect(
+        (messages.last[Keys.error] as Map<String, Object?>)[Keys.code],
+        error_code.INTERNAL_ERROR,
+      );
+      expect(await failure.future, isStateError);
+    });
+
+    test('answers a failed tools/call on the stream too', () async {
+      // `tools/call` is the one method that holds notifications back until
+      // the header check passes, so it is the one that could answer a server
+      // failing after it announced itself with a fresh response instead.
+      final failing = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => failing.close(force: true));
+      failing.listen(
+        (request) => handleStreamableHttpRequest(
+          request,
+          _NoisyFailingServer.new,
+        ).onError<Object>((_, _) {}),
+      );
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(
+        Uri.http('${failing.address.host}:${failing.port}', '/mcp'),
+      );
+      final callHeaders = {...headers(callTool), 'Mcp-Name': 'test/version'};
+      callHeaders.forEach(request.headers.set);
+      request.write(
+        jsonEncode(body(callTool, params: {Keys.name: 'test/version'})),
+      );
+      final response = await request.close();
+      final text = await utf8.decodeStream(response);
+      expect(response.statusCode, 200);
+      expect(response.headers.contentType?.mimeType, 'text/event-stream');
+      final messages = events(text);
+      expect(messages, hasLength(2));
+      expect(
+        (messages.last[Keys.error] as Map<String, Object?>)[Keys.code],
+        error_code.INTERNAL_ERROR,
+      );
+    });
+
+    test('writes the event before the handler callback sees it', () async {
+      final rude = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => rude.close(force: true));
+      final swallowed = <Object>[];
+      runZonedGuarded(
+        () => rude.listen(
+          (request) => handleStreamableHttpRequest(
+            request,
+            _HttpTestServer.new,
+            onNotification: (_) => throw StateError('a rude embedder'),
+          ),
+        ),
+        (error, _) => swallowed.add(error),
+      );
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(
+        Uri.http('${rude.address.host}:${rude.port}', '/mcp'),
+      );
+      final sent = {...headers(callTool), 'Mcp-Name': 'test/notify'};
+      sent.forEach(request.headers.set);
+      request.write(
+        jsonEncode(body(callTool, params: {Keys.name: 'test/notify'})),
+      );
+      final response = await request.close();
+      final text = await utf8.decodeStream(response);
+      // An embedder which throws must not be able to keep a notification off
+      // the protocol stream. Writing it first prevents that.
+      expect(response.statusCode, 200);
+      expect(response.headers.contentType?.mimeType, 'text/event-stream');
+      expect(events(text), hasLength(2));
+      expect(swallowed, isNotEmpty);
+    });
+  });
+}
+
+final class _CountingHttpRequest extends Stream<Uint8List>
+    implements HttpRequest {
+  _CountingHttpRequest(this._inner);
+
+  final HttpRequest _inner;
+
+  /// The length of each chunk the handler received, in order.
+  final chunkLengths = <int>[];
+
+  int get bytesRead => chunkLengths.fold(0, (sum, length) => sum + length);
+
+  final _readWaiters = <(int, Completer<void>)>[];
+
+  /// Completes once the handler has read at least [bytes] of the body.
+  Future<void> whenRead(int bytes) {
+    if (bytesRead >= bytes) return Future.value();
+    final waiter = Completer<void>();
+    _readWaiters.add((bytes, waiter));
+    return waiter.future;
+  }
+
+  @override
+  HttpHeaders get headers => _inner.headers;
+
+  @override
+  String get method => _inner.method;
+
+  @override
+  HttpResponse get response => _inner.response;
+
+  @override
+  StreamSubscription<Uint8List> listen(
+    void Function(Uint8List)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) => _inner.listen(
+    (chunk) {
+      chunkLengths.add(chunk.length);
+      final read = bytesRead;
+      for (final (bytes, waiter) in _readWaiters.toList()) {
+        if (read < bytes) continue;
+        _readWaiters.remove((bytes, waiter));
+        waiter.complete();
+      }
+      onData?.call(chunk);
+    },
+    onError: onError,
+    onDone: onDone,
+    cancelOnError: cancelOnError,
+  );
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnsupportedError('${invocation.memberName}');
+}
+
+/// Held by `test/notify-then-wait` until a test releases it.
+Completer<void> releaseNotifyThenWait = Completer<void>();
+
+/// Held by `test/disconnect` until its response stream has closed.
+Completer<void> releaseDisconnectHandler = Completer<void>();
+
+Completer<void> _noStreamHandlerEntered = Completer<void>();
+Completer<void> _releaseNoStreamHandler = Completer<void>();
+
+base class _NoStreamServer extends MCPServer {
+  _NoStreamServer(super.channel)
+    : super.fromStreamChannel(
+        implementation: Implementation(
+          name: 'no stream test server',
+          version: '0.1.0',
+        ),
+      ) {
+    registerRequestHandler<Request?, Result?>('test/no-stream', (_) async {
+      _noStreamHandlerEntered.complete();
+      await _releaseNoStreamHandler.future;
+      return EmptyResult();
+    });
+  }
+}
+
+base class _HttpTestServer extends MCPServer
+    with LoggingSupport, ToolsSupport, SubscriptionsSupport {
+  bool get _declaredSampling => clientCapabilities.sampling != null;
+  int listToolsCalls = 0;
+
+  @override
+  FutureOr<ListToolsResult> listTools([ListToolsRequest? request]) {
+    listToolsCalls++;
+    return super.listTools(request);
+  }
+
+  _HttpTestServer(super.channel)
+    : super.fromStreamChannel(
+        implementation: Implementation(
+          name: 'http test server',
+          version: '0.1.0',
+        ),
+      ) {
+    registerTool(
+      Tool(name: 'test/version', inputSchema: ObjectSchema()),
+      (_) => CallToolResult(content: [TextContent(text: '1.2.3')]),
+    );
+    registerTool(
+      Tool(
+        name: 'test/withHeaderParam',
+        inputSchema: ObjectSchema(
+          properties: {
+            // `x-mcp-header` is a schema extension the typed [Schema]
+            // factories do not have a parameter for, so these are built
+            // from a raw map instead.
+            'region': Schema.fromMap({
+              Keys.type: JsonType.string.typeName,
+              Keys.xMcpHeader: 'Region',
+            }),
+            'count': Schema.fromMap({
+              Keys.type: JsonType.int.typeName,
+              Keys.xMcpHeader: 'Count',
+            }),
+            'flag': Schema.fromMap({
+              Keys.type: JsonType.bool.typeName,
+              Keys.xMcpHeader: 'Flag',
+            }),
+          },
+        ),
+      ),
+      (_) => CallToolResult(content: [TextContent(text: 'ok')]),
+      validateArguments: false,
+    );
+    registerTool(
+      Tool(
+        name: 'test/badAnnotation',
+        inputSchema: ObjectSchema(
+          properties: {
+            // A non-primitive carrying the annotation.
+            'label': Schema.fromMap({
+              Keys.type: <Object?>[
+                JsonType.string.typeName,
+                JsonType.nil.typeName,
+              ],
+              Keys.xMcpHeader: 'Label',
+            }),
+          },
+        ),
+      ),
+      (_) => CallToolResult(content: [TextContent(text: 'ok')]),
+      validateArguments: false,
+    );
+    registerTool(
+      Tool(
+        name: 'test/booleanSubschema',
+        // A boolean subschema, and a nested `properties` that is a number.
+        inputSchema: ObjectSchema.fromMap({
+          Keys.type: JsonType.object.typeName,
+          Keys.properties: {
+            'anything': true,
+            'nested': {Keys.properties: 5},
+          },
+        }),
+      ),
+      (_) => CallToolResult(content: [TextContent(text: 'ok')]),
+      validateArguments: false,
+    );
+    registerTool(
+      Tool(
+        name: 'test/nonObjectProperties',
+        inputSchema: ObjectSchema.fromMap({
+          Keys.type: JsonType.object.typeName,
+          Keys.properties: <Object>[1, 2],
+        }),
+      ),
+      (_) => CallToolResult(content: [TextContent(text: 'ok')]),
+      validateArguments: false,
+    );
+    registerTool(
+      Tool(
+        name: 'test/withNestedHeaderParam',
+        inputSchema: ObjectSchema(
+          properties: {
+            'location': Schema.fromMap({
+              Keys.properties: <String, Schema>{
+                'region': Schema.fromMap({
+                  Keys.type: JsonType.string.typeName,
+                  Keys.xMcpHeader: 'Region',
+                }),
+              },
+            }),
+          },
+        ),
+      ),
+      (_) => CallToolResult(content: [TextContent(text: 'ok')]),
+    );
+    registerTool(
+      Tool(name: 'test/throw', inputSchema: ObjectSchema()),
+      (_) => throw RpcException.invalidParams('This tool always throws'),
+    );
+    registerRequestHandler<Request?, Result?>(
+      'test/crash',
+      (_) => throw StateError('This handler always crashes'),
+    );
+    registerTool(
+      Tool(name: 'test/capabilities', inputSchema: ObjectSchema()),
+      (_) => CallToolResult(content: [TextContent(text: '$_declaredSampling')]),
+    );
+    registerTool(
+      Tool(name: 'test/needsSampling', inputSchema: ObjectSchema()),
+      (_) =>
+          throw RpcException(
+            McpErrorCodes.missingRequiredClientCapability,
+            'This tool needs the sampling capability',
+          ),
+    );
+    registerTool(
+      Tool(name: 'test/unmappedCode', inputSchema: ObjectSchema()),
+      // The far end of the range the specification reserves for itself, which
+      // no revision has allocated, so nothing defines a status for it.
+      (_) =>
+          throw RpcException(
+            -32099,
+            'This tool fails with a code no status is defined for',
+          ),
+    );
+    registerTool(
+      Tool(name: 'test/internalError', inputSchema: ObjectSchema()),
+      (_) =>
+          throw RpcException(
+            error_code.INTERNAL_ERROR,
+            'This tool reports an internal error',
+          ),
+    );
+    registerTool(Tool(name: 'test/notify', inputSchema: ObjectSchema()), (_) {
+      sendNotification(
+        LoggingMessageNotification.methodName,
+        LoggingMessageNotification(
+          level: LoggingLevel.error,
+          data: 'from tool',
+        ),
+      );
+      return CallToolResult(content: [TextContent(text: 'notified')]);
+    });
+    registerTool(Tool(name: 'test/notify-twice', inputSchema: ObjectSchema()), (
+      _,
+    ) {
+      for (final data in ['first', 'second']) {
+        sendNotification(
+          LoggingMessageNotification.methodName,
+          LoggingMessageNotification(level: LoggingLevel.error, data: data),
+        );
+      }
+      return CallToolResult(content: [TextContent(text: 'twice')]);
+    });
+    registerTool(
+      Tool(name: 'test/notify-then-wait', inputSchema: ObjectSchema()),
+      (_) async {
+        sendNotification(
+          LoggingMessageNotification.methodName,
+          LoggingMessageNotification(
+            level: LoggingLevel.error,
+            data: 'before the wait',
+          ),
+        );
+        await releaseNotifyThenWait.future;
+        return CallToolResult(content: [TextContent(text: 'released')]);
+      },
+    );
+    registerTool(Tool(name: 'test/disconnect', inputSchema: ObjectSchema()), (
+      _,
+    ) async {
+      sendNotification(
+        LoggingMessageNotification.methodName,
+        LoggingMessageNotification(
+          level: LoggingLevel.error,
+          data: 'before disconnect',
+        ),
+      );
+      await releaseDisconnectHandler.future;
+      sendNotification(
+        LoggingMessageNotification.methodName,
+        LoggingMessageNotification(
+          level: LoggingLevel.error,
+          data: 'after disconnect',
+        ),
+      );
+      return CallToolResult(content: [TextContent(text: 'late result')]);
+    });
+    registerTool(
+      Tool(name: 'test/notify-then-throw', inputSchema: ObjectSchema()),
+      (_) {
+        sendNotification(
+          LoggingMessageNotification.methodName,
+          LoggingMessageNotification(
+            level: LoggingLevel.error,
+            data: 'before the failure',
+          ),
+        );
+        throw RpcException.invalidParams('This tool fails after notifying');
+      },
+    );
+    registerTool(
+      Tool(name: 'test/registers-then-fails', inputSchema: ObjectSchema()),
+      (_) {
+        // Registering a tool emits a list change on its own, which is what a
+        // dynamic tool set does while it answers.
+        registerTool(
+          Tool(name: 'test/added-while-answering', inputSchema: ObjectSchema()),
+          (_) => CallToolResult(content: [TextContent(text: 'added')]),
+        );
+        throw RpcException(
+          McpErrorCodes.missingRequiredClientCapability,
+          'This tool needs a capability the client left out',
+        );
+      },
+    );
+    registerTool(Tool(name: 'test/log', inputSchema: ObjectSchema()), (_) {
+      log(LoggingLevel.error, 'from tool');
+      return CallToolResult(content: [TextContent(text: 'logged')]);
+    });
+  }
+}
+
+/// A server that emits a notification while a request is initializing.
+base class _NotifyingInitServer extends _HttpTestServer {
+  _NotifyingInitServer(super.channel);
+
+  @override
+  FutureOr<void> initialize(MCPServerInitialization initialization) async {
+    await super.initialize(initialization);
+    sendNotification(
+      LoggingMessageNotification.methodName,
+      LoggingMessageNotification(
+        level: LoggingLevel.error,
+        data: 'while starting up',
+      ),
+    );
+  }
+}
+
+/// A server whose tool registers a prompt while it answers, so the prompt list
+/// change lands mid-request the way a dynamic prompt set makes it.
+base class _PromptNoisyServer extends MCPServer
+    with LoggingSupport, ToolsSupport, PromptsSupport {
+  _PromptNoisyServer(super.channel)
+    : super.fromStreamChannel(
+        implementation: Implementation(
+          name: 'prompt noisy test server',
+          version: '0.1.0',
+        ),
+      );
+
+  @override
+  FutureOr<void> initialize(MCPServerInitialization initialization) {
+    registerTool(Tool(name: 'test/adds-prompt', inputSchema: ObjectSchema()), (
+      _,
+    ) {
+      addPrompt(
+        Prompt(name: 'added-while-answering'),
+        (_) => GetPromptResult(messages: []),
+      );
+      return CallToolResult(content: [TextContent(text: 'added')]);
+    });
+    return super.initialize(initialization);
+  }
+}
+
+/// A server which announces itself and then fails. The transport has already
+/// committed the stream by the time the error reaches it.
+base class _NoisyFailingServer extends _HttpTestServer {
+  _NoisyFailingServer(super.channel);
+
+  @override
+  FutureOr<ServerCapabilities> initialize(
+    MCPServerInitialization initialization,
+  ) async {
+    await super.initialize(initialization);
+    sendNotification(
+      LoggingMessageNotification.methodName,
+      LoggingMessageNotification(
+        level: LoggingLevel.error,
+        data: 'while starting up',
+      ),
+    );
+    throw StateError('initialize failed after announcing');
+  }
+}
+
+/// Sends a nameless acknowledgement while initializing, then fails, so the
+/// listen error path and the initialize error path both close the response.
+base class _AckThenFailInitialize extends _HttpTestServer {
+  _AckThenFailInitialize(super.channel);
+
+  @override
+  FutureOr<ServerCapabilities> initialize(
+    MCPServerInitialization initialization,
+  ) async {
+    await super.initialize(initialization);
+    sendNotification(SubscriptionsAcknowledgedNotification.methodName);
+    // Let the listen error path close the response before this throw
+    // reaches the initialize error path, so both call finish.
+    await pumpEventQueue(times: 20);
+    throw StateError('initialize failed after announcing');
+  }
+}
+
+/// A server which registers prompts but no tools, so a listen request which
+/// asks for both only gets back the half this server can send.
+base class _PromptOnlyServer extends MCPServer
+    with PromptsSupport, SubscriptionsSupport {
+  _PromptOnlyServer(super.channel)
+    : super.fromStreamChannel(
+        implementation: Implementation(
+          name: 'prompt only test server',
+          version: '0.1.0',
+        ),
+      );
+}
+
+/// Sends `notifications/subscriptions/acknowledged` with no params, the
+/// shape that used to leave `accepted` null and the listen stream unfiltered.
+base class _AckWithoutParamsServer extends MCPServer with SubscriptionsSupport {
+  _AckWithoutParamsServer(super.channel)
+    : super.fromStreamChannel(
+        implementation: Implementation(
+          name: 'ack without params',
+          version: '0.1.0',
+        ),
+      );
+
+  @override
+  FutureOr<SubscriptionsListenResult> handleSubscriptionsListen(
+    SubscriptionsListenRequest request,
+  ) {
+    sendNotification(SubscriptionsAcknowledgedNotification.methodName);
+    return SubscriptionsListenResult.fromMap({});
+  }
+}
+
+/// A server which mixes in the support classes that register three of the
+/// request handlers the 2026-07-28 revision removed, so a request for one of
+/// them reaches a handler unless the transport turns it away first.
+base class _EquippedServer extends MCPServer
+    with
+        ToolsSupport,
+        LoggingSupport,
+        ResourcesSupport,
+        PromptsSupport,
+        SubscriptionsSupport {
+  _EquippedServer(super.channel)
+    : super.fromStreamChannel(
+        implementation: Implementation(
+          name: 'equipped test server',
+          version: '0.1.0',
+        ),
+      );
+}
+
+Future<HttpServer> _integerHeaderServer(List<String?> headers) async {
+  final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+  server.listen((request) async {
+    final sent =
+        jsonDecode(await utf8.decodeStream(request)) as Map<String, Object?>;
+    if (sent[Keys.method] == listTools) {
+      request.response
+        ..headers.contentType = ContentType.json
+        ..write(
+          jsonEncode({
+            Keys.jsonrpc: '2.0',
+            Keys.id: sent[Keys.id],
+            Keys.result: {
+              Keys.tools: [
+                {
+                  Keys.name: 'counted',
+                  Keys.inputSchema: {
+                    Keys.type: 'object',
+                    Keys.properties: {
+                      'count': {Keys.type: 'integer', Keys.xMcpHeader: 'Count'},
+                    },
+                  },
+                },
+              ],
+            },
+          }),
+        );
+    } else {
+      headers.add(request.headers.value('Mcp-Param-Count'));
+      request.response
+        ..headers.contentType = ContentType.json
+        ..write(
+          jsonEncode({
+            Keys.jsonrpc: '2.0',
+            Keys.id: sent[Keys.id],
+            Keys.result: <String, Object?>{},
+          }),
+        );
+    }
+    await request.response.close();
+  });
+  return server;
+}

@@ -34,13 +34,13 @@ ArgParser createArgParser({
           dartSdkOption,
           help:
               'The path to the root of the desired Dart SDK. Defaults to the '
-              'DART_SDK environment variable.',
+              'DART_ROOT environment variable.',
         )
         ..addOption(
           flutterSdkOption,
           help:
               'The path to the root of the desired Flutter SDK. Defaults to '
-              'the FLUTTER_SDK environment variable, then searching up from '
+              'the FLUTTER_ROOT environment variable, then searching up from '
               'the Dart SDK.',
         )
         ..addFlag(
@@ -73,8 +73,10 @@ ArgParser createArgParser({
         ..addMultiOption(
           enabledFeaturesOption,
           help:
-              'The names or categories of features to enable. All features are '
-              'always enabled by default, but this can be used to override a '
+              'The names or categories of features to enable. Most features '
+              'are enabled by default, but some are not and must be enabled '
+              'by name or by category. See the README for which tools are '
+              'enabled by default. This can also be used to override a '
               'disabled category to re-enable more specific features under '
               'that category.',
           allowed: allFeatureAndCategoryNames,

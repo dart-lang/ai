@@ -21,6 +21,7 @@ import 'package:test/test.dart';
 import 'package:unified_analytics/testing.dart';
 import 'package:unified_analytics/unified_analytics.dart' as ua;
 import 'package:vm_service/vm_service.dart';
+import 'package:vm_service/vm_service_io.dart';
 
 import '../test_harness.dart';
 
@@ -56,6 +57,9 @@ void main() {
                 ParameterNames.command: WidgetInspectorCommand.getWidgetTree,
                 ParameterNames.summaryOnly: true,
               },
+            ),
+            retryUntil: (result) => result.content.any(
+              (c) => c is TextContent && c.text.contains('MyHomePage'),
             ),
           );
 
@@ -107,6 +111,18 @@ void main() {
             TextContent(text: 'Hot restart succeeded.'),
           ]);
         });
+      });
+
+      test('disallows connecting to non-loopback address', () async {
+        final result = await testHarness.connectToDtd(
+          dtdUri: 'ws://example.com/dtd',
+          expectError: true,
+        );
+        expect(result.isError, isTrue);
+        expect(
+          (result.content.first as TextContent).text,
+          contains('Refusing to connect to invalid DTD URI'),
+        );
       });
 
       test('Can list running DTD URIs', () async {
@@ -702,6 +718,9 @@ void main() {
                 ParameterNames.summaryOnly: true,
               },
             ),
+            retryUntil: (result) => result.content.any(
+              (c) => c is TextContent && c.text.contains('MyHomePage'),
+            ),
           );
 
           // Select the first child of the [root] widget.
@@ -1277,6 +1296,189 @@ void main() {
           await testHarness.stopDebugSession(debugSession);
         });
       });
+
+      test('can invoke VM service methods', () async {
+        final debugSession = await testHarness.startDebugSession(
+          dartCliAppsPath,
+          'bin/infinite_wait.dart',
+          isFlutter: false,
+        );
+        await debugSession.appProcess.stdout.next;
+
+        final isolateId = await _getIsolateId(testHarness);
+        final result = await testHarness.callToolWithRetry(
+          CallToolRequest(
+            name: ToolNames.vmService.name,
+            arguments: {
+              ParameterNames.command: 'callMethod',
+              ParameterNames.method: 'ext.test.echo',
+              ParameterNames.arguments: {'message': 'hello'},
+              ParameterNames.isolateId: isolateId,
+            },
+          ),
+        );
+
+        final content =
+            jsonDecode((result.content.single as TextContent).text)
+                as Map<String, Object?>;
+        expect(content['method'], 'ext.test.echo');
+        expect(content['parameters'], containsPair('message', 'hello'));
+
+        debugSession.appProcess.stdin.writeln('q');
+        await testHarness.stopDebugSession(debugSession);
+      });
+
+      test('calls and lists services registered by other clients', () async {
+        final debugSession = await testHarness.startDebugSession(
+          dartCliAppsPath,
+          'bin/infinite_wait.dart',
+          isFlutter: false,
+        );
+        await debugSession.appProcess.stdout.next;
+        // Make sure the server is connected to the app.
+        await _getIsolateId(testHarness);
+
+        const service = 'echoService';
+        Future<VmService> registerClient(String alias) async {
+          final client = await vmServiceConnectUri(
+            debugSession.vmServiceUri.toString(),
+          );
+          addTearDown(client.dispose);
+          client.registerServiceCallback(
+            service,
+            (params) async => {
+              'result': {'alias': alias, ...params},
+            },
+          );
+          await client.registerService(service, alias);
+          return client;
+        }
+
+        final callByServiceName = CallToolRequest(
+          name: ToolNames.vmService.name,
+          arguments: {
+            ParameterNames.command: VmServiceCommand.callMethod,
+            ParameterNames.method: service,
+            ParameterNames.arguments: {'message': 'hello'},
+          },
+        );
+
+        await registerClient('First client');
+        final result = await testHarness.callToolWithRetry(callByServiceName);
+        expect(
+          jsonDecode((result.content.single as TextContent).text),
+          allOf(
+            containsPair('alias', 'First client'),
+            containsPair('message', 'hello'),
+          ),
+        );
+
+        final listRequest = CallToolRequest(
+          name: ToolNames.vmService.name,
+          arguments: {
+            ParameterNames.command: VmServiceCommand.listRegisteredServices,
+          },
+        );
+        final listResult = await testHarness.callTool(listRequest);
+        expect(jsonDecode((listResult.content.single as TextContent).text), [
+          {
+            'service': service,
+            'method': endsWith('.$service'),
+            'alias': 'First client',
+          },
+        ]);
+
+        final second = await registerClient('Second client');
+        final ambiguousResult = await testHarness.callToolWithRetry(
+          callByServiceName,
+          expectError: true,
+        );
+        final ambiguousText =
+            (ambiguousResult.content.single as TextContent).text;
+        expect(ambiguousText, contains('Multiple clients registered'));
+        expect(ambiguousText, contains('(First client)'));
+        expect(ambiguousText, contains('(Second client)'));
+
+        // The namespaced method name still targets a specific client.
+        final services =
+            jsonDecode(
+                  ((await testHarness.callTool(listRequest)).content.single
+                          as TextContent)
+                      .text,
+                )
+                as List;
+        expect(services, hasLength(2));
+        final secondMethod =
+            (services.singleWhere((s) => (s as Map)['alias'] == 'Second client')
+                    as Map)['method']
+                as String;
+        final secondResult = await testHarness.callTool(
+          CallToolRequest(
+            name: ToolNames.vmService.name,
+            arguments: {
+              ParameterNames.command: VmServiceCommand.callMethod,
+              ParameterNames.method: secondMethod,
+            },
+          ),
+        );
+        expect(
+          jsonDecode((secondResult.content.single as TextContent).text),
+          containsPair('alias', 'Second client'),
+        );
+
+        // Once the second client goes away, the service name is unambiguous.
+        await second.dispose();
+        final afterDispose = await testHarness.callToolWithRetry(
+          callByServiceName,
+        );
+        expect(
+          jsonDecode((afterDispose.content.single as TextContent).text),
+          containsPair('alias', 'First client'),
+        );
+
+        debugSession.appProcess.stdin.writeln('q');
+        await testHarness.stopDebugSession(debugSession);
+      });
+
+      test('reports errors from VM service method calls', () async {
+        final debugSession = await testHarness.startDebugSession(
+          dartCliAppsPath,
+          'bin/infinite_wait.dart',
+          isFlutter: false,
+        );
+        await debugSession.appProcess.stdout.next;
+
+        final isolateId = await _getIsolateId(testHarness);
+        final result = await testHarness.callToolWithRetry(
+          CallToolRequest(
+            name: ToolNames.vmService.name,
+            arguments: {
+              ParameterNames.command: 'callMethod',
+              ParameterNames.method: 'ext.test.failure',
+              ParameterNames.arguments: {'message': 'hello'},
+              ParameterNames.isolateId: isolateId,
+            },
+          ),
+          expectError: true,
+          retryUntil: (r) => switch (r) {
+            CallToolResult(
+              isError: true,
+              content: [TextContent(text: final msg)],
+            ) =>
+              msg.contains('Something went wrong'),
+            _ => false,
+          },
+        );
+
+        expect(result.isError, true);
+        final content = (result.content.single as TextContent).text;
+        expect(content, contains('RPCError'));
+        expect(content, contains('ext.test.failure'));
+        expect(content, contains('Something went wrong'));
+
+        debugSession.appProcess.stdin.writeln('q');
+        await testHarness.stopDebugSession(debugSession);
+      });
     });
 
     test('Does not include flutter tools with --tools=dart', () async {
@@ -1378,6 +1580,137 @@ void main() {
     final retryResult = await testHarness.connectToDtd();
     expect(retryResult.isError, isNot(true));
   });
+
+  group('vmService tools', () {
+    test('can connect and disconnect directly to a VM service URI', () async {
+      final testHarness = await TestHarness.start(inProcess: true);
+      final debugSession = await testHarness.startDebugSession(
+        dartCliAppsPath,
+        'bin/infinite_wait.dart',
+        isFlutter: false,
+      );
+      await debugSession.appProcess.stdout.next;
+
+      // Connect
+      final connectResult = await testHarness.callTool(
+        CallToolRequest(
+          name: ToolNames.vmService.name,
+          arguments: {
+            ParameterNames.command: 'connect',
+            ParameterNames.appUri: debugSession.vmServiceUri.toString(),
+          },
+        ),
+      );
+
+      expect(connectResult.isError, isNot(true));
+      expect(
+        (connectResult.content.first as TextContent).text,
+        contains('Successfully connected'),
+      );
+
+      // Verify we can call a method (since it populates activeVmServices)
+      final isolateId = await _getIsolateId(testHarness);
+      final callResult = await testHarness.callToolWithRetry(
+        CallToolRequest(
+          name: ToolNames.vmService.name,
+          arguments: {
+            ParameterNames.command: 'callMethod',
+            ParameterNames.method: 'ext.test.echo',
+            ParameterNames.arguments: {'message': 'ping'},
+            ParameterNames.isolateId: isolateId,
+          },
+        ),
+      );
+      expect(callResult.isError, isNot(true));
+
+      // Disconnect
+      final disconnectResult = await testHarness.callTool(
+        CallToolRequest(
+          name: ToolNames.vmService.name,
+          arguments: {
+            ParameterNames.command: 'disconnect',
+            ParameterNames.appUri: debugSession.vmServiceUri.toString(),
+          },
+        ),
+      );
+      expect(disconnectResult.isError, isNot(true));
+      expect(
+        (disconnectResult.content.first as TextContent).text,
+        contains('Disconnected from'),
+      );
+
+      // Calling a method after disconnect should fail
+      final failResult = await testHarness.callToolWithRetry(
+        CallToolRequest(
+          name: ToolNames.vmService.name,
+          arguments: {
+            ParameterNames.command: 'callMethod',
+            ParameterNames.method: 'ext.test.echo',
+            ParameterNames.arguments: {'message': 'ping'},
+            ParameterNames.isolateId: isolateId,
+          },
+        ),
+        expectError: true,
+      );
+      expect(failResult.isError, isTrue);
+      expect(
+        (failResult.content.first as TextContent).text,
+        contains('No active app connection'),
+      );
+
+      debugSession.appProcess.stdin.writeln('q');
+      await testHarness.stopDebugSession(debugSession);
+    });
+
+    test('handles dropped VM service connections without hanging', () async {
+      final testHarness = await TestHarness.start(inProcess: true);
+      final debugSession = await testHarness.startDebugSession(
+        dartCliAppsPath,
+        'bin/infinite_wait.dart',
+        isFlutter: false,
+      );
+      await debugSession.appProcess.stdout.next;
+
+      final connectResult = await testHarness.callTool(
+        CallToolRequest(
+          name: ToolNames.vmService.name,
+          arguments: {
+            ParameterNames.command: 'connect',
+            ParameterNames.appUri: debugSession.vmServiceUri.toString(),
+          },
+        ),
+      );
+      expect(connectResult.isError, isNot(true));
+
+      // Simulate a dropped connection.
+      await testHarness.stopDebugSession(debugSession);
+
+      // Calling a method on a dropped VM service connection should fail and NOT
+      // hang.
+      final callResult = await testHarness.callTool(
+        CallToolRequest(
+          name: ToolNames.vmService.name,
+          arguments: {
+            ParameterNames.command: 'callMethod',
+            ParameterNames.method: 'ext.test.echo',
+            ParameterNames.arguments: {'message': 'ping'},
+            ParameterNames.isolateId: 'isolates/1',
+          },
+        ),
+        expectError: true,
+      );
+      expect(callResult.isError, isTrue);
+      expect(
+        (callResult.content.first as TextContent).text,
+        anyOf(
+          // If it got disconnected mid-call
+          contains('Service connection disposed'),
+          // If it was disposed prior to the call
+          contains('No active app connection'),
+        ),
+      );
+    });
+  });
 }
 
 extension on Iterable<Resource> {
@@ -1417,4 +1750,24 @@ Future<void> _deleteWithRetry(Directory dir) async {
       await Future<void>.delayed(const Duration(milliseconds: 200));
     }
   }
+}
+
+Future<String> _getIsolateId(TestHarness testHarness) async {
+  final getVmResponse = await testHarness.callTool(
+    CallToolRequest(
+      name: ToolNames.vmService.name,
+      arguments: {
+        ParameterNames.command: 'callMethod',
+        ParameterNames.method: 'getVM',
+      },
+    ),
+  );
+  if (getVmResponse case CallToolResult(
+    content: [TextContent(text: final text)],
+  )) {
+    if (jsonDecode(text) case {'isolates': [{'id': final String id}, ...]}) {
+      return id;
+    }
+  }
+  throw StateError('Failed to extract isolate ID from VM response');
 }

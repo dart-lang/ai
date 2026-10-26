@@ -18,16 +18,23 @@ extension type ListToolsRequest.fromMap(Map<String, Object?> _value)
 
 /// The server's response to a tools/list request from the client.
 extension type ListToolsResult.fromMap(Map<String, Object?> _value)
-    implements PaginatedResult {
+    implements PaginatedResult, CacheableResult {
   factory ListToolsResult({
     required List<Tool> tools,
     Cursor? nextCursor,
+    int? ttlMs,
+    CacheScope? cacheScope,
     Meta? meta,
-  }) => ListToolsResult.fromMap({
-    Keys.tools: tools,
-    if (nextCursor != null) Keys.nextCursor: nextCursor,
-    if (meta != null) Keys.meta: meta,
-  });
+  }) {
+    assert(ttlMs == null || ttlMs >= 0);
+    return ListToolsResult.fromMap({
+      Keys.tools: tools,
+      if (nextCursor != null) Keys.nextCursor: nextCursor,
+      if (ttlMs != null) Keys.ttlMs: ttlMs,
+      if (cacheScope != null) Keys.cacheScope: cacheScope.name,
+      if (meta != null) Keys.meta: meta,
+    });
+  }
 
   List<Tool> get tools {
     final tools = (_value[Keys.tools] as List?)?.cast<Tool>();
@@ -38,7 +45,23 @@ extension type ListToolsResult.fromMap(Map<String, Object?> _value)
   }
 }
 
-/// The server's response to a tool call.
+/// A response to a `tools/call` request, which is either a [CallToolResult]
+/// or an [InputRequiredResult].
+///
+/// Check [isInputRequired] and then cast to one of those.
+///
+/// This type is not intended to be constructed directly and thus has no public
+/// constructor.
+extension type CallToolResponse._fromMap(Map<String, Object?> _value)
+    implements Result {
+  /// A complete result with no input required.
+  static const callToolResult = CallToolResult.new;
+
+  /// A result that requires further input from the client.
+  static const inputRequiredResult = InputRequiredResult.new;
+}
+
+/// The server's completed response to a tool call.
 ///
 /// Any errors that originate from the tool SHOULD be reported inside the result
 /// object, with `isError` set to true, _not_ as an MCP protocol-level error
@@ -49,7 +72,7 @@ extension type ListToolsResult.fromMap(Map<String, Object?> _value)
 /// server does not support tool calls, or any other exceptional conditions,
 /// should be reported as an MCP error response.
 extension type CallToolResult.fromMap(Map<String, Object?> _value)
-    implements Result {
+    implements CallToolResponse {
   factory CallToolResult({
     Meta? meta,
     required List<Content> content,
@@ -85,16 +108,20 @@ extension type CallToolResult.fromMap(Map<String, Object?> _value)
 
 /// Used by the client to invoke a tool provided by the server.
 extension type CallToolRequest._fromMap(Map<String, Object?> _value)
-    implements Request {
+    implements WithInputResponses {
   static const methodName = 'tools/call';
 
   factory CallToolRequest({
     required String name,
     Map<String, Object?>? arguments,
+    Map<String, Result>? inputResponses,
+    String? requestState,
     MetaWithProgressToken? meta,
   }) => CallToolRequest._fromMap({
     Keys.name: name,
     if (arguments != null) Keys.arguments: arguments,
+    if (inputResponses != null) Keys.inputResponses: inputResponses,
+    if (requestState != null) Keys.requestState: requestState,
     if (meta != null) Keys.meta: meta,
   });
 
@@ -1113,7 +1140,7 @@ extension type const StringSchema.fromMap(Map<String, Object?> _value)
     if (pattern != null) Keys.pattern: pattern,
     if (defaultValue != null) Keys.default_: defaultValue,
     if (format != null) Keys.format: format.name,
-    if (enumValues != null) Keys.enum_: enumValues,
+    if (enumValues != null) Keys.enum_: enumValues.toList(growable: false),
   });
 
   /// The minimum allowed length of this String.
@@ -1262,6 +1289,33 @@ extension type EnumSchema.fromMap(Map<String, Object?> _value)
   bool get isTitledMultiSelect =>
       type == JsonType.list &&
       (_value[Keys.items] as Map?)?[Keys.anyOf] != null;
+
+  /// Whether or not this schema is a multi-select enum matching what
+  /// [UntitledMultiSelectEnumSchema.new] and [TitledMultiSelectEnumSchema.new]
+  /// write.
+  ///
+  /// [isUntitledMultiSelect] and [isTitledMultiSelect] stop at the key `items`
+  /// carries, and still hold where reading `values` would throw.
+  bool get isWellFormedMultiSelect {
+    final items = _value[Keys.items];
+    if (items is! Map) return false;
+    if (isUntitledMultiSelect) {
+      if (items[Keys.type] != JsonType.string.typeName) return false;
+      final values = items[Keys.enum_];
+      return values is List && values.every((value) => value is String);
+    }
+    if (isTitledMultiSelect) {
+      final values = items[Keys.anyOf];
+      return values is List &&
+          values.every(
+            (value) =>
+                value is Map &&
+                value[Keys.const_] is String &&
+                value[Keys.title] is String,
+          );
+    }
+    return false;
+  }
 }
 
 /// Common properties for single-select enum schemas.
@@ -1281,11 +1335,11 @@ extension type UntitledSingleSelectEnumSchema.fromMap(
     String? defaultValue,
     required Iterable<String> values,
   }) => UntitledSingleSelectEnumSchema.fromMap({
-    'type': JsonType.string.typeName,
-    if (title != null) 'title': title,
-    if (description != null) 'description': description,
+    Keys.type: JsonType.string.typeName,
+    if (title != null) Keys.title: title,
+    if (description != null) Keys.description: description,
     if (defaultValue != null) Keys.default_: defaultValue,
-    Keys.enum_: values,
+    Keys.enum_: values.toList(growable: false),
   });
 
   /// The allowed enum values.
@@ -1311,11 +1365,11 @@ extension type TitledSingleSelectEnumSchema.fromMap(Map<String, Object?> _value)
     String? defaultValue,
     required Iterable<EnumValueWithTitle> values,
   }) => TitledSingleSelectEnumSchema.fromMap({
-    'type': JsonType.string.typeName,
-    if (title != null) 'title': title,
-    if (description != null) 'description': description,
+    Keys.type: JsonType.string.typeName,
+    if (title != null) Keys.title: title,
+    if (description != null) Keys.description: description,
     if (defaultValue != null) Keys.default_: defaultValue,
-    Keys.oneOf: values,
+    Keys.oneOf: values.toList(growable: false),
   });
 
   Iterable<EnumValueWithTitle> get values {
@@ -1358,13 +1412,17 @@ extension type UntitledMultiSelectEnumSchema.fromMap(
     int? maxItems,
     required Iterable<String> values,
   }) => UntitledMultiSelectEnumSchema.fromMap({
-    'type': JsonType.list.typeName,
-    if (title != null) 'title': title,
-    if (description != null) 'description': description,
-    if (defaultValue != null) 'default': defaultValue,
-    if (minItems != null) 'minItems': minItems,
+    Keys.type: JsonType.list.typeName,
+    if (title != null) Keys.title: title,
+    if (description != null) Keys.description: description,
+    if (defaultValue != null)
+      Keys.default_: defaultValue.toList(growable: false),
+    if (minItems != null) Keys.minItems: minItems,
     if (maxItems != null) Keys.maxItems: maxItems,
-    Keys.items: {Keys.enum_: values, Keys.type: JsonType.string.typeName},
+    Keys.items: {
+      Keys.enum_: values.toList(growable: false),
+      Keys.type: JsonType.string.typeName,
+    },
   });
 
   /// The allowed enum values.
@@ -1397,10 +1455,11 @@ extension type TitledMultiSelectEnumSchema.fromMap(Map<String, Object?> _value)
     Keys.type: JsonType.list.typeName,
     if (title != null) Keys.title: title,
     if (description != null) Keys.description: description,
-    if (defaultValue != null) Keys.default_: defaultValue,
+    if (defaultValue != null)
+      Keys.default_: defaultValue.toList(growable: false),
     if (minItems != null) Keys.minItems: minItems,
     if (maxItems != null) Keys.maxItems: maxItems,
-    Keys.items: {Keys.anyOf: values},
+    Keys.items: {Keys.anyOf: values.toList(growable: false)},
   });
 
   /// The allowed enum values.
@@ -1448,10 +1507,12 @@ extension type NumberSchema.fromMap(Map<String, Object?> _value)
     num? exclusiveMinimum,
     num? exclusiveMaximum,
     num? multipleOf,
+    num? defaultValue,
   }) => NumberSchema.fromMap({
     Keys.type: JsonType.num.typeName,
     if (title != null) Keys.title: title,
     if (description != null) Keys.description: description,
+    if (defaultValue != null) Keys.default_: defaultValue,
     if (minimum != null) Keys.minimum: minimum,
     if (maximum != null) Keys.maximum: maximum,
     if (exclusiveMinimum != null) Keys.exclusiveMinimum: exclusiveMinimum,
@@ -1473,6 +1534,9 @@ extension type NumberSchema.fromMap(Map<String, Object?> _value)
 
   /// The value must be a multiple of this number.
   num? get multipleOf => _value[Keys.multipleOf] as num?;
+
+  /// The default value for this schema.
+  num? get defaultValue => _value[Keys.default_] as num?;
 
   bool _validateNumber(
     Object? data,
@@ -1555,15 +1619,17 @@ extension type IntegerSchema.fromMap(Map<String, Object?> _value)
   factory IntegerSchema({
     String? title,
     String? description,
-    int? minimum,
-    int? maximum,
-    int? exclusiveMinimum,
-    int? exclusiveMaximum,
+    num? minimum,
+    num? maximum,
+    num? exclusiveMinimum,
+    num? exclusiveMaximum,
     num? multipleOf,
+    num? defaultValue,
   }) => IntegerSchema.fromMap({
     Keys.type: JsonType.int.typeName,
     if (title != null) Keys.title: title,
     if (description != null) Keys.description: description,
+    if (defaultValue != null) Keys.default_: defaultValue,
     if (minimum != null) Keys.minimum: minimum,
     if (maximum != null) Keys.maximum: maximum,
     if (exclusiveMinimum != null) Keys.exclusiveMinimum: exclusiveMinimum,
@@ -1572,19 +1638,22 @@ extension type IntegerSchema.fromMap(Map<String, Object?> _value)
   });
 
   /// The minimum value (inclusive) for this integer.
-  int? get minimum => _value[Keys.minimum] as int?;
+  num? get minimum => _value[Keys.minimum] as num?;
 
   /// The maximum value (inclusive) for this integer.
-  int? get maximum => _value[Keys.maximum] as int?;
+  num? get maximum => _value[Keys.maximum] as num?;
 
   /// The minimum value (exclusive) for this integer.
-  int? get exclusiveMinimum => _value[Keys.exclusiveMinimum] as int?;
+  num? get exclusiveMinimum => _value[Keys.exclusiveMinimum] as num?;
 
   /// The maximum value (exclusive) for this integer.
-  int? get exclusiveMaximum => _value[Keys.exclusiveMaximum] as int?;
+  num? get exclusiveMaximum => _value[Keys.exclusiveMaximum] as num?;
 
   /// The value must be a multiple of this number.
   num? get multipleOf => _value[Keys.multipleOf] as num?;
+
+  /// The default value for this schema.
+  num? get defaultValue => _value[Keys.default_] as num?;
 
   bool _validateInteger(
     Object? data,
@@ -1676,12 +1745,19 @@ extension type IntegerSchema.fromMap(Map<String, Object?> _value)
 /// A JSON Schema definition for a [bool].
 extension type BooleanSchema.fromMap(Map<String, Object?> _value)
     implements Schema {
-  factory BooleanSchema({String? title, String? description}) =>
-      BooleanSchema.fromMap({
-        Keys.type: JsonType.bool.typeName,
-        if (title != null) Keys.title: title,
-        if (description != null) Keys.description: description,
-      });
+  factory BooleanSchema({
+    String? title,
+    String? description,
+    bool? defaultValue,
+  }) => BooleanSchema.fromMap({
+    Keys.type: JsonType.bool.typeName,
+    if (title != null) Keys.title: title,
+    if (description != null) Keys.description: description,
+    if (defaultValue != null) Keys.default_: defaultValue,
+  });
+
+  /// The default value for this schema.
+  bool? get defaultValue => _value[Keys.default_] as bool?;
 }
 
 /// A JSON Schema definition for `null`.
@@ -1868,24 +1944,31 @@ extension type ListSchema.fromMap(Map<String, Object?> _value)
       );
     }
 
-    if (uniqueItems == true && data.toSet().length != data.length) {
-      final seenItems = <Object?>{};
-      final duplicates = <Object?>{};
-      for (final item in data) {
-        if (seenItems.contains(item)) {
-          duplicates.add(item);
-        } else {
-          seenItems.add(item);
-        }
-      }
-      isValid = false;
-      accumulatedFailures.add(
-        ValidationError(
-          ValidationErrorType.uniqueItemsViolated,
-          path: currentPath,
-          details: 'List contains duplicate items: ${duplicates.join(', ')}',
-        ),
+    if (uniqueItems == true) {
+      // JSON Schema compares items by instance equality, which is structural
+      // for arrays and objects, so `==` is not enough for decoded JSON.
+      const equality = DeepCollectionEquality();
+      final seenItems = LinkedHashSet<Object?>(
+        equals: equality.equals,
+        hashCode: equality.hash,
       );
+      final duplicates = LinkedHashSet<Object?>(
+        equals: equality.equals,
+        hashCode: equality.hash,
+      );
+      for (final item in data) {
+        if (!seenItems.add(item)) duplicates.add(item);
+      }
+      if (duplicates.isNotEmpty) {
+        isValid = false;
+        accumulatedFailures.add(
+          ValidationError(
+            ValidationErrorType.uniqueItemsViolated,
+            path: currentPath,
+            details: 'List contains duplicate items: ${duplicates.join(', ')}',
+          ),
+        );
+      }
     }
 
     final evaluatedItems = List<bool>.filled(data.length, false);

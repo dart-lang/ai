@@ -4,6 +4,64 @@
 
 part of 'api.dart';
 
+/// One extension identifier: a prefix of dot separated labels, a slash, and a
+/// name which may be empty.
+///
+/// A label starts with a letter and ends with a letter or digit, with letters,
+/// digits and hyphens in between. A name which is not empty starts and ends
+/// with an alphanumeric character, with alphanumerics, hyphens, underscores
+/// and dots in between. These are the `_meta` key naming rules, except that
+/// the prefix a `_meta` key may leave out is required here.
+///
+/// Read 2026-09-07 from
+/// https://modelcontextprotocol.io/specification/2026-07-28/schema#metaobject.
+final _extensionIdentifierPattern = RegExp(
+  r'^[A-Za-z](?:[A-Za-z0-9-]*[A-Za-z0-9])?'
+  r'(?:\.[A-Za-z](?:[A-Za-z0-9-]*[A-Za-z0-9])?)*'
+  r'/(?:[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?)?$',
+);
+
+/// Throws an [ArgumentError] unless [extensions] is a map keyed by extension
+/// identifiers.
+///
+/// Reads [extensions] and leaves it alone, so a caller keeps the map it
+/// passed in and the settings under each identifier.
+void _validateExtensions(Object? extensions) {
+  if (extensions is! Map) {
+    throw ArgumentError.value(
+      extensions,
+      'extensions',
+      'Must be a map keyed by extension identifiers',
+    );
+  }
+  for (final identifier in extensions.keys) {
+    if (identifier is! String ||
+        !_extensionIdentifierPattern.hasMatch(identifier)) {
+      throw ArgumentError.value(
+        identifier,
+        'extensions',
+        'Must use the vendor-prefix/extension-name format',
+      );
+    }
+  }
+}
+
+/// Throws an [ArgumentError] unless the extensions in [capabilities] are
+/// valid.
+void _validateCapabilityMap(Map<String, Object?> capabilities) {
+  if (capabilities.containsKey(Keys.extensions)) {
+    _validateExtensions(capabilities[Keys.extensions]);
+  }
+}
+
+ClientCapabilities _validatedClientCapabilities(
+  ClientCapabilities capabilities,
+) => ClientCapabilities.fromMap(capabilities._value);
+
+ServerCapabilities _validatedServerCapabilities(
+  ServerCapabilities capabilities,
+) => ServerCapabilities.fromMap(capabilities._value);
+
 /// This request is sent from the client to the server when it first connects,
 /// asking it to begin initialization.
 extension type InitializeRequest._fromMap(Map<String, Object?> _value)
@@ -17,7 +75,7 @@ extension type InitializeRequest._fromMap(Map<String, Object?> _value)
     MetaWithProgressToken? meta,
   }) => InitializeRequest._fromMap({
     Keys.protocolVersion: protocolVersion.versionString,
-    Keys.capabilities: capabilities,
+    Keys.capabilities: _validatedClientCapabilities(capabilities),
     Keys.clientInfo: clientInfo,
     if (meta != null) Keys.meta: meta,
   });
@@ -31,11 +89,11 @@ extension type InitializeRequest._fromMap(Map<String, Object?> _value)
       ProtocolVersion.tryParse(_value[Keys.protocolVersion] as String? ?? '');
 
   ClientCapabilities get capabilities {
-    final capabilities = _value[Keys.capabilities] as ClientCapabilities?;
+    final capabilities = _value[Keys.capabilities] as Map<String, Object?>?;
     if (capabilities == null) {
       throw ArgumentError('Missing capabilities field in $InitializeRequest.');
     }
-    return capabilities;
+    return ClientCapabilities.fromMap(capabilities);
   }
 
   Implementation get clientInfo {
@@ -58,7 +116,7 @@ extension type InitializeResult.fromMap(Map<String, Object?> _value)
     String? instructions,
   }) => InitializeResult.fromMap({
     Keys.protocolVersion: protocolVersion.versionString,
-    Keys.capabilities: serverCapabilities,
+    Keys.capabilities: _validatedServerCapabilities(serverCapabilities),
     Keys.serverInfo: serverInfo,
     if (instructions != null) Keys.instructions: instructions,
   });
@@ -81,8 +139,9 @@ extension type InitializeResult.fromMap(Map<String, Object?> _value)
     _value[Keys.protocolVersion] = value!.versionString;
   }
 
-  ServerCapabilities get capabilities =>
-      _value[Keys.capabilities] as ServerCapabilities;
+  ServerCapabilities get capabilities => ServerCapabilities.fromMap(
+    _value[Keys.capabilities] as Map<String, Object?>,
+  );
 
   Implementation get serverInfo => _value[Keys.serverInfo] as Implementation;
 
@@ -104,21 +163,128 @@ extension type InitializedNotification.fromMap(Map<String, Object?> _value)
       InitializedNotification.fromMap({if (meta != null) Keys.meta: meta});
 }
 
+/// A [Meta] object carrying the envelope keys a request on the 2026-07-28
+/// revision sends.
+///
+/// Has arbitrary other keys.
+extension type MetaWithRequestEnvelope.fromMap(Map<String, Object?> _value)
+    implements MetaWithProgressToken {
+  factory MetaWithRequestEnvelope({
+    required ProtocolVersion protocolVersion,
+    required ClientCapabilities capabilities,
+    Implementation? clientInfo,
+    LoggingLevel? logLevel,
+    ProgressToken? progressToken,
+  }) => MetaWithRequestEnvelope.fromMap({
+    Keys.protocolVersionMeta: protocolVersion.versionString,
+    Keys.clientCapabilitiesMeta: _validatedClientCapabilities(capabilities),
+    if (clientInfo != null) Keys.clientInfoMeta: clientInfo,
+    if (logLevel != null) Keys.logLevelMeta: logLevel.name,
+    if (progressToken != null) Keys.progressToken: progressToken,
+  });
+}
+
+/// A request from the client asking the server to advertise its supported
+/// protocol versions, capabilities, and other metadata.
+///
+/// Servers on protocol version 2026-07-28 MUST implement this method. Clients
+/// MAY call it but are not required to: a client can also send any request
+/// inline and handle the error if the server does not support the version it
+/// asked for.
+///
+/// It has no parameters of its own beyond the `_meta` envelope that every
+/// request on this revision sends.
+extension type DiscoverRequest.fromMap(Map<String, Object?> _value)
+    implements Request {
+  static const methodName = 'server/discover';
+
+  factory DiscoverRequest({MetaWithProgressToken? meta}) =>
+      DiscoverRequest.fromMap({if (meta != null) Keys.meta: meta});
+}
+
+/// The server's response to a [DiscoverRequest] from the client.
+extension type DiscoverResult.fromMap(Map<String, Object?> _value)
+    implements CacheableResult {
+  factory DiscoverResult({
+    required List<String> supportedVersions,
+    required ServerCapabilities capabilities,
+    String? instructions,
+    int? ttlMs,
+    CacheScope? cacheScope,
+    Meta? meta,
+  }) {
+    assert(ttlMs == null || ttlMs >= 0);
+    return DiscoverResult.fromMap({
+      Keys.supportedVersions: supportedVersions,
+      Keys.capabilities: _validatedServerCapabilities(capabilities),
+      if (instructions != null) Keys.instructions: instructions,
+      if (ttlMs != null) Keys.ttlMs: ttlMs,
+      if (cacheScope != null) Keys.cacheScope: cacheScope.name,
+      if (meta != null) Keys.meta: meta,
+    });
+  }
+
+  /// The protocol versions this server supports.
+  ///
+  /// The client should choose one of these to use for its subsequent
+  /// requests.
+  ///
+  /// These are the version strings as they appear on the wire rather than
+  /// [ProtocolVersion] values. That enum is a closed set, so a version this
+  /// package does not know would be dropped from the list the client is
+  /// choosing between.
+  List<String> get supportedVersions {
+    final supportedVersions = _value[Keys.supportedVersions] as List?;
+    if (supportedVersions == null) {
+      throw ArgumentError(
+        'Missing supportedVersions field in $DiscoverResult.',
+      );
+    }
+    return supportedVersions.cast<String>();
+  }
+
+  /// The capabilities of the server.
+  ServerCapabilities get capabilities {
+    final capabilities = _value[Keys.capabilities] as Map<String, Object?>?;
+    if (capabilities == null) {
+      throw ArgumentError('Missing capabilities field in $DiscoverResult.');
+    }
+    return ServerCapabilities.fromMap(capabilities);
+  }
+
+  /// Natural-language guidance describing the server and its features.
+  ///
+  /// This can be used by clients to improve an LLM's understanding of
+  /// available tools, for instance by including it in a system prompt. It
+  /// should focus on information that helps the model use the server
+  /// effectively, and should not duplicate information already in tool
+  /// descriptions.
+  String? get instructions => _value[Keys.instructions] as String?;
+}
+
 /// Capabilities a client may support.
 ///
 /// Known capabilities are defined here, in this schema, but this is not a
 /// closed set: any client can define its own, additional capabilities.
-extension type ClientCapabilities.fromMap(Map<String, Object?> _value) {
+extension type ClientCapabilities._fromMap(Map<String, Object?> _value) {
+  /// Wraps [value], which stays the map this reads and writes through.
+  factory ClientCapabilities.fromMap(Map<String, Object?> value) {
+    _validateCapabilityMap(value);
+    return ClientCapabilities._fromMap(value);
+  }
+
   factory ClientCapabilities({
     Map<String, Object?>? experimental,
     RootsCapabilities? roots,
     Map<String, Object?>? sampling,
     ElicitationCapability? elicitation,
+    Map<String, Object?>? extensions,
   }) => ClientCapabilities.fromMap({
     if (experimental != null) Keys.experimental: experimental,
     if (roots != null) Keys.roots: roots,
     if (sampling != null) Keys.sampling: sampling,
     if (elicitation != null) Keys.elicitation: elicitation,
+    if (extensions != null) Keys.extensions: extensions,
   });
 
   /// Experimental, non-standard capabilities that the client supports.
@@ -158,6 +324,30 @@ extension type ClientCapabilities.fromMap(Map<String, Object?> _value) {
   set elicitation(ElicitationCapability? value) {
     assert(elicitation == null);
     _value[Keys.elicitation] = value;
+  }
+
+  /// Optional MCP extensions that the client supports.
+  ///
+  /// Keys are extension identifiers in the `{vendor-prefix}/{extension-name}`
+  /// format, such as `io.modelcontextprotocol/oauth-client-credentials`, and
+  /// values are per-extension settings objects. An empty object indicates
+  /// support with no settings.
+  Map<String, Object?>? get extensions {
+    if (!_value.containsKey(Keys.extensions)) return null;
+    final extensions = _value[Keys.extensions];
+    _validateExtensions(extensions);
+    return (extensions as Map).cast<String, Object?>();
+  }
+
+  /// Sets [extensions], asserting it is null first.
+  set extensions(Map<String, Object?>? value) {
+    assert(extensions == null);
+    if (value == null) {
+      _value.remove(Keys.extensions);
+    } else {
+      _validateExtensions(value);
+      _value[Keys.extensions] = value;
+    }
   }
 }
 
@@ -210,7 +400,13 @@ extension type ElicitationCapability.fromMap(Map<String, Object?> _value) {
 ///
 /// Known capabilities are defined here, in this schema, but this is not a
 /// closed set: any server can define its own, additional capabilities.
-extension type ServerCapabilities.fromMap(Map<String, Object?> _value) {
+extension type ServerCapabilities._fromMap(Map<String, Object?> _value) {
+  /// Wraps [value], which stays the map this reads and writes through.
+  factory ServerCapabilities.fromMap(Map<String, Object?> value) {
+    _validateCapabilityMap(value);
+    return ServerCapabilities._fromMap(value);
+  }
+
   factory ServerCapabilities({
     Map<String, Object?>? experimental,
     Completions? completions,
@@ -220,13 +416,16 @@ extension type ServerCapabilities.fromMap(Map<String, Object?> _value) {
     Tools? tools,
     @Deprecated('Do not use, only clients have this capability')
     Elicitation? elicitation,
+    Map<String, Object?>? extensions,
   }) => ServerCapabilities.fromMap({
     if (experimental != null) Keys.experimental: experimental,
+    if (completions != null) Keys.completions: completions,
     if (logging != null) Keys.logging: logging,
     if (prompts != null) Keys.prompts: prompts,
     if (resources != null) Keys.resources: resources,
     if (tools != null) Keys.tools: tools,
     if (elicitation != null) Keys.elicitation: elicitation,
+    if (extensions != null) Keys.extensions: extensions,
   });
 
   /// Experimental, non-standard capabilities that the server supports.
@@ -294,6 +493,30 @@ extension type ServerCapabilities.fromMap(Map<String, Object?> _value) {
   set elicitation(Elicitation? value) {
     assert(elicitation == null);
     _value[Keys.elicitation] = value;
+  }
+
+  /// Optional MCP extensions that the server supports.
+  ///
+  /// Keys are extension identifiers in the `{vendor-prefix}/{extension-name}`
+  /// format, such as `io.modelcontextprotocol/tasks`, and values are
+  /// per-extension settings objects. An empty object indicates support with
+  /// no settings.
+  Map<String, Object?>? get extensions {
+    if (!_value.containsKey(Keys.extensions)) return null;
+    final extensions = _value[Keys.extensions];
+    _validateExtensions(extensions);
+    return (extensions as Map).cast<String, Object?>();
+  }
+
+  /// Sets [extensions] if it is null, otherwise throws.
+  set extensions(Map<String, Object?>? value) {
+    assert(extensions == null);
+    if (value == null) {
+      _value.remove(Keys.extensions);
+    } else {
+      _validateExtensions(value);
+      _value[Keys.extensions] = value;
+    }
   }
 }
 

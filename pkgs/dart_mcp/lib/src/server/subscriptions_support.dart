@@ -1,0 +1,215 @@
+// Copyright (c) 2026, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+part of 'server.dart';
+
+/// A mixin for MCP servers which serve `subscriptions/listen` requests.
+///
+/// Stamps the subscription ID on the acknowledgement and holds the request
+/// until shutdown. A `package:json_rpc_2` handler does not receive that ID,
+/// so a transport sets [nextSubscriptionId] before delivering the request.
+/// [handleRequestScopedMessage] does. A request without one is refused.
+///
+/// See https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/subscriptions.
+base mixin SubscriptionsSupport on MCPServer {
+  /// Ends each open subscription, under the ID it was opened with.
+  final Map<RequestId, Completer<void>> _subscriptions = {};
+
+  /// The first [shutdown] call, which every later one waits on.
+  Completer<void>? _shutdown;
+
+  /// Listens for cancellations naming one of [_subscriptions].
+  StreamSubscription<CancelledNotification>? _cancellationSubscription;
+
+  /// The ID the next `subscriptions/listen` request opens its subscription
+  /// under.
+  ///
+  /// A handler cannot read the JSON-RPC ID of the request it answers, and a
+  /// subscription is named by that ID. The transport serving the request sets
+  /// this before delivering it. Leaving it `null` refuses the request.
+  RequestId? nextSubscriptionId;
+
+  /// Advertises every registered capability, since this server serves the
+  /// `subscriptions/listen` requests a client opens to hear those
+  /// notifications on. The copy keeps the advertisement off server state.
+  @override
+  ServerCapabilities get advertisedCapabilities =>
+      ServerCapabilities.fromMap({...capabilities as Map<String, Object?>});
+
+  @override
+  FutureOr<void> initialize(MCPServerInitialization initialization) async {
+    if (initialization.protocolVersion.methodIsValid(
+      SubscriptionsListenRequest.methodName,
+    )) {
+      registerRequestHandler(
+        SubscriptionsListenRequest.methodName,
+        handleSubscriptionsListen,
+      );
+      // A cancellation for a listen request ends that subscription. Without
+      // this the handler waits until shutdown, its response never leaves, and
+      // the connection keeps the cancellation retained for a request that is
+      // never answered.
+      _cancellationSubscription = cancellations.listen((notification) {
+        final id = notification.requestId;
+        if (id == null) return;
+        final subscription = _subscriptions[id];
+        if (subscription != null && !subscription.isCompleted) {
+          subscription.complete();
+        }
+      });
+    }
+
+    await super.initialize(initialization);
+  }
+
+  /// Ends every open subscription before closing the connection, so each of
+  /// their requests gets the response the specification asks a server tearing
+  /// a subscription down to send.
+  @override
+  Future<void> shutdown() async {
+    if (_shutdown case final pending?) return pending.future;
+    final shutdown = _shutdown = Completer<void>();
+    // A later caller awaits this and sees the error; on the first call the
+    // error also travels up the `rethrow` below, so nothing has to listen.
+    shutdown.future.ignore();
+    try {
+      final open = _subscriptions.values.toList();
+      _subscriptions.clear();
+      for (final subscription in open) {
+        if (!subscription.isCompleted) subscription.complete();
+      }
+      await _cancellationSubscription?.cancel();
+      if (open.isNotEmpty && isActive) {
+        // `package:json_rpc_2` writes each response in a microtask once its
+        // handler returns, and drops it when the connection is already
+        // closed. An event loop turn runs every pending microtask, so the
+        // responses are out before `super.shutdown()` closes the connection.
+        await Future<void>.delayed(Duration.zero);
+      }
+      await super.shutdown();
+      shutdown.complete();
+    } catch (error, stackTrace) {
+      shutdown.completeError(error, stackTrace);
+      rethrow;
+    }
+  }
+
+  /// Acknowledges [request] and keeps it open until the server shuts down.
+  ///
+  /// The acknowledgement and the result both carry the subscription ID under
+  /// `io.modelcontextprotocol/subscriptionId`. On a server with
+  /// [ResourcesSupport], every URI the acknowledged `resourceSubscriptions`
+  /// filter names starts sending [ResourceUpdatedNotification]s, so that
+  /// [ResourcesSupport.updateResource] reaches the client that asked for it.
+  ///
+  /// Throws an [RpcException] with `-32602` if the filter is not the shape
+  /// the schema describes, and `-32600` if [nextSubscriptionId] is missing
+  /// or already names an open subscription.
+  FutureOr<SubscriptionsListenResult> handleSubscriptionsListen(
+    SubscriptionsListenRequest request,
+  ) async {
+    final subscriptionId = nextSubscriptionId;
+    nextSubscriptionId = null;
+    final fields = request as Map<String, Object?>;
+    final notifications = fields[Keys.notifications];
+    if (notifications is! Map<String, Object?>) {
+      throw RpcException.invalidParams(
+        'The `${Keys.notifications}` field got `$notifications`, but must be '
+        'a JSON object.',
+      );
+    }
+    for (final key in [
+      Keys.toolsListChanged,
+      Keys.promptsListChanged,
+      Keys.resourcesListChanged,
+    ]) {
+      final value = notifications[key];
+      if (notifications.containsKey(key) && value is! bool) {
+        throw RpcException.invalidParams(
+          'The `$key` filter got `$value`, but only allows `true`, `false`, '
+          'or omission.',
+        );
+      }
+    }
+    final resourceSubscriptions = notifications[Keys.resourceSubscriptions];
+    if (notifications.containsKey(Keys.resourceSubscriptions) &&
+        (resourceSubscriptions is! List ||
+            resourceSubscriptions.any((uri) => uri is! String))) {
+      throw RpcException.invalidParams(
+        'The `${Keys.resourceSubscriptions}` filter got '
+        '`$resourceSubscriptions`, but must be a list of string URIs.',
+      );
+    }
+    final requested = SubscriptionFilter.fromMap(notifications);
+    final requestedResources = (resourceSubscriptions as List?)
+        ?.cast<String>()
+        .toList(growable: false);
+    final accepted = SubscriptionFilter(
+      toolsListChanged:
+          requested.toolsListChanged == true &&
+                  capabilities.tools?.listChanged == true
+              ? true
+              : null,
+      promptsListChanged:
+          requested.promptsListChanged == true &&
+                  capabilities.prompts?.listChanged == true
+              ? true
+              : null,
+      resourcesListChanged:
+          requested.resourcesListChanged == true &&
+                  capabilities.resources?.listChanged == true
+              ? true
+              : null,
+      resourceSubscriptions:
+          capabilities.resources?.subscribe == true &&
+                  requestedResources?.isNotEmpty == true
+              ? requestedResources
+              : null,
+    );
+    if (subscriptionId == null) {
+      throw RpcException(
+        error_code.INVALID_REQUEST,
+        'A `${SubscriptionsListenRequest.methodName}` subscription is named '
+        'by the JSON-RPC ID of the request which opens it, and this server '
+        'was given no ID to name this one by.',
+      );
+    }
+    if (_subscriptions.containsKey(subscriptionId)) {
+      throw RpcException(
+        error_code.INVALID_REQUEST,
+        'A `${SubscriptionsListenRequest.methodName}` subscription is already '
+        'open under this request ID.',
+      );
+    }
+    final subscriptionEnd = Completer<void>();
+    _subscriptions[subscriptionId] = subscriptionEnd;
+    final resourceUris = {...?accepted.resourceSubscriptions};
+    try {
+      if (this case final ResourcesSupport resources) {
+        for (final uri in resourceUris) {
+          resources._sendUpdatesFor(uri, subscriptionId: subscriptionId);
+        }
+      }
+      sendNotification(
+        SubscriptionsAcknowledgedNotification.methodName,
+        SubscriptionsAcknowledgedNotification(
+          notifications: accepted,
+          meta: MetaWithSubscriptionId(subscriptionId: subscriptionId),
+        ),
+      );
+      await subscriptionEnd.future;
+      return SubscriptionsListenResult(
+        meta: MetaWithSubscriptionId(subscriptionId: subscriptionId),
+      );
+    } finally {
+      _subscriptions.remove(subscriptionId);
+      if (this case final ResourcesSupport resources) {
+        await [
+          for (final uri in resourceUris)
+            resources._stopUpdatesFor(uri, subscriptionId: subscriptionId),
+        ].wait;
+      }
+    }
+  }
+}

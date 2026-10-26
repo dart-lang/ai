@@ -93,9 +93,12 @@ final class DartMCPServer extends MCPServer
                'agents.',
            version: version,
          ),
-         instructions: '''
-This server exposes resources for Flutter and Dart development. Be sure to
-list these resources especially when dealing with errors or unfamiliar packages.
+         instructions:
+             '''
+After completing Dart/Flutter code changes, always execute a hot reload or
+hot restart. If you are not connected yet to an app, use the
+`${DartToolingDaemonSupport.dtdTool.name}` tool to proactively discover and
+connect to apps.
 
 Whenever attempting to investigate a package dependency, use the
 `read_package_uris` and `rip_grep_packages` tools to explore their files.
@@ -109,8 +112,8 @@ package.
 
   /// The version of the MCP server.
   ///
-  /// Should match the version in the CHANGELOG.md.
-  static final version = '0.1.4';
+  /// Should match the version in `pubspec.yaml` and `CHANGELOG.md`.
+  static final version = '1.2.1';
 
   /// Runs the MCP server given command line arguments and an optional
   /// [Analytics] instance.
@@ -137,11 +140,6 @@ package.
     }
 
     DartMCPServer? server;
-    final dartSdkPath =
-        parsedArgs.option(dartSdkOption) ?? io.Platform.environment['DART_SDK'];
-    final flutterSdkPath =
-        parsedArgs.option(flutterSdkOption) ??
-        io.Platform.environment['FLUTTER_SDK'];
     final logFilePath = parsedArgs.option(logFileOption);
     final logFileSink = logFilePath == null
         ? null
@@ -152,8 +150,8 @@ package.
           channel ?? stdioChannel(input: io.stdin, output: io.stdout),
           featuresConfig: FeaturesConfiguration.fromArgs(parsedArgs),
           sdk: Sdk.find(
-            dartSdkPath: dartSdkPath,
-            flutterSdkPath: flutterSdkPath,
+            dartSdkPath: parsedArgs.option(dartSdkOption),
+            flutterSdkPath: parsedArgs.option(flutterSdkOption),
           ),
           analytics: analytics,
           protocolLogSink: logFileSink,

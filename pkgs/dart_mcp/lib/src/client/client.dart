@@ -5,7 +5,9 @@
 import 'dart:async';
 import 'dart:collection';
 
-import 'package:async/async.dart';
+import 'package:async/async.dart' show StreamExtensions;
+import 'package:collection/collection.dart';
+import 'package:json_rpc_2/error_code.dart' as error_code;
 import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_channel/stream_channel.dart';
@@ -13,10 +15,13 @@ import 'package:stream_channel/stream_channel.dart';
 import '../../stdio.dart';
 import '../api/api.dart';
 import '../shared.dart';
+import '../utils/constants.dart';
 
 part 'elicitation_support.dart';
+part 'response_cache.dart';
 part 'roots_support.dart';
 part 'sampling_support.dart';
+part 'subscriptions.dart';
 
 /// The base class for MCP clients.
 ///
@@ -74,8 +79,7 @@ base class MCPClient {
   /// Returns a connection for an MCP server using a [channel], which is already
   /// established.
   ///
-  /// Each [String] sent over [channel] represents an entire JSON request or
-  /// response.
+  /// Each map sent over [channel] is a single decoded JSON-RPC message.
   ///
   /// If [protocolLogSink] is provided, all messages sent on [channel] will be
   /// forwarded to that [Sink] as well, with `<<<` preceding incoming messages
@@ -85,7 +89,7 @@ base class MCPClient {
   /// To perform cleanup when this connection is closed, use the
   /// [ServerConnection.done] future.
   ServerConnection connectServer(
-    StreamChannel<String> channel, {
+    StreamChannel<Map<String, Object?>> channel, {
     Sink<String>? protocolLogSink,
   }) {
     // For type promotion in this function.
@@ -113,29 +117,146 @@ base class MCPClient {
   }
 }
 
+/// The server details that [ServerConnection.initializeAcrossVersions]
+/// returns after discovery or legacy initialization.
+final class InitializedServer {
+  /// Creates initialized server details.
+  const InitializedServer({
+    required this.protocolVersion,
+    required this.capabilities,
+    this.serverInfo,
+    this.instructions,
+  });
+
+  /// The protocol version the connection settled on.
+  final ProtocolVersion protocolVersion;
+
+  /// The capabilities the server declared, from its [DiscoverResult] or its
+  /// [InitializeResult].
+  final ServerCapabilities capabilities;
+
+  /// The server implementation information, if provided.
+  ///
+  /// This is `null` when a server on 2026-07-28 left
+  /// `io.modelcontextprotocol/serverInfo` out of its answer, as that revision
+  /// allows.
+  final Implementation? serverInfo;
+
+  /// Instructions for using the server, if it sent any.
+  final String? instructions;
+}
+
 /// An active server connection.
 base class ServerConnection extends MCPBase {
-  /// The version of the protocol that was negotiated during initialization.
+  final _responseCache = _ClientResponseCache();
+
+  /// The number of stored responses on this connection.
+  @visibleForTesting
+  int get cachedResponseCount => _responseCache._entries.length;
+
+  /// The maximum number of responses cached by this connection.
+  ///
+  /// Reducing the value evicts the oldest entries first. Zero disables the
+  /// cache. The default is 512.
+  int get maxCachedResponses => _responseCache.maxEntries;
+  set maxCachedResponses(int value) {
+    RangeError.checkNotNegative(value, 'maxCachedResponses');
+    while (_responseCache._entries.length > value) {
+      _responseCache._entries.remove(_responseCache._entries.keys.first);
+    }
+    _responseCache.maxEntries = value;
+  }
+
+  /// The maximum TTL accepted for responses received by this connection.
+  ///
+  /// Changing the value discards stored responses. Zero disables the cache.
+  /// The default is 24 hours.
+  Duration get maxCachedResponseTtl => _responseCache.maxTtl;
+  set maxCachedResponseTtl(Duration value) {
+    if (value.isNegative) {
+      throw ArgumentError.value(value, 'maxCachedResponseTtl');
+    }
+    if (_responseCache.maxTtl == value) return;
+    _responseCache.maxTtl = value;
+    _responseCache._entries.clear();
+  }
+
+  /// Advances the cache clock by [duration].
+  @visibleForTesting
+  void elapseCachedResponses(Duration duration) {
+    _responseCache._elapsedOffset += duration;
+  }
+
+  /// Stops the real-time part of the cache clock.
+  @visibleForTesting
+  void pauseCachedResponseClock() {
+    _responseCache._clock.stop();
+  }
+
+  /// The version of the protocol this connection speaks, or `null` until one
+  /// is settled.
+  ///
+  /// [initialize] fills this in for a version this client supports. Assign it
+  /// directly if your transport settles the version outside the handshake.
   ///
   /// Some APIs may error if you attempt to use them without first checking the
   /// protocol version.
-  late ProtocolVersion protocolVersion;
+  ProtocolVersion? protocolVersion;
 
-  /// The [Implementation] returned from the [initialize] request.
+  /// The [Implementation] the server described itself with, or `null` until
+  /// one settles it.
   ///
-  /// Only non-null after [initialize] has successfully completed.
+  /// [initialize] fills this in. Assign it directly if your transport settles
+  /// the version outside the handshake, since sampling hands it to the
+  /// handler.
   Implementation? serverInfo;
 
-  /// The [ServerCapabilities] returned from the [initialize] request.
+  /// The [ServerCapabilities] the server declared.
   ///
-  /// Only assigned after [initialize] has successfully completed.
+  /// Assigned by [initialize] and by [initializeAcrossVersions].
   late ServerCapabilities serverCapabilities;
 
   /// The [ElicitationUrlSupport] for this connection, if any.
   final ElicitationUrlSupport? _elicitationUrlSupport;
 
+  /// The [ElicitationFormSupport] for this connection, if any.
+  final ElicitationFormSupport? _elicitationFormSupport;
+
+  /// The [SamplingSupport] for this connection, if any.
+  final SamplingSupport? _samplingSupport;
+
+  /// The [RootsSupport] for this connection, if any.
+  final RootsSupport? _rootsSupport;
+
+  /// How many `input_required` rounds [sendRequestWithInputs] answers before
+  /// it gives up, or `null` for as many as the server sends.
+  ///
+  /// The spec sets no bound on the rounds. This one only guards against a
+  /// server that never stops asking.
+  int? maxInputRequiredRounds = 10;
+
+  /// How long [sendRequestWithInputs] waits before a retry that carries no
+  /// input requests, including an empty map, or `null` for no wait.
+  ///
+  /// The spec allows an immediate retry. This one only avoids a tight loop.
+  Duration? inputRequiredRetryDelay = const Duration(milliseconds: 250);
+
   @override
   String get name => serverInfo?.name ?? super.name;
+
+  /// The [serverInfo] to hand [SamplingSupport.handleCreateMessage], which
+  /// takes it non-null.
+  Implementation get _samplingServerInfo {
+    final serverInfo = this.serverInfo;
+    if (serverInfo == null) {
+      throw StateError(
+        'The server asked for sampling, but this connection has no '
+        '`serverInfo` to give the handler. Set it alongside `protocolVersion` '
+        'when your transport settles the version.',
+      );
+    }
+    return serverInfo;
+  }
 
   /// Emits an event any time the server notifies us of a change to the list of
   /// prompts it supports.
@@ -211,8 +332,14 @@ base class ServerConnection extends MCPBase {
     ElicitationSupport? elicitationSupport,
     ElicitationFormSupport? elicitationFormSupport,
     ElicitationUrlSupport? elicitationUrlSupport,
-  }) : _elicitationUrlSupport = elicitationUrlSupport {
-    elicitationFormSupport ??= elicitationSupport;
+  }) : _elicitationFormSupport = elicitationFormSupport ?? elicitationSupport,
+       _elicitationUrlSupport = elicitationUrlSupport,
+       _samplingSupport = samplingSupport,
+       _rootsSupport = rootsSupport,
+       _requestCancellation =
+           channel is RequestCancellation
+               ? channel as RequestCancellation
+               : null {
     if (rootsSupport != null) {
       registerRequestHandler(
         ListRootsRequest.methodName,
@@ -224,47 +351,86 @@ base class ServerConnection extends MCPBase {
       registerRequestHandler(
         CreateMessageRequest.methodName,
         (CreateMessageRequest request) =>
-            samplingSupport.handleCreateMessage(request, serverInfo!),
+            samplingSupport.handleCreateMessage(request, _samplingServerInfo),
       );
     }
 
-    if (elicitationFormSupport != null || elicitationUrlSupport != null) {
+    if (_elicitationFormSupport != null || _elicitationUrlSupport != null) {
       registerRequestHandler(ElicitRequest.methodName, (ElicitRequest request) {
+        final badMode = _invalidElicitationMode(request);
+        if (badMode != null) throw RpcException.invalidParams(badMode);
         switch (request.mode) {
           case ElicitationMode.form:
-            if (elicitationFormSupport != null) {
-              return elicitationFormSupport.handleElicitation(request, this);
-            } else {
-              return ElicitResult(action: ElicitationAction.decline);
+            final formSupport = _elicitationFormSupport;
+            if (formSupport == null) {
+              throw RpcException.invalidParams(
+                'This client did not declare the elicitation.form capability',
+              );
             }
+            return formSupport.handleElicitation(request, this);
           case ElicitationMode.url:
-            if (elicitationUrlSupport != null) {
-              return elicitationUrlSupport.handleElicitation(request, this);
-            } else {
-              return ElicitResult(action: ElicitationAction.decline);
+            final urlSupport = _elicitationUrlSupport;
+            if (urlSupport == null) {
+              throw RpcException.invalidParams(
+                'This client did not declare the elicitation.url capability',
+              );
             }
+            return urlSupport.handleElicitation(request, this);
         }
       });
     }
 
-    registerNotificationHandler(
+    // Subscription notifications reach these handlers on both transports,
+    // since the Streamable HTTP client merges each listen response into this
+    // connection's incoming stream. They also go to the matching subscription.
+    registerNotificationHandler<PromptListChangedNotification?>(
       PromptListChangedNotification.methodName,
-      _promptListChangedController.sink.add,
+      (notification) {
+        _responseCache.invalidateMethod(ListPromptsRequest.methodName);
+        _forwardSubscriptionNotification(
+          PromptListChangedNotification.methodName,
+          notification,
+        );
+        _promptListChangedController.sink.add(notification);
+      },
     );
 
-    registerNotificationHandler(
+    registerNotificationHandler<ToolListChangedNotification?>(
       ToolListChangedNotification.methodName,
-      _toolListChangedController.sink.add,
+      (notification) {
+        _responseCache.invalidateMethod(ListToolsRequest.methodName);
+        _forwardSubscriptionNotification(
+          ToolListChangedNotification.methodName,
+          notification,
+        );
+        _toolListChangedController.sink.add(notification);
+      },
     );
 
-    registerNotificationHandler(
+    registerNotificationHandler<ResourceListChangedNotification?>(
       ResourceListChangedNotification.methodName,
-      _resourceListChangedController.sink.add,
+      (notification) {
+        _responseCache
+          ..invalidateMethod(ListResourcesRequest.methodName)
+          ..invalidateMethod(ListResourceTemplatesRequest.methodName);
+        _forwardSubscriptionNotification(
+          ResourceListChangedNotification.methodName,
+          notification,
+        );
+        _resourceListChangedController.sink.add(notification);
+      },
     );
 
-    registerNotificationHandler(
+    registerNotificationHandler<ResourceUpdatedNotification>(
       ResourceUpdatedNotification.methodName,
-      _resourceUpdatedController.sink.add,
+      (notification) {
+        _responseCache.invalidateResource(notification.uri);
+        _forwardSubscriptionNotification(
+          ResourceUpdatedNotification.methodName,
+          notification,
+        );
+        _resourceUpdatedController.sink.add(notification);
+      },
     );
 
     registerNotificationHandler(
@@ -276,11 +442,18 @@ base class ServerConnection extends MCPBase {
       ElicitationCompleteNotification.methodName,
       _elicitationCompleteController.sink.add,
     );
+
+    registerNotificationHandler<SubscriptionsAcknowledgedNotification>(
+      SubscriptionsAcknowledgedNotification.methodName,
+      _handleSubscriptionsAcknowledged,
+    );
+    cancellations.listen(_handleSubscriptionCancelled);
   }
 
   /// Close all connections and streams so the process can cleanly exit.
   @override
   Future<void> shutdown() async {
+    _responseCache.clear();
     await Future.wait([
       super.shutdown(),
       _promptListChangedController.close(),
@@ -289,6 +462,41 @@ base class ServerConnection extends MCPBase {
       _resourceUpdatedController.close(),
       _logController.close(),
     ]);
+  }
+
+  /// Sends a request to the server, and answers it from this connection's
+  /// response cache where the 2026-07-28 caching rules allow it.
+  ///
+  /// [sendRequest] and [sendRequestWithInputs] both go through here, so a
+  /// `resources/read` that later retries still consults the cache. A request
+  /// is cached when its `_meta` names 2026-07-28, or when it leaves the
+  /// version out and this connection settled on that revision. Cached answers
+  /// drop when the matching list-changed or resource-updated notification
+  /// arrives, when a paginated request reports its cursor is no longer valid,
+  /// and on [shutdown].
+  @protected
+  @override
+  Future<T> sendRequestKeepingProgress<T extends Result?>(
+    String methodName, [
+    Request? request,
+  ]) {
+    final meta = (request as Map<String, Object?>?)?[Keys.meta];
+    final version =
+        meta is Map<String, Object?> ? meta[Keys.protocolVersionMeta] : null;
+    // Only `discover` names the revision in its own metadata. Every other
+    // request leaves it out and the negotiated version is what says whether
+    // the answer can be reused.
+    final onRevision =
+        version == ProtocolVersion.v2026_07_28.versionString ||
+        (version == null && protocolVersion == ProtocolVersion.v2026_07_28);
+    if (!onRevision) {
+      return super.sendRequestKeepingProgress<T>(methodName, request);
+    }
+    return _responseCache.sendRequest<T>(
+      methodName,
+      request,
+      () => super.sendRequestKeepingProgress<T>(methodName, request),
+    );
   }
 
   /// Called after a successful call to [initialize].
@@ -304,20 +512,173 @@ base class ServerConnection extends MCPBase {
   /// the server connection closes prematurely due to misconfiguration). To
   /// debug these errors you should pass a `protocolLogSink` when creating these
   /// connections.
-  Future<InitializeResult> initialize(InitializeRequest request) async {
+  ///
+  /// A server that only serves request-scoped revisions rejects this request.
+  /// If the answer names a version this client does not support, this closes
+  /// the connection but returns the result. Use [initializeAcrossVersions]
+  /// for version negotiation.
+  @Deprecated('Use initializeAcrossVersions instead.')
+  Future<InitializeResult> initialize(InitializeRequest request) =>
+      _initialize(request);
+
+  Future<InitializeResult> _initialize(InitializeRequest request) async {
     final response = await sendRequest<InitializeResult>(
       InitializeRequest.methodName,
       request,
     );
-    serverInfo = response.serverInfo;
     serverCapabilities = response.capabilities;
     final serverVersion = response.protocolVersion;
-    if (serverVersion == null || !serverVersion.isSupported) {
+    if (serverVersion == null || !serverVersion.isLegacyVersion) {
       await shutdown();
     } else {
       protocolVersion = serverVersion;
+      serverInfo = response.serverInfo;
     }
     return response;
+  }
+
+  /// Asks the server which protocol versions and capabilities it supports,
+  /// see [DiscoverRequest].
+  ///
+  /// Sends [protocolVersion] and [capabilities] under the two reserved
+  /// envelope keys the schema requires, plus [clientInfo], [logLevel] and
+  /// [progressToken] when given.
+  ///
+  /// Returns the result as it arrived, without setting this connection's
+  /// [ServerConnection.protocolVersion], [serverCapabilities] or [serverInfo].
+  ///
+  /// Clients should probe with this before sending any other request, see
+  /// https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/stdio#backward-compatibility.
+  ///
+  /// A server that does not serve [protocolVersion] rejects this with
+  /// [McpErrorCodes.unsupportedProtocolVersion]. A server from before
+  /// 2026-07-28 answers with an error of its own choosing, or not at all. To
+  /// handle both, use [initializeAcrossVersions].
+  Future<DiscoverResult> discover({
+    required ProtocolVersion protocolVersion,
+    required ClientCapabilities capabilities,
+    Implementation? clientInfo,
+    LoggingLevel? logLevel,
+    ProgressToken? progressToken,
+  }) => sendRequest(
+    DiscoverRequest.methodName,
+    DiscoverRequest(
+      meta: MetaWithRequestEnvelope(
+        protocolVersion: protocolVersion,
+        capabilities: capabilities,
+        clientInfo: clientInfo,
+        logLevel: logLevel,
+        progressToken: progressToken,
+      ),
+    ),
+  );
+
+  /// Initializes this connection through discovery or legacy initialization,
+  /// following
+  /// https://modelcontextprotocol.io/specification/2026-07-28/basic/versioning#backward-compatibility-with-initialization-based-versions.
+  ///
+  /// If the proposed version has `server/discover`, this probes with [discover]
+  /// first and falls back to [initialize] after [discoverTimeout] or an
+  /// unrecognized [RpcException]. Rethrows 2026-07-28 refusals as
+  /// [RpcException]s.
+  ///
+  /// Throws an [ArgumentError] without [MCPServerInitialization.clientInfo],
+  /// since the legacy fallback needs it, and a [StateError] if the discover
+  /// result omits the proposed version or the legacy answer names a version
+  /// this client does not support. If [setLogLevel] fails, the handshake is
+  /// already complete and the fields stay set.
+  ///
+  /// The fallback needs a channel that also carries legacy requests, such as
+  /// `stdioChannel`. Later 2026-07-28 requests need their own envelope.
+  Future<InitializedServer> initializeAcrossVersions(
+    MCPServerInitialization initialization, {
+    // Leaves room for a slow server start while bounding how long a silent
+    // legacy server delays the fallback.
+    Duration discoverTimeout = const Duration(seconds: 10),
+  }) async {
+    final clientInfo = ArgumentError.checkNotNull(
+      initialization.clientInfo,
+      'clientInfo',
+    );
+    final proposed = initialization.protocolVersion;
+    if (proposed.methodIsValid(DiscoverRequest.methodName)) {
+      try {
+        final result = await discover(
+          protocolVersion: proposed,
+          capabilities: initialization.clientCapabilities,
+          clientInfo: clientInfo,
+          logLevel: initialization.logLevel,
+        ).timeout(
+          discoverTimeout,
+          onTimeout:
+              () =>
+                  throw TimeoutException(
+                    'No answer to the discover probe within $discoverTimeout',
+                  ),
+        );
+        if (!result.supportedVersions.contains(proposed.versionString)) {
+          throw StateError(
+            'A server answered discover on ${proposed.versionString} but '
+            'listed ${result.supportedVersions} instead.',
+          );
+        }
+        final rawServerInfo = result.meta?[Keys.serverInfoMeta];
+        protocolVersion = proposed;
+        serverCapabilities = result.capabilities;
+        serverInfo =
+            rawServerInfo is Map<String, Object?>
+                ? Implementation.fromMap(rawServerInfo)
+                : null;
+        return InitializedServer(
+          protocolVersion: proposed,
+          capabilities: result.capabilities,
+          serverInfo: serverInfo,
+          instructions: result.instructions,
+        );
+      } on TimeoutException {
+        // A legacy server may never answer a method it does not know. A
+        // silent probe falls back too, and a late answer to it is ignored.
+      } on RpcException catch (error) {
+        // These codes come from a server that understood the probe and
+        // refused it. The compatibility procedure stops on these errors. For an
+        // unsupported version, a caller can retry with one the error lists.
+        // The spec falls back on any other error.
+        if (error.code == McpErrorCodes.unsupportedProtocolVersion ||
+            error.code == McpErrorCodes.missingRequiredClientCapability ||
+            error.code == McpErrorCodes.headerMismatch) {
+          rethrow;
+        }
+      }
+    }
+
+    final legacyVersion =
+        proposed.isLegacyVersion ? proposed : ProtocolVersion.lastLegacyVersion;
+    final result = await _initialize(
+      InitializeRequest(
+        protocolVersion: legacyVersion,
+        capabilities: initialization.clientCapabilities,
+        clientInfo: clientInfo,
+      ),
+    );
+    final serverVersion = result.protocolVersion;
+    if (serverVersion == null || !serverVersion.isLegacyVersion) {
+      throw StateError(
+        'The server answered initialize with the unsupported protocol version '
+        '"${(result as Map<String, Object?>)[Keys.protocolVersion]}", and '
+        'initialize has shut the connection down.',
+      );
+    }
+    notifyInitialized();
+    final logLevel = initialization.logLevel;
+    if (logLevel != null && result.capabilities.logging != null) {
+      await setLogLevel(SetLevelRequest(level: logLevel));
+    }
+    return InitializedServer(
+      protocolVersion: serverVersion,
+      capabilities: result.capabilities,
+      serverInfo: result.serverInfo,
+      instructions: result.instructions,
+    );
   }
 
   /// List all the tools from this server.
@@ -327,14 +688,24 @@ base class ServerConnection extends MCPBase {
   /// Invokes a [Tool] returned from the [ListToolsResult].
   Future<CallToolResult> callTool(CallToolRequest request) async {
     try {
-      return await sendRequest(CallToolRequest.methodName, request);
+      return await sendRequestWithInputs(CallToolRequest.methodName, request);
     } on RpcException catch (e) {
       // If we are set up to try and auto handle url elicitation and we get
       // an error that the url elicitation is required, we will try and handle
       // it and then retry the request a single time.
+      final data = e.data;
       if (_elicitationUrlSupport?.autoHandleUrlElicitationRequired == true &&
-          e.code == McpErrorCodes.urlElicitationRequired) {
-        final elicitRequest = e.data as ElicitRequest;
+          e.code == McpErrorCodes.urlElicitationRequired &&
+          data is Map &&
+          // The schema makes `mode` required on a url elicitation, so a
+          // payload naming anything else does not belong on this path. Read
+          // it off the raw map, since the error is whatever the peer sent.
+          data[Keys.mode] == ElicitationMode.url.name) {
+        // `RpcException.serialize` spreads the error data into an untyped map
+        // literal (adding a `request` key), so the map arriving here is not a
+        // `Map<String, Object?>` and a representation type check against
+        // `ElicitRequest` would fail. Restore the typed view instead.
+        final elicitRequest = data.cast<String, Object?>() as ElicitRequest;
         final elicitationComplete =
             elicitRequest.onElicitationComplete(this).firstOrNull;
         final elicitResult = await _elicitationUrlSupport!.handleElicitation(
@@ -343,7 +714,10 @@ base class ServerConnection extends MCPBase {
         );
         if (elicitResult.action == ElicitationAction.accept) {
           await elicitationComplete;
-          return await sendRequest(CallToolRequest.methodName, request);
+          return await sendRequestWithInputs(
+            CallToolRequest.methodName,
+            request,
+          );
         }
       }
       rethrow;
@@ -357,7 +731,7 @@ base class ServerConnection extends MCPBase {
   /// Reads a [Resource] returned from the [ListResourcesResult] or matching
   /// a [ResourceTemplate] from a [ListResourceTemplatesResult].
   Future<ReadResourceResult> readResource(ReadResourceRequest request) =>
-      sendRequest(ReadResourceRequest.methodName, request);
+      sendRequestWithInputs(ReadResourceRequest.methodName, request);
 
   /// Lists all the [ResourceTemplate]s from this server.
   Future<ListResourceTemplatesResult> listResourceTemplates([
@@ -368,9 +742,268 @@ base class ServerConnection extends MCPBase {
   Future<ListPromptsResult> listPrompts([ListPromptsRequest? request]) =>
       sendRequest(ListPromptsRequest.methodName, request);
 
+  /// Every [Tool] on this server, walking `tools/list` pages until one reports
+  /// no `nextCursor`.
+  ///
+  /// [request] asks for the first page, and each later page repeats it with
+  /// the next cursor.
+  /// [maxPageCount] bounds the walk, throwing past it; `null` lifts the bound.
+  Stream<Tool> listAllTools({
+    ListToolsRequest? request,
+    int? maxPageCount = 64,
+  }) => _listAllPages(
+    ListToolsRequest.methodName,
+    request ?? ListToolsRequest(),
+    (ListToolsResult page) => page.tools,
+    maxPageCount,
+  );
+
+  /// Every [Resource] on this server, walking `resources/list` pages until one
+  /// reports no `nextCursor`.
+  ///
+  /// [request] asks for the first page, and each later page repeats it with
+  /// the next cursor.
+  /// [maxPageCount] bounds the walk, throwing past it; `null` lifts the bound.
+  Stream<Resource> listAllResources({
+    ListResourcesRequest? request,
+    int? maxPageCount = 64,
+  }) => _listAllPages(
+    ListResourcesRequest.methodName,
+    request ?? ListResourcesRequest(),
+    (ListResourcesResult page) => page.resources,
+    maxPageCount,
+  );
+
+  /// Every [ResourceTemplate] on this server, walking
+  /// `resources/templates/list` pages until one reports no `nextCursor`.
+  ///
+  /// [request] asks for the first page, and each later page repeats it with
+  /// the next cursor.
+  /// [maxPageCount] bounds the walk, throwing past it; `null` lifts the bound.
+  Stream<ResourceTemplate> listAllResourceTemplates({
+    ListResourceTemplatesRequest? request,
+    int? maxPageCount = 64,
+  }) => _listAllPages(
+    ListResourceTemplatesRequest.methodName,
+    request ?? ListResourceTemplatesRequest(),
+    (ListResourceTemplatesResult page) => page.resourceTemplates,
+    maxPageCount,
+  );
+
+  /// Every [Prompt] on this server, walking `prompts/list` pages until one
+  /// reports no `nextCursor`.
+  ///
+  /// [request] asks for the first page, and each later page repeats it with
+  /// the next cursor.
+  /// [maxPageCount] bounds the walk, throwing past it; `null` lifts the bound.
+  Stream<Prompt> listAllPrompts({
+    ListPromptsRequest? request,
+    int? maxPageCount = 64,
+  }) => _listAllPages(
+    ListPromptsRequest.methodName,
+    request ?? ListPromptsRequest(),
+    (ListPromptsResult page) => page.prompts,
+    maxPageCount,
+  );
+
+  /// Yields each [methodName] page's items, requesting a page only when the
+  /// last is consumed.
+  ///
+  /// [request] asks for the first page; [itemsOf] reads a page's items;
+  /// [maxPageCount] bounds it, and anything under 1 is an [ArgumentError].
+  Stream<T> _listAllPages<T, R extends PaginatedResult>(
+    String methodName,
+    PaginatedRequest request,
+    List<T> Function(R page) itemsOf,
+    int? maxPageCount,
+  ) {
+    if (maxPageCount != null && maxPageCount < 1) {
+      throw ArgumentError.value(
+        maxPageCount,
+        'maxPageCount',
+        'Must be at least 1',
+      );
+    }
+    return _walkPages(methodName, request, itemsOf, maxPageCount);
+  }
+
+  /// The [_listAllPages] walk, entered once [maxPageCount] is known good.
+  ///
+  /// Every page goes out under one progress token, closed when the walk ends.
+  Stream<T> _walkPages<T, R extends PaginatedResult>(
+    String methodName,
+    PaginatedRequest request,
+    List<T> Function(R page) itemsOf,
+    int? maxPageCount,
+  ) async* {
+    var pageRequest = request;
+    var pagesRequested = 0;
+    try {
+      while (true) {
+        final page = await sendRequestKeepingProgress<R>(
+          methodName,
+          pageRequest,
+        );
+        pagesRequested++;
+        for (final item in itemsOf(page)) {
+          yield item;
+        }
+        final next = page.nextCursor;
+        if (next == null) return;
+        if (maxPageCount != null && pagesRequested >= maxPageCount) {
+          // A cursor's value says nothing about where the listing ends, so a
+          // server that keeps handing out cursors is stopped by this count.
+          throw StateError('$methodName still had pages after $maxPageCount.');
+        }
+        pageRequest = pageRequest.copyWithCursor(next);
+      }
+    } finally {
+      await closeProgress(pageRequest);
+    }
+  }
+
   /// Gets the requested [Prompt] from the server.
   Future<GetPromptResult> getPrompt(GetPromptRequest request) =>
-      sendRequest(GetPromptRequest.methodName, request);
+      sendRequestWithInputs(GetPromptRequest.methodName, request);
+
+  /// Sends [request] like [sendRequest] does, answering any `input_required`
+  /// result before it returns.
+  ///
+  /// Before 2026-07-28 it sends once. An extension adding a method that takes
+  /// input responses can go through here.
+  Future<T> sendRequestWithInputs<T extends Result>(
+    String methodName,
+    WithInputResponses request,
+  ) async {
+    final version = protocolVersion;
+    // An unsettled version is not an error. 2026-07-28 dropped the handshake,
+    // and something outside `initialize` settles this one. Either way the
+    // connection has not told us it speaks the revision.
+    if (version == null || version < ProtocolVersion.v2026_07_28) {
+      return sendRequest<T>(methodName, request);
+    }
+    try {
+      return await _retryWhileInputRequired<T>(methodName, request);
+    } finally {
+      // Every round runs under the progress token the caller put on the first
+      // request, so the stream it opened outlives all of them.
+      await closeProgress(request);
+    }
+  }
+
+  Future<T> _retryWhileInputRequired<T extends Result>(
+    String methodName,
+    WithInputResponses request,
+  ) async {
+    final originalRequest = request as Map<String, Object?>;
+    var result =
+        (await sendRequestKeepingProgress<T>(methodName, request)) as Result;
+    for (
+      var round = 0;
+      result.resultType == ResultTypes.inputRequired;
+      round++
+    ) {
+      final maxRounds = maxInputRequiredRounds;
+      if (maxRounds != null && round >= maxRounds) {
+        throw ArgumentError(
+          'The server returned `${ResultTypes.inputRequired}` after '
+          '$round retries for `$methodName`. Expected '
+          '`${ResultTypes.complete}`.',
+        );
+      }
+      final inputRequired = result as InputRequiredResult;
+      final responses = <String, Result>{};
+      final inputRequests = inputRequired.inputRequests;
+      final requestState = inputRequired.requestState;
+      if (inputRequests == null && requestState == null) {
+        throw ArgumentError(
+          'The server returned `${ResultTypes.inputRequired}` without '
+          '`${Keys.inputRequests}` or `${Keys.requestState}`.',
+        );
+      }
+      if (inputRequests != null && inputRequests.isNotEmpty) {
+        // Resolve every handler before running any, so a request this client
+        // cannot serve stops the round before a partial dispatch.
+        final handlers = [
+          for (final entry in inputRequests.entries)
+            MapEntry(entry.key, _inputRequestHandler(entry.value)),
+        ];
+        for (final handler in handlers) {
+          responses[handler.key] = await handler.value();
+        }
+      } else {
+        final delay = inputRequiredRetryDelay;
+        if (delay != null) {
+          await Future<void>.delayed(delay);
+        }
+      }
+      final retryRequest =
+          <String, Object?>{
+                for (final entry in originalRequest.entries)
+                  if (entry.key != Keys.inputResponses &&
+                      entry.key != Keys.requestState)
+                    entry.key: entry.value,
+                if (responses.isNotEmpty) Keys.inputResponses: responses,
+                if (requestState != null) Keys.requestState: requestState,
+              }
+              as WithInputResponses;
+      result =
+          (await sendRequestKeepingProgress<T>(methodName, retryRequest))
+              as Result;
+    }
+    return result as T;
+  }
+
+  /// Resolves the handler for [inputRequest], one of the three methods a
+  /// server can ask for in an `input_required` result.
+  ///
+  /// Answering those and sending the original request again is a multi
+  /// round-trip request, see
+  /// https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr.
+  Future<Result> Function() _inputRequestHandler(InputRequest inputRequest) {
+    switch (inputRequest.method) {
+      case ElicitRequest.methodName:
+        final request = _requiredParams(inputRequest) as ElicitRequest;
+        final badMode = _invalidElicitationMode(request);
+        if (badMode != null) throw ArgumentError(badMode);
+        switch (request.mode) {
+          case ElicitationMode.form:
+            final support = _elicitationFormSupport;
+            if (support == null) {
+              throw _undeclaredCapability('elicitation.form');
+            }
+            return () async => await support.handleElicitation(request, this);
+          case ElicitationMode.url:
+            final support = _elicitationUrlSupport;
+            if (support == null) {
+              throw _undeclaredCapability('elicitation.url');
+            }
+            return () async => await support.handleElicitation(request, this);
+        }
+      case CreateMessageRequest.methodName:
+        final support = _samplingSupport;
+        if (support == null) {
+          throw _undeclaredCapability(Keys.sampling);
+        }
+        final request = _requiredParams(inputRequest) as CreateMessageRequest;
+        final serverInfo = _samplingServerInfo;
+        return () async =>
+            await support.handleCreateMessage(request, serverInfo);
+      case ListRootsRequest.methodName:
+        final support = _rootsSupport;
+        if (support == null) {
+          throw _undeclaredCapability(Keys.roots);
+        }
+        final request = inputRequest.params as ListRootsRequest?;
+        return () async => await support.handleListRoots(request);
+      default:
+        throw ArgumentError(
+          'The input request method was "${inputRequest.method}", which is '
+          'not one of: ${ElicitRequest.methodName}, '
+          '${CreateMessageRequest.methodName}, ${ListRootsRequest.methodName}',
+        );
+    }
+  }
 
   /// Subscribes this client to a resource by URI (at `request.uri`).
   ///
@@ -383,6 +1016,157 @@ base class ServerConnection extends MCPBase {
   /// Updates will come on the [resourceUpdated] stream.
   Future<void> unsubscribeResource(UnsubscribeRequest request) =>
       sendRequest(UnsubscribeRequest.methodName, request);
+
+  /// The subscriptions this connection has open, keyed by [Subscription.id].
+  final _subscriptions = <RequestId, Subscription>{};
+
+  final RequestCancellation? _requestCancellation;
+
+  /// Opens a subscription for the types [notifications] names across protocol
+  /// versions.
+  ///
+  /// On versions defining `subscriptions/listen`, sends that request with
+  /// [meta]. The server acknowledges the accepted filter, then notifications
+  /// carrying its request ID reach [Subscription.notifications]. The
+  /// subscription ends when the client closes it, the server cancels or
+  /// completes it, or the connection ends.
+  ///
+  /// On legacy versions, sends no `subscriptions/listen` request and
+  /// acknowledges [notifications] without the types [serverCapabilities] does
+  /// not support. Notifications are a local view of the connection's
+  /// list-changed and [resourceUpdated] streams. Its [Subscription.id] is
+  /// `null`, and [meta] is not sent. When the server supports
+  /// `resources.subscribe`, each URI in `resourceSubscriptions` is subscribed
+  /// with `resources/subscribe` before the acknowledgement, left out of it if
+  /// that request fails, and unsubscribed when the last open subscription
+  /// watching it closes. The server keeps one `resources/subscribe` state per
+  /// URI for the whole connection, shared with [subscribeResource] and
+  /// [unsubscribeResource], so mixing them with this for the same URI can end
+  /// the other's updates early.
+  ///
+  /// Throws an [UnsupportedError] on a later version that does not define
+  /// `subscriptions/listen`.
+  ///
+  /// Returns before the server sees the request, so subscribe to
+  /// [Subscription.notifications] synchronously.
+  Subscription listen(
+    SubscriptionFilter notifications, {
+    required MetaWithRequestEnvelope meta,
+  }) {
+    final version = protocolVersion;
+    if (version != null && version.isLegacyVersion) {
+      return Subscription._legacy(this, notifications, serverCapabilities);
+    }
+    if (version != null &&
+        !version.methodIsValid(SubscriptionsListenRequest.methodName)) {
+      throw UnsupportedError(
+        '${SubscriptionsListenRequest.methodName} is not supported on protocol '
+        'version ${version.versionString}.',
+      );
+    }
+    final sent = sendRequestWithId<SubscriptionsListenResult>(
+      SubscriptionsListenRequest.methodName,
+      request: SubscriptionsListenRequest(
+        notifications: notifications,
+        meta: meta,
+      ),
+    );
+    return _subscriptions[sent.id] = Subscription._(
+      this,
+      sent.id,
+      sent.result,
+      sent.sent,
+    );
+  }
+
+  /// The `resources/subscribe` request for each URI legacy subscriptions
+  /// watch.
+  ///
+  /// The server keeps one subscription per URI for the whole connection.
+  final _legacyResourceSubscriptions = <String, _ResourceSubscription>{};
+
+  /// Subscribes to [uri] unless an open legacy subscription already does.
+  Future<void> _retainResource(String uri) {
+    final existing = _legacyResourceSubscriptions[uri];
+    if (existing != null) {
+      existing.count++;
+      return existing.subscribed;
+    }
+    final subscription = _ResourceSubscription(
+      subscribeResource(SubscribeRequest(uri: uri)),
+    );
+    _legacyResourceSubscriptions[uri] = subscription;
+    return subscription.subscribed;
+  }
+
+  /// Unsubscribes from [uri] once no open legacy subscription watches it.
+  void _releaseResource(String uri) {
+    final existing = _legacyResourceSubscriptions[uri];
+    if (existing == null) return;
+    if (--existing.count > 0) return;
+    _legacyResourceSubscriptions.remove(uri);
+    if (existing.refused || !isActive) return;
+    // Sent right away so a later `resources/subscribe` for the same URI
+    // reaches the server after it. The local subscription is already closed,
+    // so its result is not awaited.
+    unsubscribeResource(UnsubscribeRequest(uri: uri)).ignore();
+  }
+
+  Future<void> _cancelSubscription(RequestId id) async {
+    final requestCancellation = _requestCancellation;
+    if (requestCancellation != null) {
+      completeRequestLocally(this, id);
+      await requestCancellation.cancelRequest(id);
+    } else {
+      // Stdio uses a notification to cancel the open listen request.
+      sendNotification(
+        CancelledNotification.methodName,
+        CancelledNotification(requestId: id),
+      );
+      completeRequestLocally(this, id);
+    }
+  }
+
+  /// Delivers [params] to the subscription its raw `_meta` names, if that
+  /// subscription is still open.
+  ///
+  /// Reads the ID off the raw map instead of the typed [WithSubscriptionId]
+  /// getter, which throws on a malformed `_meta` and would skip the
+  /// connection-wide `sink.add` each caller runs right after this.
+  void _forwardSubscriptionNotification(String method, Object? params) {
+    if (params is! Map<String, Object?>) return;
+    final meta = params[Keys.meta];
+    if (meta is! Map<String, Object?>) return;
+    final id = meta[Keys.subscriptionIdMeta];
+    if (id == null) return;
+    _subscriptions[RequestId(id)]?._forward(method, params);
+  }
+
+  /// Ends the open subscription named by [notification], if there is one.
+  void _handleSubscriptionCancelled(CancelledNotification notification) {
+    final subscription = _subscriptions[notification.requestId];
+    if (subscription == null) return;
+    unawaited(subscription._finish());
+    completeRequestLocally(this, subscription.id!);
+  }
+
+  /// Reports the acknowledged filter to the subscription [notification] names.
+  ///
+  /// The fields are read off the raw map, so a malformed one leaves its
+  /// subscription unacknowledged.
+  void _handleSubscriptionsAcknowledged(
+    SubscriptionsAcknowledgedNotification notification,
+  ) {
+    final fields = notification as Map<String, Object?>;
+    final meta = fields[Keys.meta];
+    final id =
+        meta is Map<String, Object?> ? meta[Keys.subscriptionIdMeta] : null;
+    final accepted = fields[Keys.notifications];
+    if (id == null || accepted is! Map<String, Object?>) return;
+    _subscriptions[RequestId(id)]?._acknowledge(
+      SubscriptionFilter.fromMap(accepted),
+    );
+  }
 
   /// Sends a request to change the current logging level.
   ///
@@ -402,6 +1186,37 @@ base class ServerConnection extends MCPBase {
       sendRequest(CompleteRequest.methodName, request);
 }
 
+/// [InputRequest.params] for a method whose schema requires them.
+///
+/// Throws an [ArgumentError] naming the method when a server left them out.
+Request _requiredParams(InputRequest inputRequest) =>
+    inputRequest.params ??
+    (throw ArgumentError(
+      'The input request params for "${inputRequest.method}" were absent, '
+      'expected an object.',
+    ));
+
+/// The error message for [request] if it names a mode that is not an
+/// [ElicitationMode], or null if this client can read its mode.
+///
+/// [ElicitRequest.mode] reports an unknown mode as `Bad state: No element`, so
+/// both entry points check the raw value first and name it themselves. One
+/// answers the server with an [RpcException] and the other throws to the
+/// caller, so this returns the message and lets each one wrap it.
+String? _invalidElicitationMode(ElicitRequest request) {
+  final raw = request.rawMode;
+  if (raw == null || ElicitationMode.values.any((m) => m.name == raw)) {
+    return null;
+  }
+  return 'The elicitation mode was "$raw", which is not one of: '
+      '${ElicitationMode.values.map((m) => m.name).join(', ')}';
+}
+
+StateError _undeclaredCapability(String capability) => StateError(
+  'The server sent an input request needing the $capability capability, '
+  'which this client did not declare.',
+);
+
 extension ElicitationServerConnection on ElicitRequest {
   /// Broadcast stream of notifications for this elicitation ID. Events are not
   /// buffered so you must listen to this stream prior to opening the URL or
@@ -415,4 +1230,21 @@ extension ElicitationServerConnection on ElicitRequest {
       (notification) => notification.elicitationId == elicitationId,
     );
   }
+}
+
+/// A `resources/subscribe` request shared by the legacy subscriptions watching
+/// its URI.
+final class _ResourceSubscription {
+  _ResourceSubscription(this.subscribed) {
+    subscribed.then<void>((_) {}, onError: (_) => refused = true).ignore();
+  }
+
+  /// Completes when the server answers the request.
+  final Future<void> subscribed;
+
+  /// How many open subscriptions watch the URI.
+  int count = 1;
+
+  /// Whether the server answered the request with an error.
+  bool refused = false;
 }

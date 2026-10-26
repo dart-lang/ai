@@ -7,12 +7,36 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
 
-import 'package:async/async.dart' show StreamSinkTransformer;
+import 'package:async/async.dart' show StreamGroup, StreamSinkTransformer;
 import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:meta/meta.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'api/api.dart';
+import 'utils/constants.dart';
+import 'utils/json_rpc_2_object.dart';
+
+/// Cancels one request without closing its channel.
+abstract interface class RequestCancellation {
+  /// Cancels the request named by [requestId].
+  Future<void> cancelRequest(RequestId requestId);
+}
+
+/// Holds the ID and deferred channel write captured while one request encodes.
+final class _CapturedRequest {
+  RequestId? id;
+  void Function()? forward;
+}
+
+void completeRequestLocally(MCPBase target, RequestId requestId) {
+  if (target._local.isClosed) return;
+  target._local.add({
+    Keys.jsonrpc: '2.0',
+    Keys.id: requestId,
+    Keys.result: const <String, Object?>{},
+  });
+}
 
 /// Base class for MCP server-related implementations.
 ///
@@ -25,6 +49,16 @@ import 'api/api.dart';
 base class MCPBase {
   late final Peer _peer;
 
+  /// An in-process source merged with the incoming channel stream.
+  ///
+  /// Client subscription cancellation, server cancellation, and a failed
+  /// listen send use [completeRequestLocally] to complete a pending request
+  /// without waiting for the peer. A response the peer sends later finds no
+  /// pending request and is dropped. Synchronous delivery puts the local
+  /// result into the merged stream during `add`. It closes when the remote
+  /// stream ends.
+  final _local = StreamController<Map<String, Object?>>(sync: true);
+
   /// The name of the associated server.
   ///
   /// Used to identify log messages.
@@ -36,6 +70,62 @@ base class MCPBase {
   final _progressControllers =
       <ProgressToken, StreamController<ProgressNotification>>{};
 
+  /// Every request the peer has sent that this side has not answered yet, by
+  /// JSON-RPC ID.
+  ///
+  /// An entry goes in when the request arrives and comes out when its response
+  /// leaves, so this holds exactly the requests a cancellation may still refer
+  /// to.
+  final _inFlightRequests = <Object, _IncomingRequest>{};
+
+  /// The active request ID for each progress token.
+  final _requestsByProgressToken = <ProgressToken, Object>{};
+
+  /// Delivered synchronously to close a subscription before a later
+  /// acknowledgement or notification can reach it.
+  final _cancellations = StreamController<CancelledNotification>.broadcast(
+    sync: true,
+  );
+
+  /// Connects a handler invocation to the request observed at the channel edge.
+  final _requestsByParameters = Expando<_IncomingRequest>();
+
+  /// Marks synthetic parameter maps that stand in for an omitted `params`.
+  final _omittedParameters = Expando<bool>();
+
+  /// The zone key for the request a running handler answers.
+  final _currentRequestKey = Object();
+
+  /// The zone this connection was created in.
+  late final Zone _connectionZone;
+
+  /// Every `notifications/cancelled` the peer sends with a JSON-RPC
+  /// `requestId`, in arrival order.
+  ///
+  /// [MCPBase] registers the connection's only `notifications/cancelled`
+  /// handler. A subclass that wants to log a cancellation reason, as both
+  /// roles are asked to, reads it here instead of registering a handler of
+  /// its own.
+  ///
+  /// A notification naming a request this side is not answering appears here
+  /// too, because the ID may belong to a request this side sent. The
+  /// specification's "ignore" for an unknown ID, an already answered request
+  /// and a malformed notification means no error response and no change to
+  /// what goes on the wire, not that the notification is hidden from this
+  /// side; the one thing dropped here is a `requestId` that is not a
+  /// JSON-RPC ID at all.
+  ///
+  /// The request itself keeps running. What a cancellation for a request this
+  /// side is answering changes is the wire: its response, progress, and other
+  /// notifications stay off it.
+  ///
+  /// This is a "broadcast" stream, so events are not buffered and previous
+  /// events will not be re-played when you subscribe.
+  Stream<CancelledNotification> get cancellations => _cancellations.stream;
+
+  /// The request [sendRequestWithId] is currently encoding.
+  _CapturedRequest? _capturedRequest;
+
   /// Whether the connection with the peer is active.
   bool get isActive => !_peer.isClosed;
 
@@ -43,16 +133,47 @@ base class MCPBase {
   Future<void> get done => _done.future;
   final _done = Completer<void>();
 
+  /// The sink [protocolLog] writes to, if the caller asked for a protocol log.
+  Sink<String>? _protocolLogSink;
+
   /// Initializes an MCP connection on [channel].
   ///
   /// If [protocolLogSink] is provided, all incoming and outgoing messages will
-  /// added logged to it. It is the responsibility of the caller to close the
+  /// be logged to it. It is the responsibility of the caller to close the
   /// sink.
-  MCPBase(StreamChannel<String> channel, {Sink<String>? protocolLogSink}) {
-    _peer = Peer(_maybeForwardMessages(channel, protocolLogSink));
+  MCPBase(
+    StreamChannel<Map<String, Object?>> channel, {
+    Sink<String>? protocolLogSink,
+  }) {
+    _protocolLogSink = protocolLogSink;
+    _connectionZone = Zone.current;
+    // The channel type admits only JSON objects, so json_rpc_2 never
+    // receives a batch and never writes the `List` frames its batch support
+    // would answer one with.
+    final instrumented = _recordSentRequestIds(
+      _maybeForwardMessages(channel, protocolLogSink),
+    );
+    final remote = instrumented.stream.transform<Map<String, Object?>>(
+      StreamTransformer.fromHandlers(
+        handleDone: (s) => unawaited(_local.close().whenComplete(s.close)),
+      ),
+    );
+    final incoming = StreamGroup.merge<Map<String, Object?>>([
+      remote,
+      _local.stream,
+    ]);
+    _peer = Peer.withoutJson(
+      _trackCancellations(
+        StreamChannel.withCloseGuarantee(incoming, instrumented.sink),
+      ),
+    );
     registerNotificationHandler(
       ProgressNotification.methodName,
       _handleProgress,
+    );
+    registerNotificationHandler(
+      CancelledNotification.methodName,
+      _handleCancelled,
     );
 
     registerRequestHandler(PingRequest.methodName, _handlePing);
@@ -64,11 +185,14 @@ base class MCPBase {
   @mustCallSuper
   Future<void> shutdown() async {
     await _peer.close();
+    _inFlightRequests.clear();
+    _requestsByProgressToken.clear();
     final progressControllers = _progressControllers.values.toList();
     _progressControllers.clear();
     await Future.wait([
       for (var controller in progressControllers) controller.close(),
     ]);
+    await _cancellations.close();
     if (!_done.isCompleted) _done.complete();
   }
 
@@ -80,13 +204,26 @@ base class MCPBase {
     String name,
     FutureOr<R> Function(T) impl,
   ) => _peer.registerMethod(name, (Parameters p) {
-    if (p.value != null && p.value is! Map) {
+    final parameters = p.value;
+    if (parameters != null && parameters is! Map) {
       throw ArgumentError(
         'Request to $name must be a Map or null. Instead, got '
-        '${p.value.runtimeType}',
+        '${parameters.runtimeType}',
       );
     }
-    return impl((p.value as Map?)?.cast<String, Object?>() as T);
+    final typedParameters =
+        parameters is Map<String, Object?> ? parameters : null;
+    final request =
+        typedParameters == null ? null : _requestsByParameters[typedParameters];
+    final value =
+        request != null && _omittedParameters[typedParameters!] == true
+            ? null
+            : (parameters as Map?)?.cast<String, Object?>();
+    if (request == null) return impl(value as T);
+    return runZoned(
+      () => impl(value as T),
+      zoneValues: {_currentRequestKey: request},
+    );
   });
 
   /// Registers a notification handler named [name] on this server.
@@ -99,8 +236,24 @@ base class MCPBase {
   );
 
   /// Sends a notification to the peer.
-  void sendNotification(String method, [Notification? notification]) =>
-      _peer.isClosed ? null : _peer.sendNotification(method, notification);
+  void sendNotification(String method, [Notification? notification]) {
+    final request = Zone.current[_currentRequestKey];
+    if (request is _IncomingRequest && request.cancelled) return;
+    if (!_peer.isClosed) _peer.sendNotification(method, notification);
+  }
+
+  /// Runs [callback] without associating its asynchronous work with a request.
+  @protected
+  T runOutsideRequest<T>(T Function() callback) =>
+      _connectionZone.run(callback);
+
+  /// Captures whether the current incoming request has not been cancelled.
+  @protected
+  bool Function() captureIncomingRequestActivity() {
+    final request = Zone.current[_currentRequestKey];
+    if (request is! _IncomingRequest) return () => true;
+    return () => !request.cancelled;
+  }
 
   /// Notifies the peer of progress towards completing some request.
   void notifyProgress(ProgressNotification notification) =>
@@ -116,20 +269,226 @@ base class MCPBase {
     Request? request,
   ]) async {
     try {
-      return ((await _peer.sendRequest(methodName, request)) as Map?)
-              ?.cast<String, Object?>()
-          as T;
+      return await sendRequestKeepingProgress<T>(methodName, request);
     } finally {
-      final token = request?.meta?.progressToken;
-      if (token != null) {
-        await _progressControllers.remove(token)?.close();
-      }
+      await closeProgress(request);
     }
+  }
+
+  /// Sends [methodName] and hands back the JSON-RPC ID it goes out under.
+  ///
+  /// Relies on json_rpc_2 writing the request to its sink before sendRequest
+  /// returns. Captures the ID before installing the subscription handle,
+  /// deferring the transport write until that handle can receive
+  /// acknowledgements. Throws [StateError] if capture fails.
+  @protected
+  ({RequestId id, Future<T> result, Future<void> sent})
+  sendRequestWithId<T extends Result?>(String methodName, {Request? request}) {
+    final captured = _CapturedRequest();
+    _capturedRequest = captured;
+    late final Future<Object?> result;
+    try {
+      result = _peer.sendRequest(methodName, request);
+    } finally {
+      _capturedRequest = null;
+    }
+    final id = captured.id;
+    final forward = captured.forward;
+    if (id == null || forward == null) {
+      result.ignore();
+      unawaited(shutdown());
+      throw StateError('Encoding "$methodName" recorded no JSON-RPC ID.');
+    }
+    final sent = Completer<void>();
+    sent.future.ignore();
+    scheduleMicrotask(() => sent.complete(Future.sync(forward)));
+    return (
+      id: id,
+      result: result.then(
+        (value) => (value as Map?)?.cast<String, Object?>() as T,
+      ),
+      sent: sent.future,
+    );
+  }
+
+  /// Sends [request] to the peer like [sendRequest] does, but leaves any
+  /// progress stream for it open.
+  ///
+  /// This is for a caller that sends several requests under one progress
+  /// token, such as an `input_required` retry. That caller owns the token and
+  /// hands it back with [closeProgress] once it stops sending.
+  /// Throws a [StateError] after the handler's request is cancelled, since
+  /// nothing it sends can reach the peer any more.
+  @protected
+  Future<T> sendRequestKeepingProgress<T extends Result?>(
+    String methodName, [
+    Request? request,
+  ]) async {
+    final currentRequest = Zone.current[_currentRequestKey];
+    if (currentRequest is _IncomingRequest && currentRequest.cancelled) {
+      throw StateError(
+        'The request that started this operation was cancelled.',
+      );
+    }
+    return ((await _peer.sendRequest(methodName, request)) as Map?)
+            ?.cast<String, Object?>()
+        as T;
   }
 
   /// The peer may ping us at any time, and we should respond with an empty
   /// response.
   EmptyResult _handlePing([PingRequest? _]) => EmptyResult();
+
+  /// Reports the peer's cancellation on [cancellations], and remembers it if
+  /// it names a request this side is still answering.
+  ///
+  /// A `requestId` that is not a JSON-RPC ID, an absent one included, is
+  /// dropped: it can match no request in either direction. Every other
+  /// cancellation is reported, including one for an ID this side never saw or
+  /// has already answered, because the ID may name a request this side sent.
+  /// Only an ID that is in flight here is retained. Unknown and completed IDs
+  /// produce no error response and do not change what goes on the wire.
+  void _handleCancelled(CancelledNotification notification) {
+    // A JSON-RPC ID is a `String` or a number, so anything else cannot name a
+    // request. `RequestId` is an extension type on `Object`, so the value has
+    // to be tested instead of cast.
+    final Object? id = notification.requestId;
+    if (id == null) return;
+    if (id is! String && id is! num) {
+      protocolLog(
+        'Dropped a `${CancelledNotification.methodName}` naming '
+        '${jsonEncode(id)}, which is not a JSON-RPC ID.',
+      );
+      return;
+    }
+    _inFlightRequests[id]?.cancelled = true;
+    _cancellations.add(notification);
+  }
+
+  /// Notes each request the peer sends on [channel] and keeps the messages for
+  /// a cancelled one off it.
+  ///
+  /// The specification asks a server receiving a cancellation to stop
+  /// processing, free resources and send no response, all as SHOULDs. This
+  /// package keeps the whole wire side of the request quiet: responses and
+  /// progress are dropped at the channel edge, and notifications its handler
+  /// sends are dropped by [sendNotification].
+  ///
+  /// Progress is forwarded only for the active request carrying its token.
+  StreamChannel<Map<String, Object?>> _trackCancellations(
+    StreamChannel<Map<String, Object?>> channel,
+  ) => channel
+      .transformStream(
+        StreamTransformer.fromHandlers(
+          handleData: (message, sink) {
+            final object = JsonRpc2Object.fromMap(message);
+            switch (object.kind) {
+              case JsonRpc2Kind.request:
+                if (_validIncomingRequest(message)) {
+                  message = _trackIncomingRequest(message, object.id!);
+                }
+              case JsonRpc2Kind.notification:
+              case JsonRpc2Kind.response:
+            }
+            sink.add(message);
+          },
+        ),
+      )
+      .transformSink(
+        StreamSinkTransformer.fromHandlers(
+          handleData: (message, sink) {
+            final object = JsonRpc2Object.fromMap(message);
+            switch (object.kind) {
+              case JsonRpc2Kind.response:
+                final id = object.id;
+                final request = _inFlightRequests.remove(id);
+                final token = request?.progressToken;
+                if (token != null && _requestsByProgressToken[token] == id) {
+                  _requestsByProgressToken.remove(token);
+                }
+                if (request?.cancelled == true) {
+                  return;
+                }
+              case JsonRpc2Kind.notification:
+                if (object.method != ProgressNotification.methodName) break;
+                final params = message[Keys.params];
+                if (params is! Map<String, Object?>) break;
+                final token = (params as WithProgressToken).progressToken;
+                if (token != null && _progressWasCancelled(token)) return;
+              case JsonRpc2Kind.request:
+                break;
+            }
+            sink.add(message);
+          },
+        ),
+      );
+
+  /// Records [id] and its progress token until this side answers it.
+  Map<String, Object?> _trackIncomingRequest(
+    Map<String, Object?> message,
+    Object id,
+  ) {
+    final params = message[Keys.params];
+    Map<String, Object?>? copiedParams;
+    if (params is Map) {
+      try {
+        copiedParams = Map<String, Object?>.from(params);
+        // A runtime-generic Map reports a non-string key as a TypeError.
+        // ignore: avoid_catching_errors
+      } on TypeError catch (_) {
+        // A raw in-memory channel can carry a Map with a non-string key even
+        // though JSON cannot. Let the RPC layer answer that malformed request
+        // instead of failing this connection while copying its parameters.
+      }
+    }
+    // A malformed request still needs an answer, so guard each metadata read.
+    final meta = copiedParams?[Keys.meta];
+    final token =
+        meta is Map
+            ? MetaWithProgressToken.fromMap(
+              meta.cast<String, Object?>(),
+            ).progressToken
+            : null;
+    final request = _IncomingRequest(progressToken: token);
+    _inFlightRequests[id] = request;
+    if (token != null) {
+      // The newest request declaring a token owns it. A cancelled request keeps
+      // running, so leaving the old owner in place would take the progress of a
+      // live request that reuses the token.
+      _requestsByProgressToken[token] = id;
+    }
+
+    if (copiedParams != null) {
+      _requestsByParameters[copiedParams] = request;
+      return {...message, Keys.params: copiedParams};
+    }
+    if (!message.containsKey(Keys.params)) {
+      final copied = <String, Object?>{};
+      _requestsByParameters[copied] = request;
+      _omittedParameters[copied] = true;
+      return {...message, Keys.params: copied};
+    }
+    return message;
+  }
+
+  /// Whether [token] has no active request or belongs to a cancelled request.
+  bool _progressWasCancelled(ProgressToken token) {
+    final id = _requestsByProgressToken[token];
+    if (id == null) return true;
+    final request = _inFlightRequests[id];
+    return request == null || request.cancelled;
+  }
+
+  /// Whether [message] is a request the JSON-RPC server will dispatch.
+  bool _validIncomingRequest(Map<String, Object?> message) {
+    if (message[Keys.jsonrpc] != '2.0' || message[Keys.method] is! String) {
+      return false;
+    }
+    final id = message[Keys.id];
+    if (id is! String && id is! num) return false;
+    final params = message[Keys.params];
+    return !message.containsKey(Keys.params) || params is Map || params is List;
+  }
 
   /// Handles [ProgressNotification]s and forwards them to the streams returned
   /// by [onProgress] calls.
@@ -158,6 +517,16 @@ base class MCPBase {
         .stream;
   }
 
+  /// Closes the stream [onProgress] returned for [request], if it opened one.
+  ///
+  /// [sendRequest] calls this when a request is done. A caller using
+  /// [sendRequestKeepingProgress] calls it once it stops sending.
+  @protected
+  Future<void> closeProgress(Request? request) async {
+    final token = request?.meta?.progressToken;
+    if (token != null) await _progressControllers.remove(token)?.close();
+  }
+
   /// Pings the peer, and returns whether or not it responded within
   /// [timeout].
   ///
@@ -176,22 +545,59 @@ base class MCPBase {
     request,
   ).then((_) => true).timeout(timeout, onTimeout: () => false);
 
+  /// Writes [message] to the protocol log, if the caller asked for one.
+  ///
+  /// The prefix separates this from the traffic: `<<<` is a message read off
+  /// the channel, `>>>` one written to it, and `!!!` something this package
+  /// decided about a message rather than the message itself.
+  @protected
+  void protocolLog(String message) =>
+      _protocolLogSink?.add('!!! ($name) $message\n');
+
+  /// Captures one request before forwarding other messages to [channel].
+  StreamChannel<Map<String, Object?>> _recordSentRequestIds(
+    StreamChannel<Map<String, Object?>> channel,
+  ) => channel.transformSink(
+    StreamSinkTransformer.fromHandlers(
+      handleData: (data, sink) {
+        final id = data[Keys.id];
+        final captured = _capturedRequest;
+        if (id != null && data.containsKey(Keys.method) && captured != null) {
+          captured
+            ..id = RequestId(id)
+            ..forward = (() => sink.add(data));
+          return;
+        }
+        sink.add(data);
+      },
+    ),
+  );
+
   /// If [protocolLogSink] is non-null, emits messages to it for all messages
   /// sent over [channel].
   ///
   /// This is intended to be written to a file or emitted to a user to aid in
   /// debugging protocol messages between the client and server.
-  StreamChannel<String> _maybeForwardMessages(
-    StreamChannel<String> channel,
+  StreamChannel<Map<String, Object?>> _maybeForwardMessages(
+    StreamChannel<Map<String, Object?>> channel,
     Sink<String>? protocolLogSink,
   ) {
     if (protocolLogSink == null) return channel;
+    String encodeForLog(Map<String, Object?> data) {
+      try {
+        return jsonEncode(data);
+      } catch (_) {
+        // The log is diagnostic only, so a message which cannot be encoded
+        // must not fail the connection.
+        return '$data';
+      }
+    }
 
     return channel
         .transformStream(
           StreamTransformer.fromHandlers(
             handleData: (data, sink) {
-              protocolLogSink.add('<<< ($name) $data\n');
+              protocolLogSink.add('<<< ($name) ${encodeForLog(data)}\n');
               sink.add(data);
             },
           ),
@@ -199,10 +605,61 @@ base class MCPBase {
         .transformSink(
           StreamSinkTransformer.fromHandlers(
             handleData: (data, sink) {
-              protocolLogSink.add('>>> ($name) $data\n');
+              protocolLogSink.add('>>> ($name) ${encodeForLog(data)}\n');
               sink.add(data);
             },
           ),
         );
   }
+}
+
+/// Mutable wire state for one incoming request.
+final class _IncomingRequest {
+  final ProgressToken? progressToken;
+  bool cancelled = false;
+
+  _IncomingRequest({required this.progressToken});
+}
+
+/// The client context an MCP server is initialized with.
+///
+/// Legacy transports provide this once per connection after negotiating a
+/// protocol version. Request-scoped transports provide it once per request.
+/// Clients pass one to `ServerConnection.initializeAcrossVersions`.
+final class MCPServerInitialization {
+  /// Creates the context a server is initialized with.
+  const MCPServerInitialization({
+    required this.protocolVersion,
+    required this.clientCapabilities,
+    this.clientInfo,
+    this.logLevel,
+  });
+
+  /// The protocol version used for this connection or request.
+  ///
+  /// Passed to `ServerConnection.initializeAcrossVersions`, this is the newest
+  /// version the client offers.
+  final ProtocolVersion protocolVersion;
+
+  /// The capabilities declared by the client.
+  final ClientCapabilities clientCapabilities;
+
+  /// The implementation information declared by the client, if any.
+  ///
+  /// The legacy handshake always provides this. Request-scoped transports may
+  /// omit it, since clients are not required to send it on every request.
+  final Implementation? clientInfo;
+
+  /// The log level the client asked for on this request, if any.
+  ///
+  /// Request-scoped transports read this from the reserved
+  /// `io.modelcontextprotocol/logLevel` request metadata key, see
+  /// https://modelcontextprotocol.io/specification/2026-07-28/server/utilities/logging.
+  /// On 2026-07-28 `LoggingSupport.initialize` copies this onto
+  /// `LoggingSupport.loggingLevel`, `null` included. That revision took
+  /// `logging/setLevel` out, and `LoggingSupport` does not register it. The
+  /// legacy handshake has no per-request level and leaves this null, so the
+  /// level starts at `LoggingLevel.warning` unless the server picked one for
+  /// itself, and `logging/setLevel` moves it from there.
+  final LoggingLevel? logLevel;
 }

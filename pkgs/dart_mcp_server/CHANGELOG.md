@@ -1,9 +1,87 @@
-# 0.1.4 (Dart SDK 3.13.0-WIP)
+## 1.2.1
 
+- When the Flutter SDK cannot be found, the error now says which Dart SDK the
+  server is using and where that path came from (an explicit path such as
+  `--dart-sdk`, `DART_ROOT`, `DART_SDK`, or the running executable), and
+  mentions `--flutter-sdk`.
+- Fix the `--enable` help text, which incorrectly said that all features are
+  enabled by default. Document how to enable tools that are disabled by default
+  in the README.
+- Require `package:unified_analytics` `^8.1.0`.
+
+## 1.2.0
+
+- Add a `listRegisteredServices` command to the `vm_service` tool, which lists
+  the services that VM service clients registered on a running app, with their
+  human readable aliases.
+- The `vm_service` tool's `callMethod` command now accepts the name a service
+  was registered with, and calls the namespaced method (e.g. `s1.myService`)
+  for it. If more than one client registered the service, it returns an error
+  listing the method names and aliases to choose from.
+
+## 1.1.3
+
+- Only include the `command` argument in the tool name sent to analytics when it
+  is one of the commands the tool supports, and report unsupported commands as
+  `noSuchCommand` failures.
+- Only send the names of this server's own prompts to analytics, and report
+  requests for any other prompt as `noSuchPrompt` failures.
+- Sanitize the client name, client version, and agent plugin before sending them
+  to analytics.
+
+## 1.1.2
+
+- Let the `create` tool pass the project root to the underlying CLI, and reject
+  an empty `directory`.
+- Reject a `create` template carrying whitespace, a non-breaking space
+  included.
+- Track `AGENT_PLUGIN` environment variable in analytics events.
+- Add missing license headers.
+
+## 1.1.1
+
+- Improve server instructions and error messages to encourage agents to
+  proactively connect to running applications and hot reload after changes.
+
+## 1.1.0
+
+- Build against the published `dart_mcp` package instead of a local path
+  override.
+- Create vm_service meta tool, which allows direct connections to apps via vm
+  service URIs, and also handles the direct vm service method calls.
+- Add additional failure reasons to tool call analytics.
+- Move `SdkSupport` to `implements` instead of `on` in
+  `DartToolingDaemonSupport`.
+- Harden various tools against compromised agents.
+- Use new analysis request that blocks until analysis is complete, instead of
+  waiting for notifications, which may never come.
+- Use shared logic from unified_analytics to parse the Dart version.
+- Log error types for uncaught errors.
+
+## 1.0.2
+
+- Send a SIGKILL to the analysis server if it doesn't respond to a SIGTERM in
+  time.
+
+## 1.0.1
+
+- Minor changes to improve pub score.
+
+## 1.0.0
+
+- Package is now shipped on pub instead of through the SDK. The
+  `dart mcp-server` command will continue to work as an alias for
+  `dart run dart_mcp_server@`.
+- Support reading `DART_ROOT` environment variable to set the Dart SDK root.
 - Always enable roots fallback, and merge them with client roots that are set
   (if any).
+- Add a tool for making arbitrary vm service method calls to connected apps.
+- Move binary to `bin/dart_mcp_server.dart` to be compatible with dart run.
+- Add support for enabling analytics when running as a package based on the
+  `DASH__TOOL` environment variable. Analytics will not be tracked if this is
+  not set.
 
-# 0.1.3 (Dart SDK 3.12.0)
+## 0.1.3 (Dart SDK 3.12.0)
 
 - Add additional analytics for initialization events, and various list\* method
   calls. This will help understand how the server is being used by different
@@ -54,7 +132,7 @@
 - Enable `set_semantics` command for flutter_driver.
 - Add `listDtdUris` subcommand for the `dtd` tool.
 
-# 0.1.2 (Dart SDK 3.11.0)
+## 0.1.2 (Dart SDK 3.11.0)
 
 - Add `--tools=dart|all` argument to allow enabling only vanilla Dart tools for
   non-flutter projects.
@@ -71,7 +149,7 @@
 - Fix the `timeout` parameter for the flutter_driver tool to be a String,
   matching the underlying expected type (issue #330).
 
-# 0.1.1 (Dart SDK 3.10.0)
+## 0.1.1 (Dart SDK 3.10.0)
 
 - Change tools that accept multiple roots to not return immediately on the first
   failure.
@@ -99,7 +177,7 @@
   than just screenshots.
 - Mark the "root" parameter for `create_project` required.
 
-# 0.1.0 (Dart SDK 3.9.0)
+## 0.1.0 (Dart SDK 3.9.0)
 
 - Add documentation/homepage/repository links to pub results.
 - Handle relative paths under roots without trailing slashes.

@@ -1,16 +1,39 @@
+// Copyright (c) 2026, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
 part of 'server.dart';
 
-/// A mixin that adds support for making `elicitation/create` requests to a
-/// [MCPServer].
+/// A mixin that adds client capability checks and completion notifications for
+/// elicitation to an [MCPServer].
 base mixin ElicitationRequestSupport on LoggingSupport {
   /// Whether or not the connected client supports elicitation.
   ///
-  /// Only safe to call after calling [initialize] on `super` since this is
-  /// based on the client capabilities.
+  /// Only safe to call after calling [initialize] on `super` since this
+  /// is based on the client capabilities.
   bool get supportsElicitation => clientCapabilities.elicitation != null;
 
+  /// Whether or not the connected client supports [ElicitationMode.form]
+  /// requests.
+  ///
+  /// Only safe to call after calling [initialize] on `super` since this
+  /// is based on the client capabilities.
+  ///
+  /// An empty `elicitation` object counts as form support, the backwards
+  /// compatibility rule the 2025-11-25 revision added alongside the mode
+  /// split. A client which named some other mode does not.
+  bool get supportsFormElicitation =>
+      clientCapabilities.supportsFormElicitation;
+
+  /// Whether or not the connected client supports [ElicitationMode.url]
+  /// requests.
+  ///
+  /// Only safe to call after calling [initialize] on `super` since this
+  /// is based on the client capabilities.
+  bool get supportsUrlElicitation => clientCapabilities.supportsUrlElicitation;
+
   @override
-  FutureOr<InitializeResult> initialize(InitializeRequest request) {
+  FutureOr<void> initialize(MCPServerInitialization initialization) {
     initialized.then((_) {
       if (!supportsElicitation) {
         log(
@@ -20,18 +43,7 @@ base mixin ElicitationRequestSupport on LoggingSupport {
         );
       }
     });
-    return super.initialize(request);
-  }
-
-  /// Sends an `elicitation/create` request to the client.
-  ///
-  /// This method will only succeed if the client has advertised the
-  /// `elicitation` capability.
-  Future<ElicitResult> elicit(ElicitRequest request) async {
-    if (!supportsElicitation) {
-      throw StateError('Client does not support elicitation');
-    }
-    return sendRequest(ElicitRequest.methodName, request);
+    return super.initialize(initialization);
   }
 
   /// Notifies the client that a URL elicitation has completed.

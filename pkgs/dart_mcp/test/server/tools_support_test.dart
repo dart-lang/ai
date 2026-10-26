@@ -10,6 +10,82 @@ import 'package:test/test.dart';
 import '../test_utils.dart';
 
 void main() {
+  test('legacy handshake initializes tools with client context', () async {
+    final environment = TestEnvironment(
+      TestMCPClient(),
+      TestMCPServerWithTools.new,
+    );
+    environment.client.capabilities.roots = RootsCapabilities(
+      listChanged: true,
+    );
+    final initializeResult = await environment.serverConnection.initialize(
+      InitializeRequest(
+        protocolVersion: ProtocolVersion.oldestSupported,
+        capabilities: environment.client.capabilities,
+        clientInfo: environment.client.implementation,
+      ),
+    );
+
+    expect(initializeResult.protocolVersion, ProtocolVersion.oldestSupported);
+    expect(
+      initializeResult.capabilities.tools,
+      equals(Tools(listChanged: true)),
+    );
+    expect(
+      environment.server.initializedWith?.clientCapabilities.roots,
+      equals(environment.client.capabilities.roots),
+    );
+    expect(
+      environment.server.initializedWith?.protocolVersion,
+      ProtocolVersion.oldestSupported,
+    );
+    expect(
+      environment.server.initializedWith?.clientInfo?.name,
+      environment.client.implementation.name,
+    );
+    expect(
+      environment.server.initializedWith?.clientInfo?.version,
+      environment.client.implementation.version,
+    );
+    expect(environment.server.ready, isFalse);
+
+    environment.serverConnection.notifyInitialized(InitializedNotification());
+    expect(await environment.server.initialized, isNotNull);
+    expect(environment.server.ready, isTrue);
+    expect(
+      (await environment.serverConnection.listTools()).tools,
+      hasLength(2),
+    );
+  });
+
+  test('registeredTools tracks registration and is read only', () async {
+    final environment = TestEnvironment(
+      TestMCPClient(),
+      TestMCPServerWithTools.new,
+    );
+    await environment.initializeServer();
+
+    final server = environment.server;
+    expect(server.registeredTools.keys, {'hello_world', 'echo'});
+    expect(
+      server.registeredTools['echo'],
+      same(TestMCPServerWithTools.echo),
+      reason:
+          'the registered tool itself is what a transport reads a schema '
+          'from',
+    );
+
+    server.unregisterTool('echo');
+    expect(server.registeredTools.keys, {'hello_world'});
+
+    // A caller that gets hold of the map must not be able to register or
+    // drop a tool behind `registerTool`'s back.
+    expect(
+      () => server.registeredTools['echo'] = TestMCPServerWithTools.echo,
+      throwsUnsupportedError,
+    );
+  });
+
   test('client can list and invoke tools from the server', () async {
     final environment = TestEnvironment(
       TestMCPClient(),
@@ -94,8 +170,8 @@ void main() {
       ),
     );
     expect(result.isError, isTrue);
-    expect(result.content.single, isA<TextContent>());
-    final textContent = result.content.single as TextContent;
+    expect(result.content.last, isA<TextContent>());
+    final textContent = result.content.last as TextContent;
     expect(
       textContent.text,
       contains('Required property "message" is missing at path #root'),
@@ -109,8 +185,8 @@ void main() {
       ),
     );
     expect(result.isError, isTrue);
-    expect(result.content.single, isA<TextContent>());
-    final textContent2 = result.content.single as TextContent;
+    expect(result.content.last, isA<TextContent>());
+    final textContent2 = result.content.last as TextContent;
     expect(
       textContent2.text,
       contains('Value `123` is not of type `String` at path #root["message"]'),
@@ -121,14 +197,17 @@ void main() {
 final class TestMCPServerWithTools extends TestMCPServer with ToolsSupport {
   TestMCPServerWithTools(super.channel);
 
+  MCPServerInitialization? initializedWith;
+
   @override
-  FutureOr<InitializeResult> initialize(InitializeRequest request) {
+  FutureOr<void> initialize(MCPServerInitialization initialization) {
+    initializedWith = initialization;
     registerTool(
       helloWorld,
       (_) => CallToolResult(content: [helloWorldContent]),
     );
     registerTool(TestMCPServerWithTools.echo, TestMCPServerWithTools.echoImpl);
-    return super.initialize(request);
+    return super.initialize(initialization);
   }
 
   static final echo = Tool(

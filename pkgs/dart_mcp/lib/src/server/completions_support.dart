@@ -6,14 +6,14 @@ part of 'server.dart';
 
 /// A mixin for MCP servers which support the `completion` capability.
 ///
-/// See https://spec.modelcontextprotocol.io/specification/2025-11-05/server/utilities/completion/.
+/// See https://modelcontextprotocol.io/specification/2025-11-25/server/utilities/completion/.
 base mixin CompletionsSupport on MCPServer {
   @override
-  FutureOr<InitializeResult> initialize(InitializeRequest request) async {
+  FutureOr<void> initialize(MCPServerInitialization initialization) async {
     registerRequestHandler(CompleteRequest.methodName, handleComplete);
 
-    return (await super.initialize(request))
-      ..capabilities.completions ??= Completions();
+    await super.initialize(initialization);
+    capabilities.completions ??= Completions();
   }
 
   /// Handle a client request to provide completions.

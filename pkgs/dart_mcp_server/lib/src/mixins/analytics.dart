@@ -20,10 +20,7 @@ base mixin AnalyticsEvents
   Future<InitializeResult> initialize(InitializeRequest request) async {
     final result = await super.initialize(request);
     analytics?.send(
-      Event.dartMCPEvent(
-        client: clientInfo.name,
-        clientVersion: clientInfo.version,
-        serverVersion: implementation.version,
+      _createDartMCPEvent(
         type: AnalyticsEvent.initialize.name,
         additionalData: InitializeMetrics(
           supportsElicitation: request.capabilities.elicitation != null,
@@ -38,35 +35,39 @@ base mixin AnalyticsEvents
   @override
   FutureOr<ListPromptsResult> listPrompts([ListPromptsRequest? request]) {
     trySendAnalyticsEvent(
-      Event.dartMCPEvent(
-        client: clientInfo.name,
-        clientVersion: clientInfo.version,
-        serverVersion: implementation.version,
-        type: AnalyticsEvent.listPrompts.name,
-      ),
+      _createDartMCPEvent(type: AnalyticsEvent.listPrompts.name),
     );
     return super.listPrompts(request);
   }
 
+  /// The names of the prompts that are set up by this server.
+  ///
+  /// Prompt names in requests come directly from the client, so these are the
+  /// only ones that we log.
+  static final _knownPromptNames = {
+    for (final prompt in PromptNames.values) prompt.name,
+  };
+
   @override
   Future<GetPromptResult> getPrompt(GetPromptRequest request) async {
     final watch = Stopwatch()..start();
+    final isKnownPrompt = _knownPromptNames.contains(request.name);
     GetPromptResult? result;
     try {
       return result = await super.getPrompt(request);
     } finally {
       watch.stop();
       trySendAnalyticsEvent(
-        Event.dartMCPEvent(
-          client: clientInfo.name,
-          clientVersion: clientInfo.version,
-          serverVersion: implementation.version,
+        _createDartMCPEvent(
           type: AnalyticsEvent.getPrompt.name,
           additionalData: GetPromptMetrics(
-            name: request.name,
+            name: isKnownPrompt ? request.name : null,
             success: result != null && result.messages.isNotEmpty,
             elapsedMilliseconds: watch.elapsedMilliseconds,
             withArguments: request.arguments?.isNotEmpty == true,
+            failureReason: isKnownPrompt
+                ? null
+                : GetPromptFailureReason.noSuchPrompt,
           ),
         ),
       );
@@ -76,12 +77,7 @@ base mixin AnalyticsEvents
   @override
   FutureOr<ListResourcesResult> listResources([ListResourcesRequest? request]) {
     trySendAnalyticsEvent(
-      Event.dartMCPEvent(
-        client: clientInfo.name,
-        clientVersion: clientInfo.version,
-        serverVersion: implementation.version,
-        type: AnalyticsEvent.listResources.name,
-      ),
+      _createDartMCPEvent(type: AnalyticsEvent.listResources.name),
     );
     return super.listResources(request);
   }
@@ -91,12 +87,7 @@ base mixin AnalyticsEvents
     ListResourceTemplatesRequest? request,
   ]) {
     trySendAnalyticsEvent(
-      Event.dartMCPEvent(
-        client: clientInfo.name,
-        clientVersion: clientInfo.version,
-        serverVersion: implementation.version,
-        type: AnalyticsEvent.listResourceTemplates.name,
-      ),
+      _createDartMCPEvent(type: AnalyticsEvent.listResourceTemplates.name),
     );
     return super.listResourceTemplates(request);
   }
@@ -104,78 +95,90 @@ base mixin AnalyticsEvents
   @override
   Future<ListToolsResult> listTools([ListToolsRequest? request]) async {
     trySendAnalyticsEvent(
-      Event.dartMCPEvent(
-        client: clientInfo.name,
-        clientVersion: clientInfo.version,
-        serverVersion: implementation.version,
-        type: AnalyticsEvent.listTools.name,
-      ),
+      _createDartMCPEvent(type: AnalyticsEvent.listTools.name),
     );
     return super.listTools(request);
   }
 
   @override
-  /// We override this to do our own validation - this is mostly a copy of the
-  /// normal implementation except we also attach a failure reason for
-  /// analytics purposes.
+  /// We override this with our own validation and error handling for analytics
+  /// purposes.
   void registerTool(
     Tool tool,
     FutureOr<CallToolResult> Function(CallToolRequest) impl, {
     bool validateArguments = true,
   }) {
-    super.registerTool(
-      tool,
-      validateArguments
-          ? (request) {
-              final errors = tool.inputSchema.validate(
-                request.arguments ?? const <String, Object?>{},
-              );
-              if (errors.isNotEmpty) {
-                return CallToolResult(
-                  content: [
-                    for (final error in errors)
-                      Content.text(text: error.toErrorString()),
-                  ],
-                  isError: true,
-                )..failureReason = CallToolFailureReason.argumentError;
-              }
-              return impl(request);
-            }
-          : impl,
-      validateArguments: false,
-    );
+    final knownCommands = _knownCommands(tool);
+    super.registerTool(tool, (request) async {
+      final watch = Stopwatch()..start();
+      // The command comes directly from the client, so we only log it if it is
+      // one of the known commands for this tool.
+      final command = request.arguments?[ParameterNames.command];
+      final isKnownCommand = knownCommands.contains(command);
+      final isUnknownCommand =
+          command != null && knownCommands.isNotEmpty && !isKnownCommand;
+      CallToolResult? result;
+      if (validateArguments) {
+        final errors = tool.inputSchema.validate(
+          request.arguments ?? const <String, Object?>{},
+        );
+        if (errors.isNotEmpty) {
+          final failureReason = isUnknownCommand
+              ? CallToolFailureReason.noSuchCommand
+              : CallToolFailureReason.argumentError;
+          result = CallToolResult(
+            content: [
+              Content.text(
+                text:
+                    'Invalid tool arguments, make sure to read the schema '
+                    'and try again:',
+              ),
+              for (final error in errors)
+                Content.text(text: error.toErrorString()),
+            ],
+            isError: true,
+          )..failureReason = failureReason;
+        }
+      }
+      String? errorType;
+      try {
+        // Only call the tool if we don't already have an error result.
+        return result ??= await impl(request);
+      } catch (e) {
+        errorType = e.runtimeType.toString();
+        rethrow;
+      } finally {
+        watch.stop();
+        trySendAnalyticsEvent(
+          _createDartMCPEvent(
+            type: AnalyticsEvent.callTool.name,
+            additionalData: CallToolMetrics(
+              tool: isKnownCommand ? '${tool.name}.$command' : tool.name,
+              success: result != null && result.isError != true,
+              elapsedMilliseconds: watch.elapsedMilliseconds,
+              failureReason:
+                  result?.failureReason ??
+                  (errorType != null
+                      ? CallToolFailureReason.unhandledError
+                      : null),
+              extraToolMetrics: result?.customMetrics,
+              errorType: errorType,
+            ),
+          ),
+        );
+      }
+    }, validateArguments: false);
   }
 
-  @override
-  Future<CallToolResult> callTool(CallToolRequest request) async {
-    final watch = Stopwatch()..start();
-    CallToolResult? result;
-    try {
-      return result = await super.callTool(request);
-    } finally {
-      watch.stop();
-      var toolName = request.name;
-      if (request.arguments?[ParameterNames.command]
-          case final String command) {
-        toolName += '.$command';
-      }
-      trySendAnalyticsEvent(
-        Event.dartMCPEvent(
-          client: clientInfo.name,
-          clientVersion: clientInfo.version,
-          serverVersion: implementation.version,
-          type: AnalyticsEvent.callTool.name,
-          additionalData: CallToolMetrics(
-            tool: toolName,
-            success: result != null && result.isError != true,
-            elapsedMilliseconds: watch.elapsedMilliseconds,
-            failureReason: result?.failureReason,
-            extraToolMetrics: result?.customMetrics,
-          ),
-        ),
-      );
-    }
-  }
+  Event _createDartMCPEvent({
+    required String type,
+    CustomMetrics? additionalData,
+  }) => createDartMCPEvent(
+    clientInfo: clientInfo,
+    serverInfo: implementation,
+    type: type,
+    additionalData: additionalData,
+  );
 
   void trySendAnalyticsEvent(Event event) {
     try {
@@ -184,4 +187,24 @@ base mixin AnalyticsEvents
       log(LoggingLevel.warning, 'Error sending analytics event: $e');
     }
   }
+}
+
+/// The values allowed for the `command` parameter of [tool], according to the
+/// `enum` in its input schema.
+///
+/// Returns an empty set if [tool] has no `command` parameter, if that parameter
+/// isn't a string, or if it doesn't declare an `enum`.
+Set<String> _knownCommands(Tool tool) {
+  final commandSchema = tool.inputSchema.properties?[ParameterNames.command];
+  if (commandSchema == null) return const {};
+  // Only string commands are supported today. We assert so that our tests catch
+  // any other types, but just don't log those commands in production.
+  final isStringSchema = commandSchema.type == JsonType.string;
+  assert(
+    isStringSchema,
+    'The `${ParameterNames.command}` parameter of the `${tool.name}` tool must '
+    'be a string, but it has type `${commandSchema.type?.typeName}`.',
+  );
+  if (!isStringSchema) return const {};
+  return {...?(commandSchema as StringSchema).enumValues};
 }

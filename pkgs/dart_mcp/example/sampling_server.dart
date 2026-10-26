@@ -16,8 +16,7 @@ void main() {
   MCPServerWithSampling(stdioChannel(input: io.stdin, output: io.stdout));
 }
 
-/// This server uses the [createMessage] function to make sampling requests
-/// to the client.
+/// This server uses [sendRequest] to make sampling requests to the client.
 base class MCPServerWithSampling extends MCPServer with LoggingSupport {
   MCPServerWithSampling(super.channel)
     : super.fromStreamChannel(
@@ -34,7 +33,8 @@ base class MCPServerWithSampling extends MCPServer with LoggingSupport {
   /// Makes a sampling request and logs the response.
   void _makeSamplingRequest() async {
     // Actually send the request.
-    final result = await createMessage(
+    final result = await sendRequest<CreateMessageResult>(
+      CreateMessageRequest.methodName,
       CreateMessageRequest(
         // All of the messages to be included in the context for the sampling
         // request.
@@ -43,7 +43,7 @@ base class MCPServerWithSampling extends MCPServer with LoggingSupport {
             // The role to be assigned the message in the context.
             role: Role.user,
             // The actual content of the message in the context.
-            content: Content.text(text: 'Hello'),
+            content: [Content.text(text: 'Hello')],
           ),
         ],
         // The maximum response size in tokens.
@@ -57,7 +57,7 @@ base class MCPServerWithSampling extends MCPServer with LoggingSupport {
     // Simply log the result, the client will print this to the console.
     log(
       LoggingLevel.warning,
-      '(${result.role}): ${(result.content as TextContent).text}',
+      '(${result.role}): ${(result.content.single as TextContent).text}',
     );
   }
 }

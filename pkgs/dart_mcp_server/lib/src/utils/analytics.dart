@@ -2,7 +2,11 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:async';
+import 'dart:io' show Platform;
+
 import 'package:dart_mcp/server.dart';
+import 'package:meta/meta.dart';
 import 'package:unified_analytics/unified_analytics.dart';
 
 /// An interface class that provides a access to an [Analytics] instance, if
@@ -12,6 +16,80 @@ import 'package:unified_analytics/unified_analytics.dart';
 /// methods can be easily mocked during testing.
 abstract interface class AnalyticsSupport {
   Analytics? get analytics;
+}
+
+/// The environment variable name used to specify the agent plugin.
+const agentPluginEnvVar = 'AGENT_PLUGIN';
+
+/// Key used to store the agent plugin override in a [Zone].
+const _agentPluginOverrideKey = #_agentPluginOverrideKey;
+
+/// Runs [callback] in a zone where the agent plugin is overridden with
+/// [agentPlugin].
+@visibleForTesting
+R withAgentPluginOverride<R>(String agentPlugin, R Function() callback) =>
+    runZoned(callback, zoneValues: {_agentPluginOverrideKey: agentPlugin});
+
+/// Returns the agent plugin name from the current [Zone] (if overridden) or
+/// the environment.
+String? get agentPlugin =>
+    Zone.current[_agentPluginOverrideKey] as String? ??
+    Platform.environment[agentPluginEnvVar];
+
+/// Creates an [Event.dartMCPEvent] of the given [type].
+///
+/// All analytics events sent by this server should be created through this
+/// function, so that the values which come from outside of the server (the
+/// [clientInfo] and the [agentPlugin]) are always sanitized with
+/// [sanitizeForAnalytics].
+Event createDartMCPEvent({
+  required Implementation clientInfo,
+  required Implementation serverInfo,
+  required String type,
+  CustomMetrics? additionalData,
+}) {
+  final plugin = agentPlugin;
+  return Event.dartMCPEvent(
+    client: sanitizeForAnalytics(clientInfo.name),
+    clientVersion: sanitizeForAnalytics(clientInfo.version),
+    serverVersion: serverInfo.version,
+    type: type,
+    agentPlugin: plugin == null ? null : sanitizeForAnalytics(plugin),
+    additionalData: additionalData,
+  );
+}
+
+/// The maximum length of a value returned by [sanitizeForAnalytics].
+///
+/// Matches the maximum length of a GA4 event parameter value.
+const maxSanitizedAnalyticsValueLength = 100;
+
+/// Matches `${...}` interpolations, including unterminated ones.
+final _interpolationPattern = RegExp(r'\$\{[^}]*\}?');
+
+/// Matches runs of control characters and line terminators.
+final _controlCharactersPattern = RegExp(r'[\x00-\x1F\x7F-\x9F\u2028\u2029]+');
+
+/// Sanitizes a free-form [value] which comes from outside of this server, such
+/// as the client name and version, so that it is safe to send in analytics.
+///
+/// - Removes all `${...}` interpolations and then any remaining `$`
+///   characters, so that analytics dashboards (such as PLX) never treat any
+///   part of the value as a variable substitution.
+/// - Replaces each run of control characters (including newlines) with a
+///   single space, and trims any leading and trailing whitespace.
+/// - Truncates the result to [maxSanitizedAnalyticsValueLength] characters.
+String sanitizeForAnalytics(String value) {
+  final sanitized = value
+      .replaceAll(_interpolationPattern, '')
+      .replaceAll(r'$', '')
+      .replaceAll(_controlCharactersPattern, ' ')
+      .trim();
+  final runes = sanitized.runes;
+  if (runes.length <= maxSanitizedAnalyticsValueLength) return sanitized;
+  return String.fromCharCodes(
+    runes.take(maxSanitizedAnalyticsValueLength),
+  ).trimRight();
 }
 
 enum AnalyticsEvent {
@@ -75,7 +153,10 @@ final class ReadResourceMetrics extends CustomMetrics {
 /// The metrics for a prompts/get MCP handler.
 final class GetPromptMetrics extends CustomMetrics {
   /// The name of the prompt that was retrieved.
-  final String name;
+  ///
+  /// This is `null` if the client asked for a prompt that isn't one of the
+  /// prompts set up by this server, because we never log other prompt names.
+  final String? name;
 
   /// Whether or not the prompt was given with arguments.
   final bool withArguments;
@@ -86,25 +167,43 @@ final class GetPromptMetrics extends CustomMetrics {
   /// Whether or not the prompt call succeeded.
   final bool success;
 
+  /// The reason for the failure, if [success] is `false` and it is known.
+  final GetPromptFailureReason? failureReason;
+
   GetPromptMetrics({
     required this.name,
     required this.withArguments,
     required this.elapsedMilliseconds,
     required this.success,
+    this.failureReason,
   });
 
   @override
   Map<String, Object> toMap() => {
-    _name: name,
+    _name: ?name,
     _withArguments: withArguments,
     _elapsedMilliseconds: elapsedMilliseconds,
     _success: success,
+    _failureReason: ?failureReason?.name,
   };
+}
+
+/// Known reasons for failed prompts/get calls.
+enum GetPromptFailureReason {
+  /// The client asked for a prompt that isn't one of the prompts set up by
+  /// this server.
+  noSuchPrompt,
 }
 
 /// The metrics for a tools/call MCP handler.
 final class CallToolMetrics extends CustomMetrics {
   /// The name of the tool that was invoked.
+  ///
+  /// If the tool was invoked with one of the known values of its `command`
+  /// parameter, then that command is appended to the name, separated by a `.`.
+  ///
+  /// This is always the name of a registered tool, because we never log tool
+  /// names or commands that we don't recognize.
   final String tool;
 
   /// Whether or not the tool call succeeded.
@@ -119,12 +218,16 @@ final class CallToolMetrics extends CustomMetrics {
   /// Extra metrics reported by the given tool that was called.
   final CustomMetrics? extraToolMetrics;
 
+  /// The runtime type of an exception if thrown.
+  final String? errorType;
+
   CallToolMetrics({
     required this.tool,
     required this.success,
     required this.elapsedMilliseconds,
     required this.failureReason,
     required this.extraToolMetrics,
+    required this.errorType,
   });
 
   @override
@@ -133,6 +236,7 @@ final class CallToolMetrics extends CustomMetrics {
     _success: success,
     _elapsedMilliseconds: elapsedMilliseconds,
     _failureReason: ?failureReason?.name,
+    _errorType: ?errorType,
     ...?extraToolMetrics?.toMap(),
   };
 }
@@ -153,6 +257,7 @@ extension WithFailureReason on CallToolResult {
 /// Known reasons for failed tool calls.
 enum CallToolFailureReason {
   alreadyDisconnected,
+  ambiguousServiceMethod,
   applicationNotFound,
   argumentError,
   connectedAppServiceNotSupported,
@@ -173,6 +278,7 @@ enum CallToolFailureReason {
   nonZeroExitCode,
   mustSpecifyDtdUri,
   processException,
+  rpcError,
   timeout,
   unhandledError,
   webSocketException,
@@ -188,6 +294,7 @@ extension WithCustomMetrics on CallToolResult {
 }
 
 const _elapsedMilliseconds = 'elapsedMilliseconds';
+const _errorType = 'errorType';
 const _failureReason = 'failureReason';
 const _kind = 'kind';
 const _length = 'length';

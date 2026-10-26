@@ -11,6 +11,7 @@ import 'package:dart_mcp/server.dart';
 import 'package:meta/meta.dart';
 
 import '../features_configuration.dart';
+import '../utils/analytics.dart';
 import '../utils/constants.dart';
 import '../utils/names.dart';
 
@@ -56,7 +57,7 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
   @override
   FutureOr<InitializeResult> initialize(InitializeRequest request) async {
     try {
-      return super.initialize(request);
+      return await super.initialize(request);
     } finally {
       registerTool(rootsTool, _roots);
     }
@@ -101,7 +102,7 @@ base mixin RootsFallbackSupport on ToolsSupport, RootsTrackingSupport {
         return CallToolResult(
           isError: true,
           content: [TextContent(text: 'Unknown command: $command')],
-        );
+        )..failureReason = CallToolFailureReason.noSuchCommand;
     }
   }
 
