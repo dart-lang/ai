@@ -403,8 +403,20 @@ base mixin DartToolingDaemonSupport
   ///
   /// Connects to a single DTD at [uri].
   Future<CallToolResult> _connectToDtdSingle(Uri uri) async {
-    if (_dtds.any((dtd) => dtd.uri == uri)) {
-      return _dtdAlreadyConnected;
+    // Connecting is idempotent. This server may be shared across multiple
+    // agent sessions, so an agent may try to connect to a DTD instance that
+    // a previous session already connected to.
+    if (_dtds.firstWhereOrNull((dtd) => dtd.uri == uri) case final dtd?) {
+      final vmServiceInfos = await updateActiveVmServices(dtd);
+      return CallToolResult(
+        content: [
+          TextContent(
+            text:
+                'Already connected to $uri. '
+                '${_describeConnectedApps(vmServiceInfos)}',
+          ),
+        ],
+      );
     }
 
     try {
@@ -436,15 +448,13 @@ base mixin DartToolingDaemonSupport
       // Try to get the initial list of apps.
       final vmServiceInfos = await updateActiveVmServices(dtd);
 
-      final connectedApps = vmServiceInfos;
-      final appListString = connectedApps.isEmpty
-          ? 'No apps currently connected.'
-          : 'Connected apps:\n'
-                '${connectedApps.map((info) => info.description).join('\n')}';
-
       return CallToolResult(
         content: [
-          TextContent(text: 'Connection succeeded to $uri. $appListString'),
+          TextContent(
+            text:
+                'Connection succeeded to $uri. '
+                '${_describeConnectedApps(vmServiceInfos)}',
+          ),
         ],
       );
     } on WebSocketException catch (_) {
@@ -463,6 +473,14 @@ base mixin DartToolingDaemonSupport
       )..failureReason = CallToolFailureReason.unhandledError;
     }
   }
+
+  /// Describes the apps on a single DTD instance after connecting to it.
+  static String _describeConnectedApps(List<VmServiceInfo> vmServiceInfos) =>
+      vmServiceInfos.isEmpty
+      ? 'No apps currently connected. Apps started later on this DTD '
+            'instance will be connected automatically.'
+      : 'Connected apps:\n'
+            '${vmServiceInfos.map((info) => info.description).join('\n')}';
 
   /// Connects to the Dart Tooling Daemon.
   FutureOr<CallToolResult> _connect(CallToolRequest request) async {
@@ -521,6 +539,28 @@ base mixin DartToolingDaemonSupport
 
   /// Lists the available Dart Tooling Daemon instances.
   Future<CallToolResult> _listDtdInstancesTool(CallToolRequest request) async {
+    final (:output, :error) = await _listDtdInstances();
+    if (error != null) {
+      return CallToolResult(isError: true, content: [Content.text(text: error)])
+        ..failureReason = CallToolFailureReason.nonZeroExitCode;
+    }
+    return CallToolResult(
+      content: [
+        Content.text(text: output!),
+        if (_dtds.isNotEmpty)
+          Content.text(
+            text:
+                'Already connected to: '
+                '${_dtds.map((dtd) => dtd.uri).join(', ')}. Use '
+                '"${DtdCommand.listConnectedApps}" to see their apps.',
+          ),
+      ],
+    );
+  }
+
+  /// Runs `dart tooling-daemon --list` and returns either its `output` or an
+  /// `error` message.
+  Future<({String? output, String? error})> _listDtdInstances() async {
     final result = await processManager.run([
       sdk.dartExecutablePath,
       'tooling-daemon',
@@ -531,43 +571,45 @@ base mixin DartToolingDaemonSupport
         LoggingLevel.warning,
         'dart tooling-daemon --list failed: ${result.stderr}',
       );
-      return CallToolResult(
-        isError: true,
-        content: [
-          Content.text(
-            text: 'dart tooling-daemon --list failed: ${result.stderr}',
-          ),
-        ],
-      )..failureReason = CallToolFailureReason.nonZeroExitCode;
+      return (
+        output: null,
+        error: 'dart tooling-daemon --list failed: ${result.stderr}',
+      );
     }
-    return CallToolResult(
-      content: [Content.text(text: result.stdout as String)],
-    );
+    return (output: result.stdout as String, error: null);
   }
 
   /// The [dtdTool] for managing DTD connections.
   static final dtdTool = Tool(
     name: ToolNames.dtd.name,
     description:
-        'Manage live app connections to Dart and Flutter apps using the '
-        'Dart Tooling Daemon (DTD). Start by using the '
-        '`${DtdCommand.listDtdUris}` command to find available DTD URIs, '
-        'followed by the `${DtdCommand.connect}` command with the desired '
-        'URI to connect to. Apps from a given DTD instance are automatically '
-        'connected to, and you can use the `${DtdCommand.listConnectedApps}` '
-        'command to see the list of connected apps. If you see DTD instances '
-        'with a working dir that looks like a home directory, these are likely '
-        'connected to an IDE and you should connect to those to find IDE '
-        'launched apps.',
+        'Manage live app connections to running Dart and Flutter apps using '
+        'the Dart Tooling Daemon (DTD). A DTD connection is REQUIRED before '
+        'listing apps or using any tool that interacts with a running app '
+        '(hot reload/restart, runtime errors, widget inspector, flutter '
+        'driver, vm service, etc). Workflow:\n'
+        '1. `${DtdCommand.listDtdUris}`: find available DTD instances and '
+        'their URIs. If you see DTD instances with a working dir that looks '
+        'like a home directory, these are likely connected to an IDE and you '
+        'should connect to those to find IDE launched apps.\n'
+        '2. `${DtdCommand.connect}` with the chosen `${ParameterNames.uri}`. '
+        'All apps registered with that DTD instance are connected to '
+        'automatically.\n'
+        '3. `${DtdCommand.listConnectedApps}` (optional): list the apps on '
+        'all connected DTD instances. This only returns apps after step 2.\n'
+        'Use `${DtdCommand.disconnect}` to disconnect from a DTD instance.',
     inputSchema: Schema.object(
       properties: {
         ParameterNames.command: EnumSchema.untitledSingleSelect(
-          description: 'The command to execute.',
+          description:
+              'The command to execute. Call "${DtdCommand.listDtdUris}" and '
+              'then "${DtdCommand.connect}" before '
+              '"${DtdCommand.listConnectedApps}".',
           values: [
-            DtdCommand.connect,
-            DtdCommand.disconnect,
-            DtdCommand.listConnectedApps,
             DtdCommand.listDtdUris,
+            DtdCommand.connect,
+            DtdCommand.listConnectedApps,
+            DtdCommand.disconnect,
           ],
         ),
         ParameterNames.uri: Schema.string(
@@ -603,7 +645,12 @@ base mixin DartToolingDaemonSupport
   }
 
   Future<CallToolResult> _listConnectedApps(CallToolRequest request) async {
-    if (activeVmServices.isEmpty) return _noActiveAppConnection;
+    // Only error if there is no way we could possibly find any apps. If we are
+    // connected to a DTD instance, we always refresh the list of apps from it
+    // below, and an empty list is a valid (non-error) result.
+    if (_dtds.isEmpty && activeVmServices.isEmpty) {
+      return _noActiveAppConnection();
+    }
     final textResult = <TextContent>[];
     // Connected app info by DTD uri.
     final structuredResult = <String, List<Map<String, Object?>>>{};
@@ -641,10 +688,87 @@ base mixin DartToolingDaemonSupport
       );
     }
 
+    if (structuredResult.values.every((apps) => apps.isEmpty)) {
+      textResult.add(TextContent(text: _noAppsOnConnectedDtdsGuidance));
+    }
+
     return CallToolResult(
       content: textResult,
       structuredContent: structuredResult,
     );
+  }
+
+  /// Guidance for the agent when it is connected to one or more DTD instances,
+  /// but none of them have any running apps.
+  static final _noAppsOnConnectedDtdsGuidance =
+      'No running apps were found on the connected DTD instance(s). The app '
+      'may not be running yet (ask the user to start it in debug mode, or '
+      'launch it yourself if a launch tool is available), or it may be '
+      'registered with a different DTD instance (for example one belonging '
+      'to a different IDE window). Use `${ToolNames.dtd.name}` with command '
+      '"${DtdCommand.listDtdUris}" to find other DTD instances and '
+      '"${DtdCommand.connect}" to connect to the right one.';
+
+  /// Builds an error result for when a tool requires a connected app but none
+  /// is available.
+  ///
+  /// The result contains concrete next steps based on the current connection
+  /// state. When no DTD is connected at all, the list of available DTD
+  /// instances is included directly so that the agent can immediately call
+  /// the `connect` command without an extra round trip.
+  Future<CallToolResult> _noActiveAppConnection() async {
+    if (_dtds.isNotEmpty) {
+      if (!_dtds.any((dtd) => dtd.supportsConnectedApps)) {
+        return _connectedAppsNotSupported;
+      }
+      return CallToolResult(
+        isError: true,
+        content: [
+          TextContent(
+            text:
+                'Connected to DTD at '
+                '${_dtds.map((dtd) => '`${dtd.uri}`').join(', ')}, but there '
+                'is no active app connection. $_noAppsOnConnectedDtdsGuidance',
+          ),
+        ],
+      )..failureReason = CallToolFailureReason.noActiveDebugSession;
+    }
+
+    final dtdList = await _listDtdInstances();
+    final dtdListText = switch (dtdList) {
+      (output: final output?, error: null) when output.trim().isNotEmpty =>
+        'Output of `${ToolNames.dtd.name}` command '
+            '"${DtdCommand.listDtdUris}":\n$output',
+      (output: _, error: null) =>
+        'No DTD instances were found. Ask the user to start their app or IDE, '
+            'then use `${ToolNames.dtd.name}` with command '
+            '"${DtdCommand.listDtdUris}" to try again.',
+      (output: _, error: final error) =>
+        'Failed to list DTD instances ($error). Use `${ToolNames.dtd.name}` '
+            'with command "${DtdCommand.listDtdUris}" to try again.',
+    };
+    return CallToolResult(
+      isError: true,
+      content: [
+        TextContent(
+          text:
+              'Not connected to the Dart Tooling Daemon (DTD), so no apps are '
+              'available. Connecting is a required first step before using '
+              'any tool that interacts with a running app. AGENT: Be '
+              'pro-active and do this yourself unless explicitly instructed '
+              'otherwise:\n'
+              '1. Pick a DTD "WS URI" from the list below. Prefer an instance '
+              'whose workspace root matches the project you are working on. '
+              'Instances whose working directory looks like a home directory '
+              'usually belong to an IDE and will have IDE-launched apps.\n'
+              '2. Call `${ToolNames.dtd.name}` with '
+              '`{"${ParameterNames.command}": "${DtdCommand.connect}", '
+              '"${ParameterNames.uri}": "<WS URI>"}`.\n'
+              '3. Retry the original tool call.\n\n'
+              '$dtdListText',
+        ),
+      ],
+    )..failureReason = CallToolFailureReason.dtdNotConnected;
   }
 
   Future<CallToolResult> _disconnect(CallToolRequest request) async {
@@ -1111,12 +1235,7 @@ base mixin DartToolingDaemonSupport
       }
     }
 
-    if (activeVmServices.isEmpty) {
-      if (_dtds.isNotEmpty && !_dtds.any((dtd) => dtd.supportsConnectedApps)) {
-        return _connectedAppsNotSupported;
-      }
-      return _noActiveAppConnection;
-    }
+    if (activeVmServices.isEmpty) return _noActiveAppConnection();
 
     final String selectedAppUri;
     if (appUri != null) {
@@ -1700,30 +1819,6 @@ base mixin DartToolingDaemonSupport
       ),
     ],
   )..failureReason = CallToolFailureReason.dtdNotConnected;
-
-  static final _dtdAlreadyConnected = CallToolResult(
-    isError: true,
-    content: [
-      TextContent(
-        text:
-            'The dart tooling daemon is already connected to this URI, you '
-            'cannot connect again.',
-      ),
-    ],
-  )..failureReason = CallToolFailureReason.dtdAlreadyConnected;
-
-  static final _noActiveAppConnection = CallToolResult(
-    content: [
-      TextContent(
-        text:
-            'No active app connection. Use the `${dtdTool.name}` tool to '
-            'discover and connect to an app first. AGENT: Be pro-active and '
-            'connect to the app yourself unless explicitly instructed '
-            'otherwise. Read the dtd tool schema to use it correctly.',
-      ),
-    ],
-    isError: true,
-  )..failureReason = CallToolFailureReason.noActiveDebugSession;
 
   static final _flutterDriverNotRegistered = CallToolResult(
     content: [

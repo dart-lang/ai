@@ -1,3 +1,18 @@
+## 1.2.2
+
+- The `dtd` tool's `listConnectedApps` command no longer returns an error when
+  connected to a DTD instance that has no running apps. It now always refreshes
+  the app list from DTD and explains how to find the right app or DTD instance.
+- When an app tool is called before connecting to DTD, the error now includes
+  the available DTD instances and the exact `connect` call to make, and reports
+  the `dtdNotConnected` failure reason instead of `noActiveDebugSession`.
+- Clarify the `dtd` tool description and server instructions to make it clear
+  that `listDtdUris` and `connect` must be called before other app tools.
+- Connecting to a DTD instance that is already connected now succeeds and
+  returns its current apps instead of returning a `dtdAlreadyConnected` error,
+  and `listDtdUris` indicates which instances are already connected. This is
+  common when the server is shared across multiple agent sessions.
+
 ## 1.2.1
 
 - When the Flutter SDK cannot be found, the error now says which Dart SDK the
