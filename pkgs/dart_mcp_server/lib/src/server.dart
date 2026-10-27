@@ -99,7 +99,7 @@ final class DartMCPServer extends MCPServer
 After completing Dart/Flutter code changes, always execute a hot reload or
 hot restart.
 
-Tools that interact with a running app  require a connection to the Dart
+Tools that interact with a running app require a connection to the Dart
 Tooling Daemon (DTD) first. If you are not connected yet, proactively connect
 using the `${DartToolingDaemonSupport.dtdTool.name}` tool: first call it with
 command `${DtdCommand.listDtdUris}` to find DTD URIs, then call it with
