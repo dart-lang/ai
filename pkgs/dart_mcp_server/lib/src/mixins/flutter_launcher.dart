@@ -378,7 +378,12 @@ base mixin FlutterLauncherSupport
       } else {
         description
           ..writeln('DTD URI: ${result.dtdUri}')
-          ..writeln('App URI: ${result.appUri}');
+          ..writeln('App URI: ${result.appUri}')
+          ..writeln(
+            'To interact with this app, connect to its DTD by calling the '
+            '`${ToolNames.dtd.name}` tool with command "connect" and the DTD '
+            'URI above.',
+          );
       }
 
       return CallToolResult(

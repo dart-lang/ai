@@ -54,7 +54,7 @@ These are located in `lib/src/server/` and are mixed into an `MCPServer` impleme
 
 This package is a concrete implementation of an MCP server that exposes a rich set of tools for Dart and Flutter development.
 
-- **`bin/main.dart`**: The main entry point for the server executable.
+- **`bin/dart_mcp_server.dart`**: The main entry point for the server executable.
 - **`lib/dart_mcp_server.dart`**: Exports the main `DartMCPServer` class.
 - **`lib/src/server.dart`**: This is the core of the `dart_mcp_server` package. The `DartMCPServer` class extends `MCPServer` from the `dart_mcp` package and uses a series of mixins to add a wide range of tools. It also handles command-line argument parsing, logging, and analytics.
 - **`lib/src/mixins/`**: This directory is where the implementations of the various tools are located. Each file is a mixin that adds a specific set of capabilities to the `DartMCPServer`. This is a great place to look to understand how a specific tool is implemented.
@@ -76,7 +76,7 @@ The packages in this repository are standard Dart packages. To use them, you can
 The `dart_mcp_server` can be run directly from the command line:
 
 ```bash
-dart run pkgs/dart_mcp_server/bin/main.dart
+dart run pkgs/dart_mcp_server/bin/dart_mcp_server.dart
 ```
 
 However, it's intended to be run by an MCP client, such as the Gemini CLI.
