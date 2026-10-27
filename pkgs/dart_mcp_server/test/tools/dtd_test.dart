@@ -152,6 +152,45 @@ void main() {
         expect(text, contains('PID:'));
       });
 
+      test('connecting to an already connected DTD succeeds', () async {
+        final result = await testHarness.connectToDtd();
+        expect(result.isError, isNot(true));
+        expect(
+          (result.content.single as TextContent).text,
+          startsWith(
+            'Already connected to ${testHarness.fakeEditorExtension!.dtdUri}',
+          ),
+        );
+
+        final listResult = await testHarness.callTool(
+          CallToolRequest(
+            name: ToolNames.dtd.name,
+            arguments: {ParameterNames.command: DtdCommand.listDtdUris},
+          ),
+        );
+        expect(
+          (listResult.content.last as TextContent).text,
+          contains(
+            'Already connected to: ${testHarness.fakeEditorExtension!.dtdUri}',
+          ),
+        );
+      });
+
+      test('listConnectedApps with no running apps is not an error and gives '
+          'guidance', () async {
+        final result = await testHarness.callTool(
+          CallToolRequest(
+            name: ToolNames.dtd.name,
+            arguments: {ParameterNames.command: DtdCommand.listConnectedApps},
+          ),
+        );
+        expect(result.isError, isNot(true));
+        final text = result.content.map((c) => (c as TextContent).text).join();
+        expect(text, contains('No connected apps found.'));
+        expect(text, contains('No running apps were found'));
+        expect(text, contains(DtdCommand.listDtdUris));
+      });
+
       test('can list connected apps across multiple DTDs', () async {
         final dtd1Uri = testHarness.fakeEditorExtension!.dtdUri;
         final secondEditorExtension = await FakeEditorExtension.connect(
@@ -1562,6 +1601,54 @@ void main() {
     });
   });
 
+  group('when not connected to DTD', () {
+    late TestHarness testHarness;
+
+    setUp(() async {
+      testHarness = await TestHarness.start(
+        featuresConfig: FeaturesConfiguration(
+          enabledNames: {FeatureCategory.dartToolingDaemon.name},
+        ),
+        processManager: const LocalProcessManager(),
+      );
+    });
+
+    void expectConnectGuidance(CallToolResult result) {
+      expect(result.isError, isTrue);
+      final text = (result.content.single as TextContent).text;
+      expect(text, contains('Not connected to the Dart Tooling Daemon'));
+      expect(
+        text,
+        contains(
+          '`{"${ParameterNames.command}": "${DtdCommand.connect}", '
+          '"${ParameterNames.uri}": "<WS URI>"}`',
+        ),
+      );
+      // The available DTD URIs are included inline.
+      expect(text, contains('WS URI:'));
+      expect(text, contains(testHarness.fakeEditorExtension!.dtdUri));
+    }
+
+    test('listConnectedApps explains how to connect', () async {
+      final result = await testHarness.callTool(
+        CallToolRequest(
+          name: ToolNames.dtd.name,
+          arguments: {ParameterNames.command: DtdCommand.listConnectedApps},
+        ),
+        expectError: true,
+      );
+      expectConnectGuidance(result);
+    });
+
+    test('app tools explain how to connect', () async {
+      final result = await testHarness.callTool(
+        CallToolRequest(name: ToolNames.hotReload.name),
+        expectError: true,
+      );
+      expectConnectGuidance(result);
+    });
+  });
+
   test('connect_to_dtd will reject a vm service URI', () async {
     final testHarness = await TestHarness.start(inProcess: true);
     final debugSession = await testHarness.startDebugSession(
@@ -1655,7 +1742,7 @@ void main() {
       expect(failResult.isError, isTrue);
       expect(
         (failResult.content.first as TextContent).text,
-        contains('No active app connection'),
+        contains('Not connected to the Dart Tooling Daemon'),
       );
 
       debugSession.appProcess.stdin.writeln('q');
@@ -1706,7 +1793,7 @@ void main() {
           // If it got disconnected mid-call
           contains('Service connection disposed'),
           // If it was disposed prior to the call
-          contains('No active app connection'),
+          contains('Not connected to the Dart Tooling Daemon'),
         ),
       );
     });

@@ -165,7 +165,9 @@ void main() {
           text:
               'Flutter application started successfully with PID 54321\n'
               'DTD URI: ws://127.0.0.1:12345/abcdefg=\n'
-              'App URI: ws://127.0.0.1:54321/\n',
+              'App URI: ws://127.0.0.1:54321/\n'
+              'To interact with this app, connect to its DTD by calling the '
+              '`dtd` tool with command "connect" and the DTD URI above.\n',
         ),
       ]);
       expect(result.isError, isNot(true));
@@ -348,7 +350,9 @@ void main() {
             text:
                 'Flutter application started successfully with PID 54321\n'
                 'DTD URI: ws://127.0.0.1:12345/abcdefg=\n'
-                'App URI: ws://127.0.0.1:54321/\n',
+                'App URI: ws://127.0.0.1:54321/\n'
+                'To interact with this app, connect to its DTD by calling the '
+                '`dtd` tool with command "connect" and the DTD URI above.\n',
           ),
         ]);
         expect(result.isError, isNot(true));
@@ -375,7 +379,9 @@ void main() {
           text:
               'Flutter application started successfully with PID 54321\n'
               'DTD URI: ws://127.0.0.1:12345/abcdefg=\n'
-              'App URI: ws://127.0.0.1:54321/\n',
+              'App URI: ws://127.0.0.1:54321/\n'
+              'To interact with this app, connect to its DTD by calling the '
+              '`dtd` tool with command "connect" and the DTD URI above.\n',
         ),
       ]);
       expect(result.isError, isNot(true));

@@ -31,6 +31,7 @@ import 'mixins/pub_dev_search.dart';
 import 'mixins/roots_fallback_support.dart';
 import 'utils/analytics.dart';
 import 'utils/file_system.dart';
+import 'utils/names.dart';
 import 'utils/process_manager.dart';
 import 'utils/sdk.dart';
 
@@ -96,12 +97,18 @@ final class DartMCPServer extends MCPServer
          instructions:
              '''
 After completing Dart/Flutter code changes, always execute a hot reload or
-hot restart. If you are not connected yet to an app, use the
-`${DartToolingDaemonSupport.dtdTool.name}` tool to proactively discover and
-connect to apps.
+hot restart.
+
+Tools that interact with a running app require a connection to the Dart
+Tooling Daemon (DTD) first. If you are not connected yet, proactively connect
+using the `${DartToolingDaemonSupport.dtdTool.name}` tool: first call it with
+command `${DtdCommand.listDtdUris}` to find DTD URIs, then call it with
+command `${DtdCommand.connect}` and the chosen `uri`. Only after connecting
+will `${DtdCommand.listConnectedApps}` return any apps.
 
 Whenever attempting to investigate a package dependency, use the
-`read_package_uris` and `rip_grep_packages` tools to explore their files.
+`${ToolNames.readPackageUris}` and `${ToolNames.ripGrepPackages}` tools to
+explore their files.
 
 In addition to `package:` URIs, the server also supports `package-root:` URIs,
 which resolve to the root of the package instead of the `lib/` directory. These
@@ -113,7 +120,7 @@ package.
   /// The version of the MCP server.
   ///
   /// Should match the version in `pubspec.yaml` and `CHANGELOG.md`.
-  static final version = '1.2.1';
+  static final version = '1.2.2';
 
   /// Runs the MCP server given command line arguments and an optional
   /// [Analytics] instance.
