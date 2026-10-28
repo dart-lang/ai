@@ -15,3 +15,11 @@
 'package:dart_mcp_server':
   - changed-files:
     - any-glob-to-any-file: 'pkgs/dart_mcp_server/**'
+
+'package:manual_evals':
+  - changed-files:
+    - any-glob-to-any-file: 'pkgs/manual_evals/**'
+
+'package:skills':
+  - changed-files:
+    - any-glob-to-any-file: 'pkgs/skills/**'

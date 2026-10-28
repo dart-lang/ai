@@ -1,0 +1,53 @@
+# Copyright (c) 2026, the Dart project authors.  Please see the AUTHORS file
+# for details. All rights reserved. Use of this source code is governed by a
+# BSD-style license that can be found in the LICENSE file.
+
+name: package:manual_evals
+permissions: read-all
+
+on:
+  # Run CI on all PRs (against any branch) and on pushes to the main branch.
+  pull_request:
+    paths:
+      - '.github/workflows/manual_evals.yaml'
+      - 'pkgs/manual_evals/**'
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/manual_evals.yaml'
+      - 'pkgs/manual_evals/**'
+  schedule:
+    - cron: '0 0 * * 0' # weekly
+
+defaults:
+  run:
+    working-directory: pkgs/manual_evals
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        sdk:
+          - stable
+          - dev
+        os:
+          - ubuntu-latest
+          - windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d
+        with:
+          sdk: ${{ matrix.sdk }}
+
+      - run: dart pub get
+
+      - run: dart analyze --fatal-infos
+
+      - run: dart format --output=none --set-exit-if-changed .
+        if: ${{ matrix.sdk == 'dev' }}
+
+      - run: dart test
