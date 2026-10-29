@@ -6,10 +6,12 @@ This is a living document describing the general structure of this repo and best
 
 This repository contains a set of Dart packages for building AI-powered tools and applications. The core of the repository is the implementation of the Model Context Protocol (MCP), which allows AI models to interact with local development tools.
 
-The two main packages are:
+The packages in this repository are:
 
 - **`dart_mcp`**: A Dart package for creating MCP (Model Context Protocol) servers and clients. It provides the foundational building blocks for communication between AI models and development tools.
 - **`dart_mcp_server`**: An MCP server for Dart projects that exposes a variety of Dart and Flutter development tools to AI-assistant clients. This allows AI models to perform actions like running tests, formatting code, analyzing projects, and more.
+- **`manual_evals`**: An experimental suite of skills and evaluation tools designed for AI agents to benchmark skills, inspect environments, analyze tool usage, and conduct automated A/B evaluations.
+- **`skills`**: A CLI for managing AI skills shipped in Dart/Flutter packages and git repositories. See `pkgs/skills/AGENTS.md` for detailed package context.
 
 The project is experimental and under active development.
 
@@ -66,6 +68,13 @@ This package is a concrete implementation of an MCP server that exposes a rich s
   - **`pub_dev_search.dart`**: Implements the `pub_dev_search` tool for searching for packages on pub.dev.
   - **`pub.dart`**: Provides tools for interacting with the Dart package manager (`pub`), such as adding and removing dependencies.
   - **`roots_fallback_support.dart`**: Provides a fallback for clients that don't fully support the `roots` capability.
+
+### `manual_evals` package
+
+**Experimental**: This package provides shared Dart library utilities (`lib/manual_evals.dart`) and agent skills (`skills/`) for benchmarking skills, inspecting environments, analyzing tool usage, and running automated A/B evaluations.
+
+- **`lib/manual_evals.dart`**: Shared evaluation utilities imported by skill scripts.
+- **`skills/`**: Agent skills distributed with the package (prefixed with `manual-evals-` per `package:skills` conventions). Each skill that includes helper scripts (`scripts/`) ships its own standalone `pubspec.yaml` depending on `package:manual_evals` so `dart run` can resolve dependencies in `.pub-cache/` when invoked from a target project. During local development in this repository, an untracked `pubspec_overrides.yaml` in each skill directory points `manual_evals` to `../..`.
 
 ## Building and Running
 

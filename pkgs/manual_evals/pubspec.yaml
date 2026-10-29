@@ -1,0 +1,19 @@
+# Copyright (c) 2026, the Dart project authors.  Please see the AUTHORS file
+# for details. All rights reserved. Use of this source code is governed by a
+# BSD-style license that can be found in the LICENSE file.
+
+name: manual_evals
+version: 0.1.0-wip
+description: >-
+  A suite of skills and evaluation tools designed for AI agents to benchmark
+  skills, inspect environments, analyze tool usage, and conduct automated A/B
+  evaluations.
+repository: https://github.com/dart-lang/ai/tree/main/pkgs/manual_evals
+issue_tracker: https://github.com/dart-lang/ai/issues?q=is%3Aissue+is%3Aopen+label%3Apackage%3Amanual_evals
+
+environment:
+  sdk: ^3.7.0
+
+dev_dependencies:
+  dart_flutter_team_lints: ^3.2.1
+  test: ^1.25.6
