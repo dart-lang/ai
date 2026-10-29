@@ -18,10 +18,10 @@ npx skills add dart-lang/ai
 
 ### How Skill Scripts Work
 
-Each skill with helper scripts in this package ships its own `pubspec.yaml` directly alongside its `SKILL.md` and `scripts/` directory:
+Each skill with helper scripts in this package ships its own `pubspec.yaml` directly alongside its `SKILL.md` and `scripts/` directory in your agent's skills directory (for example, `.agents/skills/`, `.claude/skills/`, `.cursor/skills/`, etc.):
 
 ```text
-.agents/
+<agent-dir>/
 └── skills/
     └── manual-evals-example/
         ├── SKILL.md
@@ -30,10 +30,10 @@ Each skill with helper scripts in this package ships its own `pubspec.yaml` dire
             └── run.dart
 ```
 
-When an agent runs a skill script from your project root:
+When an agent runs a skill script from the skill's directory:
 
 ```bash
-dart run .agents/skills/manual-evals-example/scripts/run.dart
+dart run scripts/run.dart
 ```
 
 `dart run` automatically locates the skill's `pubspec.yaml` and resolves its dependencies (including `package:manual_evals` from pub.dev) in the global `.pub-cache/` without requiring you to add `manual_evals` to your project's own `pubspec.yaml`.
@@ -43,8 +43,8 @@ dart run .agents/skills/manual-evals-example/scripts/run.dart
 Because running a skill script with `dart run` generates `.dart_tool/` and `pubspec.lock` inside that skill's directory, if you check your installed skills into version control, add the following rules to your project's `.gitignore`:
 
 ```gitignore
-.agents/skills/**/.dart_tool/
-.agents/skills/**/pubspec.lock
+**/skills/**/.dart_tool/
+**/skills/**/pubspec.lock
 ```
 
 ## Local Development

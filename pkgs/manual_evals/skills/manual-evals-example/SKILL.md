@@ -7,7 +7,7 @@ description: An example skill that runs a Dart script using package:manual_evals
 
 ## Running the Script
 
-1. Run the script from the project directory:
+1. Run the script from this skill's directory:
    ```bash
-   dart run .agents/skills/manual-evals-example/scripts/run.dart
+   dart run scripts/run.dart
    ```
