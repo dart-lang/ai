@@ -70,6 +70,13 @@ Repository architecture and conventions for coding agents are in
   models on every call. Don't ask to add explanations of concepts models already
   know (hot reload, git, etc.) or "when to use this" text inside a skill body.
   Flag additions that add tokens without changing behavior.
+- **Package skill naming (`pkgs/*/skills/`):** Any skill shipped inside a Dart
+  package's `skills/` directory (such as `pkgs/manual_evals/skills/`) MUST have
+  a directory name and `SKILL.md` frontmatter `name` prefixed with the package
+  name (or hyphenated package name) followed by a hyphen (for example,
+  `manual-evals-*` or `manual_evals-*` in `package:manual_evals`). Flag skills
+  that violate this convention as `[MUST-FIX]`, as `package:skills` skips them
+  during package skill discovery.
 - **Tests:** `TestEnvironment` (`pkgs/dart_mcp/test/test_utils.dart`) registers
   its own `addTearDown(shutdown)`; don't ask for another. Do still ask for
   `addTearDown` on other resources a test creates (subscriptions, processes,
