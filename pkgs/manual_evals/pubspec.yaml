@@ -4,6 +4,7 @@
 
 name: manual_evals
 version: 0.1.0-wip
+publish_to: none
 description: >-
   A suite of skills and evaluation tools designed for AI agents to benchmark
   skills, inspect environments, analyze tool usage, and conduct automated A/B
