@@ -12,7 +12,7 @@ repository: https://github.com/dart-lang/ai/tree/main/pkgs/manual_evals
 issue_tracker: https://github.com/dart-lang/ai/issues?q=is%3Aissue+is%3Aopen+label%3Apackage%3Amanual_evals
 
 environment:
-  sdk: ^3.7.0
+  sdk: ^3.13.0
 
 dev_dependencies:
   dart_flutter_team_lints: ^3.2.1

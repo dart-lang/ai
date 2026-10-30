@@ -6,7 +6,7 @@ name: manual_evals_example
 publish_to: none
 
 environment:
-  sdk: ^3.7.0
+  sdk: ^3.13.0
 
 dependencies:
   manual_evals: ^0.1.0-wip
