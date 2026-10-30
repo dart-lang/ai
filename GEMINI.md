@@ -50,7 +50,7 @@ These are located in `lib/src/server/` and are mixed into an `MCPServer` impleme
 - **`LoggingSupport`**: Provides a structured way for the server to send log messages to the client. It supports different logging levels, and the client can change the active level.
 - **`CompletionsSupport`**: Adds the ability for the server to provide custom code-completion suggestions to the client.
 - **`RootsTrackingSupport`**: A utility mixin for servers that works with `RootsSupport` on the client. It automatically tracks the client's project roots, updating its internal list whenever the client sends a notification that the roots have changed.
-- **`ElicitationRequestSupport`**: The server-side counterpart to `ElicitationSupport`. It provides an `elicit` method that servers can use to request information from the user via the client.
+- **`ElicitationRequestSupport`**: The server-side counterpart to `ElicitationSupport`. It provides capability checks and completion notifications for elicitation.
 
 ### `dart_mcp_server` package
 
@@ -107,6 +107,6 @@ Tests can be run using the `dart test` command in each package's directory.
 - **Code Style**: The project follows the standard Dart and Flutter team linting rules, enforced by the `dart_flutter_team_lints` package.
 - **Testing**: The project has a suite of unit tests that use the `test` package. Tests are located in the `test` directory of each package. The tests for `dart_mcp_server` use a `TestHarness` to start a server and make requests to it.
 - **Dependencies**: The project uses standard Dart package management with `pubspec.yaml` files.
-- **Contributions**: The `CONTRIBUTING.md` file (which is currently a placeholder) would contain information about contributing to the project.
+- **Contributions**: The `CONTRIBUTING.md` file contains information about contributing to the project.
 - **Test Apps**: Use the `test_descriptor` package to create apps for testing, or use the fixture apps in `pkgs/dart_mcp_server/test_fixtures`.
 - **Formatting**: Always format code using `dart format` after making changes.
