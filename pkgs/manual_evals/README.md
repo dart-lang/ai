@@ -74,6 +74,16 @@ dependency_overrides:
     path: /path/to/local/ai/pkgs/manual_evals
 ```
 
+### Checking the Transcript Format
+
+This package reads agent conversation transcripts, whose format belongs to the agent runtime and can change without notice. Because transcripts are read leniently, a format change shows up as missing data rather than an error. To check that the package still understands them, run this from inside an agent, ideally in a conversation with subagents:
+
+```bash
+dart run tool/check_transcript_format.dart [conversation-id]
+```
+
+Without an ID, it checks the current conversation. If the transcripts weren't fully understood, it lists the problems and exits with a non-zero code.
+
 ## Skill Naming Convention
 
 All skill directories in `skills/` must begin with `manual-evals-` (or `manual_evals-`) and have a matching `name` in their `SKILL.md` frontmatter so they are discoverable by [`package:skills`](https://pub.dev/packages/skills).
