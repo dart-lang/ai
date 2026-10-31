@@ -715,6 +715,48 @@ void main() {
       );
     });
 
+    test('ignore background tasks that failed or were canceled', () async {
+      String endedEarly(String taskId, String outcome, String result) =>
+          '[Message] timestamp=2026-10-31T01:56:42Z sender=$taskId '
+          'priority=MESSAGE_PRIORITY_HIGH content=Task id "$taskId" $outcome '
+          'with result:\n$result';
+      expect(
+        await warningsOfSteps([
+          _calls(['run_workflow', 'run_workflow']),
+          _backgroundResult('conv/task-1'),
+          _backgroundResult('conv/task-2'),
+          {
+            'type': 'SYSTEM_MESSAGE',
+            'source': 'SYSTEM',
+            'content': [
+              endedEarly(
+                'conv/task-1',
+                'failed',
+                'Encountered error in tool execution: workflow execution '
+                    'failed (line 3): RuntimeError: boom',
+              ),
+              endedEarly(
+                'conv/task-2',
+                'was canceled',
+                'Tool execution was canceled',
+              ),
+            ].join('\n'),
+          },
+        ]),
+        isEmpty,
+      );
+    });
+
+    test('ignore workflow results without a description or agents', () async {
+      expect(
+        await warningsOfSteps([
+          _calls(['run_workflow']),
+          _result('Workflow completed.\nThe workflow called 3 tools.'),
+        ]),
+        isEmpty,
+      );
+    });
+
     test('report background results with no subagents', () async {
       expect(
         await warningsOfSteps([

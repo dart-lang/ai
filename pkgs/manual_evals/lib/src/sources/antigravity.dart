@@ -83,7 +83,9 @@ final class AntigravityTranscriptSource extends TranscriptSource {
   /// `invoke_subagent` and `run_workflow` calls, matched to their calls with
   /// [pairToolResults]. A call that runs in the background reports its result
   /// in a later [StepType.systemMessage] from its task. Conversation IDs
-  /// anywhere else, such as in file contents, are ignored.
+  /// anywhere else, such as in file contents, are ignored. A workflow that
+  /// fails or is canceled doesn't report the agents it started, so they are
+  /// missing.
   ///
   /// [ConversationTranscript.warnings] reports skipped lines (except a
   /// partially written last line), completed subagent results without
@@ -277,6 +279,7 @@ TranscriptStep? _tryDecodeStep(String line) {
           final found = task.tool.extract(message);
           task.messages.add(message);
           task.foundCount += found.length;
+          task.endedEarly |= _taskEndedEarlyPattern.hasMatch(message);
           ids.addAll(found);
           warnIfTruncated(step, task.tool.name);
         }
@@ -320,6 +323,7 @@ TranscriptStep? _tryDecodeStep(String line) {
         ),
       );
     } else if (task.foundCount == 0 &&
+        !task.endedEarly &&
         task.messages.any(task.tool.expectsSubagents)) {
       warnings.add(
         TranscriptWarning(
@@ -366,6 +370,10 @@ final class _BackgroundTask {
   final int? stepIndex;
   final messages = <String>[];
   int foundCount = 0;
+
+  /// Whether the task failed or was canceled, so its result may legitimately
+  /// report no subagents.
+  bool endedEarly = false;
 
   _BackgroundTask(this.tool, this.stepIndex);
 }
@@ -443,9 +451,10 @@ final _workflowAgentPattern = RegExp(
 );
 
 /// Matches the summary line of a `run_workflow` result, for example
-/// `Workflow "Review files" completed.`
+/// `Workflow "Review files" completed.` or, without a description,
+/// `Workflow completed.`
 final _workflowSummaryPattern = RegExp(
-  r'^Workflow ".*" \w+\.$',
+  r'^Workflow(?: ".*")? \w+\.$',
   multiLine: true,
 );
 
@@ -459,3 +468,9 @@ final _backgroundTaskPattern = RegExp(
 
 /// Matches the sender at the start of a message, after its [_messagePrefix].
 final _messageSenderPattern = RegExp(r'^timestamp=\S+ sender=(\S+)');
+
+/// Matches a background task message reporting that the task failed or was
+/// canceled, for example `content=Task id "<id>" failed with result:`.
+final _taskEndedEarlyPattern = RegExp(
+  r'content=Task id "[^"\n]*" (?:failed|was canceled) with result:',
+);
