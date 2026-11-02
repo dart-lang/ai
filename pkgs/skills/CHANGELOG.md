@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.5
+
+- Add a `skills link <directory>` command that symlinks the skills in a local
+  directory into the agent, so edits to them show up immediately. `get` links
+  skills added to the directory later and removes the links of deleted ones,
+  `list` shows the linked source, and `remove` deletes only the links.
+
 ## 1.0.4
 
 - Require `package:unified_analytics` `^8.1.0`.
