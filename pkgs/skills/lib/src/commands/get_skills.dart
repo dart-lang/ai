@@ -871,6 +871,14 @@ class OrphanedSkill implements ScannedSkill {
   @override
   final String? gitUrl;
 
+  /// Deleted linked skills are removed without prompting, so they are never
+  /// orphaned.
+  @override
+  String? get linkedDirectory => null;
+
+  @override
+  bool get isLinked => false;
+
   @override
   final String skillName;
 

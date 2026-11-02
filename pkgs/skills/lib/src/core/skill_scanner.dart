@@ -7,6 +7,7 @@ import 'dart:io';
 import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 
+import '../models/skill_manifest.dart';
 import 'constants.dart';
 import 'frontmatter.dart';
 import 'package_resolver.dart';
@@ -18,6 +19,9 @@ class ScannedSkill {
 
   /// The git repo URL if this skill came from a git repo.
   final String? gitUrl;
+
+  /// The directory this skill came from if it was linked with `skills link`.
+  final String? linkedDirectory;
 
   final String skillName;
 
@@ -34,13 +38,23 @@ class ScannedSkill {
   const ScannedSkill({
     this.packageName,
     this.gitUrl,
+    this.linkedDirectory,
     required this.skillName,
     required this.skillPath,
     this.isGlobal = false,
     this.path,
   });
 
-  String get sourceUri => gitUrl ?? 'package:$packageName';
+  /// Whether this skill is symlinked from [linkedDirectory] instead of copied.
+  bool get isLinked => linkedDirectory != null;
+
+  String get sourceUri {
+    if (gitUrl case final gitUrl?) return gitUrl;
+    if (linkedDirectory case final linkedDirectory?) {
+      return SkillManifest.linkedSourceUri(linkedDirectory);
+    }
+    return 'package:$packageName';
+  }
 }
 
 /// Scans resolved packages for skills/ directories containing Agent Skills.
