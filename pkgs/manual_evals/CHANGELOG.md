@@ -1,6 +1,7 @@
 ## 0.1.0-wip
 
 - Initial experimental structure for `manual_evals`.
+- Require Dart `^3.13.0`.
 - Add APIs for loading agent conversation transcripts and their subagents'
   transcripts: `loadTranscript`, `loadConversationTree`,
   `resolveConversationId`, `pairToolResults`, and the `TranscriptSource`
