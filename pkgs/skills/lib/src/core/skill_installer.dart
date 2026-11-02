@@ -104,6 +104,9 @@ class SkillInstaller {
   ///
   /// If [selectedSkills] is provided, only skills with these names will be
   /// modified. This includes deleting of existing skills.
+  ///
+  /// Sources in [missingSourceUris] could not be scanned this time (a linked
+  /// directory that is not available), so their installed skills are kept.
   Future<SkillInstallResult?> installSkillsForAgent({
     required Agent agent,
     required String rootPath,
@@ -112,6 +115,7 @@ class SkillInstaller {
     required GlobalConfig globalConfig,
     Set<String>? selectedSkills,
     Set<String> sourceUris = const {},
+    Set<String> missingSourceUris = const {},
   }) async {
     final adapter = createAgentAdapter(agent, rootPath, _dialogSupport);
     if (adapter is AgentSkillsAdapter) {
@@ -172,6 +176,7 @@ class SkillInstaller {
       selectedSkills: selectedSkills,
       adapter: adapter,
       sourceUris: sourceUris,
+      missingSourceUris: missingSourceUris,
     );
 
     return SkillInstallResult(
@@ -365,7 +370,8 @@ class SkillInstaller {
   /// in the skills list at all.
   ///
   /// If [packageNames] is not empty, then we will only consider the given
-  /// packages for cleanup.
+  /// packages for cleanup. Sources in [missingSourceUris] are never cleaned
+  /// up, since they were not scanned.
   Future<SkillManifest> _cleanupMissingPackages({
     required Agent agent,
     required String rootPath,
@@ -374,6 +380,7 @@ class SkillInstaller {
     required Set<String>? selectedSkills,
     required AgentAdapter adapter,
     required Set<String> sourceUris,
+    required Set<String> missingSourceUris,
   }) async {
     var updatedManifest = manifest;
     final allPkgs = updatedManifest
@@ -386,6 +393,7 @@ class SkillInstaller {
       if (sourceUris.isNotEmpty && !sourceUris.contains(pkgName)) {
         continue;
       }
+      if (missingSourceUris.contains(pkgName)) continue;
 
       final existingEntry = updatedManifest.sourceUrisForAgent(
         agent.cliName,

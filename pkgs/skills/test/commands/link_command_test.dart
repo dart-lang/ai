@@ -295,6 +295,41 @@ void main() {
         expect(logs, contains(contains('other-skill')));
       });
 
+      test('get --all keeps the skills of a linked directory that is '
+          'missing', () async {
+        await Directory(sourcePath).delete(recursive: true);
+
+        await run(['get', '--agent', 'cursor', '--all']);
+
+        expect(FileSystemEntity.isLinkSync(installedPath('my-skill')), isTrue);
+        expect(
+          FileSystemEntity.isLinkSync(installedPath('other-skill')),
+          isTrue,
+        );
+        final skills = (await loadManifest())
+            .sourceUrisForAgent('cursor')[linkUri]!
+            .skills;
+        expect(
+          skills.map((s) => s.name),
+          unorderedEquals(['my-skill', 'other-skill']),
+        );
+        expect(logs, contains(contains('Linked directory not found')));
+      });
+
+      test('get neither prompts for nor removes the skills of a linked '
+          'directory that is missing', () async {
+        await Directory(sourcePath).delete(recursive: true);
+
+        await run(['get', '--agent', 'cursor']);
+
+        expect(FileSystemEntity.isLinkSync(installedPath('my-skill')), isTrue);
+        expect(
+          (await loadManifest()).sourceUrisForAgent('cursor').keys,
+          equals([linkUri]),
+        );
+        expect(fakeDialogSupport.allMultiSelectOptions, isEmpty);
+      });
+
       test('remove --skill deletes the link and keeps the source', () async {
         await run(['remove', '--agent', 'cursor', '--skill', 'my-skill']);
 
