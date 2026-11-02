@@ -96,18 +96,19 @@ final class AntigravityTranscriptSource extends TranscriptSource {
 
     final stepsByIndex = <int, TranscriptStep>{};
     final unindexedSteps = <TranscriptStep>[];
-    var skippedLineCount = 0;
-    var lastLineSkipped = false;
+    // Blank lines are ignored; other lines that aren't steps are counted.
+    var malformedLineCount = 0;
+    String? lastLine;
     final lines = File(path)
         .openRead()
         .transform(const Utf8Decoder(allowMalformed: true))
         .transform(const LineSplitter());
     await for (final line in lines) {
       if (line.trim().isEmpty) continue;
+      lastLine = line;
       final step = _tryDecodeStep(line);
-      lastLineSkipped = step == null;
       if (step == null) {
-        skippedLineCount++;
+        malformedLineCount++;
       } else if (step.stepIndex case final index?) {
         stepsByIndex[index] = step;
       } else {
@@ -121,9 +122,11 @@ final class AntigravityTranscriptSource extends TranscriptSource {
       ...unindexedSteps,
     ];
     final warnings = <TranscriptWarning>[];
-    // A partially written last line is expected while a transcript is being
-    // written, so it isn't reported.
-    final skippedCount = skippedLineCount - (lastLineSkipped ? 1 : 0);
+    // While a transcript is being written, its last line may be incomplete,
+    // so a malformed last line isn't reported.
+    final lastLineIncomplete =
+        lastLine != null && _tryDecodeStep(lastLine) == null;
+    final skippedCount = malformedLineCount - (lastLineIncomplete ? 1 : 0);
     if (skippedCount > 0) {
       warnings.add(
         TranscriptWarning(

@@ -589,6 +589,31 @@ void main() {
       },
     );
 
+    test('count malformed lines but not blank ones', () async {
+      expect(
+        await warningsOf(
+          [
+            '{"step_index": 0}',
+            '',
+            'not json',
+            '   ',
+            'also not json',
+            '{"step_index": 1}',
+            '',
+          ].join('\n'),
+        ),
+        ["conv: Skipped 2 lines that aren't transcript steps."],
+      );
+    });
+
+    test('treat a malformed line before trailing blank lines as the last '
+        'line', () async {
+      expect(
+        await warningsOf('{"step_index": 0}\n{"step_index": 1, "ty\n\n  \n'),
+        isEmpty,
+      );
+    });
+
     test('report a transcript with no readable lines', () async {
       expect(await warningsOf('one\ntwo\n'), [
         'conv: No line is a transcript step.',
