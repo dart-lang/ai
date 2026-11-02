@@ -2,6 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:io';
+
 import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 
@@ -288,7 +290,20 @@ class SkillInstaller {
       }
 
       // Actually install the new skill
-      final installResult = await adapter.installSkill(skill);
+      final InstallSkillResult installResult;
+      try {
+        installResult = await adapter.installSkill(skill);
+      } on FileSystemException catch (error) {
+        if (!skill.isLinked) rethrow;
+        // Creating a symlink can fail on Windows without Developer Mode or an
+        // elevated shell, which should not abort the other skills.
+        logger.severe(
+          'Failed to link ${skill.skillName}: $error\n'
+          'On Windows, creating symlinks requires Developer Mode or an '
+          'elevated shell.',
+        );
+        continue;
+      }
       final installedName = installResult.name;
       updatedSkillEntries.add(
         InstalledSkillEntry(

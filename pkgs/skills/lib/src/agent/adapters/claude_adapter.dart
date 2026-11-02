@@ -22,6 +22,8 @@ class ClaudeAdapter extends AgentSkillsAdapter {
   @override
   Future<InstallSkillResult> installSkill(ScannedSkill skill) async {
     var result = await super.installSkill(skill);
+    // A linked skill is the user's own source, which must not be rewritten.
+    if (skill.isLinked) return result;
 
     final targetDir = Directory(p.join(skillsDirectory, skill.skillName));
     final skillMd = File(p.join(targetDir.path, 'SKILL.md'));
