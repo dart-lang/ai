@@ -35,9 +35,9 @@ final class AntigravityTranscriptSource extends TranscriptSource {
   final Map<String, String> _environment;
   final List<String>? _roots;
 
-  /// Creates a source that searches the `brain` directories [roots].
+  /// Creates a source that searches the `brain` directories `roots`.
   ///
-  /// If [roots] is omitted, they are found using [environment] (which
+  /// If `roots` is omitted, they are found using [environment] (which
   /// defaults to [Platform.environment]):
   ///
   /// - If [rootsEnvironmentVariable] is set, its entries.
@@ -45,11 +45,8 @@ final class AntigravityTranscriptSource extends TranscriptSource {
   ///   which may be outside the home directory, followed by every
   ///   `~/.gemini/<app>/brain` directory, sorted. Together, these cover the
   ///   active agent and every installed Antigravity-based agent.
-  AntigravityTranscriptSource({
-    List<String>? roots,
-    Map<String, String>? environment,
-  }) : _roots = roots,
-       _environment = environment ?? Platform.environment;
+  AntigravityTranscriptSource({this._roots, Map<String, String>? environment})
+    : _environment = environment ?? Platform.environment;
 
   @override
   String get name => 'Antigravity';
@@ -252,11 +249,11 @@ TranscriptStep? _tryDecodeStep(String line) {
 ) {
   final ids = <String>{};
   final warnings = <TranscriptWarning>[];
-  final toolNamesByResult =
-      Map<TranscriptStep, String?>.identity()..addEntries([
-        for (final (:toolName, :step) in pairToolResults(steps))
-          MapEntry(step, toolName),
-      ]);
+  final toolNamesByResult = Map<TranscriptStep, String?>.identity()
+    ..addEntries([
+      for (final (:toolName, :step) in pairToolResults(steps))
+        MapEntry(step, toolName),
+    ]);
   final backgroundTasks = <String, _BackgroundTask>{};
 
   void warnIfTruncated(TranscriptStep step, String toolName) {

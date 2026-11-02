@@ -61,10 +61,9 @@ Future<void> main(List<String> args) async {
   }
 
   for (final transcript in tree.transcripts) {
-    final modelCalls =
-        transcript.steps
-            .where((step) => step.type == StepType.plannerResponse)
-            .length;
+    final modelCalls = transcript.steps
+        .where((step) => step.type == StepType.plannerResponse)
+        .length;
     stdout.writeln(
       '${transcript.conversationId}: '
       '${_count(transcript.steps.length, 'step')}, '

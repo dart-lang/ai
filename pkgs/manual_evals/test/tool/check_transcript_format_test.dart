@@ -24,14 +24,13 @@ void main() {
   Future<void> writeTranscript(
     String conversationId,
     List<Map<String, Object?>> steps,
-  ) =>
-      d.dir(conversationId, [
-        d.dir('.system_generated', [
-          d.dir('logs', [
-            d.file('transcript_full.jsonl', steps.map(jsonEncode).join('\n')),
-          ]),
-        ]),
-      ]).create();
+  ) => d.dir(conversationId, [
+    d.dir('.system_generated', [
+      d.dir('logs', [
+        d.file('transcript_full.jsonl', steps.map(jsonEncode).join('\n')),
+      ]),
+    ]),
+  ]).create();
 
   Map<String, Object?> modelCall(int index, List<String> toolNames) => {
     'step_index': index,

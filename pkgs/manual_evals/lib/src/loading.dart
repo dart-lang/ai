@@ -38,11 +38,10 @@ String? resolveConversationId(
 Future<ConversationTranscript?> loadTranscript(
   String conversationId, {
   List<TranscriptSource>? sources,
-}) async =>
-    (await _loadFromSources(
-      conversationId,
-      sources ?? defaultTranscriptSources(),
-    ))?.transcript;
+}) async => (await _loadFromSources(
+  conversationId,
+  sources ?? defaultTranscriptSources(),
+))?.transcript;
 
 /// Loads the transcripts of [rootConversationId] and all the subagent
 /// conversations it started, transitively.

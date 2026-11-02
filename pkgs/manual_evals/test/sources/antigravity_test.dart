@@ -36,9 +36,8 @@ void main() {
       () async {
         await d.dir('elsewhere', [d.dir('brain')]).create();
         await d.dir('.gemini').create();
-        Link(
-          p.join(d.sandbox, '.gemini', 'linked'),
-        ).createSync(p.join(d.sandbox, 'elsewhere'));
+        Link(p.join(d.sandbox, '.gemini', 'linked'))
+            .createSync(p.join(d.sandbox, 'elsewhere'));
 
         expect(searchLocations({'HOME': d.sandbox}), [brain('linked')]);
       },
@@ -136,9 +135,8 @@ void main() {
 
   group('currentConversationId', () {
     String? currentConversationId(Map<String, String> environment) =>
-        AntigravityTranscriptSource(
-          environment: environment,
-        ).currentConversationId;
+        AntigravityTranscriptSource(environment: environment)
+            .currentConversationId;
 
     test('reads the conversation ID environment variable', () {
       expect(
@@ -162,9 +160,9 @@ void main() {
 
   group('loadTranscript', () {
     Future<String?> pathOf(String conversationId, List<String> roots) async =>
-        (await AntigravityTranscriptSource(
-          roots: roots,
-        ).loadTranscript(conversationId))?.path;
+        (await AntigravityTranscriptSource(roots: roots)
+                .loadTranscript(conversationId))
+            ?.path;
 
     test('prefers a full transcript in any root', () async {
       await d.dir('first', [
@@ -206,9 +204,8 @@ void main() {
         },
       ], fileName: 'transcript.jsonl').create();
 
-      final transcript = await AntigravityTranscriptSource(
-        roots: [d.sandbox],
-      ).loadTranscript('conv');
+      final transcript = await AntigravityTranscriptSource(roots: [d.sandbox])
+          .loadTranscript('conv');
 
       expect(
         transcript?.path,
@@ -256,9 +253,8 @@ void main() {
         ].join('\n'),
       ).create();
 
-      final transcript = await AntigravityTranscriptSource(
-        roots: [d.sandbox],
-      ).loadTranscript('conv');
+      final transcript = await AntigravityTranscriptSource(roots: [d.sandbox])
+          .loadTranscript('conv');
 
       expect(
         transcript,
@@ -279,10 +275,9 @@ void main() {
         ...utf8.encode('"}\r\n'),
       ]).create();
 
-      final steps =
-          (await AntigravityTranscriptSource(
-            roots: [d.sandbox],
-          ).loadTranscript('conv'))!.steps;
+      final steps = (await AntigravityTranscriptSource(
+        roots: [d.sandbox],
+      ).loadTranscript('conv'))!.steps;
 
       expect(steps.map((s) => s.content), ['caf\u00e9', '\uFFFD']);
     });
@@ -296,10 +291,9 @@ void main() {
         {'step_index': 2, 'content': 'two, updated'},
       ]).create();
 
-      final steps =
-          (await AntigravityTranscriptSource(
-            roots: [d.sandbox],
-          ).loadTranscript('conv'))!.steps;
+      final steps = (await AntigravityTranscriptSource(
+        roots: [d.sandbox],
+      ).loadTranscript('conv'))!.steps;
 
       expect(steps.map((s) => s.content), [
         'zero',
@@ -316,9 +310,8 @@ void main() {
         for (final (index, step) in steps.indexed)
           {'step_index': index, ...step},
       ]).create();
-      final transcript = await AntigravityTranscriptSource(
-        roots: [d.sandbox],
-      ).loadTranscript('conv');
+      final transcript = await AntigravityTranscriptSource(roots: [d.sandbox])
+          .loadTranscript('conv');
       return transcript!.subagentIds;
     }
 
@@ -403,9 +396,8 @@ void main() {
         },
       ]).create();
 
-      final transcript = await AntigravityTranscriptSource(
-        roots: [d.sandbox],
-      ).loadTranscript('conv');
+      final transcript = await AntigravityTranscriptSource(roots: [d.sandbox])
+          .loadTranscript('conv');
 
       expect(transcript!.subagentIds, ['sub-1']);
     });
@@ -557,9 +549,8 @@ void main() {
   group('warnings', () {
     Future<List<String>> warningsOf(Object contents) async {
       await _transcriptDir('conv', contents).create();
-      final transcript = await AntigravityTranscriptSource(
-        roots: [d.sandbox],
-      ).loadTranscript('conv');
+      final transcript = await AntigravityTranscriptSource(roots: [d.sandbox])
+          .loadTranscript('conv');
       return [for (final warning in transcript!.warnings) '$warning'];
     }
 
