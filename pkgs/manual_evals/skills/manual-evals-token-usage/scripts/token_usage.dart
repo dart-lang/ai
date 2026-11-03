@@ -17,10 +17,10 @@ import 'dart:io';
 import 'package:manual_evals/manual_evals.dart';
 
 Future<void> main(List<String> args) async {
-  final tree = await loadConversationTreeFromArgs(
+  final loaded = await loadConversationTreeFromArgs(
     args,
     usage: 'Usage: dart run scripts/token_usage.dart [conversation-id]',
   );
-  if (tree == null) return;
-  stdout.write(formatTokenReport(tree));
+  if (loaded == null) return;
+  stdout.write(formatTokenReport(loaded.tree));
 }

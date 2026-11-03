@@ -135,7 +135,7 @@ String formatTokenReport(ConversationTree tree) {
 }
 
 String _conversationName(String conversationId, String rootId) =>
-    conversationId == rootId ? '`$conversationId` (root)' : '`$conversationId`';
+    '`$conversationId`${conversationId == rootId ? ' (root)' : ''}';
 
 List<String> _tokenCells(TokenCounts tokens) => [
   _number(tokens.input),

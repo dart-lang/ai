@@ -4,42 +4,65 @@
 
 import 'dart:io';
 
+import 'package:args/args.dart';
+
 import 'loading.dart';
 import 'transcript.dart';
 
 /// Loads the conversation tree that a command-line tool reports on, from the
 /// tool's command-line [args].
 ///
-/// [args] may contain a conversation ID and any of [flags]. Without an ID, the
-/// current conversation is used.
+/// [args] may contain a conversation ID, `-h` or `--help`, and the options of
+/// [parser], which must not define `help`. Without an ID, the current
+/// conversation is used.
 ///
-/// Returns `null` if the tool should stop, after printing [usage] for `-h` or
-/// `--help`, or a message to stderr and setting [exitCode] if [args] are
-/// invalid or the tree can't be loaded.
-Future<ConversationTree?> loadConversationTreeFromArgs(
+/// Returns the tree and the parsed [args], or `null` if the tool should stop:
+/// after printing the usage for `--help`, or after printing a message to
+/// stderr and setting [exitCode] if [args] are invalid or the tree can't be
+/// loaded. The usage is [usage] followed by the help for each option.
+Future<({ConversationTree tree, ArgResults options})?>
+loadConversationTreeFromArgs(
   List<String> args, {
   required String usage,
-  Set<String> flags = const {},
+  ArgParser? parser,
 }) async {
-  if (args.contains('-h') || args.contains('--help')) {
-    stdout.writeln(usage);
+  // This parses [args] itself, rather than taking `ArgResults`, so that parse
+  // errors are reported in one place, and so that skill scripts without
+  // options of their own don't need to depend on `package:args`.
+  final argParser = (parser ?? ArgParser())
+    ..addFlag(
+      'help',
+      abbr: 'h',
+      negatable: false,
+      help: 'Print this usage information.',
+    );
+  final fullUsage = '$usage\n\n${argParser.usage}';
+
+  void usageError(String message) {
+    stderr
+      ..writeln(message)
+      ..writeln()
+      ..writeln(fullUsage);
+    exitCode = 64;
+  }
+
+  final ArgResults options;
+  try {
+    options = argParser.parse(args);
+  } on FormatException catch (e) {
+    usageError(e.message);
     return null;
   }
-  final ids = [
-    for (final arg in args)
-      if (!arg.startsWith('-')) arg,
-  ];
-  final unknownFlags = [
-    for (final arg in args)
-      if (arg.startsWith('-') && !flags.contains(arg)) arg,
-  ];
-  if (ids.length > 1 || unknownFlags.isNotEmpty) {
-    stderr.writeln(usage);
-    exitCode = 64;
+  if (options.flag('help')) {
+    stdout.writeln(fullUsage);
+    return null;
+  }
+  if (options.rest.length > 1) {
+    usageError('Expected at most one conversation ID: ${options.rest}');
     return null;
   }
 
-  final conversationId = resolveConversationId(ids.firstOrNull);
+  final conversationId = resolveConversationId(options.rest.firstOrNull);
   if (conversationId == null) {
     stderr.writeln(
       'No conversation ID given, and no current conversation detected.',
@@ -49,7 +72,7 @@ Future<ConversationTree?> loadConversationTreeFromArgs(
   }
 
   try {
-    return await loadConversationTree(conversationId);
+    return (tree: await loadConversationTree(conversationId), options: options);
   } on TranscriptNotFoundException catch (e) {
     stderr.writeln(e);
   } on FileSystemException catch (e) {

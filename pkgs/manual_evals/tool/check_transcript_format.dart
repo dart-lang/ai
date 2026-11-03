@@ -17,18 +17,25 @@ library;
 
 import 'dart:io';
 
+import 'package:args/args.dart';
 import 'package:manual_evals/manual_evals.dart';
 
 Future<void> main(List<String> args) async {
-  final tree = await loadConversationTreeFromArgs(
+  final loaded = await loadConversationTreeFromArgs(
     args,
     usage:
-        'Usage: dart run tool/check_transcript_format.dart [--all] '
+        'Usage: dart run tool/check_transcript_format.dart [options] '
         '[conversation-id]',
-    flags: {'--all'},
+    parser: ArgParser()
+      ..addFlag(
+        'all',
+        negatable: false,
+        help: 'Print every problem, not just the first $_maxProblems.',
+      ),
   );
-  if (tree == null) return;
-  final showAll = args.contains('--all');
+  if (loaded == null) return;
+  final (:tree, :options) = loaded;
+  final showAll = options.flag('all');
 
   for (final transcript in tree.transcripts) {
     final modelCalls = transcript.steps
