@@ -16,6 +16,6 @@ pubspec.lock
 # installed skills.
 .agents/skills/*
 !.agents/skills/add-dart-mcp-server-feature
+!.agents/skills/add-mcp-spec-version
 !.agents/skills/closing-obsolete-issues
 !.agents/skills/update-dart-mcp-server-readme
-!.agents/skills/add-mcp-spec-version
