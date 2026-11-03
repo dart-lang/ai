@@ -44,13 +44,27 @@ String formatTrajectoryReport(ConversationTree tree, {String? homeDirectory}) {
 String Function(String text) _homeShortener(String? homeDirectory) {
   final home = homeDirectory?.replaceFirst(_trailingSeparatorsPattern, '');
   if (home == null || home.isEmpty) return (text) => text;
+  // Windows paths may use either separator and are case-insensitive. The
+  // report may be formatted on another platform, so tell from the path.
+  final isWindows = home.contains(r'\') || _drivePattern.hasMatch(home);
+  final homePattern = isWindows
+      ? home.split(_separatorPattern).map(RegExp.escape).join(r'[/\\]')
+      : RegExp.escape(home);
   // Only match the whole directory: not within a longer path, such as
   // `/var/home/me`, or a sibling, such as `/home/meg`.
-  final pattern = RegExp('(?<![\\w.~/\\\\-])${RegExp.escape(home)}(?![\\w.-])');
+  final pattern = RegExp(
+    '(?<![\\w.~/\\\\-])$homePattern(?![\\w.-])',
+    caseSensitive: !isWindows,
+  );
   return (text) => text.replaceAll(pattern, '~');
 }
 
 final _trailingSeparatorsPattern = RegExp(r'[/\\]+$');
+
+final _separatorPattern = RegExp(r'[/\\]');
+
+/// Matches a Windows drive letter at the start of a path, such as `C:`.
+final _drivePattern = RegExp('^[A-Za-z]:');
 
 /// The maximum length of a request, command, or other text quoted from a
 /// transcript in the report.

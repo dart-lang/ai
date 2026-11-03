@@ -219,6 +219,22 @@ No tool calls.
         'ls /home/meg/a /var/home/me/b',
       );
       expect(shortened('ls /home/me', ''), 'ls /home/me');
+      expect(shortened(r'ls \home\me\a', '/home/me'), r'ls \home\me\a');
+    });
+
+    test('shorten Windows home directories with either separator, in any '
+        'case', () {
+      String shortened(String command) => RegExp(
+        r'`run_command` `(.*)`',
+      ).firstMatch(reportCommand(command, homeDirectory: r'C:\Users\me'))![1]!;
+
+      expect(shortened(r'type C:\Users\me\a.dart'), r'type ~\a.dart');
+      expect(shortened('cat C:/Users/me/a.dart'), 'cat ~/a.dart');
+      expect(shortened(r'dir c:\users\me\a.dart'), r'dir ~\a.dart');
+      expect(
+        shortened(r'type C:\Users\meg\a.dart'),
+        r'type C:\Users\meg\a.dart',
+      );
     });
   });
 
