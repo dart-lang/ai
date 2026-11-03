@@ -127,6 +127,30 @@ void main() {
       }, 'other: FUTURE_TYPE');
     });
 
+    test('reads the user request on one line', () {
+      String request(String content) =>
+          TranscriptStep({'type': 'USER_INPUT', 'content': content})
+              .userRequest;
+
+      expect(
+        request(
+          '<USER_REQUEST>\n  Hello\n\n world  \n</USER_REQUEST>\n'
+          '<ADDITIONAL_METADATA>\nThe user is: someone.\n'
+          '</ADDITIONAL_METADATA>',
+        ),
+        'Hello world',
+      );
+      expect(
+        request(
+          'The user left comments.\n<USER_REQUEST>\n</USER_REQUEST>\n'
+          '<ADDITIONAL_METADATA>\nThe user is: someone.\n'
+          '</ADDITIONAL_METADATA>',
+        ),
+        'The user left comments.',
+      );
+      expect(request('No tags'), 'No tags');
+    });
+
     test('is a tool result only for MODEL steps that are not messages or '
         'planner responses', () {
       bool isToolResult(String source, String type) =>
@@ -215,6 +239,44 @@ void main() {
           result('output'),
         ]),
         [(null, 'output')],
+      );
+    });
+  });
+
+  group('pairToolCalls', () {
+    TranscriptStep calls(List<String> names) => TranscriptStep({
+      'type': 'PLANNER_RESPONSE',
+      'source': 'MODEL',
+      'tool_calls': [
+        for (final name in names) {'name': name},
+      ],
+    });
+    TranscriptStep result(String content, {String type = 'GENERIC'}) =>
+        TranscriptStep({'type': type, 'source': 'MODEL', 'content': content});
+
+    test('pairs each call with its result or error message', () {
+      final first = calls(['read_file', 'bad_call']);
+      final second = calls(['run_command', 'search_web']);
+      final steps = [
+        first,
+        result('file'),
+        TranscriptStep({'type': 'SYSTEM_MESSAGE', 'source': 'SYSTEM'}),
+        result('unknown tool', type: 'ERROR_MESSAGE'),
+        result('extra'),
+        second,
+        result('command', type: 'RUN_COMMAND'),
+      ];
+
+      expect(
+        [
+          for (final (:modelCall, :index, :answer) in pairToolCalls(steps))
+            (identical(modelCall, first) ? 'first' : 'second', index, answer),
+        ],
+        [
+          ('first', 0, steps[1]),
+          ('first', 1, steps[3]),
+          ('second', 0, steps[6]),
+        ],
       );
     });
   });

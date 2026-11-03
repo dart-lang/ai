@@ -105,7 +105,7 @@ ConversationUsage measureTokenUsage(ConversationTranscript transcript) {
   for (final step in transcript.steps) {
     if (step.type == StepType.userInput) {
       endTurn();
-      request = _requestText(step.content);
+      request = step.userRequest;
     } else if (step.type == StepType.plannerResponse) {
       modelCalls++;
       if (!step.recordsTokenUsage) unrecordedModelCalls++;
@@ -146,38 +146,3 @@ ConversationUsage measureTokenUsage(ConversationTranscript transcript) {
 /// The name to report for a tool call named [name], which is `null` if the
 /// call is malformed.
 String _toolName(String? name) => name ?? '(unknown)';
-
-/// Returns the text of a user request on one line.
-///
-/// Uses the text inside `<USER_REQUEST>` tags if there is any. Otherwise uses
-/// the whole content, without `<ADDITIONAL_METADATA>` and tags.
-String _requestText(String content) {
-  String oneLine(String text) =>
-      text.replaceAll(_whitespacePattern, ' ').trim();
-  final request = oneLine(
-    _userRequestPattern.firstMatch(content)?.group(1) ?? '',
-  );
-  if (request.isNotEmpty) return request;
-  return oneLine(
-    content.replaceAll(_metadataPattern, ' ').replaceAll(_tagPattern, ' '),
-  );
-}
-
-/// Matches the text of a user request, which agents built on the Antigravity
-/// runtime wrap in `<USER_REQUEST>` tags.
-final _userRequestPattern = RegExp(
-  r'<USER_REQUEST>(.*?)</USER_REQUEST>',
-  dotAll: true,
-);
-
-/// Matches the metadata that agents built on the Antigravity runtime add to a
-/// user request.
-final _metadataPattern = RegExp(
-  r'<ADDITIONAL_METADATA>.*?</ADDITIONAL_METADATA>',
-  dotAll: true,
-);
-
-/// Matches an XML-style tag, such as `<USER_REQUEST>` or `</USER_REQUEST>`.
-final _tagPattern = RegExp(r'</?[A-Z_]+>');
-
-final _whitespacePattern = RegExp(r'\s+');

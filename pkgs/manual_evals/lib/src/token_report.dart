@@ -2,6 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'text.dart';
 import 'token_usage.dart';
 import 'transcript.dart';
 
@@ -29,7 +30,7 @@ String formatTokenReport(ConversationTree tree) {
     )
     ..writeln()
     ..write(
-      _table(
+      markdownTable(
         [
           'Conversation',
           'Model calls',
@@ -43,16 +44,16 @@ String formatTokenReport(ConversationTree tree) {
           for (final usage in usages)
             [
               _conversationName(usage.conversationId, rootId),
-              _number(usage.modelCalls),
+              formatNumber(usage.modelCalls),
               ..._tokenCells(usage.tokens),
-              _share(usage.tokens.total, allTokens.total),
+              formatPercent(usage.tokens.total, allTokens.total),
             ],
           if (usages.length > 1)
             [
               '**Total**',
-              _number(usages.fold(0, (sum, u) => sum + u.modelCalls)),
+              formatNumber(usages.fold(0, (sum, u) => sum + u.modelCalls)),
               ..._tokenCells(allTokens),
-              _share(allTokens.total, allTokens.total),
+              formatPercent(allTokens.total, allTokens.total),
             ],
         ],
       ),
@@ -64,7 +65,7 @@ String formatTokenReport(ConversationTree tree) {
       ..writeln('## ${_conversationName(usage.conversationId, rootId)}')
       ..writeln()
       ..write(
-        _table(
+        markdownTable(
           [
             'Turn',
             'Request',
@@ -79,10 +80,10 @@ String formatTokenReport(ConversationTree tree) {
               [
                 '${index + 1}',
                 switch (turn.request) {
-                  final request? => _shorten(request),
+                  final request? => shorten(request, _maxRequestLength),
                   null => '(before the first request)',
                 },
-                _number(turn.modelCalls),
+                formatNumber(turn.modelCalls),
                 ..._tokenCells(turn.tokens),
               ],
           ],
@@ -93,26 +94,30 @@ String formatTokenReport(ConversationTree tree) {
       buffer
         ..writeln()
         ..write(
-          _table(
+          markdownTable(
             ['Tool', 'Calls', 'Result characters'],
             [
               for (final MapEntry(key: name, value: tool) in _bySize(
                 usage.tools,
               ))
-                [name, _number(tool.calls), _number(tool.resultCharacters)],
+                [
+                  name,
+                  formatNumber(tool.calls),
+                  formatNumber(tool.resultCharacters),
+                ],
             ],
           ),
         );
     }
-    if (usage.unrecordedModelCalls > 0) {
+    if (usage.unrecordedModelCalls case final unrecorded when unrecorded > 0) {
       buffer
         ..writeln()
         ..writeln(
-          usage.unrecordedModelCalls == 1
+          unrecorded == 1
               ? "1 model call didn't record token usage, so its tokens aren't "
                     'counted.'
-              : "${_number(usage.unrecordedModelCalls)} model calls didn't "
-                    "record token usage, so their tokens aren't counted.",
+              : "${formatNumber(unrecorded)} model calls didn't record token "
+                    "usage, so their tokens aren't counted.",
         );
     }
   }
@@ -138,19 +143,11 @@ String _conversationName(String conversationId, String rootId) =>
     '`$conversationId`${conversationId == rootId ? ' (root)' : ''}';
 
 List<String> _tokenCells(TokenCounts tokens) => [
-  _number(tokens.input),
-  _number(tokens.cacheRead),
-  _number(tokens.output),
-  _number(tokens.total),
+  formatNumber(tokens.input),
+  formatNumber(tokens.cacheRead),
+  formatNumber(tokens.output),
+  formatNumber(tokens.total),
 ];
-
-/// Returns [text], cut to at most [_maxRequestLength] characters.
-String _shorten(String text) {
-  final runes = text.runes;
-  return runes.length <= _maxRequestLength
-      ? text
-      : '${String.fromCharCodes(runes.take(_maxRequestLength - 1))}…';
-}
 
 /// The maximum length of a request shown in the report.
 const _maxRequestLength = 60;
@@ -163,37 +160,3 @@ List<MapEntry<String, ToolUsage>> _bySize(Map<String, ToolUsage> tools) =>
       );
       return bySize != 0 ? bySize : a.key.compareTo(b.key);
     });
-
-/// Formats [part] as a percentage of [whole], for example `12.3%`.
-String _share(int part, int whole) =>
-    whole == 0 ? '–' : '${(part / whole * 100).toStringAsFixed(1)}%';
-
-/// Formats [number] with comma thousands separators, for example `1,234,567`.
-String _number(int number) {
-  final digits = number.abs().toString();
-  final buffer = StringBuffer(number < 0 ? '-' : '');
-  for (var i = 0; i < digits.length; i++) {
-    if (i > 0 && (digits.length - i) % 3 == 0) buffer.write(',');
-    buffer.write(digits[i]);
-  }
-  return buffer.toString();
-}
-
-/// Returns a Markdown table with [headers] and [rows], with the first
-/// [textColumns] columns aligned left and the rest, which hold numbers,
-/// aligned right.
-String _table(
-  List<String> headers,
-  List<List<String>> rows, {
-  int textColumns = 1,
-}) {
-  String row(List<String> cells) => '| ${cells.map(_escape).join(' | ')} |\n';
-  final alignments = [
-    for (var i = 0; i < headers.length; i++) i < textColumns ? ':--' : '--:',
-  ];
-  return [row(headers), row(alignments), ...rows.map(row)].join();
-}
-
-/// Escapes [text] for use in a Markdown table cell.
-String _escape(String text) =>
-    text.replaceAll(r'\', r'\\').replaceAll('|', r'\|');

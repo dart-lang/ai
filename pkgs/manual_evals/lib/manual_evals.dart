@@ -23,6 +23,15 @@ export 'src/token_usage.dart'
         ToolUsage,
         TurnUsage,
         measureTokenUsage;
+export 'src/trajectory.dart'
+    show
+        ToolOutcome,
+        Trajectory,
+        TrajectoryToolCall,
+        TrajectoryTurn,
+        TurnTrigger,
+        summarizeTrajectory;
+export 'src/trajectory_report.dart' show formatTrajectoryReport;
 export 'src/transcript.dart'
     show
         ConversationTranscript,
@@ -30,11 +39,13 @@ export 'src/transcript.dart'
         StepSource,
         StepStatus,
         StepType,
+        ToolCallAnswer,
         ToolResult,
         TranscriptNotFoundException,
         TranscriptSource,
         TranscriptStep,
         TranscriptWarning,
+        pairToolCalls,
         pairToolResults;
 
 /// Placeholder function for manual evaluations.

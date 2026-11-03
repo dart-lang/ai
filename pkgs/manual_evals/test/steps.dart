@@ -30,23 +30,35 @@ Map<String, Object?> userInput(String request) => {
       '<ADDITIONAL_METADATA>\nThe user is: someone.\n</ADDITIONAL_METADATA>',
 };
 
-/// A `PLANNER_RESPONSE` step that records the given token counts and calls
-/// [tools].
+/// A `PLANNER_RESPONSE` step that records the given token counts, [thinking],
+/// and [content], and calls [tools] without arguments followed by [calls].
 Map<String, Object?> modelCall({
   int? input,
   int? cacheRead,
   int? output,
+  String? thinking,
+  String? content,
   List<String> tools = const [],
+  List<Map<String, Object?>> calls = const [],
 }) => {
   'type': 'PLANNER_RESPONSE',
   'source': 'MODEL',
   'input_tokens': ?input,
   'cache_read_tokens': ?cacheRead,
   'output_tokens': ?output,
+  'thinking': ?thinking,
+  'content': ?content,
   'tool_calls': [
     for (final name in tools) {'name': name},
+    ...calls,
   ],
 };
+
+/// A call to the tool [name] with [args], for [modelCall].
+Map<String, Object?> toolCall(
+  String name, [
+  Map<String, Object?> args = const {},
+]) => {'name': name, 'args': args};
 
 /// A tool result step with [content].
 Map<String, Object?> toolResult(String content) => {

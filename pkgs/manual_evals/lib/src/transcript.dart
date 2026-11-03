@@ -2,6 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'text.dart';
+
 /// The type of a [TranscriptStep].
 ///
 /// [name] is the type as written in transcripts. The runtime adds types over
@@ -128,6 +130,22 @@ extension type TranscriptStep(Map<String, Object?> json) {
   /// The text content of the step (`content`).
   String get content => _string('content') ?? '';
 
+  /// The text of a [StepType.userInput] step's request, on one line.
+  ///
+  /// Agents built on the Antigravity runtime wrap the request in
+  /// `<USER_REQUEST>` tags and add `<ADDITIONAL_METADATA>`. This is the text
+  /// inside the tags if there is any, and otherwise the whole [content]
+  /// without the metadata and tags.
+  String get userRequest {
+    final request = oneLine(
+      _userRequestPattern.firstMatch(content)?.group(1) ?? '',
+    );
+    if (request.isNotEmpty) return request;
+    return oneLine(
+      content.replaceAll(_metadataPattern, ' ').replaceAll(_tagPattern, ' '),
+    );
+  }
+
   /// The model's reasoning for the step (`thinking`), if any.
   String get thinking => _string('thinking') ?? '';
 
@@ -176,6 +194,23 @@ extension type TranscriptStep(Map<String, Object?> json) {
   };
 }
 
+/// Matches the text of a user request, which agents built on the Antigravity
+/// runtime wrap in `<USER_REQUEST>` tags.
+final _userRequestPattern = RegExp(
+  r'<USER_REQUEST>(.*?)</USER_REQUEST>',
+  dotAll: true,
+);
+
+/// Matches the metadata that agents built on the Antigravity runtime add to a
+/// user request.
+final _metadataPattern = RegExp(
+  r'<ADDITIONAL_METADATA>.*?</ADDITIONAL_METADATA>',
+  dotAll: true,
+);
+
+/// Matches an XML-style tag, such as `<USER_REQUEST>` or `</USER_REQUEST>`.
+final _tagPattern = RegExp(r'</?[A-Z_]+>');
+
 /// Types of [StepSource.model] steps that are not tool results.
 const _nonToolResultTypes = {
   StepType.plannerResponse,
@@ -191,26 +226,52 @@ typedef ToolResult = ({String? toolName, TranscriptStep step});
 
 /// Matches each tool result in [steps] to its tool call.
 ///
-/// A [StepType.plannerResponse] step that calls N tools is followed by N tool
-/// results (see [TranscriptStep.isToolResult]), in call order, possibly
-/// interleaved with other steps such as system messages. A call that couldn't
-/// be run is answered by a [StepType.errorMessage] step instead, which uses up
-/// that call. Extra results are ignored.
+/// This is [pairToolCalls] without the calls that couldn't be run.
+Iterable<ToolResult> pairToolResults(Iterable<TranscriptStep> steps) =>
+    pairToolCalls(steps)
+        .where((pair) => pair.answer.isToolResult)
+        .map(
+          (pair) => (
+            toolName: pair.modelCall.toolCallNames[pair.index],
+            step: pair.answer,
+          ),
+        );
+
+/// A tool call and the step that answered it.
+///
+/// The call is the `index`th of the `modelCall` step's
+/// [TranscriptStep.toolCalls]. The `answer` is the call's tool result (see
+/// [TranscriptStep.isToolResult]) or, if the call couldn't be run, a
+/// [StepType.errorMessage] step.
+typedef ToolCallAnswer = ({
+  TranscriptStep modelCall,
+  int index,
+  TranscriptStep answer,
+});
+
+/// Matches each tool call in [steps] to the step that answered it.
+///
+/// A [StepType.plannerResponse] step that calls N tools is followed by N
+/// answers, in call order, possibly interleaved with other steps such as
+/// system messages. An answer is a tool result, or a [StepType.errorMessage]
+/// step for a call that couldn't be run. Calls that are still unanswered at
+/// the next planner response, such as calls that are still running, are left
+/// out. Extra results are ignored.
 ///
 /// [steps] must be in step order, as [ConversationTranscript.steps] are.
-Iterable<ToolResult> pairToolResults(Iterable<TranscriptStep> steps) sync* {
-  var toolNames = const <String?>[];
+Iterable<ToolCallAnswer> pairToolCalls(Iterable<TranscriptStep> steps) sync* {
+  TranscriptStep? modelCall;
+  var callCount = 0;
   var next = 0;
   for (final step in steps) {
     if (step.type == StepType.plannerResponse) {
-      toolNames = step.toolCallNames;
+      modelCall = step;
+      callCount = step.toolCallNames.length;
       next = 0;
-    } else if (next < toolNames.length) {
-      if (step.isToolResult) {
-        yield (toolName: toolNames[next++], step: step);
-      } else if (step.type == StepType.errorMessage) {
-        next++;
-      }
+    } else if (modelCall != null &&
+        next < callCount &&
+        (step.isToolResult || step.type == StepType.errorMessage)) {
+      yield (modelCall: modelCall, index: next++, answer: step);
     }
   }
 }
