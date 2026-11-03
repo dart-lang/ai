@@ -14,7 +14,7 @@ pubspec.lock
 
 # Ignore all but the explicitly checked in skills, others are personally
 # installed skills.
-.agents/skills/
+.agents/skills/*
 !.agents/skills/add-dart-mcp-server-feature
 !.agents/skills/closing-obsolete-issues
 !.agents/skills/update-dart-mcp-server-readme
