@@ -96,14 +96,38 @@ void main() {
     expect(result.stderr, isNot(contains('Unhandled exception')));
   }, skip: Platform.isWindows ? 'Uses chmod' : false);
 
-  test('rejects unknown arguments', () async {
+  test('prints usage, with help for each option, for --help', () async {
     for (final args in [
-      ['--verbose'],
-      ['a', 'b'],
+      ['--help'],
+      ['conv', '-h'],
+    ]) {
+      final result = await run(args);
+
+      expect(result.exitCode, 0, reason: '$args');
+      expect(result.stdout, contains('Usage:'), reason: '$args');
+      expect(result.stdout, contains('--all'), reason: '$args');
+    }
+  });
+
+  test('takes a conversation ID after --', () async {
+    await writeTranscript('-conv', [modelCall(0, [])]);
+
+    final result = await run(['--', '-conv']);
+
+    expect(result.exitCode, 0, reason: '${result.stderr}');
+  });
+
+  test('rejects invalid arguments, saying why', () async {
+    for (final (args, reason) in [
+      (['--verbose'], 'Could not find an option named "--verbose"'),
+      (['-a'], 'Could not find an option or flag "-a"'),
+      (['--all=true'], 'Flag option "--all" should not be given a value'),
+      (['a', 'b'], 'Expected at most one conversation ID'),
     ]) {
       final result = await run(args);
 
       expect(result.exitCode, 64, reason: '$args');
+      expect(result.stderr, contains(reason), reason: '$args');
       expect(result.stderr, contains('Usage:'), reason: '$args');
     }
   });

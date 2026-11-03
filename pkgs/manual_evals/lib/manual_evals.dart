@@ -7,6 +7,7 @@
 library;
 
 export 'src/check.dart' show checkTranscriptFormat;
+export 'src/command.dart' show loadConversationTreeFromArgs;
 export 'src/loading.dart'
     show
         defaultTranscriptSources,
@@ -14,6 +15,14 @@ export 'src/loading.dart'
         loadTranscript,
         resolveConversationId;
 export 'src/sources/antigravity.dart' show AntigravityTranscriptSource;
+export 'src/token_report.dart' show formatTokenReport;
+export 'src/token_usage.dart'
+    show
+        ConversationUsage,
+        TokenCounts,
+        ToolUsage,
+        TurnUsage,
+        measureTokenUsage;
 export 'src/transcript.dart'
     show
         ConversationTranscript,

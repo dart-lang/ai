@@ -59,8 +59,7 @@ Iterable<TranscriptWarning> _checkTranscript(
 String _count(int count, String noun) => '$count $noun${count == 1 ? '' : 's'}';
 
 bool _recordsTokenUsage(TranscriptStep step) =>
-    step.type == StepType.plannerResponse &&
-    (step.inputTokens != null || step.outputTokens != null);
+    step.type == StepType.plannerResponse && step.recordsTokenUsage;
 
 /// A model call and the number of tool results that follow it.
 final class _ModelCall {

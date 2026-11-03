@@ -17,48 +17,25 @@ library;
 
 import 'dart:io';
 
+import 'package:args/args.dart';
 import 'package:manual_evals/manual_evals.dart';
 
 Future<void> main(List<String> args) async {
-  final showAll = args.contains('--all');
-  final positional = [
-    for (final arg in args)
-      if (!arg.startsWith('-')) arg,
-  ];
-  final unknownFlags = [
-    for (final arg in args)
-      if (arg.startsWith('-') && arg != '--all') arg,
-  ];
-  if (positional.length > 1 || unknownFlags.isNotEmpty) {
-    stderr.writeln(
-      'Usage: dart run tool/check_transcript_format.dart [--all] '
-      '[conversation-id]',
-    );
-    exitCode = 64;
-    return;
-  }
-
-  final conversationId = resolveConversationId(positional.firstOrNull);
-  if (conversationId == null) {
-    stderr.writeln(
-      'No conversation ID given, and no current conversation detected.',
-    );
-    exitCode = 64;
-    return;
-  }
-
-  final ConversationTree tree;
-  try {
-    tree = await loadConversationTree(conversationId);
-  } on TranscriptNotFoundException catch (e) {
-    stderr.writeln(e);
-    exitCode = 1;
-    return;
-  } on FileSystemException catch (e) {
-    stderr.writeln("Can't read the transcript of $conversationId: $e");
-    exitCode = 1;
-    return;
-  }
+  final loaded = await loadConversationTreeFromArgs(
+    args,
+    usage:
+        'Usage: dart run tool/check_transcript_format.dart [options] '
+        '[conversation-id]',
+    parser: ArgParser()
+      ..addFlag(
+        'all',
+        negatable: false,
+        help: 'Print every problem, not just the first $_maxProblems.',
+      ),
+  );
+  if (loaded == null) return;
+  final (:tree, :options) = loaded;
+  final showAll = options.flag('all');
 
   for (final transcript in tree.transcripts) {
     final modelCalls = transcript.steps

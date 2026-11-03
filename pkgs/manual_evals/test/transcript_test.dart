@@ -43,6 +43,7 @@ void main() {
       expect(step.inputTokens, 1027);
       expect(step.cacheReadTokens, 140786);
       expect(step.outputTokens, 387);
+      expect(step.recordsTokenUsage, isTrue);
       expect(step.content, 'c');
       expect(step.thinking, 't');
       expect(step.toolCalls, hasLength(3));
@@ -64,6 +65,7 @@ void main() {
       expect(step.inputTokens, isNull);
       expect(step.cacheReadTokens, isNull);
       expect(step.outputTokens, isNull);
+      expect(step.recordsTokenUsage, isFalse);
       expect(step.content, '');
       expect(step.thinking, '');
       expect(step.toolCalls, isNull);
@@ -101,6 +103,7 @@ void main() {
       expect(step.inputTokens, isNull);
       expect(step.cacheReadTokens, isNull);
       expect(step.outputTokens, isNull);
+      expect(step.recordsTokenUsage, isFalse);
       expect(step.content, '');
       expect(step.thinking, '');
       expect(step.toolCalls, isNull);
