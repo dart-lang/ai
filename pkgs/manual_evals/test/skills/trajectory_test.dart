@@ -18,6 +18,9 @@ void main() {
       AntigravityTranscriptSource.rootsEnvironmentVariable: d.sandbox,
       Platform.isWindows ? 'USERPROFILE' : 'HOME': d.sandbox,
     },
+    // The report is UTF-8, which isn't the system encoding on Windows.
+    stdoutEncoding: utf8,
+    stderrEncoding: utf8,
   );
 
   test('prints a report', () async {
