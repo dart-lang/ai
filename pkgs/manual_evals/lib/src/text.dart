@@ -15,7 +15,10 @@ final _whitespacePattern = RegExp(r'\s+');
 
 /// Returns [text], cut to at most [maxLength] characters, ending in `…` if it
 /// was cut.
+///
+/// Characters are counted as runes, so a cut may split a combining sequence.
 String shorten(String text, int maxLength) {
+  assert(maxLength > 0);
   final runes = text.runes;
   return runes.length <= maxLength
       ? text
@@ -38,6 +41,11 @@ String formatNumber(int number) {
   return buffer.toString();
 }
 
+/// Returns the name of the conversation [conversationId] for a report about
+/// the conversation [rootId] and its subagents.
+String conversationName(String conversationId, String rootId) =>
+    '${codeSpan(conversationId)}${conversationId == rootId ? ' (root)' : ''}';
+
 /// Returns a Markdown table with [headers] and [rows], with the first
 /// [textColumns] columns aligned left and the rest, which hold numbers,
 /// aligned right.
@@ -54,23 +62,30 @@ String markdownTable(
   return [row(headers), row(alignments), ...rows.map(row)].join();
 }
 
-/// Escapes [text] for use in a Markdown table cell.
+/// Escapes [text] for use in a Markdown table cell, which must be on one
+/// line.
 String _escapeCell(String text) =>
-    text.replaceAll(r'\', r'\\').replaceAll('|', r'\|');
+    oneLine(text).replaceAll(r'\', r'\\').replaceAll('|', r'\|');
 
-/// Returns [text] as a Markdown code span.
+/// Returns [text], which must not be empty, as a Markdown code span.
 ///
 /// The span is fenced with more backticks than any run of backticks in
 /// [text], so it can hold any text on one line.
 String codeSpan(String text) {
+  assert(text.isNotEmpty);
   final fence = '`' * (_longestBacktickRun(text) + 1);
-  // A span that starts or ends with a backtick must be padded with spaces.
-  final padding = text.startsWith('`') || text.endsWith('`') ? ' ' : '';
+  // Renderers strip one space from each end of a span that starts and ends
+  // with a space, and a span can't start or end with a backtick, so pad those.
+  final needsPadding =
+      text.startsWith('`') ||
+      text.endsWith('`') ||
+      (text.startsWith(' ') && text.endsWith(' ') && text.trim().isNotEmpty);
+  final padding = needsPadding ? ' ' : '';
   return '$fence$padding$text$padding$fence';
 }
 
 /// Returns [text] as a fenced Markdown code block, with each line, including
-/// the fences, starting with [indent].
+/// the fences but not blank lines, starting with [indent].
 ///
 /// The fence is longer than any run of backticks in [text], so the block can
 /// hold any text.

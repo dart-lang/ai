@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'dart:io';
+import 'dart:convert';
 
 import 'package:path/path.dart' as p;
 
@@ -16,34 +16,41 @@ import 'transcript.dart';
 /// of the tool calls in all the conversations, the files they modified, and
 /// any [ConversationTree.warnings].
 ///
-/// Paths in the [homeDirectory] (which defaults to the user's home directory)
-/// are shortened to start with `~`.
+/// If [homeDirectory] is given, paths in it are shortened to start with `~`.
 String formatTrajectoryReport(ConversationTree tree, {String? homeDirectory}) {
-  final home = homeDirectory ?? _homeDirectory;
   final trajectories = [
     for (final transcript in tree.transcripts) summarizeTrajectory(transcript),
   ];
+  final toolCalls = [
+    for (final trajectory in trajectories) ...trajectory.toolCalls,
+  ];
   final report = _TrajectoryReport(
     rootId: tree.root.conversationId,
-    tidy: home == null || home.isEmpty
-        ? (text) => text
-        : (text) => text.replaceAll(home, '~'),
+    tidy: _homeShortener(homeDirectory),
   );
   for (final trajectory in trajectories) {
     report.writeTimeline(trajectory);
   }
-  final toolCalls = [
-    for (final trajectory in trajectories) ...trajectory.toolCalls,
-  ];
   report
     ..writeToolCalls(toolCalls)
     ..writeModifiedFiles(toolCalls)
     ..writeWarnings(tree.warnings);
-  return report.toString();
+  return '$report';
 }
 
-String? get _homeDirectory =>
-    Platform.environment[Platform.isWindows ? 'USERPROFILE' : 'HOME'];
+/// Returns a function that replaces each path in [homeDirectory], or the
+/// directory itself, with `~`, or that does nothing if there's no
+/// [homeDirectory].
+String Function(String text) _homeShortener(String? homeDirectory) {
+  final home = homeDirectory?.replaceFirst(_trailingSeparatorsPattern, '');
+  if (home == null || home.isEmpty) return (text) => text;
+  // Only match the whole directory: not within a longer path, such as
+  // `/var/home/me`, or a sibling, such as `/home/meg`.
+  final pattern = RegExp('(?<![\\w.~/\\\\-])${RegExp.escape(home)}(?![\\w.-])');
+  return (text) => text.replaceAll(pattern, '~');
+}
+
+final _trailingSeparatorsPattern = RegExp(r'[/\\]+$');
 
 /// The maximum length of a request, command, or other text quoted from a
 /// transcript in the report.
@@ -65,54 +72,58 @@ final class _TrajectoryReport({
   /// Writes the turns of [trajectory], with each turn's tool calls and the
   /// details that explain them.
   void writeTimeline(Trajectory trajectory) {
-    _section('## ${_conversationName(trajectory.conversationId)}');
+    _section('## ${conversationName(trajectory.conversationId, rootId)}');
     if (trajectory.turns.isEmpty) {
       _lines.add('No turns.');
       return;
     }
     var requestNumber = 0;
     for (final turn in trajectory.turns) {
-      final title = switch (turn.request) {
+      if (turn.request != null) requestNumber++;
+      _writeTurn(turn, switch (turn.request) {
+        final request? => 'Turn $requestNumber: ${_quote(request)}',
         null => 'Before the first request',
-        final request => 'Turn ${++requestNumber}: ${_quote(request)}',
-      };
-      final duration = switch (turn.duration) {
-        final duration? => ' (${_formatDuration(duration)})',
-        null => '',
-      };
-      _section('### $title$duration');
-      for (final (:kind, :name) in turn.triggers) {
-        _lines.add('- Triggered ${codeSpan(name)} ($kind)');
-      }
-      if (turn.thinking case final thinking?) {
-        _lines.add('- Thinking: ${_quote(thinking)}');
-      }
-      for (final call in turn.toolCalls) {
-        _writeToolCall(call);
-      }
-      if (turn.reply case final reply?) {
-        _lines.add('- Replied: ${_quote(reply)}');
-      }
+      });
     }
   }
 
+  /// Writes [turn] under a heading with [title] and its duration.
+  void _writeTurn(TrajectoryTurn turn, String title) {
+    final duration = switch (turn.duration) {
+      final duration? => ' (${_formatDuration(duration)})',
+      null => '',
+    };
+    _section('### $title$duration');
+    _lines.addAll([
+      if (turn.initialMessage case final message?)
+        '- Message: ${_quote(message)}',
+      for (final (:kind, :name) in turn.triggers)
+        '- Triggered ${codeSpan(name)} ($kind)',
+      if (turn.thinking case final thinking?) '- Thinking: ${_quote(thinking)}',
+    ]);
+    for (final call in turn.toolCalls) {
+      _writeToolCall(call);
+    }
+    if (turn.reply case final reply?) _lines.add('- Replied: ${_quote(reply)}');
+  }
+
+  /// Writes [call] with its outcome, what it acted on, and the end of its
+  /// output if it failed.
   void _writeToolCall(TrajectoryToolCall call) {
     final marker = switch (call.outcome) {
-      ToolOutcome.succeeded => '✅',
-      ToolOutcome.failed => '❌',
-      ToolOutcome.unfinished => '⏳',
+      ToolCallOutcome.succeeded => '✅',
+      ToolCallOutcome.failed => '❌',
+      ToolCallOutcome.unfinished => '⏳',
     };
     final subject = switch (call) {
       TrajectoryToolCall(:final command?) => _quote(command),
       TrajectoryToolCall(:final query?, :final path?) =>
-        '${_quote(query)} in ${p.basename(path)}',
+        '${_quote(query)} in ${_quote(p.basename(path))}',
       TrajectoryToolCall(:final query?) => _quote(query),
-      TrajectoryToolCall(:final path?) => p.basename(path),
+      TrajectoryToolCall(:final path?) => _quote(p.basename(path)),
       _ => null,
     };
-    _lines.add(
-      '- $marker ${codeSpan(call.tool)}${subject == null ? '' : ' $subject'}',
-    );
+    _lines.add(['-', marker, codeSpan(call.tool), ?subject].join(' '));
     if (call.failureOutput case final output? when output.isNotEmpty) {
       _lines.add(codeBlock(_excerpt(tidy(output)), indent: '  ').trimRight());
     }
@@ -130,22 +141,23 @@ final class _TrajectoryReport({
     for (final call in toolCalls) {
       (byTool[call.tool] ??= []).add(call);
     }
-    final tools = byTool.keys.toList()
+    final tools = byTool.entries.toList()
       ..sort((a, b) {
-        final byCalls = byTool[b]!.length.compareTo(byTool[a]!.length);
-        return byCalls != 0 ? byCalls : a.compareTo(b);
+        final byCalls = b.value.length.compareTo(a.value.length);
+        return byCalls != 0 ? byCalls : a.key.compareTo(b.key);
       });
     _lines.add(
       markdownTable(
         ['Tool', 'Calls', 'Failed', 'Success rate'],
         [
-          for (final tool in tools) [tool, ..._outcomeCells(byTool[tool]!)],
+          for (final MapEntry(key: tool, value: calls) in tools)
+            [tool, ..._outcomeCells(calls)],
           if (tools.length > 1) ['**Total**', ..._outcomeCells(toolCalls)],
         ],
       ).trimRight(),
     );
     final unfinished = toolCalls
-        .where((call) => call.outcome == ToolOutcome.unfinished)
+        .where((call) => call.outcome == ToolCallOutcome.unfinished)
         .length;
     if (unfinished > 0) {
       _lines
@@ -164,21 +176,22 @@ final class _TrajectoryReport({
   void writeModifiedFiles(List<TrajectoryToolCall> toolCalls) {
     final edits = <String, int>{};
     for (final call in toolCalls) {
-      if (call.modifiesFile) {
-        final path = tidy(call.path!);
-        edits[path] = (edits[path] ?? 0) + 1;
+      if (call case TrajectoryToolCall(modifiesFile: true, :final path?)) {
+        edits.update(tidy(path), (count) => count + 1, ifAbsent: () => 1);
       }
     }
     if (edits.isEmpty) return;
     _section('## Files modified');
-    for (final path in edits.keys.toList()..sort()) {
-      final count = edits[path]!;
+    final files = edits.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    for (final MapEntry(key: path, value: count) in files) {
       _lines.add(
         '- ${codeSpan(path)} (${count == 1 ? '1 edit' : '$count edits'})',
       );
     }
   }
 
+  /// Writes [warnings] about transcripts that weren't fully understood.
   void writeWarnings(List<TranscriptWarning> warnings) {
     if (warnings.isEmpty) return;
     _section('## Warnings');
@@ -188,7 +201,7 @@ final class _TrajectoryReport({
         'missing.',
       )
       ..add('')
-      ..addAll([for (final warning in warnings) '- $warning']);
+      ..addAll(warnings.map((warning) => '- $warning'));
   }
 
   /// Starts a section with [heading], with a blank line before and after it.
@@ -199,12 +212,12 @@ final class _TrajectoryReport({
       ..add('');
   }
 
-  String _conversationName(String conversationId) => conversationId == rootId
-      ? '${codeSpan(conversationId)} (root)'
-      : codeSpan(conversationId);
-
-  /// Returns [text], from a transcript, shortened and as a code span.
-  String _quote(String text) => codeSpan(shorten(tidy(text), _maxQuoteLength));
+  /// Returns [text], from a transcript, on one line, shortened, and as a code
+  /// span, or `(empty)` if it's blank.
+  String _quote(String text) {
+    final line = oneLine(tidy(text));
+    return line.isEmpty ? '(empty)' : codeSpan(shorten(line, _maxQuoteLength));
+  }
 
   @override
   String toString() => '${_lines.join('\n')}\n';
@@ -213,10 +226,10 @@ final class _TrajectoryReport({
 /// Returns the number of [calls], how many failed, and their success rate,
 /// formatted as table cells.
 List<String> _outcomeCells(List<TrajectoryToolCall> calls) {
-  int count(ToolOutcome outcome) =>
+  int count(ToolCallOutcome outcome) =>
       calls.where((call) => call.outcome == outcome).length;
-  final succeeded = count(ToolOutcome.succeeded);
-  final failed = count(ToolOutcome.failed);
+  final succeeded = count(ToolCallOutcome.succeeded);
+  final failed = count(ToolCallOutcome.failed);
   return [
     formatNumber(calls.length),
     formatNumber(failed),
@@ -224,16 +237,16 @@ List<String> _outcomeCells(List<TrajectoryToolCall> calls) {
   ];
 }
 
-/// Returns the first [_maxOutputLines] non-blank lines of [output].
+/// Returns the last [_maxOutputLines] non-blank lines of [output], which is
+/// where errors are usually reported.
 String _excerpt(String output) {
   final lines = [
-    for (final line in output.split('\n'))
+    for (final line in LineSplitter.split(output))
       if (line.trim().isNotEmpty) line.trimRight(),
   ];
-  return [
-    ...lines.take(_maxOutputLines),
-    if (lines.length > _maxOutputLines) '…',
-  ].join('\n');
+  return lines.length <= _maxOutputLines
+      ? lines.join('\n')
+      : ['…', ...lines.sublist(lines.length - _maxOutputLines)].join('\n');
 }
 
 /// Formats [duration] to the second, for example `45s` or `1h 2m 3s`.

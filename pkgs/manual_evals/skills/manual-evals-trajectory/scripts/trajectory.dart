@@ -17,10 +17,12 @@ import 'dart:io';
 import 'package:manual_evals/manual_evals.dart';
 
 Future<void> main(List<String> args) async {
-  final tree = await loadConversationTreeFromArgs(
+  final loaded = await loadConversationTreeFromArgs(
     args,
     usage: 'Usage: dart run scripts/trajectory.dart [conversation-id]',
   );
-  if (tree == null) return;
-  stdout.write(formatTrajectoryReport(tree));
+  if (loaded == null) return;
+  final home =
+      Platform.environment[Platform.isWindows ? 'USERPROFILE' : 'HOME'];
+  stdout.write(formatTrajectoryReport(loaded.tree, homeDirectory: home));
 }

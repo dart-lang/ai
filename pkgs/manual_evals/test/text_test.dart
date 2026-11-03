@@ -15,11 +15,20 @@ void main() {
     expect(shorten('abcd', 3), 'ab…');
   });
 
-  test('formatNumber and formatPercent', () {
+  test('formatNumber adds thousands separators', () {
+    expect(formatNumber(123), '123');
     expect(formatNumber(1234567), '1,234,567');
     expect(formatNumber(-1000), '-1,000');
+  });
+
+  test('formatPercent shows – for a zero whole', () {
     expect(formatPercent(1, 3), '33.3%');
     expect(formatPercent(1, 0), '–');
+  });
+
+  test('conversationName marks the root', () {
+    expect(conversationName('a', 'a'), '`a` (root)');
+    expect(conversationName('b', 'a'), '`b`');
   });
 
   test('markdownTable aligns numbers right and escapes cells', () {
@@ -27,10 +36,10 @@ void main() {
       markdownTable(
         ['Name', 'Count'],
         [
-          ['a|b', '1'],
+          ['a|b\nc', '1'],
         ],
       ),
-      '| Name | Count |\n| :-- | --: |\n| a\\|b | 1 |\n',
+      '| Name | Count |\n| :-- | --: |\n| a\\|b c | 1 |\n',
     );
   });
 
@@ -38,6 +47,8 @@ void main() {
     expect(codeSpan('a'), '`a`');
     expect(codeSpan('a `b` c'), '``a `b` c``');
     expect(codeSpan('`a`'), '`` `a` ``');
+    expect(codeSpan(' a '), '`  a  `');
+    expect(codeSpan(' a'), '` a`');
   });
 
   test('codeBlock fences and indents the text', () {

@@ -10,7 +10,9 @@ description: Summarizes what an agent conversation and its subagents did, turn b
    ```bash
    dart run scripts/trajectory.dart [conversation-id]
    ```
-2. Show the user the Markdown report it prints.
+2. Show the user the Markdown report it prints. In it, ✅ marks a tool call
+   that succeeded, ❌ one that failed, and ⏳ one that hadn't finished.
 
-Only slash commands and skills that the user explicitly triggered are listed.
-Transcripts don't record skills that the agent picked up implicitly.
+Note: The report lists only the slash commands and skills that the user
+explicitly triggered. Transcripts don't record skills that the agent picked up
+on its own.

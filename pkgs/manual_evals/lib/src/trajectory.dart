@@ -4,14 +4,17 @@
 
 import 'dart:convert';
 
+import 'sources/antigravity_runtime.dart';
 import 'text.dart';
 import 'transcript.dart';
 
 /// What an agent did in one conversation, not including its subagents.
+///
+/// See [summarizeTrajectory].
 final class Trajectory({
   /// The ID of the conversation.
   required final String conversationId,
-  required List<TrajectoryTurn> turns,
+  required Iterable<TrajectoryTurn> turns,
 }) {
   /// The conversation's turns, in order.
   final List<TrajectoryTurn> turns = List.unmodifiable(turns);
@@ -27,11 +30,17 @@ final class TrajectoryTurn({
   /// `null` for the steps before the first user request.
   required final String? request,
 
-  /// The time from the turn's first recorded step to its last, or `null` if
-  /// no step recorded a time.
+  /// For the steps before the first user request, the content of the first
+  /// message the conversation received, on one line, if any.
+  ///
+  /// For a subagent, this is its assignment.
+  final String? initialMessage,
+
+  /// The time from the turn's earliest recorded step to its latest, or `null`
+  /// if no step recorded a time.
   final Duration? duration,
 
-  required List<TurnTrigger> triggers,
+  Iterable<ExplicitTrigger> triggers = const [],
 
   /// The first sentence of the model's first reasoning in the turn, if any.
   final String? thinking,
@@ -39,22 +48,18 @@ final class TrajectoryTurn({
   /// The model's last message in the turn, on one line, if any.
   final String? reply,
 
-  required List<TrajectoryToolCall> toolCalls,
+  Iterable<TrajectoryToolCall> toolCalls = const [],
 }) {
   /// The slash commands, skills, and other items the user explicitly
   /// triggered with the request, in order.
-  final List<TurnTrigger> triggers = List.unmodifiable(triggers);
+  final List<ExplicitTrigger> triggers = List.unmodifiable(triggers);
 
   /// The turn's tool calls, in order.
   final List<TrajectoryToolCall> toolCalls = List.unmodifiable(toolCalls);
 }
 
-/// A slash command, skill, or other item that a user explicitly triggered,
-/// such as `(kind: 'Slash Command', name: '/plan')`.
-typedef TurnTrigger = ({String kind, String name});
-
 /// How a tool call ended.
-enum ToolOutcome {
+enum ToolCallOutcome {
   /// The call succeeded.
   succeeded,
 
@@ -62,8 +67,8 @@ enum ToolOutcome {
   /// nonzero exit code.
   failed,
 
-  /// The call has no final result, for example because it's still running,
-  /// runs in the background, or was canceled.
+  /// The call has no final result, for example because it's still running or
+  /// was canceled.
   unfinished,
 }
 
@@ -71,12 +76,12 @@ enum ToolOutcome {
 final class const TrajectoryToolCall({
   /// The name of the tool.
   ///
-  /// Calls to MCP tools made through `call_mcp_tool` are named
+  /// Calls to MCP tools made through the runtime's MCP proxy tool are named
   /// `mcp_<server>_<tool>`, the way directly called MCP tools are.
   required final String tool,
 
   /// How the call ended.
-  required final ToolOutcome outcome,
+  required final ToolCallOutcome outcome,
 
   /// The command line the call ran, if any.
   final String? command,
@@ -87,7 +92,8 @@ final class const TrajectoryToolCall({
   /// The file or directory the call acted on, if any.
   final String? path,
 
-  /// The output of the call, without any header, if it [ToolOutcome.failed].
+  /// The output of the call, without any header, if it
+  /// [ToolCallOutcome.failed].
   final String? failureOutput,
 }) {
   /// Whether this call may have modified the file at [path].
@@ -95,8 +101,8 @@ final class const TrajectoryToolCall({
   /// This is true for calls to known file editing tools that didn't fail.
   bool get modifiesFile =>
       path != null &&
-      outcome != ToolOutcome.failed &&
-      _fileEditingTools.contains(tool);
+      outcome != ToolCallOutcome.failed &&
+      fileEditingTools.contains(tool);
 }
 
 /// Summarizes what the agent did in [transcript], turn by turn.
@@ -108,140 +114,124 @@ final class const TrajectoryToolCall({
 /// Tool calls are matched to their results with [pairToolCalls]. A call fails
 /// if it couldn't be run, its result has an error or the [StepStatus.error]
 /// status or starts with `Error:`, or it ran a command that exited with a
-/// nonzero exit code.
+/// nonzero exit code. The outcome of a call that ran in a background task
+/// comes from the task's final result, reported in a later system message.
 Trajectory summarizeTrajectory(ConversationTranscript transcript) {
-  // Model call steps are keyed by identity, so these keys are unique.
-  final answers = <(TranscriptStep, int), TranscriptStep>{
-    for (final (:modelCall, :index, :answer) in pairToolCalls(transcript.steps))
-      (modelCall, index): answer,
-  };
-
-  final turns = <TrajectoryTurn>[];
-  var turn = _TurnBuilder();
-  for (final step in transcript.steps) {
-    if (step.type == StepType.userInput) {
-      if (turn.isNotEmpty) turns.add(turn.build());
-      turn = _TurnBuilder(
-        request: step.userRequest,
-        triggers: [..._triggers(step.content)],
-      );
-    }
-    turn.recordTime(step.createdAt);
-    if (step.type == StepType.plannerResponse) {
-      turn.addModelCall(
-        thinking: step.thinking,
-        message: step.content,
-        toolCalls: [
-          for (final (index, call) in (step.toolCalls ?? const []).indexed)
-            _summarizeToolCall(call, answers[(step, index)]),
-        ],
-      );
-    }
+  final callsByModelCall = Map<TranscriptStep, List<PairedToolCall>>.identity();
+  for (final pair in pairToolCalls(transcript.steps)) {
+    (callsByModelCall[pair.modelCall] ??= []).add(pair);
   }
-  if (turn.isNotEmpty) turns.add(turn.build());
+  final taskResults = _taskResults(transcript.steps);
 
-  return Trajectory(conversationId: transcript.conversationId, turns: turns);
-}
-
-/// Collects the parts of a [TrajectoryTurn] while its steps are read.
-final class _TurnBuilder({
-  final String? request,
-  final List<TurnTrigger> triggers = const [],
-}) {
-  final List<TrajectoryToolCall> _toolCalls = [];
-  int _modelCalls = 0;
-  DateTime? _start;
-  DateTime? _end;
-  String? _thinking;
-  String? _reply;
-
-  /// Whether the turn should be reported: it has a request or model calls.
-  bool get isNotEmpty => request != null || _modelCalls > 0;
-
-  /// Extends the turn's duration to include [time], if it's known.
-  void recordTime(DateTime? time) {
-    if (time == null) return;
-    _start ??= time;
-    _end = time;
+  TrajectoryTurn summarizeTurn(TranscriptTurn turn) {
+    final modelCalls = [
+      for (final step in turn.steps)
+        if (step.type == StepType.plannerResponse) step,
+    ];
+    return TrajectoryTurn(
+      request: turn.userInput?.userRequest,
+      initialMessage: turn.userInput == null
+          ? _firstMessageContent(turn.steps)
+          : null,
+      duration: _duration([for (final step in turn.steps) ?step.createdAt]),
+      triggers: turn.userInput?.triggers ?? const [],
+      thinking: modelCalls
+          .map((step) => _firstSentence(step.thinking))
+          .nonNulls
+          .firstOrNull,
+      reply: modelCalls
+          .map((step) => oneLine(step.content))
+          .where((message) => message.isNotEmpty)
+          .lastOrNull,
+      toolCalls: [
+        for (final modelCall in modelCalls)
+          for (final pair
+              in callsByModelCall[modelCall] ?? const <PairedToolCall>[])
+            _summarizeToolCall(pair, taskResults),
+      ],
+    );
   }
 
-  /// Adds a model call with [thinking], [message], and [toolCalls].
-  void addModelCall({
-    required String thinking,
-    required String message,
-    required List<TrajectoryToolCall> toolCalls,
-  }) {
-    _modelCalls++;
-    _thinking ??= _firstSentence(thinking);
-    if (oneLine(message) case final reply when reply.isNotEmpty) {
-      _reply = reply;
-    }
-    _toolCalls.addAll(toolCalls);
-  }
-
-  TrajectoryTurn build() => TrajectoryTurn(
-    request: request,
-    duration: _duration,
-    triggers: triggers,
-    thinking: _thinking,
-    reply: _reply,
-    toolCalls: _toolCalls,
+  return Trajectory(
+    conversationId: transcript.conversationId,
+    turns: splitTurns(transcript.steps).map(summarizeTurn),
   );
-
-  /// The time from [_start] to [_end], or `null` if no time was recorded.
-  ///
-  /// Steps are in step order, but their times may not be.
-  Duration? get _duration {
-    if ((_start, _end) case (final start?, final end?)) {
-      return end.isAfter(start) ? end.difference(start) : Duration.zero;
-    }
-    return null;
-  }
 }
 
-/// Returns the items the user explicitly triggered in the user input
-/// [content].
-///
-/// The runtime describes each one in the user input, as in
-/// `/plan is a [Slash Command]:`.
-Iterable<TurnTrigger> _triggers(String content) => _triggerPattern
-    .allMatches(content)
-    .map((match) => (kind: match[2]!, name: match[1]!));
+/// Returns the final results of the background tasks reported in the system
+/// messages in [steps], by task ID.
+Map<String, TaskResult> _taskResults(List<TranscriptStep> steps) => {
+  for (final step in steps)
+    if (step.type == StepType.systemMessage)
+      for (final (:sender, :text) in runtimeMessages(step.content))
+        sender: ?taskResult(text),
+};
 
-final _triggerPattern = RegExp(r'([/\w-]+) is a \[([^\]]+)\]:');
+/// Returns the content of the first runtime message in [steps], on one line,
+/// if any.
+String? _firstMessageContent(List<TranscriptStep> steps) {
+  for (final step in steps) {
+    if (step.type != StepType.systemMessage) continue;
+    for (final (sender: _, :text) in runtimeMessages(step.content)) {
+      if (messageContent(text) case final content?) return oneLine(content);
+    }
+  }
+  return null;
+}
+
+/// Returns the time from the earliest of [times] to the latest, or `null` if
+/// there are none.
+Duration? _duration(List<DateTime> times) {
+  if (times.isEmpty) return null;
+  final earliest = times.reduce((a, b) => b.isBefore(a) ? b : a);
+  final latest = times.reduce((a, b) => b.isAfter(a) ? b : a);
+  return latest.difference(earliest);
+}
 
 /// Returns the first sentence of [text], on one line, or `null` if [text] is
 /// blank.
+///
+/// A sentence ends at a `.`, `!`, or `?` followed by whitespace and what looks
+/// like the start of another sentence, so an abbreviation like "e.g."
+/// followed by a lowercase word doesn't end one.
 String? _firstSentence(String text) {
   final line = oneLine(text);
   return line.isEmpty ? null : line.split(_sentenceBreakPattern).first;
 }
 
-final _sentenceBreakPattern = RegExp(r'(?<=[.!?])\s');
+final _sentenceBreakPattern = RegExp(r'''(?<=[.!?])\s+(?=[A-Z0-9"'(\[`])''');
 
-/// Summarizes the tool [call], answered by [answer] if it has been answered.
-TrajectoryToolCall _summarizeToolCall(Object? call, TranscriptStep? answer) {
-  final name = switch (call) {
-    {'name': final String name} => name,
-    _ => '(unknown)',
-  };
-  final arguments = _arguments(call);
-  final command = _stringArgument(arguments, const ['CommandLine']);
-  final outcome = _outcome(answer, ranCommand: command != null);
+/// Summarizes the tool call in [pair], resolving the final results of calls
+/// that ran in background tasks from [taskResults].
+TrajectoryToolCall _summarizeToolCall(
+  PairedToolCall pair,
+  Map<String, TaskResult> taskResults,
+) {
+  final name = pair.toolName ?? unknownToolName;
+  final arguments = _arguments(pair.call);
+  final command = _stringArgument(arguments, commandArguments);
+  final (:outcome, :failureOutput) = _resolve(
+    pair.answer,
+    ranCommand: command != null,
+    taskResults: taskResults,
+  );
   return TrajectoryToolCall(
-    tool: switch (arguments) {
-      {'ServerName': final String server, 'ToolName': final String tool}
-          when name == 'call_mcp_tool' =>
+    tool: switch ((name, arguments)) {
+      (
+        mcpProxyTool,
+        {
+          mcpServerArgument: final String server,
+          mcpToolArgument: final String tool,
+        },
+      ) =>
         'mcp_${server}_$tool',
       _ => name,
     },
     outcome: outcome,
     command: command,
-    query: _stringArgument(arguments, const ['Query']),
-    path: _stringArgument(arguments, _pathArguments),
-    failureOutput: answer != null && outcome == ToolOutcome.failed
-        ? _output(answer)
-        : null,
+    query: _stringArgument(arguments, queryArguments),
+    path: _stringArgument(arguments, pathArguments),
+    failureOutput: failureOutput,
   );
 }
 
@@ -275,70 +265,65 @@ String? _stringArgument(Map<String, Object?> arguments, List<String> names) {
   return null;
 }
 
-/// The names of the arguments that tools take for the file or directory they
-/// act on, in order of preference.
-const _pathArguments = [
-  'Path',
-  'AbsolutePath',
-  'TargetFile',
-  'SearchPath',
-  'DirectoryPath',
-];
+/// How a tool call ended, and its output if it failed.
+typedef _Resolution = ({ToolCallOutcome outcome, String? failureOutput});
 
-/// The tools that write or edit files, which are named by a path argument.
-const _fileEditingTools = {
-  'edit_file',
-  'multi_replace_file_content',
-  'replace_file_content',
-  'write_file',
-  'write_to_file',
-};
+const _Resolution _succeeded = (
+  outcome: ToolCallOutcome.succeeded,
+  failureOutput: null,
+);
+
+const _Resolution _unfinished = (
+  outcome: ToolCallOutcome.unfinished,
+  failureOutput: null,
+);
+
+/// The resolution of a call that failed with [result].
+_Resolution _failed(String result) =>
+    (outcome: ToolCallOutcome.failed, failureOutput: toolOutput(result));
 
 /// Returns how a tool call answered by [answer] ended.
 ///
-/// If the call [ranCommand], [answer]'s content is also checked for the
-/// command's exit code.
-ToolOutcome _outcome(TranscriptStep? answer, {required bool ranCommand}) {
-  if (answer == null) return ToolOutcome.unfinished;
+/// If the call [ranCommand], its result is also checked for the command's
+/// exit code. If it ran in a background task, its final result is looked up
+/// in [taskResults].
+_Resolution _resolve(
+  TranscriptStep? answer, {
+  required bool ranCommand,
+  required Map<String, TaskResult> taskResults,
+}) {
+  if (answer == null) return _unfinished;
   if (answer.type == StepType.errorMessage ||
       answer.status == StepStatus.error ||
       answer.error != null ||
-      answer.content.startsWith('Error:')) {
-    return ToolOutcome.failed;
+      answer.content.startsWith(errorResultPrefix)) {
+    return _failed(answer.error ?? answer.content);
   }
+
+  if (backgroundTaskId(answer.content) case final taskId?) {
+    return switch (taskResults[taskId]) {
+      null || (end: TaskEnd.canceled, result: _) => _unfinished,
+      (end: TaskEnd.failed, :final result) => _failed(result),
+      (end: TaskEnd.finished, :final result) => _fromExitCode(
+        ranCommand ? reportedExitCode(result) : null,
+        result,
+      ),
+    };
+  }
+
   final exitCode =
-      answer.exitCode ??
-      (ranCommand ? _reportedExitCode(answer.content) : null);
-  if (exitCode != null) {
-    return exitCode == 0 ? ToolOutcome.succeeded : ToolOutcome.failed;
-  }
+      answer.exitCode ?? (ranCommand ? reportedExitCode(answer.content) : null);
+  if (exitCode != null) return _fromExitCode(exitCode, answer.content);
   // Results that don't record a status are taken to be complete.
-  return answer.status == StepStatus.done || answer.status.name.isEmpty
-      ? ToolOutcome.succeeded
-      : ToolOutcome.unfinished;
+  return switch (answer.status) {
+    StepStatus.done || StepStatus.unrecorded => _succeeded,
+    _ => _unfinished,
+  };
 }
 
-/// Returns the exit code reported in the [content] of a command's result, if
-/// any.
-int? _reportedExitCode(String content) =>
-    int.tryParse(_exitCodePattern.firstMatch(content)?[1] ?? '');
-
-/// Matches the line reporting a command's exit code in a command's result.
-final _exitCodePattern = RegExp(
-  r'^(?:The c|C)ommand exited with code (-?\d+)',
-  multiLine: true,
-);
-
-/// Returns the output of the tool call answered by [answer], without the
-/// header that precedes command output.
-String _output(TranscriptStep answer) {
-  final text = answer.error ?? answer.content;
-  final outputStart = _outputHeaderPattern.firstMatch(text)?.end ?? 0;
-  return text.substring(outputStart).trim();
-}
-
-/// Matches the end of the header of a command's result.
-final _outputHeaderPattern = RegExp(
-  r'^(?:Command )?[Oo]utput:',
-  multiLine: true,
-);
+/// The resolution of a call with [result] whose command exited with
+/// [exitCode], which is `null` if the call didn't run a command.
+_Resolution _fromExitCode(int? exitCode, String result) => switch (exitCode) {
+  null || 0 => _succeeded,
+  _ => _failed(result),
+};

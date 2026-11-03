@@ -12,7 +12,13 @@ void main() {
     final tree = ConversationTree(
       transcripts: [
         transcript(conversationId: 'root', [
-          {...userInput('Fix the `bug`'), 'created_at': '2026-01-01T00:00:00Z'},
+          {
+            ...userInput('Fix the `bug`'),
+            'content':
+                '/plan is a [Slash Command]:\n'
+                '<USER_REQUEST>\nFix the `bug`\n</USER_REQUEST>',
+            'created_at': '2026-01-01T00:00:00Z',
+          },
           modelCall(
             thinking: 'Look first. Then fix.',
             calls: [
@@ -40,6 +46,7 @@ void main() {
           ),
         ]),
         transcript(conversationId: 'sub', [
+          runtimeMessage('root', 'Find the bug.'),
           modelCall(
             calls: [
               toolCall('grep_search', {
@@ -62,18 +69,19 @@ void main() {
 
 ### Turn 1: `` Fix the `bug` `` (1h 2m 3s)
 
+- Triggered `/plan` (Slash Command)
 - Thinking: `Look first.`
 - ✅ `run_command` `cat ~/a.dart`
-- ✅ `edit_file` a.dart
+- ✅ `edit_file` `a.dart`
 - ✅ `invoke_subagent`
 - ❌ `run_command` `dart test`
   ```
-  line 1
-  line 2
+  …
   line 3
   line 4
   line 5
-  …
+  line 6
+  line 7
   ```
 - Replied: `Fixed it.`
 
@@ -81,8 +89,9 @@ void main() {
 
 ### Before the first request
 
-- ✅ `grep_search` `bug` in lib
-- ⏳ `write_file` a.dart
+- Message: `Find the bug.`
+- ✅ `grep_search` `bug` in `lib`
+- ⏳ `write_file` `a.dart`
 
 ## Tool calls
 
@@ -114,7 +123,7 @@ Some transcripts weren't fully understood, so some steps may be missing.
       transcripts: [transcript(conversationId: 'root', [])],
     );
 
-    expect(formatTrajectoryReport(tree, homeDirectory: ''), '''
+    expect(formatTrajectoryReport(tree), '''
 # Trajectory
 
 ## `root` (root)
@@ -127,16 +136,148 @@ No tool calls.
 ''');
   });
 
-  test('shortens long quotes', () {
+  group('quotes', () {
+    /// Returns the report on a conversation that runs [command].
+    String reportCommand(String command, {String? homeDirectory}) =>
+        formatTrajectoryReport(
+          ConversationTree(
+            transcripts: [
+              transcript([
+                userInput('Go'),
+                modelCall(
+                  calls: [
+                    toolCall('run_command', {'CommandLine': command}),
+                  ],
+                ),
+              ]),
+            ],
+          ),
+          homeDirectory: homeDirectory,
+        );
+
+    test('are shortened', () {
+      final tree = ConversationTree(
+        transcripts: [
+          transcript([userInput('${'long ' * 20}request')]),
+        ],
+      );
+
+      expect(
+        formatTrajectoryReport(tree),
+        contains('### Turn 1: `${'long ' * 15}long…`\n'),
+      );
+    });
+
+    test('are on one line', () {
+      expect(
+        reportCommand('cat <<EOF\n# not a heading\n- not an item\nEOF'),
+        contains(
+          '- ⏳ `run_command` `cat <<EOF # not a heading - not an item EOF`\n',
+        ),
+      );
+    });
+
+    test('are marked when empty', () {
+      final tree = ConversationTree(
+        transcripts: [
+          transcript([userInput('')]),
+        ],
+      );
+
+      expect(formatTrajectoryReport(tree), contains('### Turn 1: (empty)\n'));
+    });
+
+    test('escape file names', () {
+      final tree = ConversationTree(
+        transcripts: [
+          transcript([
+            userInput('Go'),
+            modelCall(
+              calls: [
+                toolCall('read_file', {'Path': '/a/__init__.py'}),
+              ],
+            ),
+          ]),
+        ],
+      );
+
+      expect(
+        formatTrajectoryReport(tree),
+        contains('- ⏳ `read_file` `__init__.py`\n'),
+      );
+    });
+
+    test('shorten only whole home directories', () {
+      String shortened(String command, String home) =>
+          RegExp(r'`run_command` `(.*)`')
+              .firstMatch(reportCommand(command, homeDirectory: home))![1]!;
+
+      expect(shortened('ls /home/me /home/me/a', '/home/me'), 'ls ~ ~/a');
+      expect(shortened('ls /home/me/a', '/home/me/'), 'ls ~/a');
+      expect(
+        shortened('ls /home/meg/a /var/home/me/b', '/home/me'),
+        'ls /home/meg/a /var/home/me/b',
+      );
+      expect(shortened('ls /home/me', ''), 'ls /home/me');
+    });
+  });
+
+  test('fences failure output that contains fences', () {
     final tree = ConversationTree(
       transcripts: [
-        transcript([userInput('${'long ' * 20}request')]),
+        transcript([
+          userInput('Go'),
+          modelCall(calls: [toolCall('read_file')]),
+          toolResult('Error: bad\n```\nquoted\n```'),
+        ]),
       ],
     );
 
     expect(
-      formatTrajectoryReport(tree, homeDirectory: ''),
-      contains('### Turn 1: `${'long ' * 15}long…`\n'),
+      formatTrajectoryReport(tree),
+      contains('  ````\n  Error: bad\n  ```\n  quoted\n  ```\n  ````\n'),
     );
+  });
+
+  test('reports a single tool without a total', () {
+    final tree = ConversationTree(
+      transcripts: [
+        transcript([
+          userInput('Go'),
+          modelCall(calls: [toolCall('read_file'), toolCall('read_file')]),
+        ]),
+      ],
+    );
+
+    final report = formatTrajectoryReport(tree);
+    expect(report, contains('| read_file | 2 | 0 | – |\n'));
+    expect(report, isNot(contains('Total')));
+    expect(
+      report,
+      contains(
+        "2 calls hadn't finished, so they aren't counted in success "
+        'rates.',
+      ),
+    );
+  });
+
+  test('formats durations', () {
+    String duration(String end) =>
+        RegExp(r'### Turn 1: `Go` \((.*)\)').firstMatch(
+          formatTrajectoryReport(
+            ConversationTree(
+              transcripts: [
+                transcript([
+                  {...userInput('Go'), 'created_at': '2026-01-01T00:00:00Z'},
+                  {...modelCall(), 'created_at': '2026-01-01T$end'},
+                ]),
+              ],
+            ),
+          ),
+        )![1]!;
+
+    expect(duration('00:00:45Z'), '45s');
+    expect(duration('00:02:00Z'), '2m 0s');
+    expect(duration('01:00:05Z'), '1h 0m 5s');
   });
 }

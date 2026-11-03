@@ -25,21 +25,21 @@ export 'src/token_usage.dart'
         measureTokenUsage;
 export 'src/trajectory.dart'
     show
-        ToolOutcome,
+        ToolCallOutcome,
         Trajectory,
         TrajectoryToolCall,
         TrajectoryTurn,
-        TurnTrigger,
         summarizeTrajectory;
 export 'src/trajectory_report.dart' show formatTrajectoryReport;
 export 'src/transcript.dart'
     show
         ConversationTranscript,
         ConversationTree,
+        ExplicitTrigger,
+        PairedToolCall,
         StepSource,
         StepStatus,
         StepType,
-        ToolCallAnswer,
         ToolResult,
         TranscriptNotFoundException,
         TranscriptSource,

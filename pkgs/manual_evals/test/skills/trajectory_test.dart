@@ -16,6 +16,7 @@ void main() {
     ['skills/manual-evals-trajectory/scripts/trajectory.dart', ...args],
     environment: {
       AntigravityTranscriptSource.rootsEnvironmentVariable: d.sandbox,
+      Platform.isWindows ? 'USERPROFILE' : 'HOME': d.sandbox,
     },
   );
 
@@ -33,7 +34,7 @@ void main() {
                 'tool_calls': [
                   {
                     'name': 'run_command',
-                    'args': {'CommandLine': 'ls'},
+                    'args': {'CommandLine': 'ls ${d.sandbox}/x'},
                   },
                 ],
               },
@@ -54,7 +55,7 @@ void main() {
 
     expect(result.exitCode, 0, reason: '${result.stderr}');
     expect(result.stdout, startsWith('# Trajectory\n'));
-    expect(result.stdout, contains('- ✅ `run_command` `ls`\n'));
+    expect(result.stdout, contains('- ✅ `run_command` `ls ~/x`\n'));
     expect(result.stdout, contains('| run_command | 1 | 0 | 100.0% |'));
   });
 

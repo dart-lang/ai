@@ -43,7 +43,7 @@ String formatTokenReport(ConversationTree tree) {
         [
           for (final usage in usages)
             [
-              _conversationName(usage.conversationId, rootId),
+              conversationName(usage.conversationId, rootId),
               formatNumber(usage.modelCalls),
               ..._tokenCells(usage.tokens),
               formatPercent(usage.tokens.total, allTokens.total),
@@ -62,7 +62,7 @@ String formatTokenReport(ConversationTree tree) {
   for (final usage in usages) {
     buffer
       ..writeln()
-      ..writeln('## ${_conversationName(usage.conversationId, rootId)}')
+      ..writeln('## ${conversationName(usage.conversationId, rootId)}')
       ..writeln()
       ..write(
         markdownTable(
@@ -138,9 +138,6 @@ String formatTokenReport(ConversationTree tree) {
   }
   return buffer.toString();
 }
-
-String _conversationName(String conversationId, String rootId) =>
-    '`$conversationId`${conversationId == rootId ? ' (root)' : ''}';
 
 List<String> _tokenCells(TokenCounts tokens) => [
   formatNumber(tokens.input),

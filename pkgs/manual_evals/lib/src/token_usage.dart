@@ -84,30 +84,19 @@ final class ConversationUsage({
 /// Measures the token usage of [transcript] from the counts recorded on its
 /// model calls.
 ///
-/// A turn starts at each [StepType.userInput] step.
+/// A turn starts at each [StepType.userInput] step. Model calls before the
+/// first one form a turn without a request.
 ConversationUsage measureTokenUsage(ConversationTranscript transcript) {
   final turns = <TurnUsage>[];
-  String? request;
-  var modelCalls = 0;
-  var tokens = TokenCounts.zero;
   var unrecordedModelCalls = 0;
   final toolCalls = <String, int>{};
-
-  void endTurn() {
-    if (modelCalls == 0 && request == null) return;
-    turns.add(
-      TurnUsage(request: request, modelCalls: modelCalls, tokens: tokens),
-    );
-    modelCalls = 0;
-    tokens = TokenCounts.zero;
-  }
-
-  for (final step in transcript.steps) {
-    if (step.type == StepType.userInput) {
-      endTurn();
-      request = step.userRequest;
-    } else if (step.type == StepType.plannerResponse) {
-      modelCalls++;
+  for (final turn in splitTurns(transcript.steps)) {
+    final modelCalls = [
+      for (final step in turn.steps)
+        if (step.type == StepType.plannerResponse) step,
+    ];
+    var tokens = TokenCounts.zero;
+    for (final step in modelCalls) {
       if (!step.recordsTokenUsage) unrecordedModelCalls++;
       tokens += TokenCounts(
         input: step.inputTokens ?? 0,
@@ -115,16 +104,25 @@ ConversationUsage measureTokenUsage(ConversationTranscript transcript) {
         output: step.outputTokens ?? 0,
       );
       for (final name in step.toolCallNames) {
-        final tool = _toolName(name);
-        toolCalls[tool] = (toolCalls[tool] ?? 0) + 1;
+        toolCalls.update(
+          name ?? unknownToolName,
+          (count) => count + 1,
+          ifAbsent: () => 1,
+        );
       }
     }
+    turns.add(
+      TurnUsage(
+        request: turn.userInput?.userRequest,
+        modelCalls: modelCalls.length,
+        tokens: tokens,
+      ),
+    );
   }
-  endTurn();
 
   final resultCharacters = <String, int>{};
   for (final (:toolName, :step) in pairToolResults(transcript.steps)) {
-    final tool = _toolName(toolName);
+    final tool = toolName ?? unknownToolName;
     resultCharacters[tool] =
         (resultCharacters[tool] ?? 0) + step.content.length;
   }
@@ -142,7 +140,3 @@ ConversationUsage measureTokenUsage(ConversationTranscript transcript) {
     unrecordedModelCalls: unrecordedModelCalls,
   );
 }
-
-/// The name to report for a tool call named [name], which is `null` if the
-/// call is malformed.
-String _toolName(String? name) => name ?? '(unknown)';
