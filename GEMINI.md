@@ -50,7 +50,7 @@ These are located in `lib/src/server/` and are mixed into an `MCPServer` impleme
 - **`LoggingSupport`**: Provides a structured way for the server to send log messages to the client. It supports different logging levels, and the client can change the active level.
 - **`CompletionsSupport`**: Adds the ability for the server to provide custom code-completion suggestions to the client.
 - **`RootsTrackingSupport`**: A utility mixin for servers that works with `RootsSupport` on the client. It automatically tracks the client's project roots, updating its internal list whenever the client sends a notification that the roots have changed.
-- **`ElicitationRequestSupport`**: The server-side counterpart to `ElicitationSupport`. It provides capability checks and completion notifications for elicitation.
+- **ElicitationRequestSupport**: The server-side counterpart to ElicitationFormSupport and ElicitationUrlSupport. It provides capability checks and completion notifications for elicitation.
 
 ### `dart_mcp_server` package
 
