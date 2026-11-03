@@ -120,6 +120,11 @@ extension type TranscriptStep(Map<String, Object?> json) {
   /// (`output_tokens`), if recorded.
   int? get outputTokens => _int('output_tokens');
 
+  /// Whether this step records any token usage: [inputTokens],
+  /// [cacheReadTokens], or [outputTokens].
+  bool get recordsTokenUsage =>
+      inputTokens != null || cacheReadTokens != null || outputTokens != null;
+
   /// The text content of the step (`content`).
   String get content => _string('content') ?? '';
 

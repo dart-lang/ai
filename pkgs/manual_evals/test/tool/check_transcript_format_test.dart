@@ -96,6 +96,13 @@ void main() {
     expect(result.stderr, isNot(contains('Unhandled exception')));
   }, skip: Platform.isWindows ? 'Uses chmod' : false);
 
+  test('prints usage for --help', () async {
+    final result = await run(['--help']);
+
+    expect(result.exitCode, 0);
+    expect(result.stdout, contains('Usage:'));
+  });
+
   test('rejects unknown arguments', () async {
     for (final args in [
       ['--verbose'],

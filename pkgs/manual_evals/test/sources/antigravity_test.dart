@@ -212,6 +212,10 @@ void main() {
         p.join(_logsDir(d.sandbox, 'conv'), 'transcript.jsonl'),
       );
       expect(transcript?.steps.single.toolCallNames, ['run_command']);
+      expect(transcript?.warnings.map((w) => '$w'), [
+        'conv: Only the abbreviated transcript was found, so long fields are '
+            'truncated.',
+      ]);
     });
 
     test('finds transcripts in auto-detected roots', () async {

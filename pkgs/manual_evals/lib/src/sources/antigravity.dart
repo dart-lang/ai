@@ -84,7 +84,8 @@ final class AntigravityTranscriptSource extends TranscriptSource {
   /// fails or is canceled doesn't report the agents it started, so they are
   /// missing.
   ///
-  /// [ConversationTranscript.warnings] reports skipped lines (except a
+  /// [ConversationTranscript.warnings] reports the use of the abbreviated
+  /// transcript, skipped lines (except a
   /// partially written last line), completed subagent results without
   /// subagents, truncated subagent results, and background subagent tasks
   /// that never reported a result.
@@ -121,7 +122,14 @@ final class AntigravityTranscriptSource extends TranscriptSource {
         stepsByIndex[index]!,
       ...unindexedSteps,
     ];
-    final warnings = <TranscriptWarning>[];
+    final warnings = <TranscriptWarning>[
+      if (p.basename(path) == _abbreviatedTranscriptFileName)
+        TranscriptWarning(
+          conversationId,
+          'Only the abbreviated transcript was found, so long fields are '
+          'truncated.',
+        ),
+    ];
     // While a transcript is being written, its last line may be incomplete,
     // so a malformed last line isn't reported.
     final lastLineIncomplete =
@@ -177,7 +185,17 @@ const _geminiDirName = '.gemini';
 const _brainDirName = 'brain';
 
 /// The transcript file names to look for, in order of preference.
-const _transcriptFileNames = ['transcript_full.jsonl', 'transcript.jsonl'];
+const _transcriptFileNames = [
+  _fullTranscriptFileName,
+  _abbreviatedTranscriptFileName,
+];
+
+/// The name of the full transcript file.
+const _fullTranscriptFileName = 'transcript_full.jsonl';
+
+/// The name of the abbreviated transcript file, in which long fields are
+/// truncated.
+const _abbreviatedTranscriptFileName = 'transcript.jsonl';
 
 /// Returns the directory containing [conversationId]'s transcripts in the
 /// `brain` directory [root].
