@@ -106,7 +106,7 @@ base mixin GrepSupport
       }
       try {
         resultContent.add(
-          await runRipGrep(
+          await _runRipGrep(
             package,
             ripGrepExecutable,
             grepArgs,
@@ -124,17 +124,12 @@ base mixin GrepSupport
   }
 
   /// Runs ripgrep in [package] with [args].
-  Future<Content> runRipGrep(
+  Future<Content> _runRipGrep(
     Package package,
     String ripGrepExecutable,
     List<String> args, {
     required String searchDir,
   }) async {
-    final validationError = _validateRipGrepArgs(args);
-    if (validationError != null) {
-      return TextContent(text: validationError);
-    }
-
     if (package.root.scheme != 'file') {
       return TextContent(
         text:
@@ -151,8 +146,7 @@ base mixin GrepSupport
           );
     // Don't allow `searchDir` to escape the package root, lexically or via
     // symlinks.
-    if (searchDir.contains('\x00') ||
-        fileSystem.path.isAbsolute(searchDir) ||
+    if (fileSystem.path.isAbsolute(searchDir) ||
         fileSystem.path.isRootRelative(searchDir) ||
         !isUnderRoot(
           Root(uri: packageRootDir.uri.toString()),
@@ -175,7 +169,9 @@ base mixin GrepSupport
     final result = await processManager.run([
       ripGrepExecutable,
       ...args,
+      // Ignore `RIPGREP_CONFIG_PATH` so user config files don't alter flags.
       '--no-config',
+      // Explicitly disable following symlinks during directory traversal.
       '--no-follow',
       '--path-separator=/', // Ensure paths are in URL format
       '--', // [args] is allow-listed, but be explicit about end-of-options.
@@ -318,13 +314,20 @@ base mixin GrepSupport
       }
       ProcessResult result;
       if (filename.endsWith('.zip') && processManager.canRun('powershell')) {
+        // Use single-quoted PowerShell strings so `$` in paths is treated
+        // literally rather than expanded; in PowerShell single-quoted strings,
+        // embedded single quotes are escaped by doubling them (`''`).
         final escapedZip = downloadFile.path.replaceAll("'", "''");
         final escapedDest = installDir.path.replaceAll("'", "''");
         result = await processManager.run([
           'powershell',
+          // Skip loading user profile scripts and disable interactive prompts
+          // during headless archive extraction.
           '-NoProfile',
           '-NonInteractive',
           '-Command',
+          // Use `-LiteralPath` so `[` and `]` in paths aren't interpreted as
+          // PowerShell wildcard patterns.
           "Expand-Archive -LiteralPath '$escapedZip' "
               "-DestinationPath '$escapedDest' -Force",
         ]);
@@ -484,6 +487,8 @@ base mixin GrepSupport
     String? pendingFlag;
     var hasPattern = false;
     for (final arg in args) {
+      // Reject NUL characters (`\x00`), which `dart:io` treats as string
+      // terminators when passing process arguments to the OS.
       if (arg.contains('\x00')) {
         rejected.add(arg);
         pendingFlag = null;

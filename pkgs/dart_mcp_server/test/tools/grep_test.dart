@@ -7,7 +7,6 @@ import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp_server/src/mixins/grep_packages.dart';
 import 'package:dart_mcp_server/src/mixins/package_uri_reader.dart';
 import 'package:dart_mcp_server/src/utils/names.dart';
-import 'package:package_config/package_config.dart';
 import 'package:process/process.dart';
 import 'package:test/test.dart';
 
@@ -297,32 +296,30 @@ void main() {
     );
   });
 
-  test('validates arguments in runRipGrep directly', () async {
-    final server = testHarness.serverConnectionPair.server!;
-    final pkg = Package(
-      'counter_app',
-      Uri.parse('${counterAppRoot.uri}/'),
-      packageUriRoot: Uri.parse('${counterAppRoot.uri}/lib/'),
+  test('rejects NUL characters in arguments and searchDir', () async {
+    final argResult = await grep(
+      packageNames: ['counter_app'],
+      arguments: ['-e', 'void main\x00'],
+      expectError: true,
     );
-    final disallowed = await server.runRipGrep(pkg, 'rg', [
-      '--pre',
-      'echo',
-      '-e',
-      'main',
-    ], searchDir: 'lib');
+    expect(argResult.isError, isTrue);
     expect(
-      (disallowed as TextContent).text,
-      contains('the following arguments are not permitted: --pre, echo'),
+      (argResult.content.first as TextContent).text,
+      contains('the following arguments are not permitted'),
     );
 
-    final missingPattern = await server.runRipGrep(pkg, 'rg', [
-      '-i',
-    ], searchDir: 'lib');
+    final dirResult = await grep(
+      packageNames: ['counter_app'],
+      arguments: ['-e', 'void main'],
+      searchDir: 'lib\x00',
+    );
+    expect(dirResult.isError, isNot(isTrue));
     expect(
-      (missingPattern as TextContent).text,
-      contains('at least one search pattern must be provided'),
+      (dirResult.content.first as TextContent).text,
+      contains('attempted to escape the root of package `counter_app`'),
     );
   });
+
   test('Can install ripgrep', () async {
     final server = testHarness.serverConnectionPair.server!;
     final tmpDir = server.fileSystem.systemTempDirectory.createTempSync(

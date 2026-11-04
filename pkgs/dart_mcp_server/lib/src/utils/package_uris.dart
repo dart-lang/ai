@@ -67,6 +67,11 @@ Future<bool> resolvesWithinPackageRoot(
   String targetPath,
   FileSystem fileSystem,
 ) async {
+  // Reject NUL characters (`\x00`), since `package:path` treats them as
+  // ordinary characters during normalization while `dart:io` native calls treat
+  // paths as null-terminated strings.
+  if (targetPath.contains('\x00')) return false;
+
   final canonicalPkgRoot = fileSystem.path.canonicalize(packageRootDir.path);
   final canonicalTarget = fileSystem.path.canonicalize(targetPath);
   if (canonicalPkgRoot != canonicalTarget &&
