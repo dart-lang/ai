@@ -7,6 +7,7 @@ import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp_server/src/mixins/grep_packages.dart';
 import 'package:dart_mcp_server/src/mixins/package_uri_reader.dart';
 import 'package:dart_mcp_server/src/utils/names.dart';
+import 'package:package_config/package_config.dart';
 import 'package:process/process.dart';
 import 'package:test/test.dart';
 
@@ -179,6 +180,62 @@ void main() {
         contains('attempted to escape the root of package `counter_app`'),
       );
     });
+
+    test('refuses to search outside package root via symlink', () async {
+      final server = testHarness.serverConnectionPair.server!;
+      final externalDir = server.fileSystem.systemTempDirectory.createTempSync(
+        'grep_external_',
+      );
+      addTearDown(() => externalDir.deleteSync(recursive: true));
+      externalDir
+          .childFile('outside.dart')
+          .writeAsStringSync('const externalMarker = 1;\n');
+
+      final link = server.fileSystem.link(
+        Uri.parse(counterAppRoot.uri).resolve('external_link').toFilePath(),
+      );
+      addTearDown(() {
+        if (server.fileSystem.isLinkSync(link.path)) {
+          link.deleteSync();
+        }
+      });
+      link.createSync(externalDir.path);
+
+      final result = await grep(
+        packageNames: ['counter_app'],
+        arguments: ['-e', 'externalMarker'],
+        searchDir: 'external_link',
+      );
+      expect(result.isError, isNot(isTrue));
+      final content = result.content.first as TextContent;
+      expect(
+        content.text,
+        contains('attempted to escape the root of package `counter_app`'),
+      );
+      expect(content.text, isNot(contains('externalMarker')));
+    });
+
+    test('supports --regexp= and hyphen-prefixed patterns', () async {
+      final result = await grep(
+        packageNames: ['counter_app'],
+        arguments: ['--regexp=void main'],
+      );
+      expect(result.isError, isNot(isTrue));
+      expect(
+        (result.content.first as TextContent).text,
+        contains('package:counter_app/main.dart'),
+      );
+
+      final hyphenPatternResult = await grep(
+        packageNames: ['counter_app'],
+        arguments: ['-e', '-non-existent-flag-like-pattern'],
+      );
+      expect(hyphenPatternResult.isError, isNot(isTrue));
+      expect(
+        (hyphenPatternResult.content.first as TextContent).text,
+        contains('No matches in package `counter_app`'),
+      );
+    });
   });
 
   test('rejects arbitrary ripgrep flags', () async {
@@ -195,6 +252,75 @@ void main() {
         'Refusing to run ripgrep: the following arguments are not permitted: '
         '--pre, echo',
       ),
+    );
+  });
+
+  test('requires at least one pattern flag', () async {
+    for (final args in [
+      ['-i'],
+      ['-v', '--hidden'],
+    ]) {
+      final result = await grep(
+        packageNames: ['counter_app'],
+        arguments: args,
+        expectError: true,
+      );
+      expect(result.isError, isTrue);
+      expect(
+        (result.content.first as TextContent).text,
+        contains('at least one search pattern must be provided'),
+      );
+    }
+
+    final danglingFlagResult = await grep(
+      packageNames: ['counter_app'],
+      arguments: ['-e'],
+      expectError: true,
+    );
+    expect(danglingFlagResult.isError, isTrue);
+    expect(
+      (danglingFlagResult.content.first as TextContent).text,
+      contains('the following arguments are not permitted: -e'),
+    );
+  });
+
+  test('rejects boolean flags with inline values', () async {
+    final result = await grep(
+      packageNames: ['counter_app'],
+      arguments: ['--hidden=true', '-e', 'void main'],
+      expectError: true,
+    );
+    expect(result.isError, isTrue);
+    expect(
+      (result.content.first as TextContent).text,
+      contains('the following arguments are not permitted: --hidden=true'),
+    );
+  });
+
+  test('validates arguments in runRipGrep directly', () async {
+    final server = testHarness.serverConnectionPair.server!;
+    final pkg = Package(
+      'counter_app',
+      Uri.parse('${counterAppRoot.uri}/'),
+      packageUriRoot: Uri.parse('${counterAppRoot.uri}/lib/'),
+    );
+    final disallowed = await server.runRipGrep(pkg, 'rg', [
+      '--pre',
+      'echo',
+      '-e',
+      'main',
+    ], searchDir: 'lib');
+    expect(
+      (disallowed as TextContent).text,
+      contains('the following arguments are not permitted: --pre, echo'),
+    );
+
+    final missingPattern = await server.runRipGrep(pkg, 'rg', [
+      '-i',
+    ], searchDir: 'lib');
+    expect(
+      (missingPattern as TextContent).text,
+      contains('at least one search pattern must be provided'),
     );
   });
   test('Can install ripgrep', () async {

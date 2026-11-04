@@ -1,3 +1,8 @@
+## 1.2.3-wip
+
+- Tighten argument and path validation in `rip_grep_packages` and
+  `read_package_uris`.
+
 ## 1.2.2
 
 - The `dtd` tool's `listConnectedApps` command no longer returns an error when
