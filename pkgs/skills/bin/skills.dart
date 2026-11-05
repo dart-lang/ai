@@ -19,21 +19,14 @@ import 'package:skills/src/core/exceptions.dart';
 import 'package:unified_analytics/unified_analytics.dart';
 
 Future<void> main(List<String> arguments) async {
-  DashTool? tool;
-  if (io.Platform.environment[DashEnvVar.tool.name] case final toolEnv?) {
-    try {
-      tool = DashTool.fromLabel(toolEnv);
-    } catch (e) {
-      // Ignore errors, but don't track analytics for unrecognized tools.
-    }
-  }
-
-  final analyticsInstance = tool != null
-      ? Analytics(
-          tool: tool,
-          dartVersion: parseDartSDKVersion(io.Platform.version),
-        )
-      : null;
+  // The skills CLI is a shared component, so it reports itself as the tool
+  // (recorded as `leaf_tool`). unified_analytics resolves the root tool from
+  // the `DASH__TOOL` environment variable, and disables analytics if it isn't
+  // set to a tool that can be a root tool.
+  final analyticsInstance = Analytics(
+    tool: DashTool.skillsCli,
+    dartVersion: parseDartSDKVersion(io.Platform.version),
+  );
 
   try {
     await runWithAnalytics(analyticsInstance, () async {
@@ -83,6 +76,6 @@ Future<void> main(List<String> arguments) async {
       }
     });
   } finally {
-    await analyticsInstance?.close();
+    await analyticsInstance.close();
   }
 }
