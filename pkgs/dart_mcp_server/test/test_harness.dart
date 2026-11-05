@@ -550,7 +550,10 @@ Future<ServerConnectionPair> _initializeMCPServer(
     // Need to create it twice, for the first run analytics are never sent.
     for (var i = 0; i < 2; i++) {
       analytics = Analytics.fake(
-        tool: DashTool.dartTool,
+        tool: DashTool.dartMcpServer,
+        // The server is a shared component, so it needs a root tool, which in
+        // production comes from `DASH__TOOL`.
+        rootTool: DashTool.dartTool,
         dartVersion: Platform.version.substring(
           0,
           Platform.version.indexOf(' '),
