@@ -5,7 +5,10 @@
 import 'dart:io';
 
 import 'package:manual_evals/manual_evals.dart';
+import 'package:manual_evals/src/transcript.dart' show splitTurns;
 import 'package:test/test.dart';
+
+import 'steps.dart';
 
 void main() {
   group('TranscriptStep', () {
@@ -127,6 +130,46 @@ void main() {
       }, 'other: FUTURE_TYPE');
     });
 
+    test('reads the user request on one line', () {
+      String request(String content) =>
+          TranscriptStep({'type': 'USER_INPUT', 'content': content})
+              .userRequest;
+
+      expect(
+        request(
+          '<USER_REQUEST>\n  Hello\n\n world  \n</USER_REQUEST>\n'
+          '<ADDITIONAL_METADATA>\nThe user is: someone.\n'
+          '</ADDITIONAL_METADATA>',
+        ),
+        'Hello world',
+      );
+      expect(
+        request(
+          'The user left comments.\n<USER_REQUEST>\n</USER_REQUEST>\n'
+          '<ADDITIONAL_METADATA>\nThe user is: someone.\n'
+          '</ADDITIONAL_METADATA>',
+        ),
+        'The user left comments.',
+      );
+      expect(request('No tags'), 'No tags');
+    });
+
+    test('reads explicit triggers outside the user request', () {
+      final step = TranscriptStep({
+        'type': 'USER_INPUT',
+        'content':
+            '/plan is a [Slash Command]:\n'
+            'review is a [Skill]:\n'
+            '<USER_REQUEST>\nfoo is a [bar]: not a trigger\n</USER_REQUEST>',
+      });
+
+      expect(step.triggers, [
+        (kind: 'Slash Command', name: '/plan'),
+        (kind: 'Skill', name: 'review'),
+      ]);
+      expect(TranscriptStep({}).triggers, isEmpty);
+    });
+
     test('is a tool result only for MODEL steps that are not messages or '
         'planner responses', () {
       bool isToolResult(String source, String type) =>
@@ -145,33 +188,21 @@ void main() {
   });
 
   group('pairToolResults', () {
-    TranscriptStep calls(List<String> names) => TranscriptStep({
-      'type': 'PLANNER_RESPONSE',
-      'source': 'MODEL',
-      'tool_calls': [
-        for (final name in names) {'name': name},
-      ],
-    });
-    TranscriptStep result(String content, {String type = 'GENERIC'}) =>
-        TranscriptStep({'type': type, 'source': 'MODEL', 'content': content});
-    TranscriptStep message(String type) =>
-        TranscriptStep({'type': type, 'source': 'SYSTEM'});
-
-    List<(String?, String)> pairs(List<TranscriptStep> steps) => [
-      for (final (:toolName, :step) in pairToolResults(steps))
+    List<(String?, String)> pairs(List<Map<String, Object?>> steps) => [
+      for (final (:toolName, :step) in pairToolResults(transcript(steps).steps))
         (toolName, step.content),
     ];
 
     test('pairs results with calls in order', () {
       expect(
         pairs([
-          calls(['read_file', 'run_command']),
-          result('file'),
-          message('SYSTEM_MESSAGE'),
-          result('command', type: 'RUN_COMMAND'),
-          result('extra'),
-          calls(['search_web']),
-          result('web'),
+          modelCall(calls: [toolCall('read_file'), toolCall('run_command')]),
+          toolResult('file'),
+          systemMessage('Note'),
+          {...toolResult('command'), 'type': 'RUN_COMMAND'},
+          toolResult('extra'),
+          modelCall(calls: [toolCall('search_web')]),
+          toolResult('web'),
         ]),
         [
           ('read_file', 'file'),
@@ -184,10 +215,16 @@ void main() {
     test('skips calls answered by an error message from any source', () {
       expect(
         pairs([
-          calls(['bad_call', 'bad_call', 'run_command']),
-          message('ERROR_MESSAGE'),
-          result('', type: 'ERROR_MESSAGE'),
-          result('command'),
+          modelCall(
+            calls: [
+              toolCall('bad_call'),
+              toolCall('bad_call'),
+              toolCall('run_command'),
+            ],
+          ),
+          errorMessage(),
+          {...errorMessage(), 'source': 'MODEL'},
+          toolResult('command'),
         ]),
         [('run_command', 'command')],
       );
@@ -196,9 +233,9 @@ void main() {
     test('drops pending calls at the next planner response', () {
       expect(
         pairs([
-          calls(['run_command']),
-          TranscriptStep({'type': 'PLANNER_RESPONSE', 'source': 'MODEL'}),
-          result('orphan'),
+          modelCall(calls: [toolCall('run_command')]),
+          modelCall(),
+          toolResult('orphan'),
         ]),
         isEmpty,
       );
@@ -207,15 +244,99 @@ void main() {
     test('pairs malformed calls with a null tool name', () {
       expect(
         pairs([
-          TranscriptStep({
-            'type': 'PLANNER_RESPONSE',
-            'source': 'MODEL',
-            'tool_calls': ['malformed'],
-          }),
-          result('output'),
+          modelCall(calls: ['malformed']),
+          toolResult('output'),
         ]),
         [(null, 'output')],
       );
+    });
+  });
+
+  group('pairToolCalls', () {
+    /// The calls in [steps] as (model call step index, tool name, answer
+    /// content or `null`).
+    List<(int?, String?, String?)> pairs(List<Map<String, Object?>> steps) => [
+      for (final (:modelCall, :toolName, :answer, call: _) in pairToolCalls(
+        transcript(steps).steps,
+      ))
+        (modelCall.stepIndex, toolName, answer?.content),
+    ];
+
+    test('pairs every call with its result, error message, or nothing', () {
+      expect(
+        pairs([
+          toolResult('before any model call'),
+          modelCall(calls: [toolCall('read_file'), toolCall('bad_call')]),
+          toolResult('file'),
+          systemMessage('Note'),
+          errorMessage('unknown tool'),
+          toolResult('extra'),
+          modelCall(),
+          modelCall(calls: [toolCall('run_command'), 'malformed']),
+          {...toolResult('command'), 'type': 'RUN_COMMAND'},
+          modelCall(calls: [toolCall('search_web')]),
+        ]),
+        [
+          (1, 'read_file', 'file'),
+          (1, 'bad_call', 'unknown tool'),
+          (7, 'run_command', 'command'),
+          (7, null, null),
+          (9, 'search_web', null),
+        ],
+      );
+    });
+
+    test('includes the call itself', () {
+      final call = toolCall('read_file', {'Path': 'a'});
+
+      expect(
+        pairToolCalls(
+          transcript([
+            modelCall(calls: [call]),
+          ]).steps,
+        ).single.call,
+        call,
+      );
+    });
+
+    test('lets an unrelated error message answer a pending call', () {
+      expect(
+        pairs([
+          modelCall(calls: [toolCall('a'), toolCall('b')]),
+          {...errorMessage('model error'), 'source': 'MODEL'},
+          toolResult('a result'),
+          toolResult('b result'),
+        ]),
+        [(0, 'a', 'model error'), (0, 'b', 'a result')],
+      );
+    });
+  });
+
+  group('splitTurns', () {
+    /// The turns in [steps] as (request, step indexes).
+    List<(String?, String)> turns(List<Map<String, Object?>> steps) => [
+      for (final (:userInput, :steps) in splitTurns(transcript(steps).steps))
+        (userInput?.userRequest, steps.map((step) => step.stepIndex).join(',')),
+    ];
+
+    test('starts a turn at each user input', () {
+      expect(
+        turns([
+          systemMessage('Prompt'),
+          modelCall(),
+          userInput('First'),
+          modelCall(),
+          userInput('Second'),
+        ]),
+        [(null, '0,1'), ('First', '2,3'), ('Second', '4')],
+      );
+    });
+
+    test('leaves out steps before the first request without model calls', () {
+      expect(turns([systemMessage('Prompt'), userInput('First')]), [
+        ('First', '1'),
+      ]);
+      expect(turns([systemMessage('Prompt')]), isEmpty);
     });
   });
 
