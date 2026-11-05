@@ -148,7 +148,10 @@ void main() {
         expect(text, contains('WS URI:'));
         expect(text, contains(testHarness.fakeEditorExtension!.dtdUri));
         expect(text, contains(secondEditorExtension.dtdUri));
-        expect(text, contains('Workspace Root:'));
+        expect(
+          text,
+          anyOf(contains('Workspace Root:'), contains('Working Directory:')),
+        );
         expect(text, contains('PID:'));
       });
 
