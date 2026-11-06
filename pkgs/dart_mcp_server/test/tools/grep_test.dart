@@ -179,6 +179,62 @@ void main() {
         contains('attempted to escape the root of package `counter_app`'),
       );
     });
+
+    test('refuses to search outside package root via symlink', () async {
+      final server = testHarness.serverConnectionPair.server!;
+      final externalDir = server.fileSystem.systemTempDirectory.createTempSync(
+        'grep_external_',
+      );
+      addTearDown(() => externalDir.deleteSync(recursive: true));
+      externalDir
+          .childFile('outside.dart')
+          .writeAsStringSync('const externalMarker = 1;\n');
+
+      final link = server.fileSystem.link(
+        Uri.parse(counterAppRoot.uri).resolve('external_link').toFilePath(),
+      );
+      addTearDown(() {
+        if (server.fileSystem.isLinkSync(link.path)) {
+          link.deleteSync();
+        }
+      });
+      link.createSync(externalDir.path);
+
+      final result = await grep(
+        packageNames: ['counter_app'],
+        arguments: ['-e', 'externalMarker'],
+        searchDir: 'external_link',
+      );
+      expect(result.isError, isNot(isTrue));
+      final content = result.content.first as TextContent;
+      expect(
+        content.text,
+        contains('attempted to escape the root of package `counter_app`'),
+      );
+      expect(content.text, isNot(contains('externalMarker')));
+    });
+
+    test('supports --regexp= and hyphen-prefixed patterns', () async {
+      final result = await grep(
+        packageNames: ['counter_app'],
+        arguments: ['--regexp=void main'],
+      );
+      expect(result.isError, isNot(isTrue));
+      expect(
+        (result.content.first as TextContent).text,
+        contains('package:counter_app/main.dart'),
+      );
+
+      final hyphenPatternResult = await grep(
+        packageNames: ['counter_app'],
+        arguments: ['-e', '-non-existent-flag-like-pattern'],
+      );
+      expect(hyphenPatternResult.isError, isNot(isTrue));
+      expect(
+        (hyphenPatternResult.content.first as TextContent).text,
+        contains('No matches in package `counter_app`'),
+      );
+    });
   });
 
   test('rejects arbitrary ripgrep flags', () async {
@@ -197,6 +253,73 @@ void main() {
       ),
     );
   });
+
+  test('requires at least one pattern flag', () async {
+    for (final args in [
+      ['-i'],
+      ['-v', '--hidden'],
+    ]) {
+      final result = await grep(
+        packageNames: ['counter_app'],
+        arguments: args,
+        expectError: true,
+      );
+      expect(result.isError, isTrue);
+      expect(
+        (result.content.first as TextContent).text,
+        contains('at least one search pattern must be provided'),
+      );
+    }
+
+    final danglingFlagResult = await grep(
+      packageNames: ['counter_app'],
+      arguments: ['-e'],
+      expectError: true,
+    );
+    expect(danglingFlagResult.isError, isTrue);
+    expect(
+      (danglingFlagResult.content.first as TextContent).text,
+      contains('the following arguments are not permitted: -e'),
+    );
+  });
+
+  test('rejects boolean flags with inline values', () async {
+    final result = await grep(
+      packageNames: ['counter_app'],
+      arguments: ['--hidden=true', '-e', 'void main'],
+      expectError: true,
+    );
+    expect(result.isError, isTrue);
+    expect(
+      (result.content.first as TextContent).text,
+      contains('the following arguments are not permitted: --hidden=true'),
+    );
+  });
+
+  test('rejects NUL characters in arguments and searchDir', () async {
+    final argResult = await grep(
+      packageNames: ['counter_app'],
+      arguments: ['-e', 'void main\x00'],
+      expectError: true,
+    );
+    expect(argResult.isError, isTrue);
+    expect(
+      (argResult.content.first as TextContent).text,
+      contains('the following arguments are not permitted'),
+    );
+
+    final dirResult = await grep(
+      packageNames: ['counter_app'],
+      arguments: ['-e', 'void main'],
+      searchDir: 'lib\x00',
+    );
+    expect(dirResult.isError, isNot(isTrue));
+    expect(
+      (dirResult.content.first as TextContent).text,
+      contains('attempted to escape the root of package `counter_app`'),
+    );
+  });
+
   test('Can install ripgrep', () async {
     final server = testHarness.serverConnectionPair.server!;
     final tmpDir = server.fileSystem.systemTempDirectory.createTempSync(

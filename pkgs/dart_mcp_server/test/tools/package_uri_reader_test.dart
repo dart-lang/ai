@@ -173,6 +173,63 @@ void main() {
         ),
       );
     });
+
+    test('reports direct symlinks as links but rejects traversing intermediate '
+        'directory symlinks outside the package root', () async {
+      final server = testHarness.serverConnectionPair.server!;
+      final externalDir = server.fileSystem.systemTempDirectory.createTempSync(
+        'pkg_uri_external_',
+      );
+      addTearDown(() => externalDir.deleteSync(recursive: true));
+      externalDir
+          .childFile('outside.dart')
+          .writeAsStringSync('const externalMarker = 1;\n');
+
+      final externalLink = server.fileSystem.link(
+        Uri.parse(counterAppRoot.uri).resolve('external_link').toFilePath(),
+      );
+      final internalLink = server.fileSystem.link(
+        Uri.parse(counterAppRoot.uri).resolve('internal_link').toFilePath(),
+      );
+      addTearDown(() {
+        if (server.fileSystem.isLinkSync(externalLink.path)) {
+          externalLink.deleteSync();
+        }
+        if (server.fileSystem.isLinkSync(internalLink.path)) {
+          internalLink.deleteSync();
+        }
+      });
+      externalLink.createSync(externalDir.path);
+      internalLink.createSync(
+        Uri.parse(counterAppRoot.uri).resolve('lib').toFilePath(),
+      );
+
+      final result = await readUris([
+        'package-root:counter_app/external_link',
+        'package-root:counter_app/external_link/outside.dart',
+        'package-root:counter_app/internal_link/main.dart',
+      ]);
+      expect(
+        result.content,
+        containsAll([
+          isTextContent(
+            startsWith('## Link "package-root:counter_app/external_link": '),
+          ),
+          isTextContent(
+            'The uri "package-root:counter_app/external_link/outside.dart" '
+            'attempted to escape it\'s package root.',
+          ),
+          isTextContent(
+            '## File "package-root:counter_app/internal_link/main.dart":\n',
+          ),
+          isTextContent(contains('void main(')),
+        ]),
+      );
+      expect(
+        result.content,
+        isNot(contains(isTextContent(contains('externalMarker')))),
+      );
+    });
   });
 }
 

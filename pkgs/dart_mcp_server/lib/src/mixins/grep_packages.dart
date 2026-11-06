@@ -14,8 +14,8 @@ import 'package:meta/meta.dart';
 import 'package:package_config/package_config.dart';
 
 import '../features_configuration.dart';
+import '../utils/analytics.dart';
 import '../utils/cli_utils.dart';
-import '../utils/extensions.dart';
 import '../utils/file_system.dart';
 import '../utils/names.dart';
 import '../utils/package_uris.dart';
@@ -85,20 +85,12 @@ base mixin GrepSupport
     // tool is callable by an LLM that may be acting on injected instructions,
     // restrict the arguments to a fixed allow-list of read-only, search-shaping
     // options and require patterns to be supplied via `-e`/`--regexp`.
-    final rejectedArgs = _rejectedRipGrepArgs(grepArgs);
-    if (rejectedArgs.isNotEmpty) {
+    final validationError = _validateRipGrepArgs(grepArgs);
+    if (validationError != null) {
       return CallToolResult(
         isError: true,
-        content: [
-          TextContent(
-            text:
-                'Refusing to run ripgrep: the following arguments are not '
-                'permitted: ${rejectedArgs.join(', ')}. Only search-shaping '
-                'flags are allowed (e.g. -e, -i, -w, -n, -F, -g, -A/-B/-C, '
-                '-l, -c, -v); pass the pattern via `-e <pattern>`.',
-          ),
-        ],
-      );
+        content: [TextContent(text: validationError)],
+      )..failureReason = CallToolFailureReason.argumentError;
     }
 
     final searchDir = args[ParameterNames.searchDir] as String? ?? 'lib';
@@ -114,7 +106,7 @@ base mixin GrepSupport
       }
       try {
         resultContent.add(
-          await runRipGrep(
+          await _runRipGrep(
             package,
             ripGrepExecutable,
             grepArgs,
@@ -132,21 +124,40 @@ base mixin GrepSupport
   }
 
   /// Runs ripgrep in [package] with [args].
-  Future<Content> runRipGrep(
+  Future<Content> _runRipGrep(
     Package package,
     String ripGrepExecutable,
     List<String> args, {
     required String searchDir,
   }) async {
-    final searchUri = searchDir.isEmpty
-        ? package.root
-        : package.root.resolve(searchDir.withTrailingSlash);
-    // Don't allow the `searchDir` to escape the package root.
-    if (!isUnderRoot(
-      Root(uri: package.root.toString()),
-      searchUri.toString(),
-      fileSystem,
-    )) {
+    if (package.root.scheme != 'file') {
+      return TextContent(
+        text:
+            'Unexpected root URI for package `${package.name}` '
+            '("${package.root.scheme}"), only "file" schemes are supported.',
+      );
+    }
+
+    final packageRootDir = fileSystem.directory(package.root);
+    final searchDirectory = searchDir.isEmpty
+        ? packageRootDir
+        : fileSystem.directory(
+            fileSystem.path.join(packageRootDir.path, searchDir),
+          );
+    // Don't allow `searchDir` to escape the package root, lexically or via
+    // symlinks.
+    if (fileSystem.path.isAbsolute(searchDir) ||
+        fileSystem.path.isRootRelative(searchDir) ||
+        !isUnderRoot(
+          Root(uri: packageRootDir.uri.toString()),
+          searchDirectory.uri.toString(),
+          fileSystem,
+        ) ||
+        !await resolvesWithinPackageRoot(
+          packageRootDir,
+          searchDirectory.path,
+          fileSystem,
+        )) {
       return TextContent(
         text:
             'The searchDir "$searchDir" attempted to escape the root of '
@@ -154,10 +165,14 @@ base mixin GrepSupport
       );
     }
 
-    final packagePath = cleanFilePath(searchUri.path);
+    final packagePath = cleanFilePath(searchDirectory.uri.path);
     final result = await processManager.run([
       ripGrepExecutable,
       ...args,
+      // Ignore `RIPGREP_CONFIG_PATH` so user config files don't alter flags.
+      '--no-config',
+      // Explicitly disable following symlinks during directory traversal.
+      '--no-follow',
       '--path-separator=/', // Ensure paths are in URL format
       '--', // [args] is allow-listed, but be explicit about end-of-options.
       packagePath,
@@ -221,6 +236,7 @@ base mixin GrepSupport
         ParameterNames.packageNames,
         ParameterNames.root,
       ],
+      additionalProperties: false,
     ),
   )..categories = [FeatureCategory.packageDeps];
 
@@ -298,11 +314,22 @@ base mixin GrepSupport
       }
       ProcessResult result;
       if (filename.endsWith('.zip') && processManager.canRun('powershell')) {
+        // Use single-quoted PowerShell strings so `$` in paths is treated
+        // literally rather than expanded; in PowerShell single-quoted strings,
+        // embedded single quotes are escaped by doubling them (`''`).
+        final escapedZip = downloadFile.path.replaceAll("'", "''");
+        final escapedDest = installDir.path.replaceAll("'", "''");
         result = await processManager.run([
           'powershell',
+          // Skip loading user profile scripts and disable interactive prompts
+          // during headless archive extraction.
+          '-NoProfile',
+          '-NonInteractive',
           '-Command',
-          'Expand-Archive -Path "${downloadFile.path}" '
-              '-DestinationPath "${installDir.path}" -Force',
+          // Use `-LiteralPath` so `[` and `]` in paths aren't interpreted as
+          // PowerShell wildcard patterns.
+          "Expand-Archive -LiteralPath '$escapedZip' "
+              "-DestinationPath '$escapedDest' -Force",
         ]);
       } else {
         // Linux/Mac + Windows fallback: Use tar
@@ -447,32 +474,50 @@ base mixin GrepSupport
     '--heading',
   };
 
-  /// Returns the elements of [args] that are not on the ripgrep allow-list.
+  /// Validates [args] against the ripgrep flag allow-list and returns an error
+  /// message if any argument is disallowed or if no pattern flag is supplied.
   ///
   /// An element is allowed iff it is an [_rgBoolFlags] entry, an
   /// [_rgValueFlags] entry (whose following element is then accepted as the
-  /// value), a `--flag=value` form of either, or a run of short boolean flags
-  /// (e.g. `-in`, `-uuu`). Bare positionals are rejected so callers cannot add
-  /// extra search paths; patterns must be passed via `-e`.
-  static List<String> _rejectedRipGrepArgs(List<String> args) {
+  /// value), a `--flag=value` form of an [_rgValueFlags] entry, or a run of
+  /// short boolean flags (e.g. `-in`, `-uuu`). Bare positionals are rejected
+  /// and at least one `-e`/`--regexp` pattern flag must be present.
+  static String? _validateRipGrepArgs(List<String> args) {
     final rejected = <String>[];
-    var expectValue = false;
+    String? pendingFlag;
+    var hasPattern = false;
     for (final arg in args) {
-      if (expectValue) {
-        expectValue = false;
+      // Reject NUL characters (`\x00`), which `dart:io` treats as string
+      // terminators when passing process arguments to the OS.
+      if (arg.contains('\x00')) {
+        rejected.add(arg);
+        pendingFlag = null;
+        continue;
+      }
+      if (pendingFlag != null) {
+        if (pendingFlag == '-e' || pendingFlag == '--regexp') {
+          hasPattern = true;
+        }
+        pendingFlag = null;
         continue;
       }
       if (arg.startsWith('--') && arg.length > 2) {
         final eq = arg.indexOf('=');
         final name = eq == -1 ? arg : arg.substring(0, eq);
         if (_rgValueFlags.contains(name)) {
-          if (eq == -1) expectValue = true;
-        } else if (!_rgBoolFlags.contains(name)) {
+          if (eq == -1) {
+            pendingFlag = name;
+          } else if (name == '--regexp') {
+            hasPattern = true;
+          }
+        } else if (eq == -1 && _rgBoolFlags.contains(name)) {
+          // Valid long boolean flag.
+        } else {
           rejected.add(arg);
         }
       } else if (arg.startsWith('-') && arg.length == 2) {
         if (_rgValueFlags.contains(arg)) {
-          expectValue = true;
+          pendingFlag = arg;
         } else if (!_rgBoolFlags.contains(arg)) {
           rejected.add(arg);
         }
@@ -489,9 +534,19 @@ base mixin GrepSupport
         rejected.add(arg);
       }
     }
-    if (expectValue && args.isNotEmpty) {
+    if (pendingFlag != null && args.isNotEmpty) {
       rejected.add(args.last);
     }
-    return rejected;
+    if (rejected.isNotEmpty) {
+      return 'Refusing to run ripgrep: the following arguments are not '
+          'permitted: ${rejected.join(', ')}. Only search-shaping '
+          'flags are allowed (e.g. -e, -i, -w, -n, -F, -g, -A/-B/-C, '
+          '-l, -c, -v); pass the pattern via `-e <pattern>`.';
+    }
+    if (!hasPattern) {
+      return 'Refusing to run ripgrep: at least one search pattern must be '
+          'provided via `-e <pattern>` or `--regexp=<pattern>`.';
+    }
+    return null;
   }
 }
