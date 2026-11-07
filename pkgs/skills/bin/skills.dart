@@ -13,6 +13,7 @@ import 'package:skills/skills.dart';
 import 'package:skills/src/commands/create_command.dart';
 import 'package:skills/src/commands/prune_command.dart';
 import 'package:skills/src/commands/add_command.dart';
+import 'package:skills/src/commands/link_command.dart';
 import 'package:skills/src/commands/skills_command_runner.dart';
 import 'package:skills/src/core/analytics.dart';
 import 'package:skills/src/core/exceptions.dart';
@@ -62,6 +63,7 @@ Future<void> main(List<String> arguments) async {
               ..addCommand(PruneCommand(dialogSupport: dialogSupport))
               ..addCommand(RemoveCommand(dialogSupport: dialogSupport))
               ..addCommand(AddCommand(dialogSupport: dialogSupport))
+              ..addCommand(LinkCommand(dialogSupport: dialogSupport))
               ..addCommand(CreateCommand());
 
         try {

@@ -2,7 +2,6 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'package:args/command_runner.dart';
 import 'package:skills/src/core/git_repos.dart';
 
 import '../core/skill_installer.dart';
@@ -69,13 +68,7 @@ class RemoveCommand extends SkillsCommand {
     };
     final skillsToRemove = argResults.multiOption('skill').toSet();
     final allFlag = argResults.flag('all');
-    if (skillsToRemove.isNotEmpty && allFlag) {
-      throw UsageException(
-        '--all and --skill are mutually exclusive arguments, please provide '
-        'only one',
-        usage,
-      );
-    }
+    checkAllAndSkillExclusive(argResults, usage);
 
     // Determine which agents to remove from: --agent narrows to one,
     // otherwise all agents in the manifest.

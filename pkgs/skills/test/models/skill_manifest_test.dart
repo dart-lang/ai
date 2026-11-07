@@ -247,6 +247,29 @@ void main() {
       },
     );
 
+    test('when a source is linked then gitRepos skips it and linkedDirectories '
+        'lists it', () {
+      final withLinked = base
+          .withSourceUri(
+            'cursor',
+            'https://github.com/foo/bar.git',
+            const SkillsEntry(),
+          )
+          .withSourceUri(
+            'claude',
+            SkillManifest.linkedSourceUri('/path/to/skills'),
+            const SkillsEntry(),
+          );
+
+      expect(
+        withLinked.gitRepos.map((r) => r.cloneUrl),
+        equals(['https://github.com/foo/bar.git']),
+      );
+      expect(withLinked.linkedDirectories, equals({'/path/to/skills'}));
+      expect(SkillManifest.isLinkedSource('link:/path/to/skills'), isTrue);
+      expect(SkillManifest.isLinkedSource('package:pkg'), isFalse);
+    });
+
     test('when checking isEmpty on empty manifest then returns true', () {
       expect(const SkillManifest().isEmpty, isTrue);
     });

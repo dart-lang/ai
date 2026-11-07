@@ -14,7 +14,8 @@ import 'skill_scanner.dart';
 
 /// Scans `.dart_tool/skills/repos/<encoded-url>/` for skill directories.
 ///
-/// Recursively searches for `SKILL.md` files within the repository.
+/// Recursively searches for `SKILL.md` files within the repository. The same
+/// scan is used for directories linked with `skills link`.
 class GitScanner {
   const GitScanner();
 
@@ -35,25 +36,38 @@ class GitScanner {
       final repoDir = Directory(p.join(reposPath, repo.pathSegment));
       if (!await repoDir.exists()) continue;
 
-      skills.addAll(await _scanRepo(repoDir, repo.cloneUrl, isGlobal));
+      skills.addAll(
+        await scanDirectory(repoDir, gitUrl: repo.cloneUrl, isGlobal: isGlobal),
+      );
     }
     return skills;
   }
 
-  Future<List<ScannedSkill>> _scanRepo(
-    Directory repoDir,
-    String gitUrl,
-    bool isGlobal,
-  ) async {
+  /// Recursively scans [directory] for skills, attributing them to [gitUrl]
+  /// or [linkedDirectory].
+  Future<List<ScannedSkill>> scanDirectory(
+    Directory directory, {
+    String? gitUrl,
+    String? linkedDirectory,
+    bool isGlobal = false,
+  }) async {
     final skills = <ScannedSkill>[];
-    await _scanDirectory(repoDir, repoDir, gitUrl, isGlobal, skills);
+    await _scanDirectory(
+      directory,
+      directory,
+      gitUrl,
+      linkedDirectory,
+      isGlobal,
+      skills,
+    );
     return skills;
   }
 
   Future<void> _scanDirectory(
     Directory dir,
     Directory repoDir,
-    String gitUrl,
+    String? gitUrl,
+    String? linkedDirectory,
     bool isGlobal,
     List<ScannedSkill> skills,
   ) async {
@@ -61,7 +75,14 @@ class GitScanner {
       if (entity is Directory) {
         final name = p.basename(entity.path);
         if (name == 'third_party' || name.startsWith('.')) continue;
-        await _scanDirectory(entity, repoDir, gitUrl, isGlobal, skills);
+        await _scanDirectory(
+          entity,
+          repoDir,
+          gitUrl,
+          linkedDirectory,
+          isGlobal,
+          skills,
+        );
       } else if (entity is File && p.basename(entity.path) == 'SKILL.md') {
         SkillFrontmatter? frontmatter;
         try {
@@ -86,6 +107,7 @@ class GitScanner {
         skills.add(
           ScannedSkill(
             gitUrl: gitUrl,
+            linkedDirectory: linkedDirectory,
             skillName: skillName,
             skillPath: skillDir.path,
             isGlobal: isGlobal,
