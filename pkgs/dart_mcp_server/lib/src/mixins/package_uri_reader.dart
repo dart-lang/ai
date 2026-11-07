@@ -70,7 +70,8 @@ base mixin PackageUriSupport on ToolsSupport, RootsTrackingSupport
   }
 
   Stream<Content> _readPackageUri(Uri uri, PackageConfig packageConfig) async* {
-    if (uri.scheme != Schemes.package && uri.scheme != Schemes.packageRoot) {
+    if ((uri.scheme != Schemes.package && uri.scheme != Schemes.packageRoot) ||
+        uri.pathSegments.isEmpty) {
       yield TextContent(
         text: 'The URI "$uri" was not a "package:" or "package-root:" URI.',
       );
@@ -111,10 +112,28 @@ base mixin PackageUriSupport on ToolsSupport, RootsTrackingSupport
     }
 
     final osFriendlyPath = p.fromUri(resolvedUri);
+    final packageRootDir = fileSystem.directory(package.root);
     final entityType = await fileSystem.type(
       osFriendlyPath,
       followLinks: false,
     );
+    // For a direct link entry we only return the link's target reference
+    // without reading it, so validate its parent directory; for all other
+    // entries validate the full path so intermediate directory symlinks cannot
+    // escape the package root.
+    final pathToValidate = entityType == FileSystemEntityType.link
+        ? fileSystem.path.dirname(osFriendlyPath)
+        : osFriendlyPath;
+    if (!await resolvesWithinPackageRoot(
+      packageRootDir,
+      pathToValidate,
+      fileSystem,
+    )) {
+      yield TextContent(
+        text: 'The uri "$uri" attempted to escape it\'s package root.',
+      );
+      return;
+    }
     switch (entityType) {
       case FileSystemEntityType.directory:
         final dir = fileSystem.directory(osFriendlyPath);

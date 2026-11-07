@@ -1,11 +1,16 @@
 # Changelog
 
-## 1.0.5
+## 1.0.5-wip
 
 - Add a `skills link <directory>` command that symlinks the skills in a local
   directory into the agent, so edits to them show up immediately. `get` links
   skills added to the directory later and removes the links of deleted ones,
   `list` shows the linked source, and `remove` deletes only the links.
+- Report `skills-cli` as the analytics tool, recorded as the `leaf_tool` user
+  property, instead of the value of the `DASH__TOOL` environment variable.
+  `package:unified_analytics` now resolves the root tool from `DASH__TOOL` and
+  disables analytics when it isn't set, so the CLI no longer reads it.
+- Require `package:unified_analytics` `^8.4.0`.
 
 ## 1.0.4
 

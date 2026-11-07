@@ -1,3 +1,13 @@
+## 1.2.3-wip
+
+- Tighten argument and path validation in `rip_grep_packages` and
+  `read_package_uris`.
+- Report `dart-mcp-server` as the analytics tool, recorded as the `leaf_tool`
+  user property, instead of the value of the `DASH__TOOL` environment variable.
+  `package:unified_analytics` now resolves the root tool from `DASH__TOOL` and
+  disables analytics when it isn't set, so the server no longer reads it.
+- Require `package:unified_analytics` `^8.4.0`.
+
 ## 1.2.2
 
 - The `dtd` tool's `listConnectedApps` command no longer returns an error when

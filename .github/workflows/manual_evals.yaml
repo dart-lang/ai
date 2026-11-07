@@ -3,7 +3,8 @@
 # BSD-style license that can be found in the LICENSE file.
 
 name: package:manual_evals
-permissions: read-all
+permissions:
+  contents: read
 
 on:
   # Run CI on all PRs (against any branch) and on pushes to the main branch.
@@ -51,3 +52,51 @@ jobs:
         if: ${{ matrix.sdk == 'dev' }}
 
       - run: dart test
+
+  # Checks each bundled skill as a standalone package (the way it's resolved
+  # when installed into a project), with `package:manual_evals` overridden to
+  # point at this checkout. This catches skill scripts that use packages their
+  # own pubspec doesn't declare. Lints for skill code are enforced by the
+  # `build` job, which analyzes `skills/` in the context of the root package.
+  skills:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        sdk:
+          - stable
+          - dev
+        os:
+          - ubuntu-latest
+          - windows-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: pkgs/manual_evals
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d
+        with:
+          sdk: ${{ matrix.sdk }}
+
+      - name: Check skills
+        run: |
+          set -euo pipefail
+          for skill in skills/*/; do
+            [ -f "${skill}pubspec.yaml" ] || continue
+            echo "::group::${skill}"
+            pushd "$skill" > /dev/null
+            printf 'dependency_overrides:\n  manual_evals:\n    path: ../..\n' \
+              > pubspec_overrides.yaml
+            dart pub get
+            dart analyze --fatal-infos
+            # Smoke test: each skill script should run with `--help`.
+            for script in scripts/*.dart; do
+              [ -f "$script" ] || continue
+              dart run "$script" --help
+            done
+            popd > /dev/null
+            echo "::endgroup::"
+          done
