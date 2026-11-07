@@ -2,7 +2,7 @@
 # for details. All rights reserved. Use of this source code is governed by a
 # BSD-style license that can be found in the LICENSE file.
 
-# A CI configuration to publish package:dart_mcp_server to pub.dev.
+# A CI configuration to publish package:dart_mcp_server to pub.dev via OSS Exit Gate.
 
 name: Publish package:dart_mcp_server
 
@@ -11,12 +11,95 @@ on:
     tags:
       - 'dart_mcp_server-v[0-9]+.[0-9]+.[0-9]+*'
 
+permissions: {}
+
 jobs:
-  publish:
+  validate:
+    name: Validate package:dart_mcp_server
     if: ${{ github.repository_owner == 'dart-lang' }}
+    runs-on: ubuntu-latest
     permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1
+        with:
+          sdk: stable
+
+      - name: Install dependencies
+        working-directory: pkgs/dart_mcp_server
+        run: dart pub get
+
+      - name: Verify package archive (dry run)
+        working-directory: pkgs/dart_mcp_server
+        run: dart pub publish --dry-run
+
+  publish:
+    name: Stage and publish package:dart_mcp_server via OSS Exit Gate
+    if: ${{ github.repository_owner == 'dart-lang' && startsWith(github.ref, 'refs/tags/dart_mcp_server-v') }}
+    needs: [validate]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
       id-token: write
-    uses: dart-lang/setup-dart/.github/workflows/publish.yml@a1d8526c926344e01ba48a7368788c05ac98cb29 # main
-    with:
-      working-directory: pkgs/dart_mcp_server
-      use-flutter: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: 'projects/305452601764/locations/global/workloadIdentityPools/builders/providers/github'
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
+
+      - name: Remove prior staged dart_mcp_server archive if present
+        run: |
+          gcloud artifacts packages delete "dart_mcp_server" \
+            --project="oss-exit-gate-prod" \
+            --location="us" \
+            --repository="dart-ai--pubdev" \
+            --quiet 2>/dev/null || true
+
+      - name: Stage dart_mcp_server archive and trigger OSS Exit Gate release
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          VERSION="${TAG_NAME#dart_mcp_server-v}"
+          ARCHIVE="dart_mcp_server-${VERSION}.tar.gz"
+          tar --exclude='.dart_tool' -czf "${ARCHIVE}" -C "pkgs/dart_mcp_server" .
+          gcloud artifacts generic upload \
+            --project="oss-exit-gate-prod" \
+            --location="us" \
+            --repository="dart-ai--pubdev" \
+            --package="dart_mcp_server" \
+            --version="${VERSION}" \
+            --source="${ARCHIVE}"
+          cat <<EOF > manifest.json
+          {
+            "publish_all": false,
+            "publishing_groups": [
+              {
+                "packages": [
+                  {
+                    "name": "dart_mcp_server",
+                    "version": "${VERSION}"
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
+          gcloud storage cp manifest.json \
+            "gs://oss-exit-gate-prod-projects-bucket/dart-ai/pubdev/manifests/manifest-${RUN_ID}-${RUN_ATTEMPT}.json"
