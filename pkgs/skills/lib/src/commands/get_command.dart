@@ -22,6 +22,7 @@ class GetCommand extends SkillsCommand {
     : _dialogSupport = dialogSupport,
       _gitRunner = gitRunner {
     addAgentOption(argParser);
+    addInstallDirOption(argParser);
     argParser
       ..addMultiOption(
         'package',
@@ -60,6 +61,7 @@ class GetCommand extends SkillsCommand {
       argResults: argResults,
       projectPath: rootPath,
       dialogSupport: _dialogSupport,
+      usage: usage,
     );
 
     final packageUris = argResults
@@ -79,6 +81,8 @@ class GetCommand extends SkillsCommand {
       );
     }
 
+    final customInstallDir = parseInstallDirOption(argResults);
+
     await getSkills(
       agents: agents,
       logger: logger,
@@ -89,6 +93,7 @@ class GetCommand extends SkillsCommand {
       sourceUris: sourceUris,
       skillNames: skillNames,
       allFlag: allFlag,
+      customInstallDir: customInstallDir,
     );
   }
 }

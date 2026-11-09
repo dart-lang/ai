@@ -27,6 +27,7 @@ class AddCommand extends SkillsCommand {
 
   AddCommand({this.dialogSupport, this.gitRunner = const GitRunner()}) {
     addAgentOption(argParser);
+    addInstallDirOption(argParser);
     argParser
       ..addFlag(
         'global',
@@ -76,6 +77,7 @@ class AddCommand extends SkillsCommand {
       argResults: argResults,
       projectPath: rootPath,
       dialogSupport: dialogSupport,
+      usage: usage,
     );
     if (agents.isEmpty) return;
 
@@ -144,6 +146,7 @@ class AddCommand extends SkillsCommand {
       skillNames: skillNames,
       allFlag: allFlag,
       gitRunner: gitRunner,
+      customInstallDir: parseInstallDirOption(argResults),
     );
   }
 }

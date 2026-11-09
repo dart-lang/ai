@@ -17,7 +17,8 @@ enum Agent {
   cursor('cursor', '.cursor/skills'),
   copilot('copilot', '.github/skills'),
   cline('cline', '.cline/skills'),
-  opencode('opencode', '.opencode/skills');
+  opencode('opencode', '.opencode/skills'),
+  custom('custom', '');
 
   final String cliName;
 
@@ -37,14 +38,21 @@ enum Agent {
       '$cliName${cliAliases.isEmpty ? '' : ' (${cliAliases.join(', ')})'}';
 
   /// Returns the absolute skills directory path for this agent within [projectPath].
-  String skillsPath(String projectPath) =>
-      p.join(projectPath, skillsRelativePath);
+  String skillsPath(String projectPath) => switch (this) {
+    Agent.custom => throw UnsupportedError(
+      'Custom agent does not have a fixed skills path. Pass the install directory to CustomAdapter directly.',
+    ),
+    _ => p.join(projectPath, skillsRelativePath),
+  };
 
   /// Whether this agent is detected in the project at [projectPath].
   ///
   /// Copilot is excluded from auto-detection because its `.github/` marker
   /// directory is commonly used for CI/CD and other purposes. Use `--agent
   /// copilot` to install explicitly.
+  ///
+  /// Custom is excluded from auto-detection because its installation directory
+  /// is arbitrary. Use `--install-dir` to install explicitly.
   bool isDetected(String projectPath) {
     return switch (this) {
       Agent.cursor => Directory(p.join(projectPath, '.cursor')).existsSync(),
@@ -57,6 +65,7 @@ enum Agent {
       Agent.opencode => Directory(
         p.join(projectPath, '.opencode'),
       ).existsSync(),
+      Agent.custom => false,
     };
   }
 
@@ -73,8 +82,10 @@ enum Agent {
 
   /// All valid CLI names (canonical + aliases) for --agent and help.
   /// Sorted alphabetically with "generic" last.
+  /// Excludes "custom" which is configured via `--install-dir`.
   static List<String> get cliNames {
     final all = Agent.values
+        .where((e) => e != Agent.custom)
         .expand((e) => [e.cliName, ...e.cliAliases])
         .toList();
     all.sort((a, b) {

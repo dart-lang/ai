@@ -72,6 +72,20 @@ check those repos for updates to skills.
   directories named `third_party` or hidden directories (starting with `.`)
   are ignored.
 
+### Custom install directory
+
+To install skills into a custom directory (e.g. for agents that are not explicitly
+supported, or to install to a directory like `third_party/`), pass the
+`--install-dir` (`-d`) option:
+
+```bash
+dart run skills@ get --install-dir path/to/skills
+```
+
+This implicitly uses a custom agent adapter that installs skills directly to the
+specified directory without requiring `--agent`. `--install-dir` and `--agent`
+are mutually exclusive.
+
 ### Pruning removed dependencies and unused sources
 
 When you remove a package from your `pubspec.yaml`, its skills stay in your

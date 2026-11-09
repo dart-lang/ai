@@ -254,5 +254,79 @@ void main() {
     test('when checking isEmpty on populated manifest then returns false', () {
       expect(base.isEmpty, isFalse);
     });
+
+    test('when customInstallDir is set then round-trips through json', () {
+      final manifest = SkillManifest(
+        customInstallDir: 'third_party/skills',
+        installations: {
+          'custom': {
+            'package:my_package': SkillsEntry(
+              skills: [
+                InstalledSkillEntry(
+                  name: 'my_package-skill',
+                  installedAt: DateTime.utc(2026, 2, 25),
+                ),
+              ],
+            ),
+          },
+        },
+      );
+
+      final json = manifest.toJson();
+      expect(json['customInstallDir'], equals('third_party/skills'));
+
+      final restored = SkillManifest.fromJson(json);
+      expect(restored.customInstallDir, equals('third_party/skills'));
+      expect(restored.allAgents, contains('custom'));
+    });
+
+    test('when removing custom agent then clears customInstallDir', () {
+      final manifest = SkillManifest(
+        customInstallDir: 'third_party/skills',
+        installations: {
+          'custom': {
+            'package:my_package': SkillsEntry(
+              skills: [
+                InstalledSkillEntry(
+                  name: 'my_package-skill',
+                  installedAt: DateTime.utc(2026, 2, 25),
+                ),
+              ],
+            ),
+          },
+        },
+      );
+
+      final withoutAgent = manifest.withoutAgent('custom');
+      expect(withoutAgent.customInstallDir, isNull);
+
+      final withoutSource = manifest.withoutSourceUri(
+        'custom',
+        'package:my_package',
+      );
+      expect(withoutSource.customInstallDir, isNull);
+    });
+
+    test(
+      'normalizeInstallDir normalizes relative, nested, and absolute paths',
+      () {
+        expect(
+          SkillManifest.normalizeInstallDir('/root', 'custom/dir'),
+          equals('custom/dir'),
+        );
+        expect(
+          SkillManifest.normalizeInstallDir('/root', './custom/dir'),
+          equals('custom/dir'),
+        );
+        expect(
+          SkillManifest.normalizeInstallDir('/root', '/root/custom/dir'),
+          equals('custom/dir'),
+        );
+        expect(
+          SkillManifest.normalizeInstallDir('/root', '/outside/custom/dir'),
+          equals('/outside/custom/dir'),
+        );
+      },
+    );
   });
 }

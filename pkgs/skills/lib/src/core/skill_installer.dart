@@ -110,8 +110,14 @@ class SkillInstaller {
     required GlobalConfig globalConfig,
     Set<String>? selectedSkills,
     Set<String> sourceUris = const {},
+    String? customInstallDir,
   }) async {
-    final adapter = createAgentAdapter(agent, rootPath, _dialogSupport);
+    final adapter = createAgentAdapter(
+      agent,
+      rootPath,
+      _dialogSupport,
+      customInstallDir: customInstallDir ?? previousManifest.customInstallDir,
+    );
     if (adapter is AgentSkillsAdapter) {
       if (!await adapter.performMigrations(previousManifest)) {
         return null;
@@ -314,11 +320,7 @@ class SkillInstaller {
       // link from each gitRepo to where its skills were installed, for
       // cleanup later on.
       if (skill.gitUrl case var gitUrl?) {
-        final installLocation = p.join(
-          rootPath,
-          agent.skillsRelativePath,
-          installedName,
-        );
+        final installLocation = p.join(adapter.skillsDirectory, installedName);
 
         if (skill.isGlobal) {
           final index = updatedGlobalConfig.gitRepos.indexWhere(
@@ -418,8 +420,14 @@ class SkillInstaller {
     required SkillManifest manifest,
     Set<String> sourceUris = const {},
     Set<String> skillNames = const {},
+    String? customInstallDir,
   }) async {
-    final adapter = createAgentAdapter(agent, rootPath, _dialogSupport);
+    final adapter = createAgentAdapter(
+      agent,
+      rootPath,
+      _dialogSupport,
+      customInstallDir: customInstallDir ?? manifest.customInstallDir,
+    );
     final removed = <RemovedSkillInfo>[];
 
     final sourceUriInstalls = manifest.sourceUrisForAgent(agent.cliName);
@@ -487,6 +495,7 @@ class SkillInstaller {
         agent: agent,
         rootPath: rootPath,
         manifest: updated,
+        customInstallDir: updated.customInstallDir,
       );
       updated = result.manifest;
     }

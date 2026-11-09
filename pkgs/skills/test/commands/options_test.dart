@@ -36,6 +36,91 @@ void main() {
     );
 
     test(
+      'and --install-dir is specified then it returns Agent.custom',
+      () async {
+        final parser = ArgParser();
+        addAgentOption(parser);
+        addInstallDirOption(parser);
+        final argResults = parser.parse(['--install-dir', 'custom_dir']);
+
+        final agents = await resolveAgents(
+          argResults: argResults,
+          projectPath: projectPath,
+          dialogSupport: fakeDialogSupport,
+        );
+
+        expect(agents, equals([Agent.custom]));
+      },
+    );
+
+    test('and -d is specified then it returns Agent.custom', () async {
+      final parser = ArgParser();
+      addAgentOption(parser);
+      addInstallDirOption(parser);
+      final argResults = parser.parse(['-d', 'custom_dir']);
+
+      final agents = await resolveAgents(
+        argResults: argResults,
+        projectPath: projectPath,
+        dialogSupport: fakeDialogSupport,
+      );
+
+      expect(agents, equals([Agent.custom]));
+    });
+
+    test(
+      'and both --agent and --install-dir are specified then it throws UsageException',
+      () async {
+        final parser = ArgParser();
+        addAgentOption(parser);
+        addInstallDirOption(parser);
+        final argResults = parser.parse([
+          '--agent',
+          'cursor',
+          '--install-dir',
+          'custom_dir',
+        ]);
+
+        expect(
+          () => resolveAgents(
+            argResults: argResults,
+            projectPath: projectPath,
+            dialogSupport: fakeDialogSupport,
+          ),
+          throwsA(
+            isA<UsageException>().having(
+              (e) => e.message,
+              'message',
+              contains('Cannot specify both --agent and --install-dir'),
+            ),
+          ),
+        );
+      },
+    );
+
+    test('and --install-dir is empty then it throws UsageException', () async {
+      final parser = ArgParser();
+      addAgentOption(parser);
+      addInstallDirOption(parser);
+      final argResults = parser.parse(['--install-dir', '   ']);
+
+      expect(
+        () => resolveAgents(
+          argResults: argResults,
+          projectPath: projectPath,
+          dialogSupport: fakeDialogSupport,
+        ),
+        throwsA(
+          isA<UsageException>().having(
+            (e) => e.message,
+            'message',
+            contains('--install-dir requires a non-empty directory path'),
+          ),
+        ),
+      );
+    });
+
+    test(
       'and auto-detection succeeds then it returns the detected agents',
       () async {
         await d.dir('project', [d.dir('.cursor')]).create();
@@ -66,6 +151,21 @@ void main() {
         },
       );
 
+      test('then the dialog options do not expose custom', () async {
+        fakeDialogSupport.multiSelectResults.add({0});
+
+        await resolveAgents(
+          argResults: null,
+          projectPath: projectPath,
+          dialogSupport: fakeDialogSupport,
+        );
+
+        expect(
+          fakeDialogSupport.allMultiSelectOptions.first,
+          isNot(contains('custom')),
+        );
+      });
+
       test(
         'and the user selects nothing in the dialog then it throws UsageException',
         () async {
@@ -95,6 +195,28 @@ void main() {
           );
         },
       );
+    });
+  });
+
+  group('Agent.custom', () {
+    test('is not exposed in cliNames or validNames', () {
+      expect(Agent.cliNames, isNot(contains('custom')));
+      expect(Agent.validNames, isNot(contains('custom')));
+    });
+
+    test('is detected returns false', () {
+      expect(Agent.custom.isDetected('/any/path'), isFalse);
+    });
+
+    test('skillsPath throws UnsupportedError', () {
+      expect(
+        () => Agent.custom.skillsPath('/any/path'),
+        throwsUnsupportedError,
+      );
+    });
+
+    test('fromCliName resolves custom', () {
+      expect(Agent.fromCliName('custom'), equals(Agent.custom));
     });
   });
 }

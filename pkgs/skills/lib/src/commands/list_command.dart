@@ -72,7 +72,14 @@ Future<bool> _appendAgentSkills(
 
   final agentObj = Agent.fromCliName(agentName);
   final adapter = agentObj != null
-      ? createAgentAdapter(agentObj, rootPath, null)
+      ? (agentObj == Agent.custom && manifest.customInstallDir == null
+            ? null
+            : createAgentAdapter(
+                agentObj,
+                rootPath,
+                null,
+                customInstallDir: manifest.customInstallDir,
+              ))
       : null;
 
   final agentBuffer = StringBuffer();

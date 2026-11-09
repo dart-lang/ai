@@ -10,9 +10,14 @@ import 'package:skills/src/core/dialog_support.dart';
 
 import '../agent/agent.dart';
 
+const installDirOption = 'install-dir';
+
 /// Parses the --agent option from [argResults].
 /// Returns the agents that were specified via --agent.
 List<Agent> parseAgentOption(ArgResults argResults) {
+  if (!argResults.options.contains('agent') || !argResults.wasParsed('agent')) {
+    return [];
+  }
   final parsedAgents = argResults.multiOption('agent');
   // Agent names are already validated by the `allowed` list on the option.
   return [for (var agent in parsedAgents) Agent.fromCliName(agent)!];
@@ -28,8 +33,28 @@ void addAgentOption(ArgParser argParser) {
   );
 }
 
+/// Registers the shared `--install-dir` option on [argParser].
+void addInstallDirOption(ArgParser argParser) {
+  argParser.addOption(
+    installDirOption,
+    abbr: 'd',
+    help:
+        'Custom directory to install skills to (implicitly uses custom agent).',
+  );
+}
+
+/// Parses the --install-dir option from [argResults].
+String? parseInstallDirOption(ArgResults argResults) {
+  if (argResults.options.contains(installDirOption) &&
+      argResults.wasParsed(installDirOption)) {
+    return argResults.option(installDirOption);
+  }
+  return null;
+}
+
 /// Returns the agents to operate on.
 ///
+/// If `--install-dir` is specified, returns `[Agent.custom]`.
 /// If `--agent` is specified (or the `SKILLS_AGENT` env var), returns that single
 /// agent. Otherwise returns all auto-detected agents.
 ///
@@ -40,11 +65,28 @@ Future<List<Agent>> resolveAgents({
   required ArgResults? argResults,
   required String projectPath,
   DialogSupport? dialogSupport,
+  String usage = '',
 }) async {
-  final parsedAgents = argResults == null
-      ? <Agent>[]
-      : parseAgentOption(argResults);
-  if (parsedAgents.isNotEmpty) return parsedAgents;
+  if (argResults != null) {
+    final customInstallDir = parseInstallDirOption(argResults);
+    final parsedAgents = parseAgentOption(argResults);
+    if (customInstallDir != null && parsedAgents.isNotEmpty) {
+      throw UsageException(
+        'Cannot specify both --agent and --install-dir.',
+        usage,
+      );
+    }
+    if (customInstallDir != null) {
+      if (customInstallDir.trim().isEmpty) {
+        throw UsageException(
+          '--install-dir requires a non-empty directory path.',
+          usage,
+        );
+      }
+      return [Agent.custom];
+    }
+    if (parsedAgents.isNotEmpty) return parsedAgents;
+  }
 
   // No explicit option, next we check for environment variables.
   final env =
@@ -53,10 +95,10 @@ Future<List<Agent>> resolveAgents({
       Platform.environment['SKILLS_IDE'];
   if (env != null) {
     final agent = Agent.fromCliName(env);
-    if (agent != null) return [agent];
+    if (agent != null && agent != Agent.custom) return [agent];
     throw UsageException(
       'Unknown AGENT "$agent". Valid values: ${Agent.validNames}',
-      '',
+      usage,
     );
   }
 
@@ -65,18 +107,22 @@ Future<List<Agent>> resolveAgents({
   if (detected.isNotEmpty) return detected;
 
   if (dialogSupport case var dialogSupport?) {
-    final options = [for (var agent in Agent.values) agent.label];
+    final selectableAgents = [
+      for (var agent in Agent.values)
+        if (agent != Agent.custom) agent,
+    ];
+    final options = [for (var agent in selectableAgents) agent.label];
     final result = await dialogSupport.showMultiSelectDialog(
       options,
       title: 'Unable to auto-detect agent. Please select one or more:',
     );
     if (result != null && result.isNotEmpty) {
-      return result.map((e) => Agent.values[e]).toList();
+      return result.map((e) => selectableAgents[e]).toList();
     }
   }
   throw UsageException(
     'Could not auto-detect agent and none selected. Use --agent to specify one of: '
-        '${Agent.validNames}',
-    '',
+    '${Agent.validNames}',
+    usage,
   );
 }

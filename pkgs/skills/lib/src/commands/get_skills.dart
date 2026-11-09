@@ -48,6 +48,7 @@ Future<bool> getSkills({
   Set<String> sourceUris = const {},
   Set<String> skillNames = const {},
   bool allFlag = false,
+  String? customInstallDir,
 }) async {
   final ready = await PubRunner.ensureWorkspaceConfigs(workspace);
   if (!ready) {
@@ -101,6 +102,16 @@ Future<bool> getSkills({
 
   final rootPath = workspace.rootPath;
   var manifest = await SkillManifest.loadOrEmptyFromRoot(rootPath);
+  if (customInstallDir != null) {
+    manifest = manifest.copyWith(
+      customInstallDir: SkillManifest.normalizeInstallDir(
+        rootPath,
+        customInstallDir,
+      ),
+    );
+  }
+  final effectiveCustomInstallDir =
+      customInstallDir ?? manifest.customInstallDir;
 
   final globalConfigPath = GlobalConfig.globalPath;
   final globalConfigFile = io.File(globalConfigPath);
@@ -171,7 +182,12 @@ Future<bool> getSkills({
 
   final agentAdapters = [
     for (final agent in agents)
-      createAgentAdapter(agent, rootPath, dialogSupport),
+      createAgentAdapter(
+        agent,
+        rootPath,
+        dialogSupport,
+        customInstallDir: effectiveCustomInstallDir,
+      ),
   ];
 
   final skillsBySource = _groupSkillsBySourceAndFindRemoved(
@@ -254,6 +270,7 @@ Future<bool> getSkills({
       previousManifest: manifest,
       globalConfig: globalConfig,
       sourceUris: sourceUris, // this still acts as source filter
+      customInstallDir: effectiveCustomInstallDir,
     );
     if (result == null) {
       logger.warning('Installation aborted for agent ${agent.cliName}');
@@ -264,9 +281,12 @@ Future<bool> getSkills({
     for (final info in result.installed) {
       logger.info('  [${info.agentName}] Installed ${info.skillName}');
     }
+    final installPath = agent == Agent.custom
+        ? (effectiveCustomInstallDir ?? '')
+        : agent.skillsRelativePath;
     logger.info(
       'Installed ${result.installed.length} skill(s) for ${agent.cliName} '
-      'at ${agent.skillsRelativePath}.',
+      'at $installPath.',
     );
   }
 
