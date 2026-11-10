@@ -27,6 +27,10 @@
 - Advertise the notification capabilities from a protected
   `MCPServer.advertisedCapabilities` getter, which `SubscriptionsSupport`
   overrides, instead of a type check on the server.
+- Add `SamplingMessage.meta`, and `SamplingMessage` now implements
+  `WithMetadata`.
+- Add `size` to the `ResourceLink` factory.
+- Add `Content.resourceLink` and `Content.isResourceLink`.
 - Add `ToolUseContent`, `ToolResultContent`, a `SamplingMessageContentBlock`
   union for them, and a `tools` list on `CreateMessageRequest`.
 - Add `ServerConnection.listAllTools`, `listAllResources`,
@@ -201,6 +205,9 @@
     the union a tool result's payload uses in the schema.
   - Rename `ProtocolVersion.isSupported` to `isLegacyVersion` and
     `ProtocolVersion.latestSupported` to `lastLegacyVersion`.
+  - Remove the `meta` parameter from the `Completion` factory. It was never
+    written, and the schema has no `_meta` on a completion. Pass it to
+    `CompleteResult` instead.
 - Cap the request body in `handleStreamableHttpRequest` at
   `maxRequestBodyBytes`, 4 MiB by default.
   Larger bodies get `413` and an invalid request error. The same cap is the

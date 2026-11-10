@@ -70,7 +70,6 @@ extension type Completion.fromMap(Map<String, Object?> _value) {
     required List<String> values,
     int? total,
     bool? hasMore,
-    Meta? meta,
   }) {
     assert(
       values.length <= 100,

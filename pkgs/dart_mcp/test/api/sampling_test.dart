@@ -301,6 +301,36 @@ void main() {
     );
   });
 
+  group('SamplingMessage meta', () {
+    test('round trips the meta it is given', () {
+      final message = SamplingMessage(
+        role: Role.user,
+        content: [SamplingMessageContentBlock.text(text: 'hi')],
+        meta: Meta.fromMap({'trace': 'abc'}),
+      );
+      final decoded = jsonDecode(jsonEncode(message)) as Map<String, Object?>;
+      expect(decoded['_meta'], {'trace': 'abc'});
+      expect(SamplingMessage.fromMap(decoded).meta, {'trace': 'abc'});
+    });
+
+    test('leaves meta out when it is not given', () {
+      final message = SamplingMessage(
+        role: Role.user,
+        content: [SamplingMessageContentBlock.text(text: 'hi')],
+      );
+      expect((message as Map<String, Object?>).containsKey('_meta'), isFalse);
+      expect(message.meta, isNull);
+    });
+
+    test('reads null meta when the peer left it out', () {
+      final message = SamplingMessage.fromMap({
+        'role': 'assistant',
+        'content': {'type': 'text', 'text': 'hi'},
+      });
+      expect(message.meta, isNull);
+    });
+  });
+
   group('ToolUseContent', () {
     test('round trips through a map', () {
       final content = ToolUseContent(

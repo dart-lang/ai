@@ -145,6 +145,8 @@ extension type CreateMessageResult.fromMap(Map<String, Object?> _value)
     if (meta != null) Keys.meta: meta,
   });
 
+  Meta? get meta => _value[Keys.meta] as Meta?;
+
   /// The name of the model that generated the message.
   String get model => _value[Keys.model] as String;
 
@@ -159,13 +161,16 @@ extension type CreateMessageResult.fromMap(Map<String, Object?> _value)
 }
 
 /// Describes a message issued to or received from an LLM API.
-extension type SamplingMessage.fromMap(Map<String, Object?> _value) {
+extension type SamplingMessage.fromMap(Map<String, Object?> _value)
+    implements WithMetadata {
   factory SamplingMessage({
     required Role role,
     required List<SamplingMessageContentBlock> content,
+    Meta? meta,
   }) => SamplingMessage.fromMap({
     Keys.role: role.name,
     Keys.content: _encodeContent(content),
+    if (meta != null) Keys.meta: meta,
   });
 
   /// The role of the message.
