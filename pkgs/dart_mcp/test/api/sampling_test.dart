@@ -329,6 +329,30 @@ void main() {
       });
       expect(message.meta, isNull);
     });
+
+    test('a create message result reads one meta through every type', () {
+      final result = CreateMessageResult(
+        role: Role.assistant,
+        content: [SamplingMessageContentBlock.text(text: 'hi')],
+        model: 'm',
+        meta: Meta.fromMap({'trace': 'abc'}),
+      );
+      expect(result.meta, {'trace': 'abc'});
+      expect((result as SamplingMessage).meta, {'trace': 'abc'});
+      expect((result as Result).meta, {'trace': 'abc'});
+    });
+
+    test('a create message result reads null meta when it is absent', () {
+      final result = CreateMessageResult(
+        role: Role.assistant,
+        content: [SamplingMessageContentBlock.text(text: 'hi')],
+        model: 'm',
+      );
+      expect((result as Map<String, Object?>).containsKey('_meta'), isFalse);
+      expect(result.meta, isNull);
+      expect((result as SamplingMessage).meta, isNull);
+      expect((result as Result).meta, isNull);
+    });
   });
 
   group('ToolUseContent', () {

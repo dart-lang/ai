@@ -145,6 +145,7 @@ extension type CreateMessageResult.fromMap(Map<String, Object?> _value)
     if (meta != null) Keys.meta: meta,
   });
 
+  /// See [WithMetadata.meta].
   Meta? get meta => _value[Keys.meta] as Meta?;
 
   /// The name of the model that generated the message.
