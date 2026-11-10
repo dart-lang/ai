@@ -244,43 +244,26 @@ dtd(command: "listConnectedApps")
 app is connected, every subsequent tool call must include `appUri` (that
 VM Service URI) to disambiguate.
 
-### Mobile (iOS, Android) and desktop — Flutter Driver
+### Flutter Driver
 
 To use finder-based UI commands (`tap`, `enter_text`, `screenshot`,
 `scroll`, `waitFor`…), your app must call `enableFlutterDriverExtension()`
 before `runApp()` (see the [Flutter Driver documentation][] for background).
-The `flutter_driver` package does **not** compile under dart2js, so for
-projects that also build for web, gate the import via a conditional and
-provide a stub for web builds:
+This works on every platform, web included. Gate it behind a define so
+release builds never ship it:
 
 ```dart
-// lib/utils/flutter_driver_setup.dart
-import 'package:flutter_driver/driver_extension.dart'
-    if (dart.library.html) 'flutter_driver_stub.dart';
+import 'package:flutter_driver/driver_extension.dart';
 
-void setupFlutterDriver() {
-  if (const bool.fromEnvironment('ENABLE_FLUTTER_DRIVER', defaultValue: false)) {
+void main() {
+  if (const bool.fromEnvironment('ENABLE_FLUTTER_DRIVER')) {
     enableFlutterDriverExtension();
   }
-}
-```
-
-```dart
-// lib/utils/flutter_driver_stub.dart
-void enableFlutterDriverExtension() {
-  throw UnsupportedError('Flutter Driver is not supported on web.');
-}
-```
-
-```dart
-// main.dart
-void main() {
-  setupFlutterDriver();
   runApp(const MyApp());
 }
 ```
 
-Launch with the flag (mobile and desktop only — never set this for web):
+Launch with the flag:
 
 ```bash
 flutter run -d <device-id> --dart-define=ENABLE_FLUTTER_DRIVER=true
@@ -328,42 +311,23 @@ a semantics label.
 
 ### Web
 
-The Dart MCP server works on web for everything except finder-based UI
-driving: `widget_inspector`, `get_runtime_errors`, `hot_reload`,
-`analyze_files`, `lsp` all work normally over DTD. For clicks, screenshots,
-and form input, pair the Dart MCP server with a **browser-driving MCP**
-(any MCP that controls Chrome or Firefox).
+Everything above works on web. Two launch modes:
 
-Two launch modes:
+`flutter run -d chrome` opens a clean Chrome window spawned by Flutter,
+and that window is the one DTD knows about.
 
-`flutter run -d chrome` opens immediately in a clean Chrome window
-spawned by Flutter — no extensions, no user profile — and that window is
-the one DTD knows about. A browser-driving MCP cannot attach to that
-window, and pointing a second browser at the same dev URL is misleading
-(see the warning below).
-
-`flutter run -d web-server` doesn't auto-spawn a browser — open the URL
-in your MCP-controlled Chrome, and DTD picks the app up once the page
-finishes loading. The browser the agent drives *is* the registered
-VM Service client. DTD does **not** appear in `listDtdUris` until the
-URL actually loads in a browser; that handshake is what registers the
-app with DDS. The "Dart Debug Chrome extension" Flutter mentions in its
-log is for human DevTools-style breakpoints, not for the MCP — the MCP
-toolset works without it.
+`flutter run -d web-server` doesn't spawn a browser. DTD does **not**
+list the app in `listDtdUris` until you open the URL in a browser and
+the page finishes loading; that handshake is what registers the app with
+DDS. The "Dart Debug Chrome extension" Flutter mentions in its log is
+for human DevTools-style breakpoints; the MCP tools work without it.
 
 > ⚠️ **The second-browser trap (`-d chrome` only).** Opening another
-> Chrome tab at the same dev URL looks normal — the bundle is served, the
-> app renders, the user is logged in. But hot reload, runtime errors, and
-> the widget inspector all keep targeting the Chrome Flutter spawned:
-> edits don't appear in the second browser, and `listConnectedApps` still
-> shows a single entry. The same applies to `print` output and runtime
-> errors, which only flow back from the CDP-attached window. An agent
-> driving that second browser believes it is reading and patching the
-> visible app while every MCP call silently lands on an invisible window.
-> Installing the Dart Debug Extension in a regular Chrome does not
-> rescue this — in `-d chrome` mode, dwds tracks the window it spawned via
-> CDP and ignores other clients. For agent-driven web testing, prefer
-> `-d web-server`.
+> Chrome tab at the same dev URL looks normal: the bundle is served and
+> the app renders. But hot reload, runtime errors, `print` output and
+> the widget inspector all keep targeting the window Flutter spawned, and
+> `listConnectedApps` still shows a single entry. In `-d chrome` mode,
+> dwds tracks the window it spawned via CDP and ignores other clients.
 
 ### Identifying instances when several are connected
 
@@ -402,9 +366,8 @@ trivial.
   Daemon service.`** The URI passed to `connect` was the VM Service URI,
   not the DTD URI. Use the `wsUri` from `listDtdUris`; the VM Service URI
   is what you pass later as `appUri`.
-- **`The flutter driver extension is not enabled.`** Either you're on web
-  (use a browser MCP — Flutter Driver doesn't exist on dart2js), or you
-  launched without `--dart-define=ENABLE_FLUTTER_DRIVER=true`. The flag is
+- **`The flutter driver extension is not enabled.`** You launched
+  without `--dart-define=ENABLE_FLUTTER_DRIVER=true`. The flag is
   compile-time — quit and relaunch.
 - **`BySemanticsLabel` times out.** Call
   `flutter_driver_command(command: "set_semantics", enabled: "true")`
