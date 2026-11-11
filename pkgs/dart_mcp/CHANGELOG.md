@@ -1,5 +1,7 @@
 ## 0.6.0-wip
 
+- Count `StringSchema` `minLength` and `maxLength` in Unicode code points
+  instead of UTF-16 code units, so an emoji counts as one character.
 - Validate the `Origin` header against `allowedOrigins` on
   `handleStreamableHttpRequest`, answering 403 when a request carries one the
   list leaves out. Leaving the argument off keeps the header unread.
