@@ -1526,6 +1526,10 @@ void main() {
         expectFailuresMatch(StringSchema(minLength: 2), '😀', [
           ValidationError(ValidationErrorType.minLengthNotMet, path: const []),
         ]);
+        expectFailuresMatch(StringSchema(maxLength: 1), '\uD83D', []);
+        expectFailuresMatch(StringSchema(minLength: 2), '\uD83D', [
+          ValidationError(ValidationErrorType.minLengthNotMet, path: const []),
+        ]);
       });
 
       test('length counts a combining accent as its own code point', () {
