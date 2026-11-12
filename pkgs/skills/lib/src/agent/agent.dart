@@ -11,27 +11,64 @@ import 'package:path/path.dart' as p;
 /// The "generic" agent uses `.agents/skills/`. Antigravity, Codex, and generic are
 /// separate CLI options that all map here; only "generic" is stored in
 /// skills_config.
-enum Agent {
-  generic('generic', '.agents/skills'),
-  claude('claude', '.claude/skills'),
-  cursor('cursor', '.cursor/skills'),
-  copilot('copilot', '.github/skills'),
-  cline('cline', '.cline/skills'),
-  opencode('opencode', '.opencode/skills'),
-  custom('custom', '');
+class Agent {
+  static const generic = Agent._(
+    'generic',
+    '.agents/skills',
+    cliAliases: ['antigravity', 'codex'],
+    detectionMarkers: ['.agents'],
+  );
+  static const claude = Agent._(
+    'claude',
+    '.claude/skills',
+    detectionMarkers: ['.claude'],
+  );
+  static const cursor = Agent._(
+    'cursor',
+    '.cursor/skills',
+    detectionMarkers: ['.cursor'],
+  );
+  static const copilot = Agent._('copilot', '.github/skills');
+  static const cline = Agent._(
+    'cline',
+    '.cline/skills',
+    detectionMarkers: ['.cline', '.clinerules'],
+  );
+  static const opencode = Agent._(
+    'opencode',
+    '.opencode/skills',
+    detectionMarkers: ['.opencode'],
+  );
+  static const custom = Agent._('custom', '');
+
+  /// Built-in agents.
+  static const values = [
+    generic,
+    claude,
+    cursor,
+    copilot,
+    cline,
+    opencode,
+    custom,
+  ];
 
   final String cliName;
 
   /// Relative path from project root to the agent's skills/rules directory.
   final String skillsRelativePath;
 
-  const Agent(this.cliName, this.skillsRelativePath);
-
   /// Aliases that map to this agent in the CLI (e.g. antigravity, codex → generic).
-  List<String> get cliAliases => switch (this) {
-    Agent.generic => ['antigravity', 'codex'],
-    _ => [],
-  };
+  final List<String> cliAliases;
+
+  /// Root-relative directories indicating the agent is active.
+  final List<String> detectionMarkers;
+
+  const Agent._(
+    this.cliName,
+    this.skillsRelativePath, {
+    this.cliAliases = const [],
+    this.detectionMarkers = const [],
+  });
 
   /// Formatted label including aliases (e.g. "generic (antigravity, codex)").
   String get label =>
@@ -48,21 +85,9 @@ enum Agent {
   /// copilot` to install explicitly.
   ///
   /// Custom is excluded from auto-detection due to its arbitrary installation directory. Use `--install-dir` to explicitly install.
-  bool isDetected(String projectPath) {
-    return switch (this) {
-      Agent.cursor => Directory(p.join(projectPath, '.cursor')).existsSync(),
-      Agent.generic => Directory(p.join(projectPath, '.agents')).existsSync(),
-      Agent.claude => Directory(p.join(projectPath, '.claude')).existsSync(),
-      Agent.cline =>
-        Directory(p.join(projectPath, '.cline')).existsSync() ||
-            Directory(p.join(projectPath, '.clinerules')).existsSync(),
-      Agent.copilot => false,
-      Agent.opencode => Directory(
-        p.join(projectPath, '.opencode'),
-      ).existsSync(),
-      Agent.custom => false,
-    };
-  }
+  bool isDetected(String projectPath) => detectionMarkers.any(
+    (marker) => Directory(p.join(projectPath, marker)).existsSync(),
+  );
 
   /// Parses a CLI name string into an [Agent].
   /// Accepts canonical names and aliases (e.g. antigravity, codex → generic).
@@ -93,6 +118,9 @@ enum Agent {
 
   /// All valid CLI names as a comma-separated string.
   static String get validNames => cliNames.join(', ');
+
+  @override
+  String toString() => 'Agent.$cliName';
 }
 
 /// Detects which agent is being used based on project directory markers.

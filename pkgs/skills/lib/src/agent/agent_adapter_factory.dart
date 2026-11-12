@@ -36,5 +36,6 @@ AgentAdapter createAgentAdapter(
       p.normalize(p.join(projectPath, customInstallDir!)),
       dialogSupport: dialogSupport,
     ),
+    _ => throw ArgumentError.value(agent, 'agent'),
   };
 }
