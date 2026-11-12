@@ -38,12 +38,8 @@ enum Agent {
       '$cliName${cliAliases.isEmpty ? '' : ' (${cliAliases.join(', ')})'}';
 
   /// Returns the absolute skills directory path for this agent within [projectPath].
-  String skillsPath(String projectPath) => switch (this) {
-    Agent.custom => throw UnsupportedError(
-      'Custom agent does not have a fixed skills path. Pass the install directory to CustomAdapter directly.',
-    ),
-    _ => p.join(projectPath, skillsRelativePath),
-  };
+  String skillsPath(String projectPath) =>
+      p.join(projectPath, skillsRelativePath);
 
   /// Whether this agent is detected in the project at [projectPath].
   ///
@@ -51,8 +47,7 @@ enum Agent {
   /// directory is commonly used for CI/CD and other purposes. Use `--agent
   /// copilot` to install explicitly.
   ///
-  /// Custom is excluded from auto-detection because its installation directory
-  /// is arbitrary. Use `--install-dir` to install explicitly.
+  /// Custom is excluded from auto-detection due to its arbitrary installation directory. Use `--install-dir` to explicitly install.
   bool isDetected(String projectPath) {
     return switch (this) {
       Agent.cursor => Directory(p.join(projectPath, '.cursor')).existsSync(),
@@ -82,7 +77,7 @@ enum Agent {
 
   /// All valid CLI names (canonical + aliases) for --agent and help.
   /// Sorted alphabetically with "generic" last.
-  /// Excludes "custom" which is configured via `--install-dir`.
+  /// Excludes "custom", which is configured via `--install-dir`.
   static List<String> get cliNames {
     final all = Agent.values
         .where((e) => e != Agent.custom)

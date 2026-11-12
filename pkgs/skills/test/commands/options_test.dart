@@ -23,6 +23,7 @@ void main() {
       () async {
         final parser = ArgParser();
         addAgentOption(parser);
+        addInstallDirOption(parser);
         final argResults = parser.parse(['--agent', 'cursor']);
 
         final agents = await resolveAgents(
@@ -69,7 +70,7 @@ void main() {
     });
 
     test(
-      'and both --agent and --install-dir are specified then it throws UsageException',
+      'and both --agent and --install-dir are used then it throws UsageException',
       () async {
         final parser = ArgParser();
         addAgentOption(parser);
@@ -91,7 +92,7 @@ void main() {
             isA<UsageException>().having(
               (e) => e.message,
               'message',
-              contains('Cannot specify both --agent and --install-dir'),
+              contains('Cannot use both --agent and --install-dir'),
             ),
           ),
         );
@@ -114,7 +115,25 @@ void main() {
           isA<UsageException>().having(
             (e) => e.message,
             'message',
-            contains('--install-dir requires a non-empty directory path'),
+            contains('--install-dir requires a non-empty path'),
+          ),
+        ),
+      );
+    });
+
+    test('SKILLS_AGENT=custom throws UsageException', () async {
+      expect(
+        () => resolveAgents(
+          argResults: null,
+          projectPath: projectPath,
+          dialogSupport: fakeDialogSupport,
+          environment: {'SKILLS_AGENT': 'custom'},
+        ),
+        throwsA(
+          isA<UsageException>().having(
+            (e) => e.message,
+            'message',
+            contains('Unknown AGENT "custom"'),
           ),
         ),
       );
@@ -199,24 +218,8 @@ void main() {
   });
 
   group('Agent.custom', () {
-    test('is not exposed in cliNames or validNames', () {
+    test('not exposed in cliNames', () {
       expect(Agent.cliNames, isNot(contains('custom')));
-      expect(Agent.validNames, isNot(contains('custom')));
-    });
-
-    test('is detected returns false', () {
-      expect(Agent.custom.isDetected('/any/path'), isFalse);
-    });
-
-    test('skillsPath throws UnsupportedError', () {
-      expect(
-        () => Agent.custom.skillsPath('/any/path'),
-        throwsUnsupportedError,
-      );
-    });
-
-    test('fromCliName resolves custom', () {
-      expect(Agent.fromCliName('custom'), equals(Agent.custom));
     });
   });
 }

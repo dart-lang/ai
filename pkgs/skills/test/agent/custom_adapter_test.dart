@@ -14,12 +14,6 @@ void main() {
   });
 
   group('CustomAdapter', () {
-    test('configures Agent.custom and skillsDirectory', () {
-      final adapter = CustomAdapter('/custom/dir');
-      expect(adapter.agent, equals(Agent.custom));
-      expect(adapter.skillsDirectory, equals('/custom/dir'));
-    });
-
     test('installs skill into custom directory', () async {
       await d.dir('source_pkg', [
         d.dir('skills', [
@@ -70,22 +64,6 @@ description: A test skill.
         customInstallDir: '/absolute/custom/skills',
       );
       expect(adapter.skillsDirectory, equals('/absolute/custom/skills'));
-    });
-
-    test('throws if customInstallDir is null or empty', () {
-      expect(
-        () => createAgentAdapter(Agent.custom, '/my/project', null),
-        throwsArgumentError,
-      );
-      expect(
-        () => createAgentAdapter(
-          Agent.custom,
-          '/my/project',
-          null,
-          customInstallDir: '   ',
-        ),
-        throwsArgumentError,
-      );
     });
   });
 }

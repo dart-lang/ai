@@ -2,7 +2,7 @@
 
 ## 1.0.5-wip
 
-- Add support for installing skills to a custom directory via the `--install-dir`
+- Support installing skills to a custom directory via the `--install-dir`
   (`-d`) option.
 - Report `skills-cli` as the analytics tool, recorded as the `leaf_tool` user
   property, instead of the value of the `DASH__TOOL` environment variable.

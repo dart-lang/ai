@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:logging/logging.dart';
+import 'package:path/path.dart' as p;
 import 'package:skills/src/models/skill_manifest.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
@@ -255,24 +256,24 @@ void main() {
       expect(base.isEmpty, isFalse);
     });
 
-    test('when customInstallDir is set then round-trips through json', () {
-      final manifest = SkillManifest(
-        customInstallDir: 'third_party/skills',
-        installations: {
-          'custom': {
-            'package:my_package': SkillsEntry(
-              skills: [
-                InstalledSkillEntry(
-                  name: 'my_package-skill',
-                  installedAt: DateTime.utc(2026, 2, 25),
-                ),
-              ],
-            ),
-          },
+    final customBase = SkillManifest(
+      customInstallDir: 'third_party/skills',
+      installations: {
+        'custom': {
+          'package:my_package': SkillsEntry(
+            skills: [
+              InstalledSkillEntry(
+                name: 'my_package-skill',
+                installedAt: DateTime.utc(2026, 2, 25),
+              ),
+            ],
+          ),
         },
-      );
+      },
+    );
 
-      final json = manifest.toJson();
+    test('when customInstallDir is set then round-trips through json', () {
+      final json = customBase.toJson();
       expect(json['customInstallDir'], equals('third_party/skills'));
 
       final restored = SkillManifest.fromJson(json);
@@ -281,26 +282,10 @@ void main() {
     });
 
     test('when removing custom agent then clears customInstallDir', () {
-      final manifest = SkillManifest(
-        customInstallDir: 'third_party/skills',
-        installations: {
-          'custom': {
-            'package:my_package': SkillsEntry(
-              skills: [
-                InstalledSkillEntry(
-                  name: 'my_package-skill',
-                  installedAt: DateTime.utc(2026, 2, 25),
-                ),
-              ],
-            ),
-          },
-        },
-      );
-
-      final withoutAgent = manifest.withoutAgent('custom');
+      final withoutAgent = customBase.withoutAgent('custom');
       expect(withoutAgent.customInstallDir, isNull);
 
-      final withoutSource = manifest.withoutSourceUri(
+      final withoutSource = customBase.withoutSourceUri(
         'custom',
         'package:my_package',
       );
@@ -328,5 +313,15 @@ void main() {
         );
       },
     );
+
+    test('normalizeInstallDir resolves relative paths against rootPath', () {
+      // If resolved against current directory, `custom/dir` would be inside this
+      // rootPath and stored as `dir`.
+      final rootPath = p.join(p.current, 'custom');
+      expect(
+        SkillManifest.normalizeInstallDir(rootPath, 'custom/dir'),
+        equals('custom/dir'),
+      );
+    });
   });
 }

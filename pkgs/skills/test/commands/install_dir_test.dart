@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:args/command_runner.dart';
 import 'package:io/ansi.dart';
 import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
@@ -76,7 +77,7 @@ description: Skill 1 from dep_a.
     });
 
     test(
-      'when installing with --install-dir then installs to custom dir',
+      'installing, listing, and removing custom skills updates manifest, list, and disk',
       () async {
         await overrideAnsiOutput(false, () async {
           await runner.run([
@@ -87,7 +88,26 @@ description: Skill 1 from dep_a.
             'third_party/skills',
             '--all',
           ]);
+          loggedMessages.clear();
+
+          await runner.run(['list', '--directory', projectPath]);
         });
+
+        final manifest = await SkillManifest.loadFromRoot(projectPath);
+        expect(manifest, isNotNull);
+        expect(manifest!.customInstallDir, equals('third_party/skills'));
+        expect(manifest.allAgents, contains('custom'));
+        expect(
+          manifest.sourceUrisForAgent('custom')['package:dep_a']!.skills,
+          hasLength(1),
+        );
+
+        expect(
+          loggedMessages.any(
+            (m) => m.contains('custom (installed at third_party/skills):'),
+          ),
+          isTrue,
+        );
 
         final skillFile = File(
           p.join(
@@ -100,70 +120,6 @@ description: Skill 1 from dep_a.
         );
         expect(await skillFile.exists(), isTrue);
 
-        final manifest = await SkillManifest.loadFromRoot(projectPath);
-        expect(manifest, isNotNull);
-        expect(manifest!.customInstallDir, equals('third_party/skills'));
-        expect(manifest.allAgents, contains('custom'));
-        expect(
-          manifest.sourceUrisForAgent('custom')['package:dep_a']!.skills,
-          hasLength(1),
-        );
-      },
-    );
-
-    test(
-      'when installing with -d shorthand then installs to custom dir',
-      () async {
-        await overrideAnsiOutput(false, () async {
-          await runner.run([
-            'get',
-            '--directory',
-            projectPath,
-            '-d',
-            'custom_skills',
-            '--all',
-          ]);
-        });
-
-        final skillFile = File(
-          p.join(projectPath, 'custom_skills', 'dep_a-skill1', 'SKILL.md'),
-        );
-        expect(await skillFile.exists(), isTrue);
-
-        final manifest = await SkillManifest.loadFromRoot(projectPath);
-        expect(manifest?.customInstallDir, equals('custom_skills'));
-      },
-    );
-
-    test(
-      'when listing and removing custom skills then reflects in list and disk',
-      () async {
-        await overrideAnsiOutput(false, () async {
-          await runner.run([
-            'get',
-            '--directory',
-            projectPath,
-            '--install-dir',
-            'custom_dir',
-            '--all',
-          ]);
-          loggedMessages.clear();
-
-          await runner.run(['list', '--directory', projectPath]);
-        });
-
-        expect(
-          loggedMessages.any(
-            (m) => m.contains('custom (installed at custom_dir):'),
-          ),
-          isTrue,
-        );
-
-        final skillFile = File(
-          p.join(projectPath, 'custom_dir', 'dep_a-skill1', 'SKILL.md'),
-        );
-        expect(await skillFile.exists(), isTrue);
-
         await overrideAnsiOutput(false, () async {
           await runner.run(['remove', '--directory', projectPath, '--all']);
         });
@@ -172,5 +128,69 @@ description: Skill 1 from dep_a.
         expect(await SkillManifest.loadFromRoot(projectPath), isNull);
       },
     );
+
+    group('with skills already installed to custom dir', () {
+      setUp(() async {
+        await overrideAnsiOutput(false, () async {
+          await runner.run([
+            'get',
+            '--directory',
+            projectPath,
+            '--install-dir',
+            'first_dir',
+            '--all',
+          ]);
+        });
+      });
+
+      test('accepts same --install-dir again', () async {
+        await overrideAnsiOutput(false, () async {
+          await runner.run([
+            'get',
+            '--directory',
+            projectPath,
+            '--install-dir',
+            './first_dir',
+            '--all',
+          ]);
+        });
+
+        final manifest = await SkillManifest.loadFromRoot(projectPath);
+        expect(manifest!.customInstallDir, equals('first_dir'));
+      });
+
+      test('different --install-dir throws UsageException', () async {
+        await expectLater(
+          runner.run([
+            'get',
+            '--directory',
+            projectPath,
+            '--install-dir',
+            'second_dir',
+            '--all',
+          ]),
+          throwsA(
+            isA<UsageException>().having(
+              (e) => e.message,
+              'message',
+              contains('first_dir'),
+            ),
+          ),
+        );
+
+        expect(
+          await File(
+            p.join(projectPath, 'first_dir', 'dep_a-skill1', 'SKILL.md'),
+          ).exists(),
+          isTrue,
+        );
+        expect(
+          await Directory(p.join(projectPath, 'second_dir')).exists(),
+          isFalse,
+        );
+        final manifest = await SkillManifest.loadFromRoot(projectPath);
+        expect(manifest!.customInstallDir, equals('first_dir'));
+      });
+    });
   });
 }

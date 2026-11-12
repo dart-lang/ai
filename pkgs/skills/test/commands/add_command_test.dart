@@ -202,6 +202,48 @@ Test skill body.
         );
       });
 
+      test('with --install-dir installs to custom directory', () async {
+        await realGitRunner.run([
+          'add',
+          '--directory',
+          projectPath,
+          '--install-dir',
+          'custom_dir',
+          '--all',
+          fileUrl,
+        ]);
+
+        expect(
+          File(
+            p.join(projectPath, 'custom_dir', 'my-skill', 'SKILL.md'),
+          ).existsSync(),
+          isTrue,
+        );
+        final manifest = await SkillManifest.loadOrEmptyFromRoot(projectPath);
+        expect(manifest.customInstallDir, 'custom_dir');
+      });
+
+      test(
+        'with --install-dir records directory when no skills selected',
+        () async {
+          // Abort dialog.
+          fakeDialogSupport.multiSelectResults.add(null);
+
+          await realGitRunner.run([
+            'add',
+            '--directory',
+            projectPath,
+            '--install-dir',
+            'custom_dir',
+            fileUrl,
+          ]);
+
+          final manifest = await SkillManifest.loadOrEmptyFromRoot(projectPath);
+          expect(manifest.sourceUrisForAgent('custom'), contains(fileUrl));
+          expect(manifest.customInstallDir, 'custom_dir');
+        },
+      );
+
       group('from a directory without a pubspec.yaml', () {
         late String nonPackagePath;
 

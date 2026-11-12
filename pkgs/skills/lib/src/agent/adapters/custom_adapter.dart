@@ -9,7 +9,7 @@ import 'agent_skills_adapter.dart';
 
 /// Custom agent adapter.
 ///
-/// Installs skills to a user-specified custom directory.
+/// Installs skills to a custom directory.
 class CustomAdapter extends AgentSkillsAdapter {
   @override
   final Logger logger = Logger('CustomAdapter');

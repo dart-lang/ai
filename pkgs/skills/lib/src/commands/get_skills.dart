@@ -9,6 +9,7 @@ import 'package:io/ansi.dart' as ansi;
 import 'package:args/command_runner.dart';
 import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
+import 'package:skills/src/commands/options.dart';
 import 'package:skills/src/commands/skills_command.dart';
 import 'package:skills/src/core/advisory_checker.dart';
 import 'package:skills/src/core/git_runner.dart';
@@ -103,15 +104,8 @@ Future<bool> getSkills({
   final rootPath = workspace.rootPath;
   var manifest = await SkillManifest.loadOrEmptyFromRoot(rootPath);
   if (customInstallDir != null) {
-    manifest = manifest.copyWith(
-      customInstallDir: SkillManifest.normalizeInstallDir(
-        rootPath,
-        customInstallDir,
-      ),
-    );
+    manifest = withInstallDir(manifest, rootPath, customInstallDir);
   }
-  final effectiveCustomInstallDir =
-      customInstallDir ?? manifest.customInstallDir;
 
   final globalConfigPath = GlobalConfig.globalPath;
   final globalConfigFile = io.File(globalConfigPath);
@@ -186,7 +180,7 @@ Future<bool> getSkills({
         agent,
         rootPath,
         dialogSupport,
-        customInstallDir: effectiveCustomInstallDir,
+        customInstallDir: manifest.customInstallDir,
       ),
   ];
 
@@ -270,7 +264,6 @@ Future<bool> getSkills({
       previousManifest: manifest,
       globalConfig: globalConfig,
       sourceUris: sourceUris, // this still acts as source filter
-      customInstallDir: effectiveCustomInstallDir,
     );
     if (result == null) {
       logger.warning('Installation aborted for agent ${agent.cliName}');
@@ -282,7 +275,7 @@ Future<bool> getSkills({
       logger.info('  [${info.agentName}] Installed ${info.skillName}');
     }
     final installPath = agent == Agent.custom
-        ? (effectiveCustomInstallDir ?? '')
+        ? customInstallDir
         : agent.skillsRelativePath;
     logger.info(
       'Installed ${result.installed.length} skill(s) for ${agent.cliName} '

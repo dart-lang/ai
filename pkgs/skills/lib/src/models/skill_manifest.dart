@@ -40,7 +40,7 @@ class SkillManifest {
   /// The version of the manifest when it was loaded.
   final int version;
 
-  /// The custom install directory, if one was configured for this project.
+  /// The custom install directory, if configured for this project.
   final String? customInstallDir;
 
   /// Outer key: agent name, inner key: package uri or git uri.
@@ -206,14 +206,10 @@ class SkillManifest {
 
   /// Normalizes [installDir] relative to [rootPath] using forward slashes.
   static String normalizeInstallDir(String rootPath, String installDir) {
-    final normalized = p.normalize(installDir);
-    if (p.isWithin(rootPath, normalized)) {
-      return p.split(p.relative(normalized, from: rootPath)).join('/');
-    }
-    if (p.isAbsolute(normalized)) {
-      return normalized;
-    }
-    return p.split(normalized).join('/');
+    final absolute = p.normalize(p.join(rootPath, installDir));
+    return p.isWithin(rootPath, absolute)
+        ? p.split(p.relative(absolute, from: rootPath)).join('/')
+        : absolute;
   }
 
   /// Returns a copy of this manifest with updated fields.

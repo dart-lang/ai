@@ -61,7 +61,6 @@ class GetCommand extends SkillsCommand {
       argResults: argResults,
       projectPath: rootPath,
       dialogSupport: _dialogSupport,
-      usage: usage,
     );
 
     final packageUris = argResults

@@ -74,17 +74,13 @@ check those repos for updates to skills.
 
 ### Custom install directory
 
-To install skills into a custom directory (e.g. for agents that are not explicitly
-supported, or to install to a directory like `third_party/`), pass the
-`--install-dir` (`-d`) option:
+To install skills into a custom directory (e.g., for unsupported agents or `third_party/`), use the `--install-dir` (`-d`) option:
 
 ```bash
 dart run skills@ get --install-dir path/to/skills
 ```
 
-This implicitly uses a custom agent adapter that installs skills directly to the
-specified directory without requiring `--agent`. `--install-dir` and `--agent`
-are mutually exclusive.
+Mutually exclusive with `--agent`.
 
 ### Pruning removed dependencies and unused sources
 

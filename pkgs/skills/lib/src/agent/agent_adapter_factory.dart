@@ -29,20 +29,8 @@ AgentAdapter createAgentAdapter(
       dialogSupport: dialogSupport,
     ),
     Agent.custom => CustomAdapter(
-      _resolveCustomSkillsDirectory(projectPath, customInstallDir),
+      p.normalize(p.join(projectPath, customInstallDir!)),
       dialogSupport: dialogSupport,
     ),
   };
-}
-
-String _resolveCustomSkillsDirectory(
-  String projectPath,
-  String? customInstallDir,
-) {
-  if (customInstallDir == null || customInstallDir.trim().isEmpty) {
-    throw ArgumentError.notNull('customInstallDir');
-  }
-  return p.isAbsolute(customInstallDir)
-      ? p.normalize(customInstallDir)
-      : p.normalize(p.join(projectPath, customInstallDir));
 }

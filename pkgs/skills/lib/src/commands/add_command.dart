@@ -77,7 +77,6 @@ class AddCommand extends SkillsCommand {
       argResults: argResults,
       projectPath: rootPath,
       dialogSupport: dialogSupport,
-      usage: usage,
     );
     if (agents.isEmpty) return;
 
@@ -102,6 +101,7 @@ class AddCommand extends SkillsCommand {
     }
     if (validRepos.isEmpty) return;
 
+    final customInstallDir = parseInstallDirOption(argResults);
     if (isGlobal) {
       // Add the entry to the global config if not present.
       final globalConfigPath = GlobalConfig.globalPath;
@@ -119,6 +119,9 @@ class AddCommand extends SkillsCommand {
       // Add the entries to the local config if not present.
       final localFile = manifestFile(workspace.rootPath);
       var manifest = await SkillManifest.loadOrEmpty(localFile);
+      if (customInstallDir != null) {
+        manifest = withInstallDir(manifest, rootPath, customInstallDir);
+      }
       for (var agent in agents) {
         for (var repo in validRepos) {
           if (manifest
@@ -146,7 +149,7 @@ class AddCommand extends SkillsCommand {
       skillNames: skillNames,
       allFlag: allFlag,
       gitRunner: gitRunner,
-      customInstallDir: parseInstallDirOption(argResults),
+      customInstallDir: customInstallDir,
     );
   }
 }

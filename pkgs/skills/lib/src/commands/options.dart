@@ -6,18 +6,17 @@ import 'dart:io' show Platform;
 
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
+import 'package:meta/meta.dart';
 import 'package:skills/src/core/dialog_support.dart';
 
 import '../agent/agent.dart';
+import '../models/skill_manifest.dart';
 
 const installDirOption = 'install-dir';
 
 /// Parses the --agent option from [argResults].
 /// Returns the agents that were specified via --agent.
 List<Agent> parseAgentOption(ArgResults argResults) {
-  if (!argResults.options.contains('agent') || !argResults.wasParsed('agent')) {
-    return [];
-  }
   final parsedAgents = argResults.multiOption('agent');
   // Agent names are already validated by the `allowed` list on the option.
   return [for (var agent in parsedAgents) Agent.fromCliName(agent)!];
@@ -38,50 +37,61 @@ void addInstallDirOption(ArgParser argParser) {
   argParser.addOption(
     installDirOption,
     abbr: 'd',
-    help:
-        'Custom directory to install skills to (implicitly uses custom agent).',
+    help: 'Custom install directory.',
   );
 }
 
 /// Parses the --install-dir option from [argResults].
-String? parseInstallDirOption(ArgResults argResults) {
-  if (argResults.options.contains(installDirOption) &&
-      argResults.wasParsed(installDirOption)) {
-    return argResults.option(installDirOption);
+String? parseInstallDirOption(ArgResults argResults) =>
+    argResults.option(installDirOption);
+
+/// Returns [manifest] updated with the `--install-dir` value [installDir].
+///
+/// Throws [UsageException] if a different directory is already recorded.
+SkillManifest withInstallDir(
+  SkillManifest manifest,
+  String rootPath,
+  String installDir,
+) {
+  final normalized = SkillManifest.normalizeInstallDir(rootPath, installDir);
+  final existing = manifest.customInstallDir;
+  if (existing != null && existing != normalized) {
+    throw UsageException(
+      'Cannot use --install-dir "$normalized": skills are already installed '
+          'to "$existing". Remove them first to use a different directory.',
+      '',
+    );
   }
-  return null;
+  return manifest.copyWith(customInstallDir: normalized);
 }
 
 /// Returns the agents to operate on.
 ///
-/// If `--install-dir` is specified, returns `[Agent.custom]`.
+/// Returns `[Agent.custom]` if `--install-dir` is specified.
 /// If `--agent` is specified (or the `SKILLS_AGENT` env var), returns that single
 /// agent. Otherwise returns all auto-detected agents.
 ///
 /// If no agent is auto-detected, uses [DialogSupport] (if given) to ask the user.
 ///
 /// Throws if no agent can be determined.
+///
+/// Uses [environment] (defaults to [Platform.environment]) for environment
+/// variables.
 Future<List<Agent>> resolveAgents({
   required ArgResults? argResults,
   required String projectPath,
   DialogSupport? dialogSupport,
-  String usage = '',
+  @visibleForTesting Map<String, String>? environment,
 }) async {
   if (argResults != null) {
     final customInstallDir = parseInstallDirOption(argResults);
     final parsedAgents = parseAgentOption(argResults);
-    if (customInstallDir != null && parsedAgents.isNotEmpty) {
-      throw UsageException(
-        'Cannot specify both --agent and --install-dir.',
-        usage,
-      );
-    }
     if (customInstallDir != null) {
+      if (parsedAgents.isNotEmpty) {
+        throw UsageException('Cannot use both --agent and --install-dir.', '');
+      }
       if (customInstallDir.trim().isEmpty) {
-        throw UsageException(
-          '--install-dir requires a non-empty directory path.',
-          usage,
-        );
+        throw UsageException('--install-dir requires a non-empty path.', '');
       }
       return [Agent.custom];
     }
@@ -89,16 +99,17 @@ Future<List<Agent>> resolveAgents({
   }
 
   // No explicit option, next we check for environment variables.
+  environment ??= Platform.environment;
   final env =
-      Platform.environment['SKILLS_AGENT'] ??
+      environment['SKILLS_AGENT'] ??
       // Legacy fallback
-      Platform.environment['SKILLS_IDE'];
+      environment['SKILLS_IDE'];
   if (env != null) {
     final agent = Agent.fromCliName(env);
     if (agent != null && agent != Agent.custom) return [agent];
     throw UsageException(
-      'Unknown AGENT "$agent". Valid values: ${Agent.validNames}',
-      usage,
+      'Unknown AGENT "$env". Valid values: ${Agent.validNames}',
+      '',
     );
   }
 
@@ -122,7 +133,7 @@ Future<List<Agent>> resolveAgents({
   }
   throw UsageException(
     'Could not auto-detect agent and none selected. Use --agent to specify one of: '
-    '${Agent.validNames}',
-    usage,
+        '${Agent.validNames}',
+    '',
   );
 }
