@@ -102,6 +102,63 @@ Instructions here.
       });
     });
 
+    group('and a linked scanned skill', () {
+      late ScannedSkill skill;
+      late String sourcePath;
+
+      setUp(() async {
+        await d.dir('linked_src', [
+          d.dir('skills', [
+            d.dir('my-skill', [
+              d.file('SKILL.md', '---\nname: my-skill\n---\nBody.'),
+            ]),
+          ]),
+        ]).create();
+        sourcePath = d.path('linked_src/skills/my-skill');
+        skill = ScannedSkill(
+          linkedDirectory: d.path('linked_src'),
+          skillName: 'my-skill',
+          skillPath: sourcePath,
+          path: 'skills/my-skill',
+        );
+      });
+
+      test('when installing then creates a symlink without a hash', () async {
+        final result = await adapter.installSkill(skill);
+
+        expect(result.name, equals('my-skill'));
+        expect(result.contentHash, isNull);
+        final link = Link(d.path('project/.cursor/skills/my-skill'));
+        expect(await link.exists(), isTrue);
+        expect(await link.target(), equals(sourcePath));
+      });
+
+      test('when reinstalling then replaces the existing link', () async {
+        await adapter.installSkill(skill);
+        await adapter.installSkill(skill);
+
+        expect(
+          await Link(d.path('project/.cursor/skills/my-skill')).exists(),
+          isTrue,
+        );
+      });
+
+      test('when removing a dangling link then deletes the link', () async {
+        await adapter.installSkill(skill);
+        await Directory(sourcePath).delete(recursive: true);
+
+        expect(await adapter.removeSkill('my-skill'), isTrue);
+
+        expect(
+          FileSystemEntity.typeSync(
+            d.path('project/.cursor/skills/my-skill'),
+            followLinks: false,
+          ),
+          equals(FileSystemEntityType.notFound),
+        );
+      });
+    });
+
     group('and a previously installed skill', () {
       setUp(() async {
         await d.dir('project', [

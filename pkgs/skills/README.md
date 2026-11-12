@@ -47,6 +47,9 @@ dart run skills@ remove serverpod
 # Install skills from a git repo
 dart run skills@ add <git-url>
 
+# Symlink skills from a local directory while you develop them
+dart run skills@ link <directory>
+
 # Create a skill in this package for your users
 dart run skills@ create
 ```
@@ -71,6 +74,32 @@ check those repos for updates to skills.
 - **Directory Filtering:** When crawling a Git repository for skills,
   directories named `third_party` or hidden directories (starting with `.`)
   are ignored.
+
+### Linking skills from a local directory
+
+While developing skills, link the directory that contains them instead of
+installing copies, so every edit shows up in your agent immediately:
+
+```bash
+dart run skills@ link path/to/my_package
+```
+
+The directory is scanned for skills the same way a git repo is, and each skill
+is symlinked into the agent's skills directory (for example
+`.claude/skills/<skill-name>` pointing at `path/to/my_package/skills/<skill-name>`).
+Pass `--all` to link every skill without prompting, or `--skill <name>` to link
+specific skills only.
+
+Linked directories are recorded in `.config/dart_skills/skills_config.json`
+under a `link:<directory>` source, so:
+
+- `dart run skills@ get` picks up skills you add to the directory later and
+  removes the links of skills you delete from it. Edited skills need no update,
+  since the links always reflect the source.
+- `dart run skills@ list` shows the linked source and its skills.
+- `dart run skills@ remove` deletes the links and leaves the directory as is.
+
+On Windows, creating symlinks requires Developer Mode or an elevated shell.
 
 ### Pruning removed dependencies and unused sources
 

@@ -23,6 +23,34 @@ void main() {
       adapter = ClaudeAdapter(d.path('project'));
     });
 
+    group('and a linked scanned skill without user-invocable', () {
+      const skillContent =
+          '---\nname: linked-skill\ndescription: a\n---\nBody.\n';
+
+      test(
+        'when installing then leaves the source SKILL.md untouched',
+        () async {
+          await d.dir('linked_src', [
+            d.dir('linked-skill', [d.file('SKILL.md', skillContent)]),
+          ]).create();
+          final skill = ScannedSkill(
+            linkedDirectory: d.path('linked_src'),
+            skillName: 'linked-skill',
+            skillPath: d.path('linked_src/linked-skill'),
+          );
+
+          await adapter.installSkill(skill);
+
+          expect(
+            await File(
+              d.path('linked_src/linked-skill/SKILL.md'),
+            ).readAsString(),
+            equals(skillContent),
+          );
+        },
+      );
+    });
+
     group('and a scanned skill without user-invocable', () {
       late ScannedSkill skill;
 

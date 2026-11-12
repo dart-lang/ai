@@ -61,13 +61,7 @@ class AddCommand extends SkillsCommand {
     final skillNames = argResults.multiOption('skill').toSet();
     final isGlobal = argResults.flag('global');
     final allFlag = argResults.flag('all');
-    if (skillNames.isNotEmpty && allFlag) {
-      throw UsageException(
-        '--all and --skill are mutually exclusive arguments, please provide '
-        'only one',
-        usage,
-      );
-    }
+    checkAllAndSkillExclusive(argResults, usage);
 
     final workspace = await resolveWorkspace();
     final rootPath = workspace.rootPath;
