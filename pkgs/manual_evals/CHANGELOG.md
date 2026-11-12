@@ -12,3 +12,12 @@
 - Add the `manual-evals-token-usage` skill, which reports the recorded token
   usage of a conversation and its subagents, and the `measureTokenUsage`,
   `formatTokenReport`, and `loadConversationTreeFromArgs` APIs behind it.
+- Add the `manual-evals-trajectory` skill, which summarizes what a
+  conversation and its subagents did, turn by turn, and the
+  `summarizeTrajectory` and `formatTrajectoryReport` APIs behind it.
+- Add `pairToolCalls` and `PairedToolCall`, which match each tool call to its
+  result, to the error message for a call that couldn't be run, or to nothing
+  if the call wasn't answered.
+- Add `TranscriptStep.userRequest` and `TranscriptStep.triggers`, which read a
+  user input's request and the items it explicitly triggered, and
+  `StepStatus.unrecorded`.
