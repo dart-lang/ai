@@ -1188,7 +1188,7 @@ extension type const StringSchema.fromMap(Map<String, Object?> _value)
       return false;
     }
     var isValid = true;
-    if (minLength case final minLen? when data.length < minLen) {
+    if (minLength case final minLen? when data.runes.length < minLen) {
       isValid = false;
       accumulatedFailures.add(
         ValidationError(
@@ -1198,7 +1198,7 @@ extension type const StringSchema.fromMap(Map<String, Object?> _value)
         ),
       );
     }
-    if (maxLength case final maxLen? when data.length > maxLen) {
+    if (maxLength case final maxLen? when data.runes.length > maxLen) {
       isValid = false;
       accumulatedFailures.add(
         ValidationError(

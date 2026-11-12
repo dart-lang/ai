@@ -1521,6 +1521,38 @@ void main() {
         ]);
       });
 
+      test('length counts an emoji as one code point', () {
+        expectFailuresMatch(StringSchema(maxLength: 1), '😀', []);
+        expectFailuresMatch(StringSchema(minLength: 2), '😀', [
+          ValidationError(ValidationErrorType.minLengthNotMet, path: const []),
+        ]);
+        expectFailuresMatch(StringSchema(maxLength: 1), '\uD83D', []);
+        expectFailuresMatch(StringSchema(minLength: 2), '\uD83D', [
+          ValidationError(ValidationErrorType.minLengthNotMet, path: const []),
+        ]);
+      });
+
+      test('length counts a combining accent as its own code point', () {
+        expectFailuresMatch(StringSchema(minLength: 2), 'é', []);
+        expectFailuresMatch(StringSchema(maxLength: 1), 'é', [
+          ValidationError(
+            ValidationErrorType.maxLengthExceeded,
+            path: const [],
+          ),
+        ]);
+      });
+
+      test('length bounds are inclusive in code points', () {
+        expectFailuresMatch(
+          StringSchema(minLength: 2, maxLength: 2),
+          'a😀',
+          [],
+        );
+        expectFailuresMatch(StringSchema(minLength: 3), 'a😀', [
+          ValidationError(ValidationErrorType.minLengthNotMet, path: const []),
+        ]);
+      });
+
       test('patternMismatch', () {
         final schema = StringSchema(pattern: r'^\d+$');
         expectFailuresMatch(schema, 'abc', [
