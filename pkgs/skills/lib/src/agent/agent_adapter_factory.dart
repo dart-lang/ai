@@ -1,7 +1,12 @@
+// Copyright (c) 2026, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
 import 'adapters/claude_adapter.dart';
 import 'adapters/cline_adapter.dart';
 import 'adapters/copilot_adapter.dart';
 import 'adapters/cursor_adapter.dart';
+import 'adapters/custom_adapter.dart';
 import 'adapters/generic_adapter.dart';
 import 'adapters/opencode_adapter.dart';
 import 'agent.dart';
@@ -24,5 +29,6 @@ AgentAdapter createAgentAdapter(
       projectPath,
       dialogSupport: dialogSupport,
     ),
+    _ => CustomAdapter(agent, projectPath, dialogSupport: dialogSupport),
   };
 }

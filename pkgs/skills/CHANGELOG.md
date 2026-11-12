@@ -2,6 +2,11 @@
 
 ## 1.0.5-wip
 
+- Support installing skills to a custom directory via the `--install-dir`
+  (`-d`) option. It can be combined with `--agent`, and is recorded in
+  `skills_config.json` as an agent named `dir:<path>`.
+- Internal: `Agent` is now a class instead of an enum, so agents are no longer
+  a fixed set. The built-in agents are unchanged.
 - Report `skills-cli` as the analytics tool, recorded as the `leaf_tool` user
   property, instead of the value of the `DASH__TOOL` environment variable.
   `package:unified_analytics` now resolves the root tool from `DASH__TOOL` and

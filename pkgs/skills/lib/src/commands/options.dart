@@ -6,6 +6,7 @@ import 'dart:io' show Platform;
 
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
+import 'package:meta/meta.dart';
 import 'package:skills/src/core/dialog_support.dart';
 
 import '../agent/agent.dart';
@@ -28,34 +29,54 @@ void addAgentOption(ArgParser argParser) {
   );
 }
 
-/// Returns the agents to operate on.
+/// Registers the shared `--install-dir` option on [argParser].
+void addInstallDirOption(ArgParser argParser) {
+  argParser.addOption(
+    'install-dir',
+    abbr: 'd',
+    help: 'Custom install directory.',
+  );
+}
+
+/// Resolves the agents to operate on.
 ///
-/// If `--agent` is specified (or the `SKILLS_AGENT` env var), returns that single
-/// agent. Otherwise returns all auto-detected agents.
-///
-/// If no agent is auto-detected, uses [DialogSupport] (if given) to ask the user.
+/// Checks `--agent` and `--install-dir`, then `SKILLS_AGENT` env var, then
+/// auto-detects, and finally prompts the user via [dialogSupport].
 ///
 /// Throws if no agent can be determined.
+///
+/// Uses [environment] (defaults to [Platform.environment]) for environment
+/// variables.
 Future<List<Agent>> resolveAgents({
   required ArgResults? argResults,
   required String projectPath,
   DialogSupport? dialogSupport,
+  @visibleForTesting Map<String, String>? environment,
 }) async {
-  final parsedAgents = argResults == null
-      ? <Agent>[]
-      : parseAgentOption(argResults);
-  if (parsedAgents.isNotEmpty) return parsedAgents;
+  if (argResults != null) {
+    final agents = parseAgentOption(argResults);
+    final installDir = argResults.option('install-dir');
+    if (installDir != null) {
+      if (installDir.trim().isEmpty) {
+        throw UsageException('--install-dir requires a non-empty path.', '');
+      }
+      agents.add(Agent.directory(installDir, projectPath: projectPath));
+    }
+    if (agents.isNotEmpty) return agents;
+  }
 
   // No explicit option, next we check for environment variables.
+  environment ??= Platform.environment;
   final env =
-      Platform.environment['SKILLS_AGENT'] ??
+      environment['SKILLS_AGENT'] ??
       // Legacy fallback
-      Platform.environment['SKILLS_IDE'];
+      environment['SKILLS_IDE'];
   if (env != null) {
     final agent = Agent.fromCliName(env);
-    if (agent != null) return [agent];
+    // Only accepts built-in agents, like --agent.
+    if (agent != null && Agent.values.contains(agent)) return [agent];
     throw UsageException(
-      'Unknown AGENT "$agent". Valid values: ${Agent.validNames}',
+      'Unknown AGENT "$env". Valid values: ${Agent.validNames}',
       '',
     );
   }

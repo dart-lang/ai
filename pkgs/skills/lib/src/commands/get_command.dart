@@ -22,6 +22,7 @@ class GetCommand extends SkillsCommand {
     : _dialogSupport = dialogSupport,
       _gitRunner = gitRunner {
     addAgentOption(argParser);
+    addInstallDirOption(argParser);
     argParser
       ..addMultiOption(
         'package',

@@ -27,6 +27,7 @@ class AddCommand extends SkillsCommand {
 
   AddCommand({this.dialogSupport, this.gitRunner = const GitRunner()}) {
     addAgentOption(argParser);
+    addInstallDirOption(argParser);
     argParser
       ..addFlag(
         'global',

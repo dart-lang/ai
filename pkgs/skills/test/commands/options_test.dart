@@ -23,6 +23,7 @@ void main() {
       () async {
         final parser = ArgParser();
         addAgentOption(parser);
+        addInstallDirOption(parser);
         final argResults = parser.parse(['--agent', 'cursor']);
 
         final agents = await resolveAgents(
@@ -34,6 +35,108 @@ void main() {
         expect(agents, equals([Agent.cursor]));
       },
     );
+
+    test(
+      'and --install-dir is specified then it returns an agent for that directory',
+      () async {
+        final parser = ArgParser();
+        addAgentOption(parser);
+        addInstallDirOption(parser);
+        final argResults = parser.parse(['--install-dir', 'custom_dir']);
+
+        final agents = await resolveAgents(
+          argResults: argResults,
+          projectPath: projectPath,
+          dialogSupport: fakeDialogSupport,
+        );
+
+        expect(agents.map((a) => a.cliName), equals(['dir:custom_dir']));
+      },
+    );
+
+    test(
+      'and -d is specified then it returns an agent for that directory',
+      () async {
+        final parser = ArgParser();
+        addAgentOption(parser);
+        addInstallDirOption(parser);
+        final argResults = parser.parse(['-d', 'custom_dir']);
+
+        final agents = await resolveAgents(
+          argResults: argResults,
+          projectPath: projectPath,
+          dialogSupport: fakeDialogSupport,
+        );
+
+        expect(agents.map((a) => a.cliName), equals(['dir:custom_dir']));
+      },
+    );
+
+    test(
+      'and both --agent and --install-dir are used then it returns both agents',
+      () async {
+        final parser = ArgParser();
+        addAgentOption(parser);
+        addInstallDirOption(parser);
+        final argResults = parser.parse([
+          '--agent',
+          'cursor',
+          '--install-dir',
+          'custom_dir',
+        ]);
+
+        final agents = await resolveAgents(
+          argResults: argResults,
+          projectPath: projectPath,
+          dialogSupport: fakeDialogSupport,
+        );
+
+        expect(
+          agents.map((a) => a.cliName),
+          equals(['cursor', 'dir:custom_dir']),
+        );
+      },
+    );
+
+    test('and --install-dir is empty then it throws UsageException', () async {
+      final parser = ArgParser();
+      addAgentOption(parser);
+      addInstallDirOption(parser);
+      final argResults = parser.parse(['--install-dir', '   ']);
+
+      expect(
+        () => resolveAgents(
+          argResults: argResults,
+          projectPath: projectPath,
+          dialogSupport: fakeDialogSupport,
+        ),
+        throwsA(
+          isA<UsageException>().having(
+            (e) => e.message,
+            'message',
+            contains('--install-dir requires a non-empty path'),
+          ),
+        ),
+      );
+    });
+
+    test('SKILLS_AGENT=dir:custom_dir throws UsageException', () async {
+      expect(
+        () => resolveAgents(
+          argResults: null,
+          projectPath: projectPath,
+          dialogSupport: fakeDialogSupport,
+          environment: {'SKILLS_AGENT': 'dir:custom_dir'},
+        ),
+        throwsA(
+          isA<UsageException>().having(
+            (e) => e.message,
+            'message',
+            contains('Unknown AGENT "dir:custom_dir"'),
+          ),
+        ),
+      );
+    });
 
     test(
       'and auto-detection succeeds then it returns the detected agents',
