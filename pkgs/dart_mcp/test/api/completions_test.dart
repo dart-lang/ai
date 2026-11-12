@@ -26,6 +26,33 @@ void main() {
     });
   });
 
+  test('a completion writes only the fields it is given', () {
+    expect(Completion(values: ['a']) as Map<String, Object?>, {
+      'values': ['a'],
+    });
+    expect(
+      Completion(values: ['a'], total: 3, hasMore: true)
+          as Map<String, Object?>,
+      {
+        'values': ['a'],
+        'total': 3,
+        'hasMore': true,
+      },
+    );
+  });
+
+  test('a complete result carries meta beside its completion', () {
+    final result = CompleteResult(
+      completion: Completion(values: ['a']),
+      meta: Meta.fromMap({'trace': 'abc'}),
+    );
+    expect(result.meta, {'trace': 'abc'});
+    expect(
+      (result.completion as Map<String, Object?>).containsKey('_meta'),
+      isFalse,
+    );
+  });
+
   test('client can request prompt completions', () async {
     final environment = TestEnvironment(
       TestMCPClient(),
