@@ -29,6 +29,7 @@
   overrides, instead of a type check on the server.
 - Add `SamplingMessage.meta`, and `SamplingMessage` now implements
   `WithMetadata`.
+- `Result` now implements `WithMetadata`.
 - Add `size` to the `ResourceLink` factory.
 - Add `Content.resourceLink` and `Content.isResourceLink`.
 - Add `ToolUseContent`, `ToolResultContent`, a `SamplingMessageContentBlock`
