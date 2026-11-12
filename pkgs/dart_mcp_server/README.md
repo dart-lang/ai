@@ -228,3 +228,158 @@ full list of tool and category names.
 | `widget_inspector` | Widget Inspector | Interact with the Flutter widget inspector in the active Flutter application. Requires an active DTD connection. | flutter | Yes |
 
 <!-- generated -->
+
+## Connect to a running Flutter app
+
+Recent Flutter versions auto-register a DTD via DDS for every `flutter run`
+in debug or profile mode — no extra flag is needed. Discover and connect:
+
+```text
+dtd(command: "listDtdUris")
+dtd(command: "connect", uri: "ws://127.0.0.1:<port>/<token>=")
+dtd(command: "listConnectedApps")
+```
+
+`listConnectedApps` returns each app's VM Service URI. When more than one
+app is connected, every subsequent tool call must include `appUri` (that
+VM Service URI) to disambiguate.
+
+### Flutter Driver
+
+To use finder-based UI commands (`tap`, `enter_text`, `screenshot`,
+`scroll`, `waitFor`…), your app must call `enableFlutterDriverExtension()`
+before `runApp()` (see the [Flutter Driver documentation][] for background).
+This works on every platform, web included. Gate it behind a define so
+release builds never ship it:
+
+```dart
+import 'package:flutter_driver/driver_extension.dart';
+
+void main() {
+  if (const bool.fromEnvironment('ENABLE_FLUTTER_DRIVER')) {
+    enableFlutterDriverExtension();
+  }
+  runApp(const MyApp());
+}
+```
+
+Launch with the flag:
+
+```bash
+flutter run -d <device-id> --dart-define=ENABLE_FLUTTER_DRIVER=true
+```
+
+`bool.fromEnvironment` is baked at compile time; toggling it requires a
+quit and relaunch, not a hot reload.
+
+#### Driving the UI
+
+```text
+flutter_driver_command(command: "screenshot", appUri: "...")
+flutter_driver_command(command: "tap", finderType: "ByText", text: "Sign In", appUri: "...")
+```
+
+The `enabled` parameter (used by `set_semantics`, `set_frame_sync`,
+`set_text_entry_emulation`) is passed as a string — `"true"` or `"false"`,
+not an unquoted bool.
+
+A few non-obvious finder rules:
+
+- **TextField hint text** is part of the field decoration, not a `Text`
+  widget — `ByText` will not find it. Use `BySemanticsLabel` (or add a
+  `ValueKey` and use `ByValueKey`).
+- **`BySemanticsLabel` requires semantics enabled.** Call
+  `flutter_driver_command(command: "set_semantics", enabled: "true")` once
+  per session before relying on it; the semantics tree only builds when
+  accessibility is on.
+- **Multiple `TextField`s on screen** make `ByType: "TextField"` fail with
+  *"ambiguously found multiple matching widgets"*. Add a `ValueKey` or use
+  `BySemanticsLabel` with the field's hint or label.
+- **Frame sync timeouts** on apps with continuous animations (Rive, Lottie,
+  spinners) — call
+  `flutter_driver_command(command: "set_frame_sync", enabled: "false")`
+  once per session.
+
+#### No pixel-coordinate clicks
+
+Flutter Driver locates widgets only by finders (text, type, key, semantics).
+There is no pixel-coordinate click. On Android, `adb shell input tap x y`
+fills the gap from a regular terminal but is not exposed through the MCP
+server. On iOS there is no known equivalent — every interactive widget the
+agent might click on must expose visible text, a tooltip, a `ValueKey`, or
+a semantics label.
+
+### Web
+
+Everything above works on web. Two launch modes:
+
+`flutter run -d chrome` opens a clean Chrome window spawned by Flutter,
+and that window is the one DTD knows about.
+
+`flutter run -d web-server` doesn't spawn a browser. DTD does **not**
+list the app in `listDtdUris` until you open the URL in a browser and
+the page finishes loading; that handshake is what registers the app with
+DDS. The "Dart Debug Chrome extension" Flutter mentions in its log is
+for human DevTools-style breakpoints; the MCP tools work without it.
+
+> ⚠️ **The second-browser trap (`-d chrome` only).** Opening another
+> Chrome tab at the same dev URL looks normal: the bundle is served and
+> the app renders. But hot reload, runtime errors, `print` output and
+> the widget inspector all keep targeting the window Flutter spawned, and
+> `listConnectedApps` still shows a single entry. In `-d chrome` mode,
+> dwds tracks the window it spawned via CDP and ignores other clients.
+
+### Identifying instances when several are connected
+
+`listConnectedApps` returns a `name` per app:
+
+| Source | `name` |
+|---|---|
+| iOS / Android / desktop | `Kind: Flutter - Device: <device> - Package: <bundle>` |
+| Web | `Unknown web app` (always — same string for every web instance) |
+
+For web, match the VM Service URI suffix (`<port>/<token>=`) against the
+`A Dart VM Service on Web Server is available at: …` line in each
+`flutter run` log. Logging each launch to its own file
+(`flutter run … 2>&1 | tee /tmp/flutter-<port>.log`) makes the lookup
+trivial.
+
+### Notes on a few tools
+
+- **`analyze_files`** runs the analysis server with `custom_lint` plugins
+  (e.g. `riverpod_lint`); the bash `dart analyze` CLI does not. If your
+  project relies on those plugins, `analyze_files` is the only way an
+  agent will see the diagnostics. Each entry in the `roots` argument
+  accepts an optional `paths` field — pass `paths: ["lib"]` to scope the
+  analysis; without it, an iOS build pulls `build/ios/SourcePackages` into
+  the analyzed set.
+- **`widget_inspector(get_widget_tree)`** can return very large trees on
+  non-trivial apps and overflow to a file. Pass `summaryOnly: true` for a
+  much smaller payload that still includes user widgets.
+
+### Troubleshooting
+
+- **`listDtdUris` returns nothing on a freshly launched web app.** The
+  app must be loaded in a browser tab before DTD registers. Open the URL,
+  wait a few seconds, retry.
+- **`Connected to a VM Service but expected to connect to a Dart Tooling
+  Daemon service.`** The URI passed to `connect` was the VM Service URI,
+  not the DTD URI. Use the `wsUri` from `listDtdUris`; the VM Service URI
+  is what you pass later as `appUri`.
+- **`The flutter driver extension is not enabled.`** You launched
+  without `--dart-define=ENABLE_FLUTTER_DRIVER=true`. The flag is
+  compile-time — quit and relaunch.
+- **`BySemanticsLabel` times out.** Call
+  `flutter_driver_command(command: "set_semantics", enabled: "true")`
+  first.
+- **Frame sync timeouts** on animated apps. Call
+  `flutter_driver_command(command: "set_frame_sync", enabled: "false")`
+  once per session.
+- **`hot_reload` (or any tool) returns "must specify app URI".** Multiple
+  apps connected — pass `appUri` on every call.
+- **Live `flutter run` exits with `The Dart compiler exited unexpectedly`.**
+  Something deleted `.dart_tool/` or `build/` while the app was running
+  (typically `flutter clean`, `flutter pub get`, or a `build_runner` rerun).
+  Quit the app first, clean, relaunch.
+
+[Flutter Driver documentation]: https://docs.flutter.dev/testing/integration-tests
