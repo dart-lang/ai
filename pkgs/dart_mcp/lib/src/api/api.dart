@@ -304,9 +304,7 @@ extension type Notification(Map<String, Object?> _value) {
 }
 
 /// Base interface for all responses to requests.
-extension type Result._(Map<String, Object?> _value) {
-  Meta? get meta => _value[Keys.meta] as Meta?;
-
+extension type Result._(Map<String, Object?> _value) implements WithMetadata {
   /// The type of this result, which determines how to parse it.
   ///
   /// Known types are "complete" and "input_required", but a server may send
