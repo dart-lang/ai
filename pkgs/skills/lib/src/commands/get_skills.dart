@@ -9,7 +9,6 @@ import 'package:io/ansi.dart' as ansi;
 import 'package:args/command_runner.dart';
 import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
-import 'package:skills/src/commands/options.dart';
 import 'package:skills/src/commands/skills_command.dart';
 import 'package:skills/src/core/advisory_checker.dart';
 import 'package:skills/src/core/git_runner.dart';
@@ -49,7 +48,6 @@ Future<bool> getSkills({
   Set<String> sourceUris = const {},
   Set<String> skillNames = const {},
   bool allFlag = false,
-  String? customInstallDir,
 }) async {
   final ready = await PubRunner.ensureWorkspaceConfigs(workspace);
   if (!ready) {
@@ -103,9 +101,6 @@ Future<bool> getSkills({
 
   final rootPath = workspace.rootPath;
   var manifest = await SkillManifest.loadOrEmptyFromRoot(rootPath);
-  if (customInstallDir != null) {
-    manifest = withInstallDir(manifest, rootPath, customInstallDir);
-  }
 
   final globalConfigPath = GlobalConfig.globalPath;
   final globalConfigFile = io.File(globalConfigPath);
@@ -176,12 +171,7 @@ Future<bool> getSkills({
 
   final agentAdapters = [
     for (final agent in agents)
-      createAgentAdapter(
-        agent,
-        rootPath,
-        dialogSupport,
-        customInstallDir: manifest.customInstallDir,
-      ),
+      createAgentAdapter(agent, rootPath, dialogSupport),
   ];
 
   final skillsBySource = _groupSkillsBySourceAndFindRemoved(
@@ -274,12 +264,9 @@ Future<bool> getSkills({
     for (final info in result.installed) {
       logger.info('  [${info.agentName}] Installed ${info.skillName}');
     }
-    final installPath = agent == Agent.custom
-        ? customInstallDir
-        : agent.skillsRelativePath;
     logger.info(
       'Installed ${result.installed.length} skill(s) for ${agent.cliName} '
-      'at $installPath.',
+      'at ${agent.skillsRelativePath}.',
     );
   }
 

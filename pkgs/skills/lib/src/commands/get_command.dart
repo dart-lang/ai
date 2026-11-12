@@ -80,8 +80,6 @@ class GetCommand extends SkillsCommand {
       );
     }
 
-    final customInstallDir = parseInstallDirOption(argResults);
-
     await getSkills(
       agents: agents,
       logger: logger,
@@ -92,7 +90,6 @@ class GetCommand extends SkillsCommand {
       sourceUris: sourceUris,
       skillNames: skillNames,
       allFlag: allFlag,
-      customInstallDir: customInstallDir,
     );
   }
 }

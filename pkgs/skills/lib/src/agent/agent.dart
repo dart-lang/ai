@@ -4,6 +4,7 @@
 
 import 'dart:io';
 
+import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 
 /// Supported agents for skill installation.
@@ -39,22 +40,17 @@ class Agent {
     '.opencode/skills',
     detectionMarkers: ['.opencode'],
   );
-  static const custom = Agent._('custom', '');
 
   /// Built-in agents.
-  static const values = [
-    generic,
-    claude,
-    cursor,
-    copilot,
-    cline,
-    opencode,
-    custom,
-  ];
+  static const values = [generic, claude, cursor, copilot, cline, opencode];
+
+  /// Prefix of the [cliName] of an agent created by [Agent.directory].
+  static const _directoryPrefix = 'dir:';
 
   final String cliName;
 
-  /// Relative path from project root to the agent's skills/rules directory.
+  /// Path of the agent's skills directory, with `/` separators. Relative
+  /// to the project root, or absolute.
   final String skillsRelativePath;
 
   /// Aliases that map to this agent in the CLI (e.g. antigravity, codex → generic).
@@ -70,13 +66,43 @@ class Agent {
     this.detectionMarkers = const [],
   });
 
+  /// Creates an agent that installs skills to [directory], named `dir:<path>`.
+  ///
+  /// Paths inside [projectPath] are kept relative to it. Other paths become
+  /// absolute. The path always uses `/` separators.
+  ///
+  /// [context] defaults to [p.context].
+  factory Agent.directory(
+    String directory, {
+    required String projectPath,
+    @visibleForTesting p.Context? context,
+  }) {
+    context ??= p.context;
+    final absolute = context.normalize(context.join(projectPath, directory));
+    final localPath = context.isWithin(projectPath, absolute)
+        ? context.relative(absolute, from: projectPath)
+        : absolute;
+    final path = localPath.replaceAll(context.separator, '/');
+    return Agent._('$_directoryPrefix$path', path);
+  }
+
   /// Formatted label including aliases (e.g. "generic (antigravity, codex)").
   String get label =>
       '$cliName${cliAliases.isEmpty ? '' : ' (${cliAliases.join(', ')})'}';
 
-  /// Returns the absolute skills directory path for this agent within [projectPath].
-  String skillsPath(String projectPath) =>
-      p.join(projectPath, skillsRelativePath);
+  /// The absolute skills directory path for this agent within [projectPath].
+  ///
+  /// [context] defaults to [p.context].
+  String skillsPath(
+    String projectPath, {
+    @visibleForTesting p.Context? context,
+  }) {
+    context ??= p.context;
+    return context.join(
+      projectPath,
+      skillsRelativePath.replaceAll('/', context.separator),
+    );
+  }
 
   /// Whether this agent is detected in the project at [projectPath].
   ///
@@ -84,14 +110,17 @@ class Agent {
   /// directory is commonly used for CI/CD and other purposes. Use `--agent
   /// copilot` to install explicitly.
   ///
-  /// Custom is excluded from auto-detection due to its arbitrary installation directory. Use `--install-dir` to explicitly install.
+  /// Directory agents are not auto-detected. Use `--install-dir` to install them.
   bool isDetected(String projectPath) => detectionMarkers.any(
     (marker) => Directory(p.join(projectPath, marker)).existsSync(),
   );
 
-  /// Parses a CLI name string into an [Agent].
-  /// Accepts canonical names and aliases (e.g. antigravity, codex → generic).
+  /// Parses a CLI name into an [Agent].
+  /// Accepts canonical names, aliases, and `dir:<path>` directory agents.
   static Agent? fromCliName(String name) {
+    if (name.startsWith(_directoryPrefix)) {
+      return Agent._(name, name.substring(_directoryPrefix.length));
+    }
     final lower = name.toLowerCase();
     for (final agent in Agent.values) {
       if (agent.cliName == lower) return agent;
@@ -102,10 +131,8 @@ class Agent {
 
   /// All valid CLI names (canonical + aliases) for --agent and help.
   /// Sorted alphabetically with "generic" last.
-  /// Excludes "custom", which is configured via `--install-dir`.
   static List<String> get cliNames {
     final all = Agent.values
-        .where((e) => e != Agent.custom)
         .expand((e) => [e.cliName, ...e.cliAliases])
         .toList();
     all.sort((a, b) {

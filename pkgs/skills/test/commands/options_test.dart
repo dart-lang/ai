@@ -37,7 +37,7 @@ void main() {
     );
 
     test(
-      'and --install-dir is specified then it returns Agent.custom',
+      'and --install-dir is specified then it returns an agent for that directory',
       () async {
         final parser = ArgParser();
         addAgentOption(parser);
@@ -50,27 +50,30 @@ void main() {
           dialogSupport: fakeDialogSupport,
         );
 
-        expect(agents, equals([Agent.custom]));
+        expect(agents.map((a) => a.cliName), equals(['dir:custom_dir']));
       },
     );
 
-    test('and -d is specified then it returns Agent.custom', () async {
-      final parser = ArgParser();
-      addAgentOption(parser);
-      addInstallDirOption(parser);
-      final argResults = parser.parse(['-d', 'custom_dir']);
+    test(
+      'and -d is specified then it returns an agent for that directory',
+      () async {
+        final parser = ArgParser();
+        addAgentOption(parser);
+        addInstallDirOption(parser);
+        final argResults = parser.parse(['-d', 'custom_dir']);
 
-      final agents = await resolveAgents(
-        argResults: argResults,
-        projectPath: projectPath,
-        dialogSupport: fakeDialogSupport,
-      );
+        final agents = await resolveAgents(
+          argResults: argResults,
+          projectPath: projectPath,
+          dialogSupport: fakeDialogSupport,
+        );
 
-      expect(agents, equals([Agent.custom]));
-    });
+        expect(agents.map((a) => a.cliName), equals(['dir:custom_dir']));
+      },
+    );
 
     test(
-      'and both --agent and --install-dir are used then it throws UsageException',
+      'and both --agent and --install-dir are used then it returns both agents',
       () async {
         final parser = ArgParser();
         addAgentOption(parser);
@@ -82,19 +85,15 @@ void main() {
           'custom_dir',
         ]);
 
+        final agents = await resolveAgents(
+          argResults: argResults,
+          projectPath: projectPath,
+          dialogSupport: fakeDialogSupport,
+        );
+
         expect(
-          () => resolveAgents(
-            argResults: argResults,
-            projectPath: projectPath,
-            dialogSupport: fakeDialogSupport,
-          ),
-          throwsA(
-            isA<UsageException>().having(
-              (e) => e.message,
-              'message',
-              contains('Cannot use both --agent and --install-dir'),
-            ),
-          ),
+          agents.map((a) => a.cliName),
+          equals(['cursor', 'dir:custom_dir']),
         );
       },
     );
@@ -121,19 +120,19 @@ void main() {
       );
     });
 
-    test('SKILLS_AGENT=custom throws UsageException', () async {
+    test('SKILLS_AGENT=dir:custom_dir throws UsageException', () async {
       expect(
         () => resolveAgents(
           argResults: null,
           projectPath: projectPath,
           dialogSupport: fakeDialogSupport,
-          environment: {'SKILLS_AGENT': 'custom'},
+          environment: {'SKILLS_AGENT': 'dir:custom_dir'},
         ),
         throwsA(
           isA<UsageException>().having(
             (e) => e.message,
             'message',
-            contains('Unknown AGENT "custom"'),
+            contains('Unknown AGENT "dir:custom_dir"'),
           ),
         ),
       );
@@ -170,21 +169,6 @@ void main() {
         },
       );
 
-      test('then the dialog options do not expose custom', () async {
-        fakeDialogSupport.multiSelectResults.add({0});
-
-        await resolveAgents(
-          argResults: null,
-          projectPath: projectPath,
-          dialogSupport: fakeDialogSupport,
-        );
-
-        expect(
-          fakeDialogSupport.allMultiSelectOptions.first,
-          isNot(contains('custom')),
-        );
-      });
-
       test(
         'and the user selects nothing in the dialog then it throws UsageException',
         () async {
@@ -214,12 +198,6 @@ void main() {
           );
         },
       );
-    });
-  });
-
-  group('Agent.custom', () {
-    test('not exposed in cliNames', () {
-      expect(Agent.cliNames, isNot(contains('custom')));
     });
   });
 }

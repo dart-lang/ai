@@ -1,3 +1,7 @@
+// Copyright (c) 2026, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
 import 'dart:io';
 
 import 'package:logging/logging.dart';
@@ -30,8 +34,8 @@ description: A test skill.
         ]),
       ]).create();
 
-      final customDir = d.path('custom_target');
-      final adapter = CustomAdapter(customDir);
+      final agent = Agent.directory('custom_target', projectPath: d.sandbox);
+      final adapter = CustomAdapter(agent, d.sandbox);
       await adapter.installSkill(
         ScannedSkill(
           packageName: 'source_pkg',
@@ -40,30 +44,21 @@ description: A test skill.
         ),
       );
 
-      expect(File('$customDir/my-skill/SKILL.md').existsSync(), isTrue);
+      expect(
+        File(d.path('custom_target/my-skill/SKILL.md')).existsSync(),
+        isTrue,
+      );
     });
   });
 
-  group('createAgentAdapter for Agent.custom', () {
-    test('resolves relative path against projectPath', () {
-      final adapter = createAgentAdapter(
-        Agent.custom,
-        '/my/project',
-        null,
-        customInstallDir: 'custom/skills',
-      );
-      expect(adapter, isA<CustomAdapter>());
-      expect(adapter.skillsDirectory, equals('/my/project/custom/skills'));
-    });
+  group('createAgentAdapter for a directory agent', () {
+    test('returns a CustomAdapter for its directory', () {
+      final agent = Agent.directory('custom/skills', projectPath: d.sandbox);
+      final adapter = createAgentAdapter(agent, d.sandbox, null);
 
-    test('preserves absolute path', () {
-      final adapter = createAgentAdapter(
-        Agent.custom,
-        '/my/project',
-        null,
-        customInstallDir: '/absolute/custom/skills',
-      );
-      expect(adapter.skillsDirectory, equals('/absolute/custom/skills'));
+      expect(adapter, isA<CustomAdapter>());
+      expect(adapter.agent, same(agent));
+      expect(adapter.skillsDirectory, equals(agent.skillsPath(d.sandbox)));
     });
   });
 }

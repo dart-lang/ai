@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:logging/logging.dart';
-import 'package:path/path.dart' as p;
 import 'package:skills/src/models/skill_manifest.dart';
 import 'package:test/test.dart';
 import 'package:test_descriptor/test_descriptor.dart' as d;
@@ -254,74 +253,6 @@ void main() {
 
     test('when checking isEmpty on populated manifest then returns false', () {
       expect(base.isEmpty, isFalse);
-    });
-
-    final customBase = SkillManifest(
-      customInstallDir: 'third_party/skills',
-      installations: {
-        'custom': {
-          'package:my_package': SkillsEntry(
-            skills: [
-              InstalledSkillEntry(
-                name: 'my_package-skill',
-                installedAt: DateTime.utc(2026, 2, 25),
-              ),
-            ],
-          ),
-        },
-      },
-    );
-
-    test('when customInstallDir is set then round-trips through json', () {
-      final json = customBase.toJson();
-      expect(json['customInstallDir'], equals('third_party/skills'));
-
-      final restored = SkillManifest.fromJson(json);
-      expect(restored.customInstallDir, equals('third_party/skills'));
-      expect(restored.allAgents, contains('custom'));
-    });
-
-    test('when removing custom agent then clears customInstallDir', () {
-      final withoutAgent = customBase.withoutAgent('custom');
-      expect(withoutAgent.customInstallDir, isNull);
-
-      final withoutSource = customBase.withoutSourceUri(
-        'custom',
-        'package:my_package',
-      );
-      expect(withoutSource.customInstallDir, isNull);
-    });
-
-    test(
-      'normalizeInstallDir normalizes relative, nested, and absolute paths',
-      () {
-        expect(
-          SkillManifest.normalizeInstallDir('/root', 'custom/dir'),
-          equals('custom/dir'),
-        );
-        expect(
-          SkillManifest.normalizeInstallDir('/root', './custom/dir'),
-          equals('custom/dir'),
-        );
-        expect(
-          SkillManifest.normalizeInstallDir('/root', '/root/custom/dir'),
-          equals('custom/dir'),
-        );
-        expect(
-          SkillManifest.normalizeInstallDir('/root', '/outside/custom/dir'),
-          equals('/outside/custom/dir'),
-        );
-      },
-    );
-
-    test('normalizeInstallDir resolves relative paths against rootPath', () {
-      // If resolved against current directory, `custom/dir` would be inside this
-      // rootPath and stored as `dir`.
-      final rootPath = p.join(p.current, 'custom');
-      expect(
-        SkillManifest.normalizeInstallDir(rootPath, 'custom/dir'),
-        equals('custom/dir'),
-      );
     });
   });
 }

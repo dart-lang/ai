@@ -80,7 +80,7 @@ To install skills into a custom directory (e.g., for unsupported agents or `thir
 dart run skills@ get --install-dir path/to/skills
 ```
 
-Mutually exclusive with `--agent`.
+Can be combined with `--agent`.
 
 ### Pruning removed dependencies and unused sources
 

@@ -10,9 +10,6 @@ import 'package:meta/meta.dart';
 import 'package:skills/src/core/dialog_support.dart';
 
 import '../agent/agent.dart';
-import '../models/skill_manifest.dart';
-
-const installDirOption = 'install-dir';
 
 /// Parses the --agent option from [argResults].
 /// Returns the agents that were specified via --agent.
@@ -35,43 +32,16 @@ void addAgentOption(ArgParser argParser) {
 /// Registers the shared `--install-dir` option on [argParser].
 void addInstallDirOption(ArgParser argParser) {
   argParser.addOption(
-    installDirOption,
+    'install-dir',
     abbr: 'd',
     help: 'Custom install directory.',
   );
 }
 
-/// Parses the --install-dir option from [argResults].
-String? parseInstallDirOption(ArgResults argResults) =>
-    argResults.option(installDirOption);
-
-/// Returns [manifest] updated with the `--install-dir` value [installDir].
+/// Resolves the agents to operate on.
 ///
-/// Throws [UsageException] if a different directory is already recorded.
-SkillManifest withInstallDir(
-  SkillManifest manifest,
-  String rootPath,
-  String installDir,
-) {
-  final normalized = SkillManifest.normalizeInstallDir(rootPath, installDir);
-  final existing = manifest.customInstallDir;
-  if (existing != null && existing != normalized) {
-    throw UsageException(
-      'Cannot use --install-dir "$normalized": skills are already installed '
-          'to "$existing". Remove them first to use a different directory.',
-      '',
-    );
-  }
-  return manifest.copyWith(customInstallDir: normalized);
-}
-
-/// Returns the agents to operate on.
-///
-/// Returns `[Agent.custom]` if `--install-dir` is specified.
-/// If `--agent` is specified (or the `SKILLS_AGENT` env var), returns that single
-/// agent. Otherwise returns all auto-detected agents.
-///
-/// If no agent is auto-detected, uses [DialogSupport] (if given) to ask the user.
+/// Checks `--agent` and `--install-dir`, then `SKILLS_AGENT` env var, then
+/// auto-detects, and finally prompts the user via [dialogSupport].
 ///
 /// Throws if no agent can be determined.
 ///
@@ -84,18 +54,15 @@ Future<List<Agent>> resolveAgents({
   @visibleForTesting Map<String, String>? environment,
 }) async {
   if (argResults != null) {
-    final customInstallDir = parseInstallDirOption(argResults);
-    final parsedAgents = parseAgentOption(argResults);
-    if (customInstallDir != null) {
-      if (parsedAgents.isNotEmpty) {
-        throw UsageException('Cannot use both --agent and --install-dir.', '');
-      }
-      if (customInstallDir.trim().isEmpty) {
+    final agents = parseAgentOption(argResults);
+    final installDir = argResults.option('install-dir');
+    if (installDir != null) {
+      if (installDir.trim().isEmpty) {
         throw UsageException('--install-dir requires a non-empty path.', '');
       }
-      return [Agent.custom];
+      agents.add(Agent.directory(installDir, projectPath: projectPath));
     }
-    if (parsedAgents.isNotEmpty) return parsedAgents;
+    if (agents.isNotEmpty) return agents;
   }
 
   // No explicit option, next we check for environment variables.
@@ -106,7 +73,8 @@ Future<List<Agent>> resolveAgents({
       environment['SKILLS_IDE'];
   if (env != null) {
     final agent = Agent.fromCliName(env);
-    if (agent != null && agent != Agent.custom) return [agent];
+    // Only accepts built-in agents, like --agent.
+    if (agent != null && Agent.values.contains(agent)) return [agent];
     throw UsageException(
       'Unknown AGENT "$env". Valid values: ${Agent.validNames}',
       '',
@@ -118,17 +86,13 @@ Future<List<Agent>> resolveAgents({
   if (detected.isNotEmpty) return detected;
 
   if (dialogSupport case var dialogSupport?) {
-    final selectableAgents = [
-      for (var agent in Agent.values)
-        if (agent != Agent.custom) agent,
-    ];
-    final options = [for (var agent in selectableAgents) agent.label];
+    final options = [for (var agent in Agent.values) agent.label];
     final result = await dialogSupport.showMultiSelectDialog(
       options,
       title: 'Unable to auto-detect agent. Please select one or more:',
     );
     if (result != null && result.isNotEmpty) {
-      return result.map((e) => selectableAgents[e]).toList();
+      return result.map((e) => Agent.values[e]).toList();
     }
   }
   throw UsageException(

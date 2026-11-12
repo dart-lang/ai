@@ -1,7 +1,10 @@
+// Copyright (c) 2026, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
 import 'dart:async';
 import 'dart:io';
 
-import 'package:args/command_runner.dart';
 import 'package:io/ansi.dart';
 import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
@@ -95,16 +98,19 @@ description: Skill 1 from dep_a.
 
         final manifest = await SkillManifest.loadFromRoot(projectPath);
         expect(manifest, isNotNull);
-        expect(manifest!.customInstallDir, equals('third_party/skills'));
-        expect(manifest.allAgents, contains('custom'));
+        expect(manifest!.allAgents, equals(['dir:third_party/skills']));
         expect(
-          manifest.sourceUrisForAgent('custom')['package:dep_a']!.skills,
+          manifest
+              .sourceUrisForAgent('dir:third_party/skills')['package:dep_a']!
+              .skills,
           hasLength(1),
         );
 
         expect(
           loggedMessages.any(
-            (m) => m.contains('custom (installed at third_party/skills):'),
+            (m) => m.contains(
+              'dir:third_party/skills (installed at third_party/skills):',
+            ),
           ),
           isTrue,
         );
@@ -129,68 +135,38 @@ description: Skill 1 from dep_a.
       },
     );
 
-    group('with skills already installed to custom dir', () {
-      setUp(() async {
-        await overrideAnsiOutput(false, () async {
+    test('two custom directories coexist and remove cleans both', () async {
+      await overrideAnsiOutput(false, () async {
+        for (final dir in ['first_dir', 'second_dir']) {
           await runner.run([
             'get',
             '--directory',
             projectPath,
             '--install-dir',
-            'first_dir',
+            dir,
             '--all',
           ]);
-        });
+        }
       });
 
-      test('accepts same --install-dir again', () async {
-        await overrideAnsiOutput(false, () async {
-          await runner.run([
-            'get',
-            '--directory',
-            projectPath,
-            '--install-dir',
-            './first_dir',
-            '--all',
-          ]);
-        });
+      final skillFiles = [
+        for (final dir in ['first_dir', 'second_dir'])
+          File(p.join(projectPath, dir, 'dep_a-skill1', 'SKILL.md')),
+      ];
+      for (final skillFile in skillFiles) {
+        expect(await skillFile.exists(), isTrue);
+      }
+      final manifest = await SkillManifest.loadFromRoot(projectPath);
+      expect(manifest!.allAgents, equals(['dir:first_dir', 'dir:second_dir']));
 
-        final manifest = await SkillManifest.loadFromRoot(projectPath);
-        expect(manifest!.customInstallDir, equals('first_dir'));
+      await overrideAnsiOutput(false, () async {
+        await runner.run(['remove', '--directory', projectPath, '--all']);
       });
 
-      test('different --install-dir throws UsageException', () async {
-        await expectLater(
-          runner.run([
-            'get',
-            '--directory',
-            projectPath,
-            '--install-dir',
-            'second_dir',
-            '--all',
-          ]),
-          throwsA(
-            isA<UsageException>().having(
-              (e) => e.message,
-              'message',
-              contains('first_dir'),
-            ),
-          ),
-        );
-
-        expect(
-          await File(
-            p.join(projectPath, 'first_dir', 'dep_a-skill1', 'SKILL.md'),
-          ).exists(),
-          isTrue,
-        );
-        expect(
-          await Directory(p.join(projectPath, 'second_dir')).exists(),
-          isFalse,
-        );
-        final manifest = await SkillManifest.loadFromRoot(projectPath);
-        expect(manifest!.customInstallDir, equals('first_dir'));
-      });
+      for (final skillFile in skillFiles) {
+        expect(await skillFile.exists(), isFalse);
+      }
+      expect(await SkillManifest.loadFromRoot(projectPath), isNull);
     });
   });
 }

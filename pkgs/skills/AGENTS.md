@@ -23,7 +23,7 @@ Fix any format, analysis, or test failures before finishing.
 - **agent install locations:** Install full Agent Skills (SKILL.md plus scripts, references, assets) into each agent’s documented location: `.cursor/skills/`, `.agents/skills/`, `.claude/skills/`, `.cline/skills/`, `.github/skills/`. See README for spec links.
 - **Registry repos:** GitHub registry repos are cloned/updated under `.dart_tool/skills/repos/<owner>/<repo>`. The merge step gives Dart-package skills precedence per package: if a dependency ships its own skills, registry skills for that package are not installed.
 - **Generic agent:** Antigravity, Codex, and generic are separate CLI options that all install to `.agents/skills/`. Only `generic` is stored in `skills_config.json`.
-- **Custom install directory:** The `--install-dir` (`-d`) option installs skills to a custom directory using `CustomAdapter`. It implicitly uses the `custom` agent, hiding it from the `--agent` options. The directory is stored as `customInstallDir` in `skills_config.json` (one per project); always create the adapter from that value.
+- **Custom install directory:** The `--install-dir` (`-d`) option installs skills to a custom directory. It creates a `dir:<path>` agent stored in `skills_config.json`. The name uses `/` separators; use `Agent.skillsPath` to get the local path.
 - **Listing agents:** When listing agents/agents (docs, help text, CLI options), use alphabetical order with generic last.
 - **Cline** is experimental; **Copilot** is not auto-detected (use `--agent copilot` explicitly).
 - **Tests** Always write tests for all new features that are added.

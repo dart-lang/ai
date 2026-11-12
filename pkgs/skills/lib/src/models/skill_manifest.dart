@@ -40,9 +40,6 @@ class SkillManifest {
   /// The version of the manifest when it was loaded.
   final int version;
 
-  /// The custom install directory, if configured for this project.
-  final String? customInstallDir;
-
   /// Outer key: agent name, inner key: package uri or git uri.
   final Map<String, Map<String, SkillsEntry>> installations;
 
@@ -53,7 +50,6 @@ class SkillManifest {
   /// Configured git repos for this workspace.
   const SkillManifest({
     this.version = currentVersion,
-    this.customInstallDir,
     this.installations = const {},
     this.suggestedRepos = const {},
   });
@@ -114,7 +110,6 @@ class SkillManifest {
 
   factory SkillManifest.fromJson(Map<String, dynamic> json) {
     final version = json['version'] as int? ?? 1;
-    final customInstallDir = json['customInstallDir'] as String?;
     final installationsJson =
         json['installations'] as Map<String, dynamic>? ?? {};
     final installations = installationsJson.map((agentKey, agentValue) {
@@ -134,7 +129,6 @@ class SkillManifest {
 
     return SkillManifest(
       version: version,
-      customInstallDir: customInstallDir,
       installations: installations,
       suggestedRepos: suggestedRepos,
     );
@@ -143,7 +137,6 @@ class SkillManifest {
   Map<String, dynamic> toJson() {
     return {
       'version': currentVersion,
-      if (customInstallDir != null) 'customInstallDir': customInstallDir,
       'installations': installations.map(
         (agent, entries) => MapEntry(
           agent,
@@ -204,32 +197,6 @@ class SkillManifest {
       installations.isEmpty ||
       installations.values.every((pkgs) => pkgs.isEmpty);
 
-  /// Normalizes [installDir] relative to [rootPath] using forward slashes.
-  static String normalizeInstallDir(String rootPath, String installDir) {
-    final absolute = p.normalize(p.join(rootPath, installDir));
-    return p.isWithin(rootPath, absolute)
-        ? p.split(p.relative(absolute, from: rootPath)).join('/')
-        : absolute;
-  }
-
-  /// Returns a copy of this manifest with updated fields.
-  SkillManifest copyWith({
-    int? version,
-    String? customInstallDir,
-    bool clearCustomInstallDir = false,
-    Map<String, Map<String, SkillsEntry>>? installations,
-    Set<String>? suggestedRepos,
-  }) {
-    return SkillManifest(
-      version: version ?? this.version,
-      customInstallDir: clearCustomInstallDir
-          ? null
-          : (customInstallDir ?? this.customInstallDir),
-      installations: installations ?? this.installations,
-      suggestedRepos: suggestedRepos ?? this.suggestedRepos,
-    );
-  }
-
   /// Returns a copy with [entry] set for [agent] + [sourceUri].
   SkillManifest withSourceUri(
     String agent,
@@ -240,7 +207,6 @@ class SkillManifest {
     updated.putIfAbsent(agent, () => {})[sourceUri] = entry;
     return SkillManifest(
       version: version,
-      customInstallDir: customInstallDir,
       installations: updated,
       suggestedRepos: suggestedRepos,
     );
@@ -250,7 +216,6 @@ class SkillManifest {
   SkillManifest withPromptedSuggestedRepos(Set<String> repos) {
     return SkillManifest(
       version: version,
-      customInstallDir: customInstallDir,
       installations: installations,
       suggestedRepos: {...suggestedRepos, ...repos},
     );
@@ -260,13 +225,9 @@ class SkillManifest {
   SkillManifest withoutSourceUri(String agent, String sourceUri) {
     final updated = _deepCopy();
     updated[agent]?.remove(sourceUri);
-    final agentRemoved = updated[agent]?.isEmpty ?? false;
-    if (agentRemoved) updated.remove(agent);
+    if (updated[agent]?.isEmpty ?? false) updated.remove(agent);
     return SkillManifest(
       version: version,
-      customInstallDir: (agent == 'custom' && agentRemoved)
-          ? null
-          : customInstallDir,
       installations: updated,
       suggestedRepos: suggestedRepos,
     );
@@ -278,7 +239,6 @@ class SkillManifest {
     updated.remove(agent);
     return SkillManifest(
       version: version,
-      customInstallDir: agent == 'custom' ? null : customInstallDir,
       installations: updated,
       suggestedRepos: suggestedRepos,
     );

@@ -14,6 +14,6 @@ class CustomAdapter extends AgentSkillsAdapter {
   @override
   final Logger logger = Logger('CustomAdapter');
 
-  CustomAdapter(String skillsDirectory, {super.dialogSupport})
-    : super(Agent.custom, skillsDirectory);
+  CustomAdapter(Agent agent, String projectPath, {super.dialogSupport})
+    : super(agent, agent.skillsPath(projectPath));
 }
