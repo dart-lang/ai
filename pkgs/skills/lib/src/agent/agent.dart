@@ -119,7 +119,8 @@ class Agent {
   /// Accepts canonical names, aliases, and `dir:<path>` directory agents.
   static Agent? fromCliName(String name) {
     if (name.startsWith(_directoryPrefix)) {
-      return Agent._(name, name.substring(_directoryPrefix.length));
+      final path = name.substring(_directoryPrefix.length);
+      return path.trim().isEmpty ? null : Agent._(name, path);
     }
     final lower = name.toLowerCase();
     for (final agent in Agent.values) {

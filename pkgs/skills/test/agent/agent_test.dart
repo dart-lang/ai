@@ -79,6 +79,11 @@ void main() {
       expect(parsed.skillsRelativePath, equals(agent.skillsRelativePath));
     });
 
+    test('when parsing a CLI name with no path then returns null', () {
+      expect(Agent.fromCliName('dir:'), isNull);
+      expect(Agent.fromCliName('dir: '), isNull);
+    });
+
     test(
       'when its CLI name was written on Windows then it resolves to a POSIX path',
       () {
