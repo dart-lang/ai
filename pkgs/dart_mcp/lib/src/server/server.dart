@@ -376,13 +376,15 @@ RpcException get _missingRoots => _missingClientCapability(
 );
 
 /// The refusal for a client that did not declare `sampling`.
-RpcException get _missingSampling =>
-    _missingClientCapability('sampling', ClientCapabilities(sampling: {}));
+RpcException get _missingSampling => _missingClientCapability(
+  'sampling',
+  ClientCapabilities(sampling: SamplingCapability()),
+);
 
 /// The refusal for a client whose `sampling` left out `tools`.
 RpcException get _missingSamplingTools => _missingClientCapability(
   'sampling.tools',
-  ClientCapabilities(sampling: {Keys.tools: <String, Object?>{}}),
+  ClientCapabilities(sampling: SamplingCapability(tools: {})),
 );
 
 /// The refusal for a client that did not declare `elicitation.form`.
@@ -410,7 +412,7 @@ extension on ClientCapabilities {
 
   /// Whether or not the client can answer a sampling request carrying `tools`
   /// or `toolChoice`.
-  bool get supportsSamplingTools => sampling?[Keys.tools] != null;
+  bool get supportsSamplingTools => sampling?.tools != null;
 
   bool get supportsFormElicitation {
     final elicitation = this.elicitation;

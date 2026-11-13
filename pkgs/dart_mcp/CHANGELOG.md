@@ -211,6 +211,9 @@
   - Remove the `meta` parameter from the `Completion` factory. It was never
     written, and the schema has no `_meta` on a completion. Pass it to
     `CompleteResult` instead.
+  - `ClientCapabilities.sampling` is now a `SamplingCapability` instead of a
+    `Map<String, Object?>`, with typed `context` and `tools`. Pass
+    `SamplingCapability(tools: {})` where you passed `{'tools': {}}`.
 - Cap the request body in `handleStreamableHttpRequest` at
   `maxRequestBodyBytes`, 4 MiB by default.
   Larger bodies get `413` and an invalid request error. The same cap is the
