@@ -103,7 +103,7 @@ void main() {
 
     final served = await _callTool(
       'test/sample',
-      ClientCapabilities(sampling: {}),
+      ClientCapabilities(sampling: SamplingCapability()),
       protocolVersion: ProtocolVersion.v2026_07_28,
     );
     expect(served![Keys.error], isNull);

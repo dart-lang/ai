@@ -276,7 +276,7 @@ extension type ClientCapabilities._fromMap(Map<String, Object?> _value) {
   factory ClientCapabilities({
     Map<String, Object?>? experimental,
     RootsCapabilities? roots,
-    Map<String, Object?>? sampling,
+    SamplingCapability? sampling,
     ElicitationCapability? elicitation,
     Map<String, Object?>? extensions,
   }) => ClientCapabilities.fromMap({
@@ -307,11 +307,12 @@ extension type ClientCapabilities._fromMap(Map<String, Object?> _value) {
   }
 
   /// Present if the client supports sampling from an LLM.
-  Map<String, Object?>? get sampling =>
-      (_value[Keys.sampling] as Map?)?.cast<String, Object?>();
+  SamplingCapability? get sampling =>
+      (_value[Keys.sampling] as Map?)?.cast<String, Object?>()
+          as SamplingCapability?;
 
   /// Sets [sampling] asserting it is non-null first.
-  set sampling(Map<String, Object?>? value) {
+  set sampling(SamplingCapability? value) {
     assert(sampling == null);
     _value[Keys.sampling] = value;
   }
@@ -364,6 +365,37 @@ extension type RootsCapabilities.fromMap(Map<String, Object?> _value) {
   set listChanged(bool? value) {
     assert(listChanged == null);
     _value[Keys.listChanged] = value;
+  }
+}
+
+/// Whether the client supports sampling, and which parts of it.
+extension type SamplingCapability.fromMap(Map<String, Object?> _value) {
+  factory SamplingCapability({
+    Map<String, Object?>? context,
+    Map<String, Object?>? tools,
+  }) => SamplingCapability.fromMap({
+    if (context != null) Keys.context: context,
+    if (tools != null) Keys.tools: tools,
+  });
+
+  /// Whether context inclusion through `includeContext` is supported.
+  Map<String, Object?>? get context =>
+      (_value[Keys.context] as Map?)?.cast<String, Object?>();
+
+  /// Sets whether [context] is supported.
+  set context(Map<String, Object?>? value) {
+    assert(context == null);
+    _value[Keys.context] = value;
+  }
+
+  /// Whether tool use through `tools` and `toolChoice` is supported.
+  Map<String, Object?>? get tools =>
+      (_value[Keys.tools] as Map?)?.cast<String, Object?>();
+
+  /// Sets whether [tools] is supported.
+  set tools(Map<String, Object?>? value) {
+    assert(tools == null);
+    _value[Keys.tools] = value;
   }
 }
 

@@ -10,7 +10,7 @@ part of 'client.dart';
 base mixin SamplingSupport on MCPClient {
   @override
   void initialize() {
-    capabilities.sampling ??= {};
+    capabilities.sampling ??= SamplingCapability();
     super.initialize();
   }
 
