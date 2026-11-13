@@ -369,6 +369,8 @@ extension type RootsCapabilities.fromMap(Map<String, Object?> _value) {
 }
 
 /// Whether the client supports sampling, and which parts of it.
+///
+/// See https://modelcontextprotocol.io/specification/2026-07-28/schema#clientcapabilities-sampling.
 extension type SamplingCapability.fromMap(Map<String, Object?> _value) {
   factory SamplingCapability({
     Map<String, Object?>? context,
