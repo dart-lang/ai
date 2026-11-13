@@ -78,6 +78,15 @@ void main() {
       expect(ClientCapabilities().sampling, isNull);
     });
 
+    test('reads its fields off an untyped map', () {
+      final capabilities = ClientCapabilities.fromMap({
+        'sampling': <dynamic, dynamic>{'tools': <dynamic, dynamic>{}},
+      });
+
+      expect(capabilities.sampling!.tools, <String, Object?>{});
+      expect(capabilities.sampling!.context, isNull);
+    });
+
     test('setters write through to the client capabilities map', () {
       final capabilities =
           ClientCapabilities()..sampling = SamplingCapability();
