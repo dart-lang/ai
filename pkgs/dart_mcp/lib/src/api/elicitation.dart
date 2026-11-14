@@ -111,10 +111,10 @@ extension type ElicitRequest._fromMap(Map<String, Object?> _value)
           propertySchema.anyOf != null ||
           (oneOf != null &&
               (propertySchema._value[Keys.type] != JsonType.string.typeName ||
-                  oneOf is! List ||
+                  oneOf is! List<Object?> ||
                   !oneOf.every(
                     (value) =>
-                        value is Map &&
+                        value is Map<String, Object?> &&
                         value[Keys.const_] is String &&
                         value[Keys.title] is String,
                   ))) ||
