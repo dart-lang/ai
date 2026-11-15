@@ -339,8 +339,11 @@ base mixin DartAnalyzerSupport
         final rootUri = Uri.parse(validated.root!.uri);
 
         if (validated.paths != null && validated.paths!.isNotEmpty) {
+          // Resolve against the root as a directory: without a trailing slash,
+          // `Uri.resolve` would replace the root's last segment.
+          final rootDirectoryUri = fileSystem.directory(rootUri).uri;
           for (final path in validated.paths!) {
-            final uri = rootUri.resolve(path);
+            final uri = rootDirectoryUri.resolve(path);
             requestedUris.add(uri);
             requestedUriRoots[uri] = rootUri;
           }

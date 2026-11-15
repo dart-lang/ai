@@ -1,5 +1,8 @@
 ## 1.2.3-wip
 
+- Fix `analyze_files` resolving relative `paths` against the parent directory
+  of a root whose URI has no trailing slash, which made it report "No errors"
+  for files that have errors.
 - Tighten argument and path validation in `rip_grep_packages` and
   `read_package_uris`.
 - Report `dart-mcp-server` as the analytics tool, recorded as the `leaf_tool`

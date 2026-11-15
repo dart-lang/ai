@@ -245,6 +245,48 @@ void main() {
       ]);
     });
 
+    test('resolves paths against a root without a trailing slash', () async {
+      final example = d.dir('example', [
+        d.dir('lib', [d.file('main.dart', 'void main() => 1 + "2";')]),
+      ]);
+      await example.create();
+      final rootUri = testHarness.rootForPath(example.io.path).uri;
+      expect(rootUri, endsWith('/'));
+      final exampleRoot = Root(uri: rootUri.substring(0, rootUri.length - 1));
+      testHarness.mcpClient.addRoot(exampleRoot);
+
+      await pumpEventQueue();
+
+      final request = CallToolRequest(
+        name: analyzeTool.name,
+        arguments: {
+          ParameterNames.roots: [
+            {
+              ParameterNames.root: exampleRoot.uri,
+              ParameterNames.paths: ['lib'],
+            },
+          ],
+        },
+      );
+      final result = await testHarness.callToolWithRetry(request);
+      expect(result.isError, isNot(true));
+      expect(result.content, [
+        isA<TextContent>().having(
+          (t) => t.text,
+          'text',
+          contains('# Diagnostics for root'),
+        ),
+        isA<TextContent>().having(
+          (t) => t.text,
+          'text',
+          contains(
+            "error • main.dart:1:20 • The argument type 'String' can't be "
+            "assigned to the parameter type 'num'.",
+          ),
+        ),
+      ]);
+    });
+
     test('handles a non-existent path', () async {
       final example = d.dir('example', [
         d.file('main.dart', 'void main() => 1 + "2";'),
