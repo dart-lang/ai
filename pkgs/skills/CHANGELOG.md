@@ -2,6 +2,8 @@
 
 ## 1.0.5-wip
 
+- Stop injecting `user-invocable: false` into `SKILL.md` frontmatter when
+  installing skills for Claude Code.
 - Report `skills-cli` as the analytics tool, recorded as the `leaf_tool` user
   property, instead of the value of the `DASH__TOOL` environment variable.
   `package:unified_analytics` now resolves the root tool from `DASH__TOOL` and
