@@ -74,6 +74,12 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
       )..failureReason ??= CallToolFailureReason.argumentError;
     }
 
+    // The `packageNames` list is forwarded directly into the `dart pub` argv.
+    // A caller (or an LLM acting on injected instructions) could otherwise
+    // smuggle pub flags such as `--directory` here to operate on a path outside
+    // the approved roots, or pass other unexpected arguments. Validate each
+    // entry, and pass the remaining names after a `--` separator so pub's
+    // argument parser always treats them as positional package descriptors.
     if (packageNames != null) {
       final invalid = packageNames.where((name) => !_isValidPackageEntry(name));
       if (invalid.isNotEmpty) {
