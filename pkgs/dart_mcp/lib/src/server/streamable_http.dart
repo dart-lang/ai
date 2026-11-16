@@ -682,11 +682,11 @@ bool _selects(
     filter?.promptsListChanged == true,
   ResourceListChangedNotification.methodName =>
     filter?.resourcesListChanged == true,
-  ResourceUpdatedNotification.methodName =>
-    filter?.resourceSubscriptions?.contains(
-          (notification[Keys.params] as Map?)?[Keys.uri],
-        ) ==
-        true,
+  ResourceUpdatedNotification.methodName => switch (notification[Keys.params]) {
+    Map<String, Object?> params =>
+      filter?.resourceSubscriptions?.contains(params[Keys.uri]) == true,
+    _ => false,
+  },
   _ => false,
 };
 
@@ -698,12 +698,13 @@ Map<String, Object?> _withSubscriptionId(
   Map<String, Object?> notification,
   Object? subscriptionId,
 ) {
-  final params = notification[Keys.params] as Map<String, Object?>?;
-  final meta = params?[Keys.meta];
+  final params = notification[Keys.params];
+  final paramsMap = params is Map<String, Object?> ? params : null;
+  final meta = paramsMap?[Keys.meta];
   return {
     ...notification,
     Keys.params: {
-      ...?params,
+      ...?paramsMap,
       Keys.meta: MetaWithSubscriptionId.fromMap({
         if (meta is Map<String, Object?>) ...meta,
         Keys.subscriptionIdMeta: subscriptionId,
