@@ -452,45 +452,9 @@ Future<void> handleStreamableHttpRequest(
     );
   }
 
-  final nameParam = mcpNameParams[method];
-  if (nameParam != null) {
-    final headerName = _singleHeader(request, mcpNameHeader);
-    if (headerName == null) {
-      return _reject(
-        response,
-        HttpStatus.badRequest,
-        RpcException(
-          McpErrorCodes.headerMismatch,
-          'A single $mcpNameHeader header is required for $method',
-        ),
-        decoded,
-      );
-    }
-    final String decodedName;
-    try {
-      decodedName = _decodeSentinel(headerName);
-    } on FormatException {
-      return _reject(
-        response,
-        HttpStatus.badRequest,
-        RpcException(
-          McpErrorCodes.headerMismatch,
-          'The $mcpNameHeader header is not valid base64',
-        ),
-        decoded,
-      );
-    }
-    if (decodedName != params[nameParam]) {
-      return _reject(
-        response,
-        HttpStatus.badRequest,
-        RpcException(
-          McpErrorCodes.headerMismatch,
-          'The $mcpNameHeader header does not match params.$nameParam',
-        ),
-        decoded,
-      );
-    }
+  final nameRejection = _checkMcpNameHeader(request, method, params);
+  if (nameRejection != null) {
+    return _reject(response, HttpStatus.badRequest, nameRejection, decoded);
   }
 
   if (!protocolVersion.methodIsValid(method) && _someRevisionDefines(method)) {
@@ -516,6 +480,13 @@ Future<void> handleStreamableHttpRequest(
   StreamSubscription<Map<String, Object?>>? notificationSubscription;
   var responseClosed = false;
   var listenFailed = false;
+
+  /// Shuts down the server built for this request if it is still running.
+  Future<void> shutDownActiveServer() async {
+    final server = activeServer;
+    if (server != null && server.isActive) await server.shutdown();
+  }
+
   unawaited(() async {
     try {
       await response.done;
@@ -526,8 +497,7 @@ Future<void> handleStreamableHttpRequest(
     responseClosed = true;
     answer.cancel();
     await notificationSubscription?.cancel();
-    final server = activeServer;
-    if (server != null && server.isActive) await server.shutdown();
+    await shutDownActiveServer();
   }());
 
   /// Writes [notification] to the response stream, skipping the ones an
@@ -548,37 +518,51 @@ Future<void> handleStreamableHttpRequest(
     }
   }
 
+  /// Writes [notification], or holds it back while a `tools/call` waits for
+  /// its header check.
+  void writeOrHoldNotification(Map<String, Object?> notification) {
+    final pending = pendingNotifications;
+    if (pending == null) {
+      writeNotification(notification);
+    } else {
+      pending.add(notification);
+    }
+  }
+
   SubscriptionFilter? accepted;
+
+  /// Writes [notification] to the listen stream when the accepted filter
+  /// selects it.
   void deliverSubscriptionNotification(Map<String, Object?> notification) {
-    final notificationMethod = notification[Keys.method];
-    if (!_listenStreamNotifications.contains(notificationMethod)) return;
-    final selected = switch (notificationMethod) {
-      ToolListChangedNotification.methodName =>
-        accepted?.toolsListChanged == true,
-      PromptListChangedNotification.methodName =>
-        accepted?.promptsListChanged == true,
-      ResourceListChangedNotification.methodName =>
-        accepted?.resourcesListChanged == true,
-      ResourceUpdatedNotification.methodName =>
-        accepted?.resourceSubscriptions?.contains(
-              (notification[Keys.params] as Map?)?[Keys.uri],
-            ) ==
-            true,
-      _ => false,
-    };
-    if (!selected) return;
-    final params = notification[Keys.params] as Map<String, Object?>?;
-    final meta = params?[Keys.meta];
-    answer.notify({
-      ...notification,
-      Keys.params: {
-        ...?params,
-        Keys.meta: MetaWithSubscriptionId.fromMap({
-          if (meta is Map<String, Object?>) ...meta,
-          Keys.subscriptionIdMeta: object.id,
-        }),
-      },
-    });
+    if (!_selects(accepted, notification)) return;
+    answer.notify(_withSubscriptionId(notification, object.id));
+  }
+
+  /// Starts the listen stream with the filter [acknowledgement] accepted, or
+  /// fails the request when its params are not a JSON object.
+  void onAcknowledged(Map<String, Object?> acknowledgement) {
+    final params = acknowledgement[Keys.params];
+    if (params is! Map<String, Object?>) {
+      listenFailed = true;
+      unawaited(() async {
+        await notificationSubscription?.cancel();
+        await answer.finish(
+          RpcException(
+            error_code.INTERNAL_ERROR,
+            'The `${SubscriptionsAcknowledgedNotification.methodName}` '
+            'params got `$params`, but must be a JSON object.',
+          ).serialize(decoded),
+        );
+        await shutDownActiveServer();
+      }());
+      return;
+    }
+    accepted =
+        SubscriptionsAcknowledgedNotification.fromMap(params).notifications;
+    answer.notify(acknowledgement);
+    notificationSubscription ??= subscriptionNotifications?.listen(
+      deliverSubscriptionNotification,
+    );
   }
 
   final Map<String, Object?>? result;
@@ -599,47 +583,15 @@ Future<void> handleStreamableHttpRequest(
         return server;
       },
       onNotification: (notification) {
-        final notificationMethod = notification[Keys.method];
-        if (method == SubscriptionsListenRequest.methodName) {
-          if (notificationMethod ==
-              SubscriptionsAcknowledgedNotification.methodName) {
-            final params = notification[Keys.params];
-            if (params is! Map<String, Object?>) {
-              listenFailed = true;
-              unawaited(() async {
-                await notificationSubscription?.cancel();
-                await answer.finish(
-                  RpcException(
-                    error_code.INTERNAL_ERROR,
-                    'The `${SubscriptionsAcknowledgedNotification.methodName}` '
-                    'params got `$params`, but must be a JSON object.',
-                  ).serialize(decoded),
-                );
-                final server = activeServer;
-                if (server != null && server.isActive) await server.shutdown();
-              }());
-            } else {
-              accepted =
-                  SubscriptionsAcknowledgedNotification.fromMap(
-                    params,
-                  ).notifications;
-              answer.notify(notification);
-              notificationSubscription ??= subscriptionNotifications?.listen(
-                deliverSubscriptionNotification,
-              );
-            }
-          } else if (_listenStreamNotifications.contains(notificationMethod)) {
-            if (subscriptionNotifications == null) {
-              deliverSubscriptionNotification(notification);
-            }
-          }
-        } else {
-          final pending = pendingNotifications;
-          if (pending == null) {
-            writeNotification(notification);
-          } else {
-            pending.add(notification);
-          }
+        if (method != SubscriptionsListenRequest.methodName) {
+          writeOrHoldNotification(notification);
+        } else if (notification[Keys.method] ==
+            SubscriptionsAcknowledgedNotification.methodName) {
+          onAcknowledged(notification);
+        } else if (subscriptionNotifications == null) {
+          // Without a shared stream, the listen request's own server is the
+          // only source of the changes it selects.
+          deliverSubscriptionNotification(notification);
         }
         onNotification?.call(notification);
       },
@@ -718,6 +670,47 @@ const _listenStreamNotifications = {
   ResourceListChangedNotification.methodName,
   ResourceUpdatedNotification.methodName,
 };
+
+/// Whether [filter], as a `subscriptions/listen` acknowledgement accepted it,
+/// selects [notification] for the listen stream.
+bool _selects(
+  SubscriptionFilter? filter,
+  Map<String, Object?> notification,
+) => switch (notification[Keys.method]) {
+  ToolListChangedNotification.methodName => filter?.toolsListChanged == true,
+  PromptListChangedNotification.methodName =>
+    filter?.promptsListChanged == true,
+  ResourceListChangedNotification.methodName =>
+    filter?.resourcesListChanged == true,
+  ResourceUpdatedNotification.methodName =>
+    filter?.resourceSubscriptions?.contains(
+          (notification[Keys.params] as Map?)?[Keys.uri],
+        ) ==
+        true,
+  _ => false,
+};
+
+/// A copy of [notification] with [subscriptionId] added to its `_meta`.
+///
+/// The original is left unchanged because a shared stream can hand the same
+/// notification to several listen requests.
+Map<String, Object?> _withSubscriptionId(
+  Map<String, Object?> notification,
+  Object? subscriptionId,
+) {
+  final params = notification[Keys.params] as Map<String, Object?>?;
+  final meta = params?[Keys.meta];
+  return {
+    ...notification,
+    Keys.params: {
+      ...?params,
+      Keys.meta: MetaWithSubscriptionId.fromMap({
+        if (meta is Map<String, Object?>) ...meta,
+        Keys.subscriptionIdMeta: subscriptionId,
+      }),
+    },
+  };
+}
 
 const _sseKeepAlive = ': keep-alive\n\n';
 
@@ -932,6 +925,43 @@ bool _someRevisionDefines(String method) =>
 ///
 /// https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http
 final _decimal = RegExp(r'^-?\d+(\.\d+)?$');
+
+/// Validates the `Mcp-Name` header of [request] against the value in [params]
+/// that names the target of [method].
+///
+/// Returns `null` when the header matches, or when [method] takes no
+/// `Mcp-Name` header.
+RpcException? _checkMcpNameHeader(
+  HttpRequest request,
+  String method,
+  Map<String, Object?> params,
+) {
+  final nameParam = mcpNameParams[method];
+  if (nameParam == null) return null;
+  final headerName = _singleHeader(request, mcpNameHeader);
+  if (headerName == null) {
+    return RpcException(
+      McpErrorCodes.headerMismatch,
+      'A single $mcpNameHeader header is required for $method',
+    );
+  }
+  final String decodedName;
+  try {
+    decodedName = _decodeSentinel(headerName);
+  } on FormatException {
+    return RpcException(
+      McpErrorCodes.headerMismatch,
+      'The $mcpNameHeader header is not valid base64',
+    );
+  }
+  if (decodedName != params[nameParam]) {
+    return RpcException(
+      McpErrorCodes.headerMismatch,
+      'The $mcpNameHeader header does not match params.$nameParam',
+    );
+  }
+  return null;
+}
 
 /// Validates annotated primitive arguments in [params] against [request].
 ///
