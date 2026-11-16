@@ -683,7 +683,7 @@ bool _selects(
   ResourceListChangedNotification.methodName =>
     filter?.resourcesListChanged == true,
   ResourceUpdatedNotification.methodName => switch (notification[Keys.params]) {
-    Map<String, Object?> params =>
+    final Map<String, Object?> params =>
       filter?.resourceSubscriptions?.contains(params[Keys.uri]) == true,
     _ => false,
   },
