@@ -415,6 +415,9 @@ void main() {
               'foo:{unknown: value}',
               'foo:{git: --option}',
               'foo:{git: ext::cmd}',
+              'foo:{git: Ext::cmd}',
+              'foo:{git: EXT::cmd}',
+              'foo:{git: {url: Ext::cmd}}',
               'foo:{path: a<b>}',
               'foo:{hosted: https://my-pub.dev, version: bad_version}',
             ];
