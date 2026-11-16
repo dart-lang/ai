@@ -6,6 +6,7 @@ import 'dart:async';
 
 import 'package:dart_mcp/server.dart';
 import 'package:meta/meta.dart';
+import 'package:yaml/yaml.dart';
 
 import '../features_configuration.dart';
 import '../utils/analytics.dart';
@@ -59,7 +60,8 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
     final packageNames =
         (request.arguments?[ParameterNames.packageNames] as List?)
             ?.cast<String>();
-    if (matchingCommand.requiresPackageNames && packageNames == null) {
+    if (matchingCommand.requiresPackageNames &&
+        (packageNames == null || packageNames.isEmpty)) {
       return CallToolResult(
         content: [
           TextContent(
@@ -75,19 +77,19 @@ base mixin PubSupport on ToolsSupport, LoggingSupport, RootsTrackingSupport
     // The `packageNames` list is forwarded directly into the `dart pub` argv.
     // A caller (or an LLM acting on injected instructions) could otherwise
     // smuggle pub flags such as `--directory` here to operate on a path outside
-    // the approved roots. Reject anything that looks like an option, and pass
-    // the remaining names after a `--` separator so pub's argument parser
-    // always treats them as positional package descriptors.
+    // the approved roots, or pass other unexpected arguments. Validate each
+    // entry, and pass the remaining names after a `--` separator so pub's
+    // argument parser always treats them as positional package descriptors.
     if (packageNames != null) {
-      final invalid = packageNames.where((name) => name.startsWith('-'));
+      final invalid = packageNames.where((name) => !_isValidPackageEntry(name));
       if (invalid.isNotEmpty) {
         return CallToolResult(
           content: [
             TextContent(
               text:
                   'Invalid `packageNames` entries: ${invalid.join(', ')}. '
-                  'Entries must be package names (optionally with a version '
-                  'constraint), not command-line options.',
+                  'Entries must be Dart package names or descriptors '
+                  '(e.g. `my_pkg`, `dev:my_pkg`, `my_pkg:^1.0.0`).',
             ),
           ],
           isError: true,
@@ -241,4 +243,108 @@ enum SupportedPubCommand {
     }
     return buffer.toString();
   }
+}
+
+/// Control characters, non-ASCII whitespace, and disallowed punctuation.
+final _disallowedPackageChars = RegExp(
+  r'[\x00-\x1F\x7F-\x9F\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F'
+  r'''\u3000\uFEFF&|;`$%!()"'\\*?#]''',
+);
+
+final _packageNamePattern = RegExp(r'^[a-zA-Z_][a-zA-Z0-9_]*$');
+
+final _separatorPattern = RegExp('[:@]');
+
+/// Matches a SemVer version (`MAJOR.MINOR.PATCH` with optional suffixes).
+const _semverPattern =
+    r'\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?'
+    r'(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?';
+
+/// Matches a version constraint (e.g. `^1.2.3`, `>=1.0.0 <2.0.0`, `any`) or
+/// `pub upgrade` keyword (`latest`, `resolvable`).
+final _versionDescriptorPattern = RegExp(
+  '^(?:any|latest|resolvable|\\^ *$_semverPattern|'
+  '(?:(?:<=?|>=?)? *$_semverPattern)(?: +(?:<=?|>=?)? *$_semverPattern)*)\$',
+);
+
+/// Allowed top-level keys in `pub add` YAML descriptors.
+const _allowedDescriptorKeys = {'version', 'path', 'sdk', 'git', 'hosted'};
+
+/// Whether [entry] is a valid `pub` package argument (e.g. `pkg`, `dev:pkg`,
+/// `pkg:^1.0.0`, or `pkg:{path: ../pkg}`).
+bool _isValidPackageEntry(String entry) {
+  if (entry.isEmpty || _disallowedPackageChars.hasMatch(entry)) {
+    return false;
+  }
+
+  var rest = entry;
+  if (rest.startsWith('dev:')) {
+    rest = rest.substring('dev:'.length);
+  } else if (rest.startsWith('override:')) {
+    rest = rest.substring('override:'.length);
+  }
+
+  final separatorIndex = rest.indexOf(_separatorPattern);
+  if (separatorIndex == -1) {
+    return _packageNamePattern.hasMatch(rest);
+  }
+
+  final packageName = rest.substring(0, separatorIndex);
+  final descriptor = rest.substring(separatorIndex + 1);
+  if (!_packageNamePattern.hasMatch(packageName) || descriptor.isEmpty) {
+    return false;
+  }
+
+  if (descriptor.startsWith('{')) {
+    return _isValidYamlDescriptor(descriptor);
+  }
+  return _versionDescriptorPattern.hasMatch(descriptor);
+}
+
+bool _isValidYamlDescriptor(String descriptor) {
+  if (!descriptor.endsWith('}') ||
+      descriptor.contains('<') ||
+      descriptor.contains('>')) {
+    return false;
+  }
+  final Object? parsed;
+  try {
+    parsed = loadYaml(descriptor);
+  } on YamlException {
+    return false;
+  }
+  if (parsed is! YamlMap || parsed.isEmpty) return false;
+  if (!parsed.keys.every(_allowedDescriptorKeys.contains)) return false;
+  return _hasValidDescriptorEntries(parsed, allowNestedMap: true);
+}
+
+bool _hasValidDescriptorEntries(YamlMap map, {required bool allowNestedMap}) {
+  for (final entry in map.entries) {
+    final key = entry.key;
+    final value = entry.value;
+    if (key is! String || !_packageNamePattern.hasMatch(key)) return false;
+    if (value is YamlMap) {
+      if (!allowNestedMap ||
+          value.isEmpty ||
+          !_hasValidDescriptorEntries(value, allowNestedMap: false)) {
+        return false;
+      }
+      continue;
+    }
+    final stringValue = switch (value) {
+      String() => value,
+      num() => value.toString(),
+      _ => null,
+    };
+    if (stringValue == null ||
+        stringValue.isEmpty ||
+        stringValue.startsWith('-') ||
+        stringValue.startsWith('ext::')) {
+      return false;
+    }
+    if (key == 'version' && !_versionDescriptorPattern.hasMatch(stringValue)) {
+      return false;
+    }
+  }
+  return true;
 }
