@@ -253,6 +253,8 @@ final _disallowedPackageChars = RegExp(
 
 final _packageNamePattern = RegExp(r'^[a-zA-Z_][a-zA-Z0-9_]*$');
 
+final _separatorPattern = RegExp('[:@]');
+
 /// Matches a SemVer version (`MAJOR.MINOR.PATCH` with optional suffixes).
 const _semverPattern =
     r'\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?'
@@ -282,7 +284,7 @@ bool _isValidPackageEntry(String entry) {
     rest = rest.substring('override:'.length);
   }
 
-  final separatorIndex = rest.indexOf(RegExp('[:@]'));
+  final separatorIndex = rest.indexOf(_separatorPattern);
   if (separatorIndex == -1) {
     return _packageNamePattern.hasMatch(rest);
   }
