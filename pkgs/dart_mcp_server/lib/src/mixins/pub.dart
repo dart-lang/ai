@@ -336,10 +336,12 @@ bool _hasValidDescriptorEntries(YamlMap map, {required bool allowNestedMap}) {
       num() => value.toString(),
       _ => null,
     };
+    // Reject CLI flags and Git's `ext::` remote helper scheme, which resolves
+    // regardless of case on case-insensitive file systems.
     if (stringValue == null ||
         stringValue.isEmpty ||
         stringValue.startsWith('-') ||
-        stringValue.startsWith('ext::')) {
+        stringValue.toLowerCase().startsWith('ext::')) {
       return false;
     }
     if (key == 'version' && !_versionDescriptorPattern.hasMatch(stringValue)) {
