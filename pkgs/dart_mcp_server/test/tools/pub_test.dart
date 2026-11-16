@@ -113,6 +113,51 @@ void main() {
           ]);
         });
 
+        test('add with descriptors and prefixes', () async {
+          const descriptors = [
+            'dev:foo',
+            'override:bar:1.0.0',
+            'override:baz@1.0.0',
+            'qux:^1.2.3-beta.1+2',
+            'quux@^1.2.3',
+            'corge:>=1.2.0 <2.0.0',
+            'grault:any',
+            'local_pkg:{path: ../local_pkg}',
+            'sdk_pkg:{sdk: flutter}',
+            'hosted_pkg:{hosted: https://my-pub.dev}',
+            'hosted_map:{hosted: {name: real_pkg, url: https://my-pub.dev}, '
+                'version: ^1.0.0}',
+            'git_pkg:{git:{url: https://github.com/pkg/pkg.git, ref: main, '
+                'path: pkgs/sub}}',
+            'ssh_pkg@{git: git@github.com:pkg/pkg.git}',
+          ];
+          final request = CallToolRequest(
+            name: dartPubTool.name,
+            arguments: {
+              ParameterNames.command: 'add',
+              ParameterNames.packageNames: descriptors,
+              ParameterNames.roots: [
+                {ParameterNames.root: testRoot.uri},
+              ],
+            },
+          );
+          final result = await testHarness.callToolWithRetry(request);
+
+          expect(result.isError, isNot(true));
+          expect(testProcessManager.commandsRan, [
+            equalsCommand((
+              command: [
+                endsWith(executableName),
+                'pub',
+                'add',
+                '--',
+                ...descriptors,
+              ],
+              workingDirectory: testRoot.path,
+            )),
+          ]);
+        });
+
         test('remove', () async {
           final request = CallToolRequest(
             name: dartPubTool.name,
@@ -294,21 +339,29 @@ void main() {
             (c) => c.requiresPackageNames,
           )) {
             test('for missing package name: $command', () async {
-              final request = CallToolRequest(
-                name: dartPubTool.name,
-                arguments: {ParameterNames.command: command.name},
-              );
-              final result = await testHarness.callTool(
-                request,
-                expectError: true,
-              );
+              for (final args in [
+                {ParameterNames.command: command.name},
+                {
+                  ParameterNames.command: command.name,
+                  ParameterNames.packageNames: <String>[],
+                },
+              ]) {
+                final request = CallToolRequest(
+                  name: dartPubTool.name,
+                  arguments: args,
+                );
+                final result = await testHarness.callTool(
+                  request,
+                  expectError: true,
+                );
 
-              expect(
-                (result.content.last as TextContent).text,
-                'Missing required argument `packageNames` for the '
-                '`${command.name}` command.',
-              );
-              expect(testProcessManager.commandsRan, isEmpty);
+                expect(
+                  (result.content.last as TextContent).text,
+                  'Missing required argument `packageNames` for the '
+                  '`${command.name}` command.',
+                );
+                expect(testProcessManager.commandsRan, isEmpty);
+              }
             });
           }
 
@@ -328,6 +381,94 @@ void main() {
             expect(
               (result.content.last as TextContent).text,
               contains('Invalid `packageNames` entries: -foo.'),
+            );
+            expect(testProcessManager.commandsRan, isEmpty);
+          });
+
+          test('for invalid package names and descriptors', () async {
+            const invalidEntries = [
+              '',
+              '1foo',
+              'foo-bar',
+              'foo/bar',
+              'foo&bar',
+              'foo|bar',
+              'foo;bar',
+              r'foo$bar',
+              'foo`bar',
+              'foo%bar%',
+              'foo!bar!',
+              'foo(bar)',
+              'foo"bar',
+              "foo'bar",
+              r'foo\bar',
+              'foo\nbar',
+              'foo\rbar',
+              'foo\x00bar',
+              'foo:>=1.0.0\u00A0<2.0.0',
+              'foo:',
+              'foo@',
+              'foo:not_a_version',
+              'foo:>not_a_version',
+              'foo:{unclosed',
+              'foo:{}',
+              'foo:{unknown: value}',
+              'foo:{git: --option}',
+              'foo:{git: ext::cmd}',
+              'foo:{path: a<b>}',
+              'foo:{hosted: https://my-pub.dev, version: bad_version}',
+            ];
+
+            for (final entry in invalidEntries) {
+              final request = CallToolRequest(
+                name: dartPubTool.name,
+                arguments: {
+                  ParameterNames.command: 'add',
+                  ParameterNames.packageNames: ['valid_pkg', entry],
+                  ParameterNames.roots: [
+                    {ParameterNames.root: testRoot.uri},
+                  ],
+                },
+              );
+              final result = await testHarness.callTool(
+                request,
+                expectError: true,
+              );
+
+              expect(
+                (result.content.last as TextContent).text,
+                contains('Invalid `packageNames` entries: $entry.'),
+                reason: 'Expected "$entry" to be rejected',
+              );
+              expect(
+                testProcessManager.commandsRan,
+                isEmpty,
+                reason: 'Expected no command to run for "$entry"',
+              );
+            }
+          });
+
+          test('for unsupported paths property in roots', () async {
+            final request = CallToolRequest(
+              name: dartPubTool.name,
+              arguments: {
+                ParameterNames.command: 'get',
+                ParameterNames.roots: [
+                  {
+                    ParameterNames.root: testRoot.uri,
+                    ParameterNames.paths: ['extra_arg'],
+                  },
+                ],
+              },
+            );
+            final result = await testHarness.callTool(
+              request,
+              expectError: true,
+            );
+
+            expect(
+              (result.content.last as TextContent).text,
+              contains('Additional property "paths" is not allowed'),
             );
             expect(testProcessManager.commandsRan, isEmpty);
           });

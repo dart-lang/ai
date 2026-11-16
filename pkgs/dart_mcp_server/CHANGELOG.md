@@ -1,5 +1,6 @@
 ## 1.2.3-wip
 
+- Check for invalid package names and descriptors in the `pub` tool.
 - Tighten argument and path validation in `rip_grep_packages` and
   `read_package_uris`.
 - Report `dart-mcp-server` as the analytics tool, recorded as the `leaf_tool`
