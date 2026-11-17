@@ -13,6 +13,8 @@
   without changing its public API.
 - Stop sending `notifications/roots/list_changed` to a server that speaks
   2026-07-28. An unsettled connection still gets it.
+- Make `elicitationId` optional on `ElicitRequest.url`, since 2026-07-28
+  removed it. A 2025-11-25 client still gets one, filled in when left out.
 - Add a client fixture for the MCP conformance suite under `tool/`.
 - Add `ServerConnection.listen`. It answers with a `Subscription` carrying
   `id`, `acknowledged`, a `notifications` stream of `SubscriptionNotification`
