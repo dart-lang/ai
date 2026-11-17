@@ -4,7 +4,8 @@
   `structuredContent` on `CallToolResult` and `ToolResultContent` from
   `Map<String, Object?>?` to `Object?`, so any JSON value is accepted as in
   2026-07-28 (SEP-2106). Add `hasStructuredContent` to tell an explicit JSON
-  `null` from an omitted field.
+  `null` from an omitted field, and send an explicit `null` passed to the
+  `CallToolResult` and `ToolResultContent` factories instead of dropping it.
 - Count `StringSchema` `minLength` and `maxLength` in Unicode code points
   instead of UTF-16 code units, so an emoji counts as one character.
 - Validate the `Origin` header against `allowedOrigins` on

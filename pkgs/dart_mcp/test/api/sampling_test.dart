@@ -455,6 +455,21 @@ void main() {
       expect(asContent.isToolUse, isFalse);
     });
 
+    test('sends an explicit null structuredContent', () {
+      final result = ToolResultContent(
+        toolUseId: 'call-1',
+        content: [],
+        structuredContent: null,
+      );
+
+      expect(
+        (result as Map<String, Object?>).keys,
+        contains('structuredContent'),
+      );
+      expect(result.hasStructuredContent, isTrue);
+      expect(result.structuredContent, isNull);
+    });
+
     test('omits absent optional fields', () {
       final result = ToolResultContent(
         toolUseId: 'call-1',

@@ -76,11 +76,12 @@ extension type CallToolResult.fromMap(Map<String, Object?> _value)
   factory CallToolResult({
     Meta? meta,
     required List<Content> content,
-    Object? structuredContent,
+    Object? structuredContent = const _Omitted(),
     bool? isError,
   }) => CallToolResult.fromMap({
     Keys.content: content,
-    if (structuredContent != null) Keys.structuredContent: structuredContent,
+    if (structuredContent is! _Omitted)
+      Keys.structuredContent: structuredContent,
     if (isError != null) Keys.isError: isError,
     if (meta != null) Keys.meta: meta,
   });
@@ -96,6 +97,8 @@ extension type CallToolResult.fromMap(Map<String, Object?> _value)
   }
 
   /// The structured output, which can be any JSON value.
+  ///
+  /// See https://modelcontextprotocol.io/specification/2026-07-28/server/tools#structured-content.
   ///
   /// Use [hasStructuredContent] to tell an explicit JSON `null` from an
   /// omitted field.
@@ -211,6 +214,8 @@ extension type Tool.fromMap(Map<String, Object?> _value)
   ///
   /// If the `outputSchema` is specified, then the output from the tool must
   /// conform to the schema.
+  ///
+  /// See https://modelcontextprotocol.io/specification/2026-07-28/server/tools#output-schema.
   Schema? get outputSchema => _value[Keys.outputSchema] as Schema?;
 }
 
@@ -2069,4 +2074,9 @@ HashSet<ValidationError> _createHashSet() {
       return Object.hashAll([...error.path, error.details, error.error]);
     },
   );
+}
+
+/// An omitted `structuredContent`, since JSON `null` is a valid value.
+final class _Omitted {
+  const _Omitted();
 }

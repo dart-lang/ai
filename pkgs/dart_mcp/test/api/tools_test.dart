@@ -2447,6 +2447,16 @@ void main() {
       expect(result.structuredContent, isNull);
     });
 
+    test('explicit null structuredContent is sent', () {
+      final result = CallToolResult(content: [], structuredContent: null);
+      expect(
+        (result as Map<String, Object?>).keys,
+        contains('structuredContent'),
+      );
+      expect(result.hasStructuredContent, isTrue);
+      expect(result.structuredContent, isNull);
+    });
+
     test('Tool round trips a non object outputSchema', () {
       final tool = Tool.fromMap(
         jsonDecode(
