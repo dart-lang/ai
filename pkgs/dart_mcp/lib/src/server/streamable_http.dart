@@ -493,7 +493,7 @@ Future<void> handleStreamableHttpRequest(
     }
   }
 
-  if (!protocolVersion.methodIsValid(method) && _someRevisionDefines(method)) {
+  if (methodOutsideRevision(protocolVersion, method)) {
     // A method an earlier revision defined and this one took out is unknown
     // here, not a dispatcher error. A mixin or a capability registers handlers
     // for several of them, so a request would reach one without this check. A
@@ -920,13 +920,6 @@ String _decodeSentinel(String value) =>
 /// The request-scoped protocol this transport speaks was introduced later, so
 /// the two sets are deliberately separate.
 const _supportedVersions = {ProtocolVersion.v2026_07_28};
-
-/// Whether any revision of the protocol defines [method].
-///
-/// A method none of them define belongs to the server, not to the protocol,
-/// so the transport leaves it to the dispatcher.
-bool _someRevisionDefines(String method) =>
-    ProtocolVersion.values.any((v) => v.addedMethods.contains(method));
 
 /// A number with an optional minus sign and fractional part.
 ///

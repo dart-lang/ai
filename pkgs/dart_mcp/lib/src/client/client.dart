@@ -492,11 +492,13 @@ base class ServerConnection extends MCPBase {
     if (!onRevision) {
       return super.sendRequestKeepingProgress<T>(methodName, request);
     }
-    return _responseCache.sendRequest<T>(
-      methodName,
-      request,
-      () => super.sendRequestKeepingProgress<T>(methodName, request),
-    );
+    return _responseCache
+        .sendRequest<T>(
+          methodName,
+          request,
+          () => super.sendRequestKeepingProgress<T>(methodName, request),
+        )
+        .then(_requireKnownResultType);
   }
 
   /// Called after a successful call to [initialize].
@@ -1210,6 +1212,18 @@ String? _invalidElicitationMode(ElicitRequest request) {
   }
   return 'The elicitation mode was "$raw", which is not one of: '
       '${ElicitationMode.values.map((m) => m.name).join(', ')}';
+}
+
+T _requireKnownResultType<T extends Result?>(T result) {
+  final resultType = (result as Map<String, Object?>?)?[Keys.resultType];
+  if (resultType == null ||
+      resultType == ResultTypes.complete ||
+      resultType == ResultTypes.inputRequired) {
+    return result;
+  }
+  throw ArgumentError(
+    'The server returned an unrecognized `${Keys.resultType}`: $resultType.',
+  );
 }
 
 StateError _undeclaredCapability(String capability) => StateError(

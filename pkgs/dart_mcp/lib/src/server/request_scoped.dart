@@ -93,6 +93,10 @@ typedef MCPServerFactory =
 /// request-scoped is the transport's job. Errors thrown by [serverFactory] or
 /// by [MCPServer.initialize] propagate to the caller; a server that was
 /// created is shut down first.
+///
+/// A method some revision defines but [initialization]'s protocol version
+/// does not accept never reaches a server: a request gets a method not found
+/// error and a notification gets no response.
 Future<Map<String, Object?>?> handleRequestScopedMessage(
   Map<String, Object?> message,
   MCPServerInitialization initialization,
@@ -132,6 +136,11 @@ Future<Map<String, Object?>?> handleRequestScopedMessage(
       'message',
       'Legacy lifecycle messages are not used on a request-scoped transport',
     );
+  }
+  if (methodOutsideRevision(initialization.protocolVersion, method)) {
+    return object.kind == JsonRpc2Kind.request
+        ? RpcException.methodNotFound(method).serialize(message)
+        : null;
   }
 
   final routeServerRequests = switch (initialization.protocolVersion) {

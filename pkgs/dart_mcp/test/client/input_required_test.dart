@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dart_mcp/client.dart';
 import 'package:stream_channel/stream_channel.dart';
@@ -1026,6 +1027,107 @@ void main() {
       expect(streamClosed, isTrue);
     },
   );
+
+  group('resultType', () {
+    const unrecognized = <Object>[
+      'io.example/other',
+      'Complete',
+      '',
+      42,
+      true,
+      <Object?>[],
+      <String, Object?>{},
+    ];
+
+    Map<String, Object?> toolResult(Object? resultType) => {
+      if (resultType != null) 'resultType': resultType,
+      'content': [
+        {'type': 'text', 'text': 'done'},
+      ],
+    };
+
+    for (final resultType in [null, 'complete']) {
+      test('reads ${resultType ?? 'an absent value'} as complete', () async {
+        final harness = _WireHarness(
+          MCPClient(Implementation(name: 'test client', version: '0.1.0')),
+          (request, requestNumber) => toolResult(resultType),
+        );
+
+        final result = await harness.connection.callTool(
+          CallToolRequest(name: 'task'),
+        );
+
+        expect((result.content.single as TextContent).text, 'done');
+        expect(harness.requests, hasLength(1));
+      });
+    }
+
+    for (final resultType in unrecognized) {
+      test('rejects ${jsonEncode(resultType)} on 2026-07-28', () async {
+        final harness = _WireHarness(
+          MCPClient(Implementation(name: 'test client', version: '0.1.0')),
+          (request, requestNumber) => toolResult(resultType),
+        );
+
+        await expectLater(
+          harness.connection.callTool(CallToolRequest(name: 'task')),
+          throwsA(
+            isA<ArgumentError>().having(
+              (error) => error.message,
+              'message',
+              allOf(contains('resultType'), contains('$resultType')),
+            ),
+          ),
+        );
+        expect(harness.requests, hasLength(1));
+      });
+
+      test('accepts ${jsonEncode(resultType)} before 2026-07-28', () async {
+        final harness = _WireHarness(
+          MCPClient(Implementation(name: 'test client', version: '0.1.0')),
+          (request, requestNumber) => toolResult(resultType),
+          protocolVersion: ProtocolVersion.v2025_11_25,
+        );
+
+        final result = await harness.connection.callTool(
+          CallToolRequest(name: 'task'),
+        );
+
+        expect((result.content.single as TextContent).text, 'done');
+      });
+    }
+
+    test('rejects an unrecognized value after an input round', () async {
+      final harness = _WireHarness(
+        MCPClient(Implementation(name: 'test client', version: '0.1.0')),
+        (request, requestNumber) =>
+            requestNumber == 1
+                ? {'resultType': 'input_required', 'requestState': 'state'}
+                : toolResult('io.example/other'),
+      );
+
+      await expectLater(
+        harness.connection.callTool(CallToolRequest(name: 'task')),
+        throwsA(isA<ArgumentError>()),
+      );
+      expect(harness.requests, hasLength(2));
+    });
+
+    test('rejects an unrecognized value on a request without inputs', () async {
+      final harness = _WireHarness(
+        MCPClient(Implementation(name: 'test client', version: '0.1.0')),
+        (request, requestNumber) => {
+          'resultType': 'io.example/other',
+          'tools': <Object?>[],
+        },
+      );
+
+      await expectLater(
+        harness.connection.listTools(ListToolsRequest()),
+        throwsA(isA<ArgumentError>()),
+      );
+    });
+  });
 }
 
 Map<String, Object?> _params(Map<String, Object?> request) =>

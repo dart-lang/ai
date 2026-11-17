@@ -38,6 +38,10 @@ void completeRequestLocally(MCPBase target, RequestId requestId) {
   });
 }
 
+bool methodOutsideRevision(ProtocolVersion version, String method) =>
+    !version.methodIsValid(method) &&
+    ProtocolVersion.values.any((v) => v.addedMethods.contains(method));
+
 /// Base class for MCP server-related implementations.
 ///
 /// Handles registering method and notification handlers, sending requests and
