@@ -1,7 +1,5 @@
 ## 0.6.0-wip
 
-- Split `handleStreamableHttpRequest` into smaller private helpers without
-  changing its behavior.
 - Count `StringSchema` `minLength` and `maxLength` in Unicode code points
   instead of UTF-16 code units, so an emoji counts as one character.
 - Validate the `Origin` header against `allowedOrigins` on

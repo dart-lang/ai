@@ -118,6 +118,29 @@ Future<void> handleStreamableHttpRequest(
   Set<String>? allowedOrigins,
 }) async {
   RangeError.checkNotNegative(maxRequestBodyBytes, 'maxRequestBodyBytes');
+  final decoded = await _readJson(request, maxRequestBodyBytes, allowedOrigins);
+  if (decoded == null) return;
+  final validated = await _validateRequest(request, decoded);
+  if (validated == null) return;
+  final (:method, :params, :initialization) = validated;
+  await _Dispatch(
+    request,
+    decoded,
+    method,
+    params,
+    keepAliveInterval: keepAliveInterval,
+    subscriptionNotifications: subscriptionNotifications,
+    onNotification: onNotification,
+  ).run(initialization, serverFactory);
+}
+
+/// Reads the body of [request] as one JSON object, or returns `null` once
+/// [request] has been answered instead.
+Future<Map<String, Object?>?> _readJson(
+  HttpRequest request,
+  int maxRequestBodyBytes,
+  Set<String>? allowedOrigins,
+) async {
   final response = request.response;
   if (request.method != 'POST') {
     response
@@ -125,7 +148,7 @@ Future<void> handleStreamableHttpRequest(
       ..headers.set(HttpHeaders.allowHeader, 'POST')
       ..contentLength = 0;
     await response.close();
-    return;
+    return null;
   }
 
   if (allowedOrigins != null) {
@@ -139,7 +162,7 @@ Future<void> handleStreamableHttpRequest(
         ..statusCode = HttpStatus.forbidden
         ..contentLength = 0;
       await response.close();
-      return;
+      return null;
     }
   }
 
@@ -178,10 +201,10 @@ Future<void> handleStreamableHttpRequest(
     } on IOException {
       // The client disconnected before its body arrived. There is no
       // response left to write.
-      return;
+      return null;
     }
     if (fits) await rejectMediaType();
-    return;
+    return null;
   }
 
   final Object? decoded;
@@ -194,24 +217,25 @@ Future<void> handleStreamableHttpRequest(
       keep: bytes.add,
       reject: () => _rejectTooLarge(response, maxRequestBodyBytes),
     );
-    if (!fits) return;
+    if (!fits) return null;
     body = utf8.decode(bytes.takeBytes());
     decoded = jsonDecode(body);
   } on FormatException catch (e) {
-    return _reject(
+    await _reject(
       response,
       HttpStatus.badRequest,
       RpcException(error_code.PARSE_ERROR, 'Invalid JSON: ${e.message}'),
       body,
     );
+    return null;
   } on IOException {
     // The client disconnected before its body arrived. There is no response
     // left to write.
-    return;
+    return null;
   }
 
   if (decoded is List) {
-    return _reject(
+    await _reject(
       response,
       HttpStatus.badRequest,
       RpcException(
@@ -221,9 +245,10 @@ Future<void> handleStreamableHttpRequest(
       ),
       decoded,
     );
+    return null;
   }
   if (decoded is! Map<String, Object?>) {
-    return _reject(
+    await _reject(
       response,
       HttpStatus.badRequest,
       RpcException(
@@ -232,11 +257,29 @@ Future<void> handleStreamableHttpRequest(
       ),
       decoded,
     );
+    return null;
   }
+  return decoded;
+}
 
+/// What [_validateRequest] reads from a request that passes its checks.
+typedef _ValidatedRequest =
+    ({
+      String method,
+      Map<String, Object?> params,
+      MCPServerInitialization initialization,
+    });
+
+/// Checks [decoded] as a JSON-RPC request with the headers and `_meta`
+/// envelope it needs, or returns `null` once [request] has been answered.
+Future<_ValidatedRequest?> _validateRequest(
+  HttpRequest request,
+  Map<String, Object?> decoded,
+) async {
+  final response = request.response;
   final object = JsonRpc2Object.fromMap(decoded);
   if (object.kind == JsonRpc2Kind.response) {
-    return _reject(
+    await _reject(
       response,
       HttpStatus.badRequest,
       RpcException(
@@ -245,11 +288,12 @@ Future<void> handleStreamableHttpRequest(
       ),
       decoded,
     );
+    return null;
   }
 
   final method = decoded[Keys.method];
   if (method is! String) {
-    return _reject(
+    await _reject(
       response,
       HttpStatus.badRequest,
       RpcException(
@@ -258,6 +302,7 @@ Future<void> handleStreamableHttpRequest(
       ),
       decoded,
     );
+    return null;
   }
 
   if (object.kind == JsonRpc2Kind.notification) {
@@ -270,11 +315,11 @@ Future<void> handleStreamableHttpRequest(
       ..statusCode = HttpStatus.accepted
       ..contentLength = 0;
     await response.close();
-    return;
+    return null;
   }
 
   if (object.id == null) {
-    return _reject(
+    await _reject(
       response,
       HttpStatus.badRequest,
       RpcException(
@@ -283,13 +328,14 @@ Future<void> handleStreamableHttpRequest(
       ),
       decoded,
     );
+    return null;
   }
 
   // A request may be answered with either a JSON object or an SSE stream, so
   // the client has to accept both shapes.
   if (!_accepts(request, ContentType.json.mimeType) ||
       !_accepts(request, eventStreamMimeType)) {
-    return _reject(
+    await _reject(
       response,
       HttpStatus.badRequest,
       RpcException(
@@ -299,11 +345,12 @@ Future<void> handleStreamableHttpRequest(
       ),
       decoded,
     );
+    return null;
   }
 
   final headerVersion = _singleTokenHeader(request, protocolVersionHeader);
   if (headerVersion == null) {
-    return _reject(
+    await _reject(
       response,
       HttpStatus.badRequest,
       RpcException(
@@ -312,11 +359,12 @@ Future<void> handleStreamableHttpRequest(
       ),
       decoded,
     );
+    return null;
   }
   final protocolVersion = ProtocolVersion.tryParse(headerVersion);
   if (protocolVersion == null ||
       !_supportedVersions.contains(protocolVersion)) {
-    return _reject(
+    await _reject(
       response,
       HttpStatus.badRequest,
       RpcException(
@@ -331,11 +379,12 @@ Future<void> handleStreamableHttpRequest(
       ),
       decoded,
     );
+    return null;
   }
 
   final headerMethod = _singleTokenHeader(request, mcpMethodHeader);
   if (headerMethod == null) {
-    return _reject(
+    await _reject(
       response,
       HttpStatus.badRequest,
       RpcException(
@@ -344,12 +393,13 @@ Future<void> handleStreamableHttpRequest(
       ),
       decoded,
     );
+    return null;
   }
 
   final params = decoded[Keys.params];
   final meta = params is Map<String, Object?> ? params[Keys.meta] : null;
   if (params is! Map<String, Object?> || meta is! Map<String, Object?>) {
-    return _reject(
+    await _reject(
       response,
       HttpStatus.badRequest,
       RpcException.invalidParams(
@@ -357,10 +407,11 @@ Future<void> handleStreamableHttpRequest(
       ),
       decoded,
     );
+    return null;
   }
   final bodyVersion = meta[Keys.protocolVersionMeta];
   if (bodyVersion is! String) {
-    return _reject(
+    await _reject(
       response,
       HttpStatus.badRequest,
       RpcException.invalidParams(
@@ -368,10 +419,11 @@ Future<void> handleStreamableHttpRequest(
       ),
       decoded,
     );
+    return null;
   }
   final capabilities = meta[Keys.clientCapabilitiesMeta];
   if (capabilities is! Map<String, Object?>) {
-    return _reject(
+    await _reject(
       response,
       HttpStatus.badRequest,
       RpcException.invalidParams(
@@ -379,6 +431,7 @@ Future<void> handleStreamableHttpRequest(
       ),
       decoded,
     );
+    return null;
   }
   late final ClientCapabilities clientCapabilities;
   try {
@@ -387,7 +440,7 @@ Future<void> handleStreamableHttpRequest(
     // and not a bug on this side.
     // ignore: avoid_catching_errors
   } on ArgumentError {
-    return _reject(
+    await _reject(
       response,
       HttpStatus.badRequest,
       RpcException.invalidParams(
@@ -396,10 +449,11 @@ Future<void> handleStreamableHttpRequest(
       ),
       decoded,
     );
+    return null;
   }
   final clientInfo = meta[Keys.clientInfoMeta];
   if (clientInfo is! Map<String, Object?>?) {
-    return _reject(
+    await _reject(
       response,
       HttpStatus.badRequest,
       RpcException.invalidParams(
@@ -407,6 +461,7 @@ Future<void> handleStreamableHttpRequest(
       ),
       decoded,
     );
+    return null;
   }
   final rawLogLevel = meta[Keys.logLevelMeta];
   LoggingLevel? logLevel;
@@ -415,7 +470,7 @@ Future<void> handleStreamableHttpRequest(
       (level) => level.name == rawLogLevel,
     );
     if (logLevel == null) {
-      return _reject(
+      await _reject(
         response,
         HttpStatus.badRequest,
         RpcException.invalidParams(
@@ -425,11 +480,12 @@ Future<void> handleStreamableHttpRequest(
         ),
         decoded,
       );
+      return null;
     }
   }
 
   if (headerVersion != bodyVersion) {
-    return _reject(
+    await _reject(
       response,
       HttpStatus.badRequest,
       RpcException(
@@ -439,9 +495,10 @@ Future<void> handleStreamableHttpRequest(
       ),
       decoded,
     );
+    return null;
   }
   if (headerMethod != method) {
-    return _reject(
+    await _reject(
       response,
       HttpStatus.badRequest,
       RpcException(
@@ -450,11 +507,13 @@ Future<void> handleStreamableHttpRequest(
       ),
       decoded,
     );
+    return null;
   }
 
   final nameRejection = _checkMcpNameHeader(request, method, params);
   if (nameRejection != null) {
-    return _reject(response, HttpStatus.badRequest, nameRejection, decoded);
+    await _reject(response, HttpStatus.badRequest, nameRejection, decoded);
+    return null;
   }
 
   if (!protocolVersion.methodIsValid(method) && _someRevisionDefines(method)) {
@@ -465,174 +524,26 @@ Future<void> handleStreamableHttpRequest(
     // answer its own.
     // A legacy client never gets here. It fails the version or header checks
     // above with the `400 Bad Request` prescribed by the compatibility matrix.
-    return _reject(
+    await _reject(
       response,
       HttpStatus.notFound,
       RpcException.methodNotFound(method),
       decoded,
     );
+    return null;
   }
 
-  final answer = _Answer(response, keepAliveInterval: keepAliveInterval);
-  var pendingNotifications =
-      method == CallToolRequest.methodName ? <Map<String, Object?>>[] : null;
-  MCPServer? activeServer;
-  StreamSubscription<Map<String, Object?>>? notificationSubscription;
-  var responseClosed = false;
-  var listenFailed = false;
-
-  /// Shuts down the server built for this request if it is still running.
-  Future<void> shutDownActiveServer() async {
-    final server = activeServer;
-    if (server != null && server.isActive) await server.shutdown();
-  }
-
-  unawaited(() async {
-    try {
-      await response.done;
-    } on IOException {
-      // A disconnected client cannot receive another response.
-    }
-    if (!answer.isStreaming || answer.isFinished) return;
-    responseClosed = true;
-    answer.cancel();
-    await notificationSubscription?.cancel();
-    await shutDownActiveServer();
-  }());
-
-  /// Writes [notification] to the response stream, skipping the ones an
-  /// embedder serves on a listen stream.
-  void writeNotification(Map<String, Object?> notification) {
-    if (!_listenStreamNotifications.contains(notification[Keys.method])) {
-      answer.notify(notification);
-    }
-  }
-
-  /// Writes the notifications held back so far and stops holding any more.
-  void releasePendingNotifications() {
-    final pending = pendingNotifications;
-    if (pending == null) return;
-    pendingNotifications = null;
-    for (final notification in pending) {
-      writeNotification(notification);
-    }
-  }
-
-  /// Writes [notification], or holds it back while a `tools/call` waits for
-  /// its header check.
-  void writeOrHoldNotification(Map<String, Object?> notification) {
-    final pending = pendingNotifications;
-    if (pending == null) {
-      writeNotification(notification);
-    } else {
-      pending.add(notification);
-    }
-  }
-
-  SubscriptionFilter? accepted;
-
-  /// Writes [notification] to the listen stream when the accepted filter
-  /// selects it.
-  void deliverSubscriptionNotification(Map<String, Object?> notification) {
-    if (!_selects(accepted, notification)) return;
-    answer.notify(_withSubscriptionId(notification, object.id));
-  }
-
-  /// Starts the listen stream with the filter [acknowledgement] accepted, or
-  /// fails the request when its params are not a JSON object.
-  void onAcknowledged(Map<String, Object?> acknowledgement) {
-    final params = acknowledgement[Keys.params];
-    if (params is! Map<String, Object?>) {
-      listenFailed = true;
-      unawaited(() async {
-        await notificationSubscription?.cancel();
-        await answer.finish(
-          RpcException(
-            error_code.INTERNAL_ERROR,
-            'The `${SubscriptionsAcknowledgedNotification.methodName}` '
-            'params got `$params`, but must be a JSON object.',
-          ).serialize(decoded),
-        );
-        await shutDownActiveServer();
-      }());
-      return;
-    }
-    accepted =
-        SubscriptionsAcknowledgedNotification.fromMap(params).notifications;
-    answer.notify(acknowledgement);
-    notificationSubscription ??= subscriptionNotifications?.listen(
-      deliverSubscriptionNotification,
-    );
-  }
-
-  final Map<String, Object?>? result;
-  try {
-    result = await handleRequestScopedMessage(
-      decoded,
-      MCPServerInitialization(
-        protocolVersion: protocolVersion,
-        clientCapabilities: clientCapabilities,
-        clientInfo:
-            clientInfo == null ? null : Implementation.fromMap(clientInfo),
-        logLevel: logLevel,
-      ),
-      (channel) {
-        final server = serverFactory(channel);
-        activeServer = server;
-        if (responseClosed && server.isActive) unawaited(server.shutdown());
-        return server;
-      },
-      onNotification: (notification) {
-        if (method != SubscriptionsListenRequest.methodName) {
-          writeOrHoldNotification(notification);
-        } else if (notification[Keys.method] ==
-            SubscriptionsAcknowledgedNotification.methodName) {
-          onAcknowledged(notification);
-        } else if (subscriptionNotifications == null) {
-          // Without a shared stream, the listen request's own server is the
-          // only source of the changes it selects.
-          deliverSubscriptionNotification(notification);
-        }
-        onNotification?.call(notification);
-      },
-      beforeDispatch:
-          method == CallToolRequest.methodName
-              ? (server) {
-                final rejection = _checkMcpParamHeaders(
-                  request,
-                  params,
-                  server,
-                );
-                if (rejection != null) return rejection;
-                releasePendingNotifications();
-                return null;
-              }
-              : null,
-    );
-  } catch (_) {
-    // The server could not be built for this request. Answer before the error
-    // leaves this function, so an embedder that discards the returned future
-    // does not leave the connection open. A server that emitted a notification
-    // while initializing has already committed the stream, and headers cannot
-    // be set on it a second time. The answer goes out on the stream instead of
-    // starting a fresh response, so a `tools/call` releases the notifications
-    // it was holding back before answering.
-    releasePendingNotifications();
-    await notificationSubscription?.cancel();
-    await answer.finish(
-      RpcException(
-        error_code.INTERNAL_ERROR,
-        'The server failed to initialize',
-      ).serialize(decoded),
-    );
-    rethrow;
-  }
-
-  // Notifications returned above, so a dispatched request always has a
-  // response.
-  if (responseClosed || listenFailed) return;
-  await notificationSubscription?.cancel();
-  await answer.finish(result!);
+  return (
+    method: method,
+    params: params,
+    initialization: MCPServerInitialization(
+      protocolVersion: protocolVersion,
+      clientCapabilities: clientCapabilities,
+      clientInfo:
+          clientInfo == null ? null : Implementation.fromMap(clientInfo),
+      logLevel: logLevel,
+    ),
+  );
 }
 
 /// The HTTP status for a dispatched JSON-RPC [response] map.
@@ -786,6 +697,188 @@ class _Answer {
 
   void cancel() {
     _keepAlive?.cancel();
+  }
+}
+
+/// The state that a request's server callbacks and the watch on its response
+/// share once the request is validated.
+class _Dispatch {
+  _Dispatch(
+    this.request,
+    this.decoded,
+    this.method,
+    this.params, {
+    required Duration keepAliveInterval,
+    required this.subscriptionNotifications,
+    required this.onNotification,
+  }) : answer = _Answer(request.response, keepAliveInterval: keepAliveInterval),
+       pendingNotifications = method == CallToolRequest.methodName ? [] : null;
+
+  final HttpRequest request;
+  final Map<String, Object?> decoded;
+  final String method;
+  final Map<String, Object?> params;
+  final Stream<Map<String, Object?>>? subscriptionNotifications;
+  final void Function(Map<String, Object?> notification)? onNotification;
+  final _Answer answer;
+  List<Map<String, Object?>>? pendingNotifications;
+  MCPServer? activeServer;
+  StreamSubscription<Map<String, Object?>>? notificationSubscription;
+  bool responseClosed = false;
+  bool listenFailed = false;
+  SubscriptionFilter? accepted;
+
+  /// Shuts the request down when its SSE response closes before the result.
+  Future<void> watchResponse() async {
+    try {
+      await request.response.done;
+    } on IOException {
+      // A disconnected client cannot receive another response.
+    }
+    if (!answer.isStreaming || answer.isFinished) return;
+    responseClosed = true;
+    answer.cancel();
+    await notificationSubscription?.cancel();
+    await shutDownActiveServer();
+  }
+
+  /// Shuts down the server built for this request if it is still running.
+  Future<void> shutDownActiveServer() async {
+    final server = activeServer;
+    if (server != null && server.isActive) await server.shutdown();
+  }
+
+  /// Writes [notification] to the response stream, skipping the ones an
+  /// embedder serves on a listen stream.
+  void writeNotification(Map<String, Object?> notification) {
+    if (!_listenStreamNotifications.contains(notification[Keys.method])) {
+      answer.notify(notification);
+    }
+  }
+
+  /// Writes the notifications held back so far and stops holding any more.
+  void releasePendingNotifications() {
+    final pending = pendingNotifications;
+    if (pending == null) return;
+    pendingNotifications = null;
+    for (final notification in pending) {
+      writeNotification(notification);
+    }
+  }
+
+  /// Writes [notification], or holds it back while a `tools/call` waits for
+  /// its header check.
+  void writeOrHoldNotification(Map<String, Object?> notification) {
+    final pending = pendingNotifications;
+    if (pending == null) {
+      writeNotification(notification);
+    } else {
+      pending.add(notification);
+    }
+  }
+
+  /// Writes [notification] to the listen stream when the accepted filter
+  /// selects it.
+  void deliverSubscriptionNotification(Map<String, Object?> notification) {
+    if (!_selects(accepted, notification)) return;
+    answer.notify(_withSubscriptionId(notification, decoded[Keys.id]));
+  }
+
+  /// Starts the listen stream with the filter [acknowledgement] accepted, or
+  /// fails the request when its params are not a JSON object.
+  void onAcknowledged(Map<String, Object?> acknowledgement) {
+    final params = acknowledgement[Keys.params];
+    if (params is! Map<String, Object?>) {
+      listenFailed = true;
+      unawaited(() async {
+        await notificationSubscription?.cancel();
+        await answer.finish(
+          RpcException(
+            error_code.INTERNAL_ERROR,
+            'The `${SubscriptionsAcknowledgedNotification.methodName}` '
+            'params got `$params`, but must be a JSON object.',
+          ).serialize(decoded),
+        );
+        await shutDownActiveServer();
+      }());
+      return;
+    }
+    accepted =
+        SubscriptionsAcknowledgedNotification.fromMap(params).notifications;
+    answer.notify(acknowledgement);
+    notificationSubscription ??= subscriptionNotifications?.listen(
+      deliverSubscriptionNotification,
+    );
+  }
+
+  /// Routes a server notification by this request's method.
+  void routeNotification(Map<String, Object?> notification) {
+    if (method != SubscriptionsListenRequest.methodName) {
+      writeOrHoldNotification(notification);
+    } else if (notification[Keys.method] ==
+        SubscriptionsAcknowledgedNotification.methodName) {
+      onAcknowledged(notification);
+    } else if (subscriptionNotifications == null) {
+      // Without a shared stream, the listen request's own server is the
+      // only source of the changes it selects.
+      deliverSubscriptionNotification(notification);
+    }
+    onNotification?.call(notification);
+  }
+
+  /// Rejects mismatched `Mcp-Param` headers, else releases held notifications.
+  RpcException? checkToolCallHeaders(MCPServer server) {
+    final rejection = _checkMcpParamHeaders(request, params, server);
+    if (rejection != null) return rejection;
+    releasePendingNotifications();
+    return null;
+  }
+
+  /// Answers the request with a server built by [serverFactory].
+  Future<void> run(
+    MCPServerInitialization initialization,
+    MCPServerFactory serverFactory,
+  ) async {
+    unawaited(watchResponse());
+    final Map<String, Object?>? result;
+    try {
+      result = await handleRequestScopedMessage(
+        decoded,
+        initialization,
+        (channel) {
+          final server = serverFactory(channel);
+          activeServer = server;
+          if (responseClosed) unawaited(shutDownActiveServer());
+          return server;
+        },
+        onNotification: routeNotification,
+        beforeDispatch:
+            method == CallToolRequest.methodName ? checkToolCallHeaders : null,
+      );
+    } catch (_) {
+      // The server could not be built for this request. Answer before the
+      // error leaves this function, so an embedder that discards the returned
+      // future does not leave the connection open. A server that emitted a
+      // notification while initializing has already committed the stream, and
+      // headers cannot be set on it a second time. The answer goes out on the
+      // stream instead of starting a fresh response, so a `tools/call`
+      // releases the notifications it was holding back before answering.
+      releasePendingNotifications();
+      await notificationSubscription?.cancel();
+      await answer.finish(
+        RpcException(
+          error_code.INTERNAL_ERROR,
+          'The server failed to initialize',
+        ).serialize(decoded),
+      );
+      rethrow;
+    }
+
+    // A notification is answered before dispatch, so a dispatched request
+    // always has a response.
+    if (responseClosed || listenFailed) return;
+    await notificationSubscription?.cancel();
+    await answer.finish(result!);
   }
 }
 

@@ -2323,12 +2323,13 @@ void main() {
       final chunks = StringBuffer();
       final acknowledged = Completer<void>();
       final changed = Completer<void>();
+      final done = Completer<void>();
       final subscription = response.transform(utf8.decoder).listen((chunk) {
         chunks.write(chunk);
         final count = events(chunks.toString()).length;
         if (count >= 1 && !acknowledged.isCompleted) acknowledged.complete();
         if (count >= 2 && !changed.isCompleted) changed.complete();
-      });
+      }, onDone: done.complete);
       addTearDown(subscription.cancel);
 
       await acknowledged.future;
@@ -2351,6 +2352,9 @@ void main() {
         events(chunks.toString())[1][Keys.method],
         PromptListChangedNotification.methodName,
       );
+
+      await server.shutdown();
+      await done.future;
     });
 
     test('treats false and absent filters as not requested', () async {
