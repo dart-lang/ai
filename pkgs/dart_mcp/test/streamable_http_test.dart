@@ -2246,6 +2246,117 @@ void main() {
       await done.future;
     });
 
+    test('keeps the _meta of a change next to its subscription ID', () async {
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(uri);
+      headers(
+        SubscriptionsListenRequest.methodName,
+      ).forEach(request.headers.set);
+      request.write(
+        jsonEncode(
+          body(
+            SubscriptionsListenRequest.methodName,
+            id: 'listen-3',
+            params: {
+              Keys.notifications: {Keys.toolsListChanged: true},
+            },
+          ),
+        ),
+      );
+      final response = await request.close();
+      final chunks = StringBuffer();
+      final acknowledged = Completer<void>();
+      final changed = Completer<void>();
+      final done = Completer<void>();
+      final subscription = response.transform(utf8.decoder).listen((chunk) {
+        chunks.write(chunk);
+        final count = events(chunks.toString()).length;
+        if (count >= 1 && !acknowledged.isCompleted) acknowledged.complete();
+        if (count >= 2 && !changed.isCompleted) changed.complete();
+      }, onDone: done.complete);
+      addTearDown(subscription.cancel);
+
+      await acknowledged.future;
+      final server = servers.single;
+      addTearDown(() async {
+        if (server.isActive) await server.shutdown();
+      });
+      server.sendNotification(
+        ToolListChangedNotification.methodName,
+        ToolListChangedNotification(
+          meta: Meta.fromMap({'com.example/keep': true}),
+        ),
+      );
+
+      await changed.future.timeout(const Duration(seconds: 5));
+      expect(events(chunks.toString())[1][Keys.params], {
+        Keys.meta: {
+          'com.example/keep': true,
+          Keys.subscriptionIdMeta: 'listen-3',
+        },
+      });
+
+      await server.shutdown();
+      await done.future;
+    });
+
+    test('forwards only prompt changes for a prompts filter', () async {
+      serverFactory = _EquippedServer.new;
+      final client = HttpClient();
+      addTearDown(client.close);
+      final request = await client.postUrl(uri);
+      headers(
+        SubscriptionsListenRequest.methodName,
+      ).forEach(request.headers.set);
+      request.write(
+        jsonEncode(
+          body(
+            SubscriptionsListenRequest.methodName,
+            params: {
+              Keys.notifications: {Keys.promptsListChanged: true},
+            },
+          ),
+        ),
+      );
+      final response = await request.close();
+      final chunks = StringBuffer();
+      final acknowledged = Completer<void>();
+      final changed = Completer<void>();
+      final done = Completer<void>();
+      final subscription = response.transform(utf8.decoder).listen((chunk) {
+        chunks.write(chunk);
+        final count = events(chunks.toString()).length;
+        if (count >= 1 && !acknowledged.isCompleted) acknowledged.complete();
+        if (count >= 2 && !changed.isCompleted) changed.complete();
+      }, onDone: done.complete);
+      addTearDown(subscription.cancel);
+
+      await acknowledged.future;
+      final server = servers.single;
+      addTearDown(() async {
+        if (server.isActive) await server.shutdown();
+      });
+      server
+        ..sendNotification(
+          ToolListChangedNotification.methodName,
+          ToolListChangedNotification(),
+        )
+        ..sendNotification(
+          PromptListChangedNotification.methodName,
+          PromptListChangedNotification(),
+        );
+
+      await changed.future.timeout(const Duration(seconds: 5));
+      expect(
+        events(chunks.toString())[1][Keys.method],
+        PromptListChangedNotification.methodName,
+      );
+
+      await server.shutdown();
+      await done.future;
+    });
+
     test('treats false and absent filters as not requested', () async {
       final filters = <Map<String, Object?>>[];
       for (final notifications in [
