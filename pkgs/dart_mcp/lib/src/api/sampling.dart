@@ -299,7 +299,7 @@ extension type ToolResultContent.fromMap(Map<String, Object?> _value)
   factory ToolResultContent({
     required List<Content> content,
     required String toolUseId,
-    Map<String, Object?>? structuredContent,
+    Object? structuredContent,
     bool? isError,
     Meta? meta,
   }) => ToolResultContent.fromMap({
@@ -330,9 +330,14 @@ extension type ToolResultContent.fromMap(Map<String, Object?> _value)
     return content;
   }
 
-  /// The structured result returned by the tool.
-  Map<String, Object?>? get structuredContent =>
-      _value[Keys.structuredContent] as Map<String, Object?>?;
+  /// The structured result returned by the tool, which can be any JSON value.
+  ///
+  /// Use [hasStructuredContent] to tell an explicit JSON `null` from an
+  /// omitted field.
+  Object? get structuredContent => _value[Keys.structuredContent];
+
+  /// Whether [structuredContent] is present, even when it is JSON `null`.
+  bool get hasStructuredContent => _value.containsKey(Keys.structuredContent);
 
   /// Whether the tool use resulted in an error.
   bool? get isError => _value[Keys.isError] as bool?;

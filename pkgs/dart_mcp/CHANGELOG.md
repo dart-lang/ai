@@ -1,5 +1,10 @@
 ## 0.6.0-wip
 
+- **Breaking**: Widen `Tool.outputSchema` from `ObjectSchema?` to `Schema?` and
+  `structuredContent` on `CallToolResult` and `ToolResultContent` from
+  `Map<String, Object?>?` to `Object?`, so any JSON value is accepted as in
+  2026-07-28 (SEP-2106). Add `hasStructuredContent` to tell an explicit JSON
+  `null` from an omitted field.
 - Count `StringSchema` `minLength` and `maxLength` in Unicode code points
   instead of UTF-16 code units, so an emoji counts as one character.
 - Validate the `Origin` header against `allowedOrigins` on

@@ -76,7 +76,7 @@ extension type CallToolResult.fromMap(Map<String, Object?> _value)
   factory CallToolResult({
     Meta? meta,
     required List<Content> content,
-    Map<String, Object?>? structuredContent,
+    Object? structuredContent,
     bool? isError,
   }) => CallToolResult.fromMap({
     Keys.content: content,
@@ -95,10 +95,14 @@ extension type CallToolResult.fromMap(Map<String, Object?> _value)
     return content;
   }
 
-  /// The content as structured output, if the [Tool] declared an
-  /// `outputSchema`.
-  Map<String, Object?>? get structuredContent =>
-      _value[Keys.structuredContent] as Map<String, Object?>?;
+  /// The structured output, which can be any JSON value.
+  ///
+  /// Use [hasStructuredContent] to tell an explicit JSON `null` from an
+  /// omitted field.
+  Object? get structuredContent => _value[Keys.structuredContent];
+
+  /// Whether [structuredContent] is present, even when it is JSON `null`.
+  bool get hasStructuredContent => _value.containsKey(Keys.structuredContent);
 
   /// Whether the tool call ended in an error.
   ///
@@ -161,7 +165,7 @@ extension type Tool.fromMap(Map<String, Object?> _value)
     String? description,
     required ObjectSchema inputSchema,
     // Only supported since version `ProtocolVersion.v2025_06_18`.
-    ObjectSchema? outputSchema,
+    Schema? outputSchema,
     // Only supported since version `ProtocolVersion.v2025_03_26`.
     ToolAnnotations? annotations,
     // Only supported since version `ProtocolVersion.v2025_03_26`.
@@ -202,12 +206,12 @@ extension type Tool.fromMap(Map<String, Object?> _value)
     return inputSchema;
   }
 
-  /// An optional JSON [ObjectSchema] object defining the expected schema of the
-  /// tool output.
+  /// An optional JSON [Schema] defining the expected schema of the tool
+  /// output.
   ///
   /// If the `outputSchema` is specified, then the output from the tool must
   /// conform to the schema.
-  ObjectSchema? get outputSchema => _value[Keys.outputSchema] as ObjectSchema?;
+  Schema? get outputSchema => _value[Keys.outputSchema] as Schema?;
 }
 
 /// Additional properties describing a Tool to clients.
