@@ -700,8 +700,7 @@ class _Answer {
   }
 }
 
-/// The state that a request's server callbacks and the watch on its response
-/// share once the request is validated.
+/// Manages the lifecycle and notification state of a validated request.
 class _Dispatch {
   _Dispatch(
     this.request,
