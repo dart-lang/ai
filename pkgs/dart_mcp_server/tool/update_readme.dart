@@ -59,7 +59,8 @@ void main(List<String> args) async {
         [
           '`${argument.name}`',
           if (argument.required != true) ' (optional)',
-          if (argument.description case final description?) ': $description',
+          if (argument.description case final description?)
+            ': ${_singleLine(description)}',
         ].join(),
     ];
     final categories = prompt.categories
@@ -68,9 +69,7 @@ void main(List<String> args) async {
         .join(', ');
     promptsBuf.writeln(
       '| `${prompt.name}` | ${prompt.title ?? ''} | '
-      // Prompt descriptions are wrapped for readability in the source, but a
-      // table cell must be a single line.
-      '${prompt.description?.trim().replaceAll('\n', ' ') ?? ''} | '
+      '${_singleLine(prompt.description ?? '')} | '
       '${arguments.isEmpty ? 'None' : arguments.join('<br>')} | '
       '${categories.isEmpty ? 'None' : categories} | '
       '${prompt.enabledByDefault ? 'Yes' : 'No'} |',
@@ -92,6 +91,12 @@ void main(List<String> args) async {
 
   print('Wrote updated tool and prompt lists to ${readmeFile.path}.');
 }
+
+/// Joins the lines of [text] with spaces, since a table cell must be a single
+/// line. Descriptions are often wrapped for readability in the source, which
+/// may be checked out with `\r\n` line endings.
+String _singleLine(String text) =>
+    text.trim().replaceAll(RegExp(r'\s*\r?\n\s*'), ' ');
 
 String _insertBetween(String original, String insertion, String marker) {
   final startIndex = original.indexOf(marker) + marker.length;
