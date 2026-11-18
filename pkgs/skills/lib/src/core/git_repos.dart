@@ -57,7 +57,11 @@ GitRepo parseGitRepoArg(String arg, String usage) {
   // Handle org/repo format.
   if (arg.contains('/') && !arg.contains(':') && !arg.contains('@')) {
     final parts = arg.split('/');
-    if (parts.length != 2) {
+    // Accept `owner/repo.git` too, without doubling the `.git` suffix.
+    if (parts.length == 2 && parts[1].endsWith('.git')) {
+      parts[1] = parts[1].substring(0, parts[1].length - '.git'.length);
+    }
+    if (parts.length != 2 || parts.any((part) => part.isEmpty)) {
       throw UsageException(
         'Invalid git repo format: $arg. Expected <owner>/<repo> or a Git URI. '
         'If you intended this to be a file path, please a file:// URI instead.',
