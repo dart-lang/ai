@@ -50,19 +50,24 @@ class SkillFrontmatter {
     return SkillFrontmatter(name, isInternal: isInternal);
   }
 
+  /// Matches a `---` line, allowing trailing whitespace.
+  static final _closingDelimiter = RegExp(r'^---[ \t]*$', multiLine: true);
+
   /// Parses the [SkillFrontmatter] from the full skill file content.
   factory SkillFrontmatter.fromSkillContent(String content, {Uri? sourceUri}) {
     if (!content.startsWith('---')) {
       throw FormatException('Skill must start with `---` frontmatter', content);
     }
-    final frontMatterEnd = content.indexOf('---', 3);
-    if (frontMatterEnd == -1) {
+    // The closing delimiter is a line of its own, so a `---` inside a value
+    // (for example in the description) does not end the front matter.
+    final frontMatterEnd = _closingDelimiter.firstMatch(content.substring(3));
+    if (frontMatterEnd == null) {
       throw FormatException(
         'Skill must have front matter ending delimiter ---',
         content,
       );
     }
-    final yamlContent = content.substring(3, frontMatterEnd);
+    final yamlContent = content.substring(3, 3 + frontMatterEnd.start);
     return SkillFrontmatter.fromYaml(
       loadYamlDocument(yamlContent, sourceUrl: sourceUri),
     );

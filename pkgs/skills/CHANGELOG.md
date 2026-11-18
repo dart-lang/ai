@@ -2,6 +2,9 @@
 
 ## 1.0.5-wip
 
+- End `SKILL.md` frontmatter only at a `---` line, so a `---` inside a value
+  no longer cuts the frontmatter short and drops fields such as
+  `metadata.internal`.
 - Stop injecting `user-invocable: false` into `SKILL.md` frontmatter when
   installing skills for Claude Code.
 - Report `skills-cli` as the analytics tool, recorded as the `leaf_tool` user
