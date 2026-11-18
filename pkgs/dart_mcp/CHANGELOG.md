@@ -1,4 +1,4 @@
-## 0.6.0-wip
+## 0.6.0-beta.0
 
 - Count `StringSchema` `minLength` and `maxLength` in Unicode code points
   instead of UTF-16 code units, so an emoji counts as one character.
