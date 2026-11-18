@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:async/async.dart';
 import 'package:dart_mcp/client.dart';
 import 'package:dart_mcp/server.dart';
+import 'package:dart_mcp/src/utils/constants.dart';
 import 'package:json_rpc_2/error_code.dart' as error_code;
 import 'package:json_rpc_2/json_rpc_2.dart';
 import 'package:stream_channel/stream_channel.dart';
@@ -101,6 +102,68 @@ void main() {
       expect(environment.server.handlerCalls, 3);
     },
   );
+
+  group('a URL elicitation for 2025-11-25', () {
+    late TestEnvironment<_UrlClient, _UrlElicitingServer> environment;
+
+    setUp(() async {
+      environment = TestEnvironment(_UrlClient(), _UrlElicitingServer.new);
+      await environment.initializeServer();
+    });
+
+    Future<void> ask([String? elicitationId]) =>
+        environment.serverConnection.callTool(
+          CallToolRequest(
+            name: 'ask',
+            arguments: {
+              if (elicitationId != null) Keys.elicitationId: elicitationId,
+            },
+          ),
+        );
+
+    test('gets a unique elicitationId when the server left it out', () async {
+      await ask();
+      await ask();
+
+      final ids = environment.client.requests.map((r) => r.elicitationId);
+      expect(ids, everyElement(isNotNull));
+      expect(ids.toSet(), hasLength(2));
+    });
+
+    test('keeps the elicitationId the server set', () async {
+      await ask('e1');
+
+      expect(environment.client.requests.single.elicitationId, 'e1');
+    });
+  });
+
+  test('a URL elicitation for 2026-07-28 has no elicitationId', () async {
+    final response = await handleRequestScopedMessage(
+      {
+        Keys.jsonrpc: '2.0',
+        Keys.id: 1,
+        Keys.method: CallToolRequest.methodName,
+        Keys.params: {Keys.name: 'ask'},
+      },
+      MCPServerInitialization(
+        protocolVersion: ProtocolVersion.v2026_07_28,
+        clientCapabilities: ClientCapabilities(
+          elicitation: ElicitationCapability(url: {}),
+        ),
+      ),
+      _UrlElicitingServer.new,
+    );
+
+    final result = response![Keys.result] as CallToolResponse;
+    expect(result.isInputRequired, true);
+    final answer = (result as InputRequiredResult).inputRequests!['answer']!;
+    expect(answer.isElicit, true);
+    expect(answer.params as ElicitRequest, {
+      Keys.mode: ElicitationMode.url.name,
+      Keys.message: 'sign in',
+      Keys.url: 'https://example.com/sign-in',
+    });
+  });
 }
 
 final class _FormClient extends TestMCPClient with ElicitationFormSupport {
@@ -118,6 +181,47 @@ final class _FormClient extends TestMCPClient with ElicitationFormSupport {
     ServerConnection connection,
   ) {
     return elicitationHandler(request, connection);
+  }
+}
+
+final class _UrlClient extends TestMCPClient with ElicitationUrlSupport {
+  final requests = <ElicitRequest>[];
+
+  @override
+  FutureOr<ElicitResult> handleElicitation(
+    ElicitRequest request,
+    ServerConnection connection,
+  ) {
+    requests.add(request);
+    return ElicitResult(action: ElicitationAction.accept);
+  }
+}
+
+final class _UrlElicitingServer extends MCPServer with ToolsSupport {
+  _UrlElicitingServer(super.channel)
+    : super.fromStreamChannel(
+        implementation: Implementation(name: 'test server', version: '0.1.0'),
+      );
+
+  @override
+  FutureOr<void> initialize(MCPServerInitialization initialization) {
+    registerTool(Tool(name: 'ask', inputSchema: ObjectSchema()), (request) {
+      if (request.inputResponses?.isNotEmpty ?? false) {
+        return CallToolResult(content: [TextContent(text: 'done')]);
+      }
+      return InputRequiredResult(
+        inputRequests: {
+          'answer': InputRequest.elicit(
+            ElicitRequest.url(
+              message: 'sign in',
+              url: 'https://example.com/sign-in',
+              elicitationId: request.arguments?[Keys.elicitationId] as String?,
+            ),
+          ),
+        },
+      );
+    });
+    return super.initialize(initialization);
   }
 }
 

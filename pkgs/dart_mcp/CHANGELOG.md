@@ -1,3 +1,8 @@
+## 0.6.0-wip
+
+- Make `elicitationId` optional on `ElicitRequest.url`, since 2026-07-28
+  removed it. A 2025-11-25 client still gets one, filled in when left out.
+
 ## 0.6.0-beta.0
 
 - Count `StringSchema` `minLength` and `maxLength` in Unicode code points
