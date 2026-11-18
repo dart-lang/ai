@@ -154,10 +154,11 @@ void main() {
       _UrlElicitingServer.new,
     );
 
-    final result = response![Keys.result] as Map<String, Object?>;
-    final inputRequests = result[Keys.inputRequests] as Map<String, Object?>;
-    final answer = inputRequests['answer'] as Map<String, Object?>;
-    expect(answer[Keys.params], {
+    final result = response![Keys.result] as CallToolResponse;
+    expect(result.isInputRequired, true);
+    final answer = (result as InputRequiredResult).inputRequests!['answer']!;
+    expect(answer.isElicit, true);
+    expect(answer.params as ElicitRequest, {
       Keys.mode: ElicitationMode.url.name,
       Keys.message: 'sign in',
       Keys.url: 'https://example.com/sign-in',
