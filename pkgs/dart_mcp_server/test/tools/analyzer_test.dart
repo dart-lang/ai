@@ -253,6 +253,7 @@ void main() {
       final rootUri = testHarness.rootForPath(example.io.path).uri;
       expect(rootUri, endsWith('/'));
       final exampleRoot = Root(uri: rootUri.substring(0, rootUri.length - 1));
+      expect(exampleRoot.uri, isNot(endsWith('/')));
       testHarness.mcpClient.addRoot(exampleRoot);
 
       await pumpEventQueue();
