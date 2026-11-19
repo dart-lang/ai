@@ -303,8 +303,20 @@ void main() {
 
       expect(result.errorResult, isNull);
       expect(result.root, isNotNull);
-      expect(result.root!.uri, 'file:///project/sub');
+      expect(result.root!.uri, 'file:///project/sub/');
       expect(result.paths, isNull);
+    });
+
+    test('adds a trailing slash to a root without one', () {
+      final result = validateRootConfig(
+        {ParameterNames.root: 'file:///project'},
+        knownRoots: [Root(uri: 'file:///project/')],
+        fileSystem: fileSystem,
+      );
+
+      expect(result.errorResult, isNull);
+      expect(result.root, isNotNull);
+      expect(result.root!.uri, 'file:///project/');
     });
 
     test('succeeds with valid paths', () {

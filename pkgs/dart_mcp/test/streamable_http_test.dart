@@ -383,7 +383,7 @@ void main() {
       final channel = streamableHttpClientChannel(
         Uri.http('${wireServer.address.host}:${wireServer.port}', '/mcp'),
         protocolVersion: ProtocolVersion.v2026_07_28,
-        clientCapabilities: ClientCapabilities(sampling: {}),
+        clientCapabilities: ClientCapabilities(sampling: SamplingCapability()),
         clientInfo: Implementation(name: 'test client', version: '1.0.0'),
       );
       addTearDown(() => channel.sink.close());

@@ -258,9 +258,10 @@ Future<CallToolResult> runCommandInRoot(
 /// under one of the [knownRoots], and that all `paths` arguments are also under
 /// the given root.
 ///
-/// Returns a root on success, equal to the given root (but this could be a
-/// subdirectory of one of the [knownRoots]), as well as any paths that were
-/// validated.
+/// Returns a root on success, equal to the given root as a directory URI with a
+/// trailing slash (this could be a subdirectory of one of the [knownRoots]), as
+/// well as any paths that were validated. The trailing slash lets callers
+/// resolve relative paths against the root with [Uri.resolve].
 ///
 /// If no [ParameterNames.paths] are provided, then the [defaultPaths] will be
 /// used, if present. Otherwise no paths are validated or will be returned.
@@ -324,7 +325,7 @@ validateRootConfig(
       )..failureReason ??= CallToolFailureReason.invalidRootPath,
     );
   }
-  final root = Root(uri: rootUriString);
+  final root = Root(uri: fileSystem.directory(rootUri).uri.toString());
 
   final paths =
       (rootConfig?[ParameterNames.paths] as List?)?.cast<String>() ??
