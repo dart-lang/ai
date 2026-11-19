@@ -74,5 +74,20 @@ void main() {
         throwsA(isA<UsageException>()),
       );
     });
+
+    test('parses owner/repo.git without doubling the .git suffix', () {
+      final repo = parseGitRepoArg('foo/bar.git', 'usage');
+      expect(repo.cloneUrl, 'https://github.com/foo/bar.git');
+      expect(repo.cloneUrl, parseGitRepoArg('foo/bar', 'usage').cloneUrl);
+    });
+
+    for (final arg in ['foo/', '/bar', 'foo/.git']) {
+      test('throws UsageException for "$arg" with an empty part', () {
+        expect(
+          () => parseGitRepoArg(arg, 'usage'),
+          throwsA(isA<UsageException>()),
+        );
+      });
+    }
   });
 }
