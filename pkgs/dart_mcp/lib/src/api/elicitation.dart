@@ -34,17 +34,19 @@ extension type ElicitRequest._fromMap(Map<String, Object?> _value)
   }
 
   /// Creates a URL-mode elicitation request.
+  ///
+  /// See [ElicitRequest.elicitationId] for when to pass [elicitationId].
   factory ElicitRequest.url({
     required String message,
     required String url,
-    required String elicitationId,
+    String? elicitationId,
     MetaWithProgressToken? meta,
   }) {
     return ElicitRequest._fromMap({
       Keys.mode: ElicitationMode.url.name,
       Keys.message: message,
       Keys.url: url,
-      Keys.elicitationId: elicitationId,
+      if (elicitationId != null) Keys.elicitationId: elicitationId,
       if (meta != null) Keys.meta: meta,
     });
   }
@@ -76,7 +78,9 @@ extension type ElicitRequest._fromMap(Map<String, Object?> _value)
 
   /// A unique identifier for the elicitation.
   ///
-  /// Required for [ElicitationMode.url].
+  /// Only 2025-11-25 sends this, and requires it for [ElicitationMode.url].
+  /// 2026-07-28 removed it. When it is null, a server fills in a unique id
+  /// before sending the request to a 2025-11-25 client.
   String? get elicitationId => _value[Keys.elicitationId] as String?;
 
   /// The URL that the user should navigate to.

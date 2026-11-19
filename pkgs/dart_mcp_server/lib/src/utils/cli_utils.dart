@@ -410,6 +410,7 @@ ListSchema rootsSchema({bool supportsPaths = false}) => Schema.list(
         ),
     },
     required: [ParameterNames.root],
+    additionalProperties: false,
   ),
 );
 
