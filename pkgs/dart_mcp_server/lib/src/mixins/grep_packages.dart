@@ -324,40 +324,66 @@ base mixin GrepSupport
       if (!installDir.existsSync()) {
         await installDir.create(recursive: true);
       }
-      ProcessResult result;
-      if (filename.endsWith('.zip') && processManager.canRun('powershell')) {
-        // Use single-quoted PowerShell strings so `$` in paths is treated
-        // literally rather than expanded; in PowerShell single-quoted strings,
-        // embedded single quotes are escaped by doubling them (`''`).
-        final escapedZip = downloadFile.path.replaceAll("'", "''");
-        final escapedDest = installDir.path.replaceAll("'", "''");
-        result = await processManager.run([
-          'powershell',
-          // Skip loading user profile scripts and disable interactive prompts
-          // during headless archive extraction.
-          '-NoProfile',
-          '-NonInteractive',
-          '-Command',
-          // Use `-LiteralPath` so `[` and `]` in paths aren't interpreted as
-          // PowerShell wildcard patterns, and `-ErrorAction Stop` so errors
-          // cause a non-zero exit code.
-          "Expand-Archive -LiteralPath '$escapedZip' "
-              "-DestinationPath '$escapedDest' -Force -ErrorAction Stop",
-        ]);
-      } else {
-        // Linux/Mac + Windows fallback: Use tar
-        result = await processManager.run([
+      final tarArgs = ['xvf', downloadFile.path, '-C', installDir.path];
+      // Commands to try in order until one succeeds.
+      final extractCommands = <List<String>>[];
+      if (filename.endsWith('.zip')) {
+        // Prefer the built-in `tar.exe` on Windows over `Expand-Archive`,
+        // which can fail in some environments. Use its full path since GNU
+        // `tar` on `PATH` cannot extract `.zip` files.
+        final systemRoot = Platform.environment['SystemRoot'];
+        if (systemRoot != null) {
+          final systemTar = fileSystem.path.join(
+            systemRoot,
+            'System32',
+            'tar.exe',
+          );
+          if (processManager.canRun(systemTar)) {
+            extractCommands.add([systemTar, ...tarArgs]);
+          }
+        }
+        if (processManager.canRun('powershell')) {
+          // Use single-quoted PowerShell strings so `$` in paths is treated
+          // literally rather than expanded; in PowerShell single-quoted
+          // strings, embedded single quotes are escaped by doubling them
+          // (`''`).
+          final escapedZip = downloadFile.path.replaceAll("'", "''");
+          final escapedDest = installDir.path.replaceAll("'", "''");
+          extractCommands.add([
+            'powershell',
+            // Skip loading user profile scripts and disable interactive prompts
+            // during headless archive extraction.
+            '-NoProfile',
+            '-NonInteractive',
+            '-Command',
+            // Use `-LiteralPath` so `[` and `]` in paths aren't interpreted as
+            // PowerShell wildcard patterns, and `-ErrorAction Stop` so errors
+            // cause a non-zero exit code.
+            "Expand-Archive -LiteralPath '$escapedZip' "
+                "-DestinationPath '$escapedDest' -Force -ErrorAction Stop",
+          ]);
+        }
+      }
+      if (extractCommands.isEmpty) {
+        // Linux/Mac, and a last resort on Windows.
+        extractCommands.add([
           Platform.isWindows ? 'tar.exe' : 'tar',
-          'xvf',
-          downloadFile.path,
-          '-C',
-          installDir.path,
+          ...tarArgs,
         ]);
       }
-      if (result.exitCode != 0) {
-        throw StateError(
-          'Failed to extract ripgrep: ${result.stdout}\n${result.stderr}',
+
+      late ProcessResult result;
+      final failures = <String>[];
+      for (final command in extractCommands) {
+        result = await processManager.run(command);
+        if (result.exitCode == 0) break;
+        failures.add(
+          '`${command.first}` exited with code ${result.exitCode}:\n'
+          '${result.stdout}\n${result.stderr}',
         );
+      }
+      if (result.exitCode != 0) {
+        throw StateError('Failed to extract ripgrep:\n${failures.join('\n')}');
       }
 
       // Find the binary in the extracted files, ensure it is executable.
