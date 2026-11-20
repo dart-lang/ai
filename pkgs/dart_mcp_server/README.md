@@ -229,6 +229,22 @@ full list of tool and category names.
 
 <!-- generated -->
 
+## Prompts
+
+The server also provides the following prompts. Prompts are enabled and
+disabled with the same `--enable` and `--disable` flags as tools, by prompt name
+or by category.
+
+<!-- run 'dart tool/update_readme.dart' to update -->
+
+<!-- generated prompts -->
+
+| Prompt Name | Title | Description | Arguments | Categories | Enabled by default |
+| --- | --- | --- | --- | --- | --- |
+| `flutter_driver_user_journey_test` | User journey flutter driver test | Prompts the LLM to attempt to accomplish a user journey in the running app using flutter driver. If successful, it will then translate the steps it followed into a flutter driver test and write that to disk. | `user_journey` (optional): The user journey to perform and write a test for. | flutter_driver | Yes |
+
+<!-- generated prompts -->
+
 ## Connect to a running Flutter app
 
 Recent Flutter versions auto-register a DTD via DDS for every `flutter run`

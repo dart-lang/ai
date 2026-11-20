@@ -848,7 +848,7 @@ void main() {
 
         final refused = await _dispatchShapedRead(
           shape,
-          capabilities: ClientCapabilities(sampling: {}),
+          capabilities: ClientCapabilities(sampling: SamplingCapability()),
         );
         final wire = jsonDecode(jsonEncode(refused)) as Map<String, Object?>;
         final rawError = wire['error'];
@@ -864,7 +864,7 @@ void main() {
         final served = await _dispatchShapedRead(
           shape,
           capabilities: ClientCapabilities(
-            sampling: {Keys.tools: <String, Object?>{}},
+            sampling: SamplingCapability(tools: {}),
           ),
         );
         final servedWire =
@@ -2046,7 +2046,7 @@ MCPServerInitialization _initialization({
 MCPServerInitialization _legacyInitialization() => _initialization(
   capabilities: ClientCapabilities(
     roots: RootsCapabilities(),
-    sampling: {},
+    sampling: SamplingCapability(),
     elicitation: ElicitationCapability(form: {}),
   ),
   protocolVersion: ProtocolVersion.v2025_11_25,

@@ -2,6 +2,11 @@
 
 ## 1.0.5-wip
 
+- Accept `owner/repo.git` as a git repo shorthand instead of cloning
+  `owner/repo.git.git`, and reject shorthands with an empty owner or repo.
+- End `SKILL.md` frontmatter only at a `---` line, so a `---` inside a value
+  no longer cuts the frontmatter short and drops fields such as
+  `metadata.internal`.
 - Stop injecting `user-invocable: false` into `SKILL.md` frontmatter when
   installing skills for Claude Code.
 - Report `skills-cli` as the analytics tool, recorded as the `leaf_tool` user

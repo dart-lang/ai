@@ -56,6 +56,53 @@ void main() {
     });
   });
 
+  group('SamplingCapability', () {
+    test('writes only the fields it is given', () {
+      expect(SamplingCapability() as Map<String, Object?>, isEmpty);
+      expect(SamplingCapability(context: {}, tools: {}) as Map, {
+        'context': <String, Object?>{},
+        'tools': <String, Object?>{},
+      });
+    });
+
+    test('reads its fields off a decoded client capabilities map', () {
+      final capabilities = ClientCapabilities.fromMap(
+        jsonDecode('{"sampling": {"tools": {}, "unknown": 1}}')
+            as Map<String, Object?>,
+      );
+
+      final sampling = capabilities.sampling!;
+      expect(sampling.tools, <String, Object?>{});
+      expect(sampling.context, isNull);
+      expect((sampling as Map)['unknown'], 1);
+      expect(ClientCapabilities().sampling, isNull);
+    });
+
+    test('reads its fields off an untyped map', () {
+      final capabilities = ClientCapabilities.fromMap({
+        'sampling': <dynamic, dynamic>{'tools': <dynamic, dynamic>{}},
+      });
+
+      expect(capabilities.sampling!.tools, <String, Object?>{});
+      expect(capabilities.sampling!.context, isNull);
+    });
+
+    test('setters write through to the client capabilities map', () {
+      final capabilities =
+          ClientCapabilities()..sampling = SamplingCapability();
+      capabilities.sampling!
+        ..context = {}
+        ..tools = {};
+
+      expect(jsonDecode(jsonEncode(capabilities)), {
+        'sampling': {
+          'context': <String, Object?>{},
+          'tools': <String, Object?>{},
+        },
+      });
+    });
+  });
+
   group('server/discover', () {
     test('the request carries no parameters of its own', () {
       expect(DiscoverRequest() as Map<String, Object?>, isEmpty);

@@ -245,6 +245,49 @@ void main() {
       ]);
     });
 
+    test('resolves paths against a root without a trailing slash', () async {
+      final example = d.dir('example', [
+        d.dir('lib', [d.file('main.dart', 'void main() => 1 + "2";')]),
+      ]);
+      await example.create();
+      final rootUri = testHarness.rootForPath(example.io.path).uri;
+      expect(rootUri, endsWith('/'));
+      final exampleRoot = Root(uri: rootUri.substring(0, rootUri.length - 1));
+      expect(exampleRoot.uri, isNot(endsWith('/')));
+      testHarness.mcpClient.addRoot(exampleRoot);
+
+      await pumpEventQueue();
+
+      final request = CallToolRequest(
+        name: analyzeTool.name,
+        arguments: {
+          ParameterNames.roots: [
+            {
+              ParameterNames.root: exampleRoot.uri,
+              ParameterNames.paths: ['lib'],
+            },
+          ],
+        },
+      );
+      final result = await testHarness.callToolWithRetry(request);
+      expect(result.isError, isNot(true));
+      expect(result.content, [
+        isA<TextContent>().having(
+          (t) => t.text,
+          'text',
+          contains('# Diagnostics for root'),
+        ),
+        isA<TextContent>().having(
+          (t) => t.text,
+          'text',
+          contains(
+            "error • main.dart:1:20 • The argument type 'String' can't be "
+            "assigned to the parameter type 'num'.",
+          ),
+        ),
+      ]);
+    });
+
     test('handles a non-existent path', () async {
       final example = d.dir('example', [
         d.file('main.dart', 'void main() => 1 + "2";'),
@@ -634,6 +677,29 @@ void printIt({required int x}) {
       );
     });
 
+    test('sends diagnostic counts in analytics', () async {
+      final example = d.dir('example', [
+        d.file('main.dart', "void main() { int x = 'a'; print(x); }"),
+      ]);
+      await example.create();
+      final exampleRoot = testHarness.rootForPath(example.io.path);
+      testHarness.mcpClient.addRoot(exampleRoot);
+      await pumpEventQueue();
+
+      await testHarness.callToolWithRetry(
+        CallToolRequest(name: DartAnalyzerSupport.analyzeFilesTool.name),
+      );
+      expect(
+        analytics.sentEvents.last.eventData,
+        allOf(
+          containsPair(AnalysisMetrics.errorCountKey, 1),
+          containsPair(AnalysisMetrics.warningCountKey, 0),
+          containsPair(AnalysisMetrics.infoCountKey, isA<int>()),
+          containsPair(AnalysisMetrics.unknownCountKey, 0),
+        ),
+      );
+    });
+
     test('send analytics', () async {
       final example = d.dir('example', [
         d.file('main.dart', 'void main() => 1 + 2;'),
@@ -652,6 +718,7 @@ void printIt({required int x}) {
           isNot(contains(AnalysisMetrics.applyFixesTimeMsKey)),
           containsPair(AnalysisMetrics.analyzerReadyTimeMsKey, isA<int>()),
           containsPair(AnalysisMetrics.didInitializeAnalysisServerKey, true),
+          containsPair(AnalysisMetrics.errorCountKey, 0),
         ),
       );
 
@@ -672,6 +739,7 @@ void printIt({required int x}) {
           isNot(contains(AnalysisMetrics.applyFixesTimeMsKey)),
           containsPair(AnalysisMetrics.analyzerReadyTimeMsKey, isA<int>()),
           containsPair(AnalysisMetrics.didInitializeAnalysisServerKey, false),
+          isNot(contains(AnalysisMetrics.errorCountKey)),
         ),
       );
     });

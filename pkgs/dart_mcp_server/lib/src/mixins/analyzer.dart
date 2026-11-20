@@ -418,11 +418,15 @@ base mixin DartAnalyzerSupport
         messages.add(TextContent(text: 'No errors'));
       }
 
+      final counts = DiagnosticCounts.from(
+        filteredDiagnosticsByRoot.values.expand((byUri) => byUri.values),
+      );
       return CallToolResult(content: messages)
         ..customMetrics = AnalysisMetrics(
           applyFixesTimeMs: applyFixesWatch?.elapsedMilliseconds,
           analyzerReadyTimeMs: analyzerReadyTimeMs,
           didInitializeAnalysisServer: serverWasInitialized,
+          diagnosticCounts: counts,
         );
     });
   }
@@ -1005,10 +1009,16 @@ final class AnalysisMetrics extends CustomMetrics {
   /// Whether or not this request had to start the analysis server from scratch.
   final bool didInitializeAnalysisServer;
 
+  /// The number of diagnostics returned to the client, by severity.
+  ///
+  /// Only reported by the analyze files tool.
+  final DiagnosticCounts? diagnosticCounts;
+
   AnalysisMetrics({
     this.applyFixesTimeMs,
     required this.analyzerReadyTimeMs,
     required this.didInitializeAnalysisServer,
+    this.diagnosticCounts,
   });
 
   @override
@@ -1017,10 +1027,73 @@ final class AnalysisMetrics extends CustomMetrics {
       applyFixesTimeMsKey: ?applyFixesTimeMs,
       analyzerReadyTimeMsKey: analyzerReadyTimeMs,
       didInitializeAnalysisServerKey: didInitializeAnalysisServer,
+      if (diagnosticCounts case final counts?) ...{
+        errorCountKey: counts.errors,
+        warningCountKey: counts.warnings,
+        infoCountKey: counts.infos,
+        unknownCountKey: counts.unknown,
+      },
     };
   }
 
   static const applyFixesTimeMsKey = 'applyFixesTimeMs';
   static const analyzerReadyTimeMsKey = 'analyzerReadyTimeMs';
   static const didInitializeAnalysisServerKey = 'didInitializeAnalysisServer';
+  static const errorCountKey = 'errorCount';
+  static const warningCountKey = 'warningCount';
+  static const infoCountKey = 'infoCount';
+  static const unknownCountKey = 'unknownSeverityCount';
+}
+
+/// The number of diagnostics of each severity.
+final class DiagnosticCounts {
+  /// The number of diagnostics with a severity of error.
+  final int errors;
+
+  /// The number of diagnostics with a severity of warning.
+  final int warnings;
+
+  /// The number of diagnostics with a severity of information.
+  final int infos;
+
+  /// The number of diagnostics with any other severity (such as hint), or with
+  /// no severity.
+  ///
+  /// The analysis server only reports errors, warnings, and information, so
+  /// this is expected to be zero.
+  final int unknown;
+
+  const DiagnosticCounts({
+    required this.errors,
+    required this.warnings,
+    required this.infos,
+    required this.unknown,
+  });
+
+  /// Counts the diagnostics in each of the [diagnosticLists] by severity.
+  factory DiagnosticCounts.from(
+    Iterable<List<lsp.Diagnostic>> diagnosticLists,
+  ) {
+    var errors = 0, warnings = 0, infos = 0, unknown = 0;
+    for (final diagnostics in diagnosticLists) {
+      for (final diagnostic in diagnostics) {
+        switch (diagnostic.severity) {
+          case lsp.DiagnosticSeverity.Error:
+            errors++;
+          case lsp.DiagnosticSeverity.Warning:
+            warnings++;
+          case lsp.DiagnosticSeverity.Information:
+            infos++;
+          default:
+            unknown++;
+        }
+      }
+    }
+    return DiagnosticCounts(
+      errors: errors,
+      warnings: warnings,
+      infos: infos,
+      unknown: unknown,
+    );
+  }
 }
