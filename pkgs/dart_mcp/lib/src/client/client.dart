@@ -477,29 +477,24 @@ base class ServerConnection extends MCPBase {
   @protected
   @override
   Future<T> sendRequestKeepingProgress<T extends Result?>(
-    String methodName, [
+    String methodName, {
     Request? request,
-  ]) async {
-    final result = await _sendAnyResultType<T>(methodName, request);
-    final resultType = _rawResultType(result);
-    if (_onRevision(request) && !_isKnownResultType(resultType)) {
-      throw _unrecognizedResultType(resultType);
-    }
-    return result;
-  }
-
-  Future<T> _sendAnyResultType<T extends Result?>(
-    String methodName,
-    Request? request,
-  ) {
+    Future<T> Function(Result)? handleUnrecognizedResult,
+  }) async {
     if (!_onRevision(request)) {
-      return super.sendRequestKeepingProgress<T>(methodName, request);
+      return super.sendRequestKeepingProgress<T>(methodName, request: request);
     }
-    return _responseCache.sendRequest<T>(
+    final result = await _responseCache.sendRequest<T>(
       methodName,
       request,
-      () => super.sendRequestKeepingProgress<T>(methodName, request),
+      () => super.sendRequestKeepingProgress<T>(methodName, request: request),
     );
+    final resultType = _rawResultType(result);
+    if (_isKnownResultType(resultType)) return result;
+    if (handleUnrecognizedResult == null) {
+      throw _unrecognizedResultType(resultType);
+    }
+    return handleUnrecognizedResult(result as Result);
   }
 
   bool _onRevision(Request? request) {
@@ -864,7 +859,7 @@ base class ServerConnection extends MCPBase {
       while (true) {
         final page = await sendRequestKeepingProgress<R>(
           methodName,
-          pageRequest,
+          request: pageRequest,
         );
         pagesRequested++;
         for (final item in itemsOf(page)) {
@@ -924,17 +919,18 @@ base class ServerConnection extends MCPBase {
     Future<T> Function(Result)? handleUnrecognizedResult,
   ) async {
     final originalRequest = request as Map<String, Object?>;
-    Result result = await _sendAnyResultType<T>(methodName, request);
-    for (var round = 0; ; round++) {
-      final resultType = _rawResultType(result);
-      if (!_isKnownResultType(resultType)) {
-        if (handleUnrecognizedResult == null) {
-          throw _unrecognizedResultType(resultType);
-        }
-        return handleUnrecognizedResult(result);
-      }
-      if (resultType != ResultTypes.inputRequired) return result as T;
-
+    var result =
+        (await sendRequestKeepingProgress<T>(
+              methodName,
+              request: request,
+              handleUnrecognizedResult: handleUnrecognizedResult,
+            ))
+            as Result;
+    for (
+      var round = 0;
+      result.resultType == ResultTypes.inputRequired;
+      round++
+    ) {
       final maxRounds = maxInputRequiredRounds;
       if (maxRounds != null && round >= maxRounds) {
         throw ArgumentError(
@@ -979,8 +975,15 @@ base class ServerConnection extends MCPBase {
                 if (requestState != null) Keys.requestState: requestState,
               }
               as WithInputResponses;
-      result = await _sendAnyResultType<T>(methodName, retryRequest);
+      result =
+          (await sendRequestKeepingProgress<T>(
+                methodName,
+                request: retryRequest,
+                handleUnrecognizedResult: handleUnrecognizedResult,
+              ))
+              as Result;
     }
+    return result as T;
   }
 
   /// Resolves the handler for [inputRequest], one of the three methods a

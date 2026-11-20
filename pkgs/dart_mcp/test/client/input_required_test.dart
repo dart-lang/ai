@@ -1159,6 +1159,27 @@ void main() {
         expect(harness.requests, hasLength(2));
       });
 
+      test(
+        'answers an unrecognized value on a request without inputs',
+        () async {
+          final harness = _WireHarness(
+            MCPClient(Implementation(name: 'test client', version: '0.1.0')),
+            (request, requestNumber) => toolResult('io.example/other'),
+          );
+
+          // ignore: invalid_use_of_protected_member
+          final result = await harness.connection.sendRequestKeepingProgress(
+            ListToolsRequest.methodName,
+            request: ListToolsRequest(),
+            handleUnrecognizedResult:
+                (result) async => ListToolsResult(tools: []),
+          );
+
+          expect(result.tools, isEmpty);
+          expect(harness.requests, hasLength(1));
+        },
+      );
+
       for (final (resultType, protocolVersion) in [
         (null, ProtocolVersion.v2026_07_28),
         ('complete', ProtocolVersion.v2026_07_28),

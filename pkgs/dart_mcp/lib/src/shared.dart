@@ -273,7 +273,7 @@ base class MCPBase {
     Request? request,
   ]) async {
     try {
-      return await sendRequestKeepingProgress<T>(methodName, request);
+      return await sendRequestKeepingProgress<T>(methodName, request: request);
     } finally {
       await closeProgress(request);
     }
@@ -325,9 +325,9 @@ base class MCPBase {
   /// nothing it sends can reach the peer any more.
   @protected
   Future<T> sendRequestKeepingProgress<T extends Result?>(
-    String methodName, [
+    String methodName, {
     Request? request,
-  ]) async {
+  }) async {
     final currentRequest = Zone.current[_currentRequestKey];
     if (currentRequest is _IncomingRequest && currentRequest.cancelled) {
       throw StateError(
