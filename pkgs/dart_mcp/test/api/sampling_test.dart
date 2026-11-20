@@ -44,6 +44,29 @@ void main() {
       expect(parsed.isError, isFalse);
     });
 
+    for (final value in <Object?>[
+      {'answer': '42'},
+      ['sunny', 21],
+      'sunny',
+      21,
+      true,
+      null,
+    ]) {
+      test('ToolResultContent round trips structuredContent $value', () {
+        final content = ToolResultContent.fromMap({
+          'type': 'tool_result',
+          'toolUseId': 'call-1',
+          'content': <Object?>[],
+          'structuredContent': value,
+        });
+        final decoded = jsonDecode(jsonEncode(content)) as Map<String, Object?>;
+        final parsed = ToolResultContent.fromMap(decoded);
+
+        expect(parsed.hasStructuredContent, isTrue);
+        expect(parsed.structuredContent, value);
+      });
+    }
+
     test('a sampling message carries tool use content', () {
       final message = SamplingMessage(
         role: Role.assistant,
@@ -432,6 +455,21 @@ void main() {
       expect(asContent.isToolUse, isFalse);
     });
 
+    test('sends an explicit null structuredContent', () {
+      final result = ToolResultContent(
+        toolUseId: 'call-1',
+        content: [],
+        structuredContent: null,
+      );
+
+      expect(
+        (result as Map<String, Object?>).keys,
+        contains('structuredContent'),
+      );
+      expect(result.hasStructuredContent, isTrue);
+      expect(result.structuredContent, isNull);
+    });
+
     test('omits absent optional fields', () {
       final result = ToolResultContent(
         toolUseId: 'call-1',
@@ -441,6 +479,7 @@ void main() {
       final wire = result as Map<String, Object?>;
       expect(wire.keys.toSet(), {'type', 'toolUseId', 'content'});
       expect(result.structuredContent, isNull);
+      expect(result.hasStructuredContent, isFalse);
       expect(result.isError, isNull);
       expect(result.meta, isNull);
     });

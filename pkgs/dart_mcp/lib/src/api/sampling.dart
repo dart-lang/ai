@@ -299,14 +299,15 @@ extension type ToolResultContent.fromMap(Map<String, Object?> _value)
   factory ToolResultContent({
     required List<Content> content,
     required String toolUseId,
-    Map<String, Object?>? structuredContent,
+    Object? structuredContent = _omitted,
     bool? isError,
     Meta? meta,
   }) => ToolResultContent.fromMap({
     Keys.content: content,
     Keys.toolUseId: toolUseId,
     Keys.type: expectedType,
-    if (structuredContent != null) Keys.structuredContent: structuredContent,
+    if (!identical(structuredContent, _omitted))
+      Keys.structuredContent: structuredContent,
     if (isError != null) Keys.isError: isError,
     if (meta != null) Keys.meta: meta,
   });
@@ -330,9 +331,16 @@ extension type ToolResultContent.fromMap(Map<String, Object?> _value)
     return content;
   }
 
-  /// The structured result returned by the tool.
-  Map<String, Object?>? get structuredContent =>
-      _value[Keys.structuredContent] as Map<String, Object?>?;
+  /// The structured result returned by the tool, which can be any JSON value.
+  ///
+  /// See https://modelcontextprotocol.io/specification/2026-07-28/schema#toolresultcontent-structuredcontent.
+  ///
+  /// Use [hasStructuredContent] to tell an explicit JSON `null` from an
+  /// omitted field.
+  Object? get structuredContent => _value[Keys.structuredContent];
+
+  /// Whether [structuredContent] is present, even when it is JSON `null`.
+  bool get hasStructuredContent => _value.containsKey(Keys.structuredContent);
 
   /// Whether the tool use resulted in an error.
   bool? get isError => _value[Keys.isError] as bool?;

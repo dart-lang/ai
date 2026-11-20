@@ -2312,6 +2312,38 @@ void main() {
       expect(result.structuredContent, {'bar': 'baz'});
     });
 
+    test('can return non object structured content', () async {
+      final environment = TestEnvironment(
+        TestMCPClient(),
+        (channel) => TestMCPServerWithTools(
+          channel,
+          tools: [
+            Tool(
+              name: 'foo',
+              inputSchema: ObjectSchema(),
+              outputSchema: ListSchema(items: StringSchema()),
+            ),
+          ],
+          toolHandlers: {
+            'foo':
+                (request) =>
+                    CallToolResult(content: [], structuredContent: ['a', 'b']),
+          },
+        ),
+      );
+      await environment.initializeServer();
+      final serverConnection = environment.serverConnection;
+      final tool = (await serverConnection.listTools()).tools.single;
+      expect(tool.outputSchema, {
+        'type': 'array',
+        'items': {'type': 'string'},
+      });
+      final result = await serverConnection.callTool(
+        CallToolRequest(name: 'foo', arguments: {}),
+      );
+      expect(result.structuredContent, ['a', 'b']);
+    });
+
     test('can return embedded resources', () async {
       final environment = TestEnvironment(
         TestMCPClient(),
@@ -2378,6 +2410,67 @@ void main() {
               ),
         ]),
       );
+    });
+  });
+
+  group('structured content of any JSON value', () {
+    final values = <String, Object?>{
+      'object': {'bar': 'baz'},
+      'array': [1, 'two', null],
+      'string': 'done',
+      'number': 4.5,
+      'bool': false,
+      'null': null,
+    };
+
+    for (final MapEntry(key: kind, :value) in values.entries) {
+      test('CallToolResult round trips $kind', () {
+        final result = CallToolResult.fromMap(
+          jsonDecode(
+                jsonEncode(
+                  CallToolResult.fromMap({
+                    'content': <Object?>[],
+                    'structuredContent': value,
+                  }),
+                ),
+              )
+              as Map<String, Object?>,
+        );
+        expect(result.hasStructuredContent, isTrue);
+        expect(result.structuredContent, value);
+      });
+    }
+
+    test('omitted structuredContent is absent, not null', () {
+      final result = CallToolResult(content: []);
+      expect(result.hasStructuredContent, isFalse);
+      expect(result.structuredContent, isNull);
+    });
+
+    test('explicit null structuredContent is sent', () {
+      final result = CallToolResult(content: [], structuredContent: null);
+      expect(
+        (result as Map<String, Object?>).keys,
+        contains('structuredContent'),
+      );
+      expect(result.hasStructuredContent, isTrue);
+      expect(result.structuredContent, isNull);
+    });
+
+    test('Tool round trips a non object outputSchema', () {
+      final tool = Tool.fromMap(
+        jsonDecode(
+              jsonEncode(
+                Tool(
+                  name: 'count',
+                  inputSchema: ObjectSchema(),
+                  outputSchema: IntegerSchema(minimum: 0),
+                ),
+              ),
+            )
+            as Map<String, Object?>,
+      );
+      expect(tool.outputSchema, {'type': 'integer', 'minimum': 0});
     });
   });
 }
