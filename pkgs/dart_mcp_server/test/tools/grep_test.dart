@@ -379,7 +379,10 @@ void main() {
     () async {
       // The default `TestProcessManager` succeeds without running commands, so
       // nothing is extracted.
-      final harness = await TestHarness.start(inProcess: true);
+      final harness = await TestHarness.start(
+        inProcess: true,
+        startFakeEditorExtension: false,
+      );
       harness.mcpClient.registerElicitationHandler(
         (_) => ElicitResult(action: ElicitationAction.accept),
       );
