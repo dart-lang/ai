@@ -285,17 +285,13 @@ base mixin GrepSupport
     // The user did not approve the installation.
     if (elicitResult.action != ElicitationAction.accept) return null;
 
-    // We use a specific version because its hard coded into the release asset
-    // name, and we want to avoid hitting the github API and getting rate
-    // limited.
-    const version = _ripGrepVersion;
     final asset = _ripGrepAssetDownloadName();
     final expectedDigest =
         _ripGrepAssetDigests[asset] ??
         (throw StateError('No pinned SHA-256 digest for ripgrep asset $asset'));
-    final filename = 'ripgrep-v$version-$asset';
+    final filename = 'ripgrep-v$_ripGrepVersion-$asset';
     final url = Uri.parse(
-      'https://github.com/microsoft/ripgrep-prebuilt/releases/download/v$version/$filename',
+      'https://github.com/microsoft/ripgrep-prebuilt/releases/download/v$_ripGrepVersion/$filename',
     );
 
     final downloadDir = await fileSystem.systemTempDirectory.createTemp(
@@ -415,6 +411,10 @@ base mixin GrepSupport
   }
 
   /// The ripgrep version installed by [tryInstallRipGrep].
+  ///
+  /// We use a specific version because its hard coded into the release asset
+  /// name, and we want to avoid hitting the github API and getting rate
+  /// limited.
   ///
   /// Update [_ripGrepAssetDigests] when changing this.
   static const _ripGrepVersion = '15.0.0';
