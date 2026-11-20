@@ -299,14 +299,14 @@ extension type ToolResultContent.fromMap(Map<String, Object?> _value)
   factory ToolResultContent({
     required List<Content> content,
     required String toolUseId,
-    Object? structuredContent = const _Omitted(),
+    Object? structuredContent = _omitted,
     bool? isError,
     Meta? meta,
   }) => ToolResultContent.fromMap({
     Keys.content: content,
     Keys.toolUseId: toolUseId,
     Keys.type: expectedType,
-    if (structuredContent is! _Omitted)
+    if (!identical(structuredContent, _omitted))
       Keys.structuredContent: structuredContent,
     if (isError != null) Keys.isError: isError,
     if (meta != null) Keys.meta: meta,

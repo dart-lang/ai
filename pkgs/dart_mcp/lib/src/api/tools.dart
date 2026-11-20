@@ -76,11 +76,11 @@ extension type CallToolResult.fromMap(Map<String, Object?> _value)
   factory CallToolResult({
     Meta? meta,
     required List<Content> content,
-    Object? structuredContent = const _Omitted(),
+    Object? structuredContent = _omitted,
     bool? isError,
   }) => CallToolResult.fromMap({
     Keys.content: content,
-    if (structuredContent is! _Omitted)
+    if (!identical(structuredContent, _omitted))
       Keys.structuredContent: structuredContent,
     if (isError != null) Keys.isError: isError,
     if (meta != null) Keys.meta: meta,
@@ -2077,6 +2077,4 @@ HashSet<ValidationError> _createHashSet() {
 }
 
 /// An omitted `structuredContent`, since JSON `null` is a valid value.
-final class _Omitted {
-  const _Omitted();
-}
+const _omitted = Object();
