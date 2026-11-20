@@ -32,13 +32,17 @@ abstract class AgentSkillsAdapter extends AgentAdapter {
 
   @override
   Future<InstallSkillResult> installSkill(ScannedSkill skill) async {
-    final targetDir = Directory(p.join(skillsDirectory, skill.skillName));
-
-    if (await targetDir.exists()) {
-      await targetDir.delete(recursive: true);
-    }
-    await targetDir.create(recursive: true);
+    final targetPath = p.join(skillsDirectory, skill.skillName);
+    await removeSkill(skill.skillName);
     assert(skill.skillPath != null, 'Cannot install a skill without a path');
+
+    if (skill.isLinked) {
+      await Link(targetPath).create(skill.skillPath!);
+      return (name: skill.skillName, contentHash: null);
+    }
+
+    final targetDir = Directory(targetPath);
+    await targetDir.create(recursive: true);
     await _copyDirectory(Directory(skill.skillPath!), targetDir);
     final hash = await computeInstalledSkillHash(skill.skillName);
     if (hash == null) {
@@ -49,7 +53,16 @@ abstract class AgentSkillsAdapter extends AgentAdapter {
 
   @override
   Future<bool> removeSkill(String skillName) async {
-    final targetDir = Directory(p.join(skillsDirectory, skillName));
+    final targetPath = p.join(skillsDirectory, skillName);
+
+    // A linked skill is removed as a link so that its target is untouched and
+    // so that a dangling link is still cleaned up.
+    if (await FileSystemEntity.isLink(targetPath)) {
+      await Link(targetPath).delete();
+      return true;
+    }
+
+    final targetDir = Directory(targetPath);
     if (!await targetDir.exists()) {
       return true;
     }

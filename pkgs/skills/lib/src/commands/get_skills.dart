@@ -54,13 +54,16 @@ Future<bool> getSkills({
     throw UsageException('Failed to run pub get.', usage);
   }
 
-  // Separate out the package: URIs from git URIs and extract the package
-  // name from package URIs.
+  // Separate out the package: URIs from git and linked URIs and extract the
+  // package name from package URIs.
   final requestedPackages = <String>{};
   final requestedGitUris = <String>{};
+  final requestedLinkUris = <String>{};
   for (var uri in sourceUris) {
     if (uri.startsWith('package:')) {
       requestedPackages.add(uri.substring('package:'.length));
+    } else if (SkillManifest.isLinkedSource(uri)) {
+      requestedLinkUris.add(uri);
     } else {
       requestedGitUris.add(uri);
     }
@@ -150,10 +153,22 @@ Future<bool> getSkills({
     gitRepoCommits: gitData.gitRepoCommits,
   );
 
+  // If other sources were given, but no linked directories, don't scan them.
+  final _LinkedData(
+    :linkedSkills,
+    :missingSourceUris,
+  ) = sourceUris.isNotEmpty && requestedLinkUris.isEmpty
+      ? const (linkedSkills: <ScannedSkill>[], missingSourceUris: <String>{})
+      : await _scanLinkedDirectories(
+          manifest: manifest,
+          linkUris: requestedLinkUris,
+          logger: logger,
+        );
+
   final scanner = SkillScanner(logger);
   final dartSkills = await scanner.scan(packages);
 
-  final skills = [...dartSkills, ...gitData.gitSkills];
+  final skills = [...dartSkills, ...gitData.gitSkills, ...linkedSkills];
 
   Map<Agent, Set<String>>? selectedSkillNamesByAgent;
 
@@ -174,11 +189,24 @@ Future<bool> getSkills({
       createAgentAdapter(agent, rootPath, dialogSupport),
   ];
 
+  final installer = SkillInstaller(dialogSupport);
+  manifest = await _removeDeletedLinkedSkills(
+    agents: agents,
+    installer: installer,
+    manifest: manifest,
+    rootPath: rootPath,
+    linkedSkills: linkedSkills,
+    missingSourceUris: missingSourceUris,
+    sourceUris: sourceUris,
+    logger: logger,
+  );
+
   final skillsBySource = _groupSkillsBySourceAndFindRemoved(
     skills: skills,
     agentAdapters: agentAdapters,
     manifest: manifest,
     sourceUris: sourceUris,
+    missingSourceUris: missingSourceUris,
   );
 
   if (skillsBySource.isEmpty) {
@@ -244,7 +272,6 @@ Future<bool> getSkills({
     selectedSkillNamesByAgent = promptResult.selectedSkillNamesByAgent;
   }
 
-  final installer = SkillInstaller(dialogSupport);
   for (final agent in agents) {
     final result = await installer.installSkillsForAgent(
       agent: agent,
@@ -254,6 +281,7 @@ Future<bool> getSkills({
       previousManifest: manifest,
       globalConfig: globalConfig,
       sourceUris: sourceUris, // this still acts as source filter
+      missingSourceUris: missingSourceUris,
     );
     if (result == null) {
       logger.warning('Installation aborted for agent ${agent.cliName}');
@@ -465,6 +493,95 @@ Future<_GitData> _syncAndScanGitRepos({
   return (gitSkills: gitSkills, gitRepoCommits: gitRepoCommits);
 }
 
+/// Scans the directories linked with `skills link` in [manifest] for skills.
+///
+/// If [linkUris] is not empty, only those linked sources are scanned. The
+/// sources whose directory does not exist right now are returned in
+/// `missingSourceUris` so that their installed skills are left untouched.
+Future<_LinkedData> _scanLinkedDirectories({
+  required SkillManifest manifest,
+  required Set<String> linkUris,
+  required Logger logger,
+}) async {
+  final skills = <ScannedSkill>[];
+  final missingSourceUris = <String>{};
+  for (final directory in manifest.linkedDirectories) {
+    final sourceUri = SkillManifest.linkedSourceUri(directory);
+    if (linkUris.isNotEmpty && !linkUris.contains(sourceUri)) continue;
+
+    final directoryEntity = io.Directory(directory);
+    if (!await directoryEntity.exists()) {
+      logger.warning('Linked directory not found: $directory');
+      missingSourceUris.add(sourceUri);
+      continue;
+    }
+    skills.addAll(
+      await const GitScanner().scanDirectory(
+        directoryEntity,
+        linkedDirectory: directory,
+      ),
+    );
+  }
+  return (linkedSkills: skills, missingSourceUris: missingSourceUris);
+}
+
+/// Removes linked skills that no longer exist in their linked directory.
+///
+/// Their links are broken, so they are removed without prompting. Returns the
+/// updated [manifest], which is saved if anything was removed.
+Future<SkillManifest> _removeDeletedLinkedSkills({
+  required List<Agent> agents,
+  required SkillInstaller installer,
+  required SkillManifest manifest,
+  required String rootPath,
+  required List<ScannedSkill> linkedSkills,
+  required Set<String> missingSourceUris,
+  required Set<String> sourceUris,
+  required Logger logger,
+}) async {
+  var updatedManifest = manifest;
+  for (final agent in agents) {
+    final sourceEntries = manifest.sourceUrisForAgent(agent.cliName);
+    for (final MapEntry(key: sourceUri, value: entry)
+        in sourceEntries.entries) {
+      if (!SkillManifest.isLinkedSource(sourceUri)) continue;
+      if (sourceUris.isNotEmpty && !sourceUris.contains(sourceUri)) continue;
+      // A directory that is missing right now may be an unmounted drive, so
+      // its skills are left alone instead of being treated as deleted.
+      if (missingSourceUris.contains(sourceUri)) continue;
+
+      final presentNames = {
+        for (final skill in linkedSkills)
+          if (skill.sourceUri == sourceUri) skill.skillName,
+      };
+      final deletedNames = {
+        for (final skill in entry.skills)
+          if (!presentNames.contains(skill.name)) skill.name,
+      };
+      if (deletedNames.isEmpty) continue;
+
+      final result = await installer.removeSkillsForAgent(
+        agent: agent,
+        rootPath: rootPath,
+        manifest: updatedManifest,
+        sourceUris: {sourceUri},
+        skillNames: deletedNames,
+      );
+      updatedManifest = result.manifest;
+      for (final info in result.removed) {
+        logger.info(
+          '  [${info.agentName}] Removed ${info.skillName} '
+          '(no longer in its linked directory)',
+        );
+      }
+    }
+  }
+  if (updatedManifest != manifest) {
+    await updatedManifest.save(manifestFile(rootPath));
+  }
+  return updatedManifest;
+}
+
 /// Checks for security advisories for the given [packages] using OSV.dev.
 ///
 /// Logs warnings if any known security advisories exist for the given packages
@@ -503,12 +620,14 @@ Future<void> _checkSecurityAdvisories({
 /// instances.
 ///
 /// If [sourceUris] is non-empty, then only skills from those sources are
-/// returned.
+/// returned. Skills from the [missingSourceUris] could not be scanned, so they
+/// are not reported as removed.
 Map<String, List<ScannedSkill>> _groupSkillsBySourceAndFindRemoved({
   required List<ScannedSkill> skills,
   required List<AgentAdapter> agentAdapters,
   required SkillManifest manifest,
   required Set<String> sourceUris,
+  required Set<String> missingSourceUris,
 }) {
   final skillsBySource = <String, List<ScannedSkill>>{};
   for (final skill in skills) {
@@ -520,6 +639,7 @@ Map<String, List<ScannedSkill>> _groupSkillsBySourceAndFindRemoved({
     final existingPkgs = manifest.sourceUrisForAgent(adapter.agent.cliName);
     for (final MapEntry(key: sourceUri, value: entry) in existingPkgs.entries) {
       if (sourceUris.isNotEmpty && !sourceUris.contains(sourceUri)) continue;
+      if (missingSourceUris.contains(sourceUri)) continue;
 
       for (final existingSkill in entry.skills) {
         if (!existingSkill.isInstalled) continue;
@@ -567,12 +687,6 @@ Future<_SkillStatesResult> _computeSkillStates({
           <AgentAdapter, _SkillState>{};
 
       for (final adapter in agentAdapters) {
-        final newHash = switch (skill.skillPath) {
-          null => null,
-          String path => await adapter.computeSourceSkillHash(
-            io.Directory(path),
-          ),
-        };
         var state = _SkillState.isNew;
         final currentSkillEntry = manifest
             .sourceUrisForAgent(adapter.agent.cliName)[skill.sourceUri]
@@ -585,7 +699,16 @@ Future<_SkillStatesResult> _computeSkillStates({
             state = _SkillState.skipped;
           } else if (skill is OrphanedSkill) {
             state = _SkillState.removed;
+          } else if (skill.isLinked) {
+            // A link always reflects its source, so there is nothing to update.
+            state = _SkillState.upToDate;
           } else {
+            final newHash = switch (skill.skillPath) {
+              null => null,
+              String path => await adapter.computeSourceSkillHash(
+                io.Directory(path),
+              ),
+            };
             final currentHash = await adapter.computeInstalledSkillHash(
               skill.skillName,
             );
@@ -837,6 +960,11 @@ typedef _GitData = ({
   Map<String, String> gitRepoCommits,
 });
 
+typedef _LinkedData = ({
+  List<ScannedSkill> linkedSkills,
+  Set<String> missingSourceUris,
+});
+
 typedef _SkillStatesResult = ({
   Map<ScannedSkill, Map<AgentAdapter, _SkillState>> allSkillStates,
   Set<String> sourceIdsWithDiff,
@@ -870,6 +998,14 @@ class OrphanedSkill implements ScannedSkill {
 
   @override
   final String? gitUrl;
+
+  /// Deleted linked skills are removed without prompting, so they are never
+  /// orphaned.
+  @override
+  String? get linkedDirectory => null;
+
+  @override
+  bool get isLinked => false;
 
   @override
   final String skillName;

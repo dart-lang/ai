@@ -16,6 +16,17 @@ class SkillManifest {
   static final String configDirPath = p.join('.config', 'dart_skills');
   static const String configName = 'skills_config.json';
 
+  /// Prefix of the source URIs for directories linked with `skills link`.
+  static const String linkedSourcePrefix = 'link:';
+
+  /// Returns the source URI recorded for a linked [directory].
+  static String linkedSourceUri(String directory) =>
+      '$linkedSourcePrefix$directory';
+
+  /// Whether [sourceUri] refers to a directory linked with `skills link`.
+  static bool isLinkedSource(String sourceUri) =>
+      sourceUri.startsWith(linkedSourcePrefix);
+
   /// Returns the platform-correct path to the manifest file under [rootPath].
   static String pathIn(String rootPath) =>
       p.join(rootPath, configDirPath, configName);
@@ -162,18 +173,25 @@ class SkillManifest {
       installations[agent] ?? {};
 
   /// Dynamically infers all git repositories currently installed by scanning
-  /// source URIs for all non-package: URIs.
+  /// source URIs for all URIs that are neither `package:` nor linked.
   List<GitRepo> get gitRepos {
     final uris = <String>{};
     for (final agent in installations.values) {
       for (final uri in agent.keys) {
-        if (!uri.startsWith('package:')) {
+        if (!uri.startsWith('package:') && !isLinkedSource(uri)) {
           uris.add(uri);
         }
       }
     }
     return uris.map((uri) => GitRepo(cloneUrl: uri)).toList();
   }
+
+  /// All directories linked with `skills link`, across all agents.
+  Set<String> get linkedDirectories => {
+    for (final agent in installations.values)
+      for (final uri in agent.keys)
+        if (isLinkedSource(uri)) uri.substring(linkedSourcePrefix.length),
+  };
 
   /// All installed skill entries for a given [agent].
   ///

@@ -31,6 +31,13 @@ Install skills from a git repository (the repo is remembered, and future
 dart run skills@ add dart-lang/ai
 ```
 
+Symlink skills from a local directory while developing them, so edits show up
+in your agent immediately:
+
+```bash
+dart run skills@ link ../my_package
+```
+
 See what is currently installed:
 
 ```bash

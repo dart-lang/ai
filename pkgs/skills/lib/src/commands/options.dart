@@ -28,6 +28,17 @@ void addAgentOption(ArgParser argParser) {
   );
 }
 
+/// Throws a [UsageException] if both `--all` and `--skill` were given.
+void checkAllAndSkillExclusive(ArgResults argResults, String usage) {
+  if (argResults.flag('all') && argResults.multiOption('skill').isNotEmpty) {
+    throw UsageException(
+      '--all and --skill are mutually exclusive arguments, please provide '
+      'only one',
+      usage,
+    );
+  }
+}
+
 /// Returns the agents to operate on.
 ///
 /// If `--agent` is specified (or the `SKILLS_AGENT` env var), returns that single

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 import 'package:skills/src/core/git_repos.dart';
@@ -250,6 +252,37 @@ void main() {
       );
       expect(skills, isEmpty);
     });
+
+    test(
+      'when scanning a linked directory then skills carry the link source',
+      () async {
+        await d.dir('linked', [
+          d.dir('skills', [
+            d.dir('my-skill', [
+              d.file('SKILL.md', '---\nname: my-skill\n---\n'),
+            ]),
+          ]),
+        ]).create();
+        final linkedDirectory = d.path('linked');
+
+        const scanner = GitScanner();
+        final skills = await scanner.scanDirectory(
+          Directory(linkedDirectory),
+          linkedDirectory: linkedDirectory,
+        );
+
+        expect(skills, hasLength(1));
+        final skill = skills.single;
+        expect(skill.isLinked, isTrue);
+        expect(skill.gitUrl, isNull);
+        expect(skill.sourceUri, equals('link:$linkedDirectory'));
+        expect(
+          skill.skillPath,
+          equals(p.join(linkedDirectory, 'skills', 'my-skill')),
+        );
+        expect(skill.path, equals('skills/my-skill'));
+      },
+    );
 
     test('when multiple repos then aggregates skills from all', () async {
       const gitRepos = [

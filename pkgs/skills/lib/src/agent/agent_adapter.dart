@@ -14,7 +14,8 @@ abstract class AgentAdapter {
 
   /// Installs a skill from the scanned location into the agent's directory.
   ///
-  /// Returns the skill name as installed and its content hash (if any).
+  /// Returns the skill name as installed and its content hash, which is `null`
+  /// for a linked skill since its content lives in the linked directory.
   Future<InstallSkillResult> installSkill(ScannedSkill skill);
 
   /// A logger for this agent Adapter. Should contain the name of the agent.
@@ -47,4 +48,4 @@ abstract class AgentAdapter {
 }
 
 /// The result type for [AgentAdapter.installSkill].
-typedef InstallSkillResult = ({String name, String contentHash});
+typedef InstallSkillResult = ({String name, String? contentHash});

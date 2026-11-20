@@ -2,6 +2,10 @@
 
 ## 1.0.5-wip
 
+- Add a `skills link <directory>` command that symlinks the skills in a local
+  directory into the agent, so edits to them show up immediately. `get` links
+  skills added to the directory later and removes the links of deleted ones,
+  `list` shows the linked source, and `remove` deletes only the links.
 - Accept `owner/repo.git` as a git repo shorthand instead of cloning
   `owner/repo.git.git`, and reject shorthands with an empty owner or repo.
 - End `SKILL.md` frontmatter only at a `---` line, so a `---` inside a value
