@@ -700,9 +700,6 @@ base class ServerConnection extends MCPBase {
       sendRequest(ListToolsRequest.methodName, request);
 
   /// Invokes a [Tool] returned from the [ListToolsResult].
-  ///
-  /// On 2026-07-28 a result whose `resultType` this client does not recognize
-  /// goes to [handleUnrecognizedResult], and the call throws when it is null.
   Future<CallToolResult> callTool(
     CallToolRequest request, {
     Future<CallToolResult> Function(Result)? handleUnrecognizedResult,
