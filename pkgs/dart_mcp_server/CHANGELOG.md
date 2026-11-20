@@ -17,6 +17,8 @@
   `package:unified_analytics` now resolves the root tool from `DASH__TOOL` and
   disables analytics when it isn't set, so the server no longer reads it.
 - Require `package:unified_analytics` `^8.4.0`.
+- Report the number of error, warning, info, and unknown-severity diagnostics
+  returned by the `analyze_files` tool in analytics.
 
 ## 1.2.2
 

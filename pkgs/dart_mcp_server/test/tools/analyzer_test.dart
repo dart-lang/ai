@@ -677,6 +677,29 @@ void printIt({required int x}) {
       );
     });
 
+    test('sends diagnostic counts in analytics', () async {
+      final example = d.dir('example', [
+        d.file('main.dart', "void main() { int x = 'a'; print(x); }"),
+      ]);
+      await example.create();
+      final exampleRoot = testHarness.rootForPath(example.io.path);
+      testHarness.mcpClient.addRoot(exampleRoot);
+      await pumpEventQueue();
+
+      await testHarness.callToolWithRetry(
+        CallToolRequest(name: DartAnalyzerSupport.analyzeFilesTool.name),
+      );
+      expect(
+        analytics.sentEvents.last.eventData,
+        allOf(
+          containsPair(AnalysisMetrics.errorCountKey, 1),
+          containsPair(AnalysisMetrics.warningCountKey, 0),
+          containsPair(AnalysisMetrics.infoCountKey, isA<int>()),
+          containsPair(AnalysisMetrics.unknownCountKey, 0),
+        ),
+      );
+    });
+
     test('send analytics', () async {
       final example = d.dir('example', [
         d.file('main.dart', 'void main() => 1 + 2;'),
@@ -695,6 +718,7 @@ void printIt({required int x}) {
           isNot(contains(AnalysisMetrics.applyFixesTimeMsKey)),
           containsPair(AnalysisMetrics.analyzerReadyTimeMsKey, isA<int>()),
           containsPair(AnalysisMetrics.didInitializeAnalysisServerKey, true),
+          containsPair(AnalysisMetrics.errorCountKey, 0),
         ),
       );
 
@@ -715,6 +739,7 @@ void printIt({required int x}) {
           isNot(contains(AnalysisMetrics.applyFixesTimeMsKey)),
           containsPair(AnalysisMetrics.analyzerReadyTimeMsKey, isA<int>()),
           containsPair(AnalysisMetrics.didInitializeAnalysisServerKey, false),
+          isNot(contains(AnalysisMetrics.errorCountKey)),
         ),
       );
     });
