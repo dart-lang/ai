@@ -72,6 +72,15 @@ check those repos for updates to skills.
   directories named `third_party` or hidden directories (starting with `.`)
   are ignored.
 
+### A skill from both a package and a git repo
+
+When a package and a git repo ship a skill with the same name, `get` in a
+terminal asks which copy to install and records the other one as skipped, so
+later runs, `get --all` included, keep your choice. Until you choose, other
+runs leave the skill as it is and log a warning. To switch later, run
+`dart run skills@ get --package <pkg> --skill <name>` or
+`dart run skills@ get --git <repo> --skill <name>`.
+
 ### Pruning removed dependencies and unused sources
 
 When you remove a package from your `pubspec.yaml`, its skills stay in your

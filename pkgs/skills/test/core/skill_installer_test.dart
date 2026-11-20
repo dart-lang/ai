@@ -232,6 +232,7 @@ void main() {
     Future<SkillManifest> install(
       List<ScannedSkill> skills, {
       Set<String> sourceUris = const {},
+      Map<String, Set<String>> heldSkills = const {},
     }) async {
       final result = await SkillInstaller(null).installSkillsForAgent(
         agent: Agent.generic,
@@ -240,6 +241,7 @@ void main() {
         previousManifest: manifest,
         globalConfig: const GlobalConfig(),
         sourceUris: sourceUris,
+        heldSkills: heldSkills,
       );
       return result!.manifest;
     }
@@ -269,6 +271,36 @@ void main() {
 
       expect(installedContent(), 'git content');
       expect(newManifest.sourceUrisForAgent('generic').keys, ['package:pkg_a']);
+    });
+
+    test('when both copies are held then the installer leaves them as they '
+        'are', () async {
+      manifest = manifest.withoutSourceUri('generic', 'package:pkg_a');
+      await d.dir('repo', [
+        d.dir('pkg_a-skill', [d.file('SKILL.md', 'new git content')]),
+      ]).create();
+      final gitSkill = ScannedSkill(
+        gitUrl: gitUrl,
+        skillName: 'pkg_a-skill',
+        skillPath: p.join(d.path('repo'), 'pkg_a-skill'),
+      );
+      const packageSkill = ScannedSkill(
+        packageName: 'pkg_a',
+        skillName: 'pkg_a-skill',
+        skillPath: 'unused',
+      );
+
+      final newManifest = await install(
+        [packageSkill, gitSkill, entrySkill],
+        heldSkills: {
+          'package:pkg_a': {'pkg_a-skill'},
+          gitUrl: {'pkg_a-skill'},
+        },
+      );
+
+      expect(installedContent(), 'git content');
+      expect(skillNames(newManifest, 'package:pkg_a'), isEmpty);
+      expect(skillNames(newManifest, gitUrl), ['pkg_a-skill', 'pkg_a']);
     });
   });
 }

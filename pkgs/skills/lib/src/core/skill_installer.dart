@@ -102,6 +102,9 @@ class SkillInstaller {
   ///
   /// If [selectedSkills] is provided, only skills with these names will be
   /// modified. This includes deleting of existing skills.
+  ///
+  /// Skills in [heldSkills], names by source URI, are left as they are: not
+  /// installed, not removed, and without a new manifest entry.
   Future<SkillInstallResult?> installSkillsForAgent({
     required Agent agent,
     required String rootPath,
@@ -110,6 +113,7 @@ class SkillInstaller {
     required GlobalConfig globalConfig,
     Set<String>? selectedSkills,
     Set<String> sourceUris = const {},
+    Map<String, Set<String>> heldSkills = const {},
   }) async {
     final adapter = createAgentAdapter(agent, rootPath, _dialogSupport);
     if (adapter is AgentSkillsAdapter) {
@@ -130,10 +134,12 @@ class SkillInstaller {
 
       final existingPkgs = updatedManifest.sourceUrisForAgent(agent.cliName);
       final existingEntry = existingPkgs[sourceUri];
+      final heldSourceSkills = heldSkills[sourceUri] ?? const {};
 
       final skippedSkills = await _uninstallExistingSkills(
         existingEntry: existingEntry,
         selectedSkills: selectedSkills,
+        heldSkills: heldSourceSkills,
         adapter: adapter,
         sharedSkills: _skillsInstalledByOtherSources(
           manifest: updatedManifest,
@@ -146,6 +152,7 @@ class SkillInstaller {
         skills: sourceSkills,
         skippedSkills: skippedSkills,
         selectedSkills: selectedSkills,
+        heldSkills: heldSourceSkills,
         existingEntry: existingEntry,
         agent: agent,
         rootPath: rootPath,
@@ -211,23 +218,28 @@ class SkillInstaller {
           if (skill.isInstalled) skill.name,
   };
 
-  /// Uninstalls the [selectedSkills] (or all if not given) in [existingEntry].
+  /// Uninstalls the [selectedSkills] (or all if not given) in [existingEntry],
+  /// leaving out the [heldSkills].
   ///
   /// Skills in [sharedSkills] are dropped without deleting their directory,
   /// because another source has a skill with the same name installed there.
   ///
   /// Returns a list of skills in [existingEntry] that were not uninstalled,
-  /// either because it failed or they were not in [selectedSkills].
+  /// either because it failed, they were not in [selectedSkills] or they are
+  /// held.
   Future<Set<String>> _uninstallExistingSkills({
     required SkillsEntry? existingEntry,
     required Set<String>? selectedSkills,
+    required Set<String> heldSkills,
     required AgentAdapter adapter,
     required Set<String> sharedSkills,
   }) async {
     final skippedSkills = <String>{};
     if (existingEntry != null) {
       for (final existing in existingEntry.skills) {
-        if (selectedSkills != null && !selectedSkills.contains(existing.name)) {
+        if (heldSkills.contains(existing.name) ||
+            (selectedSkills != null &&
+                !selectedSkills.contains(existing.name))) {
           skippedSkills.add(existing.name);
         } else if (existing.isInstalled &&
             !sharedSkills.contains(existing.name) &&
@@ -261,6 +273,8 @@ class SkillInstaller {
 
   /// Installs [skills], filtered by only the [selectedSkills] if provided.
   ///
+  /// Skills in [heldSkills] without an existing entry are left out.
+  ///
   /// If any skill appears in [skippedSkills], those also will not be installed,
   /// because it means they were not properly uninstalled. The [skippedSkills]
   /// set is also modified to remove any skill that is matched.
@@ -275,6 +289,7 @@ class SkillInstaller {
     required Iterable<ScannedSkill> skills,
     required Set<String> skippedSkills,
     required Set<String>? selectedSkills,
+    required Set<String> heldSkills,
     required SkillsEntry? existingEntry,
     required Agent agent,
     required String rootPath,
@@ -296,6 +311,8 @@ class SkillInstaller {
         updatedSkillEntries.add(existing);
         continue;
       }
+
+      if (heldSkills.contains(skill.skillName)) continue;
 
       // New skill, but not in the selected skills to install.
       if (selectedSkills != null && !selectedSkills.contains(skill.skillName)) {

@@ -26,6 +26,7 @@ Fix any format, analysis, or test failures before finishing.
 - **Listing agents:** When listing agents/agents (docs, help text, CLI options), use alphabetical order with generic last.
 - **Cline** is experimental; **Copilot** is not auto-detected (use `--agent copilot` explicitly).
 - **Tests** Always write tests for all new features that are added.
+- **Skipped entries:** For a skill name that both a package and a git repo ship, an entry with `isInstalled: false` is the user's choice of the other copy, so no run over all sources installs it (see `lib/src/core/skill_collisions.dart`).
 - **Security Advisories:** The `get` command checks for security advisories using the OSV.dev API for all resolved dependencies and git repositories. It uses the `querybatch` endpoint with package name and version.
 
 ## Keeping instructions up to date

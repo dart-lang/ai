@@ -15,6 +15,7 @@ import 'package:skills/src/core/git_runner.dart';
 import 'package:skills/src/core/package_resolver.dart';
 import 'package:skills/src/core/pruner.dart';
 import 'package:skills/src/core/pub_runner.dart';
+import 'package:skills/src/core/skill_collisions.dart';
 import 'package:skills/src/core/git_scanner.dart';
 import 'package:skills/src/core/git_sync.dart';
 import 'package:skills/src/core/git_repos.dart';
@@ -155,6 +156,73 @@ Future<bool> getSkills({
 
   final skills = [...dartSkills, ...gitData.gitSkills];
 
+  Map<Agent, List<SkillCollision>> collisionsIn(SkillManifest manifest) => {
+    for (final agent in agents)
+      agent: findCollisions(
+        skills: skills,
+        manifest: manifest,
+        agentName: agent.cliName,
+        runSourceUris: sourceUris,
+      ),
+  };
+
+  var collisionsByAgent = collisionsIn(manifest);
+  // The source URI chosen for a skill name, by the question or by `--skill`
+  // in a run limited to one source.
+  var chosenSources = <String, String>{};
+  var answeredSkillNames = <String>{};
+  if (!allFlag &&
+      dialogSupport != null &&
+      sourceUris.isEmpty &&
+      skillNames.isEmpty) {
+    final answers = await _askWhichCopiesToInstall(
+      collisionsByAgent.values.expand((c) => c),
+      dialogSupport,
+    );
+    if (answers == null) {
+      logger.info('Installation aborted by user.');
+      return false;
+    }
+    chosenSources = answers;
+    answeredSkillNames = answers.keys.toSet();
+  } else if (skillNames.isNotEmpty && sourceUris.length == 1) {
+    chosenSources = {for (final name in skillNames) name: sourceUris.single};
+  }
+  for (final MapEntry(key: agent, value: collisions)
+      in collisionsByAgent.entries) {
+    for (final collision in collisions) {
+      final sourceUri = chosenSources[collision.skillName];
+      // An answer applies only where the name is in conflict, while `--skill`
+      // also switches a copy that was chosen before.
+      if (sourceUri == null ||
+          (answeredSkillNames.isNotEmpty && !collision.isConflict)) {
+        continue;
+      }
+      manifest = withChosenCopy(
+        manifest,
+        agentName: agent.cliName,
+        collision: collision,
+        sourceUri: sourceUri,
+      );
+    }
+  }
+  if (answeredSkillNames.isNotEmpty) {
+    // The run can end at "All skills are up to date", before the final save.
+    await manifest.save(manifestFile(rootPath));
+  }
+  collisionsByAgent = collisionsIn(manifest);
+
+  _warnAboutConflicts(
+    collisionsByAgent.values.expand((c) => c),
+    skillNames: skillNames,
+    logger: logger,
+  );
+  final heldSkillsByAgent = {
+    for (final MapEntry(key: agent, value: collisions)
+        in collisionsByAgent.entries)
+      agent: _heldSkillsBySource(collisions),
+  };
+
   Map<Agent, Set<String>>? selectedSkillNamesByAgent;
 
   // Log about any unrecognized skills
@@ -197,6 +265,7 @@ Future<bool> getSkills({
     skillsBySource: skillsBySource,
     agentAdapters: agentAdapters,
     manifest: manifest,
+    heldSkillsByAgent: heldSkillsByAgent,
   );
 
   final allSkillStates = skillStatesResult.allSkillStates;
@@ -237,6 +306,7 @@ Future<bool> getSkills({
       agents: agents,
       dialogSupport: dialogSupport,
       logger: logger,
+      answeredSkillNames: answeredSkillNames,
     );
     if (!promptResult.continueInstall) {
       return false;
@@ -254,6 +324,7 @@ Future<bool> getSkills({
       previousManifest: manifest,
       globalConfig: globalConfig,
       sourceUris: sourceUris, // this still acts as source filter
+      heldSkills: heldSkillsByAgent[agent]!,
     );
     if (result == null) {
       logger.warning('Installation aborted for agent ${agent.cliName}');
@@ -549,11 +620,15 @@ Map<String, List<ScannedSkill>> _groupSkillsBySourceAndFindRemoved({
 ///
 /// For each skill and each agent adapter, determines whether the skill is new,
 /// up-to-date, has local edits, has an update available, or was removed.
+///
+/// A skill in [heldSkillsByAgent] gets no state for that agent, so it is not
+/// listed.
 Future<_SkillStatesResult> _computeSkillStates({
   required List<String> sortedSourceIds,
   required Map<String, List<ScannedSkill>> skillsBySource,
   required List<AgentAdapter> agentAdapters,
   required SkillManifest manifest,
+  required Map<Agent, Map<String, Set<String>>> heldSkillsByAgent,
 }) async {
   final allSkillStates = <ScannedSkill, Map<AgentAdapter, _SkillState>>{};
   final sourceIdsWithDiff = <String>{};
@@ -567,6 +642,9 @@ Future<_SkillStatesResult> _computeSkillStates({
           <AgentAdapter, _SkillState>{};
 
       for (final adapter in agentAdapters) {
+        final heldSkills = heldSkillsByAgent[adapter.agent]![skill.sourceUri];
+        if (heldSkills?.contains(skill.skillName) ?? false) continue;
+
         final newHash = switch (skill.skillPath) {
           null => null,
           String path => await adapter.computeSourceSkillHash(
@@ -675,6 +753,7 @@ Future<_PromptResult> _promptForSkillsToInstall({
   required List<Agent> agents,
   required DialogSupport? dialogSupport,
   required Logger logger,
+  required Set<String> answeredSkillNames,
 }) async {
   final selectedSkillNamesByAgent = <Agent, Set<String>>{
     for (final agent in agents) agent: {},
@@ -707,7 +786,10 @@ Future<_PromptResult> _promptForSkillsToInstall({
         }
 
         final labelSuffix = state.label;
-        final isSelected = state.selectedDefault;
+        final isSelected =
+            state.selectedDefault ||
+            (state == _SkillState.isNew &&
+                answeredSkillNames.contains(skill.skillName));
         final agentstr = adapters.length == agentAdapters.length
             ? ''
             : ' for ${adapters.map((a) => a.agent.cliName).join(', ')}';
@@ -787,6 +869,65 @@ Future<_PromptResult> _promptForSkillsToInstall({
     continueInstall: true,
     selectedSkillNamesByAgent: selectedSkillNamesByAgent,
   );
+}
+
+/// Asks which copy to install for each skill name in conflict in
+/// [collisions].
+///
+/// Returns the chosen source URI by skill name, or `null` if cancelled.
+Future<Map<String, String>?> _askWhichCopiesToInstall(
+  Iterable<SkillCollision> collisions,
+  DialogSupport dialogSupport,
+) async {
+  final chosenSources = <String, String>{};
+  for (final collision in collisions) {
+    final skillName = collision.skillName;
+    if (!collision.isConflict || chosenSources.containsKey(skillName)) {
+      continue;
+    }
+    final options = [for (final copy in collision.candidates) copy.sourceUri];
+    final index = await dialogSupport.showSingleSelectDialog(
+      options,
+      title:
+          'Skill $skillName comes from more than one source. Which copy do '
+          'you want to install?',
+    );
+    if (index == null) return null;
+    chosenSources[skillName] = options[index];
+  }
+  return chosenSources;
+}
+
+/// Logs a warning for each skill name in conflict in [collisions], limited to
+/// [skillNames] when it is not empty.
+void _warnAboutConflicts(
+  Iterable<SkillCollision> collisions, {
+  required Set<String> skillNames,
+  required Logger logger,
+}) {
+  final warnedSkillNames = <String>{};
+  for (final collision in collisions) {
+    final skillName = collision.skillName;
+    if (!collision.isConflict) continue;
+    if (skillNames.isNotEmpty && !skillNames.contains(skillName)) continue;
+    if (!warnedSkillNames.add(skillName)) continue;
+    final sources = collision.candidates.map((c) => c.sourceUri).join(' and ');
+    logger.warning(
+      'Warning: Skill $skillName comes from $sources and was left as it is. '
+      'Run `get` in a terminal to choose a copy.',
+    );
+  }
+}
+
+/// Returns the skill names of the held copies in [collisions], by source URI.
+Map<String, Set<String>> _heldSkillsBySource(List<SkillCollision> collisions) {
+  final heldSkills = <String, Set<String>>{};
+  for (final collision in collisions) {
+    for (final copy in collision.heldCopies) {
+      heldSkills.putIfAbsent(copy.sourceUri, () => {}).add(collision.skillName);
+    }
+  }
+  return heldSkills;
 }
 
 Future<String?> _getGitCommit(String repoPath) async {
