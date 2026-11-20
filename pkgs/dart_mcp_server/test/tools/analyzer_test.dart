@@ -652,6 +652,7 @@ void printIt({required int x}) {
           containsPair(AnalysisMetrics.errorCountKey, 1),
           containsPair(AnalysisMetrics.warningCountKey, 0),
           containsPair(AnalysisMetrics.infoCountKey, isA<int>()),
+          containsPair(AnalysisMetrics.unknownCountKey, 0),
         ),
       );
     });

@@ -1031,6 +1031,7 @@ final class AnalysisMetrics extends CustomMetrics {
         errorCountKey: counts.errors,
         warningCountKey: counts.warnings,
         infoCountKey: counts.infos,
+        unknownCountKey: counts.unknown,
       },
     };
   }
@@ -1041,6 +1042,7 @@ final class AnalysisMetrics extends CustomMetrics {
   static const errorCountKey = 'errorCount';
   static const warningCountKey = 'warningCount';
   static const infoCountKey = 'infoCount';
+  static const unknownCountKey = 'unknownSeverityCount';
 }
 
 /// The number of diagnostics of each severity.
@@ -1051,21 +1053,28 @@ final class DiagnosticCounts {
   /// The number of diagnostics with a severity of warning.
   final int warnings;
 
-  /// The number of diagnostics with a severity of information or hint, or with
-  /// no severity.
+  /// The number of diagnostics with a severity of information.
   final int infos;
+
+  /// The number of diagnostics with any other severity (such as hint), or with
+  /// no severity.
+  ///
+  /// The analysis server only reports errors, warnings, and information, so
+  /// this is expected to be zero.
+  final int unknown;
 
   const DiagnosticCounts({
     required this.errors,
     required this.warnings,
     required this.infos,
+    required this.unknown,
   });
 
   /// Counts the diagnostics in each of the [diagnosticLists] by severity.
   factory DiagnosticCounts.from(
     Iterable<List<lsp.Diagnostic>> diagnosticLists,
   ) {
-    var errors = 0, warnings = 0, infos = 0;
+    var errors = 0, warnings = 0, infos = 0, unknown = 0;
     for (final diagnostics in diagnosticLists) {
       for (final diagnostic in diagnostics) {
         switch (diagnostic.severity) {
@@ -1073,11 +1082,18 @@ final class DiagnosticCounts {
             errors++;
           case lsp.DiagnosticSeverity.Warning:
             warnings++;
-          default:
+          case lsp.DiagnosticSeverity.Information:
             infos++;
+          default:
+            unknown++;
         }
       }
     }
-    return DiagnosticCounts(errors: errors, warnings: warnings, infos: infos);
+    return DiagnosticCounts(
+      errors: errors,
+      warnings: warnings,
+      infos: infos,
+      unknown: unknown,
+    );
   }
 }
