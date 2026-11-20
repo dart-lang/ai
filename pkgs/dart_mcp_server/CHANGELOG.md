@@ -1,5 +1,11 @@
 ## 1.2.3-wip
 
+- Verify the SHA-256 checksum of the ripgrep archive downloaded by
+  `rip_grep_packages` before extracting it.
+- When the ripgrep binary is missing after extraction, the error now includes
+  extraction output and install directory contents.
+- Fix ripgrep installation on Windows by preferring the built-in `tar.exe` over
+  PowerShell `Expand-Archive` and reporting errors if it fails.
 - Fix `analyze_files` resolving relative `paths` against the parent directory
   of a root whose URI has no trailing slash, which made it report "No errors"
   for files that have errors.
