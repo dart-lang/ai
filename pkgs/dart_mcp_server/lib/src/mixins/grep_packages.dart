@@ -7,6 +7,7 @@ import 'dart:ffi' as ffi;
 import 'dart:io' show Platform, ProcessResult;
 
 import 'package:cli_util/cli_util.dart';
+import 'package:crypto/crypto.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:file/file.dart';
 import 'package:http/http.dart' as http;
@@ -287,8 +288,11 @@ base mixin GrepSupport
     // We use a specific version because its hard coded into the release asset
     // name, and we want to avoid hitting the github API and getting rate
     // limited.
-    const version = '15.0.0';
+    const version = _ripGrepVersion;
     final asset = _ripGrepAssetDownloadName();
+    final expectedDigest =
+        _ripGrepAssetDigests[asset] ??
+        (throw StateError('No pinned SHA-256 digest for ripgrep asset $asset'));
     final filename = 'ripgrep-v$version-$asset';
     final url = Uri.parse(
       'https://github.com/microsoft/ripgrep-prebuilt/releases/download/v$version/$filename',
@@ -304,6 +308,14 @@ base mixin GrepSupport
         throw StateError(
           'Failed to download ripgrep from $url: ${response.statusCode} '
           '${response.reasonPhrase}',
+        );
+      }
+      // Verify the archive checksum since GitHub release assets are mutable.
+      final actualDigest = sha256.convert(response.bodyBytes).toString();
+      if (actualDigest != expectedDigest) {
+        throw StateError(
+          'SHA-256 mismatch for ripgrep download from $url '
+          '(expected $expectedDigest, got $actualDigest).',
         );
       }
       await downloadFile.writeAsBytes(response.bodyBytes);
@@ -327,9 +339,10 @@ base mixin GrepSupport
           '-NonInteractive',
           '-Command',
           // Use `-LiteralPath` so `[` and `]` in paths aren't interpreted as
-          // PowerShell wildcard patterns.
+          // PowerShell wildcard patterns, and `-ErrorAction Stop` so errors
+          // cause a non-zero exit code.
           "Expand-Archive -LiteralPath '$escapedZip' "
-              "-DestinationPath '$escapedDest' -Force",
+              "-DestinationPath '$escapedDest' -Force -ErrorAction Stop",
         ]);
       } else {
         // Linux/Mac + Windows fallback: Use tar
@@ -350,7 +363,21 @@ base mixin GrepSupport
       // Find the binary in the extracted files, ensure it is executable.
       final installedBinary = _customRipGrepFile(installDir);
       if (!(await installedBinary.exists())) {
-        throw StateError('Could not find ripgrep binary after extraction');
+        // Include diagnostic details in case extraction silently failed (e.g.
+        // antivirus quarantined the binary).
+        final installDirContents = [
+          await for (final entity in installDir.list()) entity.basename,
+        ]..sort();
+        final contentsDescription = installDirContents.isEmpty
+            ? '(empty)'
+            : installDirContents.join(', ');
+        throw StateError(
+          'Could not find ripgrep binary after extraction '
+          '(expected ${installedBinary.path}).\n'
+          'Contents of ${installDir.path}: $contentsDescription\n'
+          'Extraction stdout: ${result.stdout}\n'
+          'Extraction stderr: ${result.stderr}',
+        );
       }
       if (!Platform.isWindows) {
         await processManager.run(['chmod', '+x', installedBinary.path]);
@@ -360,6 +387,29 @@ base mixin GrepSupport
       await downloadDir.delete(recursive: true);
     }
   }
+
+  /// The ripgrep version installed by [tryInstallRipGrep].
+  ///
+  /// Update [_ripGrepAssetDigests] when changing this.
+  static const _ripGrepVersion = '15.0.0';
+
+  /// Expected SHA-256 digests for [_ripGrepVersion] release assets.
+  static const _ripGrepAssetDigests = {
+    'aarch64-apple-darwin.tar.gz':
+        '16ded8d87db15333e8c06188ea2635dcde7f9869412f843e463a290f9d7493f3',
+    'x86_64-apple-darwin.tar.gz':
+        '9787387f2d01ee3382e5984c39beb457f445585d81f928a5b1a089706ffb6c8f',
+    'x86_64-pc-windows-msvc.zip':
+        '5b7f6a3020739ac4bdf2c32300f14388456361bea054d35270a18a3c9949b932',
+    'aarch64-pc-windows-msvc.zip':
+        '77757a3a8fc99705062e2594d4bbf48aafaee0faca65816455edb0d671bd534e',
+    'x86_64-unknown-linux-musl.tar.gz':
+        '9dd9306a2c44cdda31e2f4f3cf36f4d7148260d9371683e965d3c8992c205349',
+    'aarch64-unknown-linux-gnu.tar.gz':
+        '367e7b3110fb8ef0fd8e7e4907bf6ef6b04c5eed7a54659d98308c449cf3b8d9',
+    'arm-unknown-linux-gnueabihf.tar.gz':
+        '3a485967f7758a837f3b3838beae0d2f5828470e93f769a8d7cf2e78b1e525fe',
+  };
 
   /// Returns the name of the ripgrep asset to download for the current
   /// platform.

@@ -2,11 +2,16 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:dart_mcp/client.dart';
 import 'package:dart_mcp/server.dart';
 import 'package:dart_mcp_server/src/mixins/grep_packages.dart';
 import 'package:dart_mcp_server/src/mixins/package_uri_reader.dart';
 import 'package:dart_mcp_server/src/utils/names.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:process/process.dart';
 import 'package:test/test.dart';
 
@@ -335,4 +340,71 @@ void main() {
       tmpDir.deleteSync(recursive: true);
     }
   });
+
+  test('Does not install ripgrep on checksum mismatch', () async {
+    final server = testHarness.serverConnectionPair.server!;
+    final tmpDir = server.fileSystem.systemTempDirectory.createTempSync(
+      'rip-grep-test',
+    );
+    addTearDown(() => tmpDir.deleteSync(recursive: true));
+
+    final unexpectedBytes = utf8.encode('not the pinned ripgrep archive');
+    await http.runWithClient(
+      () async {
+        await expectLater(
+          server.tryInstallRipGrep(installDir: tmpDir),
+          throwsA(
+            isA<StateError>().having(
+              (e) => e.message,
+              'message',
+              allOf(
+                contains('SHA-256'),
+                contains(
+                  'https://github.com/microsoft/ripgrep-prebuilt/releases/',
+                ),
+                contains(sha256.convert(unexpectedBytes).toString()),
+              ),
+            ),
+          ),
+        );
+      },
+      () => MockClient((_) async => http.Response.bytes(unexpectedBytes, 200)),
+    );
+
+    expect(tmpDir.listSync(), isEmpty);
+  });
+
+  test(
+    'Includes diagnostics when ripgrep binary is missing after extraction',
+    () async {
+      // The default `TestProcessManager` succeeds without running commands, so
+      // nothing is extracted.
+      final harness = await TestHarness.start(inProcess: true);
+      harness.mcpClient.registerElicitationHandler(
+        (_) => ElicitResult(action: ElicitationAction.accept),
+      );
+      final server = harness.serverConnectionPair.server!;
+      final tmpDir = server.fileSystem.systemTempDirectory.createTempSync(
+        'rip-grep-test',
+      );
+      addTearDown(() => tmpDir.deleteSync(recursive: true));
+      tmpDir.childFile('unrelated.txt').createSync();
+
+      await expectLater(
+        server.tryInstallRipGrep(installDir: tmpDir),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            allOf(
+              contains('Could not find ripgrep binary after extraction'),
+              contains('Contents of ${tmpDir.path}: unrelated.txt'),
+              contains('Extraction stdout:'),
+              contains('Extraction stderr:'),
+            ),
+          ),
+        ),
+      );
+    },
+  );
 }
