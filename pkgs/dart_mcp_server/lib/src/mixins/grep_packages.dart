@@ -285,11 +285,8 @@ base mixin GrepSupport
     // The user did not approve the installation.
     if (elicitResult.action != ElicitationAction.accept) return null;
 
-    final asset = _ripGrepAssetDownloadName();
-    final expectedDigest =
-        _ripGrepAssetDigests[asset] ??
-        (throw StateError('No pinned SHA-256 digest for ripgrep asset $asset'));
-    final filename = 'ripgrep-v$_ripGrepVersion-$asset';
+    final asset = _ripGrepAsset();
+    final filename = 'ripgrep-v$_ripGrepVersion-${asset.name}';
     final url = Uri.parse(
       'https://github.com/microsoft/ripgrep-prebuilt/releases/download/v$_ripGrepVersion/$filename',
     );
@@ -308,10 +305,10 @@ base mixin GrepSupport
       }
       // Verify the archive checksum since GitHub release assets are mutable.
       final actualDigest = sha256.convert(response.bodyBytes).toString();
-      if (actualDigest != expectedDigest) {
+      if (actualDigest != asset.sha256) {
         throw StateError(
           'SHA-256 mismatch for ripgrep download from $url '
-          '(expected $expectedDigest, got $actualDigest).',
+          '(expected ${asset.sha256}, got $actualDigest).',
         );
       }
       await downloadFile.writeAsBytes(response.bodyBytes);
@@ -416,39 +413,48 @@ base mixin GrepSupport
   /// name, and we want to avoid hitting the github API and getting rate
   /// limited.
   ///
-  /// Update [_ripGrepAssetDigests] when changing this.
+  /// Update the digests in [_ripGrepAsset] when changing this.
   static const _ripGrepVersion = '15.0.0';
 
-  /// Expected SHA-256 digests for [_ripGrepVersion] release assets.
-  static const _ripGrepAssetDigests = {
-    'aarch64-apple-darwin.tar.gz':
-        '16ded8d87db15333e8c06188ea2635dcde7f9869412f843e463a290f9d7493f3',
-    'x86_64-apple-darwin.tar.gz':
-        '9787387f2d01ee3382e5984c39beb457f445585d81f928a5b1a089706ffb6c8f',
-    'x86_64-pc-windows-msvc.zip':
-        '5b7f6a3020739ac4bdf2c32300f14388456361bea054d35270a18a3c9949b932',
-    'aarch64-pc-windows-msvc.zip':
-        '77757a3a8fc99705062e2594d4bbf48aafaee0faca65816455edb0d671bd534e',
-    'x86_64-unknown-linux-musl.tar.gz':
-        '9dd9306a2c44cdda31e2f4f3cf36f4d7148260d9371683e965d3c8992c205349',
-    'aarch64-unknown-linux-gnu.tar.gz':
-        '367e7b3110fb8ef0fd8e7e4907bf6ef6b04c5eed7a54659d98308c449cf3b8d9',
-    'arm-unknown-linux-gnueabihf.tar.gz':
-        '3a485967f7758a837f3b3838beae0d2f5828470e93f769a8d7cf2e78b1e525fe',
-  };
-
-  /// Returns the name of the ripgrep asset to download for the current
-  /// platform.
-  String _ripGrepAssetDownloadName() {
+  /// Returns the [_ripGrepVersion] release asset for the current platform.
+  ({String name, String sha256}) _ripGrepAsset() {
     final abi = ffi.Abi.current();
     return switch (abi) {
-      ffi.Abi.macosArm64 => 'aarch64-apple-darwin.tar.gz',
-      ffi.Abi.macosX64 => 'x86_64-apple-darwin.tar.gz',
-      ffi.Abi.windowsX64 => 'x86_64-pc-windows-msvc.zip',
-      ffi.Abi.windowsArm64 => 'aarch64-pc-windows-msvc.zip',
-      ffi.Abi.linuxX64 => 'x86_64-unknown-linux-musl.tar.gz',
-      ffi.Abi.linuxArm64 => 'aarch64-unknown-linux-gnu.tar.gz',
-      ffi.Abi.linuxArm => 'arm-unknown-linux-gnueabihf.tar.gz',
+      ffi.Abi.macosArm64 => (
+        name: 'aarch64-apple-darwin.tar.gz',
+        sha256:
+            '16ded8d87db15333e8c06188ea2635dcde7f9869412f843e463a290f9d7493f3',
+      ),
+      ffi.Abi.macosX64 => (
+        name: 'x86_64-apple-darwin.tar.gz',
+        sha256:
+            '9787387f2d01ee3382e5984c39beb457f445585d81f928a5b1a089706ffb6c8f',
+      ),
+      ffi.Abi.windowsX64 => (
+        name: 'x86_64-pc-windows-msvc.zip',
+        sha256:
+            '5b7f6a3020739ac4bdf2c32300f14388456361bea054d35270a18a3c9949b932',
+      ),
+      ffi.Abi.windowsArm64 => (
+        name: 'aarch64-pc-windows-msvc.zip',
+        sha256:
+            '77757a3a8fc99705062e2594d4bbf48aafaee0faca65816455edb0d671bd534e',
+      ),
+      ffi.Abi.linuxX64 => (
+        name: 'x86_64-unknown-linux-musl.tar.gz',
+        sha256:
+            '9dd9306a2c44cdda31e2f4f3cf36f4d7148260d9371683e965d3c8992c205349',
+      ),
+      ffi.Abi.linuxArm64 => (
+        name: 'aarch64-unknown-linux-gnu.tar.gz',
+        sha256:
+            '367e7b3110fb8ef0fd8e7e4907bf6ef6b04c5eed7a54659d98308c449cf3b8d9',
+      ),
+      ffi.Abi.linuxArm => (
+        name: 'arm-unknown-linux-gnueabihf.tar.gz',
+        sha256:
+            '3a485967f7758a837f3b3838beae0d2f5828470e93f769a8d7cf2e78b1e525fe',
+      ),
       _ => throw StateError(
         'Unsupported platform, unable to download ripgrep: $abi',
       ),
