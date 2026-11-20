@@ -152,6 +152,36 @@ void main() {
       expect(skills, isEmpty);
     });
 
+    test('when skill is for packages only then it is skipped', () async {
+      final repo = const GitRepo(cloneUrl: 'https://github.com/a/b.git');
+      await d.dir('project', [
+        d.dir('.dart_tool', [
+          d.dir('skills', [
+            d.dir('repos', [
+              d.dir(repo.pathSegment, [
+                d.dir('skills', [
+                  d.dir('pkg-skill', [
+                    d.file(
+                      'SKILL.md',
+                      '---\nname: pkg-skill\nmetadata:\n  install-from: package\n---\n',
+                    ),
+                  ]),
+                ]),
+              ]),
+            ]),
+          ]),
+        ]),
+      ]).create();
+
+      const scanner = GitScanner();
+      final skills = await scanner.scan(
+        d.path('project'),
+        isGlobal: false,
+        repos: [repo],
+      );
+      expect(skills, isEmpty);
+    });
+
     test('when skill is inside third_party dir then it is skipped', () async {
       final repo = const GitRepo(cloneUrl: 'https://github.com/a/b.git');
       await d.dir('project', [

@@ -189,6 +189,25 @@ The `description` tells the AI when to activate the skill -- make it specific an
 
 All agents receive the full skill directory (SKILL.md plus `scripts/`, `references/`, `assets/`). Write skills once and they install to each agent’s spec-defined location.
 
+### Packages in a repo that is also a git source
+
+When users add your repo as a git source, the git scan also finds the skills in
+your package's `skills/` directory and installs them from the default branch,
+not from the version in the user's `pubspec.lock`. To install a skill only from
+the package, set `install-from` in its metadata:
+
+```
+---
+name: my_package-my-skill
+description: Use when the user is working with MyPackage APIs.
+metadata:
+  install-from: package
+---
+```
+
+`install-from` takes `git`, `package`, or both separated by a space. Without
+it, a skill is installed from both kinds of source.
+
 ### Best practices
 
 - **Keep skills focused.** One skill per major feature area. Don't dump everything into a single skill.

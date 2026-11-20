@@ -201,6 +201,34 @@ Body.
     });
   });
 
+  group('Given a package with a skill for git only', () {
+    test('when scanning then the skill is skipped', () async {
+      await d.dir('pkg_a', [
+        d.dir('skills', [
+          d.dir('pkg_a-skill', [
+            d.file(
+              'SKILL.md',
+              '---\nname: pkg_a-skill\nmetadata:\n  install-from: git\n---\n',
+            ),
+          ]),
+        ]),
+      ]).create();
+
+      final package = ResolvedPackage(
+        name: 'pkg_a',
+        rootPath: d.path('pkg_a'),
+        originalPackageConfigPath: d.path(
+          p.join('.dart_tool', 'package_config.json'),
+        ),
+      );
+      final skills = await SkillScanner(
+        Logger('SkillScanner test'),
+      ).scanPackage(package);
+
+      expect(skills, isEmpty);
+    });
+  });
+
   group('Given multiple packages', () {
     test('when scanning all then aggregates skills from each', () async {
       await d.dir('pkg_a', [
