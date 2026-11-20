@@ -2,6 +2,18 @@
 
 - Make `elicitationId` optional on `ElicitRequest.url`, since 2026-07-28
   removed it. A 2025-11-25 client still gets one, filled in when left out.
+- Throw an `ArgumentError` for a 2026-07-28 result whose `resultType` is
+  anything other than `complete` or `input_required`. Pass
+  `handleUnrecognizedResult` to `callTool`, `sendRequestWithInputs` or
+  `ServerConnection.sendRequestKeepingProgress` to answer such a result
+  yourself instead. An absent `resultType` still means `complete`, and earlier
+  revisions are unchanged.
+- Answer a method the negotiated revision does not accept, such as `ping` or
+  `resources/subscribe` on 2026-07-28, with `-32601` from
+  `handleRequestScopedMessage` instead of dispatching it. A notification for
+  one gets no response.
+- **BREAKING**: `MCPBase.sendRequestKeepingProgress` now takes `request` as a
+  named argument.
 
 ## 0.6.0-beta.0
 
