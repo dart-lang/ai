@@ -1045,7 +1045,10 @@ final class AnalysisMetrics extends CustomMetrics {
 
 /// The number of diagnostics of each severity.
 final class DiagnosticCounts {
+  /// The number of diagnostics with a severity of error.
   final int errors;
+
+  /// The number of diagnostics with a severity of warning.
   final int warnings;
 
   /// The number of diagnostics with a severity of information or hint, or with
