@@ -479,26 +479,38 @@ base class ServerConnection extends MCPBase {
   Future<T> sendRequestKeepingProgress<T extends Result?>(
     String methodName, [
     Request? request,
-  ]) {
+  ]) async {
+    final result = await _sendAnyResultType<T>(methodName, request);
+    final resultType = _rawResultType(result);
+    if (_onRevision(request) && !_isKnownResultType(resultType)) {
+      throw _unrecognizedResultType(resultType);
+    }
+    return result;
+  }
+
+  Future<T> _sendAnyResultType<T extends Result?>(
+    String methodName,
+    Request? request,
+  ) {
+    if (!_onRevision(request)) {
+      return super.sendRequestKeepingProgress<T>(methodName, request);
+    }
+    return _responseCache.sendRequest<T>(
+      methodName,
+      request,
+      () => super.sendRequestKeepingProgress<T>(methodName, request),
+    );
+  }
+
+  bool _onRevision(Request? request) {
     final meta = (request as Map<String, Object?>?)?[Keys.meta];
     final version =
         meta is Map<String, Object?> ? meta[Keys.protocolVersionMeta] : null;
     // Only `discover` names the revision in its own metadata. Every other
     // request leaves it out and the negotiated version is what says whether
     // the answer can be reused.
-    final onRevision =
-        version == ProtocolVersion.v2026_07_28.versionString ||
+    return version == ProtocolVersion.v2026_07_28.versionString ||
         (version == null && protocolVersion == ProtocolVersion.v2026_07_28);
-    if (!onRevision) {
-      return super.sendRequestKeepingProgress<T>(methodName, request);
-    }
-    return _responseCache
-        .sendRequest<T>(
-          methodName,
-          request,
-          () => super.sendRequestKeepingProgress<T>(methodName, request),
-        )
-        .then(_requireKnownResultType);
   }
 
   /// Called after a successful call to [initialize].
@@ -688,9 +700,19 @@ base class ServerConnection extends MCPBase {
       sendRequest(ListToolsRequest.methodName, request);
 
   /// Invokes a [Tool] returned from the [ListToolsResult].
-  Future<CallToolResult> callTool(CallToolRequest request) async {
+  ///
+  /// On 2026-07-28 a result whose `resultType` this client does not recognize
+  /// goes to [handleUnrecognizedResult], and the call throws when it is null.
+  Future<CallToolResult> callTool(
+    CallToolRequest request, {
+    Future<CallToolResult> Function(Result)? handleUnrecognizedResult,
+  }) async {
     try {
-      return await sendRequestWithInputs(CallToolRequest.methodName, request);
+      return await sendRequestWithInputs(
+        CallToolRequest.methodName,
+        request,
+        handleUnrecognizedResult: handleUnrecognizedResult,
+      );
     } on RpcException catch (e) {
       // If we are set up to try and auto handle url elicitation and we get
       // an error that the url elicitation is required, we will try and handle
@@ -719,6 +741,7 @@ base class ServerConnection extends MCPBase {
           return await sendRequestWithInputs(
             CallToolRequest.methodName,
             request,
+            handleUnrecognizedResult: handleUnrecognizedResult,
           );
         }
       }
@@ -875,8 +898,9 @@ base class ServerConnection extends MCPBase {
   /// input responses can go through here.
   Future<T> sendRequestWithInputs<T extends Result>(
     String methodName,
-    WithInputResponses request,
-  ) async {
+    WithInputResponses request, {
+    Future<T> Function(Result)? handleUnrecognizedResult,
+  }) async {
     final version = protocolVersion;
     // An unsettled version is not an error. 2026-07-28 dropped the handshake,
     // and something outside `initialize` settles this one. Either way the
@@ -885,7 +909,11 @@ base class ServerConnection extends MCPBase {
       return sendRequest<T>(methodName, request);
     }
     try {
-      return await _retryWhileInputRequired<T>(methodName, request);
+      return await _retryWhileInputRequired<T>(
+        methodName,
+        request,
+        handleUnrecognizedResult,
+      );
     } finally {
       // Every round runs under the progress token the caller put on the first
       // request, so the stream it opened outlives all of them.
@@ -896,15 +924,20 @@ base class ServerConnection extends MCPBase {
   Future<T> _retryWhileInputRequired<T extends Result>(
     String methodName,
     WithInputResponses request,
+    Future<T> Function(Result)? handleUnrecognizedResult,
   ) async {
     final originalRequest = request as Map<String, Object?>;
-    var result =
-        (await sendRequestKeepingProgress<T>(methodName, request)) as Result;
-    for (
-      var round = 0;
-      result.resultType == ResultTypes.inputRequired;
-      round++
-    ) {
+    Result result = await _sendAnyResultType<T>(methodName, request);
+    for (var round = 0; ; round++) {
+      final resultType = _rawResultType(result);
+      if (!_isKnownResultType(resultType)) {
+        if (handleUnrecognizedResult == null) {
+          throw _unrecognizedResultType(resultType);
+        }
+        return handleUnrecognizedResult(result);
+      }
+      if (resultType != ResultTypes.inputRequired) return result as T;
+
       final maxRounds = maxInputRequiredRounds;
       if (maxRounds != null && round >= maxRounds) {
         throw ArgumentError(
@@ -949,11 +982,8 @@ base class ServerConnection extends MCPBase {
                 if (requestState != null) Keys.requestState: requestState,
               }
               as WithInputResponses;
-      result =
-          (await sendRequestKeepingProgress<T>(methodName, retryRequest))
-              as Result;
+      result = await _sendAnyResultType<T>(methodName, retryRequest);
     }
-    return result as T;
   }
 
   /// Resolves the handler for [inputRequest], one of the three methods a
@@ -1214,17 +1244,17 @@ String? _invalidElicitationMode(ElicitRequest request) {
       '${ElicitationMode.values.map((m) => m.name).join(', ')}';
 }
 
-T _requireKnownResultType<T extends Result?>(T result) {
-  final resultType = (result as Map<String, Object?>?)?[Keys.resultType];
-  if (resultType == null ||
-      resultType == ResultTypes.complete ||
-      resultType == ResultTypes.inputRequired) {
-    return result;
-  }
-  throw ArgumentError(
-    'The server returned an unrecognized `${Keys.resultType}`: $resultType.',
-  );
-}
+Object? _rawResultType(Result? result) =>
+    (result as Map<String, Object?>?)?[Keys.resultType];
+
+bool _isKnownResultType(Object? resultType) =>
+    resultType == null ||
+    resultType == ResultTypes.complete ||
+    resultType == ResultTypes.inputRequired;
+
+ArgumentError _unrecognizedResultType(Object? resultType) => ArgumentError(
+  'The server returned an unrecognized `${Keys.resultType}`: $resultType.',
+);
 
 StateError _undeclaredCapability(String capability) => StateError(
   'The server sent an input request needing the $capability capability, '

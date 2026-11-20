@@ -2,9 +2,11 @@
 
 - Make `elicitationId` optional on `ElicitRequest.url`, since 2026-07-28
   removed it. A 2025-11-25 client still gets one, filled in when left out.
-- Reject a 2026-07-28 result whose `resultType` is anything other than
-  `complete` or `input_required` with an `ArgumentError`. An absent
-  `resultType` still means `complete`, and earlier revisions are unchanged.
+- Throw an `ArgumentError` for a 2026-07-28 result whose `resultType` is
+  anything other than `complete` or `input_required`. Pass
+  `handleUnrecognizedResult` to `callTool` (or `sendRequestWithInputs`) to
+  answer such a result yourself instead. An absent `resultType` still means
+  `complete`, and earlier revisions are unchanged.
 - Answer a method the negotiated revision does not accept, such as `ping` or
   `resources/subscribe` on 2026-07-28, with `-32601` from
   `handleRequestScopedMessage` instead of dispatching it. A notification for
