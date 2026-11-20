@@ -10,6 +10,7 @@ import 'package:skills/src/commands/add_command.dart';
 import 'package:skills/src/commands/get_command.dart';
 import 'package:skills/src/commands/skills_command_runner.dart';
 import 'package:skills/src/core/git_runner.dart';
+import 'package:skills/src/core/hash_utils.dart';
 import 'package:skills/src/models/global_config.dart';
 import 'package:skills/src/models/skill_manifest.dart';
 import 'package:test/test.dart';
@@ -120,16 +121,25 @@ void main() {
     };
   }
 
-  Future<void> recordPackageCopyAsSkipped({String agent = 'generic'}) async {
+  /// Records pkg_a-skill from the package as skipped, or as installed with the
+  /// hash of the package's copy.
+  Future<void> recordPackageCopy({
+    required bool isInstalled,
+    String agent = 'generic',
+  }) async {
     final file = File(SkillManifest.pathIn(projectPath));
     final manifest = await SkillManifest.loadOrEmpty(file);
-    final skipped = InstalledSkillEntry(
+    final packageCopy = Directory(d.path(p.join('pkg_a', 'skills', _skill)));
+    final entry = InstalledSkillEntry(
       name: _skill,
       installedAt: DateTime.utc(2026),
-      isInstalled: false,
+      contentHash: isInstalled
+          ? await tryCalculateDirectoryHash(packageCopy)
+          : null,
+      isInstalled: isInstalled,
     );
     await manifest
-        .withSourceUri(agent, _package, SkillsEntry(skills: [skipped]))
+        .withSourceUri(agent, _package, SkillsEntry(skills: [entry]))
         .save(file);
   }
 
@@ -181,9 +191,25 @@ void main() {
       expect(await recordedCopies(), {repoUrl: true});
     });
 
-    test('when running get --all then it warns and changes nothing', () async {
-      await run(['get', '--all']);
+    test('when the question is answered and the sources dialog is cancelled '
+        'or every source is unticked then nothing changes', () async {
+      for (final selectedSources in [null, <int>{}]) {
+        dialogs.reset();
+        dialogs.singleSelectResults.add(0);
+        dialogs.multiSelectResults.add(selectedSources);
 
+        await run(['get'], interactive: true);
+
+        expect(installedContent(), 'git content');
+        expect(await recordedCopies(), {repoUrl: true});
+      }
+    });
+
+    test('when running get --all in a terminal then it asks nothing, warns '
+        'and changes nothing', () async {
+      await run(['get', '--all'], interactive: true);
+
+      expect(dialogs.singleSelectCallCount, 0);
       expect(warnings(), hasLength(1));
       expect(installedContent(), 'git content');
       expect(await recordedCopies(), {repoUrl: true});
@@ -248,7 +274,7 @@ void main() {
   test('Given both copies skipped when running get --package --all then the '
       'package copy is installed', () async {
     await run(['add', repoUrl, '--skill', 'pkg_a']);
-    await recordPackageCopyAsSkipped();
+    await recordPackageCopy(isInstalled: false);
 
     await run(['get', '--package', 'pkg_a', '--all']);
 
@@ -261,7 +287,7 @@ void main() {
       'changes', () async {
     await run(['add', repoUrl, '--all']);
     await run(['add', repoUrl, '--skill', 'pkg_a'], agents: ['claude']);
-    await recordPackageCopyAsSkipped(agent: 'claude');
+    await recordPackageCopy(isInstalled: false, agent: 'claude');
     dialogs.singleSelectResults.add(0);
     dialogs.multiSelectResults.addAll([
       {0},
@@ -277,5 +303,42 @@ void main() {
       repoUrl: false,
       _package: false,
     });
+  });
+
+  test('Given both copies recorded as installed and the git copy on disk, '
+      'when interactive get is answered with the package then the package '
+      'copy starts ticked and is installed', () async {
+    await run(['add', repoUrl, '--all']);
+    await recordPackageCopy(isInstalled: true);
+    dialogs.singleSelectResults.add(0);
+    dialogs.multiSelectResults.addAll([
+      {0},
+      {0},
+    ]);
+
+    await run(['get'], interactive: true);
+
+    expect(dialogs.allMultiSelectOptions.last.single, contains('Local edits'));
+    expect(dialogs.allInitialSelected.last, {0});
+    expect(installedContent(), 'package content');
+    expect(await recordedCopies(), {repoUrl: false, _package: true});
+  });
+
+  test('Given two agents, one in conflict and one with the git copy skipped, '
+      'when the question is answered with the git repo then the package copy '
+      'of the other agent starts unticked', () async {
+    await run(['add', repoUrl, '--all']);
+    await run(['add', repoUrl, '--skill', 'pkg_a'], agents: ['claude']);
+    dialogs.singleSelectResults.add(1);
+    dialogs.multiSelectResults.addAll([
+      {0},
+      {},
+    ]);
+
+    await run(['get'], interactive: true, agents: ['generic', 'claude']);
+
+    expect(dialogs.allMultiSelectOptions.last.single, contains('for claude'));
+    expect(dialogs.allInitialSelected.last, isEmpty);
+    expect(installedContent(agentDirectory: '.claude'), isNull);
   });
 }

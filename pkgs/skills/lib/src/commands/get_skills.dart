@@ -170,7 +170,6 @@ Future<bool> getSkills({
   // The source URI chosen for a skill name, by the question or by `--skill`
   // in a run limited to one source.
   var chosenSources = <String, String>{};
-  var answeredSkillNames = <String>{};
   if (!allFlag &&
       dialogSupport != null &&
       sourceUris.isEmpty &&
@@ -184,18 +183,19 @@ Future<bool> getSkills({
       return false;
     }
     chosenSources = answers;
-    answeredSkillNames = answers.keys.toSet();
   } else if (skillNames.isNotEmpty && sourceUris.length == 1) {
     chosenSources = {for (final name in skillNames) name: sourceUris.single};
   }
+  // The chosen copies that are not already the copy in the directory, by
+  // agent and source URI. Their rows in the skills list start ticked.
+  final chosenSkillsByAgent = <Agent, Map<String, Set<String>>>{};
   for (final MapEntry(key: agent, value: collisions)
       in collisionsByAgent.entries) {
     for (final collision in collisions) {
       final sourceUri = chosenSources[collision.skillName];
       // An answer applies only where the name is in conflict, while `--skill`
       // also switches a copy that was chosen before.
-      if (sourceUri == null ||
-          (answeredSkillNames.isNotEmpty && !collision.isConflict)) {
+      if (sourceUri == null || (skillNames.isEmpty && !collision.isConflict)) {
         continue;
       }
       manifest = withChosenCopy(
@@ -204,11 +204,11 @@ Future<bool> getSkills({
         collision: collision,
         sourceUri: sourceUri,
       );
+      if (collision.installedCopy?.sourceUri != sourceUri) {
+        final chosenSkills = chosenSkillsByAgent.putIfAbsent(agent, () => {});
+        chosenSkills.putIfAbsent(sourceUri, () => {}).add(collision.skillName);
+      }
     }
-  }
-  if (answeredSkillNames.isNotEmpty) {
-    // The run can end at "All skills are up to date", before the final save.
-    await manifest.save(manifestFile(rootPath));
   }
   collisionsByAgent = collisionsIn(manifest);
 
@@ -275,6 +275,10 @@ Future<bool> getSkills({
       dialogSupport != null &&
       sourceUris.isEmpty &&
       skillNames.isEmpty) {
+    if (chosenSources.isNotEmpty && sourceIdsWithDiff.isEmpty) {
+      // The run ends at "All skills are up to date", before the final save.
+      await manifest.save(manifestFile(rootPath));
+    }
     final continueInstall = await _promptForSourcesWithDiffs(
       sourceIdsWithDiff: sourceIdsWithDiff,
       skillsBySource: skillsBySource,
@@ -306,7 +310,7 @@ Future<bool> getSkills({
       agents: agents,
       dialogSupport: dialogSupport,
       logger: logger,
-      answeredSkillNames: answeredSkillNames,
+      chosenSkillsByAgent: chosenSkillsByAgent,
     );
     if (!promptResult.continueInstall) {
       return false;
@@ -753,7 +757,7 @@ Future<_PromptResult> _promptForSkillsToInstall({
   required List<Agent> agents,
   required DialogSupport? dialogSupport,
   required Logger logger,
-  required Set<String> answeredSkillNames,
+  required Map<Agent, Map<String, Set<String>>> chosenSkillsByAgent,
 }) async {
   final selectedSkillNamesByAgent = <Agent, Set<String>>{
     for (final agent in agents) agent: {},
@@ -774,22 +778,22 @@ Future<_PromptResult> _promptForSkillsToInstall({
 
     for (final skill in sourceSkills) {
       final statesForSkill = allSkillStates[skill]!;
-      final adaptersByState = <_SkillState, List<AgentAdapter>>{};
-      for (final entry in statesForSkill.entries) {
-        adaptersByState.putIfAbsent(entry.value, () => []).add(entry.key);
+      final adaptersByRow = <(_SkillState, bool), List<AgentAdapter>>{};
+      for (final MapEntry(key: adapter, value: state)
+          in statesForSkill.entries) {
+        final chosen = chosenSkillsByAgent[adapter.agent]?[skill.sourceUri];
+        final isChosen = chosen?.contains(skill.skillName) ?? false;
+        adaptersByRow.putIfAbsent((state, isChosen), () => []).add(adapter);
       }
 
-      for (final MapEntry(key: state, value: adapters)
-          in adaptersByState.entries) {
+      for (final MapEntry(key: (state, isChosen), value: adapters)
+          in adaptersByRow.entries) {
         if (state == _SkillState.upToDate) {
           continue;
         }
 
         final labelSuffix = state.label;
-        final isSelected =
-            state.selectedDefault ||
-            (state == _SkillState.isNew &&
-                answeredSkillNames.contains(skill.skillName));
+        final isSelected = state.selectedDefault || isChosen;
         final agentstr = adapters.length == agentAdapters.length
             ? ''
             : ' for ${adapters.map((a) => a.agent.cliName).join(', ')}';

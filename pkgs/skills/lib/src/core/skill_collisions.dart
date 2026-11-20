@@ -5,16 +5,17 @@
 import '../models/skill_manifest.dart';
 import 'skill_scanner.dart';
 
+/// How an agent's manifest records a copy. A skipped copy has an entry with
+/// `isInstalled: false`.
+enum CopyState { installed, skipped, unrecorded }
+
 /// One source's version of a skill name.
 class SkillCopy {
   final String sourceUri;
-
-  /// Whether the agent's manifest records this copy with `isInstalled: false`.
-  final bool isSkipped;
-
+  final CopyState state;
   final String? path;
 
-  const SkillCopy(this.sourceUri, {required this.isSkipped, this.path});
+  const SkillCopy(this.sourceUri, this.state, {this.path});
 
   bool get isFromPackage => sourceUri.startsWith('package:');
 }
@@ -35,7 +36,7 @@ class SkillCollision {
 
   List<SkillCopy> get candidates => [
     for (final copy in copies)
-      if (!copy.isSkipped) copy,
+      if (copy.state != CopyState.skipped) copy,
   ];
 
   bool get isConflict => candidates.length > 1;
@@ -43,8 +44,12 @@ class SkillCollision {
   /// The copies that a run leaves exactly as they are.
   List<SkillCopy> get heldCopies => [
     for (final copy in copies)
-      if (isConflict || copy.isSkipped) copy,
+      if (isConflict || copy.state == CopyState.skipped) copy,
   ];
+
+  /// The copy recorded as installed, when exactly one is.
+  SkillCopy? get installedCopy =>
+      copies.where((copy) => copy.state == CopyState.installed).singleOrNull;
 }
 
 /// Finds the skill names in [skills] that both a package and a git repo ship
@@ -65,7 +70,7 @@ List<SkillCollision> findCollisions({
     final copies = copiesByName.putIfAbsent(skill.skillName, () => {});
     copies[skill.sourceUri] ??= SkillCopy(
       skill.sourceUri,
-      isSkipped: _isSkipped(entries[skill.sourceUri], skill.skillName),
+      _stateOf(entries[skill.sourceUri], skill.skillName),
       path: skill.path,
     );
   }
@@ -75,7 +80,7 @@ List<SkillCollision> findCollisions({
       if (!skill.isInstalled) continue;
       copiesByName[skill.name]?[sourceUri] = SkillCopy(
         sourceUri,
-        isSkipped: false,
+        CopyState.installed,
         path: skill.path,
       );
     }
@@ -91,8 +96,12 @@ List<SkillCollision> findCollisions({
   ];
 }
 
-bool _isSkipped(SkillsEntry? entry, String skillName) =>
-    entry?.skills.any((s) => s.name == skillName && !s.isInstalled) ?? false;
+CopyState _stateOf(SkillsEntry? entry, String skillName) =>
+    switch (entry?.skills.where((s) => s.name == skillName).firstOrNull) {
+      null => CopyState.unrecorded,
+      InstalledSkillEntry(isInstalled: true) => CopyState.installed,
+      _ => CopyState.skipped,
+    };
 
 /// Returns [manifest] with the copy from [sourceUri] chosen for [collision]
 /// and [agentName]: every other candidate is recorded as skipped.

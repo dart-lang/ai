@@ -215,7 +215,7 @@ metadata:
 ```
 
 `install-from` takes `git`, `package`, or both separated by a space. Without
-it, a skill is installed from both kinds of source.
+it, both scans find the skill.
 
 ### Best practices
 
