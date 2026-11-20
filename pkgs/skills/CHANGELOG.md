@@ -5,6 +5,8 @@
 - Add `metadata.install-from` to `SKILL.md`: `git`, `package` or both,
   separated by a space. The git scan skips skills without `git` and the package
   scan skips skills without `package`. Without the field, both scans find it.
+- Keep a skill's directory when one source stops shipping the skill while
+  another source has a skill with the same name installed.
 - Accept `owner/repo.git` as a git repo shorthand instead of cloning
   `owner/repo.git.git`, and reject shorthands with an empty owner or repo.
 - End `SKILL.md` frontmatter only at a `---` line, so a `---` inside a value

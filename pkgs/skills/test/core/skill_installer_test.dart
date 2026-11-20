@@ -190,4 +190,85 @@ void main() {
       );
     });
   });
+
+  group('Given a skill installed from both a package and a git repo', () {
+    const gitUrl = 'https://github.com/owner/pkg_a.git';
+    late SkillManifest manifest;
+    late ScannedSkill entrySkill;
+
+    setUp(() async {
+      await d.dir('project', [
+        d.dir('.agents', [
+          d.dir('skills', [
+            d.dir('pkg_a-skill', [d.file('SKILL.md', 'git content')]),
+            d.dir('pkg_a', [d.file('SKILL.md', 'entry content')]),
+          ]),
+        ]),
+      ]).create();
+      await d.dir('repo', [
+        d.dir('pkg_a', [d.file('SKILL.md', 'entry content')]),
+      ]).create();
+
+      InstalledSkillEntry installed(String name) =>
+          InstalledSkillEntry(name: name, installedAt: DateTime.utc(2026));
+      manifest = const SkillManifest()
+          .withSourceUri(
+            'generic',
+            'package:pkg_a',
+            SkillsEntry(skills: [installed('pkg_a-skill')]),
+          )
+          .withSourceUri(
+            'generic',
+            gitUrl,
+            SkillsEntry(skills: [installed('pkg_a-skill'), installed('pkg_a')]),
+          );
+      entrySkill = ScannedSkill(
+        gitUrl: gitUrl,
+        skillName: 'pkg_a',
+        skillPath: p.join(d.path('repo'), 'pkg_a'),
+      );
+    });
+
+    Future<SkillManifest> install(
+      List<ScannedSkill> skills, {
+      Set<String> sourceUris = const {},
+    }) async {
+      final result = await SkillInstaller(null).installSkillsForAgent(
+        agent: Agent.generic,
+        rootPath: d.path('project'),
+        skills: skills,
+        previousManifest: manifest,
+        globalConfig: const GlobalConfig(),
+        sourceUris: sourceUris,
+      );
+      return result!.manifest;
+    }
+
+    String installedContent() => File(
+      p.join(d.path('project'), '.agents', 'skills', 'pkg_a-skill', 'SKILL.md'),
+    ).readAsStringSync();
+
+    List<String> skillNames(SkillManifest manifest, String sourceUri) => [
+      for (final skill
+          in manifest.sourceUrisForAgent('generic')[sourceUri]?.skills ??
+              const <InstalledSkillEntry>[])
+        skill.name,
+    ];
+
+    test('when only the git repo is updated and it stops shipping it then the '
+        'directory stays', () async {
+      final newManifest = await install([entrySkill], sourceUris: {gitUrl});
+
+      expect(installedContent(), 'git content');
+      expect(skillNames(newManifest, gitUrl), ['pkg_a']);
+    });
+
+    test('when only the git repo is updated and it no longer ships any skill '
+        'then the directory stays', () async {
+      final newManifest = await install([], sourceUris: {gitUrl});
+
+      expect(installedContent(), 'git content');
+      expect(newManifest.sourceUrisForAgent('generic').keys, ['package:pkg_a']);
+    });
+  });
 }

@@ -135,6 +135,11 @@ class SkillInstaller {
         existingEntry: existingEntry,
         selectedSkills: selectedSkills,
         adapter: adapter,
+        sharedSkills: _skillsInstalledByOtherSources(
+          manifest: updatedManifest,
+          agent: agent,
+          sourceUri: sourceUri,
+        ),
       );
 
       final result = await _installSkills(
@@ -192,7 +197,24 @@ class SkillInstaller {
     return skillsBySource;
   }
 
+  /// Returns the names of the skills that sources other than [sourceUri] have
+  /// installed for [agent] in [manifest].
+  Set<String> _skillsInstalledByOtherSources({
+    required SkillManifest manifest,
+    required Agent agent,
+    required String sourceUri,
+  }) => {
+    for (final MapEntry(key: otherSourceUri, value: entry)
+        in manifest.sourceUrisForAgent(agent.cliName).entries)
+      if (otherSourceUri != sourceUri)
+        for (final skill in entry.skills)
+          if (skill.isInstalled) skill.name,
+  };
+
   /// Uninstalls the [selectedSkills] (or all if not given) in [existingEntry].
+  ///
+  /// Skills in [sharedSkills] are dropped without deleting their directory,
+  /// because another source has a skill with the same name installed there.
   ///
   /// Returns a list of skills in [existingEntry] that were not uninstalled,
   /// either because it failed or they were not in [selectedSkills].
@@ -200,6 +222,7 @@ class SkillInstaller {
     required SkillsEntry? existingEntry,
     required Set<String>? selectedSkills,
     required AgentAdapter adapter,
+    required Set<String> sharedSkills,
   }) async {
     final skippedSkills = <String>{};
     if (existingEntry != null) {
@@ -207,6 +230,7 @@ class SkillInstaller {
         if (selectedSkills != null && !selectedSkills.contains(existing.name)) {
           skippedSkills.add(existing.name);
         } else if (existing.isInstalled &&
+            !sharedSkills.contains(existing.name) &&
             !await adapter.removeSkill(existing.name)) {
           skippedSkills.add(existing.name);
         }
@@ -376,15 +400,19 @@ class SkillInstaller {
         agent.cliName,
       )[pkgName]!;
       final skippedSkills = <String>{};
+      final sharedSkills = _skillsInstalledByOtherSources(
+        manifest: updatedManifest,
+        agent: agent,
+        sourceUri: pkgName,
+      );
 
       for (final existing in existingEntry.skills) {
         if (!existing.isInstalled) continue;
         if (selectedSkills != null && !selectedSkills.contains(existing.name)) {
           skippedSkills.add(existing.name);
-        } else {
-          if (!await adapter.removeSkill(existing.name)) {
-            skippedSkills.add(existing.name);
-          }
+        } else if (!sharedSkills.contains(existing.name) &&
+            !await adapter.removeSkill(existing.name)) {
+          skippedSkills.add(existing.name);
         }
       }
 
