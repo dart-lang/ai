@@ -1,5 +1,12 @@
 ## 0.6.0-wip
 
+- Make `elicitationId` optional on `ElicitRequest.url`, since 2026-07-28
+  removed it. A 2025-11-25 client still gets one, filled in when left out.
+
+## 0.6.0-beta.0
+
+- Count `StringSchema` `minLength` and `maxLength` in Unicode code points
+  instead of UTF-16 code units, so an emoji counts as one character.
 - Validate the `Origin` header against `allowedOrigins` on
   `handleStreamableHttpRequest`, answering 403 when a request carries one the
   list leaves out. Leaving the argument off keeps the header unread.
@@ -27,6 +34,11 @@
 - Advertise the notification capabilities from a protected
   `MCPServer.advertisedCapabilities` getter, which `SubscriptionsSupport`
   overrides, instead of a type check on the server.
+- Add `SamplingMessage.meta`, and `SamplingMessage` now implements
+  `WithMetadata`.
+- `Result` now implements `WithMetadata`.
+- Add `size` to the `ResourceLink` factory.
+- Add `Content.resourceLink` and `Content.isResourceLink`.
 - Add `ToolUseContent`, `ToolResultContent`, a `SamplingMessageContentBlock`
   union for them, and a `tools` list on `CreateMessageRequest`.
 - Add `ServerConnection.listAllTools`, `listAllResources`,
@@ -201,6 +213,12 @@
     the union a tool result's payload uses in the schema.
   - Rename `ProtocolVersion.isSupported` to `isLegacyVersion` and
     `ProtocolVersion.latestSupported` to `lastLegacyVersion`.
+  - Remove the `meta` parameter from the `Completion` factory. It was never
+    written, and the schema has no `_meta` on a completion. Pass it to
+    `CompleteResult` instead.
+  - `ClientCapabilities.sampling` is now a `SamplingCapability` instead of a
+    `Map<String, Object?>`, with typed `context` and `tools`. Pass
+    `SamplingCapability(tools: {})` where you passed `{'tools': {}}`.
 - Cap the request body in `handleStreamableHttpRequest` at
   `maxRequestBodyBytes`, 4 MiB by default.
   Larger bodies get `413` and an invalid request error. The same cap is the

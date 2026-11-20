@@ -6,6 +6,13 @@
   directory into the agent, so edits to them show up immediately. `get` links
   skills added to the directory later and removes the links of deleted ones,
   `list` shows the linked source, and `remove` deletes only the links.
+- Accept `owner/repo.git` as a git repo shorthand instead of cloning
+  `owner/repo.git.git`, and reject shorthands with an empty owner or repo.
+- End `SKILL.md` frontmatter only at a `---` line, so a `---` inside a value
+  no longer cuts the frontmatter short and drops fields such as
+  `metadata.internal`.
+- Stop injecting `user-invocable: false` into `SKILL.md` frontmatter when
+  installing skills for Claude Code.
 - Report `skills-cli` as the analytics tool, recorded as the `leaf_tool` user
   property, instead of the value of the `DASH__TOOL` environment variable.
   `package:unified_analytics` now resolves the root tool from `DASH__TOOL` and

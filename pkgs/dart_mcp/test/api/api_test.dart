@@ -413,5 +413,38 @@ void main() {
       expect(link.icons, null);
       expect((link as Map<String, Object?>).containsKey('icons'), isFalse);
     });
+
+    test('writes and reads the size it is given', () {
+      final link = ResourceLink(uri: 'file:///a', name: 'a', size: 42);
+      expect((link as Map<String, Object?>)['size'], 42);
+      expect(link.size, 42);
+    });
+
+    test('leaves size out when it is not given', () {
+      final link = ResourceLink(uri: 'file:///a', name: 'a');
+      expect((link as Map<String, Object?>).containsKey('size'), isFalse);
+      expect(link.size, isNull);
+    });
+
+    test('is built and recognized through Content', () {
+      final Content link = Content.resourceLink(uri: 'file:///a', name: 'a');
+      expect(link.isResourceLink, isTrue);
+      expect(link.type, ResourceLink.expectedType);
+      expect(link.isText, isFalse);
+      expect(link.isImage, isFalse);
+      expect(link.isAudio, isFalse);
+      expect(link.isEmbeddedResource, isFalse);
+    });
+
+    test('is recognized when read from a map', () {
+      final content = Content.fromMap({
+        'type': 'resource_link',
+        'uri': 'file:///a',
+        'name': 'a',
+      });
+      expect(content.isResourceLink, isTrue);
+      expect((content as ResourceLink).uri, 'file:///a');
+      expect(Content.text(text: 'hi').isResourceLink, isFalse);
+    });
   });
 }

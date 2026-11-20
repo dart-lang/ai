@@ -15,6 +15,7 @@ import 'package:dart_mcp_server/src/mixins/dtd.dart';
 import 'package:dart_mcp_server/src/mixins/flutter_launcher.dart';
 import 'package:dart_mcp_server/src/mixins/grep_packages.dart';
 import 'package:dart_mcp_server/src/mixins/package_uri_reader.dart';
+import 'package:dart_mcp_server/src/mixins/prompts.dart';
 import 'package:dart_mcp_server/src/mixins/pub.dart';
 import 'package:dart_mcp_server/src/mixins/pub_dev_search.dart';
 import 'package:dart_mcp_server/src/mixins/roots_fallback_support.dart';
@@ -43,16 +44,59 @@ void main(List<String> args) async {
     );
   }
 
+  print('Getting registered prompts...');
+
+  final prompts = _registeredPrompts();
+  prompts.sortBy((prompt) => prompt.name);
+
+  final promptsBuf = StringBuffer('''
+| Prompt Name | Title | Description | Arguments | Categories | Enabled by default |
+| --- | --- | --- | --- | --- | --- |
+''');
+  for (final prompt in prompts) {
+    final arguments = [
+      for (final argument in prompt.arguments ?? const <PromptArgument>[])
+        [
+          '`${argument.name}`',
+          if (argument.required != true) ' (optional)',
+          if (argument.description case final description?)
+            ': ${_singleLine(description)}',
+        ].join(),
+    ];
+    final categories = prompt.categories
+        .where((c) => c != FeatureCategory.all)
+        .map((c) => c.name)
+        .join(', ');
+    promptsBuf.writeln(
+      '| `${prompt.name}` | ${prompt.title ?? ''} | '
+      '${_singleLine(prompt.description ?? '')} | '
+      '${arguments.isEmpty ? 'None' : arguments.join('<br>')} | '
+      '${categories.isEmpty ? 'None' : categories} | '
+      '${prompt.enabledByDefault ? 'Yes' : 'No'} |',
+    );
+  }
+
   final readmeFile = File('README.md');
-  final updated = _insertBetween(
+  var updated = _insertBetween(
     readmeFile.readAsStringSync(),
     buf.toString(),
     '<!-- generated -->',
   );
+  updated = _insertBetween(
+    updated,
+    promptsBuf.toString(),
+    '<!-- generated prompts -->',
+  );
   readmeFile.writeAsStringSync(updated);
 
-  print('Wrote update tool list to ${readmeFile.path}.');
+  print('Wrote updated tool and prompt lists to ${readmeFile.path}.');
 }
+
+/// Joins the lines of [text] with spaces, since a table cell must be a single
+/// line. Descriptions are often wrapped for readability in the source, which
+/// may be checked out with `\r\n` line endings.
+String _singleLine(String text) =>
+    text.trim().replaceAll(RegExp(r'\s*\r?\n\s*'), ' ');
 
 String _insertBetween(String original, String insertion, String marker) {
   final startIndex = original.indexOf(marker) + marker.length;
@@ -87,6 +131,23 @@ List<Tool> _registeredTools() {
   }
 
   return allTools;
+}
+
+List<Prompt> _registeredPrompts() {
+  final allPrompts = <Prompt>[...DashPrompts.allPrompts];
+
+  // Ensure that we don't miss any prompts when updating the README.
+  final allPromptNames = PromptNames.values.map((p) => p.name).toSet();
+  final difference = allPromptNames.difference(
+    allPrompts.map((p) => p.name).toSet(),
+  );
+  if (difference.isNotEmpty) {
+    throw StateError(
+      'The list of prompts is missing the following prompts: $difference',
+    );
+  }
+
+  return allPrompts;
 }
 
 extension on Tool {

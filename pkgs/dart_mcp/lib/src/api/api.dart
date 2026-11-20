@@ -304,9 +304,7 @@ extension type Notification(Map<String, Object?> _value) {
 }
 
 /// Base interface for all responses to requests.
-extension type Result._(Map<String, Object?> _value) {
-  Meta? get meta => _value[Keys.meta] as Meta?;
-
+extension type Result._(Map<String, Object?> _value) implements WithMetadata {
   /// The type of this result, which determines how to parse it.
   ///
   /// Known types are "complete" and "input_required", but a server may send
@@ -508,11 +506,12 @@ enum CacheScope {
   private,
 }
 
-/// Could be either [TextContent], [ImageContent], [AudioContent] or
-/// [EmbeddedResource].
+/// Could be either [TextContent], [ImageContent], [AudioContent],
+/// [EmbeddedResource] or [ResourceLink].
 ///
-/// Use [isText], [isImage] and [isEmbeddedResource] before casting to the more
-/// specific types, or switch on the [type] and then cast.
+/// Use [isText], [isImage], [isAudio], [isEmbeddedResource] and
+/// [isResourceLink] before casting to the more specific types, or switch on the
+/// [type] and then cast.
 ///
 /// Doing `is` checks does not work because these are just extension types, they
 /// all have the same runtime type (`Map<String, Object?>`).
@@ -543,6 +542,9 @@ extension type Content._(Map<String, Object?> _value) {
   /// Alias for [EmbeddedResource.new].
   static const embeddedResource = EmbeddedResource.new;
 
+  /// Alias for [ResourceLink.new].
+  static const resourceLink = ResourceLink.new;
+
   /// Whether or not this is a [TextContent].
   bool get isText => _value[Keys.type] == TextContent.expectedType;
 
@@ -556,11 +558,15 @@ extension type Content._(Map<String, Object?> _value) {
   bool get isEmbeddedResource =>
       _value[Keys.type] == EmbeddedResource.expectedType;
 
+  /// Whether or not this is a [ResourceLink].
+  bool get isResourceLink => _value[Keys.type] == ResourceLink.expectedType;
+
   /// The type of content.
   ///
   /// You can use this in a switch to handle the various types (see the static
-  /// `expectedType` getters), or you can use [isText], [isImage], [isAudio] and
-  /// [isEmbeddedResource] to determine the type and then do the cast.
+  /// `expectedType` getters), or you can use [isText], [isImage], [isAudio],
+  /// [isEmbeddedResource] and [isResourceLink] to determine the type and then
+  /// do the cast.
   String get type => _value[Keys.type] as String;
 }
 
@@ -704,6 +710,7 @@ extension type ResourceLink.fromMap(Map<String, Object?> _value)
     String? description,
     required String uri,
     String? mimeType,
+    int? size,
     List<Icon>? icons,
     Annotations? annotations,
     Meta? meta,
@@ -713,6 +720,7 @@ extension type ResourceLink.fromMap(Map<String, Object?> _value)
     if (description != null) Keys.description: description,
     Keys.uri: uri,
     if (mimeType != null) Keys.mimeType: mimeType,
+    if (size != null) Keys.size: size,
     if (icons != null) Keys.icons: icons,
     Keys.type: expectedType,
     if (annotations != null) Keys.annotations: annotations,
