@@ -232,7 +232,6 @@ void main() {
     Future<SkillManifest> install(
       List<ScannedSkill> skills, {
       Set<String> sourceUris = const {},
-      Set<ScannedSkill> heldSkills = const {},
     }) async {
       final result = await SkillInstaller(null).installSkillsForAgent(
         agent: Agent.generic,
@@ -241,7 +240,6 @@ void main() {
         previousManifest: manifest,
         globalConfig: const GlobalConfig(),
         sourceUris: sourceUris,
-        heldSkills: heldSkills,
       );
       return result!.manifest;
     }
@@ -273,31 +271,23 @@ void main() {
       expect(newManifest.sourceUrisForAgent('generic').keys, ['package:pkg_a']);
     });
 
-    test('when both copies are held then the installer leaves them as they '
-        'are', () async {
-      manifest = manifest.withoutSourceUri('generic', 'package:pkg_a');
-      await d.dir('repo', [
-        d.dir('pkg_a-skill', [d.file('SKILL.md', 'new git content')]),
-      ]).create();
-      final gitSkill = ScannedSkill(
-        gitUrl: gitUrl,
-        skillName: 'pkg_a-skill',
-        skillPath: p.join(d.path('repo'), 'pkg_a-skill'),
+    test('when the package copy is skipped and the git repo no longer ships '
+        'any skill then the directory is removed', () async {
+      final skippedCopy = InstalledSkillEntry(
+        name: 'pkg_a-skill',
+        installedAt: DateTime.utc(2026),
+        isInstalled: false,
       );
-      const packageSkill = ScannedSkill(
-        packageName: 'pkg_a',
-        skillName: 'pkg_a-skill',
-        skillPath: 'unused',
+      manifest = manifest.withSourceUri(
+        'generic',
+        'package:pkg_a',
+        SkillsEntry(skills: [skippedCopy]),
       );
 
-      final newManifest = await install(
-        [packageSkill, gitSkill, entrySkill],
-        heldSkills: {packageSkill, gitSkill},
-      );
+      await install([], sourceUris: {gitUrl});
 
-      expect(installedContent(), 'git content');
-      expect(skillNames(newManifest, 'package:pkg_a'), isEmpty);
-      expect(skillNames(newManifest, gitUrl), ['pkg_a-skill', 'pkg_a']);
+      final skillPath = d.path('project/.agents/skills/pkg_a-skill');
+      expect(Directory(skillPath).existsSync(), isFalse);
     });
   });
 }

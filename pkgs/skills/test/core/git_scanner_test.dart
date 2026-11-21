@@ -29,10 +29,19 @@ void main() {
                 d.dir(gitRepo.pathSegment, [
                   d.dir('skills', [
                     d.dir('my_pkg-buttons', [
-                      d.file('SKILL.md', '---\nname: my_pkg-buttons\n---\n'),
+                      d.file(
+                        'SKILL.md',
+                        '---\nname: my_pkg-buttons\nmetadata:\n  install-from: git\n---\n',
+                      ),
                     ]),
                     d.dir('my_pkg-forms', [
                       d.file('SKILL.md', '---\nname: my_pkg-forms\n---\n'),
+                    ]),
+                    d.dir('my_pkg-tables', [
+                      d.file(
+                        'SKILL.md',
+                        '---\nname: my_pkg-tables\nmetadata:\n  install-from: package\n---\n',
+                      ),
                     ]),
                   ]),
                 ]),
@@ -134,36 +143,6 @@ void main() {
                     d.file(
                       'SKILL.md',
                       '---\nname: pkg-internal\nmetadata:\n  internal: true\n---\n',
-                    ),
-                  ]),
-                ]),
-              ]),
-            ]),
-          ]),
-        ]),
-      ]).create();
-
-      const scanner = GitScanner();
-      final skills = await scanner.scan(
-        d.path('project'),
-        isGlobal: false,
-        repos: [repo],
-      );
-      expect(skills, isEmpty);
-    });
-
-    test('when skill is for packages only then it is skipped', () async {
-      final repo = const GitRepo(cloneUrl: 'https://github.com/a/b.git');
-      await d.dir('project', [
-        d.dir('.dart_tool', [
-          d.dir('skills', [
-            d.dir('repos', [
-              d.dir(repo.pathSegment, [
-                d.dir('skills', [
-                  d.dir('pkg-skill', [
-                    d.file(
-                      'SKILL.md',
-                      '---\nname: pkg-skill\nmetadata:\n  install-from: package\n---\n',
                     ),
                   ]),
                 ]),

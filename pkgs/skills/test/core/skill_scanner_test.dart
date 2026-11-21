@@ -24,6 +24,8 @@ void main() {
 ---
 name: my_package-code-gen
 description: Generates code.
+metadata:
+  install-from: package
 ---
 
 # Code Gen
@@ -42,6 +44,12 @@ description: Designs APIs.
 
 Instructions.
 '''),
+          ]),
+          d.dir('my_package-git-only', [
+            d.file(
+              'SKILL.md',
+              '---\nname: my_package-git-only\nmetadata:\n  install-from: git\n---\n',
+            ),
           ]),
         ]),
       ]).create();
@@ -196,34 +204,6 @@ Body.
 
       final scanner = SkillScanner(logger);
       final skills = await scanner.scanPackage(package);
-
-      expect(skills, isEmpty);
-    });
-  });
-
-  group('Given a package with a skill for git only', () {
-    test('when scanning then the skill is skipped', () async {
-      await d.dir('pkg_a', [
-        d.dir('skills', [
-          d.dir('pkg_a-skill', [
-            d.file(
-              'SKILL.md',
-              '---\nname: pkg_a-skill\nmetadata:\n  install-from: git\n---\n',
-            ),
-          ]),
-        ]),
-      ]).create();
-
-      final package = ResolvedPackage(
-        name: 'pkg_a',
-        rootPath: d.path('pkg_a'),
-        originalPackageConfigPath: d.path(
-          p.join('.dart_tool', 'package_config.json'),
-        ),
-      );
-      final skills = await SkillScanner(
-        Logger('SkillScanner test'),
-      ).scanPackage(package);
 
       expect(skills, isEmpty);
     });

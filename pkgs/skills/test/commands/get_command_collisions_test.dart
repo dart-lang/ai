@@ -204,14 +204,23 @@ void main() {
       }
     });
 
-    test('when running get --all in a terminal then it asks nothing, warns '
-        'and changes nothing', () async {
+    test('when running get --all in a terminal then it asks nothing, warns, '
+        'leaves the skill as it is and installs the others', () async {
+      final skillsPath = p.join(projectPath, '.agents', 'skills');
+      File(p.join(skillsPath, _skill, 'SKILL.md')).writeAsStringSync('edited');
+      await d.dir('pkg_a', [
+        d.dir('skills', [
+          d.dir('pkg_a-other', [_skillFile('pkg_a-other', 'other content')]),
+        ]),
+      ]).create();
+
       await run(['get', '--all'], interactive: true);
 
       expect(dialogs.singleSelectCallCount, 0);
       expect(warnings(), hasLength(1));
-      expect(installedContent(), 'git content');
+      expect(installedContent(), 'edited');
       expect(await recordedCopies(), {repoUrl: true});
+      expect(Directory(p.join(skillsPath, 'pkg_a-other')).existsSync(), isTrue);
     });
 
     test(
@@ -301,20 +310,24 @@ void main() {
   });
 
   test('Given two agents, one in conflict and one with the git copy skipped, '
-      'when the question is answered with the git repo then the package copy '
-      'of the other agent starts unticked', () async {
+      'when the question is answered with the package then only the package '
+      'copy of the agent in conflict starts ticked', () async {
     await run(['add', repoUrl, '--all']);
     await run(['add', repoUrl, '--skill', 'pkg_a'], agents: ['claude']);
-    dialogs.singleSelectResults.add(1);
+    dialogs.singleSelectResults.add(0);
     dialogs.multiSelectResults.addAll([
       {0},
-      {},
+      {0},
     ]);
 
     await run(['get'], interactive: true, agents: ['generic', 'claude']);
 
-    expect(dialogs.allMultiSelectOptions.last.single, contains('for claude'));
-    expect(dialogs.allInitialSelected.last, isEmpty);
+    expect(dialogs.allMultiSelectOptions.last, [
+      contains('for generic'),
+      contains('for claude'),
+    ]);
+    expect(dialogs.allInitialSelected.last, {0});
+    expect(installedContent(), 'package content');
     expect(installedContent(agentDirectory: '.claude'), isNull);
   });
 }

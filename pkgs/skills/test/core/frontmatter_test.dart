@@ -81,10 +81,10 @@ metadata:
     });
 
     test('when it is git and package then both may install the skill', () {
-      expect(
-        installFrom('metadata:\n  install-from: git package\n'),
-        InstallSource.values.toSet(),
-      );
+      expect(installFrom('metadata:\n  install-from: git package\n'), {
+        InstallSource.git,
+        InstallSource.package,
+      });
     });
 
     test('when it is package and an unknown word then only a package may '
