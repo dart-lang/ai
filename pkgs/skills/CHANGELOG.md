@@ -2,16 +2,13 @@
 
 ## 1.0.5-wip
 
-- Add `metadata.install-from` to `SKILL.md`: `git`, `package` or both,
-  separated by a space. The git scan skips skills without `git` and the package
-  scan skips skills without `package`. Without the field, both scans find it.
+- Add `metadata.install-from` to `SKILL.md`. `install-from: package` installs
+  a skill only from packages, and `install-from: git` only from git repos.
 - Keep a skill's directory when one source stops shipping the skill while
-  another source has a skill with the same name installed.
+  another source has it installed.
 - Install one copy of a skill that a package and a git repo both ship. `get`
-  in a terminal, without arguments, asks which copy to install.
-  `get --package <pkg> --skill <name>` and `get --git <repo> --skill <name>`
-  choose a copy without the question. Until a copy is chosen, every other run,
-  `get --all` included, logs a warning and leaves the skill as it is.
+  in a terminal asks which one, and `get --all` warns and leaves the skill as
+  it is until a copy is chosen.
 - Accept `owner/repo.git` as a git repo shorthand instead of cloning
   `owner/repo.git.git`, and reject shorthands with an empty owner or repo.
 - End `SKILL.md` frontmatter only at a `---` line, so a `---` inside a value
