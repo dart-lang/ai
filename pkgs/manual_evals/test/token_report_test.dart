@@ -17,7 +17,7 @@ void main() {
             input: 1000,
             cacheRead: 20000,
             output: 300,
-            tools: ['read_file', 'invoke_subagent'],
+            calls: [toolCall('read_file'), toolCall('invoke_subagent')],
           ),
           toolResult('short'),
           toolResult('Created the following subagent: ...'),

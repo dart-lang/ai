@@ -105,11 +105,17 @@ void main() {
       final usage = measureTokenUsage(
         transcript([
           userInput('Request'),
-          modelCall(tools: ['read_file', 'run_command', 'read_file']),
+          modelCall(
+            calls: [
+              toolCall('read_file'),
+              toolCall('run_command'),
+              toolCall('read_file'),
+            ],
+          ),
           toolResult('12345'),
           toolResult('1234567890'),
           toolResult('123'),
-          modelCall(tools: ['bad_call', 'grep']),
+          modelCall(calls: [toolCall('bad_call'), toolCall('grep')]),
           {'type': 'ERROR_MESSAGE', 'source': 'SYSTEM'},
           toolResult('1'),
           {
@@ -118,7 +124,7 @@ void main() {
             'tool_calls': ['malformed'],
           },
           toolResult('12'),
-          modelCall(tools: ['run_command']),
+          modelCall(calls: [toolCall('run_command')]),
         ]),
       );
 

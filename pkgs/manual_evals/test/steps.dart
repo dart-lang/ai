@@ -30,22 +30,30 @@ Map<String, Object?> userInput(String request) => {
       '<ADDITIONAL_METADATA>\nThe user is: someone.\n</ADDITIONAL_METADATA>',
 };
 
-/// A `PLANNER_RESPONSE` step that records the given token counts and calls
-/// [tools].
+/// A `PLANNER_RESPONSE` step that records the given token counts, [thinking],
+/// and [content], and makes the tool [calls] (see [toolCall]).
 Map<String, Object?> modelCall({
   int? input,
   int? cacheRead,
   int? output,
-  List<String> tools = const [],
+  String? thinking,
+  String? content,
+  List<Object?> calls = const [],
 }) => {
   'type': 'PLANNER_RESPONSE',
   'source': 'MODEL',
   'input_tokens': ?input,
   'cache_read_tokens': ?cacheRead,
   'output_tokens': ?output,
-  'tool_calls': [
-    for (final name in tools) {'name': name},
-  ],
+  'thinking': ?thinking,
+  'content': ?content,
+  'tool_calls': calls,
+};
+
+/// A call to the tool [name], with [args] if given, for [modelCall].
+Map<String, Object?> toolCall(String name, [Map<String, Object?>? args]) => {
+  'name': name,
+  'args': ?args,
 };
 
 /// A tool result step with [content].
@@ -61,3 +69,23 @@ Map<String, Object?> systemMessage(String content) => {
   'source': 'SYSTEM',
   'content': content,
 };
+
+/// An `ERROR_MESSAGE` step with [content], which answers a tool call that
+/// couldn't be run.
+Map<String, Object?> errorMessage([String content = '']) => {
+  'type': 'ERROR_MESSAGE',
+  'source': 'SYSTEM',
+  'content': content,
+};
+
+/// A `SYSTEM_MESSAGE` step delivering a runtime message from [sender] with
+/// [content], wrapped the way the runtime wraps it.
+Map<String, Object?> runtimeMessage(String sender, String content) =>
+    systemMessage(
+      'The following is a <SYSTEM_MESSAGE> not actually sent by the user.\n'
+      '\n'
+      '<SYSTEM_MESSAGE>\n'
+      '[Message] timestamp=2026-01-01T00:00:00Z sender=$sender '
+      'priority=MESSAGE_PRIORITY_HIGH content=$content\n'
+      '</SYSTEM_MESSAGE>',
+    );

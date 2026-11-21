@@ -2,6 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'text.dart';
+
 /// The type of a [TranscriptStep].
 ///
 /// [name] is the type as written in transcripts. The runtime adds types over
@@ -65,6 +67,9 @@ extension type const StepStatus(String name) {
 
   /// The step was interrupted before it finished.
   static const interrupted = StepStatus('INTERRUPTED');
+
+  /// The status of a step that doesn't record one.
+  static const unrecorded = StepStatus('');
 }
 
 /// A single step from a conversation transcript.
@@ -128,6 +133,34 @@ extension type TranscriptStep(Map<String, Object?> json) {
   /// The text content of the step (`content`).
   String get content => _string('content') ?? '';
 
+  /// The text of a [StepType.userInput] step's request, on one line.
+  ///
+  /// Agents built on the Antigravity runtime wrap the request in
+  /// `<USER_REQUEST>` tags and add `<ADDITIONAL_METADATA>`. This is the text
+  /// inside the tags if there is any, and otherwise the whole [content]
+  /// without the metadata and tags.
+  String get userRequest {
+    final request = oneLine(
+      _userRequestPattern.firstMatch(content)?.group(1) ?? '',
+    );
+    if (request.isNotEmpty) return request;
+    return oneLine(
+      content.replaceAll(_metadataPattern, ' ').replaceAll(_tagPattern, ' '),
+    );
+  }
+
+  /// The slash commands, skills, and other items that a [StepType.userInput]
+  /// step says the user explicitly triggered, in order.
+  ///
+  /// Agents built on the Antigravity runtime describe each one outside the
+  /// `<USER_REQUEST>` tags, as in `/plan is a [Slash Command]:`.
+  List<ExplicitTrigger> get triggers => [
+    for (final match in _triggerPattern.allMatches(
+      content.replaceAll(_userRequestPattern, ' '),
+    ))
+      (kind: match[2]!, name: match[1]!),
+  ];
+
   /// The model's reasoning for the step (`thinking`), if any.
   String get thinking => _string('thinking') ?? '';
 
@@ -142,11 +175,7 @@ extension type TranscriptStep(Map<String, Object?> json) {
   /// The names of the tools called in this step, in call order, with `null`
   /// for malformed calls.
   List<String?> get toolCallNames => [
-    for (final call in toolCalls ?? const <Object?>[])
-      switch (call) {
-        {'name': final String name} => name,
-        _ => null,
-      },
+    for (final call in toolCalls ?? const <Object?>[]) _toolCallName(call),
   ];
 
   /// The names of the fields truncated in this step (`truncated_fields`).
@@ -161,7 +190,7 @@ extension type TranscriptStep(Map<String, Object?> json) {
   ///
   /// Results are [StepType.generic] or typed tool steps, such as
   /// `RUN_COMMAND`, from [StepSource.model]. They don't name their tool; use
-  /// [pairToolResults] to match them to their calls.
+  /// [pairToolCalls] to match them to their calls.
   bool get isToolResult =>
       source == StepSource.model && !_nonToolResultTypes.contains(type);
 
@@ -175,6 +204,40 @@ extension type TranscriptStep(Map<String, Object?> json) {
     _ => null,
   };
 }
+
+/// Matches the text of a user request, which agents built on the Antigravity
+/// runtime wrap in `<USER_REQUEST>` tags.
+final _userRequestPattern = RegExp(
+  r'<USER_REQUEST>(.*?)</USER_REQUEST>',
+  dotAll: true,
+);
+
+/// Matches the metadata that agents built on the Antigravity runtime add to a
+/// user request.
+final _metadataPattern = RegExp(
+  r'<ADDITIONAL_METADATA>.*?</ADDITIONAL_METADATA>',
+  dotAll: true,
+);
+
+/// Matches an XML-style tag, such as `<USER_REQUEST>` or `</USER_REQUEST>`.
+final _tagPattern = RegExp(r'</?[A-Z_]+>');
+
+/// Matches the description of an explicitly triggered item in a user input,
+/// as in `/plan is a [Slash Command]:`.
+final _triggerPattern = RegExp(r'([/\w-]+) is a \[([^\]\n]+)\]:');
+
+/// A slash command, skill, or other item that a user explicitly triggered,
+/// such as `(kind: 'Slash Command', name: '/plan')`.
+typedef ExplicitTrigger = ({String kind, String name});
+
+/// Returns the name of the tool [call], or `null` if the call is malformed.
+String? _toolCallName(Object? call) => switch (call) {
+  {'name': final String name} => name,
+  _ => null,
+};
+
+/// The name to report for a malformed tool call, which has no name.
+const unknownToolName = '(unknown)';
 
 /// Types of [StepSource.model] steps that are not tool results.
 const _nonToolResultTypes = {
@@ -191,28 +254,103 @@ typedef ToolResult = ({String? toolName, TranscriptStep step});
 
 /// Matches each tool result in [steps] to its tool call.
 ///
-/// A [StepType.plannerResponse] step that calls N tools is followed by N tool
-/// results (see [TranscriptStep.isToolResult]), in call order, possibly
-/// interleaved with other steps such as system messages. A call that couldn't
-/// be run is answered by a [StepType.errorMessage] step instead, which uses up
-/// that call. Extra results are ignored.
-///
-/// [steps] must be in step order, as [ConversationTranscript.steps] are.
+/// This is [pairToolCalls] without the calls that are unanswered or couldn't
+/// be run.
 Iterable<ToolResult> pairToolResults(Iterable<TranscriptStep> steps) sync* {
-  var toolNames = const <String?>[];
-  var next = 0;
-  for (final step in steps) {
-    if (step.type == StepType.plannerResponse) {
-      toolNames = step.toolCallNames;
-      next = 0;
-    } else if (next < toolNames.length) {
-      if (step.isToolResult) {
-        yield (toolName: toolNames[next++], step: step);
-      } else if (step.type == StepType.errorMessage) {
-        next++;
-      }
+  for (final pair in pairToolCalls(steps)) {
+    if (pair.answer case final answer? when answer.isToolResult) {
+      yield (toolName: pair.toolName, step: answer);
     }
   }
+}
+
+/// A tool call, the model call that made it, and the step that answered it.
+///
+/// The `call` is one of the `modelCall` step's [TranscriptStep.toolCalls],
+/// normally a map with a `name` and `args`, and `toolName` is its name, or
+/// `null` if it's malformed. The `answer` is the call's tool result (see
+/// [TranscriptStep.isToolResult]), a [StepType.errorMessage] step if the call
+/// couldn't be run, or `null` if the call wasn't answered.
+typedef PairedToolCall = ({
+  TranscriptStep modelCall,
+  Object? call,
+  String? toolName,
+  TranscriptStep? answer,
+});
+
+/// Matches each tool call in [steps] to the step that answered it, if any.
+///
+/// Returns every call, in call order.
+///
+/// A [StepType.plannerResponse] step that calls N tools is followed by N
+/// answers, in call order, possibly interleaved with other steps such as
+/// system messages. An answer is a tool result, or a [StepType.errorMessage]
+/// step for a call that couldn't be run. Calls that are still unanswered at
+/// the next planner response or the end of [steps], such as calls that are
+/// still running, have no answer. Extra results are ignored.
+///
+/// Any [StepType.errorMessage] step answers the next unanswered call, so an
+/// error that isn't about a call, while calls are unanswered, shifts the
+/// answers of the calls after it.
+///
+/// [steps] must be in step order, as [ConversationTranscript.steps] are.
+Iterable<PairedToolCall> pairToolCalls(Iterable<TranscriptStep> steps) sync* {
+  TranscriptStep? modelCall;
+  var calls = const <Object?>[];
+  var next = 0;
+
+  PairedToolCall pair(int index, TranscriptStep? answer) => (
+    modelCall: modelCall!,
+    call: calls[index],
+    toolName: _toolCallName(calls[index]),
+    answer: answer,
+  );
+
+  for (final step in steps) {
+    if (step.type == StepType.plannerResponse) {
+      for (; next < calls.length; next++) {
+        yield pair(next, null);
+      }
+      modelCall = step;
+      calls = step.toolCalls ?? const [];
+      next = 0;
+    } else if (next < calls.length &&
+        (step.isToolResult || step.type == StepType.errorMessage)) {
+      yield pair(next++, step);
+    }
+  }
+  for (; next < calls.length; next++) {
+    yield pair(next, null);
+  }
+}
+
+/// The steps of one turn of a conversation: a user request and what the
+/// agent did in response.
+///
+/// The `steps` start with the `userInput` step, if there is one.
+typedef TranscriptTurn = ({
+  TranscriptStep? userInput,
+  List<TranscriptStep> steps,
+});
+
+/// Splits [steps] into turns.
+///
+/// A turn starts at each [StepType.userInput] step. The steps before the first
+/// one form a turn without a user input, which is left out if it has no
+/// [StepType.plannerResponse] steps.
+List<TranscriptTurn> splitTurns(Iterable<TranscriptStep> steps) {
+  final turns = <TranscriptTurn>[(userInput: null, steps: [])];
+  for (final step in steps) {
+    if (step.type == StepType.userInput) {
+      turns.add((userInput: step, steps: [step]));
+    } else {
+      turns.last.steps.add(step);
+    }
+  }
+  if (!turns.first.steps.any((step) => step.type == StepType.plannerResponse)) {
+    turns.removeAt(0);
+  }
+  return turns;
 }
 
 /// A loaded conversation transcript and its decoded steps.

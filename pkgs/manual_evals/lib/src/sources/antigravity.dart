@@ -8,6 +8,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../transcript.dart';
+import 'antigravity_runtime.dart';
 
 /// Transcripts written by Antigravity and other agents built on its runtime.
 ///
@@ -291,13 +292,15 @@ TranscriptStep? _tryDecodeStep(String line) {
 
   for (final step in steps) {
     if (step.type == StepType.systemMessage && backgroundTasks.isNotEmpty) {
-      for (final message in step.content.split(_messagePrefix).skip(1)) {
-        final sender = _messageSenderPattern.firstMatch(message)?.group(1);
+      for (final (:sender, text: message) in runtimeMessages(step.content)) {
         if (backgroundTasks[sender] case final task?) {
           final found = task.tool.extract(message);
           task.messages.add(message);
           task.foundCount += found.length;
-          task.endedEarly |= _taskEndedEarlyPattern.hasMatch(message);
+          task.endedEarly |= switch (taskResult(message)?.end) {
+            TaskEnd.failed || TaskEnd.canceled => true,
+            TaskEnd.finished || null => false,
+          };
           ids.addAll(found);
           warnIfTruncated(step, task.tool.name);
         }
@@ -309,8 +312,7 @@ TranscriptStep? _tryDecodeStep(String line) {
     if (tool == null) continue;
     final found = tool.extract(step.content);
     if (found.isEmpty) {
-      if (_backgroundTaskPattern.firstMatch(step.content)?.group(1)
-          case final taskId?) {
+      if (backgroundTaskId(step.content) case final taskId?) {
         backgroundTasks[taskId] = _BackgroundTask(tool, step.stepIndex);
         continue;
       }
@@ -365,7 +367,7 @@ TranscriptStep? _tryDecodeStep(String line) {
 bool _shouldReportSubagents(TranscriptStep step) => switch (step.status) {
   StepStatus.done => true,
   StepStatus.error || StepStatus.canceled || StepStatus.interrupted => false,
-  _ => step.content.replaceAll(_timestampLinePattern, '').trim().isNotEmpty,
+  _ => step.content.replaceAll(timestampLinePattern, '').trim().isNotEmpty,
 };
 
 /// A tool that starts subagent conversations.
@@ -438,22 +440,12 @@ Iterable<String> _runWorkflowIds(String result) => [
 // to change; `tool/check_transcript_format.dart` reports when they stop
 // matching.
 
-/// Matches a timestamp line at the start of a tool result, for example
-/// `Created At: 2026-10-29T23:48:50Z`.
-final _timestampLinePattern = RegExp(
-  r'^(?:Created|Completed) At: .*$',
-  multiLine: true,
-);
-
 /// The start of the banner in an `invoke_subagent` result, which reads
 /// "Created the following subagent:" or "...subagents:".
 const _invokeSubagentBanner = 'Created the following subagent';
 
 /// The start of the tag on each agent line in a `run_workflow` result.
 const _workflowAgentMarker = '[agent:';
-
-/// The prefix of each of the messages in a [StepType.systemMessage] step.
-const _messagePrefix = '[Message] ';
 
 /// Matches a conversation ID in a JSON object, for example
 /// `"conversationId": "abc-123"`.
@@ -474,21 +466,4 @@ final _workflowAgentPattern = RegExp(
 final _workflowSummaryPattern = RegExp(
   r'^Workflow(?: ".*")? \w+\.$',
   multiLine: true,
-);
-
-/// Matches the task ID in the result of a tool call that is running in the
-/// background, which reports its final result in a later
-/// [StepType.systemMessage].
-final _backgroundTaskPattern = RegExp(
-  r'^Tool is running as a background task with task id: (\S+)[ \t]*$',
-  multiLine: true,
-);
-
-/// Matches the sender at the start of a message, after its [_messagePrefix].
-final _messageSenderPattern = RegExp(r'^timestamp=\S+ sender=(\S+)');
-
-/// Matches a background task message reporting that the task failed or was
-/// canceled, for example `content=Task id "<id>" failed with result:`.
-final _taskEndedEarlyPattern = RegExp(
-  r'content=Task id "[^"\n]*" (?:failed|was canceled) with result:',
 );
