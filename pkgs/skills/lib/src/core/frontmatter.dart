@@ -79,10 +79,7 @@ class SkillFrontmatter {
 
   static Set<InstallSource> _parseInstallSources(String sources) {
     final sourcesByName = InstallSource.values.asNameMap();
-    return {
-      for (final word in sources.trim().split(RegExp(r'\s+')))
-        ?sourcesByName[word],
-    };
+    return {for (final word in sources.split(' ')) ?sourcesByName[word]};
   }
 
   /// Matches a `---` line, allowing trailing whitespace.
