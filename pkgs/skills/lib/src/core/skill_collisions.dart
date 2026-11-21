@@ -115,33 +115,38 @@ CopyState _stateOf(SkillsEntry? entry, String skillName) =>
       _ => CopyState.skipped,
     };
 
-/// Returns [manifest] with [chosen] as the copy of [collision] to install:
-/// every other candidate is recorded as skipped.
-SkillManifest withChosenCopy(
-  SkillManifest manifest, {
-  required SkillCollision collision,
-  required ScannedSkill chosen,
-}) {
-  final agentName = collision.agent.cliName;
+/// Returns [manifest] with each choice in [chosenSkills] recorded once its
+/// copy is installed: every other candidate of the collision is then skipped.
+SkillManifest withInstalledChoices(
+  SkillManifest manifest,
+  Map<SkillCollision, ScannedSkill> chosenSkills,
+) {
   var updated = manifest;
-  for (final copy in collision.candidates) {
-    if (copy.skill == chosen) continue;
-    final entry = updated.sourceUrisForAgent(agentName)[copy.sourceUri];
-    updated = updated.withSourceUri(
-      agentName,
-      copy.sourceUri,
-      SkillsEntry(
-        skills: [
-          for (final other in entry?.skills ?? const <InstalledSkillEntry>[])
-            if (other.name != collision.skillName) other,
-          InstalledSkillEntry(
-            name: collision.skillName,
-            installedAt: DateTime.now().toUtc(),
-            isInstalled: false,
-          ),
-        ],
-      ),
-    );
+  for (final MapEntry(key: collision, value: chosen) in chosenSkills.entries) {
+    final agentName = collision.agent.cliName;
+    final chosenEntry = updated.sourceUrisForAgent(agentName)[chosen.sourceUri];
+    if (_stateOf(chosenEntry, chosen.skillName) != CopyState.installed) {
+      continue;
+    }
+    for (final copy in collision.candidates) {
+      if (copy.skill == chosen) continue;
+      final entry = updated.sourceUrisForAgent(agentName)[copy.sourceUri];
+      updated = updated.withSourceUri(
+        agentName,
+        copy.sourceUri,
+        SkillsEntry(
+          skills: [
+            for (final other in entry?.skills ?? const <InstalledSkillEntry>[])
+              if (other.name != collision.skillName) other,
+            InstalledSkillEntry(
+              name: collision.skillName,
+              installedAt: DateTime.now().toUtc(),
+              isInstalled: false,
+            ),
+          ],
+        ),
+      );
+    }
   }
   return updated;
 }

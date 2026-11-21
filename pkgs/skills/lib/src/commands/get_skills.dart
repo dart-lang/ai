@@ -178,27 +178,22 @@ Future<bool> getSkills({
     return false;
   }
 
-  final preselectedSkills = <(Agent, ScannedSkill)>{};
-  for (final MapEntry(key: collision, value: skill) in chosenSkills.entries) {
-    manifest = withChosenCopy(manifest, collision: collision, chosen: skill);
-    if (collision.installedCopy?.skill != skill) {
-      preselectedSkills.add((collision.agent, skill));
-    }
-  }
-  final settledCollisions = findCollisions(
-    skills: skills,
-    manifest: manifest,
-    agents: agents,
-    runSourceUris: sourceUris,
+  final preselectedSkills = {
+    for (final MapEntry(key: collision, value: skill) in chosenSkills.entries)
+      if (collision.installedCopy?.skill != skill) (collision.agent, skill),
+  };
+  final collisionsWithoutChoice = collisions.where(
+    (collision) => !chosenSkills.containsKey(collision),
   );
   _warnAboutConflicts(
-    settledCollisions,
+    collisionsWithoutChoice,
     skillNames: skillNames,
     logger: logger,
   );
   final heldSkills = {
-    for (final collision in settledCollisions)
-      for (final skill in collision.heldSkills) (collision.agent, skill),
+    for (final collision in collisions)
+      for (final skill in collision.heldSkills)
+        if (skill != chosenSkills[collision]) (collision.agent, skill),
   };
 
   Map<Agent, Set<String>>? selectedSkillNamesByAgent;
@@ -253,6 +248,7 @@ Future<bool> getSkills({
     final choiceIsTheOnlyChange =
         chosenSkills.isNotEmpty && sourceIdsWithDiff.isEmpty;
     if (choiceIsTheOnlyChange) {
+      manifest = withInstalledChoices(manifest, chosenSkills);
       await manifest.save(manifestFile(rootPath));
     }
     final continueInstall = await _promptForSourcesWithDiffs(
@@ -324,6 +320,7 @@ Future<bool> getSkills({
     );
   }
 
+  manifest = withInstalledChoices(manifest, chosenSkills);
   await globalConfig.save(globalConfigFile);
   await manifest.save(manifestFile(rootPath));
 

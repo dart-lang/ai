@@ -153,6 +153,7 @@ void main() {
       expect(dialogs.allInitialSelected.last, {0});
       expect(installedContent(), 'package content');
       expect(await recordedCopies(), {repoUrl: false, _package: true});
+      expect(warnings(), isEmpty);
 
       dialogs.reset();
       await run(['get'], interactive: true);
@@ -178,12 +179,23 @@ void main() {
       expect(await recordedCopies(), {repoUrl: true});
     });
 
-    test('when the question is answered and the sources dialog is cancelled '
-        'or every source is unticked then nothing changes', () async {
-      for (final selectedSources in [null, <int>{}]) {
+    test('when the question is answered with the package and the sources '
+        'dialog is cancelled or the package is unticked then nothing '
+        'changes', () async {
+      File(
+        p.join(projectPath, '.agents', 'skills', 'pkg_a', 'SKILL.md'),
+      ).writeAsStringSync('edited');
+      for (final selectedSources in [
+        null,
+        <int>{},
+        {0},
+      ]) {
         dialogs.reset();
         dialogs.singleSelectResults.add(0);
-        dialogs.multiSelectResults.add(selectedSources);
+        dialogs.multiSelectResults.addAll([
+          selectedSources,
+          {0},
+        ]);
 
         await run(['get'], interactive: true);
 
