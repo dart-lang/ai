@@ -128,7 +128,7 @@ SkillManifest withInstalledChoices(
       continue;
     }
     for (final copy in collision.candidates) {
-      if (copy.skill == chosen) continue;
+      if (copy.sourceUri == chosen.sourceUri) continue;
       final entry = updated.sourceUrisForAgent(agentName)[copy.sourceUri];
       updated = updated.withSourceUri(
         agentName,
