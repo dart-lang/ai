@@ -139,16 +139,18 @@ class SkillInstaller {
           if (skill.sourceUri == sourceUri) skill.skillName,
       };
 
+      final sharedSkills = _skillsInstalledByOtherSources(
+        manifest: updatedManifest,
+        agent: agent,
+        sourceUri: sourceUri,
+      );
+
       final skippedSkills = await _uninstallExistingSkills(
         existingEntry: existingEntry,
         selectedSkills: selectedSkills,
         heldSkills: heldSourceSkills,
         adapter: adapter,
-        sharedSkills: _skillsInstalledByOtherSources(
-          manifest: updatedManifest,
-          agent: agent,
-          sourceUri: sourceUri,
-        ),
+        sharedSkills: sharedSkills,
       );
 
       final result = await _installSkills(
@@ -207,8 +209,6 @@ class SkillInstaller {
     return skillsBySource;
   }
 
-  /// Returns the names of the skills that sources other than [sourceUri] have
-  /// installed for [agent] in [manifest].
   Set<String> _skillsInstalledByOtherSources({
     required SkillManifest manifest,
     required Agent agent,
@@ -221,8 +221,7 @@ class SkillInstaller {
           if (skill.isInstalled) skill.name,
   };
 
-  /// Uninstalls the [selectedSkills] (or all if not given) in [existingEntry],
-  /// leaving out the [heldSkills].
+  /// Uninstalls the [selectedSkills] (or all if not given) in [existingEntry].
   ///
   /// Skills in [sharedSkills] are dropped without deleting their directory,
   /// because another source has a skill with the same name installed there.
@@ -275,8 +274,6 @@ class SkillInstaller {
   }
 
   /// Installs [skills], filtered by only the [selectedSkills] if provided.
-  ///
-  /// Skills in [heldSkills] without an existing entry are left out.
   ///
   /// If any skill appears in [skippedSkills], those also will not be installed,
   /// because it means they were not properly uninstalled. The [skippedSkills]
@@ -430,9 +427,10 @@ class SkillInstaller {
         if (!existing.isInstalled) continue;
         if (selectedSkills != null && !selectedSkills.contains(existing.name)) {
           skippedSkills.add(existing.name);
-        } else if (!sharedSkills.contains(existing.name) &&
-            !await adapter.removeSkill(existing.name)) {
-          skippedSkills.add(existing.name);
+        } else if (!sharedSkills.contains(existing.name)) {
+          if (!await adapter.removeSkill(existing.name)) {
+            skippedSkills.add(existing.name);
+          }
         }
       }
 

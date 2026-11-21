@@ -180,7 +180,7 @@ Future<bool> getSkills({
 
   final preselectedSkills = {
     for (final MapEntry(key: collision, value: skill) in chosenSkills.entries)
-      if (collision.installedCopy?.skill != skill) (collision.agent, skill),
+      if (collision.soleInstalledCopy?.skill != skill) (collision.agent, skill),
   };
   final collisionsWithoutChoice = collisions.where(
     (collision) => !chosenSkills.containsKey(collision),
@@ -600,8 +600,6 @@ Map<String, List<ScannedSkill>> _groupSkillsBySourceAndFindRemoved({
 ///
 /// For each skill and each agent adapter, determines whether the skill is new,
 /// up-to-date, has local edits, has an update available, or was removed.
-///
-/// A skill in [heldSkills] gets no state for that agent, so it is not listed.
 Future<_SkillStatesResult> _computeSkillStates({
   required List<String> sortedSourceIds,
   required Map<String, List<ScannedSkill>> skillsBySource,
@@ -849,13 +847,7 @@ Future<_PromptResult> _promptForSkillsToInstall({
 }
 
 /// Chooses the skill to install for each of [collisions] that this run can
-/// settle.
-///
-/// With [dialogSupport], the user is asked about each skill name in conflict.
-/// Without it, a run with `--skill` and one source takes that source for the
-/// requested names, and every other run chooses nothing.
-///
-/// Returns `null` if the user cancelled.
+/// settle. Returns `null` if the user cancelled.
 Future<Map<SkillCollision, ScannedSkill>?> _chooseSkills(
   List<SkillCollision> collisions, {
   required DialogSupport? dialogSupport,
@@ -875,11 +867,7 @@ Future<Map<SkillCollision, ScannedSkill>?> _chooseSkills(
   };
 }
 
-/// Asks which copy to install for each skill name in conflict in
-/// [collisions].
-///
-/// Returns the chosen skill for each collision in conflict, or `null` if
-/// cancelled.
+/// Asks once per skill name in conflict. Returns `null` if cancelled.
 Future<Map<SkillCollision, ScannedSkill>?> _askWhichCopiesToInstall(
   List<SkillCollision> collisions,
   DialogSupport dialogSupport,
@@ -904,8 +892,6 @@ Future<Map<SkillCollision, ScannedSkill>?> _askWhichCopiesToInstall(
   };
 }
 
-/// Logs a warning for each skill name in conflict in [collisions], limited to
-/// [skillNames] when it is not empty.
 void _warnAboutConflicts(
   Iterable<SkillCollision> collisions, {
   required Set<String> skillNames,

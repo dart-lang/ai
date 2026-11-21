@@ -6,8 +6,7 @@ import '../agent/agent.dart';
 import '../models/skill_manifest.dart';
 import 'skill_scanner.dart';
 
-/// How an agent's manifest records a copy. A skipped copy has an entry with
-/// `isInstalled: false`.
+/// A skipped copy has a manifest entry with `isInstalled: false`.
 enum CopyState { installed, skipped, unrecorded }
 
 /// One source's version of a skill name.
@@ -52,12 +51,10 @@ class SkillCollision {
       if (isConflict || copy.state == CopyState.skipped) ?copy.skill,
   ];
 
-  /// The scanned skill of the copy from [sourceUri], if the run scanned one.
   ScannedSkill? skillFrom(String sourceUri) =>
       copies.where((copy) => copy.sourceUri == sourceUri).firstOrNull?.skill;
 
-  /// The copy recorded as installed, when exactly one is.
-  SkillCopy? get installedCopy =>
+  SkillCopy? get soleInstalledCopy =>
       copies.where((copy) => copy.state == CopyState.installed).singleOrNull;
 }
 
@@ -86,7 +83,9 @@ List<SkillCollision> findCollisions({
       );
     }
     for (final MapEntry(key: sourceUri, value: entry) in entries.entries) {
-      if (runSourceUris.isEmpty || runSourceUris.contains(sourceUri)) continue;
+      final isSourceOfThisRun =
+          runSourceUris.isEmpty || runSourceUris.contains(sourceUri);
+      if (isSourceOfThisRun) continue;
       for (final skill in entry.skills) {
         if (!skill.isInstalled) continue;
         copiesByName[skill.name]?[sourceUri] = SkillCopy(
