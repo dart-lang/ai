@@ -156,32 +156,26 @@ Future<bool> getSkills({
 
   final skills = [...dartSkills, ...gitData.gitSkills];
 
+  final userChoosesInDialogs =
+      !allFlag &&
+      dialogSupport != null &&
+      sourceUris.isEmpty &&
+      skillNames.isEmpty;
   final collisions = findCollisions(
     skills: skills,
     manifest: manifest,
     agents: agents,
     runSourceUris: sourceUris,
   );
-  final Map<SkillCollision, ScannedSkill> chosenSkills;
-  if (!allFlag &&
-      dialogSupport != null &&
-      sourceUris.isEmpty &&
-      skillNames.isEmpty) {
-    final answers = await _askWhichCopiesToInstall(collisions, dialogSupport);
-    if (answers == null) {
-      logger.info('Installation aborted by user.');
-      return false;
-    }
-    chosenSkills = answers;
-  } else if (skillNames.isNotEmpty && sourceUris.length == 1) {
-    chosenSkills = {
-      for (final collision in collisions)
-        if (skillNames.contains(collision.skillName))
-          collision: ?collision.skillFrom(sourceUris.single),
-    };
-  } else {
-    chosenSkills = const {};
-    _warnAboutConflicts(collisions, skillNames: skillNames, logger: logger);
+  final chosenSkills = await _chooseSkills(
+    collisions,
+    dialogSupport: userChoosesInDialogs ? dialogSupport : null,
+    sourceUris: sourceUris,
+    skillNames: skillNames,
+  );
+  if (chosenSkills == null) {
+    logger.info('Installation aborted by user.');
+    return false;
   }
 
   final preselectedSkills = <(Agent, ScannedSkill)>{};
@@ -196,6 +190,11 @@ Future<bool> getSkills({
     manifest: manifest,
     agents: agents,
     runSourceUris: sourceUris,
+  );
+  _warnAboutConflicts(
+    settledCollisions,
+    skillNames: skillNames,
+    logger: logger,
   );
   final heldSkills = {
     for (final collision in settledCollisions)
@@ -250,10 +249,7 @@ Future<bool> getSkills({
   final allSkillStates = skillStatesResult.allSkillStates;
   final sourceIdsWithDiff = skillStatesResult.sourceIdsWithDiff;
 
-  if (!allFlag &&
-      dialogSupport != null &&
-      sourceUris.isEmpty &&
-      skillNames.isEmpty) {
+  if (userChoosesInDialogs) {
     final choiceIsTheOnlyChange =
         chosenSkills.isNotEmpty && sourceIdsWithDiff.isEmpty;
     if (choiceIsTheOnlyChange) {
@@ -853,6 +849,33 @@ Future<_PromptResult> _promptForSkillsToInstall({
     continueInstall: true,
     selectedSkillNamesByAgent: selectedSkillNamesByAgent,
   );
+}
+
+/// Chooses the skill to install for each of [collisions] that this run can
+/// settle.
+///
+/// With [dialogSupport], the user is asked about each skill name in conflict.
+/// Without it, a run with `--skill` and one source takes that source for the
+/// requested names, and every other run chooses nothing.
+///
+/// Returns `null` if the user cancelled.
+Future<Map<SkillCollision, ScannedSkill>?> _chooseSkills(
+  List<SkillCollision> collisions, {
+  required DialogSupport? dialogSupport,
+  required Set<String> sourceUris,
+  required Set<String> skillNames,
+}) async {
+  if (dialogSupport != null) {
+    return _askWhichCopiesToInstall(collisions, dialogSupport);
+  }
+  final skillsRequestedFromOneSource =
+      skillNames.isNotEmpty && sourceUris.length == 1;
+  if (!skillsRequestedFromOneSource) return const {};
+  return {
+    for (final collision in collisions)
+      if (skillNames.contains(collision.skillName))
+        collision: ?collision.skillFrom(sourceUris.single),
+  };
 }
 
 /// Asks which copy to install for each skill name in conflict in
