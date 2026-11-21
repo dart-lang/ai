@@ -103,8 +103,8 @@ class SkillInstaller {
   /// If [selectedSkills] is provided, only skills with these names will be
   /// modified. This includes deleting of existing skills.
   ///
-  /// Skills in [heldSkills], names by source URI, are left as they are: not
-  /// installed, not removed, and without a new manifest entry.
+  /// Skills in [heldSkills] are left as they are: not installed, not removed,
+  /// and without a new manifest entry.
   Future<SkillInstallResult?> installSkillsForAgent({
     required Agent agent,
     required String rootPath,
@@ -113,7 +113,7 @@ class SkillInstaller {
     required GlobalConfig globalConfig,
     Set<String>? selectedSkills,
     Set<String> sourceUris = const {},
-    Map<String, Set<String>> heldSkills = const {},
+    Set<ScannedSkill> heldSkills = const {},
   }) async {
     final adapter = createAgentAdapter(agent, rootPath, _dialogSupport);
     if (adapter is AgentSkillsAdapter) {
@@ -134,7 +134,10 @@ class SkillInstaller {
 
       final existingPkgs = updatedManifest.sourceUrisForAgent(agent.cliName);
       final existingEntry = existingPkgs[sourceUri];
-      final heldSourceSkills = heldSkills[sourceUri] ?? const {};
+      final heldSourceSkills = {
+        for (final skill in heldSkills)
+          if (skill.sourceUri == sourceUri) skill.skillName,
+      };
 
       final skippedSkills = await _uninstallExistingSkills(
         existingEntry: existingEntry,

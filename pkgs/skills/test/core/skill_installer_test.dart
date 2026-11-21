@@ -232,7 +232,7 @@ void main() {
     Future<SkillManifest> install(
       List<ScannedSkill> skills, {
       Set<String> sourceUris = const {},
-      Map<String, Set<String>> heldSkills = const {},
+      Set<ScannedSkill> heldSkills = const {},
     }) async {
       final result = await SkillInstaller(null).installSkillsForAgent(
         agent: Agent.generic,
@@ -292,10 +292,7 @@ void main() {
 
       final newManifest = await install(
         [packageSkill, gitSkill, entrySkill],
-        heldSkills: {
-          'package:pkg_a': {'pkg_a-skill'},
-          gitUrl: {'pkg_a-skill'},
-        },
+        heldSkills: {packageSkill, gitSkill},
       );
 
       expect(installedContent(), 'git content');

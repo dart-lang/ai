@@ -2,6 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import '../agent/agent.dart';
 import '../models/skill_manifest.dart';
 import 'skill_scanner.dart';
 
@@ -14,7 +15,11 @@ class SkillCopy {
   final String sourceUri;
   final CopyState state;
 
-  const SkillCopy(this.sourceUri, this.state);
+  /// The scanned skill, or `null` for a copy that a run limited to other
+  /// sources knows only from the manifest.
+  final ScannedSkill? skill;
+
+  const SkillCopy(this.sourceUri, this.state, [this.skill]);
 
   bool get isFromPackage => sourceUri.startsWith('package:');
 }
@@ -26,12 +31,13 @@ class SkillCopy {
 /// candidate the collision is a conflict, and the skill stays as it is until
 /// someone chooses a copy.
 class SkillCollision {
+  final Agent agent;
   final String skillName;
 
   /// One copy per source, package copies first.
   final List<SkillCopy> copies;
 
-  const SkillCollision(this.skillName, this.copies);
+  const SkillCollision(this.agent, this.skillName, this.copies);
 
   List<SkillCopy> get candidates => [
     for (final copy in copies)
@@ -40,19 +46,23 @@ class SkillCollision {
 
   bool get isConflict => candidates.length > 1;
 
-  /// The copies that a run leaves exactly as they are.
-  List<SkillCopy> get heldCopies => [
+  /// The scanned skills that a run leaves exactly as they are.
+  List<ScannedSkill> get heldSkills => [
     for (final copy in copies)
-      if (isConflict || copy.state == CopyState.skipped) copy,
+      if (isConflict || copy.state == CopyState.skipped) ?copy.skill,
   ];
+
+  /// The scanned skill of the copy from [sourceUri], if the run scanned one.
+  ScannedSkill? skillFrom(String sourceUri) =>
+      copies.where((copy) => copy.sourceUri == sourceUri).firstOrNull?.skill;
 
   /// The copy recorded as installed, when exactly one is.
   SkillCopy? get installedCopy =>
       copies.where((copy) => copy.state == CopyState.installed).singleOrNull;
 }
 
-/// Finds the skill names in [skills] that both a package and a git repo ship
-/// for [agentName].
+/// Finds the skill names in [skills] that both a package and a git repo ship,
+/// for each of [agents].
 ///
 /// A run limited to [runSourceUris] also sees the copies that [manifest]
 /// records as installed under other sources, so that it does not install its
@@ -60,37 +70,42 @@ class SkillCollision {
 List<SkillCollision> findCollisions({
   required List<ScannedSkill> skills,
   required SkillManifest manifest,
-  required String agentName,
+  required List<Agent> agents,
   required Set<String> runSourceUris,
 }) {
-  final entries = manifest.sourceUrisForAgent(agentName);
-  final copiesByName = <String, Map<String, SkillCopy>>{};
-  for (final skill in skills) {
-    final copies = copiesByName.putIfAbsent(skill.skillName, () => {});
-    copies[skill.sourceUri] ??= SkillCopy(
-      skill.sourceUri,
-      _stateOf(entries[skill.sourceUri], skill.skillName),
-    );
-  }
-  for (final MapEntry(key: sourceUri, value: entry) in entries.entries) {
-    if (runSourceUris.isEmpty || runSourceUris.contains(sourceUri)) continue;
-    for (final skill in entry.skills) {
-      if (!skill.isInstalled) continue;
-      copiesByName[skill.name]?[sourceUri] = SkillCopy(
-        sourceUri,
-        CopyState.installed,
+  final collisions = <SkillCollision>[];
+  for (final agent in agents) {
+    final entries = manifest.sourceUrisForAgent(agent.cliName);
+    final copiesByName = <String, Map<String, SkillCopy>>{};
+    for (final skill in skills) {
+      final copies = copiesByName.putIfAbsent(skill.skillName, () => {});
+      copies[skill.sourceUri] ??= SkillCopy(
+        skill.sourceUri,
+        _stateOf(entries[skill.sourceUri], skill.skillName),
+        skill,
+      );
+    }
+    for (final MapEntry(key: sourceUri, value: entry) in entries.entries) {
+      if (runSourceUris.isEmpty || runSourceUris.contains(sourceUri)) continue;
+      for (final skill in entry.skills) {
+        if (!skill.isInstalled) continue;
+        copiesByName[skill.name]?[sourceUri] = SkillCopy(
+          sourceUri,
+          CopyState.installed,
+        );
+      }
+    }
+    for (final MapEntry(key: skillName, value: copies)
+        in copiesByName.entries) {
+      final packageCopies = copies.values.where((copy) => copy.isFromPackage);
+      final gitCopies = copies.values.where((copy) => !copy.isFromPackage);
+      if (packageCopies.isEmpty || gitCopies.isEmpty) continue;
+      collisions.add(
+        SkillCollision(agent, skillName, [...packageCopies, ...gitCopies]),
       );
     }
   }
-  return [
-    for (final MapEntry(key: skillName, value: copies) in copiesByName.entries)
-      if (copies.values.any((c) => c.isFromPackage) &&
-          copies.values.any((c) => !c.isFromPackage))
-        SkillCollision(skillName, [
-          ...copies.values.where((c) => c.isFromPackage),
-          ...copies.values.where((c) => !c.isFromPackage),
-        ]),
-  ];
+  return collisions;
 }
 
 CopyState _stateOf(SkillsEntry? entry, String skillName) =>
@@ -100,17 +115,17 @@ CopyState _stateOf(SkillsEntry? entry, String skillName) =>
       _ => CopyState.skipped,
     };
 
-/// Returns [manifest] with the copy from [sourceUri] chosen for [collision]
-/// and [agentName]: every other candidate is recorded as skipped.
+/// Returns [manifest] with [chosen] as the copy of [collision] to install:
+/// every other candidate is recorded as skipped.
 SkillManifest withChosenCopy(
   SkillManifest manifest, {
-  required String agentName,
   required SkillCollision collision,
-  required String sourceUri,
+  required ScannedSkill chosen,
 }) {
+  final agentName = collision.agent.cliName;
   var updated = manifest;
   for (final copy in collision.candidates) {
-    if (copy.sourceUri == sourceUri) continue;
+    if (copy.skill == chosen) continue;
     final entry = updated.sourceUrisForAgent(agentName)[copy.sourceUri];
     updated = updated.withSourceUri(
       agentName,

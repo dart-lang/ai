@@ -2,6 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'package:skills/src/agent/agent.dart';
 import 'package:skills/src/core/skill_collisions.dart';
 import 'package:skills/src/core/skill_scanner.dart';
 import 'package:skills/src/models/skill_manifest.dart';
@@ -11,7 +12,7 @@ void main() {
   bool isCollision(ScannedSkill a, ScannedSkill b) => findCollisions(
     skills: [a, b],
     manifest: const SkillManifest(),
-    agentName: 'generic',
+    agents: [Agent.generic],
     runSourceUris: const {},
   ).isNotEmpty;
 
