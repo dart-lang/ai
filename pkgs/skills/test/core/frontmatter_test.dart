@@ -94,6 +94,12 @@ metadata:
       });
     });
 
+    test('when it is a block scalar then its line break is ignored', () {
+      expect(installFrom('metadata:\n  install-from: >\n    package\n'), {
+        InstallSource.package,
+      });
+    });
+
     test('when it is not a string then parsing throws', () {
       expect(
         () => installFrom('metadata:\n  install-from: [git, package]\n'),
