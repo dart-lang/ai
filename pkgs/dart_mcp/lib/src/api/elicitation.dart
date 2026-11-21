@@ -109,10 +109,19 @@ extension type ElicitRequest._fromMap(Map<String, Object?> _value)
     }
 
     for (final propertySchema in properties.values) {
-      // Combinators would mean it's not a simple primitive type.
+      // Only titled single-select enums may use a property-level oneOf.
+      final oneOf = propertySchema._value[Keys.oneOf];
       if (propertySchema.allOf != null ||
           propertySchema.anyOf != null ||
-          propertySchema.oneOf != null ||
+          (oneOf != null &&
+              (propertySchema._value[Keys.type] != JsonType.string.typeName ||
+                  oneOf is! List<Object?> ||
+                  !oneOf.every(
+                    (value) =>
+                        value is Map<String, Object?> &&
+                        value[Keys.const_] is String &&
+                        value[Keys.title] is String,
+                  ))) ||
           propertySchema.not != null) {
         return false;
       }
