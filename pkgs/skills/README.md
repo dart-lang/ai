@@ -72,6 +72,15 @@ check those repos for updates to skills.
   directories named `third_party` or hidden directories (starting with `.`)
   are ignored.
 
+### A skill from both a package and a git repo
+
+When a package and a git repo ship a skill with the same name, `get` in a
+terminal asks which copy to install and records the other one as skipped, so
+later runs, `get --all` included, keep your choice. Until you choose, other
+runs leave the skill as it is and log a warning. To switch later, run
+`dart run skills@ get --package <pkg> --skill <name>` or
+`dart run skills@ get --git <repo> --skill <name>`.
+
 ### Pruning removed dependencies and unused sources
 
 When you remove a package from your `pubspec.yaml`, its skills stay in your
@@ -188,6 +197,25 @@ The `description` tells the AI when to activate the skill -- make it specific an
 ### Supporting all agents
 
 All agents receive the full skill directory (SKILL.md plus `scripts/`, `references/`, `assets/`). Write skills once and they install to each agent’s spec-defined location.
+
+### Packages in a repo that is also a git source
+
+When users add your repo as a git source, the git scan also finds the skills in
+your package's `skills/` directory and installs them from the default branch,
+not from the version in the user's `pubspec.lock`. To install a skill only from
+the package, set `install-from` in its metadata:
+
+```
+---
+name: my_package-my-skill
+description: Use when the user is working with MyPackage APIs.
+metadata:
+  install-from: package
+---
+```
+
+`install-from` takes `git`, `package`, or both separated by a space. Without
+it, both scans find the skill.
 
 ### Best practices
 

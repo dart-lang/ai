@@ -76,6 +76,7 @@ class GitScanner {
           continue;
         }
         if (frontmatter.isInternal && !shouldInstallInternalSkills) continue;
+        if (!frontmatter.installFrom.contains(InstallSource.git)) continue;
 
         final skillDir = entity.parent;
         final skillName = p.basename(skillDir.path);

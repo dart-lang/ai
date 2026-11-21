@@ -98,6 +98,7 @@ class SkillScanner {
         continue;
       }
       if (frontmatter.isInternal && !shouldInstallInternalSkills) continue;
+      if (!frontmatter.installFrom.contains(InstallSource.package)) continue;
 
       if (!validPrefixes.any(skillName.startsWith)) {
         final expected = validPrefixes.map((p) => '"$p"').join(' or ');

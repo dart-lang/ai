@@ -69,4 +69,42 @@ metadata:
       );
     });
   });
+
+  group('Given metadata.install-from', () {
+    Set<InstallSource> installFrom(String metadata) =>
+        SkillFrontmatter.fromSkillContent(
+          '---\nname: my_package-skill\n$metadata---\n',
+        ).installFrom;
+
+    test('when it is absent then git and packages may install the skill', () {
+      expect(installFrom(''), InstallSource.values.toSet());
+    });
+
+    test('when it is git and package then both may install the skill', () {
+      expect(installFrom('metadata:\n  install-from: git package\n'), {
+        InstallSource.git,
+        InstallSource.package,
+      });
+    });
+
+    test('when it is package and an unknown word then only a package may '
+        'install the skill', () {
+      expect(installFrom('metadata:\n  install-from: package npm\n'), {
+        InstallSource.package,
+      });
+    });
+
+    test('when it is a block scalar then its line break is ignored', () {
+      expect(installFrom('metadata:\n  install-from: >\n    package\n'), {
+        InstallSource.package,
+      });
+    });
+
+    test('when it is not a string then parsing throws', () {
+      expect(
+        () => installFrom('metadata:\n  install-from: [git, package]\n'),
+        throwsFormatException,
+      );
+    });
+  });
 }

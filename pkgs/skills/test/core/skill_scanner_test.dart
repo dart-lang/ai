@@ -24,6 +24,8 @@ void main() {
 ---
 name: my_package-code-gen
 description: Generates code.
+metadata:
+  install-from: package
 ---
 
 # Code Gen
@@ -42,6 +44,12 @@ description: Designs APIs.
 
 Instructions.
 '''),
+          ]),
+          d.dir('my_package-git-only', [
+            d.file(
+              'SKILL.md',
+              '---\nname: my_package-git-only\nmetadata:\n  install-from: git\n---\n',
+            ),
           ]),
         ]),
       ]).create();

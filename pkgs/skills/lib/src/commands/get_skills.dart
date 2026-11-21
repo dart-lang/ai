@@ -15,6 +15,7 @@ import 'package:skills/src/core/git_runner.dart';
 import 'package:skills/src/core/package_resolver.dart';
 import 'package:skills/src/core/pruner.dart';
 import 'package:skills/src/core/pub_runner.dart';
+import 'package:skills/src/core/skill_collisions.dart';
 import 'package:skills/src/core/git_scanner.dart';
 import 'package:skills/src/core/git_sync.dart';
 import 'package:skills/src/core/git_repos.dart';
@@ -155,6 +156,46 @@ Future<bool> getSkills({
 
   final skills = [...dartSkills, ...gitData.gitSkills];
 
+  final userChoosesInDialogs =
+      !allFlag &&
+      dialogSupport != null &&
+      sourceUris.isEmpty &&
+      skillNames.isEmpty;
+  final collisions = findCollisions(
+    skills: skills,
+    manifest: manifest,
+    agents: agents,
+    runSourceUris: sourceUris,
+  );
+  final chosenSkills = await _chooseSkills(
+    collisions,
+    dialogSupport: userChoosesInDialogs ? dialogSupport : null,
+    sourceUris: sourceUris,
+    skillNames: skillNames,
+  );
+  if (chosenSkills == null) {
+    logger.info('Installation aborted by user.');
+    return false;
+  }
+
+  final preselectedSkills = {
+    for (final MapEntry(key: collision, value: skill) in chosenSkills.entries)
+      if (collision.soleInstalledCopy?.skill != skill) (collision.agent, skill),
+  };
+  final collisionsWithoutChoice = collisions.where(
+    (collision) => !chosenSkills.containsKey(collision),
+  );
+  _warnAboutConflicts(
+    collisionsWithoutChoice,
+    skillNames: skillNames,
+    logger: logger,
+  );
+  final heldSkills = {
+    for (final collision in collisions)
+      for (final skill in collision.heldSkills)
+        if (skill != chosenSkills[collision]) (collision.agent, skill),
+  };
+
   Map<Agent, Set<String>>? selectedSkillNamesByAgent;
 
   // Log about any unrecognized skills
@@ -197,15 +238,19 @@ Future<bool> getSkills({
     skillsBySource: skillsBySource,
     agentAdapters: agentAdapters,
     manifest: manifest,
+    heldSkills: heldSkills,
   );
 
   final allSkillStates = skillStatesResult.allSkillStates;
   final sourceIdsWithDiff = skillStatesResult.sourceIdsWithDiff;
 
-  if (!allFlag &&
-      dialogSupport != null &&
-      sourceUris.isEmpty &&
-      skillNames.isEmpty) {
+  if (userChoosesInDialogs) {
+    final choiceIsTheOnlyChange =
+        chosenSkills.isNotEmpty && sourceIdsWithDiff.isEmpty;
+    if (choiceIsTheOnlyChange) {
+      manifest = withInstalledChoices(manifest, chosenSkills);
+      await manifest.save(manifestFile(rootPath));
+    }
     final continueInstall = await _promptForSourcesWithDiffs(
       sourceIdsWithDiff: sourceIdsWithDiff,
       skillsBySource: skillsBySource,
@@ -237,6 +282,7 @@ Future<bool> getSkills({
       agents: agents,
       dialogSupport: dialogSupport,
       logger: logger,
+      preselectedSkills: preselectedSkills,
     );
     if (!promptResult.continueInstall) {
       return false;
@@ -254,6 +300,10 @@ Future<bool> getSkills({
       previousManifest: manifest,
       globalConfig: globalConfig,
       sourceUris: sourceUris, // this still acts as source filter
+      heldSkills: {
+        for (final (heldAgent, skill) in heldSkills)
+          if (heldAgent == agent) skill,
+      },
     );
     if (result == null) {
       logger.warning('Installation aborted for agent ${agent.cliName}');
@@ -270,6 +320,7 @@ Future<bool> getSkills({
     );
   }
 
+  manifest = withInstalledChoices(manifest, chosenSkills);
   await globalConfig.save(globalConfigFile);
   await manifest.save(manifestFile(rootPath));
 
@@ -554,6 +605,7 @@ Future<_SkillStatesResult> _computeSkillStates({
   required Map<String, List<ScannedSkill>> skillsBySource,
   required List<AgentAdapter> agentAdapters,
   required SkillManifest manifest,
+  required Set<(Agent, ScannedSkill)> heldSkills,
 }) async {
   final allSkillStates = <ScannedSkill, Map<AgentAdapter, _SkillState>>{};
   final sourceIdsWithDiff = <String>{};
@@ -567,6 +619,8 @@ Future<_SkillStatesResult> _computeSkillStates({
           <AgentAdapter, _SkillState>{};
 
       for (final adapter in agentAdapters) {
+        if (heldSkills.contains((adapter.agent, skill))) continue;
+
         final newHash = switch (skill.skillPath) {
           null => null,
           String path => await adapter.computeSourceSkillHash(
@@ -675,6 +729,7 @@ Future<_PromptResult> _promptForSkillsToInstall({
   required List<Agent> agents,
   required DialogSupport? dialogSupport,
   required Logger logger,
+  required Set<(Agent, ScannedSkill)> preselectedSkills,
 }) async {
   final selectedSkillNamesByAgent = <Agent, Set<String>>{
     for (final agent in agents) agent: {},
@@ -695,19 +750,21 @@ Future<_PromptResult> _promptForSkillsToInstall({
 
     for (final skill in sourceSkills) {
       final statesForSkill = allSkillStates[skill]!;
-      final adaptersByState = <_SkillState, List<AgentAdapter>>{};
-      for (final entry in statesForSkill.entries) {
-        adaptersByState.putIfAbsent(entry.value, () => []).add(entry.key);
+      final adaptersByRow = <(_SkillState, bool), List<AgentAdapter>>{};
+      for (final MapEntry(key: adapter, value: state)
+          in statesForSkill.entries) {
+        final row = (state, preselectedSkills.contains((adapter.agent, skill)));
+        adaptersByRow.putIfAbsent(row, () => []).add(adapter);
       }
 
-      for (final MapEntry(key: state, value: adapters)
-          in adaptersByState.entries) {
+      for (final MapEntry(key: (state, isPreselected), value: adapters)
+          in adaptersByRow.entries) {
         if (state == _SkillState.upToDate) {
           continue;
         }
 
         final labelSuffix = state.label;
-        final isSelected = state.selectedDefault;
+        final isSelected = state.selectedDefault || isPreselected;
         final agentstr = adapters.length == agentAdapters.length
             ? ''
             : ' for ${adapters.map((a) => a.agent.cliName).join(', ')}';
@@ -787,6 +844,71 @@ Future<_PromptResult> _promptForSkillsToInstall({
     continueInstall: true,
     selectedSkillNamesByAgent: selectedSkillNamesByAgent,
   );
+}
+
+/// Chooses the skill to install for each of [collisions] that this run can
+/// settle. Returns `null` if the user cancelled.
+Future<Map<SkillCollision, ScannedSkill>?> _chooseSkills(
+  List<SkillCollision> collisions, {
+  required DialogSupport? dialogSupport,
+  required Set<String> sourceUris,
+  required Set<String> skillNames,
+}) async {
+  if (dialogSupport != null) {
+    return _askWhichCopiesToInstall(collisions, dialogSupport);
+  }
+  final skillsRequestedFromOneSource =
+      skillNames.isNotEmpty && sourceUris.length == 1;
+  if (!skillsRequestedFromOneSource) return const {};
+  return {
+    for (final collision in collisions)
+      if (skillNames.contains(collision.skillName))
+        collision: ?collision.skillFrom(sourceUris.single),
+  };
+}
+
+/// Asks once per skill name in conflict. Returns `null` if cancelled.
+Future<Map<SkillCollision, ScannedSkill>?> _askWhichCopiesToInstall(
+  List<SkillCollision> collisions,
+  DialogSupport dialogSupport,
+) async {
+  final conflicts = collisions.where((collision) => collision.isConflict);
+  final answers = <String, ScannedSkill>{};
+  for (final conflict in conflicts) {
+    final skillName = conflict.skillName;
+    if (answers.containsKey(skillName)) continue;
+    final options = [for (final copy in conflict.candidates) ?copy.skill];
+    final index = await dialogSupport.showSingleSelectDialog(
+      [for (final skill in options) skill.sourceUri],
+      title:
+          'Skill $skillName comes from more than one source. Which copy do '
+          'you want to install?',
+    );
+    if (index == null) return null;
+    answers[skillName] = options[index];
+  }
+  return {
+    for (final conflict in conflicts) conflict: ?answers[conflict.skillName],
+  };
+}
+
+void _warnAboutConflicts(
+  Iterable<SkillCollision> collisions, {
+  required Set<String> skillNames,
+  required Logger logger,
+}) {
+  final warnedSkillNames = <String>{};
+  for (final collision in collisions) {
+    final skillName = collision.skillName;
+    if (!collision.isConflict) continue;
+    if (skillNames.isNotEmpty && !skillNames.contains(skillName)) continue;
+    if (!warnedSkillNames.add(skillName)) continue;
+    final sources = collision.candidates.map((c) => c.sourceUri).join(' and ');
+    logger.warning(
+      'Warning: Skill $skillName comes from $sources and was left as it is. '
+      'Run `get` in a terminal to choose a copy.',
+    );
+  }
 }
 
 Future<String?> _getGitCommit(String repoPath) async {

@@ -4,15 +4,29 @@
 
 import 'package:yaml/yaml.dart';
 
+/// A kind of source that `metadata.install-from` can name.
+enum InstallSource { git, package }
+
 /// Parsed frontmatter from a skill file.
 class SkillFrontmatter {
   /// The parsed metadata.internal field, defaults to false.
   final bool isInternal;
 
+  /// The sources that may install this skill, from the space separated
+  /// metadata.install-from field.
+  ///
+  /// Holds every [InstallSource] when the field is absent. Unknown values are
+  /// ignored.
+  final Set<InstallSource> installFrom;
+
   /// The parsed name.
   final String name;
 
-  SkillFrontmatter(this.name, {required this.isInternal});
+  SkillFrontmatter(
+    this.name, {
+    required this.isInternal,
+    required this.installFrom,
+  });
 
   /// Extracts values from a parsed skill frontmatter [YamlDocument].
   factory SkillFrontmatter.fromYaml(YamlDocument document) {
@@ -47,7 +61,27 @@ class SkillFrontmatter {
       isInternal = false;
     }
 
-    return SkillFrontmatter(name, isInternal: isInternal);
+    final installFrom = switch (metadata?['install-from']) {
+      null => InstallSource.values.toSet(),
+      String sources => _parseInstallSources(sources),
+      _ => throw FormatException(
+        'Expected a String install-from metadata property',
+        mapContent,
+      ),
+    };
+
+    return SkillFrontmatter(
+      name,
+      isInternal: isInternal,
+      installFrom: installFrom,
+    );
+  }
+
+  static Set<InstallSource> _parseInstallSources(String sources) {
+    final sourcesByName = InstallSource.values.asNameMap();
+    return {
+      for (final word in sources.split(RegExp(r'\s+'))) ?sourcesByName[word],
+    };
   }
 
   /// Matches a `---` line, allowing trailing whitespace.
