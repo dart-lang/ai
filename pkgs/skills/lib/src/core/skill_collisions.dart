@@ -13,9 +13,8 @@ enum CopyState { installed, skipped, unrecorded }
 class SkillCopy {
   final String sourceUri;
   final CopyState state;
-  final String? path;
 
-  const SkillCopy(this.sourceUri, this.state, {this.path});
+  const SkillCopy(this.sourceUri, this.state);
 
   bool get isFromPackage => sourceUri.startsWith('package:');
 }
@@ -71,7 +70,6 @@ List<SkillCollision> findCollisions({
     copies[skill.sourceUri] ??= SkillCopy(
       skill.sourceUri,
       _stateOf(entries[skill.sourceUri], skill.skillName),
-      path: skill.path,
     );
   }
   for (final MapEntry(key: sourceUri, value: entry) in entries.entries) {
@@ -81,7 +79,6 @@ List<SkillCollision> findCollisions({
       copiesByName[skill.name]?[sourceUri] = SkillCopy(
         sourceUri,
         CopyState.installed,
-        path: skill.path,
       );
     }
   }
@@ -114,35 +111,22 @@ SkillManifest withChosenCopy(
   var updated = manifest;
   for (final copy in collision.candidates) {
     if (copy.sourceUri == sourceUri) continue;
-    updated = _withSkippedEntry(updated, agentName, copy, collision.skillName);
+    final entry = updated.sourceUrisForAgent(agentName)[copy.sourceUri];
+    updated = updated.withSourceUri(
+      agentName,
+      copy.sourceUri,
+      SkillsEntry(
+        skills: [
+          for (final other in entry?.skills ?? const <InstalledSkillEntry>[])
+            if (other.name != collision.skillName) other,
+          InstalledSkillEntry(
+            name: collision.skillName,
+            installedAt: DateTime.now().toUtc(),
+            isInstalled: false,
+          ),
+        ],
+      ),
+    );
   }
   return updated;
-}
-
-/// Returns [manifest] with [copy] recorded as skipped for [agentName], in place
-/// of the entry that its source has for [skillName].
-SkillManifest _withSkippedEntry(
-  SkillManifest manifest,
-  String agentName,
-  SkillCopy copy,
-  String skillName,
-) {
-  final entries = manifest.sourceUrisForAgent(agentName)[copy.sourceUri];
-  final skipped = InstalledSkillEntry(
-    name: skillName,
-    installedAt: DateTime.now().toUtc(),
-    isInstalled: false,
-    path: copy.path,
-  );
-  return manifest.withSourceUri(
-    agentName,
-    copy.sourceUri,
-    SkillsEntry(
-      skills: [
-        for (final other in entries?.skills ?? const <InstalledSkillEntry>[])
-          if (other.name != skillName) other,
-        skipped,
-      ],
-    ),
-  );
 }

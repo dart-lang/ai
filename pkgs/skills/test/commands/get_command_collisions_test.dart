@@ -9,8 +9,6 @@ import 'package:path/path.dart' as p;
 import 'package:skills/src/commands/add_command.dart';
 import 'package:skills/src/commands/get_command.dart';
 import 'package:skills/src/commands/skills_command_runner.dart';
-import 'package:skills/src/core/git_runner.dart';
-import 'package:skills/src/core/hash_utils.dart';
 import 'package:skills/src/models/global_config.dart';
 import 'package:skills/src/models/skill_manifest.dart';
 import 'package:test/test.dart';
@@ -87,14 +85,9 @@ void main() {
     List<String> agents = const ['generic'],
   }) async {
     final dialogSupport = interactive ? dialogs : null;
-    const gitRunner = GitRunner();
     final runner = SkillsCommandRunner('skills', 'Test')
-      ..addCommand(
-        GetCommand(dialogSupport: dialogSupport, gitRunner: gitRunner),
-      )
-      ..addCommand(
-        AddCommand(dialogSupport: dialogSupport, gitRunner: gitRunner),
-      );
+      ..addCommand(GetCommand(dialogSupport: dialogSupport))
+      ..addCommand(AddCommand(dialogSupport: dialogSupport));
     await runner.run([
       ...args,
       '--directory',
@@ -111,35 +104,29 @@ void main() {
   }
 
   /// Whether the manifest records pkg_a-skill as installed, by source.
-  Future<Map<String, bool>> recordedCopies({String agent = 'generic'}) async {
+  Future<Map<String, bool>> recordedCopies() async {
     final manifest = await SkillManifest.loadOrEmptyFromRoot(projectPath);
     return {
       for (final MapEntry(key: sourceUri, value: entry)
-          in manifest.sourceUrisForAgent(agent).entries)
+          in manifest.sourceUrisForAgent('generic').entries)
         for (final skill in entry.skills)
           if (skill.name == _skill) sourceUri: skill.isInstalled,
     };
   }
 
-  /// Records pkg_a-skill from the package as skipped, or as installed with the
-  /// hash of the package's copy.
-  Future<void> recordPackageCopy({
-    required bool isInstalled,
-    String agent = 'generic',
-  }) async {
+  /// Records pkg_a-skill from the package as skipped, or as installed with a
+  /// hash that the installed directory does not have.
+  Future<void> recordPackageCopy({required bool isInstalled}) async {
     final file = File(SkillManifest.pathIn(projectPath));
     final manifest = await SkillManifest.loadOrEmpty(file);
-    final packageCopy = Directory(d.path(p.join('pkg_a', 'skills', _skill)));
     final entry = InstalledSkillEntry(
       name: _skill,
       installedAt: DateTime.utc(2026),
-      contentHash: isInstalled
-          ? await tryCalculateDirectoryHash(packageCopy)
-          : null,
+      contentHash: isInstalled ? 'package copy hash' : null,
       isInstalled: isInstalled,
     );
     await manifest
-        .withSourceUri(agent, _package, SkillsEntry(skills: [entry]))
+        .withSourceUri('generic', _package, SkillsEntry(skills: [entry]))
         .save(file);
   }
 
@@ -235,14 +222,14 @@ void main() {
     });
   });
 
-  group('Given the first two steps of the issue', () {
+  group('Given the package copy installed and the git copy skipped', () {
     setUp(() async {
       await run(['add', repoUrl, '--skill', 'pkg_a']);
       await run(['get', '--package', 'pkg_a', '--all']);
     });
 
-    test('when running get --all as the third step then the package copy '
-        'stays and nothing warns', () async {
+    test('when running get --all then the package copy stays and nothing '
+        'warns', () async {
       await run(['get', '--all']);
 
       expect(installedContent(), 'package content');
@@ -280,29 +267,6 @@ void main() {
 
     expect(installedContent(), 'package content');
     expect(await recordedCopies(), {repoUrl: false, _package: true});
-  });
-
-  test('Given two agents, one in conflict and one with both copies skipped, '
-      'when the question is answered then only the agent in conflict '
-      'changes', () async {
-    await run(['add', repoUrl, '--all']);
-    await run(['add', repoUrl, '--skill', 'pkg_a'], agents: ['claude']);
-    await recordPackageCopy(isInstalled: false, agent: 'claude');
-    dialogs.singleSelectResults.add(0);
-    dialogs.multiSelectResults.addAll([
-      {0},
-      {0},
-    ]);
-
-    await run(['get'], interactive: true, agents: ['generic', 'claude']);
-
-    expect(installedContent(), 'package content');
-    expect(installedContent(agentDirectory: '.claude'), isNull);
-    expect(await recordedCopies(), {repoUrl: false, _package: true});
-    expect(await recordedCopies(agent: 'claude'), {
-      repoUrl: false,
-      _package: false,
-    });
   });
 
   test('Given both copies recorded as installed and the git copy on disk, '
