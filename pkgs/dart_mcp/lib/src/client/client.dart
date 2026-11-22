@@ -489,12 +489,13 @@ base class ServerConnection extends MCPBase {
       request,
       () => super.sendRequestKeepingProgress<T>(methodName, request: request),
     );
+    if (result == null) return result;
     final resultType = _rawResultType(result);
     if (_isKnownResultType(resultType)) return result;
     if (handleUnrecognizedResult == null) {
       throw _unrecognizedResultType(resultType);
     }
-    return handleUnrecognizedResult(result as Result);
+    return handleUnrecognizedResult(result);
   }
 
   bool _onRevision(Request? request) {
@@ -919,13 +920,11 @@ base class ServerConnection extends MCPBase {
     Future<T> Function(Result)? handleUnrecognizedResult,
   ) async {
     final originalRequest = request as Map<String, Object?>;
-    var result =
-        (await sendRequestKeepingProgress<T>(
-              methodName,
-              request: request,
-              handleUnrecognizedResult: handleUnrecognizedResult,
-            ))
-            as Result;
+    var result = await sendRequestKeepingProgress<T>(
+      methodName,
+      request: request,
+      handleUnrecognizedResult: handleUnrecognizedResult,
+    );
     for (
       var round = 0;
       result.resultType == ResultTypes.inputRequired;
@@ -975,15 +974,13 @@ base class ServerConnection extends MCPBase {
                 if (requestState != null) Keys.requestState: requestState,
               }
               as WithInputResponses;
-      result =
-          (await sendRequestKeepingProgress<T>(
-                methodName,
-                request: retryRequest,
-                handleUnrecognizedResult: handleUnrecognizedResult,
-              ))
-              as Result;
+      result = await sendRequestKeepingProgress<T>(
+        methodName,
+        request: retryRequest,
+        handleUnrecognizedResult: handleUnrecognizedResult,
+      );
     }
-    return result as T;
+    return result;
   }
 
   /// Resolves the handler for [inputRequest], one of the three methods a
