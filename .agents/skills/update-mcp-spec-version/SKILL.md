@@ -38,12 +38,14 @@ This skill guides you through the process of updating the `dart_mcp` package to 
       ```
     - Set `supportsStreamableHttp` to whether the Streamable HTTP transport
       should serve the revision. That transport also has its own
-      `_supportedVersions` set in `lib/src/server/streamable_http.dart`.
+      `_supportedVersions` set in
+      `pkgs/dart_mcp/lib/src/server/streamable_http.dart`.
     - If the revision still uses the `initialize` handshake, update
       `ProtocolVersion.lastLegacyVersion`. `oldestSupported` only changes when
       support for old revisions is dropped.
     - Fix every exhaustive `switch` over `ProtocolVersion` the analyzer
-      reports, such as the one in `lib/src/server/request_scoped.dart`, and
+      reports, such as the one in
+      `pkgs/dart_mcp/lib/src/server/request_scoped.dart`, and
       search for comparisons against specific versions (for example
       `ProtocolVersion.v2026_07_28`) that the new revision affects.
 
@@ -75,7 +77,7 @@ This skill guides you through the process of updating the `dart_mcp` package to 
 
 8.  **Verify**:
     - Run tests in `pkgs/dart_mcp` and `pkgs/dart_mcp_server` to ensure no regressions. `pkgs/dart_mcp/DEVELOPING.md` lists the checks CI runs.
-    - Update the `--requirements` version in `.github/workflows/conformance.yaml`, and run the conformance suite against `tool/conformance_server.dart` and `tool/conformance_client.dart` as described in those files.
+    - Update the `--requirements` version in `.github/workflows/conformance.yaml`, and run the conformance suite against `pkgs/dart_mcp/tool/conformance_server.dart` and `pkgs/dart_mcp/tool/conformance_client.dart` as described in those files.
     - Run the updated examples and ensure they work as expected.
     - Run the dart formatter and analyzer, to ensure the code is well-formatted and free of lint errors.
     - Walk the user through all the changes you made and describe your reasoning.
