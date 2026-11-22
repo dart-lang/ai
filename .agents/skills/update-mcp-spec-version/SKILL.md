@@ -19,17 +19,35 @@ This skill guides you through the process of updating the `dart_mcp` package to 
 
 2.  **Update the Protocol Version**:
     - Open `pkgs/dart_mcp/lib/src/api/api.dart`.
-    - Add the new version to the `ProtocolVersion` enum.
+    - Add the new version to the end of the `ProtocolVersion` enum. The
+      comparison operators use the enum order, so it must stay chronological.
+      List the methods the revision introduced in `addedMethods` and the ones
+      it stopped accepting in `removedMethods`; `methodIsValid` walks back
+      through these sets, so a method stays valid until a later revision
+      removes it.
       ```dart
       enum ProtocolVersion {
         // ...
-        vYYYY_MM_DD('YYYY-MM-DD'),
+        vYYYY_MM_DD(
+          'YYYY-MM-DD',
+          supportsStreamableHttp: true,
+          addedMethods: {/* methods added in this revision */},
+          removedMethods: {/* methods removed in this revision */},
+        ),
       }
       ```
-    - Update `ProtocolVersion.latestSupported` to the new version.
-      ```dart
-      static const latestSupported = ProtocolVersion.vYYYY_MM_DD;
-      ```
+    - Set `supportsStreamableHttp` to whether the Streamable HTTP transport
+      should serve the revision. That transport also has its own
+      `_supportedVersions` set in
+      `pkgs/dart_mcp/lib/src/server/streamable_http.dart`.
+    - If the revision still uses the `initialize` handshake, update
+      `ProtocolVersion.lastLegacyVersion`. `oldestSupported` only changes when
+      support for old revisions is dropped.
+    - Fix every exhaustive `switch` over `ProtocolVersion` the analyzer
+      reports, such as the one in
+      `pkgs/dart_mcp/lib/src/server/request_scoped.dart`, and
+      search for comparisons against specific versions (for example
+      `ProtocolVersion.v2026_07_28`) that the new revision affects.
 
 3.  **Update Documentation URLs**:
     - Search the codebase for the _previous_ spec version string (e.g., `2024-11-05`) or the regex `specification/\d{4}-\d{2}-\d{2}`.
@@ -58,7 +76,8 @@ This skill guides you through the process of updating the `dart_mcp` package to 
     - If you notice missing tests for existing features, feel free to add those as well.
 
 8.  **Verify**:
-    - Run tests in `pkgs/dart_mcp` and `pkgs/dart_mcp_server` to ensure no regressions.
+    - Run tests in `pkgs/dart_mcp` and `pkgs/dart_mcp_server` to ensure no regressions. `pkgs/dart_mcp/DEVELOPING.md` lists the checks CI runs.
+    - Update the `--requirements` version in `.github/workflows/conformance.yaml`, and run the conformance suite against `pkgs/dart_mcp/tool/conformance_server.dart` and `pkgs/dart_mcp/tool/conformance_client.dart` as described in those files.
     - Run the updated examples and ensure they work as expected.
     - Run the dart formatter and analyzer, to ensure the code is well-formatted and free of lint errors.
     - Walk the user through all the changes you made and describe your reasoning.
