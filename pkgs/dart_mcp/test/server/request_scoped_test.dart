@@ -336,9 +336,10 @@ void main() {
 
     test('stamps server info on an unmodifiable result', () async {
       final harness = _DispatcherHarness();
-      // The built-in ping handler returns `EmptyResult()`, which is backed
-      // by a const map.
-      final response = await harness.dispatch(_ping(), _initialization());
+      final response = await harness.dispatch(
+        _callTool('unmodifiable'),
+        _initialization(),
+      );
 
       final meta = _result(response)[Keys.meta] as Map<String, Object?>;
       expect(meta[Keys.serverInfoMeta], isNotNull);
@@ -513,6 +514,55 @@ void main() {
         reason: 'setLevel would hand a level to a request that named none',
       );
       expect(legacy![Keys.result], isNotNull);
+    });
+
+    test('answers requests 2026-07-28 removed as unknown', () async {
+      for (final request in [
+        _ping(),
+        _resourceSubscription(SubscribeRequest.methodName),
+        _resourceSubscription(UnsubscribeRequest.methodName),
+      ]) {
+        final harness = _DispatcherHarness();
+        final response = await harness.dispatch(request, _initialization());
+
+        expect(
+          (response![Keys.error] as Map<String, Object?>)[Keys.code],
+          error_code.METHOD_NOT_FOUND,
+          reason: request[Keys.method] as String,
+        );
+        expect(response[Keys.id], request[Keys.id]);
+        expect(harness.servers, isEmpty);
+      }
+    });
+
+    test('still answers those requests on an earlier revision', () async {
+      final legacy = _initialization(
+        protocolVersion: ProtocolVersion.v2025_11_25,
+      );
+      for (final request in [
+        _ping(),
+        _resourceSubscription(SubscribeRequest.methodName),
+        _resourceSubscription(UnsubscribeRequest.methodName),
+      ]) {
+        final response = await _DispatcherHarness().dispatch(request, legacy);
+
+        expect(
+          response![Keys.result],
+          isNotNull,
+          reason: request[Keys.method] as String,
+        );
+      }
+    });
+
+    test('drops notifications 2026-07-28 removed', () async {
+      final harness = _DispatcherHarness();
+      final response = await harness.dispatch({
+        Keys.jsonrpc: '2.0',
+        Keys.method: RootsListChangedNotification.methodName,
+      }, _initialization());
+
+      expect(response, isNull);
+      expect(harness.servers, isEmpty);
     });
 
     test('routes the four legacy client request methods', () async {
@@ -1750,6 +1800,10 @@ final class _DispatcherTestServer extends TestMCPServer
         Keys.meta: {1: 'kept'},
       }),
     );
+    registerTool(
+      Tool(name: 'unmodifiable', inputSchema: ObjectSchema()),
+      (_) => CallToolResult.fromMap(const {Keys.content: <Object?>[]}),
+    );
     registerTool(Tool(name: 'retained', inputSchema: ObjectSchema()), (_) {
       retainedResult = {
         Keys.content: [TextContent(text: 'kept')],
@@ -1955,6 +2009,13 @@ Map<String, Object?> _ping() => {
   Keys.jsonrpc: '2.0',
   Keys.id: 1,
   Keys.method: PingRequest.methodName,
+};
+
+Map<String, Object?> _resourceSubscription(String method) => {
+  Keys.jsonrpc: '2.0',
+  Keys.id: 1,
+  Keys.method: method,
+  Keys.params: {Keys.uri: 'file:///probe'},
 };
 
 Map<String, Object?> _setLevel() => {

@@ -38,6 +38,10 @@ void completeRequestLocally(MCPBase target, RequestId requestId) {
   });
 }
 
+bool methodOutsideRevision(ProtocolVersion version, String method) =>
+    !version.methodIsValid(method) &&
+    ProtocolVersion.values.any((v) => v.addedMethods.contains(method));
+
 /// Base class for MCP server-related implementations.
 ///
 /// Handles registering method and notification handlers, sending requests and
@@ -269,7 +273,7 @@ base class MCPBase {
     Request? request,
   ]) async {
     try {
-      return await sendRequestKeepingProgress<T>(methodName, request);
+      return await sendRequestKeepingProgress<T>(methodName, request: request);
     } finally {
       await closeProgress(request);
     }
@@ -321,9 +325,9 @@ base class MCPBase {
   /// nothing it sends can reach the peer any more.
   @protected
   Future<T> sendRequestKeepingProgress<T extends Result?>(
-    String methodName, [
+    String methodName, {
     Request? request,
-  ]) async {
+  }) async {
     final currentRequest = Zone.current[_currentRequestKey];
     if (currentRequest is _IncomingRequest && currentRequest.cancelled) {
       throw StateError(
