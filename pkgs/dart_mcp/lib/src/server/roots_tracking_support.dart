@@ -35,7 +35,8 @@ base mixin RootsTrackingSupport on LoggingSupport {
   /// Only safe to call after calling [initialize] on `super` since this
   /// is based on the client capabilities.
   bool get supportsRootsChanged =>
-      clientCapabilities.roots?.listChanged == true;
+      clientCapabilities.roots?.listChanged == true &&
+      protocolVersion.methodIsValid(RootsListChangedNotification.methodName);
 
   @override
   FutureOr<void> initialize(MCPServerInitialization initialization) {
@@ -84,12 +85,13 @@ base mixin RootsTrackingSupport on LoggingSupport {
 
     ListRootsResult? result;
     try {
-      _rejectRemovedMethod(ListRootsRequest.methodName, protocolVersion);
-      if (!supportsRoots) throw _missingRoots;
-      result = await sendRequest<ListRootsResult>(
-        ListRootsRequest.methodName,
-        ListRootsRequest(),
-      );
+      if (protocolVersion.methodIsValid(ListRootsRequest.methodName)) {
+        if (!supportsRoots) throw _missingRoots;
+        result = await sendRequest<ListRootsResult>(
+          ListRootsRequest.methodName,
+          ListRootsRequest(),
+        );
+      }
     } on RpcException catch (e) {
       log(LoggingLevel.error, 'Error requesting roots: $e');
       // json_rpc_2 completes requests which are still pending when the

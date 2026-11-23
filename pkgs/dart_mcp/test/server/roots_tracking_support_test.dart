@@ -96,6 +96,54 @@ void main() {
     expect(roots.first.uri, 'file:///C:/Users/demo/todo');
     expect(roots.first.name, 'file_uri');
   }, testOn: 'windows && vm');
+
+  group('handleRequestScopedMessage', () {
+    for (final (version, roots, hasRootsList) in [
+      (ProtocolVersion.v2025_11_25, [Root(uri: 'test://a', name: 'a')], true),
+      (ProtocolVersion.v2026_07_28, <Root>[], false),
+    ]) {
+      test('on ${version.versionString}', () async {
+        final sent = <String>[];
+        final notifications = <Map<String, Object?>>[];
+        late TestMCPServerWithRootsTracking server;
+
+        final response = await handleRequestScopedMessage(
+          {
+            'jsonrpc': '2.0',
+            'id': 1,
+            'method': CallToolRequest.methodName,
+            'params': {'name': 'roots', 'arguments': <String, Object?>{}},
+          },
+          MCPServerInitialization(
+            protocolVersion: version,
+            clientCapabilities: ClientCapabilities(
+              roots: RootsCapabilities(listChanged: true),
+            ),
+            logLevel: LoggingLevel.debug,
+          ),
+          (channel) => server = TestMCPServerWithRootsTracking(channel),
+          onNotification: notifications.add,
+          onRequest: (request) {
+            sent.add(request['method'] as String);
+            return {
+              'jsonrpc': '2.0',
+              'id': request['id'],
+              'result': ListRootsResult(roots: roots),
+            };
+          },
+        );
+
+        final result = CallToolResult.fromMap(
+          response!['result'] as Map<String, Object?>,
+        );
+        expect((result.content.single as TextContent).text, '$roots');
+        expect(sent, [if (hasRootsList) ListRootsRequest.methodName]);
+        expect(notifications, isEmpty);
+        expect(server.supportsRootsChanged, hasRootsList);
+        expect(server.rootsListChanged != null, hasRootsList);
+      });
+    }
+  });
 }
 
 final class TestMCPClientWithRoots extends TestMCPClient with RootsSupport {
@@ -111,6 +159,16 @@ final class TestMCPClientWithRoots extends TestMCPClient with RootsSupport {
 }
 
 final class TestMCPServerWithRootsTracking extends TestMCPServer
-    with LoggingSupport, RootsTrackingSupport {
+    with LoggingSupport, RootsTrackingSupport, ToolsSupport {
   TestMCPServerWithRootsTracking(super.channel);
+
+  @override
+  FutureOr<void> initialize(MCPServerInitialization initialization) {
+    registerTool(
+      Tool(name: 'roots', inputSchema: ObjectSchema()),
+      (_) async =>
+          CallToolResult(content: [TextContent(text: '${await roots}')]),
+    );
+    return super.initialize(initialization);
+  }
 }
