@@ -8,6 +8,12 @@
   `CallToolResult` and `ToolResultContent` factories instead of dropping it.
 - Make `elicitationId` optional on `ElicitRequest.url`, since 2026-07-28
   removed it. A 2025-11-25 client still gets one, filled in when left out.
+- Stop `RootsTrackingSupport` from sending `roots/list` on 2026-07-28, which
+  removed it. `roots` resolves to an empty list there without logging an
+  error, and `rootsListChanged` stays `null` since the notification is gone
+  too.
+- Resolve `RootsTrackingSupport.roots` to an empty list when the client did not
+  declare the roots capability, instead of never completing.
 
 ## 0.6.0-beta.0
 

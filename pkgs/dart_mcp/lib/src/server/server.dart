@@ -172,7 +172,10 @@ abstract base class MCPServer extends MCPBase {
     _inputRequiredProtocolVersion = protocolVersion;
     clientCapabilities = initialization.clientCapabilities;
     clientInfo = initialization.clientInfo;
-    if (clientCapabilities.roots?.listChanged == true) {
+    if (clientCapabilities.roots?.listChanged == true &&
+        protocolVersion.methodIsValid(
+          RootsListChangedNotification.methodName,
+        )) {
       _rootsListChangedController =
           StreamController<RootsListChangedNotification?>.broadcast();
       registerNotificationHandler(
@@ -327,8 +330,7 @@ abstract base class MCPServer extends MCPBase {
   bool get supportsSampling => clientCapabilities.supportsSampling;
 }
 
-/// The error [_rejectRemovedMethod] throws when [protocolVersion] does not
-/// have [method].
+/// The error for [method] when [protocolVersion] does not have it.
 ///
 /// Only a revision with an `InputRequiredResult` can be pointed at it, and
 /// `elicit` also lands here on the revisions before 2025-06-18 added
@@ -345,16 +347,6 @@ RpcException _removedMethod(String method, ProtocolVersion protocolVersion) {
     'Protocol version ${protocolVersion.versionString} does not have '
     '$method.$replacement',
   );
-}
-
-/// Refuses to send [method] when [ProtocolVersion.methodIsValid] says
-/// [protocolVersion] does not have it.
-///
-/// Each sender calls this first, so a method the revision does not have fails
-/// for that reason instead of for a missing client capability.
-void _rejectRemovedMethod(String method, ProtocolVersion protocolVersion) {
-  if (protocolVersion.methodIsValid(method)) return;
-  throw _removedMethod(method, protocolVersion);
 }
 
 /// The error a server must return when handling a request needs [capability],
