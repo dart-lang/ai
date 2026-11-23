@@ -29,6 +29,54 @@ final class _CapturedRequest {
   void Function()? forward;
 }
 
+/// Thrown by a request that [MCPBase.cancelRequest] cancelled.
+final class RequestCancelledException implements Exception {
+  /// The reason given to [MCPBase.cancelRequest], if any.
+  final String? reason;
+
+  RequestCancelledException([this.reason]);
+
+  @override
+  String toString() =>
+      'RequestCancelledException${reason == null ? '' : ': $reason'}';
+}
+
+final class _OutgoingCall {
+  final String method;
+  RequestId? inFlight;
+  String? reason;
+  final _cancelled = Completer<Never>();
+
+  _OutgoingCall(this.method) {
+    _cancelled.future.ignore();
+  }
+
+  bool get cancelled => _cancelled.isCompleted;
+
+  void cancel(String? reason) {
+    this.reason = reason;
+    _cancelled.completeError(RequestCancelledException(reason));
+  }
+}
+
+bool isTrackedRequest(MCPBase target, Request request) =>
+    target._callsBySentRequest[request as Map<String, Object?>] != null;
+
+Future<T> trackOutgoingCall<T>(
+  MCPBase target,
+  String method,
+  Request request,
+  Future<T> Function(Request Function(Request) join) body,
+) => target._trackCall(
+  method,
+  request,
+  (call) => body((sent) {
+    final copy = {...sent as Map<String, Object?>};
+    target._callsBySentRequest[copy] = call;
+    return copy as Request;
+  }),
+);
+
 void completeRequestLocally(MCPBase target, RequestId requestId) {
   if (target._local.isClosed) return;
   target._local.add({
@@ -77,6 +125,10 @@ base class MCPBase {
   /// leaves, so this holds exactly the requests a cancellation may still refer
   /// to.
   final _inFlightRequests = <Object, _IncomingRequest>{};
+
+  final _callsByRequest = Expando<Set<_OutgoingCall>>();
+
+  final _callsBySentRequest = Expando<_OutgoingCall>();
 
   /// The active request ID for each progress token.
   final _requestsByProgressToken = <ProgressToken, Object>{};
@@ -330,9 +382,106 @@ base class MCPBase {
         'The request that started this operation was cancelled.',
       );
     }
-    return ((await _peer.sendRequest(methodName, request)) as Map?)
-            ?.cast<String, Object?>()
-        as T;
+    if (request == null) {
+      return ((await _peer.sendRequest(methodName)) as Map?)
+              ?.cast<String, Object?>()
+          as T;
+    }
+    final call = _callsBySentRequest[request as Map<String, Object?>];
+    final value =
+        call == null
+            ? await _trackCall(
+              methodName,
+              request,
+              (call) => _sendInCall(call, methodName, request),
+            )
+            : await _sendInCall(call, methodName, request);
+    return (value as Map?)?.cast<String, Object?>() as T;
+  }
+
+  /// Cancels every unfinished call sent with [request], the object passed to
+  /// the method that sent it.
+  ///
+  /// Each call fails with a [RequestCancelledException] and ignores a later
+  /// response. Does nothing for a request never sent or already finished.
+  /// Throws an [ArgumentError] for `initialize`, which must not be cancelled.
+  Future<void> cancelRequest(Request request, {String? reason}) async {
+    final calls =
+        _callsByRequest[request as Map<String, Object?>]?.toList() ?? const [];
+    if (calls.any((call) => call.method == InitializeRequest.methodName)) {
+      throw ArgumentError.value(
+        InitializeRequest.methodName,
+        'request',
+        'An initialize request must not be cancelled.',
+      );
+    }
+
+    final ids = <RequestId>[];
+    for (final call in calls.where((call) => !call.cancelled)) {
+      call.cancel(reason);
+      final id = call.inFlight;
+      call.inFlight = null;
+      if (id == null) continue;
+      ids.add(id);
+      completeRequestLocally(this, id);
+    }
+
+    await Future.wait([for (final id in ids) sendCancellation(id, reason)]);
+  }
+
+  /// Tells the peer that this side cancelled the request [id].
+  @protected
+  Future<void> sendCancellation(RequestId id, String? reason) async =>
+      runOutsideRequest(
+        () => sendNotification(
+          CancelledNotification.methodName,
+          CancelledNotification(requestId: id, reason: reason),
+        ),
+      );
+
+  Future<T> _trackCall<T>(
+    String method,
+    Request request,
+    Future<T> Function(_OutgoingCall) body,
+  ) async {
+    final call = _OutgoingCall(method);
+    final calls = _callsByRequest[request as Map<String, Object?>] ??= {};
+    calls.add(call);
+    try {
+      final result = body(call)..ignore();
+      return await Future.any([result, call._cancelled.future]);
+    } finally {
+      calls.remove(call);
+    }
+  }
+
+  Future<Object?> _sendInCall(
+    _OutgoingCall call,
+    String methodName,
+    Request request,
+  ) async {
+    if (call.cancelled) throw RequestCancelledException(call.reason);
+
+    final captured = _CapturedRequest();
+    _capturedRequest = captured;
+    final Future<Object?> response;
+    try {
+      response = _peer.sendRequest(methodName, request);
+    } finally {
+      _capturedRequest = null;
+    }
+    final id = call.inFlight = captured.id;
+    captured.forward?.call();
+
+    try {
+      final value = await response;
+      if (!call.cancelled) return value;
+    } on Object {
+      if (!call.cancelled) rethrow;
+    } finally {
+      if (call.inFlight == id) call.inFlight = null;
+    }
+    throw RequestCancelledException(call.reason);
   }
 
   /// The peer may ping us at any time, and we should respond with an empty

@@ -4,4 +4,5 @@
 
 export 'src/api/api.dart';
 export 'src/client/client.dart';
-export 'src/shared.dart' show MCPServerInitialization;
+export 'src/shared.dart'
+    show MCPServerInitialization, RequestCancelledException;

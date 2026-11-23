@@ -492,11 +492,21 @@ base class ServerConnection extends MCPBase {
     if (!onRevision) {
       return super.sendRequestKeepingProgress<T>(methodName, request);
     }
-    return _responseCache.sendRequest<T>(
-      methodName,
-      request,
-      () => super.sendRequestKeepingProgress<T>(methodName, request),
-    );
+    if (request == null || isTrackedRequest(this, request)) {
+      return _responseCache.sendRequest<T>(
+        methodName,
+        request,
+        () => super.sendRequestKeepingProgress<T>(methodName, request),
+      );
+    }
+    return trackOutgoingCall(this, methodName, request, (join) {
+      final sent = join(request);
+      return _responseCache.sendRequest<T>(
+        methodName,
+        sent,
+        () => super.sendRequestKeepingProgress<T>(methodName, sent),
+      );
+    });
   }
 
   /// Called after a successful call to [initialize].
@@ -883,7 +893,12 @@ base class ServerConnection extends MCPBase {
       return sendRequest<T>(methodName, request);
     }
     try {
-      return await _retryWhileInputRequired<T>(methodName, request);
+      return await trackOutgoingCall(
+        this,
+        methodName,
+        request,
+        (join) => _retryWhileInputRequired<T>(methodName, request, join),
+      );
     } finally {
       // Every round runs under the progress token the caller put on the first
       // request, so the stream it opened outlives all of them.
@@ -894,10 +909,12 @@ base class ServerConnection extends MCPBase {
   Future<T> _retryWhileInputRequired<T extends Result>(
     String methodName,
     WithInputResponses request,
+    Request Function(Request) join,
   ) async {
     final originalRequest = request as Map<String, Object?>;
     var result =
-        (await sendRequestKeepingProgress<T>(methodName, request)) as Result;
+        (await sendRequestKeepingProgress<T>(methodName, join(request)))
+            as Result;
     for (
       var round = 0;
       result.resultType == ResultTypes.inputRequired;
@@ -948,7 +965,7 @@ base class ServerConnection extends MCPBase {
               }
               as WithInputResponses;
       result =
-          (await sendRequestKeepingProgress<T>(methodName, retryRequest))
+          (await sendRequestKeepingProgress<T>(methodName, join(retryRequest)))
               as Result;
     }
     return result as T;
@@ -1112,20 +1129,17 @@ base class ServerConnection extends MCPBase {
     unsubscribeResource(UnsubscribeRequest(uri: uri)).ignore();
   }
 
-  Future<void> _cancelSubscription(RequestId id) async {
-    final requestCancellation = _requestCancellation;
-    if (requestCancellation != null) {
-      completeRequestLocally(this, id);
-      await requestCancellation.cancelRequest(id);
-    } else {
-      // Stdio uses a notification to cancel the open listen request.
-      sendNotification(
-        CancelledNotification.methodName,
-        CancelledNotification(requestId: id),
-      );
-      completeRequestLocally(this, id);
-    }
+  Future<void> _cancelSubscription(RequestId id) {
+    completeRequestLocally(this, id);
+    return sendCancellation(id, null);
   }
+
+  @protected
+  @override
+  // 2026-07-28 Streamable HTTP cancels by closing the response stream.
+  Future<void> sendCancellation(RequestId id, String? reason) =>
+      _requestCancellation?.cancelRequest(id) ??
+      super.sendCancellation(id, reason);
 
   /// Delivers [params] to the subscription its raw `_meta` names, if that
   /// subscription is still open.
