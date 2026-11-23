@@ -1,5 +1,10 @@
 ## 0.6.0-wip
 
+- Add `MCPBase.cancelRequest` to cancel an outgoing request by the request
+  object it was sent with. The call fails with a `RequestCancelledException`
+  and a later response is ignored. The peer gets `notifications/cancelled`,
+  or on 2026-07-28 Streamable HTTP the response stream closes. A server on
+  2026-07-28 sends nothing, and `initialize` cannot be cancelled.
 - **Breaking**: Widen `Tool.outputSchema` from `ObjectSchema?` to `Schema?` and
   `structuredContent` on `CallToolResult` and `ToolResultContent` from
   `Map<String, Object?>?` to `Object?`, so any JSON value is accepted as in
