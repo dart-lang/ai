@@ -98,50 +98,69 @@ void main() {
   }, testOn: 'windows && vm');
 
   group('handleRequestScopedMessage', () {
-    for (final (version, roots, hasRootsList) in [
-      (ProtocolVersion.v2025_11_25, [Root(uri: 'test://a', name: 'a')], true),
-      (ProtocolVersion.v2026_07_28, <Root>[], false),
+    final root = Root(uri: 'test://a', name: 'a');
+    for (final version in [
+      ProtocolVersion.v2025_11_25,
+      ProtocolVersion.v2026_07_28,
     ]) {
-      test('on ${version.versionString}', () async {
-        final sent = <String>[];
-        final notifications = <Map<String, Object?>>[];
-        late TestMCPServerWithRootsTracking server;
+      for (final rootsCapability in [
+        RootsCapabilities(listChanged: true),
+        null,
+      ]) {
+        final hasRootsList =
+            rootsCapability != null &&
+            version.methodIsValid(ListRootsRequest.methodName);
+        test('on ${version.versionString} '
+            '${rootsCapability == null ? 'without' : 'with'} roots', () async {
+          final sent = <String>[];
+          final notifications = <Map<String, Object?>>[];
+          late TestMCPServerWithRootsTracking server;
 
-        final response = await handleRequestScopedMessage(
-          {
-            'jsonrpc': '2.0',
-            'id': 1,
-            'method': CallToolRequest.methodName,
-            'params': {'name': 'roots', 'arguments': <String, Object?>{}},
-          },
-          MCPServerInitialization(
-            protocolVersion: version,
-            clientCapabilities: ClientCapabilities(
-              roots: RootsCapabilities(listChanged: true),
-            ),
-            logLevel: LoggingLevel.debug,
-          ),
-          (channel) => server = TestMCPServerWithRootsTracking(channel),
-          onNotification: notifications.add,
-          onRequest: (request) {
-            sent.add(request['method'] as String);
-            return {
+          final response = await handleRequestScopedMessage(
+            {
               'jsonrpc': '2.0',
-              'id': request['id'],
-              'result': ListRootsResult(roots: roots),
-            };
-          },
-        );
+              'id': 1,
+              'method': CallToolRequest.methodName,
+              'params': {'name': 'roots', 'arguments': <String, Object?>{}},
+            },
+            MCPServerInitialization(
+              protocolVersion: version,
+              clientCapabilities: ClientCapabilities(roots: rootsCapability),
+              logLevel: LoggingLevel.debug,
+            ),
+            (channel) => server = TestMCPServerWithRootsTracking(channel),
+            onNotification: notifications.add,
+            onRequest: (request) {
+              sent.add(request['method'] as String);
+              return {
+                'jsonrpc': '2.0',
+                'id': request['id'],
+                'result': ListRootsResult(roots: [root]),
+              };
+            },
+          );
 
-        final result = CallToolResult.fromMap(
-          response!['result'] as Map<String, Object?>,
-        );
-        expect((result.content.single as TextContent).text, '$roots');
-        expect(sent, [if (hasRootsList) ListRootsRequest.methodName]);
-        expect(notifications, isEmpty);
-        expect(server.supportsRootsChanged, hasRootsList);
-        expect(server.rootsListChanged != null, hasRootsList);
-      });
+          final result = CallToolResult.fromMap(
+            response!['result'] as Map<String, Object?>,
+          );
+          expect(
+            (result.content.single as TextContent).text,
+            '${[if (hasRootsList) root]}',
+          );
+          expect(sent, [if (hasRootsList) ListRootsRequest.methodName]);
+          expect(
+            notifications.map(
+              (n) =>
+                  LoggingMessageNotification.fromMap(
+                    n['params'] as Map<String, Object?>,
+                  ).level,
+            ),
+            [if (rootsCapability == null) LoggingLevel.warning],
+          );
+          expect(server.supportsRootsChanged, hasRootsList);
+          expect(server.rootsListChanged != null, hasRootsList);
+        });
+      }
     }
   });
 }

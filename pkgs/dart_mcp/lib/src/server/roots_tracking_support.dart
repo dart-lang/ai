@@ -34,6 +34,10 @@ base mixin RootsTrackingSupport on LoggingSupport {
   ///
   /// Only safe to call after calling [initialize] on `super` since this
   /// is based on the client capabilities.
+  ///
+  /// Always `false` on 2026-07-28 and later, which removed
+  /// `notifications/roots/list_changed`. See
+  /// https://modelcontextprotocol.io/specification/2026-07-28/changelog#major-changes.
   bool get supportsRootsChanged =>
       clientCapabilities.roots?.listChanged == true &&
       protocolVersion.methodIsValid(RootsListChangedNotification.methodName);
@@ -47,14 +51,12 @@ base mixin RootsTrackingSupport on LoggingSupport {
           'Client does not support the roots capability, some functionality '
           'may be disabled.',
         );
-      } else {
-        if (supportsRootsChanged) {
-          rootsListChanged!.listen((event) {
-            updateRoots();
-          });
-        }
-        await updateRoots();
+      } else if (supportsRootsChanged) {
+        rootsListChanged!.listen((event) {
+          updateRoots();
+        });
       }
+      await updateRoots();
     });
     return super.initialize(initialization);
   }
@@ -68,6 +70,12 @@ base mixin RootsTrackingSupport on LoggingSupport {
   /// complete it until we get an updated list of roots, so that we don't get
   /// stale results from roots requests that are still in flight during a
   /// change notification.
+  ///
+  /// Resolves [roots] to an empty list without asking the client when it did
+  /// not declare the roots capability, or on 2026-07-28 and later, where
+  /// `roots/list` is only sent as an input request inside an
+  /// `InputRequiredResult`. See
+  /// https://modelcontextprotocol.io/specification/2026-07-28/client/roots#listing-roots.
   @mustCallSuper
   Future<void> updateRoots() async {
     _rootsState = _RootsState.pending;
@@ -85,8 +93,8 @@ base mixin RootsTrackingSupport on LoggingSupport {
 
     ListRootsResult? result;
     try {
-      if (protocolVersion.methodIsValid(ListRootsRequest.methodName)) {
-        if (!supportsRoots) throw _missingRoots;
+      if (supportsRoots &&
+          protocolVersion.methodIsValid(ListRootsRequest.methodName)) {
         result = await sendRequest<ListRootsResult>(
           ListRootsRequest.methodName,
           ListRootsRequest(),

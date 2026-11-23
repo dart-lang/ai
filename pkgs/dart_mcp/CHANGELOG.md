@@ -12,6 +12,8 @@
   removed it. `roots` resolves to an empty list there without logging an
   error, and `rootsListChanged` stays `null` since the notification is gone
   too.
+- Resolve `RootsTrackingSupport.roots` to an empty list when the client did not
+  declare the roots capability, instead of never completing.
 
 ## 0.6.0-beta.0
 
