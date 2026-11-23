@@ -159,6 +159,15 @@ abstract base class MCPServer extends MCPBase {
     await _rootsListChangedController?.close();
   }
 
+  @protected
+  @override
+  // 2026-07-28 lets a server send notifications/cancelled only for listen.
+  Future<void> sendCancellation(RequestId id, String? reason) async {
+    final version = _inputRequiredProtocolVersion;
+    if (version != null && version >= ProtocolVersion.v2026_07_28) return;
+    await super.sendCancellation(id, reason);
+  }
+
   @mustCallSuper
   /// Registers the features available to a client with [initialization].
   ///
