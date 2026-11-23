@@ -144,6 +144,29 @@ void main() {
       expect(wire.cancellations, isEmpty);
     });
 
+    test('cancels a list call waiting on an identical one', () async {
+      final wire = _ClientWire(protocolVersion: ProtocolVersion.v2026_07_28);
+      final first = wire.connection.listTools(ListToolsRequest());
+      await pumpEventQueue();
+      final request = ListToolsRequest();
+      final second = wire.connection.listTools(request);
+      await pumpEventQueue();
+
+      final cancelling = wire.connection.cancelRequest(request);
+
+      await expectLater(second, throwsA(isA<RequestCancelledException>()));
+      await cancelling;
+      wire.respond(wire.requestIds.single, {
+        'tools': <Object?>[],
+        'resultType': 'complete',
+        'ttlMs': 0,
+        'cacheScope': 'private',
+      });
+      await first;
+      await pumpEventQueue();
+      expect(wire.requestIds, hasLength(1));
+    });
+
     test('cancels through a channel that closes the request', () async {
       final cancelled = <RequestId>[];
       final wire = _ClientWire(

@@ -44,11 +44,23 @@ final class RequestCancelledException implements Exception {
 final class _OutgoingCall {
   final String method;
   RequestId? inFlight;
-  bool cancelled = false;
   String? reason;
+  final _cancelled = Completer<Never>();
 
-  _OutgoingCall(this.method);
+  _OutgoingCall(this.method) {
+    _cancelled.future.ignore();
+  }
+
+  bool get cancelled => _cancelled.isCompleted;
+
+  void cancel(String? reason) {
+    this.reason = reason;
+    _cancelled.completeError(RequestCancelledException(reason));
+  }
 }
+
+bool isTrackedRequest(MCPBase target, Request request) =>
+    target._callsBySentRequest[request as Map<String, Object?>] != null;
 
 Future<T> trackOutgoingCall<T>(
   MCPBase target,
@@ -406,9 +418,7 @@ base class MCPBase {
 
     final ids = <RequestId>[];
     for (final call in calls.where((call) => !call.cancelled)) {
-      call
-        ..cancelled = true
-        ..reason = reason;
+      call.cancel(reason);
       final id = call.inFlight;
       call.inFlight = null;
       if (id == null) continue;
@@ -438,7 +448,8 @@ base class MCPBase {
     final calls = _callsByRequest[request as Map<String, Object?>] ??= {};
     calls.add(call);
     try {
-      return await body(call);
+      final result = body(call)..ignore();
+      return await Future.any([result, call._cancelled.future]);
     } finally {
       calls.remove(call);
     }

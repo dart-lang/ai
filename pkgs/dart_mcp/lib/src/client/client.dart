@@ -492,11 +492,21 @@ base class ServerConnection extends MCPBase {
     if (!onRevision) {
       return super.sendRequestKeepingProgress<T>(methodName, request);
     }
-    return _responseCache.sendRequest<T>(
-      methodName,
-      request,
-      () => super.sendRequestKeepingProgress<T>(methodName, request),
-    );
+    if (request == null || isTrackedRequest(this, request)) {
+      return _responseCache.sendRequest<T>(
+        methodName,
+        request,
+        () => super.sendRequestKeepingProgress<T>(methodName, request),
+      );
+    }
+    return trackOutgoingCall(this, methodName, request, (join) {
+      final sent = join(request);
+      return _responseCache.sendRequest<T>(
+        methodName,
+        sent,
+        () => super.sendRequestKeepingProgress<T>(methodName, sent),
+      );
+    });
   }
 
   /// Called after a successful call to [initialize].
