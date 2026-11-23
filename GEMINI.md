@@ -23,6 +23,7 @@ This package provides the core infrastructure for MCP communication.
 
 - **`lib/client.dart` & `lib/server.dart`**: These are the main entry points for creating MCP clients and servers. They export the `MCPClient` and `MCPServer` base classes.
 - **`lib/stdio.dart`**: Provides a utility for creating a `StreamChannel` over standard I/O, which is the primary transport mechanism used for communication between the client and server.
+- **`lib/streamable_http.dart`**: Provides the Streamable HTTP transport, which is how the `2026-07-28` protocol version is served. `handleStreamableHttpRequest` serves requests on the server side and `streamableHttpClientChannel` connects a client to a server.
 - **`lib/src/api/api.dart`**: This is a crucial file that defines the entire MCP API as a set of Dart classes. It includes definitions for all requests, responses, and notifications, structured according to the MCP specification. This file is the source of truth for the data structures that are exchanged between the client and server.
 - **`lib/src/client/client.dart`**: Contains the implementation of the `MCPClient`. This class is responsible for connecting to a server, sending requests, and handling responses and notifications. It can be extended with mixins to add support for client-side capabilities.
 - **`lib/src/server/server.dart`**: Contains the implementation of the `MCPServer`. This is the base class that developers can extend to create their own MCP servers. It handles the initial handshake with the client and provides a framework for adding server-side capabilities through mixins.
@@ -38,7 +39,7 @@ These are located in `lib/src/client/` and are mixed into an `MCPClient` impleme
 
 - **`RootsSupport`**: Manages the list of project root directories. It handles `listRoots` requests from the server and notifies the server whenever the list of roots changes. This is crucial for providing context to the server's tools.
 - **`SamplingSupport`**: Allows the server to send prompts _to_ the client's LLM. The client is responsible for implementing `handleCreateMessage`, which should typically involve getting user consent before sending the prompt to the LLM and returning the response.
-- **`ElicitationSupport`**: Handles requests from the server that require direct user input (e.g., asking a question, requesting a file path). The client must implement the `handleElicitation` method to define how it collects this input from the user.
+- **`ElicitationFormSupport`** and **`ElicitationUrlSupport`**: Handle requests from the server that require direct user input, either through a form (e.g., asking a question, requesting a file path) or by sending the user to a URL. The client must implement the `handleElicitation` method to define how it collects this input from the user. `ElicitationSupport` is a deprecated alias for `ElicitationFormSupport`.
 
 ##### Server-Side Mixins (for `MCPServer`)
 
@@ -50,7 +51,8 @@ These are located in `lib/src/server/` and are mixed into an `MCPServer` impleme
 - **`LoggingSupport`**: Provides a structured way for the server to send log messages to the client. It supports different logging levels, and the client can change the active level.
 - **`CompletionsSupport`**: Adds the ability for the server to provide custom code-completion suggestions to the client.
 - **`RootsTrackingSupport`**: A utility mixin for servers that works with `RootsSupport` on the client. It automatically tracks the client's project roots, updating its internal list whenever the client sends a notification that the roots have changed.
-- **ElicitationRequestSupport**: The server-side counterpart to ElicitationFormSupport and ElicitationUrlSupport. It provides capability checks and completion notifications for elicitation.
+- **`ElicitationRequestSupport`**: The server-side counterpart to `ElicitationFormSupport` and `ElicitationUrlSupport`. It provides capability checks and, before `2026-07-28`, completion notifications for elicitation. To ask the client for input, a handler answers with an `InputRequiredResult` (see the "Asking the Client for Input" section of `pkgs/dart_mcp/README.md`).
+- **`SubscriptionsSupport`**: Serves `subscriptions/listen` requests from `2026-07-28` on, which is how a client hears list changed and resource updated notifications on that version. The client side is `ServerConnection.listen`.
 
 ### `dart_mcp_server` package
 
