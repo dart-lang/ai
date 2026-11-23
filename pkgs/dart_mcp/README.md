@@ -78,8 +78,9 @@ handshake. If a version could not be negotiated or a server does not support
 required features, the server connection should be closed (by calling
 `ServerConnection.shutdown`).
 
-See [initialization lifecycle][initialization_lifecycle] for information about
-the client/server initialization protocol.
+See [discovery][discovery] and the legacy
+[initialization lifecycle][initialization_lifecycle] for information about how
+the client and server settle a protocol version.
 
 ### Invoking Server Capabilities and Utilities
 
@@ -90,7 +91,8 @@ Before attempting to call methods on the server however, you should first verify
 the capabilities of the server by reading them from the `InitializedServer`
 returned from `ServerConnection.initializeAcrossVersions`.
 
-[initialization_lifecycle]: https://modelcontextprotocol.io/specification/2024-11-05/basic/lifecycle/#initialization
+[discovery]: https://modelcontextprotocol.io/specification/2026-07-28/server/discover
+[initialization_lifecycle]: https://modelcontextprotocol.io/specification/2025-11-25/basic/lifecycle#initialization
 
 ## Supported Protocol Versions
 
@@ -111,27 +113,31 @@ However, we will strive to maintain backwards compatibility where possible.
 ## Base Utilities
 
 This table describes the state of implementation for the base protocol
-[utilities](https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities).
+[patterns](https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns),
+called utilities before 2026-07-28.
 
-Both the `MCPServer` and `MCPClient` support these.
+Both the `MCPServer` and `MCPClient` support these. A server also needs
+`SubscriptionsSupport` to serve subscriptions.
 
 | Utility | Support | Notes |
 | --- | --- | --- |
-| [Ping](https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/ping) | :heavy_check_mark: |  |
+| [Ping](https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/ping) | :heavy_check_mark: | Up to 2025-11-25. Removed in 2026-07-28, where `handleStreamableHttpRequest` answers it with a method not found error. |
 | [Cancellation](https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/cancellation/) | :construction: | A cancelled incoming request stops sending on the wire, and progress goes out only for the request that owns its token. The handler still runs to the end. Sending one is tracked in https://github.com/dart-lang/ai/issues/37 |
-| [Progress](https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/) | :heavy_check_mark: |  |
+| [Progress](https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/progress) | :heavy_check_mark: |  |
+| [Subscriptions](https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/subscriptions) | :heavy_check_mark: | `ServerConnection.listen` on the client and `SubscriptionsSupport` on the server. Before 2026-07-28, `listen` gives a local view of the list changed notifications and `resources/subscribe`. |
+| [Multi Round-Trip Requests](https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr) | :heavy_check_mark: | A handler answers with an `InputRequiredResult`, and `ServerConnection` answers its input requests and retries. See [Asking the Client for Input](#asking-the-client-for-input). |
 
 ## Transport Mechanisms
 
 This table describes the supported
-[transport mechanisms](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports).
+[transport mechanisms](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports).
 
 At its core this package is just built on streams, so any transport mechanism
 can be used, but some are directly supported out of the box.
 
 | Transport | Support | Notes |
 | --- | --- | --- |
-| [Stdio](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports#stdio) | :heavy_check_mark: |  |
+| [Stdio](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports#stdio) | :heavy_check_mark: | Up to 2025-11-25, through the `initialize` handshake. |
 | [Streamable HTTP](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http) | :heavy_check_mark: | `handleStreamableHttpRequest` serves requests, answering with an SSE stream when a handler emits related notifications and with a JSON body otherwise. `streamableHttpClientChannel` posts each client message, reads JSON and SSE responses, reports a failure on its request id or on the channel when there is none, and mirrors `x-mcp-header` tool parameters. It speaks only 2026-07-28 and does not fall back to an earlier transport. |
 
 ## Batching Requests
@@ -148,32 +154,34 @@ at local MCP server usage for now.
 ## Server Capabilities
 
 This table describes the state of implementation for the
-[server capabilities](https://modelcontextprotocol.io/specification/2025-11-25/server/).
+[server capabilities](https://modelcontextprotocol.io/specification/2026-07-28/server).
 
 **Note:** Servers can also invoke all [client capabilities](#client-capabilities),
 see [Invoking Client Capabilities](#invoking-client-capabilities).
 
 | Capability | Support | Notes |
 | --- | --- | --- |
-| [Prompts](https://modelcontextprotocol.io/specification/2025-11-25/server/prompts/) | :heavy_check_mark: |  |
-| [Resources](https://modelcontextprotocol.io/specification/2025-11-25/server/resources/) | :heavy_check_mark: |  |
-| [Tools](https://modelcontextprotocol.io/specification/2025-11-25/server/tools/) | :heavy_check_mark: |  |
+| [Discovery](https://modelcontextprotocol.io/specification/2026-07-28/server/discover) | :heavy_check_mark: | `MCPServer.discover` answers it on 2026-07-28. `ServerConnection.initializeAcrossVersions` probes with it and falls back to `initialize`. |
+| [Prompts](https://modelcontextprotocol.io/specification/2026-07-28/server/prompts) | :heavy_check_mark: |  |
+| [Resources](https://modelcontextprotocol.io/specification/2026-07-28/server/resources) | :heavy_check_mark: |  |
+| [Tools](https://modelcontextprotocol.io/specification/2026-07-28/server/tools) | :heavy_check_mark: |  |
 
 ## Server Utilities
 
 This table describes the state of implementation for the
-[server utilities](https://modelcontextprotocol.io/specification/2025-11-25/server/utilities/).
+[server utilities](https://modelcontextprotocol.io/specification/2026-07-28/server).
 
 | Utility | Support | Notes |
 | --- | --- | --- |
-| [Completion](https://modelcontextprotocol.io/specification/2025-11-25/server/utilities/completion/) | :heavy_check_mark: |  |
-| [Logging](https://modelcontextprotocol.io/specification/2025-11-25/server/utilities/logging/) | :heavy_check_mark: |  |
-| [Pagination](https://modelcontextprotocol.io/specification/2025-11-25/server/utilities/pagination/) | :construction: | https://github.com/dart-lang/ai/issues/28 |
+| [Caching](https://modelcontextprotocol.io/specification/2026-07-28/server/utilities/caching) | :heavy_check_mark: | On 2026-07-28 a server fills in `ttlMs` and `cacheScope` a handler left out with `0` and `private`, and `ServerConnection` caches results for their `ttlMs` (see `maxCachedResponses` and `maxCachedResponseTtl`). |
+| [Completion](https://modelcontextprotocol.io/specification/2026-07-28/server/utilities/completion) | :heavy_check_mark: |  |
+| [Logging](https://modelcontextprotocol.io/specification/2026-07-28/server/utilities/logging) | :heavy_check_mark: | [Deprecated](https://modelcontextprotocol.io/specification/2026-07-28/deprecated) in 2026-07-28. There `LoggingSupport` takes the level from each request, and `logging/setLevel` is served only on earlier versions. |
+| [Pagination](https://modelcontextprotocol.io/specification/2026-07-28/server/utilities/pagination) | :construction: | https://github.com/dart-lang/ai/issues/28 |
 
 ## Client Capabilities
 
 This table describes the state of implementation for the client
-[capabilities](https://modelcontextprotocol.io/specification/2025-11-25/client/).
+[capabilities](https://modelcontextprotocol.io/specification/2026-07-28/client).
 
 **Note:** Clients can also invoke all [server capabilities](#server-capabilities)
 and [server utilities](#server-utilities),
@@ -181,6 +189,6 @@ see [Invoking Server Capabilities and Utilities](#invoking-server-capabilities-a
 
 | Capability | Support | Notes |
 | --- | --- | --- |
-| [Roots](https://modelcontextprotocol.io/specification/2025-11-25/client/roots/)| :heavy_check_mark: | |
-| [Sampling](https://modelcontextprotocol.io/specification/2025-11-25/client/sampling/)| :heavy_check_mark: | |
-| [Elicitation](https://modelcontextprotocol.io/specification/2025-11-25/client/elicitation/)| :heavy_check_mark: | `ElicitationFormSupport`, `ElicitationUrlSupport` ([elicitations_client.dart](example/elicitations_client.dart)) |
+| [Roots](https://modelcontextprotocol.io/specification/2026-07-28/client/roots)| :heavy_check_mark: | [Deprecated](https://modelcontextprotocol.io/specification/2026-07-28/deprecated) in 2026-07-28, where the server asks for roots through an `InputRequiredResult`. |
+| [Sampling](https://modelcontextprotocol.io/specification/2026-07-28/client/sampling)| :heavy_check_mark: | [Deprecated](https://modelcontextprotocol.io/specification/2026-07-28/deprecated) in 2026-07-28, where the server asks for sampling through an `InputRequiredResult`. |
+| [Elicitation](https://modelcontextprotocol.io/specification/2026-07-28/client/elicitation)| :heavy_check_mark: | `ElicitationFormSupport`, `ElicitationUrlSupport` ([elicitations_client.dart](example/elicitations_client.dart)) |
