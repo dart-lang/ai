@@ -123,6 +123,28 @@ void main() {
       );
     });
 
+    test('cancels a call sent with a constant request', () async {
+      final wire = _ClientWire(protocolVersion: ProtocolVersion.v2026_07_28);
+      final request = ListToolsRequest.fromMap(const {});
+      final result = wire.connection.listTools(request);
+      await pumpEventQueue();
+
+      final cancelling = wire.connection.cancelRequest(request);
+
+      await expectLater(result, throwsA(isA<RequestCancelledException>()));
+      await cancelling;
+      expect(wire.requestIds, hasLength(1));
+      final next = wire.connection.listTools(request);
+      await pumpEventQueue();
+      wire.respond(wire.requestIds.last, {
+        'tools': <Object?>[],
+        'resultType': 'complete',
+        'ttlMs': 0,
+        'cacheScope': 'private',
+      });
+      expect((await next).tools, isEmpty);
+    });
+
     test('refuses to cancel initialize', () async {
       final wire = _ClientWire(protocolVersion: null);
       final request = InitializeRequest(
