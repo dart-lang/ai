@@ -14,6 +14,8 @@
   `package:unified_analytics` now resolves the root tool from `DASH__TOOL` and
   disables analytics when it isn't set, so the CLI no longer reads it.
 - Require `package:unified_analytics` `^8.4.0`.
+- Loosen the `package:meta` constraint to `^1.18.0` so `skills` resolves in
+  Flutter apps, where `flutter_test` pins `meta` to `1.18.0`.
 
 ## 1.0.4
 
